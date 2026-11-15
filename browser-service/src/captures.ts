@@ -7,6 +7,7 @@ import type { CDPSession, Page } from "playwright";
 
 import type { ServiceContext } from "./contexte.ts";
 import { SCREENSHOT_DIR } from "./reglages.ts";
+import { sous } from "./session_util.ts";
 
 /** Largeur de la capture (`0` : aucune) et délai accordé pour la prendre. */
 export interface OptionsCapture {
@@ -97,7 +98,7 @@ export async function ecrireCapture(
   const { sessions } = ctx;
   if (!page || !sid || sessions.get(sid)?._connexionEnCours) return null;
   try {
-    await fs.promises.writeFile(path.join(SCREENSHOT_DIR, nom), await captureJpeg(page, options));
+    await fs.promises.writeFile(sous(SCREENSHOT_DIR, nom), await captureJpeg(page, options));
     return nom;
   } catch (e) {
     console.warn(`[captures] ${nom}: ${(e as Error).message}`);

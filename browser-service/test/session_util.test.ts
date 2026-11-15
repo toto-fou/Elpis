@@ -3,7 +3,18 @@
 // (AUDIT 2026-06). Sans Playwright : pages factices.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pingPage, planScreenshotQuota } from "../src/session_util.ts";
+import { pingPage, planScreenshotQuota, sous } from "../src/session_util.ts";
+
+// ── sous : un nom de fichier ne sort jamais de son dossier ──
+
+test("sous : un nom reste sous son dossier, tout ce qui en sortirait est refusé", () => {
+  assert.equal(sous("/tmp/captures", "shot_abc_1.png"), "/tmp/captures/shot_abc_1.png");
+  assert.equal(sous("/tmp/captures", "compte", "ref.png"), "/tmp/captures/compte/ref.png");
+  for (const nom of ["../ailleurs.png", "a/../../b.png", "/etc/passwd", "..", ""])
+    assert.throws(() => sous("/tmp/captures", nom), { code: "invalid_name" }, nom);
+  // Un dossier voisin au même préfixe n'est pas « sous » le dossier.
+  assert.throws(() => sous("/tmp/captures", "../captures-bis/x.png"), { code: "invalid_name" });
+});
 
 // ── pingPage ─────────────────────────────────────────────────────────
 

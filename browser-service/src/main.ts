@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** browser-service/src/main.ts — point d'entrée du service navigateur (`node dist/main.mjs`), lancé par l'hôte d'outils dans le bac d'un compte : socket Unix et jeton d'appel exigés, relais filtrant, routes enregistrées dans leur ordre historique. */
 import express from "express";
+import rateLimit from "express-rate-limit";
 import fs from "fs";
 import path from "path";
 
@@ -45,12 +46,31 @@ for (const [manque, nom] of [
   );
   process.exit(1);
 }
+// Appels acceptés par seconde, tous confondus (PW_RATE_MAX_PER_S).
+const DEBIT_MAX_PAR_S = Math.max(1, parseInt(process.env.PW_RATE_MAX_PER_S || "300", 10) || 300);
 // Arrêt du service après tant de secondes sans appel (0 = jamais).
 const ARRET_INACTIF_MS = Math.max(0, parseInt(process.env.BROWSER_IDLE_EXIT_S || "0", 10) || 0) * 1000;
 let _dernierAppel = Date.now();
 
 const app = express();
-// Jeton d'appel vérifié avant tout, statiques compris.
+// Débit des appels borné avant tout (jeton compris) : un seul appelant, l'hôte d'outils, donc une seule clé ; une boucle folle reçoit 429 au lieu de saturer le service.
+app.use(
+  rateLimit({
+    windowMs: 1000,
+    limit: DEBIT_MAX_PAR_S,
+    keyGenerator: () => "tool-host",
+    standardHeaders: false,
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      res.status(429).json({
+        error: "Too many calls to the browser service: retry in a moment.",
+        code: "rate_limited",
+        retryable: true,
+      });
+    },
+  }),
+);
+// Jeton d'appel vérifié avant le reste, statiques compris.
 app.use(gardeJeton(JETON));
 app.use((_req, _res, next) => {
   _dernierAppel = Date.now();

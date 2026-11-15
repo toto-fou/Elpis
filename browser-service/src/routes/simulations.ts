@@ -3,6 +3,7 @@
 import type { Application, Request, Response } from "express";
 
 import type { ServiceContext, Session, Simulation } from "../contexte.ts";
+import { compilerMotif } from "../motif.ts";
 import { intercepteurs } from "../requete.ts";
 
 /** Corps de /mock/add, chaque champ vérifié par mockValide. */
@@ -119,7 +120,7 @@ function mockValide(b: CorpsMockAjout): MockVerifie {
   if (is_regex) {
     const delimite = /^\/(.+)\/([a-z]*)$/s.exec(motif);
     try {
-      re = delimite ? new RegExp(delimite[1]!, delimite[2]!.replace(/[gy]/g, "")) : new RegExp(motif);
+      re = delimite ? compilerMotif(delimite[1]!, delimite[2]!.replace(/[gy]/g, "")) : compilerMotif(motif);
     } catch (e) {
       return refus("url_pattern", `url_pattern is not a valid regular expression: ${(e as Error).message}`);
     }

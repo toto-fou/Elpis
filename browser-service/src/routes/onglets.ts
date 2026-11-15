@@ -163,7 +163,7 @@ export function registerTabRoutes(app: Application, ctx: ServiceContext) {
           });
         }
         // Fermeture demandée : pas d'annonce, et l'onglet actif ne change que s'il est celui qu'on ferme.
-        const cible = s.tabs[tab_index]!;
+        const cible = s.tabs.at(tab_index)!;
         cible.__elpisFermeParService = true;
         await cible.close();
         retirerOnglet(s, cible);

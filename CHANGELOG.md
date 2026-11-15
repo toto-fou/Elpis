@@ -654,6 +654,12 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Browser service: hardening after code scanning.** Calls to the service are rate-limited
+  (300 per second for the tool host, `rate_limited` beyond). A regular expression given by the
+  caller (`pw_expect` `url-matches`, `pw_mock` with `is_regex`) is compiled and tried apart under
+  a time limit: a pattern with endless backtracking answers "no match" instead of holding the
+  service. Screenshot and visual reference files are written through a check that keeps their
+  name inside its folder. Closing a tab no longer reads the tab list through a caller-given key.
 - **RAG: chunking regular expressions off the event loop.** A collection or document chunked by
   a regular expression ran it on the core's event loop, with a 2-second limit per run but none
   per document, so a slow pattern over many blocks could hold main for minutes. Chunking with a

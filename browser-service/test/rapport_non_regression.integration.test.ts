@@ -349,3 +349,28 @@ test(
     assert.equal(fs.readFileSync(second.path, "utf8"), "contenu");
   },
 );
+
+test(
+  "débit des appels borné : au-delà de la limite par seconde, 429 rate_limited, puis le service répond de nouveau",
+  { skip: SAUTER, timeout: 60000 },
+  async () => {
+    const borne = await demarrerService<Corps & { code?: string; retryable?: boolean }>({
+      env: { PW_RATE_MAX_PER_S: "5" },
+    });
+    try {
+      const rafale = await Promise.all(
+        Array.from({ length: 30 }, () =>
+          borne.post("/recorder/status", { owner: OWNER, session_id: "aucune" }),
+        ),
+      );
+      const refuses = rafale.filter((r) => r.statut === 429);
+      assert.ok(refuses.length >= 20, `${refuses.length} refus`);
+      assert.equal(refuses[0]!.corps.code, "rate_limited", refuses[0]!.texte);
+      assert.equal(refuses[0]!.corps.retryable, true, refuses[0]!.texte);
+      await new Promise((r) => setTimeout(r, 1200));
+      assert.notEqual((await borne.get("/health")).statut, 429);
+    } finally {
+      await borne.arreter();
+    }
+  },
+);

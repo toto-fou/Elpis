@@ -12,6 +12,7 @@
 //     l'âge (orphan 5 min / stale 4 h) : une session active de longue durée
 //     pouvait accumuler des milliers de PNG sans limite.
 
+import path from "node:path";
 import type { Page } from "playwright";
 
 import { lockIdle } from "./session_lock.ts";
@@ -184,6 +185,17 @@ export function planScreenshotQuota(
 // côté Python) qui transmet le propriétaire (``owner``, dérivé du compte
 // Elpis) à CHAQUE requête. Une session n'est servie qu'à son propriétaire ;
 // une session d'un autre compte répond comme une session inconnue.
+
+/** Chemin d'un fichier du service, tenu sous `dossier` : un nom qui en sortirait (`..`, chemin absolu) est refusé. */
+export function sous(dossier: string, ...segments: string[]): string {
+  const racine = path.resolve(dossier);
+  const chemin = path.resolve(racine, ...segments);
+  if (!chemin.startsWith(racine + path.sep))
+    throw Object.assign(new Error("This file name leaves the folder of the browser service's files."), {
+      code: "invalid_name",
+    });
+  return chemin;
+}
 
 /** Propriétaire normalisé (``[A-Za-z0-9_-]``, 64 max), ou ``''``. */
 export function safeOwner(owner: unknown): string {

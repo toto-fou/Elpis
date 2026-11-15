@@ -19,7 +19,7 @@ import type { PaquetLivre } from "../../apps/core/scripts/construire.ts";
 
 const SERVICE = path.join(RACINE, "browser-service");
 /** Entry point of the service. */
-const ENTREE = path.join(SERVICE, "server.js");
+const ENTREE = path.join(SERVICE, "src", "main.ts");
 /** Resolved at run time from browser-service/node_modules (mounted read-only in the sandbox with the bundle). */
 const EXTERNES = ["playwright", "playwright-core"];
 const FICHIERS_CONSTRUCTION = [

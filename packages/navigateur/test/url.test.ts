@@ -19,7 +19,7 @@ vi.mock("@elpis/config", async (original) => ({
 }));
 
 const hote: HoteNavigateur = {
-  adresses: ["192.168.1.5", "2001:db8::5"]
+  adresses: ["192.168.50.5", "2001:db8::5"]
     .map((a) => adresseIpOuNul(a))
     .filter((a): a is AdresseIp => a !== null),
   reseaux: ["172.17.0.0/16"].map((r) => reseauPy(r)).filter((r): r is Reseau => r !== null),
@@ -58,7 +58,7 @@ describe("politique du navigateur (relais d'un bac au profil ouvert)", () => {
   });
 
   it("adresses de la machine d'Elpis et réseaux de ses conteneurs : refusés", async () => {
-    expect(await motif("192.168.1.5")).toBe("address of the machine hosting Elpis (192.168.1.5)");
+    expect(await motif("192.168.50.5")).toBe("address of the machine hosting Elpis (192.168.50.5)");
     expect(await motif("2001:db8::5")).toBe("address of the machine hosting Elpis (2001:db8::5)");
     expect(await motif("172.17.0.3")).toBe("internal network of the machine hosting Elpis (172.17.0.3)");
   });

@@ -658,7 +658,7 @@ describe("relais des secrets (socket unix réel)", () => {
 describe("juge des destinations d'un bac", () => {
   const hote = { adresses: [], reseaux: [] };
   const resoudre = async (n: string): Promise<string[]> =>
-    n === "nas.lan" ? ["192.168.1.10"] : ["93.184.216.34"];
+    n === "nas.lan" ? ["192.168.50.10"] : ["93.184.216.34"];
 
   it("profil sans réseau : tout refusé avec un message clair", async () => {
     const j = jugeRelaisBac(() => ({ id: "isolated", mode: "none", ips: [], domains: [], ports: [] }), {
@@ -745,10 +745,10 @@ describe("juge des destinations d'un bac", () => {
 
   it("liste blanche IP du profil : adresses, domaines et ports", async () => {
     const j = jugeRelaisBac(
-      () => ({ id: "lan", mode: "allowlist_ip", ips: ["192.168.1.0/24"], domains: [], ports: [443] }),
+      () => ({ id: "lan", mode: "allowlist_ip", ips: ["192.168.50.0/24"], domains: [], ports: [443] }),
       { hote, resoudre, allowlist: [] },
     );
-    expect(await j("nas.lan", 443)).toMatchObject({ ok: true, adresse: "192.168.1.10" });
+    expect(await j("nas.lan", 443)).toMatchObject({ ok: true, adresse: "192.168.50.10" });
     expect(await j("nas.lan", 80)).toMatchObject({ ok: false, motif: expect.stringContaining("port 80") });
     expect(await j("example.org", 443)).toMatchObject({
       ok: false,

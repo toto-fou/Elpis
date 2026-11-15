@@ -1134,7 +1134,7 @@ export function gestesChat() {
     vis: selAffiche,
   });
   for (const [entree, label] of [
-    ["Aide", "Documentation"],
+    ["Aide", "Aide"],
     ["Informations", "À propos"],
   ])
     g({

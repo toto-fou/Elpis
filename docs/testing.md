@@ -11,6 +11,7 @@ releases ship without it.
 | `tests/` | pytest (`pytest.ini`): deployment scripts, sandbox and desktop agents, Office worker, RAG app, legacy frontend JS units |
 | `tests/goldens/`, `migration-kit/` | stream goldens, route inventory and frozen-vector notes read by the tests |
 | `tests/perf/`, `tests/load/`, `tests/frontend/*-verify.mjs` | benchmarks and Playwright harnesses, run by hand |
+| `tests/frontend/clips/` | scenarios that record the clips of the user guide, run by hand ([Help clips](#help-clips)) |
 
 `npm run typecheck` and `npm run lint` cover the test files too.
 `tests/frontend/app-fluidity-verify.mjs` measures every gesture of both pages against the real core (latency to the painted answer, long tasks, slow frames, layout shifts, profile of the slowest); its header lists the options.
@@ -86,6 +87,28 @@ with `BROWSER_SERVICE_LIVE=1`. The end-to-end run of the browser in a real
 sandbox (`apps/toolhost/test/browser-bac-e2e.test.ts`: container, service, secret
 relay, core) runs only with `ELPIS_TEST_SANDBOX_BROWSER=1` (Docker, image
 `elpis/sandbox:1.8.0`, headless shell).
+
+## Help clips
+
+The clips of the user guide (`docs/media/aide/*.webm`, one per feature, shown by
+the help window) are recorded, not edited by hand. Each one is a scenario of
+`tests/frontend/clips/scenes/*.mjs` played by Playwright against a throwaway
+instance of the real core with the scripted model (`tests/frontend/lib/core-reel.mjs`),
+captured frame by frame and encoded by `ffmpeg` (VP9, 960×600, 12 fps, no audio).
+
+```bash
+ELPIS_NODE_MODULES=$PWD/browser-service/node_modules \
+  node tests/frontend/clips/tourner.mjs [scene-or-clip-filter] [--dossier=/tmp/trial]
+node tests/frontend/clips/planche.mjs clip.webm sheet.png 5   # contact sheet of a clip
+```
+
+The runner fails when a clip exceeds its budget: 5 s for one gesture (up to 12 s
+for a scenario that declares a chain of actions through `max`), 120 KB per clip,
+3 MB for the folder. It needs the core and the frontend built, the Chromium
+headless shell and `ffmpeg`/`ffprobe` with `libvpx-vp9`. Re-record after a change
+of the interface a clip shows; a clip is referenced from the guide by a paragraph
+holding only its link, and `frontend/test/reglages/aide-rendu.test.ts` checks
+that guide and folder agree.
 
 ## Python
 

@@ -78,8 +78,10 @@ interface EtatCompte {
 const etats = new Map<string, EtatCompte>();
 let autorite: Autorite | null = null;
 
-const FIX_RELANCE =
-  "Retry once; if it fails again, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).";
+/** Ce que l'outil rend quand le navigateur ne peut pas servir : jamais le mécanisme ; la cause va au journal de l'hôte, où l'administrateur la lit. */
+const INDISPONIBLE = "The browser is not available on this Elpis server.";
+const FIX_ADMIN = "Tell the user to ask their administrator.";
+const FIX_RELANCE = "Retry once; if it fails again, tell the user to ask their administrator.";
 
 /** Panne du navigateur du bac, rendue au modèle par l'outil avec son correctif. */
 export class ErreurNavigateurBac extends Error {
@@ -92,9 +94,18 @@ export class ErreurNavigateurBac extends Error {
   }
 }
 
-/** Message d'un démarrage du navigateur en échec, avec le détail de la panne. */
-export function demarrageImpossible(panne: unknown): string {
-  return `The browser of your sandbox could not be started: ${panne instanceof Error ? panne.message : String(panne)}.`;
+/** Message d'un démarrage du navigateur en échec ; le détail de la panne va au journal de l'hôte. */
+export function demarrageImpossible(username: string, panne: unknown): string {
+  log().warn(
+    `[bac ${username}] navigateur non démarré : ${panne instanceof Error ? panne.message : String(panne)}`,
+  );
+  return "The browser of your sandbox could not be started.";
+}
+
+/** Navigateur indisponible pour une cause que l'administrateur règle : journalisée, jamais rendue à l'outil. */
+function indisponible(username: string, cause: string): ErreurNavigateurBac {
+  log().warn(`[bac ${username}] navigateur indisponible : ${cause} (./elpis doctor)`);
+  return new ErreurNavigateurBac(INDISPONIBLE, FIX_ADMIN);
 }
 
 /** Bac qui ne démarre pas : Docker absent ou arrêté, image absente (sondés), sinon le détail de la panne. */
@@ -105,18 +116,13 @@ export async function bacIndisponible(sb: UserSandbox, panne: unknown): Promise<
       () => -1,
     );
   if (panne instanceof ErreurLancement || (await code(["version", "--format", "{{.Server.Version}}"])) !== 0)
-    return new ErreurNavigateurBac(
-      "Docker is not available on the Elpis server (not installed or not running), and the browser only runs inside your sandbox.",
-      "Tell the user: an administrator installs or starts Docker, then checks ./elpis doctor.",
-    );
+    return indisponible(sb.username, "Docker absent ou arrêté");
   if ((await code(["image", "inspect", sb.cfg.image])) !== 0)
-    return new ErreurNavigateurBac(
-      `The sandbox image ${sb.cfg.image} is not available on the Elpis server, and the browser only runs inside your sandbox.`,
-      "Tell the user: an administrator builds or loads it (./install.sh --sandbox build, or deploy/docker/sandbox/load_image.sh), then checks ./elpis doctor.",
+    return indisponible(
+      sb.username,
+      `image ${sb.cfg.image} absente (./install.sh --sandbox build, ou deploy/docker/sandbox/load_image.sh)`,
     );
-  return new ErreurNavigateurBac(
-    demarrageImpossible(panne ?? `the sandbox of ${sb.username} is not running`),
-  );
+  return new ErreurNavigateurBac(demarrageImpossible(sb.username, panne ?? "bac arrêté"));
 }
 
 function etatDe(username: string): EtatCompte {
@@ -229,10 +235,7 @@ async function sante(s: ServiceNavigateur): Promise<{ ok: boolean; refus: boolea
 /** Service du bac du compte en marche : conteneur, relais, certificat, jetons, puis service lancé et attendu s'il ne répond pas. */
 async function assurer(username: string, e: EtatCompte): Promise<void> {
   if (montagesNavigateur() === null)
-    throw new ErreurNavigateurBac(
-      "The browser is not installed on the Elpis server (browser-service, its Node modules, the Node runtime or the Chromium headless shell is missing).",
-      "Tell the user: an administrator installs it (./install.sh --with-browser), then checks ./elpis doctor.",
-    );
+    throw indisponible(username, "service navigateur non installé ou non construit");
   const sb = await bacDuCompteOutil(username);
   e.bac = sb;
   let st: EtatBac;
@@ -281,9 +284,7 @@ async function assurer(username: string, e: EtatCompte): Promise<void> {
     }
   }
   throw new ErreurNavigateurBac(
-    demarrageImpossible(
-      `the browser service did not start in the sandbox of ${username} (log: /work/.elpis-browser/service.log)`,
-    ),
+    demarrageImpossible(username, "service non lancé dans le bac (/work/.elpis-browser/service.log)"),
   );
 }
 

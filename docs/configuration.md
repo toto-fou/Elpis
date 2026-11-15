@@ -1342,8 +1342,8 @@ says so once at start).
 | `PLAYWRIGHT_BROWSERS_PATH` | `~/.cache/ms-playwright` | Playwright cache mounted read-only in the sandboxes (Chromium headless shell). |
 
 When the sandbox cannot serve (Docker missing or stopped, image missing, browser not installed),
-the `pw_*` tools answer `browser_sandbox_unavailable` with the cause and its fix, and
-`./elpis doctor` reports the same. See `docs/architecture.md`, "Browser in the sandbox", and
+the `pw_*` tools answer `browser_sandbox_unavailable` and send the user to their administrator;
+the cause is in the tool host's log and `./elpis doctor` reports it. See `docs/architecture.md`, "Browser in the sandbox", and
 `docs/operations.md`, "Browser in the sandbox".
 
 ⚠ **Upgrade**: an automation that navigated to the host's address or a local container from the

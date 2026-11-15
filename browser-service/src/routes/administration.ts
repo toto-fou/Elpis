@@ -1,15 +1,30 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/administration.ts — /sessions, /cleanup, /cleanup_children: sessions of an owner and their cleanup. */
+/** browser-service/src/routes/administration.ts — /sessions, /cleanup, /cleanup_children : sessions d'un propriétaire et leur nettoyage. */
+import type { Application, Request, Response } from 'express';
+
+import type { ServiceContext } from '../contexte.ts';
 import { occupationGroupe, ownerFromRequest, sessionsANettoyer, sessionsEnfantsAnciennes } from '../session_util.ts';
 import { MAX_SESSIONS_PER_GROUP, MAX_SESSIONS_PER_OWNER, SESSION_TTL_MS, closeSession, killZombieProcesses } from '../sessions.ts';
 
+/** Requête de /sessions. */
+interface QuerySessions {
+    owner?: string;
+}
 
-export function registerAdminRoutes(app, ctx) {
+/** Corps de /cleanup. */
+interface CorpsNettoyage {
+    owner?: string;
+}
+
+/** Corps de /cleanup_children. */
+interface CorpsNettoyageEnfants {
+    older_than_ms?: number;
+}
+
+export function registerAdminRoutes(app: Application, ctx: ServiceContext) {
 const { sessions } = ctx;
 // ======================== SESSION LIST (admin) ========================
-app.get('/sessions', (req, res) => {
+app.get('/sessions', (req: Request<unknown, QuerySessions>, res: Response) => {
     const now = Date.now();
     const owner = ownerFromRequest(req);
     const list = [];
@@ -37,7 +52,7 @@ app.get('/sessions', (req, res) => {
 });
 
 // ======================== FORCE CLEANUP ========================
-app.post('/cleanup', async (req, res) => {
+app.post('/cleanup', async (req: Request<CorpsNettoyage>, res: Response): Promise<Response | void> => {
     // Ferme les sessions du propriétaire appelant et celles des sous-agents de son groupe (jamais celles d'un autre compte).
     const owner = ownerFromRequest(req);
     if (!owner) return res.status(400).json({ error: 'owner requis.' });
@@ -48,7 +63,7 @@ app.post('/cleanup', async (req, res) => {
 });
 
 // Sessions des sous-agents ouvertes depuis `older_than_ms`, jamais celle du compte ; sans propriétaire : le core, à son démarrage (celles des runs du process précédent).
-app.post('/cleanup_children', async (req, res) => {
+app.post('/cleanup_children', async (req: Request<CorpsNettoyageEnfants>, res: Response): Promise<Response | void> => {
     const ageMinMs = req.body?.older_than_ms;
     if (typeof ageMinMs !== 'number' || !(ageMinMs >= 0)) return res.status(400).json({ error: 'older_than_ms requis (ms, >= 0).' });
     const sids = sessionsEnfantsAnciennes(sessions, { ageMinMs });

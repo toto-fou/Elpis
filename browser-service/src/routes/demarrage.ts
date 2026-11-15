@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/demarrage.ts — /start: session of an owner (reuse, saved state, context options, quotas, eviction), first navigation. */
+/** browser-service/src/routes/demarrage.ts — /start : session d'un propriétaire (réutilisation, état sauvegardé, options de contexte, quotas, éviction), première navigation. */
 import fs from 'fs';
 import path from 'path';
 import { devices } from 'playwright';
+import type { BrowserContextOptions } from 'playwright';
 import { v4 as uuidv4 } from 'uuid';
+import type { Application, Request, Response } from 'express';
+import type { LigneConsole, JournalReseau, ServiceContext, Session } from '../contexte.ts';
 import { USER_AGENT, installerGarde, refusUrl, repondreRefus } from '../destinations.ts';
 import { attachDialogHandler, attachPageLoggers, detailsNavigation, makeDialogState, suivreOnglets } from '../evenements.ts';
 import { safeRemoveOverlays } from '../interaction.ts';
@@ -14,18 +15,55 @@ import { COOKIES_DIR, DOWNLOAD_DIR, HAR_DIR, LOCK_MAX_W, LOCK_WAIT_MS, PW_MUTEX,
 import { sansAnsi } from '../result_util.ts';
 import { origineDe } from '../secret_util.ts';
 import { acquireLock, makeLock } from '../session_lock.ts';
+import type { ErreurVerrou, Liberer } from '../session_lock.ts';
 import { planSessionSlot, resolveStateFile, safeDownloadName, safeOwner } from '../session_util.ts';
+import type { EtatIntrouvable, PlanPlace } from '../session_util.ts';
 import { MAX_SESSIONS_PER_GROUP, MAX_SESSIONS_PER_OWNER, STATE_MAX_AGE_D, _ownerStartLock, closeSession, ensureBrowser, findLiveSessionByOwner } from '../sessions.ts';
 
+/** Corps de /start. */
+interface CorpsDemarrage {
+    url: string;
+    load_state_id?: string;
+    record_har?: boolean;
+    device?: string;
+    viewport?: { width: number; height: number };
+    locale?: string;
+    timezone?: string;
+    color_scheme?: 'light' | 'dark' | 'no-preference';
+    touch?: boolean;
+    isolated?: boolean;
+    trace?: boolean;
+    record_video?: boolean;
+    owner?: string;
+    group?: string;
+    tls?: string | null;
+    relay_binding?: { key: string; origins: string[] } | null;
+}
+
+/** Première navigation d'une session démarrée : détails de la réponse, ou avertissement de navigation. */
+type NavDemarrage = Awaited<ReturnType<typeof detailsNavigation>> & { nav_warning?: string };
+
+/** Liaison au relais d'une session : clé envoyée dans ENTETE_LIAISON, origines qui la reçoivent. */
+interface LiaisonRelais {
+    cle: string;
+    origines: ReadonlySet<string | null>;
+}
+
+/** Limite qui a fait céder une session. */
+type Limite = 'owner' | 'group';
+
+/** Fenêtre de Chrome, dont le script d'initialisation masque `chrome.runtime`. */
+type FenetreChrome = Window & { chrome?: { runtime?: unknown } };
+
 // Indice joint à un démarrage arrivé sur un 401/407.
-const indiceAuthDemarrage = (nav) => {
+const indiceAuthDemarrage = (nav: { http_status?: number | null }) => {
     const h = authHint(nav.http_status ?? null);
     return h ? { auth_hint: h } : {};
 };
 
 // Liaison d'authentification HTTP du relais de l'hôte (clé et origines) ; la clé part dans l'en-tête ENTETE_LIAISON des seules requêtes de la session vers ces origines, le relais y ajoute Authorization.
 const ENTETE_LIAISON = 'x-elpis-binding';
-function liaisonRelais(b) {
+function liaisonRelais(b: CorpsDemarrage): LiaisonRelais | null | undefined {
     const l = b.relay_binding;
     if (l === undefined || l === null) return null;
     if (typeof l !== 'object' || typeof l.key !== 'string' || !/^[0-9a-f]{32,128}$/.test(l.key)
@@ -34,7 +72,7 @@ function liaisonRelais(b) {
 }
 
 // Refus (400) d'un démarrage au `tls` inconnu ou à la liaison du relais invalide, ou qui enregistrerait cette liaison (HAR, trace) ; null sinon.
-function refusDemarrage(b) {
+function refusDemarrage(b: CorpsDemarrage) {
     if (b.tls !== undefined && b.tls !== null && b.tls !== 'strict' && b.tls !== 'insecure') return { error: "tls must be 'strict' or 'insecure'.", code: 'invalid_option' };
     const liaison = liaisonRelais(b);
     if (liaison === undefined) return { error: 'relay_binding must be { key, origins }.', code: 'invalid_option' };
@@ -44,34 +82,34 @@ function refusDemarrage(b) {
 }
 
 // Options fixées à la création d'un contexte : sans effet sur une session reprise.
-const OPTIONS_DE_CREATION = ['record_har', 'trace', 'record_video', 'device', 'viewport', 'locale', 'timezone', 'color_scheme', 'touch'];
-const optionsDeCreation = (b) => OPTIONS_DE_CREATION.filter((k) => (k === 'touch' ? typeof b[k] === 'boolean' : Boolean(b[k])));
+const OPTIONS_DE_CREATION: (keyof CorpsDemarrage)[] = ['record_har', 'trace', 'record_video', 'device', 'viewport', 'locale', 'timezone', 'color_scheme', 'touch'];
+const optionsDeCreation = (b: CorpsDemarrage) => OPTIONS_DE_CREATION.filter((k) => (k === 'touch' ? typeof b[k] === 'boolean' : Boolean(b[k])));
 
 // Plafond qui a fait céder une session, en clair pour le modèle.
-const LIMITES_SESSIONS = {
+const LIMITES_SESSIONS: Record<Limite, () => string> = {
     owner: () => `at most ${MAX_SESSIONS_PER_OWNER} sessions per owner`,
     group: () => `at most ${MAX_SESSIONS_PER_GROUP} sessions for an account and its sub-agents`,
 };
 
 // Session qui va céder sa place : identifiant, adresse, inactivité et raison.
-function descriptionEviction(ctx, sid, limite, now) {
+function descriptionEviction(ctx: ServiceContext, sid: string, limite: Limite, now: number) {
     const { sessions } = ctx;
-    const s = sessions.get(sid) || {};
-    let url = ''; try { url = s.page?.url?.() || ''; } catch (_) { /* page fermée */ }
+    const s: Partial<Session> = sessions.get(sid) || {};
+    let url = ''; try { url = s.page?.url?.() || ''; } catch { /* page fermée */ }
     return { session_id: sid, url: url.substring(0, 120), idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
              isolated: Boolean(s.isolated), reason: `closed to stay within ${(LIMITES_SESSIONS[limite] || LIMITES_SESSIONS.owner)()}` };
 }
 
-function avisEviction(evincees) {
+function avisEviction(evincees: ReturnType<typeof descriptionEviction>[]) {
     return `To open this session, ${evincees.length} older idle session(s) of yours were closed (${evincees.map(e => e.session_id).join(', ')}): `
-        + `${evincees[0].reason.replace(/^closed /, '')}. Their session_id no longer works; a session that is busy or opened for a secret is never closed.`;
+        + `${evincees[0]!.reason.replace(/^closed /, '')}. Their session_id no longer works; a session that is busy or opened for a secret is never closed.`;
 }
 
 // Refus quand toutes les sessions du demandeur sont protégées (occupées ou liées à un secret) : lesquelles, et quoi faire.
-function refusSessionsProtegees(ctx, slot) {
+function refusSessionsProtegees(ctx: ServiceContext, slot: Extract<PlanPlace, { cause: 'protegees' }>) {
     const { sessions } = ctx;
     const protegees = (slot.protected || []).map((sid) => {
-        const s = sessions.get(sid) || {};
+        const s: Partial<Session> = sessions.get(sid) || {};
         return { session_id: sid, why: s.tls ? 'opened for a secret' : 'busy' };
     });
     return {
@@ -81,10 +119,10 @@ function refusSessionsProtegees(ctx, slot) {
     };
 }
 
-export function registerStartRoutes(app, ctx) {
+export function registerStartRoutes(app: Application, ctx: ServiceContext) {
 const { sessions } = ctx;
-app.post('/start', async (req, res) => {
-    let _startRelease = null;
+app.post('/start', async (req: Request<CorpsDemarrage>, res: Response): Promise<Response | void> => {
+    let _startRelease: Liberer | null = null;
     try {
         const { url, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
@@ -107,9 +145,9 @@ app.post('/start', async (req, res) => {
         // État sauvegardé : seulement ceux du même propriétaire (cf.
         // resolveStateFile). Résolu avant la réutilisation d'une session : un
         // état absent ou sans compte répond 404 même si le compte en a une.
-        let storageState = undefined;
+        let storageState: string | undefined = undefined;
         if (load_state_id) {
-            const etat = resolveStateFile(owner, load_state_id,
+            const etat: { file?: string } & Partial<EtatIntrouvable> = resolveStateFile(owner, load_state_id,
                                           nom => fs.existsSync(path.join(COOKIES_DIR, nom)),
                                           { maxAgeDays: STATE_MAX_AGE_D });
             if (!etat.file) {
@@ -122,7 +160,7 @@ app.post('/start', async (req, res) => {
             try {
                 _startRelease = await acquireLock(_ownerStartLock(ctx, owner), { waitMs: LOCK_WAIT_MS });
             } catch (e) {
-                return res.status(e.code === 429 ? 429 : 423)
+                return res.status((e as ErreurVerrou).code === 429 ? 429 : 423)
                           .json({ error: 'Un démarrage de session est déjà en cours pour cet utilisateur — réessaie.', retryable: true });
             }
         }
@@ -148,18 +186,18 @@ app.post('/start', async (req, res) => {
                 // AUDIT 2026-06 — la mutation tabs/page se fait SOUS le mutex
                 // de la session réutilisée (une op en vol sur cette page ne
                 // doit pas voir s.page changer sous ses pieds).
-                let _reuseRelease = null;
+                let _reuseRelease: Liberer | null = null;
                 if (PW_MUTEX && s._lock) {
                     try {
                         _reuseRelease = await acquireLock(s._lock, { waitMs: LOCK_WAIT_MS, maxWaiters: LOCK_MAX_W });
-                    } catch (e) {
+                    } catch {
                         return res.status(423).json({ error: 'Session occupée — réessaie.', retryable: true });
                     }
                 }
                 try {
                     s.lastActivity = Date.now();
                     let tabIndex = s.tabs.indexOf(s.page);
-                    let nav = {};
+                    let nav: NavDemarrage = {};
                     if (url) {
                         const reusePage = await s.context.newPage();
                         attachDialogHandler(reusePage, s.dialogState || (s.dialogState = makeDialogState()));
@@ -169,7 +207,7 @@ app.post('/start', async (req, res) => {
                             const resp = await reusePage.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
                             await Promise.race([reusePage.waitForLoadState('networkidle').catch(() => {}), reusePage.waitForTimeout(3000)]);
                             nav = await detailsNavigation(resp, url, reusePage.url());
-                        } catch (e) { nav = { nav_warning: cleanNavError(e.message) }; console.log('Nav warning (reuse):', nav.nav_warning); }
+                        } catch (e) { nav = { nav_warning: cleanNavError((e as Error).message) }; console.log('Nav warning (reuse):', nav.nav_warning); }
                         s.tabs.push(reusePage);
                         s.page = reusePage;
                         tabIndex = s.tabs.length - 1;
@@ -210,8 +248,8 @@ app.post('/start', async (req, res) => {
         // device = preset Playwright ("iPhone 13", "Pixel 7", "iPad Mini"…) qui
         // fixe viewport + UA + deviceScaleFactor + touch + isMobile. Les options
         // explicites (viewport/locale/timezone/color_scheme/touch) surchargent.
-        const preset = (device && devices[device]) ? devices[device] : {};
-        const contextOpts = {
+        const preset: Partial<(typeof devices)[string]> = (device && devices[device]) ? devices[device] : {};
+        const contextOpts: BrowserContextOptions & { defaultBrowserType?: string } = {
             ...preset,
             userAgent: preset.userAgent || USER_AGENT,
             viewport: viewport || preset.viewport || { width: 1920, height: 1080 },
@@ -244,15 +282,15 @@ app.post('/start', async (req, res) => {
         let _traceActive = false;
         if (trace) {
             try { await context.tracing.start({ screenshots: true, snapshots: true, sources: true }); _traceActive = true; }
-            catch (e) { console.warn('[trace] start KO:', e.message); }
+            catch (e) { console.warn('[trace] start KO:', (e as Error).message); }
         }
 
         await context.addInitScript(() => {
             Object.defineProperty(Object.getPrototypeOf(navigator), 'webdriver', { get: () => undefined });
-            if (window.chrome) window.chrome.runtime = undefined;
+            if ((window as FenetreChrome).chrome) (window as FenetreChrome).chrome!.runtime = undefined;
             // Expose clipboard API si manquant
             if (!navigator.clipboard) {
-                navigator.clipboard = { readText: () => Promise.resolve(''), writeText: () => Promise.resolve() };
+                (navigator as { clipboard: unknown }).clipboard = { readText: () => Promise.resolve(''), writeText: () => Promise.resolve() };
             }
         });
 
@@ -266,15 +304,15 @@ app.post('/start', async (req, res) => {
                 fs.mkdirSync(dossierTelechargements, { recursive: true });
                 await download.saveAs(chemin);
                 return { file: nom, path: chemin, size: fs.statSync(chemin).size };
-            })().catch((e) => ({ file: nom, error: sansAnsi(e.message).split('\n')[0] }));
+            })().catch((e: Error) => ({ file: nom, error: sansAnsi(e.message).split('\n')[0] }));
             const s = sessions.get(sessionId);
             if (s) { s.downloads.push({ debut: Date.now(), nom, fini }); if (s.downloads.length > 20) s.downloads.shift(); }
         }));
         const page = await context.newPage();
 
         const dialogState = makeDialogState();
-        const consoleLogs = [];
-        const networkLog = [];
+        const consoleLogs: LigneConsole[] = [];
+        const networkLog: JournalReseau = [];
         attachDialogHandler(page, dialogState);
         attachPageLoggers(page, consoleLogs, networkLog);
 
@@ -297,14 +335,14 @@ app.post('/start', async (req, res) => {
 
         sessions.set(sessionId, { context, page, owner, group, isolated: Boolean(isolated), consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
                                 tls });
-        suivreOnglets(sessions.get(sessionId), page);
+        suivreOnglets(sessions.get(sessionId)!, page);
 
-        let nav = {};
+        let nav: NavDemarrage = {};
         try {
             const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
             await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(3000)]);
             nav = await detailsNavigation(resp, url, page.url());
-        } catch (e) { nav = { nav_warning: cleanNavError(e.message) }; console.log("Nav warning:", nav.nav_warning); }
+        } catch (e) { nav = { nav_warning: cleanNavError((e as Error).message) }; console.log("Nav warning:", nav.nav_warning); }
 
         // Auto-dismiss popups after page load (cookies, newsletters, chat widgets)
         await page.waitForTimeout(800);
@@ -314,7 +352,7 @@ app.post('/start', async (req, res) => {
                    ...(evincees.length ? { evicted_sessions: evincees, warning: avisEviction(evincees) } : {}),
                    ...indiceAuthDemarrage(nav),
                    ...(tls ? { tls } : {}) });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
     finally { if (_startRelease) _startRelease(); }
 });
 }

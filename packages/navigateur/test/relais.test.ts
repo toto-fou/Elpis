@@ -302,6 +302,12 @@ describe("relais des secrets (socket unix réel)", () => {
     expect(chargerAutorite(path.join(dossier, "ca")).empreinte).toBe(ac.empreinte);
   });
 
+  it("chaque feuille est un certificat lisible, quel que soit le numéro de série tiré", () => {
+    // Un numéro de série aléatoire qui commence par un octet nul doit rester un INTEGER valide (environ un tirage sur 256).
+    const feuilles = new Feuilles(ac);
+    for (let i = 0; i < 1500; i++) expect(() => feuilles.contexte(`h${i}.example`)).not.toThrow();
+  });
+
   it("jeton exigé, destination refusée par le juge avec son motif", async () => {
     expect((await viaRelais(`http://a.test:${port(http)}/`, { jeton: "faux" })).statut).toBe(407);
     const r = await viaRelais("http://interdit.example/");

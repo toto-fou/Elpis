@@ -22,7 +22,7 @@ holds the SPDX texts of the licenses used by the project itself (REUSE).
 | Component | Version | License | Files | Upstream |
 |---|---|---|---|---|
 | Phosphor Icons (web font, Regular) | 2.x (≈1 530 icons; version not stated in the files) | MIT | `src/regular/` | https://github.com/phosphor-icons/web |
-| Tailwind CSS (standalone browser build, used by `tools/generate_tailwind_css.mjs` to precompile `frontend/css/style.tailwind.css`) | 3.4.17 | MIT | `tailwind.js` | https://github.com/tailwindlabs/tailwindcss |
+| Tailwind CSS (standalone browser build, used by `tools/generate_tailwind_css.mts` to precompile `frontend/css/style.tailwind.css`) | 3.4.17 | MIT | `tailwind.js` | https://github.com/tailwindlabs/tailwindcss |
 
 ### `frontend/css/skins/veilleuse/polices/` (fonts of the Veilleuse skin)
 
@@ -107,7 +107,7 @@ installed by the lock file; same licenses and copyright holders).
 | Embedded in | Component | Version | License |
 |---|---|---|---|
 | `echarts.min.js` | tslib (TypeScript helpers) | 2.3.0 | **0BSD** (BSD family, public-domain equivalent; admitted by `THIRD_PARTY_LICENSES/policy.json`) |
-| `echarts-ssr.cjs` (server-side chart rendering of the docx/pptx tools, built by `frontend/build-ssr.mjs` from the npm packages) | Apache ECharts, ZRender, tslib | 6.1.0, 6.1.0, 2.3.0 | Apache-2.0, BSD-3-Clause, **0BSD** — texts in `THIRD_PARTY_LICENSES/echarts.txt`, `THIRD_PARTY_LICENSES/zrender.txt`, `THIRD_PARTY_LICENSES/npm-web.txt` |
+| `echarts-ssr.cjs` (server-side chart rendering of the docx/pptx tools, built by `frontend/build-ssr.mts` from the npm packages) | Apache ECharts, ZRender, tslib | 6.1.0, 6.1.0, 2.3.0 | Apache-2.0, BSD-3-Clause, **0BSD** — texts in `THIRD_PARTY_LICENSES/echarts.txt`, `THIRD_PARTY_LICENSES/zrender.txt`, `THIRD_PARTY_LICENSES/npm-web.txt` |
 | `chart.umd.js` | @kurkle/color | ^0.3.0 | MIT |
 | `index.umd.min.js` (boxplot) | @sgratzl/boxplots | ^2.0.0 | MIT |
 | `chartjs-adapter-date-fns.bundle.min.js` | date-fns | bundled by the adapter 3.0.0 | MIT — text in `THIRD_PARTY_LICENSES/date-fns.txt` |
@@ -247,7 +247,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | undici | 8.12.3 | MIT |
 | util-deprecate | 1.0.2 | MIT |
 | wrappy | 1.0.2 | ISC |
-| ws | 8.22.0 | MIT |
+| ws | 8.22.1 | MIT |
 | xtend | 4.0.2 | MIT |
 | zod | 4.6.7 | MIT |
 | zod-to-json-schema | 3.25.2 | ISC |
@@ -350,7 +350,7 @@ the core bundle.
 | undici | 8.12.3 | MIT |
 | util-deprecate | 1.0.2 | MIT |
 | wrappy | 1.0.2 | ISC |
-| ws | 8.22.0 | MIT |
+| ws | 8.22.1 | MIT |
 | xtend | 4.0.2 | MIT |
 | yaml | 2.9.1 | ISC |
 | zod | 4.6.7 | MIT |

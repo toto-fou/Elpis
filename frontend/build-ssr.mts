@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-// frontend/build-ssr.mjs — bundle CommonJS autonome du rendu ECharts serveur (frontend/dist/echarts-ssr.cjs), chargé par office/elpis_office/echarts_ssr.cjs.
+// frontend/build-ssr.mts — bundle CommonJS autonome du rendu ECharts serveur (frontend/dist/echarts-ssr.cjs), chargé par office/elpis_office/echarts_ssr.mts.
 import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 
-const ici = (chemin) => fileURLToPath(new URL(chemin, import.meta.url));
+const ici = (chemin: string): string => fileURLToPath(new URL(chemin, import.meta.url));
 
 await build({
   entryPoints: [ici("./src/features/chat/rendu/echarts-ssr.ts")],

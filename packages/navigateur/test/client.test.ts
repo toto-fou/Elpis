@@ -249,7 +249,7 @@ const SERVICE_ABSENT = {
   ok: false,
   error: "browser_service_unreachable",
   message: "The browser service of your sandbox did not answer.",
-  fix: "Retry: the next pw_* call starts it again. If it keeps failing, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).",
+  fix: "Retry: the next pw_* call starts it again. If it keeps failing, tell the user to ask their administrator.",
 };
 
 describe("transport contre un faux service navigateur", () => {

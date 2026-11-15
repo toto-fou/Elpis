@@ -305,7 +305,7 @@ describe("relais des secrets (socket unix réel)", () => {
   it("chaque feuille est un certificat lisible, quel que soit le numéro de série tiré", () => {
     // Un numéro de série aléatoire qui commence par un octet nul doit rester un INTEGER valide (environ un tirage sur 256).
     const feuilles = new Feuilles(ac);
-    for (let i = 0; i < 1500; i++) expect(() => feuilles.contexte(`h${i}.example`)).not.toThrow();
+    for (let i = 0; i < 4000; i++) expect(() => feuilles.contexte(`h${i}.example`)).not.toThrow();
   });
 
   it("jeton exigé, destination refusée par le juge avec son motif", async () => {

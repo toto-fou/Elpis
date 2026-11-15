@@ -67,7 +67,11 @@ export function pwPage(s: ServicesBrowser) {
       if (Number(a["since_step"]) > 0) params["since_step"] = a["since_step"];
       if (a["include_frames"]) params["include_frames"] = "true";
       if (!a["pierce_shadow"]) params["pierce_shadow"] = "false";
-      const r = await client.req("GET", "/smart_inspect", { params, vision: true });
+      // skip_screenshot=true demandé par le modèle : aucune image, celle de la vision comprise.
+      const r = await client.req("GET", "/smart_inspect", {
+        params,
+        vision: !veritePy(a["skip_screenshot"]),
+      });
       if (ax !== null && estDict(r)) {
         const url = ouChamps(r, "url", "current_url");
         if (veritePy(url))

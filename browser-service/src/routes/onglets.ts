@@ -218,7 +218,7 @@ export function registerTabRoutes(app: Application, ctx: ServiceContext) {
     try {
       const { page } = req.session!;
       const filename = `page_${req.body.session_id}_${Date.now()}.pdf`;
-      const dossier = path.join(DOWNLOAD_DIR, req.session!.owner);
+      const dossier = path.join(DOWNLOAD_DIR, req.session!.group || req.session!.owner);
       fs.mkdirSync(dossier, { recursive: true });
       const filepath = path.join(dossier, filename);
       await page.pdf({

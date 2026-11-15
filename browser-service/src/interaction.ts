@@ -632,7 +632,7 @@ export async function smartClick(
     if (!resolved.hit) throw erreurInterception(resolved.element, resolved.cover);
     if (resolved.element && resolved.element.disabled)
       throw erreurCodee("element_disabled", `<${resolved.element.css}> is disabled: nothing was clicked.`);
-    if (human) await humanClick(page, resolved.coords.x, resolved.coords.y);
+    if (human && button === "left") await humanClick(page, resolved.coords.x, resolved.coords.y);
     else await page.mouse.click(resolved.coords.x, resolved.coords.y, { button });
     return {
       success: true,
@@ -653,7 +653,7 @@ export async function smartClick(
   // Stratégie 1 : clic Playwright (attend que l'élément soit actionnable et non couvert)
   try {
     await scrollIntoViewIfNeeded(loc);
-    if (human) {
+    if (human && button === "left") {
       const etat = await etatClic(loc, position);
       if (etat && etat.visible && etat.hit) {
         await humanClick(page, etat.x, etat.y);
@@ -702,13 +702,14 @@ export async function smartClick(
     errors.push(`S3: ${(e as Error).message.substring(0, 80)}`);
   }
 
-  // Stratégie 5 : clic JS sur l'élément visible lui-même
-  try {
-    await loc.evaluate((el: HTMLElement) => el.click());
-    return fin("5-js-click");
-  } catch (e) {
-    errors.push(`S5: ${(e as Error).message.substring(0, 80)}`);
-  }
+  // Stratégie 5 : clic JS sur l'élément visible lui-même (un clic gauche : jamais à la place d'un autre bouton)
+  if (button === "left")
+    try {
+      await loc.evaluate((el: HTMLElement) => el.click());
+      return fin("5-js-click");
+    } catch (e) {
+      errors.push(`S5: ${(e as Error).message.substring(0, 80)}`);
+    }
 
   throw Object.assign(
     new Error(

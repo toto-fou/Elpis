@@ -15,6 +15,9 @@ import {
   ACTION_TIMEOUT_MS,
   NOT_FOUND_GRACE_MS,
   cibleDepuisParams,
+  erreurInterception,
+  erreurIntrouvable,
+  etatClic,
   findAlternatives,
   resoudreRepli,
   suggestionsCible,
@@ -84,6 +87,70 @@ interface ResultatEtape {
   [champ: string]: unknown;
 }
 
+/** Gestes d'une étape, nommés dans le refus d'un geste inconnu. */
+const GESTES_CHAINE = [
+  "click",
+  "rclick",
+  "dblclick",
+  "fill",
+  "type",
+  "press",
+  "select",
+  "check",
+  "uncheck",
+  "hover",
+  "focus",
+  "scroll",
+  "wait",
+  "goto",
+];
+
+/** L'étape désigne-t-elle un élément par `ref` ou `by_*` (la cible officielle, celle que l'hôte d'outils envoie) ? */
+const aUneCible = (act: EtapeChaine): boolean =>
+  [
+    act.ref,
+    act.by_role,
+    act.by_text,
+    act.by_label,
+    act.by_placeholder,
+    act.by_test_id,
+    act.by_alt,
+    act.by_title,
+    act.by_css,
+    act.by_xpath,
+  ].some((v) => v !== undefined && v !== null && v !== "");
+
+/** Critères de cible d'une étape (`ref`, `by_*`, `nth`). */
+const paramsDe = (act: EtapeChaine): ParamsCible => ({
+  ref: act.ref,
+  by_role: act.by_role,
+  by_name: act.by_name,
+  by_text: act.by_text,
+  by_label: act.by_label,
+  by_placeholder: act.by_placeholder,
+  by_test_id: act.by_test_id,
+  by_alt: act.by_alt,
+  by_title: act.by_title,
+  by_css: act.by_css,
+  by_xpath: act.by_xpath,
+  nth: act.nth,
+});
+
+/** Geste de clic sur la cible résolue, dans le délai de l'étape (une couverture passagère a le temps de partir) ; encore couverte à l'échéance : click_intercepted (rien n'a été cliqué) au lieu d'un délai dépassé. */
+async function cliquerSurCible(
+  locator: Locator,
+  clic: (timeout: number) => Promise<void>,
+  delai: number,
+): Promise<void> {
+  try {
+    await clic(delai);
+  } catch (e) {
+    const etat = await etatClic(locator);
+    if (etat && etat.visible && !etat.hit) throw erreurInterception(etat.element, etat.cover);
+    throw e;
+  }
+}
+
 export function registerChainRoutes(app: Application, ctx: ServiceContext) {
   const { getSession, autoSnapshot } = intercepteurs(ctx);
   // ==========================================
@@ -107,20 +174,7 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
         // params (Playwright official API — robust). Falls back to a
         // `selector` string parsed by smartResolveLocator (text/CSS/XPath).
         async function resolveChainTarget(act: EtapeChaine) {
-          const params: ParamsCible = {
-            ref: act.ref,
-            by_role: act.by_role,
-            by_name: act.by_name,
-            by_text: act.by_text,
-            by_label: act.by_label,
-            by_placeholder: act.by_placeholder,
-            by_test_id: act.by_test_id,
-            by_alt: act.by_alt,
-            by_title: act.by_title,
-            by_css: act.by_css,
-            by_xpath: act.by_xpath,
-            nth: act.nth,
-          };
+          const params = paramsDe(act);
           const hasOfficial = Object.values(params).some((v) => v !== undefined && v !== null && v !== "");
           if (hasOfficial) {
             // Comptée d'abord, comme /action : une cible absente échoue vite (element_not_found).
@@ -148,6 +202,31 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
           throw new Error("No target: provide by_*/ref or selector");
         }
 
+        // Cible d'une étape wait : attendue jusqu'à l'échéance (pour `nth`, jusqu'à ce que cet élément existe), puis visible ; le sélecteur de repli ne sert qu'à une cible sans `nth` ni `ref`.
+        async function attendreCible(act: EtapeChaine, delai: number): Promise<void> {
+          const params = paramsDe(act);
+          const fin = Date.now() + delai;
+          const sansRang = act.nth === undefined || act.nth === null;
+          const repli = act.selector && !act.ref && sansRang ? act.selector : null;
+          let locator: Locator;
+          for (let tour = 0; ; tour++) {
+            const c = await cibleDepuisParams(ctx, page, params, req.sessionId, 0);
+            if (c && c.n > 0 && !(c.nth !== null && c.nth >= c.n)) {
+              locator = c.loc.first();
+              break;
+            }
+            // Le repli parcourt la page entière (cadres, shadow DOM, attributs) : un tour sur trois.
+            if (repli && tour % 3 === 0 && (await trouveParRepli(page, repli))) {
+              locator = (await resoudreRepli(page, repli, { params, graceMs: 0 })).locator;
+              break;
+            }
+            if ((c === null && !repli) || Date.now() >= fin)
+              throw await erreurIntrouvable(page, params, act.selector, ` after ${delai} ms`);
+            await new Promise((r) => setTimeout(r, 200));
+          }
+          await locator.waitFor({ state: "visible", timeout: Math.max(500, fin - Date.now()) });
+        }
+
         const results: ResultatEtape[] = [];
         let failed = false;
 
@@ -165,39 +244,41 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
 
             switch (actType) {
               case "click":
-              case "smart_click": {
-                // For click we still prefer smartClick when only a selector is given
-                // (it has the 7-strategy cascade for tricky pages). But when by_* is
-                // present we use the official locator path for max robustness.
-                const hasOfficial =
-                  act.ref ||
-                  act.by_role ||
-                  act.by_text ||
-                  act.by_label ||
-                  act.by_placeholder ||
-                  act.by_test_id ||
-                  act.by_css ||
-                  act.by_xpath;
-                if (hasOfficial) {
+              case "smart_click":
+              case "rclick":
+              case "right_click": {
+                // Cible officielle (by_*, ref) : le locator garde son identité (nth, ref), jamais rejouée par un sélecteur plus large.
+                // Sélecteur seul : smartClick et son échelle de repli (pages difficiles).
+                const droit = actType === "rclick" || actType === "right_click";
+                const button = droit ? "right" : act.button || "left";
+                const delai = act.timeout || ACTION_TIMEOUT_MS;
+                if (aUneCible(act)) {
                   const { locator } = await resolveChainTarget(act);
-                  await locator.click({
-                    timeout: act.timeout || ACTION_TIMEOUT_MS,
-                    button: act.button || "left",
-                  });
-                  result = { success: true, action: "click", strategy: "official" };
+                  await cliquerSurCible(locator, (timeout) => locator.click({ timeout, button }), delai);
+                  result = { success: true, action: droit ? "rclick" : "click", strategy: "official" };
                 } else {
+                  if (!act.selector) throw new Error("No target: provide by_*/ref or selector");
                   const {
                     locator: cliqueSur,
                     cadre: _c,
                     ...clic
-                  } = await smartClick(page, act.selector!, {
-                    human: act.human,
-                    button: act.button || "left",
-                    timeout: act.timeout || ACTION_TIMEOUT_MS,
-                  });
+                  } = await smartClick(page, act.selector, { human: act.human, button, timeout: delai });
                   locEtape = cliqueSur;
                   result = clic;
                 }
+                break;
+              }
+
+              case "dblclick":
+              case "double_click": {
+                const { locator } = await resolveChainTarget(act);
+                const button = act.button || "left";
+                await cliquerSurCible(
+                  locator,
+                  (timeout) => locator.dblclick({ timeout, button }),
+                  act.timeout || ACTION_TIMEOUT_MS,
+                );
+                result = { success: true, action: "dblclick" };
                 break;
               }
 
@@ -285,12 +366,19 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
               }
 
               case "wait":
-                if (act.selector)
-                  await page.waitForSelector(act.selector, {
-                    state: "visible",
-                    timeout: act.timeout || 10000,
+                if (aUneCible(act))
+                  await attendreCible(act, Number(act.timeout) > 0 ? Number(act.timeout) : 10000);
+                else if (act.selector) {
+                  // Sélecteur CSS ou Playwright, sinon texte : les deux lectures courent ensemble, la première qui voit l'élément l'emporte (un CSS invalide échoue aussitôt).
+                  const timeout = act.timeout || 10000;
+                  await Promise.any([
+                    page.waitForSelector(act.selector, { state: "visible", timeout }),
+                    page.getByText(act.selector).first().waitFor({ state: "visible", timeout }),
+                  ]).catch((e: unknown) => {
+                    const erreurs = (e as { errors?: Error[] }).errors || [];
+                    throw erreurs.find((x) => /timeout/i.test(x.message)) ?? erreurs[0] ?? e;
                   });
-                else if (act.wait_for === "network")
+                } else if (act.wait_for === "network")
                   await Promise.race([page.waitForLoadState("networkidle"), page.waitForTimeout(6000)]);
                 else if (act.ms) await page.waitForTimeout(act.ms);
                 else await page.waitForTimeout(1000);
@@ -329,7 +417,9 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
               }
 
               default:
-                result = { success: false, error: `Unknown chain action: ${actType}` };
+                throw erreurCodee("unknown_action", `Unknown chain action: ${actType || "(none)"}.`, {
+                  fix: `Use one of: ${GESTES_CHAINE.join(", ")}.`,
+                });
             }
 
             // Post-action wait
@@ -343,7 +433,14 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
               await recordEvent(
                 req.session!,
                 {
-                  action: actType === "select_option" ? "select" : actType,
+                  action:
+                    actType === "select_option"
+                      ? "select"
+                      : actType === "double_click"
+                        ? "dblclick"
+                        : actType === "right_click"
+                          ? "rclick"
+                          : actType,
                   locator: {
                     role: act.by_role,
                     name: act.by_name,
@@ -392,7 +489,8 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
             };
 
             // Feature 3: Smart retry context — try selector or any text-bearing param
-            const probe = act.selector || act.by_name || act.by_text || act.by_label || "";
+            const inconnue = failResult.code === "unknown_action";
+            const probe = inconnue ? "" : act.selector || act.by_name || act.by_text || act.by_label || "";
             if (probe) {
               failResult.alternatives = await findAlternatives(page, probe).catch(() => []);
             }
@@ -412,7 +510,7 @@ export function registerChainRoutes(app: Application, ctx: ServiceContext) {
             }
 
             // Feature 4: Screenshot on failure
-            if (screenshot_on_fail) {
+            if (screenshot_on_fail && !inconnue) {
               const ss = await screenshotOnFailure(page, req.sessionId, actType);
               Object.assign(failResult, ss);
             }

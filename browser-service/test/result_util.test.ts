@@ -240,6 +240,12 @@ test("classerSuggestions : noms proches d'abord, sinon les éléments du rôle d
   assert.ok(ressemblance("Validr", "Valider") > 0.8);
   assert.ok(ressemblance("Fantome", "Valider") < 0.5);
   assert.equal(ressemblance("Étoile", "etoile"), 1);
+  // Un nom d'une ou deux lettres est contenu dans presque tous les autres : il n'est pas « proche » pour autant.
+  assert.ok(ressemblance("Bouton fermé", "B") < 0.5);
+  assert.ok(ressemblance("Bouton fermé", "on") < 0.5);
+  // Deux signes d'une écriture non latine disent quelque chose.
+  assert.equal(ressemblance("登录", "使用手机号登录"), 0.8);
+  assert.equal(ressemblance("Bouton fermé", "Bouton"), 0.8);
   assert.deepEqual(
     classerSuggestions(noeuds, { name: "Validr", role: "button" }).map((s) => s.target),
     ["role=button|name=Valider"],

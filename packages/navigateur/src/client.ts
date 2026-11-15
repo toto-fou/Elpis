@@ -359,10 +359,13 @@ export class ClientNavigateur {
       if (r.genre === "connexion")
         return errPw("browser_service_unreachable", "", {
           message: "The browser service of your sandbox did not answer.",
-          fix: "Retry: the next pw_* call starts it again. If it keeps failing, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).",
+          fix: "Retry: the next pw_* call starts it again. If it keeps failing, tell the user to ask their administrator.",
         });
       if (r.genre === "delai")
-        return errPw(`Timeout (${t}s)`, "the page may be slow or stuck; retry or simplify the action");
+        return errPw(
+          `Timeout (${t}s)`,
+          'no answer in time, but the action may have been performed: check the page (pw_page action="inspect", pw_expect) before you retry it',
+        );
       return errPw(r.message, "", { code: "browser_error" });
     }
     if (r.statut === 410) return errPw("Session expired", "reopen with pw_session(action='start')");

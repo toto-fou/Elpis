@@ -2907,7 +2907,7 @@
           "ok": false,
           "error": "timeout_0_3s",
           "message": "Timeout (0.3s)",
-          "fix": "the page may be slow or stuck; retry or simplify the action"
+          "fix": "no answer in time, but the action may have been performed: check the page (pw_page action=\"inspect\", pw_expect) before you retry it"
         },
         "recu": [
           {

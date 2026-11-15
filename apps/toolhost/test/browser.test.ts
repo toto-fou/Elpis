@@ -78,6 +78,28 @@ describe("famille browser servie par l'hôte", () => {
     expect(faux.vues.map((v) => `${v.methode} ${v.chemin}`)).toEqual(["POST /action", "GET /smart_inspect"]);
   });
 
+  it("pw_chain : une cible sans clé part en sélecteur de repli, une cible DSL garde son rang (nth)", async () => {
+    const b = await client();
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });
+    faux.vues.length = 0;
+    await b.appeler(
+      "pw_chain",
+      {
+        session_id: SESSION,
+        actions: [
+          { action: "wait", target: "#resultats" },
+          { action: "click", target: "role=button|name=Remove|nth=2" },
+        ],
+      },
+      { username: "bob" },
+    );
+    const chaine = faux.vues.find((v) => v.chemin === "/chain")!;
+    const etapes = (JSON.parse(chaine.corps) as { actions: Dict[] }).actions;
+    expect(etapes[0]).toMatchObject({ type: "wait", selector: "#resultats" });
+    expect(etapes[0]).not.toHaveProperty("target");
+    expect(etapes[1]).toMatchObject({ type: "click", by_role: "button", by_name: "Remove", nth: 2 });
+  });
+
   it("captures demandées par le core (_meta) : en-tête sur la requête de l'outil, jamais sur sa page jointe ; vision à pw_page inspect seulement", async () => {
     const b = await client();
     const meta = { username: "bob", web_captures: "1", vision: "1" };
@@ -90,10 +112,13 @@ describe("famille browser servie par l'hôte", () => {
     );
     await b.appeler("pw_page", { session_id: SESSION, action: "inspect", level: "lite" }, meta);
     await b.appeler("pw_find", { session_id: SESSION }, meta);
+    // skip_screenshot=true demandé par le modèle : aucune image, celle de la vision comprise.
+    await b.appeler("pw_page", { session_id: SESSION, action: "inspect", skip_screenshot: true }, meta);
     expect(faux.captures).toEqual([
       ["/action", "1", null],
       ["/smart_inspect", null, null],
       ["/smart_inspect", "1", "1"],
+      ["/smart_inspect", "1", null],
       ["/smart_inspect", "1", null],
     ]);
     faux.captures.length = 0;

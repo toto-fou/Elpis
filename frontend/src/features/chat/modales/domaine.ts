@@ -94,6 +94,7 @@ export interface RacineDivers {
   showHelpModal: boolean;
   readonly isLoadingReadme: boolean;
   readonly readmeContent: string;
+  readonly helpSection: string;
   imgZoom: string | null;
   showAxModal: boolean;
   readonly axSites: readonly SiteAx[];
@@ -237,6 +238,7 @@ const CLES_CHAT: Readonly<Record<Exclude<keyof DomaineModalesChat, keyof Domaine
   showHelpModal: true,
   isLoadingReadme: true,
   readmeContent: true,
+  helpSection: true,
   imgZoom: true,
   showAxModal: true,
   axSites: true,

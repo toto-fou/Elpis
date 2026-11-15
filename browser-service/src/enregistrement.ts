@@ -37,9 +37,10 @@ async function attributsDuChamp(locator: Locator | null): Promise<AttributsChamp
     .catch(() => ({}));
 }
 
-// Cadres d'un geste, de la page vers celui de l'élément : sélecteur de chaque <iframe> dans son parent ; [] dans la page (cible = Frame ou Locator).
+// Cadres d'un geste, de la page vers celui de l'élément : sélecteur de chaque <iframe> dans son parent ; [] dans la page (cible = Frame, Locator ou la page elle-même).
 export async function cheminCadres(cible: Frame | Locator | Page | null | undefined): Promise<string[]> {
   let cadre: Frame | null = null;
+  if (cible && typeof (cible as Page).mainFrame === "function") return [];
   if (cible && typeof (cible as Frame).parentFrame === "function") cadre = cible as Frame;
   else if (cible) {
     const h = await (cible as Locator).elementHandle({ timeout: 1000 }).catch(() => null);

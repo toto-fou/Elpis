@@ -49,17 +49,19 @@ OFFLINE="offline"
 command -v tar  >/dev/null 2>&1 || die "tar absent."
 [ -f "$OFFLINE/MANIFEST.txt" ] && { info "MANIFEST :"; sed 's/^/    /' "$OFFLINE/MANIFEST.txt" | head -9; }
 
-# ── 1. node_modules ─────────────────────────────────────────────────────────
+# ── 1. bundle du service : vérifié avant de toucher à l'installation en place, refusé s'il vient d'autres sources ─
+info "Vérification du bundle du service…"
+rm -rf dist.neuf && cp -a "$OFFLINE/dist" dist.neuf
+node dist.neuf/empreinte.mjs || { rm -rf dist.neuf; die "Bundle du service construit pour d'autres sources que ce dépôt : prenez le paquet de cette version."; }
+
+# ── 2. node_modules ─────────────────────────────────────────────────────────
 info "Extraction de node_modules…"
 rm -rf node_modules
 tar xzf "$OFFLINE/node_modules.tar.gz"
-[ -d node_modules/playwright-core ] || die "Extraction node_modules incomplète."
+[ -d node_modules/playwright-core ] || { rm -rf dist.neuf; die "Extraction node_modules incomplète."; }
 ok "node_modules installé."
 
-# ── 2. bundle du service (remplacé d'un coup, refusé s'il vient d'autres sources) ─
-info "Installation du bundle du service…"
-rm -rf dist.neuf && cp -a "$OFFLINE/dist" dist.neuf
-node dist.neuf/empreinte.mjs || { rm -rf dist.neuf; die "Bundle du service construit pour d'autres sources que ce dépôt : prenez le paquet de cette version."; }
+# ── 2 bis. bundle du service, remplacé d'un coup ───────────────────────────
 rm -rf dist.ancien && { [ ! -e dist ] || mv dist dist.ancien; } && mv dist.neuf dist && rm -rf dist.ancien
 ok "dist/ installé."
 

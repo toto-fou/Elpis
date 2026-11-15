@@ -92,10 +92,8 @@ export interface RacineDivers {
   toggleOpencodeFamily(name: string): unknown;
   readonly features: { readonly opencode?: boolean };
   showHelpModal: boolean;
-  readonly helpDoc: string;
   readonly isLoadingReadme: boolean;
   readonly readmeContent: string;
-  switchHelpDoc(doc: string): unknown;
   imgZoom: string | null;
   showAxModal: boolean;
   readonly axSites: readonly SiteAx[];
@@ -237,10 +235,8 @@ const CLES_CHAT: Readonly<Record<Exclude<keyof DomaineModalesChat, keyof Domaine
   toggleOpencodeFamily: true,
   features: true,
   showHelpModal: true,
-  helpDoc: true,
   isLoadingReadme: true,
   readmeContent: true,
-  switchHelpDoc: true,
   imgZoom: true,
   showAxModal: true,
   axSites: true,

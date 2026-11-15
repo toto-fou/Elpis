@@ -35,7 +35,7 @@ import {
   verifyUser,
 } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
-import { decoderUtf8Py, HttpError, intPy, messageErreurOs, stripPy, strPy, veritePy } from "@elpis/commun";
+import { decoderUtf8Py, HttpError, intPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
@@ -102,6 +102,11 @@ const REFUS_AVATAR_ASSISTANT =
 function maintenant(dep: DependancesComptes): number {
   return dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000;
 }
+
+/** Guide servi à la fenêtre d'aide, et message montré quand il manque (la cause va au journal). */
+const GUIDE_UTILISATEUR = "docs/fr/user-guide.md";
+const AIDE_INDISPONIBLE =
+  "# Aide indisponible\n\nL'aide n'a pas pu être chargée. Demandez à votre administrateur.";
 
 /** Adresse du client, la même que celle du journal de sécurité (`ipDuClient`). */
 function adresseClient(requete: FastifyRequest, dep: DependancesComptes): string {
@@ -592,30 +597,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
         chemin: "/api/help/readme",
         processus: ["main"],
         acces: "session",
-        traiter: async (req) => {
-          const brut = (req.query as Record<string, unknown>)["doc"];
-          const doc = Array.isArray(brut) ? brut[brut.length - 1] : (brut ?? "user");
-          const dev = ["dev", "developer", "developpeur", "devs"].includes(
-            stripPy(strPy(doc || "")).toLowerCase(),
-          );
-          const etiquette = dev ? "docs/architecture.md" : "docs/fr/user-guide.md";
-          const resolu = dev ? "dev" : "user";
-          const chemin = join(dep.racine, etiquette);
-          if ((await stat(chemin).catch(() => null)) === null)
-            return {
-              content: `# Fichier ${etiquette} introuvable\n\nAucune documentation n'a été trouvée.`,
-              doc: resolu,
-            };
+        traiter: async () => {
           try {
-            return { content: decoderUtf8Py(await readFile(chemin)), doc: resolu };
+            return { content: decoderUtf8Py(await readFile(join(dep.racine, GUIDE_UTILISATEUR))) };
           } catch (e) {
-            const message = (e as { code?: unknown }).code
-              ? messageErreurOs(e, chemin)
-              : (e as Error).message;
-            return {
-              content: `# Erreur de lecture\n\nImpossible de lire le fichier: ${message}`,
-              doc: resolu,
-            };
+            dep.journal.warn({ err: e }, `[aide] ${GUIDE_UTILISATEUR} illisible`);
+            return { content: AIDE_INDISPONIBLE };
           }
         },
       },

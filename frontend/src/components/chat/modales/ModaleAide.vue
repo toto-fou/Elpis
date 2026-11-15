@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/modales/ModaleAide.vue — documentation intégrée (guide utilisateur ou développeur) rendue en Markdown purifié, par morceaux (features/reglages/aide-rendu.ts). -->
+<!-- frontend/src/components/chat/modales/ModaleAide.vue — guide utilisateur rendu en Markdown purifié, par morceaux (features/reglages/aide-rendu.ts). -->
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from "vue";
 
@@ -38,7 +38,7 @@ function clic(ev: MouseEvent): void {
       data-a11y-modal
       role="dialog"
       aria-modal="true"
-      aria-label="Documentation"
+      aria-label="Aide"
       class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4"
       @click.self="m.showHelpModal = false"
     >
@@ -52,42 +52,9 @@ function clic(ev: MouseEvent): void {
             >
               <i class="ph ph-book-open text-lg"></i>
             </div>
-            <span class="truncate">Documentation</span>
+            <span class="truncate">Aide</span>
           </h2>
           <div class="flex items-center gap-3 shrink-0">
-            <!-- Bascule guide utilisateur / doc développeur -->
-            <div
-              class="flex items-center gap-1 bg-slate-100 rounded-lg p-1"
-              role="tablist"
-              aria-label="Type de documentation"
-            >
-              <button
-                role="tab"
-                :aria-selected="m.helpDoc === 'user' ? 'true' : 'false'"
-                :class="
-                  m.helpDoc === 'user'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                "
-                class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
-                @click="m.switchHelpDoc('user')"
-              >
-                <i class="ph ph-book-open"></i> Utilisateur
-              </button>
-              <button
-                role="tab"
-                :aria-selected="m.helpDoc === 'dev' ? 'true' : 'false'"
-                :class="
-                  m.helpDoc === 'dev'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                "
-                class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
-                @click="m.switchHelpDoc('dev')"
-              >
-                <i class="ph ph-code"></i> Développeur
-              </button>
-            </div>
             <button
               aria-label="Fermer"
               class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center"

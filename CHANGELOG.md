@@ -530,6 +530,24 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Browser tools: fixes from a non-regression run.** `pw_chain`: a `wait` step with a
+  `text=` target waits for that text, resolved like the other steps (it was read as a CSS
+  selector) and, with `nth`, for that element; a click on an element still covered when the
+  step's time is up answers `click_intercepted` and names what covers it, instead of a timeout;
+  an unknown action fails the chain (`unknown_action`; it used to answer `ok: true`); `rclick`
+  and `dblclick` are accepted as in `pw_act`; a target without a DSL key is no longer dropped.
+  `pw_wait` `text_contains` no longer matches the text of a hidden element. `pw_find` returns
+  the elements that exist but are hidden apart, in `hidden_matches`, with their ref and without
+  their text. The recorder starts with the `goto` of the open page when the first gesture is not
+  one, and exports a name cut by "…" so that it replays. A name of one or two letters is no
+  longer proposed as a close target. A sub-agent's downloads go to its account's folder
+  (`downloads/<account>/`), under a free name when one is taken. `pw_page inspect` with
+  `skip_screenshot=true` no longer attaches the vision image. A client timeout says that the
+  action may have been performed.
+- **Browser relay: invalid certificates now and then.** About one certificate in 256 issued by
+  the relay authority (the authority itself or the certificate of a secret's site) had a serial
+  number with a padding byte that strict parsers refuse, so the relay could fail to start or a
+  login to fail for no visible reason. Serial numbers are now written in their shortest form.
 - **Recorder and clicks by selector.** While pw_recorder was recording, a click resolved by a
   fallback selector on the page itself (not in a frame) answered an error after the click had
   happened, and the gesture was not recorded: the frames path was looked up on the page as if it

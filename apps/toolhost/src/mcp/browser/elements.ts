@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/browser/elements.ts — `pw_find`, `pw_act` (crochets de la mémoire AX avant et après le geste) et `pw_chain` : cibles en DSL traduites pour le service. */
-import { estDict, reprPy, veritePy } from "@elpis/commun";
+import { estDict, reprPy, stripPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import { messageErreur } from "@elpis/mcp";
@@ -307,7 +307,9 @@ function etape(brute: Dict): Dict {
                   : veritePy(d["role"]) && veritePy(d["name"])
                     ? d["name"]
                     : null;
-    if (repli !== null && !Object.hasOwn(e, "selector")) e["selector"] = repli;
+    // Cible sans clé (`#resultats`, un texte) : lue par le service comme un sélecteur ou un texte, jamais perdue.
+    const nue = Object.keys(d).length === 0 ? stripPy(e["target"] as string) : "";
+    if ((repli !== null || nue) && !Object.hasOwn(e, "selector")) e["selector"] = repli ?? nue;
     delete e["target"];
   }
   const choix = e["type"] === "select" || e["type"] === "select_option";

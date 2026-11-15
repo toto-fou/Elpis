@@ -29,8 +29,13 @@ const tlv = (etiquette: number, contenu: Buffer): Buffer =>
   Buffer.concat([Buffer.from([etiquette]), longueur(contenu.length), contenu]);
 const seq = (...e: Buffer[]): Buffer => tlv(0x30, Buffer.concat(e));
 const ens = (...e: Buffer[]): Buffer => tlv(0x31, Buffer.concat(e));
-const entier = (b: Buffer): Buffer =>
-  tlv(0x02, (b[0] ?? 0) & 0x80 ? Buffer.concat([Buffer.from([0]), b]) : b);
+/** INTEGER positif en DER, sous sa forme la plus courte : zéros de tête retirés (un parseur strict refuse le remplissage), un seul remis devant un bit de signe. */
+const entier = (b: Buffer): Buffer => {
+  let i = 0;
+  while (i < b.length - 1 && b[i] === 0) i++;
+  const v = b.subarray(i);
+  return tlv(0x02, (v[0] ?? 0) & 0x80 ? Buffer.concat([Buffer.from([0]), v]) : v);
+};
 const octets = (b: Buffer): Buffer => tlv(0x04, b);
 const bits = (b: Buffer, inutilises = 0): Buffer => tlv(0x03, Buffer.concat([Buffer.from([inutilises]), b]));
 const explicite = (n: number, b: Buffer): Buffer => tlv(0xa0 + n, b);

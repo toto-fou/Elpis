@@ -15,6 +15,18 @@ type QueryDump = {
   session_id?: string;
 };
 
+/** Adresse de la page ouverte quand l'enregistrement démarre : le script y revient avant son premier geste, si ce geste n'est pas lui-même un goto. */
+const pageOuverte = (page: { url(): string } | null | undefined): string | undefined => {
+  const url = page?.url() || "";
+  return /^https?:/i.test(url) ? url : undefined;
+};
+
+/** Nom ou texte que l'inspection a coupé (« … » final). */
+const estCoupe = (s: string | undefined): boolean => typeof s === "string" && s.length > 1 && s.endsWith("…");
+const debutDe = (s: string): string => s.slice(0, -1).trimEnd();
+/** Texte littéral dans une expression régulière écrite entre barres obliques. */
+const motif = (s: string): string => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+
 export function registerRecorderRoutes(app: Application, ctx: ServiceContext) {
   const { getSession } = intercepteurs(ctx);
   app.post("/recorder/start", getSession, async (req: Request, res: Response) => {
@@ -23,6 +35,7 @@ export function registerRecorderRoutes(app: Application, ctx: ServiceContext) {
       start_ts: Date.now(),
       events: [],
       variables: new Map(),
+      depart: pageOuverte(req.session!.page),
     };
     res.json({ status: "recording", start_ts: req.session!._recorder.start_ts });
   });
@@ -44,6 +57,7 @@ export function registerRecorderRoutes(app: Application, ctx: ServiceContext) {
       req.session!._recorder.events = [];
       req.session!._recorder.variables = new Map();
       req.session!._recorder.start_ts = Date.now();
+      req.session!._recorder.depart = pageOuverte(req.session!.page);
     }
     res.json({ status: "cleared" });
   });
@@ -76,9 +90,16 @@ export function registerRecorderRoutes(app: Application, ctx: ServiceContext) {
       function targetExpr(
         evt: GesteEnregistre,
         fmt: string,
-        l: CibleEnregistree = evt.locator || {},
+        releve: CibleEnregistree = evt.locator || {},
       ): string {
         // l : sélecteur stable relevé (role, name, text, label, css…) ; les cadres de evt.frames préfixent la cible
+        // Nom ou texte coupé par l'inspection (« … » final) : son début seul est exporté, cherché en tête du nom au rejeu.
+        const nomCoupe = estCoupe(releve.name);
+        const l: CibleEnregistree = {
+          ...releve,
+          ...(nomCoupe ? { name: debutDe(releve.name!) } : {}),
+          ...(estCoupe(releve.text) ? { text: debutDe(releve.text!) } : {}),
+        };
         if (fmt === "playwright") {
           const page = porteeCadres(evt.frames, "playwright", escape);
           if (l.role && l.name)
@@ -94,7 +115,10 @@ export function registerRecorderRoutes(app: Application, ctx: ServiceContext) {
         }
         if (fmt === "cypress") {
           if (l.test_id) return `cy.get('[data-testid="${escape(l.test_id)}"]')`;
-          if (l.role && l.name) return `cy.findByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
+          if (l.role && l.name)
+            return nomCoupe
+              ? `cy.findByRole('${escape(l.role)}', { name: /^${motif(l.name)}/ })`
+              : `cy.findByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
           if (l.label) return `cy.findByLabelText('${escape(l.label)}')`;
           if (l.placeholder) return `cy.findByPlaceholderText('${escape(l.placeholder)}')`;
           if (l.text) return `cy.contains('${escape(l.text)}')`;
@@ -104,7 +128,10 @@ export function registerRecorderRoutes(app: Application, ctx: ServiceContext) {
         if (fmt === "robot") {
           // Robot Framework with Browser library ; `>>>` entre dans chaque cadre
           const cadres = porteeCadres(evt.frames, "robot");
-          if (l.role && l.name) return `${cadres}role=${l.role}[name="${l.name}"]`;
+          if (l.role && l.name)
+            return nomCoupe
+              ? `${cadres}role=${l.role}[name=/^${motif(l.name)}/]`
+              : `${cadres}role=${l.role}[name="${l.name}"]`;
           if (l.test_id) return `${cadres}[data-testid="${l.test_id}"]`;
           if (l.label) return `${cadres}label=${l.label}`;
           if (l.placeholder) return `${cadres}[placeholder="${l.placeholder.replace(/[\\"]/g, "\\$&")}"]`;

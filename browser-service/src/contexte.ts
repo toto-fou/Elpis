@@ -88,6 +88,8 @@ export interface Enregistreur {
   stop_ts?: number;
   events: (GesteEnregistre & { ts: number })[];
   variables: Map<string, string>;
+  /** Page open when recording started: replayed first unless the first gesture is a goto. */
+  depart?: string;
 }
 
 /** Browser session of an owner: its context, active tab and journals. */

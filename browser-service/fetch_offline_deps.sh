@@ -67,7 +67,9 @@ ok "node_modules prêt."
 # ── 1 bis. bundle du service (outils de construction de la racine du dépôt) ──
 info "Bundle du service (npm run build:browser)…"
 [ -d ../node_modules/esbuild ] || ( cd .. && npm ci --no-audit --no-fund ) || die "npm ci à la racine du dépôt a échoué."
-( cd .. && npm run build:browser -- --sortie "$PWD/$OFFLINE/dist" ) || die "Construction du service échouée."
+SORTIE_DIST="$PWD/$OFFLINE/dist"
+( cd .. && npm run build:browser -- --sortie "$SORTIE_DIST" ) || die "Construction du service échouée."
+[ -f "$SORTIE_DIST/main.mjs" ] || die "Bundle du service absent de $OFFLINE/dist après la construction."
 ok "dist/ prêt."
 
 # ── 2. localiser le CLI Playwright LOCAL + lire les révisions EXACTES ────────

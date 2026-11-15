@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
 /** browser-service/src/routes/divers.ts — /evaluate, /save_state, /stop, /trace_export, /health, /wait_for_dynamic, /dialog. */
 import path from 'path';
+import type { Application, Request, Response } from 'express';
+import type { Frame, Page, Video } from 'playwright';
+import type { ServiceContext } from '../contexte.ts';
 import { recordEvent } from '../enregistrement.ts';
 import { DIALOG_DEFAULT_WHEN_UNARMED, makeDialogState } from '../evenements.ts';
 import { INDICE_PLAFOND, PLAFOND_SORTIE, locatorFromParams, smartResolveLocator } from '../localisateur.ts';
 import { COOKIES_DIR, TRACE_DIR } from '../reglages.ts';
 import { detailsErreur, erreurCodee, intercepteurs } from '../requete.ts';
+import type { ErreurCodee } from '../requete.ts';
 import { bornerValeur, describeLocator } from '../result_util.ts';
+import type { ParamsCible } from '../result_util.ts';
 import { occupationGroupe, ownerFromRequest, placesEnfants, stateFileName } from '../session_util.ts';
 import { MAX_SESSIONS_PER_GROUP, SESSION_TTL_MS, closeSession } from '../sessions.ts';
 
 // ======================== EVALUATE JS ========================
 // Résultat d'un script tenu sous `max` caractères : chaîne coupée, liste ou objet réduit à ses premiers éléments, avec ce qui manque et un conseil.
-function resultatBorne(valeur, max) {
+function resultatBorne(valeur: unknown, max: number) {
     const b = bornerValeur(valeur, max);
     return { result: b.value, ...(b.truncated ? { truncated: true, omitted: b.omitted,
         hint: `${INDICE_PLAFOND} Return only what you need: .slice(0, N), the fields you need, a count.` } : {}) };
@@ -24,18 +27,18 @@ function resultatBorne(valeur, max) {
 const EVAL_TIMEOUT_MS = parseInt(process.env.PW_EVAL_TIMEOUT_MS || '8000', 10);
 
 // Script exécuté comme une expression s'il en est une (`document.title`), sinon comme le corps d'une fonction asynchrone (instructions, `return`, `throw`) : l'erreur rendue est la sienne.
-async function evaluerAvecDelai(cadre, script, delaiMs) {
+async function evaluerAvecDelai(cadre: Page | Frame, script: string, delaiMs: number): Promise<unknown> {
     const enCours = cadre.evaluate(async (corps) => {
-        let fn;
-        try { fn = new Function(`return (async () => { return (${corps}\n); })();`); }
+        let fn: () => Promise<unknown>;
+        try { fn = new Function(`return (async () => { return (${corps}\n); })();`) as () => Promise<unknown>; }
         catch (e) {
             if (!(e instanceof SyntaxError)) throw e;
-            fn = new Function(`return (async () => { ${corps}\n })();`);
+            fn = new Function(`return (async () => { ${corps}\n })();`) as () => Promise<unknown>;
         }
         return await fn();
     }, script);
     enCours.catch(() => {});
-    let minuterie;
+    let minuterie: ReturnType<typeof setTimeout> | undefined;
     const delai = new Promise((_, rejeter) => {
         minuterie = setTimeout(() => rejeter(erreurCodee('eval_timeout',
             `The script did not finish within ${Math.round(Math.max(0, delaiMs) / 1000)} s (a promise that never settles?); it was abandoned and may still run in the page.`,
@@ -50,13 +53,51 @@ async function evaluerAvecDelai(cadre, script, delaiMs) {
 // session), plus la liste des sessions du propriétaire s'il est indiqué.
 const _DEMARRAGE = Date.now();
 
-export function registerMiscRoutes(app, ctx) {
+/** Corps de /evaluate. */
+interface CorpsEvaluation {
+    script?: string;
+    in_all_frames?: boolean;
+}
+
+/** Corps de /save_state et /trace_export. */
+interface CorpsSession {
+    session_id: string;
+}
+
+/** État de l'élément attendu tel que /wait_for_dynamic le sonde (aussi la `baseline` que le client renvoie). */
+interface Sonde {
+    count: number;
+    text: string | null;
+    attr: string | null;
+    visible: boolean;
+}
+
+/** Corps de /wait_for_dynamic : la condition, et la cible (sélecteur, ref ou by_*). */
+interface CorpsAttenteDynamique extends ParamsCible {
+    condition?: string;
+    expected_text?: string;
+    attribute?: string;
+    expected_value?: string;
+    timeout?: number;
+    poll_interval?: number;
+    baseline?: Sonde | null;
+}
+
+/** Corps de /dialog. */
+interface CorpsDialogue {
+    action?: string;
+    input_text?: string;
+    times?: number | string;
+    sticky?: boolean | string;
+}
+
+export function registerMiscRoutes(app: Application, ctx: ServiceContext) {
 const { getSession, autoSnapshot } = intercepteurs(ctx);
 const { sessions } = ctx;
-app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
+app.post('/evaluate', getSession, autoSnapshot, async (req: Request<CorpsEvaluation>, res: Response): Promise<Response | void> => {
     try {
         const { script, in_all_frames = false } = req.body;
-        const { page } = req.session;
+        const { page } = req.session!;
         if (!script || typeof script !== 'string') {
             return res.status(400).json({ error: 'script (string) required' });
         }
@@ -68,54 +109,54 @@ app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
                 try {
                     const r = await evaluerAvecDelai(frame, script, echeance - Date.now());
                     results.push({ frame: frame.url(), result: r });
-                } catch (e) { results.push({ frame: frame.url(), error: e.message, ...detailsErreur(e) }); }
+                } catch (e) { results.push({ frame: frame.url(), error: (e as Error).message, ...detailsErreur(e) }); }
             }
-            recordEvent(req.session, { action: 'eval', script, url: page.url(), in_all_frames: true });
+            void recordEvent(req.session, { action: 'eval', script, url: page.url(), in_all_frames: true });
             const part = Math.floor(PLAFOND_SORTIE / Math.max(1, results.length));
             return res.json({ results: results.map((x) => ('result' in x ? { ...x, ...resultatBorne(x.result, part) } : x)) });
         }
         const result = await evaluerAvecDelai(page, script, EVAL_TIMEOUT_MS);
-        recordEvent(req.session, { action: 'eval', script, url: page.url() });
+        void recordEvent(req.session, { action: 'eval', script, url: page.url() });
         res.json(resultatBorne(result, PLAFOND_SORTIE));
-    } catch (e) { res.status(e.code === 'eval_timeout' ? 408 : 500).json({ error: e.message, ...detailsErreur(e) }); }
+    } catch (e) { res.status((e as ErreurCodee).code === 'eval_timeout' ? 408 : 500).json({ error: (e as Error).message, ...detailsErreur(e) }); }
 });
 
 // ======================== SAVE STATE ========================
-app.post('/save_state', getSession, autoSnapshot, async (req, res) => {
+app.post('/save_state', getSession, autoSnapshot, async (req: Request<CorpsSession>, res: Response): Promise<Response | void> => {
     try {
-        const nom = stateFileName(req.session.owner, req.body.session_id);
+        const nom = stateFileName(req.session!.owner, req.body.session_id);
         if (!nom) return res.status(400).json({ error: 'Identifiant de session invalide.' });
-        await req.session.context.storageState({ path: path.join(COOKIES_DIR, nom) });
+        await req.session!.context.storageState({ path: path.join(COOKIES_DIR, nom) });
         res.json({ status: 'saved', state_id: req.body.session_id });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 
 // ======================== STOP ========================
-app.post('/stop', getSession, async (req, res) => {
+app.post('/stop', getSession, async (req: Request, res: Response) => {
     // Capture les objets vidéo AVANT close (le chemin n'est résolu qu'après).
-    const vids = [];
-    try { for (const pg of (req.session.tabs || [req.session.page])) { const v = pg.video && pg.video(); if (v) vids.push(v); } } catch {}
-    try { if (req.session.traceActive) await req.session.context.tracing.stop().catch(() => {}); } catch {}
+    const vids: Video[] = [];
+    try { for (const pg of (req.session!.tabs || [req.session!.page])) { const v = pg.video && pg.video(); if (v) vids.push(v); } } catch { /* tab already closed: no video */ }
+    try { if (req.session!.traceActive) await req.session!.context.tracing.stop().catch(() => {}); } catch { /* context already closed */ }
     // Même fermeture que le reaper (captures nettoyées, session retirée) ; le
     // verrou de la session est déjà tenu par cette requête.
-    await closeSession(ctx, req.sessionId, 'stop', { lockHeld: true });
-    const video_urls = [];
-    for (const v of vids) { try { const p = await v.path(); if (p) video_urls.push(`/videos/${path.basename(p)}`); } catch {} }
+    await closeSession(ctx, req.sessionId!, 'stop', { lockHeld: true });
+    const video_urls: string[] = [];
+    for (const v of vids) { try { const p = await v.path(); if (p) video_urls.push(`/videos/${path.basename(p)}`); } catch { /* video not saved */ } }
     res.json({ status: 'closed', ...(video_urls.length ? { video_urls } : {}) });
 });
 
 // ======================== TRACE EXPORT (Phase 5) ========================
 // Arrête le tracing et écrit un .zip ouvrable avec `npx playwright show-trace`.
-app.post('/trace_export', getSession, async (req, res) => {
+app.post('/trace_export', getSession, async (req: Request<CorpsSession>, res: Response): Promise<Response | void> => {
     try {
-        if (!req.session.traceActive) return res.json({ ok: false, error: 'tracing non actif (démarre la session avec trace=true)' });
+        if (!req.session!.traceActive) return res.json({ ok: false, error: 'tracing non actif (démarre la session avec trace=true)' });
         const file = `trace_${req.body.session_id}_${Date.now()}.zip`;
-        await req.session.context.tracing.stop({ path: path.join(TRACE_DIR, file) });
-        req.session.traceActive = false;
+        await req.session!.context.tracing.stop({ path: path.join(TRACE_DIR, file) });
+        req.session!.traceActive = false;
         res.json({ ok: true, trace_url: `/traces/${file}`, file: path.join(TRACE_DIR, file), hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
     const now = Date.now();
     const owner = ownerFromRequest(req);
     const sessionList = [];
@@ -160,9 +201,9 @@ app.get('/health', (req, res) => {
 // `polled_value` (ce que l'élément montrait en dernier) et `via`.
 // `baseline` : état initial repassé par le client entre deux tranches de
 // polling, pour que text_changes/count_* ne repartent pas de zéro.
-app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
+app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req: Request<CorpsAttenteDynamique>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const {
             selector,
             condition = 'visible',   // visible | hidden | attached | detached | text_contains | text_changes | attribute_changes | count_increases | count_decreases
@@ -189,9 +230,9 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
         const first = loc.first();
         const label = selector || describeLocator(params, { first: false }) || '?';
 
-        let polled = null;
-        let attrReel = null;
-        const probe = async () => {
+        let polled: Sonde | null = null;
+        let attrReel: string | null = null;
+        const probe = async (): Promise<Sonde> => {
             const count = await loc.count().catch(() => 0);
             if (!count) { attrReel = null; return { count: 0, text: null, attr: null, visible: false }; }
             const text = ((await first.textContent({ timeout: 800 }).catch(() => null)) || '').replace(/\s+/g, ' ').trim().substring(0, 500);
@@ -199,25 +240,25 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
             attrReel = attr;
             // Attribut value d'un champ mot de passe : jamais rendu (masqué aussi si le contrôle échoue).
             if (attr !== null && String(attribute).toLowerCase() === 'value'
-                && await first.evaluate(el => el.type === 'password', undefined, { timeout: 800 }).catch(() => true)) attr = '[password value hidden]';
+                && await first.evaluate((el: HTMLInputElement) => el.type === 'password', undefined, { timeout: 800 }).catch(() => true)) attr = '[password value hidden]';
             const visible = await first.isVisible().catch(() => false);
             return { count, text, attr, visible };
         };
-        const done = (status, extra = {}) => res.json({
+        const done = (status: string, extra: object = {}) => res.json({
             status, condition, selector: label, via, elapsed_ms: Date.now() - start, polled_value: polled, ...extra,
         });
-        const notYet = (msg, extra = {}) => res.status(408).json({
+        const notYet = (msg: string, extra: object = {}) => res.status(408).json({
             error: msg, condition, selector: label, via, elapsed_ms: Date.now() - start, polled_value: polled, ...extra,
         });
 
         // Cas Playwright natif : états du locator
         if (['visible', 'hidden', 'attached', 'detached'].includes(condition)) {
             try {
-                await first.waitFor({ state: condition, timeout });
+                await first.waitFor({ state: condition as 'visible' | 'hidden' | 'attached' | 'detached', timeout });
                 polled = await probe();
                 const box = condition === 'visible' ? await first.boundingBox().catch(() => null) : null;
                 return done(condition === 'visible' ? 'found' : condition, box ? { box } : {});
-            } catch (e) {
+            } catch {
                 polled = await probe();
                 return notYet(`Timeout: '${label}' not ${condition} within ${timeout}ms`);
             }
@@ -231,7 +272,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
         while (Date.now() - start < timeout) {
             const cur = await probe();
             polled = cur;
-            if (condition === 'text_contains' && cur.count && cur.text.includes(expected_text))
+            if (condition === 'text_contains' && cur.count && cur.text!.includes(expected_text))
                 return done('matched', { text: cur.text });
             if (condition === 'text_changes' && cur.count && initial.text !== null && cur.text !== initial.text)
                 return done('changed', { from: initial.text, to: cur.text });
@@ -246,7 +287,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
             await page.waitForTimeout(poll_interval);
         }
         return notYet(`Timeout after ${timeout}ms — condition '${condition}' on '${label}' not met`, { baseline: initial });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 
 // ======================== DIALOGUE : POLITIQUE ARMABLE ====================
@@ -254,9 +295,9 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
 // qu'un dialogue apparaisse — inutilisable pour un agent, qui doit rendre la
 // main pour déclencher l'action qui l'ouvre), on arme et on rend la main tout
 // de suite. Le handler global consulte la politique au moment voulu.
-app.post('/dialog', getSession, async (req, res) => {
+app.post('/dialog', getSession, async (req: Request<CorpsDialogue>, res: Response): Promise<Response | void> => {
     try {
-        const s = req.session;
+        const s = req.session!;
         s.dialogState = s.dialogState || makeDialogState();
         const st = s.dialogState;
         st.history = st.history || [];
@@ -280,10 +321,10 @@ app.post('/dialog', getSession, async (req, res) => {
         st.pending = {
             action,
             input_text: String(input_text || ''),
-            remaining: Math.max(1, Math.min(parseInt(times, 10) || 1, 20)),
+            remaining: Math.max(1, Math.min(parseInt(String(times), 10) || 1, 20)),
             sticky: sticky === true || sticky === 'true',
         };
         res.json({ status: 'armed', ...view() });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 }

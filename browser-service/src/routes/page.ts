@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/page.ts — page tools: /screenshot, /a11y_audit, /visual, /element_info, /wait_for, /network, /extract_table, /extract_text. */
+/** browser-service/src/routes/page.ts — outils de page : /screenshot, /a11y_audit, /visual, /element_info, /wait_for, /network, /extract_table, /extract_text. */
 import fs from 'fs';
 import path from 'path';
+import type { Application, Request, Response } from 'express';
+import type { Frame, Page } from 'playwright';
+import type { ServiceContext } from '../contexte.ts';
 import { INDICE_PLAFOND, PLAFOND_SORTIE, attendrePresence, getAllFrames, resoudreRepli } from '../localisateur.ts';
 import { regionsModifiees, selecteurUnique, sourceDe } from '../page_util.ts';
+import type { Boite, RegionsModifiees } from '../page_util.ts';
 import { BASELINE_DIR, SCREENSHOT_DIR } from '../reglages.ts';
 import { intercepteurs, repondreErreur } from '../requete.ts';
 import { bornerValeur, couperTexte, longueurJsonPy, summarizeNetwork } from '../result_util.ts';
@@ -23,9 +25,109 @@ const VISUAL_DEFAUT_MAX_PIXELS = 200;
 const VISUAL_ATTENTE_MS = parseInt(process.env.PW_VISUAL_WAIT_MS || '5000', 10);
 const COULEUR_MASQUE = '#FF00FF';
 
+/** Élément tel que les rappels côté page le lisent : les propriétés de contrôle de formulaire, de lien et de liste qu'il peut avoir. */
+type ElementLu = HTMLElement & Partial<Pick<HTMLInputElement, 'type' | 'value' | 'placeholder' | 'disabled' | 'checked' | 'readOnly' | 'src'>
+    & Pick<HTMLAnchorElement, 'href'> & Pick<HTMLSelectElement, 'options'>>;
+
+/** Élément interactif numéroté sur la capture annotée. */
+interface ElementAnnote {
+    idx: number;
+    tag: string;
+    role: string | null;
+    text: string;
+    rect: Boite;
+    center: { x: number; y: number };
+    disabled: boolean;
+}
+
+/** Violation WCAG trouvée par /a11y_audit. */
+interface Violation {
+    rule: string;
+    impact: string;
+    selector: string;
+    message: string;
+    text: string;
+    id?: string;
+    count?: number;
+}
+
+/** Tailles de la référence et de la capture courante comparées par /visual. */
+interface DimsVisuel {
+    baseline: { w: number; h: number };
+    current: { w: number; h: number };
+}
+
+/** Comparaison faite dans la page par /visual : tailles trop petites pour comparer, ou diff de la zone commune. */
+type ComparaisonVisuelle = { size_mismatch: true; dims: DimsVisuel }
+    | { size_mismatch?: undefined; w: number; h: number; diff_pixels: number; total: number; diff_ratio: number;
+        dims: DimsVisuel; size_drift: number; diff_png: string; zones: RegionsModifiees };
+
+/** Page ou cadre fouillé par /wait_for (une page n'a pas isDetached). */
+type Cadre = Pick<Frame, 'waitForSelector'> & Partial<Pick<Frame, 'isDetached'>>;
+
+/** Corps de /screenshot. */
+interface CorpsCapture {
+    session_id: string;
+    selector?: string;
+    full_page?: boolean;
+    annotate?: boolean;
+    skip_image?: boolean;
+}
+
+/** Corps de /a11y_audit. */
+interface CorpsAudit {
+    scope?: string;
+}
+
+/** Corps de /visual. */
+interface CorpsVisuel {
+    name?: string;
+    selector?: string | null;
+    threshold?: number;
+    pixel_tolerance?: number;
+    update?: boolean;
+    mask?: string[];
+}
+
+/** Corps de /element_info. */
+interface CorpsElement {
+    selector: string;
+}
+
+/** Corps de /wait_for. */
+interface CorpsAttente {
+    selector: string;
+    state?: 'attached' | 'detached' | 'visible' | 'hidden';
+    timeout?: number;
+}
+
+/** Requête de /network (un type, pas une interface : il doit rester assignable à la Query générique). */
+type QueryReseau = {
+    filter?: string;
+    last?: string;
+    types?: string;
+};
+
+/** Corps de /extract_table. */
+interface CorpsTableau {
+    selector?: string;
+    max_rows?: number | string;
+    offset?: number | string;
+    styles?: boolean;
+}
+
+/** Corps de /extract_text. */
+interface CorpsTexte {
+    selector?: string;
+    include_hidden?: boolean;
+    include_frames?: boolean;
+    pierce_shadow?: boolean;
+    offset?: number | string;
+}
+
 // Rectangles des zones masquées en pixels de la capture (page entière, ou relatifs à l'élément `selector`), et les masques sans élément.
-async function zonesMasquees(page, selector, masques) {
-    const rects = [], absents = [];
+async function zonesMasquees(page: Page, selector: string | null, masques: string[]) {
+    const rects: Boite[] = [], absents: string[] = [];
     const origine = selector ? await page.locator(selector).first().evaluate((e) => {
         const r = e.getBoundingClientRect(); return { x: r.left, y: r.top };
     }).catch(() => ({ x: 0, y: 0 })) : null;
@@ -42,7 +144,7 @@ async function zonesMasquees(page, selector, masques) {
 
 // ======================== EXTRACT TEXT ========================
 // Morceau d'un texte à partir de `offset`, sous le plafond commun : longueur totale, et la suite à demander s'il en reste.
-function morceauTexte(complet, offset) {
+function morceauTexte(complet: string, offset: number) {
     const morceau = couperTexte(complet.slice(offset), PLAFOND_SORTIE);
     const fin = offset + morceau.length;
     return { text: morceau, total_length: complet.length, ...(offset ? { offset } : {}),
@@ -50,12 +152,12 @@ function morceauTexte(complet, offset) {
                                           hint: `${INDICE_PLAFOND} Call again with offset=${fin} for the rest, or narrow with target=.` } : {}) };
 }
 
-export function registerPageRoutes(app, ctx) {
+export function registerPageRoutes(app: Application, ctx: ServiceContext) {
 const { getSession, autoSnapshot } = intercepteurs(ctx);
 // ======================== SCREENSHOT ANNOTÉ ========================
-app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
+app.post('/screenshot', getSession, autoSnapshot, async (req: Request<CorpsCapture>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const { selector, full_page = false, annotate = false, skip_image = false } = req.body;
         const sid = req.body.session_id;
         const filename = `shot_${sid}_${Date.now()}.png`;
@@ -66,12 +168,12 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
             await locator.screenshot({ path: filepath });
         } else if (annotate) {
             const elementsMap = await page.evaluate(() => {
-                const interactives = document.querySelectorAll(
+                const interactives = document.querySelectorAll<ElementLu>(
                     'a, button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], ' +
                     '[role="tab"], [role="menuitem"], [role="option"], [role="combobox"], [onclick], ' +
                     '[tabindex]:not([tabindex="-1"]), summary'
                 );
-                const map = [];
+                const map: ElementAnnote[] = [];
                 let idx = 0;
                 interactives.forEach(el => {
                     const rect = el.getBoundingClientRect();
@@ -79,7 +181,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
                     const style = window.getComputedStyle(el);
                     if (style.display === 'none' || style.visibility === 'hidden') return;
                     const label = document.createElement('div');
-                    label.textContent = idx;
+                    label.textContent = String(idx);
                     label.style.cssText = `position:fixed;z-index:99999;background:#FF0000;color:#FFF;font-size:11px;font-weight:bold;padding:1px 4px;border-radius:3px;pointer-events:none;line-height:1.2;left:${rect.left}px;top:${Math.max(0, rect.top - 16)}px;`;
                     label.className = '__pw_annotation__';
                     document.body.appendChild(label);
@@ -113,33 +215,33 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
 // MPL-2.0, hors politique MIT/Apache-2.0). Couvre les violations à fort impact
 // pour une IHM : alt d'image, label de champ, nom accessible, contraste AA,
 // ids dupliqués, lang du document, ordre des titres, tabindex positif.
-app.post('/a11y_audit', getSession, async (req, res) => {
+app.post('/a11y_audit', getSession, async (req: Request<CorpsAudit>, res: Response) => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const scope = req.body.scope || 'body';
         const report = await page.evaluate(({ scopeSel, srcUnique }) => {
             const root = document.querySelector(scopeSel) || document.body;
-            const V = [];
-            const unique = new Function(`return (${srcUnique})`)();
+            const V: Violation[] = [];
+            const unique: typeof selecteurUnique = new Function(`return (${srcUnique})`)();
             // Sélecteur lisible (id, classes) s'il désigne cet élément seul, sinon chemin vérifié unique.
-            const candidat = (el) => {
+            const candidat = (el: Element) => {
                 let s = el.tagName.toLowerCase();
                 if (el.id) s = '#' + CSS.escape(el.id);
                 else if (typeof el.className === 'string' && el.className.trim())
                     s += '.' + el.className.trim().split(/\s+/).slice(0, 2).map((c) => CSS.escape(c)).join('.');
                 return s;
             };
-            const sel = (el) => (el && el.tagName ? unique(el, candidat(el), candidat) : '');
-            const add = (rule, impact, el, message) => V.push({
+            const sel = (el: Element | null | undefined) => (el && el.tagName ? unique(el, candidat(el), candidat) : '');
+            const add = (rule: string, impact: string, el: Element, message: string) => V.push({
                 rule, impact, selector: sel(el), message,
                 text: ((el && el.textContent) || '').trim().slice(0, 60),
             });
-            const visible = (el) => {
+            const visible = (el: Element) => {
                 const r = el.getBoundingClientRect(); const st = getComputedStyle(el);
                 return r.width > 0 && r.height > 0 && st.visibility !== 'hidden'
                     && st.display !== 'none' && el.getAttribute('aria-hidden') !== 'true';
             };
-            const accName = (el) => {
+            const accName = (el: Element & { labels?: NodeListOf<HTMLLabelElement> | null }) => {
                 const al = el.getAttribute('aria-label'); if (al && al.trim()) return al.trim();
                 const lb = el.getAttribute('aria-labelledby');
                 if (lb) { const t = lb.split(/\s+/).map(id => { const e = document.getElementById(id); return e ? e.textContent : ''; }).join(' ').trim(); if (t) return t; }
@@ -163,23 +265,23 @@ app.post('/a11y_audit', getSession, async (req, res) => {
                 if (visible(el) && !accName(el)) add('control-name', 'serious', el, `${el.tagName.toLowerCase()} sans nom accessible`);
             });
             // 4. ids dupliqués
-            const ids = {}; root.querySelectorAll('[id]').forEach(el => { (ids[el.id] = ids[el.id] || []).push(el); });
+            const ids: Record<string, Element[]> = {}; root.querySelectorAll('[id]').forEach(el => { (ids[el.id] = ids[el.id] || []).push(el); });
             Object.entries(ids).filter(([, els]) => els.length > 1).forEach(([id, els]) => V.push({ rule: 'duplicate-id', impact: 'moderate', selector: sel(els[0]), id, count: els.length, message: `id "${id}" dupliqué ${els.length}×`, text: '' }));
             // 5. lang du document
             if (!document.documentElement.getAttribute('lang')) V.push({ rule: 'html-lang', impact: 'serious', selector: 'html', message: '<html> sans attribut lang', text: '' });
             // 6. ordre des titres
-            let prev = 0; root.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { if (!visible(h)) return; const lvl = +h.tagName[1]; if (prev && lvl > prev + 1) add('heading-order', 'moderate', h, `saut de titre h${prev}→h${lvl}`); prev = lvl; });
+            let prev = 0; root.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { if (!visible(h)) return; const lvl = +h.tagName[1]!; if (prev && lvl > prev + 1) add('heading-order', 'moderate', h, `saut de titre h${prev}→h${lvl}`); prev = lvl; });
             // 7. tabindex positif
-            root.querySelectorAll('[tabindex]').forEach(el => { const t = parseInt(el.getAttribute('tabindex'), 10); if (t > 0) add('tabindex', 'moderate', el, `tabindex=${t} (>0) casse l'ordre de tabulation`); });
+            root.querySelectorAll('[tabindex]').forEach(el => { const t = parseInt(el.getAttribute('tabindex')!, 10); if (t > 0) add('tabindex', 'moderate', el, `tabindex=${t} (>0) casse l'ordre de tabulation`); });
             // 8. contraste du texte (WCAG 2.x AA : 4,5:1, 3:1 pour le grand texte) ; fond résolu par les ancêtres, images et dégradés écartés
             const MAX_CONTRAST = 500;
-            const parseRGBA = (s) => { const m = String(s).match(/[\d.]+/g); return m && m.length >= 3 ? { c: m.slice(0, 3).map(Number), a: m.length > 3 ? Number(m[3]) : 1 } : null; };
-            const lum = rgb => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]); };
-            const over = (top, under) => top.c.map((v, i) => v * top.a + under[i] * (1 - top.a));
+            const parseRGBA = (s: string) => { const m = String(s).match(/[\d.]+/g); return m && m.length >= 3 ? { c: m.slice(0, 3).map(Number), a: m.length > 3 ? Number(m[3]) : 1 } : null; };
+            const lum = (rgb: number[]) => { const f = (c: number) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(rgb[0]!) + 0.7152 * f(rgb[1]!) + 0.0722 * f(rgb[2]!); };
+            const over = (top: { c: number[]; a: number }, under: number[]) => top.c.map((v, i) => v * top.a + under[i]! * (1 - top.a));
             // Fond effectif : couches de fond des ancêtres composées sur blanc ; `null` si une image ou un dégradé intervient.
-            const bgOf = el => {
-                const couches = [];
-                for (let e = el; e; e = e.parentElement) {
+            const bgOf = (el: Element) => {
+                const couches: { c: number[]; a: number }[] = [];
+                for (let e: Element | null = el; e; e = e.parentElement) {
                     const st = getComputedStyle(e);
                     if (st.backgroundImage && st.backgroundImage !== 'none') return null;
                     const k = parseRGBA(st.backgroundColor);
@@ -191,7 +293,7 @@ app.post('/a11y_audit', getSession, async (req, res) => {
             const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
             for (let n = walker.nextNode(); n; n = walker.nextNode()) {
                 const el = n.parentElement;
-                if (!el || portes.has(el) || !n.textContent.trim() || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
+                if (!el || portes.has(el) || !n.textContent!.trim() || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
                 portes.add(el);
                 if (!visible(el) || el.closest('[disabled]')) continue;
                 if (checked >= MAX_CONTRAST) { capped = true; break; }
@@ -207,8 +309,8 @@ app.post('/a11y_audit', getSession, async (req, res) => {
                 const min = large ? 3 : 4.5;
                 if (ratio < min) add('color-contrast', 'serious', el, `contrast ${ratio.toFixed(2)}:1 < ${min}:1 (WCAG AA, ${large ? 'large' : 'normal'} text)`);
             }
-            const by_impact = V.reduce((a, v) => { a[v.impact] = (a[v.impact] || 0) + 1; return a; }, {});
-            const by_rule = V.reduce((a, v) => { a[v.rule] = (a[v.rule] || 0) + 1; return a; }, {});
+            const by_impact = V.reduce<Record<string, number>>((a, v) => { a[v.impact] = (a[v.impact] || 0) + 1; return a; }, {});
+            const by_rule = V.reduce<Record<string, number>>((a, v) => { a[v.rule] = (a[v.rule] || 0) + 1; return a; }, {});
             // Audit tools web 2026-09-05 — `total/by_impact` seuls ne disaient pas
             // si 45 violations = 45 contrastes réels ou un checker incomplet.
             return { ok: true, scope: scopeSel, violations: V.slice(0, 100), total: V.length,
@@ -219,22 +321,22 @@ app.post('/a11y_audit', getSession, async (req, res) => {
                      passed: V.length === 0 };
         }, { scopeSel: scope, srcUnique: sourceDe(selecteurUnique) });
         res.json(report);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 
-app.post('/visual', getSession, async (req, res) => {
+app.post('/visual', getSession, async (req: Request<CorpsVisuel>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const name = (req.body.name || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
         const selector = req.body.selector || null;
         // Sans seuil explicite : au plus 0,1 % des pixels ET au plus VISUAL_DEFAUT_MAX_PIXELS (0,86 % d'une petite page passait à 1 %).
         const seuilExplicite = typeof req.body.threshold === 'number';
-        const threshold = seuilExplicite ? req.body.threshold : 0.001;
+        const threshold = seuilExplicite ? req.body.threshold! : 0.001;
         const tol = typeof req.body.pixel_tolerance === 'number' ? req.body.pixel_tolerance : 30;
         const update = req.body.update === true;
         // Références par propriétaire : un compte ne compare ni n'écrase
         // celles d'un autre.
-        const dossierRef = path.join(BASELINE_DIR, safeOwner(req.session.owner) || '_');
+        const dossierRef = path.join(BASELINE_DIR, safeOwner(req.session!.owner) || '_');
         fs.mkdirSync(dossierRef, { recursive: true });
         const baselinePath = path.join(dossierRef, `${name}.png`);
 
@@ -260,8 +362,8 @@ app.post('/visual', getSession, async (req, res) => {
 
         const baseB64 = 'data:image/png;base64,' + fs.readFileSync(baselinePath).toString('base64');
         const curB64 = 'data:image/png;base64,' + curBuf.toString('base64');
-        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions, rects, couleur }) => {
-            const load = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
+        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions, rects, couleur }): Promise<ComparaisonVisuelle> => {
+            const load = (src: string) => new Promise<HTMLImageElement>((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
             const [a, b] = await Promise.all([load(baseB64), load(curB64)]);
             // Une capture fullPage n'est PAS stable au pixel près : mesuré, le
             // scrollHeight passe de 1621 à 1622 entre la pose du baseline et la
@@ -279,7 +381,7 @@ app.post('/visual', getSession, async (req, res) => {
             const dw = Math.abs(a.width - b.width), dh = Math.abs(a.height - b.height);
             const size_drift = Math.max(dw / Math.max(1, w), dh / Math.max(1, h));
             const c = document.createElement('canvas'); c.width = w; c.height = h;
-            const x = c.getContext('2d');
+            const x = c.getContext('2d')!;
             const peindre = () => { x.fillStyle = couleur; for (const r of rects) x.fillRect(r.x, r.y, r.w, r.h); };
             x.drawImage(a, 0, 0); peindre(); const da = x.getImageData(0, 0, w, h).data;
             x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); peindre(); const db = x.getImageData(0, 0, w, h).data;
@@ -288,15 +390,15 @@ app.post('/visual', getSession, async (req, res) => {
             const nc = new Uint32Array(cols * rows), cx0 = new Uint32Array(cols * rows), cy0 = new Uint32Array(cols * rows);
             const cx1 = new Uint32Array(cols * rows), cy1 = new Uint32Array(cols * rows);
             for (let i = 0; i < da.length; i += 4) {
-                if (Math.abs(da[i] - db[i]) > tol || Math.abs(da[i + 1] - db[i + 1]) > tol || Math.abs(da[i + 2] - db[i + 2]) > tol) {
+                if (Math.abs(da[i]! - db[i]!) > tol || Math.abs(da[i + 1]! - db[i + 1]!) > tol || Math.abs(da[i + 2]! - db[i + 2]!) > tol) {
                     nd++; od[i] = 255; od[i + 1] = 0; od[i + 2] = 0; od[i + 3] = 255;   // rouge = différence
                     const p = i >> 2, px = p % w, py = (p - px) / w, k = ((py / C) | 0) * cols + ((px / C) | 0);
-                    if (!nc[k]++) { cx0[k] = px; cy0[k] = py; cx1[k] = px; cy1[k] = py; }
-                    else { if (px < cx0[k]) cx0[k] = px; if (px > cx1[k]) cx1[k] = px; cy1[k] = py; }
-                } else { od[i] = db[i]; od[i + 1] = db[i + 1]; od[i + 2] = db[i + 2]; od[i + 3] = 60; } // fond atténué
+                    if (!nc[k]!++) { cx0[k] = px; cy0[k] = py; cx1[k] = px; cy1[k] = py; }
+                    else { if (px < cx0[k]!) cx0[k] = px; if (px > cx1[k]!) cx1[k] = px; cy1[k] = py; }
+                } else { od[i] = db[i]!; od[i + 1] = db[i + 1]!; od[i + 2] = db[i + 2]!; od[i + 3] = 60; } // fond atténué
             }
             x.putImageData(out, 0, 0);
-            const zones = new Function(`return (${srcRegions})`)()(cols, rows, nc, cx0, cy0, cx1, cy1, maxRegions);
+            const zones: RegionsModifiees = new Function(`return (${srcRegions})`)()(cols, rows, nc, cx0, cy0, cx1, cy1, maxRegions);
             return { w, h, diff_pixels: nd, total: w * h, diff_ratio: nd / (w * h),
                      dims, size_drift, diff_png: c.toDataURL('image/png'), zones };
         }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS, rects: zonesMasque.rects, couleur: COULEUR_MASQUE });
@@ -319,7 +421,7 @@ app.post('/visual', getSession, async (req, res) => {
         const diffName = `visual_${name}_diff_${ts}.png`;
         const baseName = `visual_${name}_baseline_${ts}.png`;
         fs.copyFileSync(baselinePath, path.join(SCREENSHOT_DIR, baseName));
-        fs.writeFileSync(path.join(SCREENSHOT_DIR, diffName), Buffer.from(result.diff_png.split(',')[1], 'base64'));
+        fs.writeFileSync(path.join(SCREENSHOT_DIR, diffName), Buffer.from(result.diff_png.split(',')[1]!, 'base64'));
 
         // Audit tools web 2026-09-05 — deux causes d'échec DISTINCTES, dites
         // séparément : pixels au-delà du seuil, et/ou dimensions qui ont bougé.
@@ -336,23 +438,23 @@ app.post('/visual', getSession, async (req, res) => {
             ...(result.size_drift ? { size_drift: result.size_drift } : {}),
             ...(sizeChanged ? { size_changed: true, message: 'la page a changé de dimensions' } : {}),
             screenshot_url: `/screenshots/${curName}`, baseline_url: `/screenshots/${baseName}`, diff_url: `/screenshots/${diffName}` });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 
 // ======================== ELEMENT INFO ========================
-app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
+app.post('/element_info', getSession, autoSnapshot, async (req: Request<CorpsElement>, res: Response) => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const { locator } = await resoudreRepli(page, req.body.selector);
-        const info = await locator.evaluate(el => {
+        const info = await locator.evaluate((el: ElementLu) => {
             const rect = el.getBoundingClientRect();
             const style = window.getComputedStyle(el);
-            function toHex(rgb) {
+            function toHex(rgb: string) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
                 const [r, g, b, a] = m.map(Number);
                 if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+                return '#' + [r, g, b].map(x => Math.round(x!).toString(16).padStart(2, '0')).join('');
             }
             return {
                 tag: el.tagName.toLowerCase(), id: el.id,
@@ -376,7 +478,7 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
                     text: toHex(style.color), bg: toHex(style.backgroundColor),
                     border: toHex(style.borderColor),
                 },
-                options: el.tagName === 'SELECT' ? Array.from(el.options).map(o => ({ value: o.value, label: o.text, selected: o.selected })) : undefined,
+                options: el.tagName === 'SELECT' ? Array.from(el.options!).map(o => ({ value: o.value, label: o.text, selected: o.selected })) : undefined,
             };
         });
         res.json(info);
@@ -384,20 +486,20 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
 });
 
 // ======================== WAIT FOR ========================
-app.post('/wait_for', getSession, autoSnapshot, async (req, res) => {
+app.post('/wait_for', getSession, autoSnapshot, async (req: Request<CorpsAttente>, res: Response) => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const { selector, state = 'visible', timeout = 15000 } = req.body;
-        const allFrames = [page, ...getAllFrames(page)];
+        const allFrames: Cadre[] = [page, ...getAllFrames(page)];
         let found = false;
         for (const frame of allFrames) {
             if (frame.isDetached?.()) continue;
             try { await frame.waitForSelector(selector, { state, timeout: Math.min(timeout, 5000) }); found = true; break; }
-            catch (e) {}
+            catch { /* not in this frame within 5 s: next one */ }
         }
         if (!found) await page.waitForSelector(selector, { state, timeout });
         res.json({ status: 'found' });
-    } catch (e) { res.status(500).json({ error: e.message, status: 'not_found' }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message, status: 'not_found' }); }
 });
 
 // ======================== NETWORK LOG ========================
@@ -405,56 +507,56 @@ app.post('/wait_for', getSession, autoSnapshot, async (req, res) => {
 // seulement. Désormais : documents + XHR/fetch, `by_host` sur tout le journal
 // filtré, `total` avant plafond, et sous le plafond les entrées document /
 // same-origin d'abord (cf. summarizeNetwork).
-app.get('/network', getSession, autoSnapshot, async (req, res) => {
+app.get('/network', getSession, autoSnapshot, async (req: Request<unknown, QueryReseau>, res: Response) => {
     try {
-        const { networkLog, page } = req.session;
+        const { networkLog, page } = req.session!;
         const { filter, last = 50, types } = req.query;
         const typeSet = types ? new Set(String(types).split(',').map(t => t.trim()).filter(Boolean)) : null;
         const out = summarizeNetwork(networkLog, { last, filter: filter || '', types: typeSet });
-        let pageUrl = ''; try { pageUrl = page.url(); } catch (_) {}
+        let pageUrl = ''; try { pageUrl = page.url(); } catch { /* page closed */ }
         res.json({ ...out, page_url: pageUrl });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 
 // ======================== EXTRACT TABLE ========================
 // Lignes d'un tableau par pages (`max_rows`, 50 par défaut, `offset`), texte des cellules seul sauf `styles` (couleurs), sous le plafond commun.
-app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
+app.post('/extract_table', getSession, autoSnapshot, async (req: Request<CorpsTableau>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const selector = req.body.selector || 'table';
-        const maxRows = Math.max(1, Math.min(parseInt(req.body.max_rows, 10) || 50, 500));
-        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+        const maxRows = Math.max(1, Math.min(parseInt(String(req.body.max_rows), 10) || 50, 500));
+        const offset = Math.max(0, parseInt(String(req.body.offset), 10) || 0);
         const styles = req.body.styles === true;
         const data = await page.evaluate(({ sel, offset, maxRows, styles }) => {
-            function toHex(rgb) {
+            function toHex(rgb: string) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
                 const [r, g, b, a] = m.map(Number);
                 if (a !== undefined && a < 0.05) return null;
-                return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+                return '#' + [r, g, b].map(x => Math.round(x!).toString(16).padStart(2, '0')).join('');
             }
-            const net = (c) => (c.innerText || '').replace(/\s+/g, ' ').trim();
-            let table;
-            try { table = document.querySelector(sel); } catch (e) { return { error: `Invalid selector "${sel}".` }; }
+            const net = (c: HTMLElement) => (c.innerText || '').replace(/\s+/g, ' ').trim();
+            let table: HTMLElement | null;
+            try { table = document.querySelector<HTMLElement>(sel); } catch { return { error: `Invalid selector "${sel}".` }; }
             if (!table) return { error: `No element matches "${sel}".` };
             const tag = table.tagName.toLowerCase();
 
             if (tag === 'table') {
-                const tete = Array.from(table.querySelectorAll('thead th, thead td, tr:first-child th'));
+                const tete = Array.from(table.querySelectorAll<HTMLElement>('thead th, thead td, tr:first-child th'));
                 const headers = tete.map(net);
                 const lignes = Array.from(table.querySelectorAll('tbody tr, tr')).filter((row, i) =>
                     !(i === 0 && headers.length > 0 && row.querySelector('th')) && row.querySelectorAll('td, th').length > 0);
                 const rows = lignes.slice(offset, offset + maxRows).map((row) => {
-                    const out = {};
-                    const actions = [];
-                    row.querySelectorAll('td, th').forEach((c, j) => {
+                    const out: Record<string, unknown> = {};
+                    const actions: { column: string; text: string; tag: string; href?: string }[] = [];
+                    row.querySelectorAll<HTMLElement>('td, th').forEach((c, j) => {
                         const key = headers[j] || `col_${j}`;
                         if (styles) {
                             const cs = window.getComputedStyle(c);
                             out[key] = { text: net(c), bg: toHex(cs.backgroundColor), color: toHex(cs.color) };
                         } else out[key] = net(c);
-                        for (const btn of c.querySelectorAll('button, a, [role="button"]'))
-                            actions.push({ column: key, text: btn.textContent.trim().substring(0, 50), tag: btn.tagName.toLowerCase(), ...(btn.href ? { href: btn.href } : {}) });
+                        for (const btn of c.querySelectorAll<ElementLu>('button, a, [role="button"]'))
+                            actions.push({ column: key, text: btn.textContent!.trim().substring(0, 50), tag: btn.tagName.toLowerCase(), ...(btn.href ? { href: btn.href } : {}) });
                     });
                     if (styles) out._row_bg = toHex(window.getComputedStyle(row).backgroundColor);
                     if (actions.length) out._actions = actions;
@@ -466,7 +568,7 @@ app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
 
             // Pseudo-table (divs avec role=grid, etc.)
             const roleRows = Array.from(table.querySelectorAll('[role="row"], [style*="display: table-row"], [class*="row"]'))
-                .map(row => Array.from(row.querySelectorAll('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]')).map(net))
+                .map(row => Array.from(row.querySelectorAll<HTMLElement>('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]')).map(net))
                 .filter(cells => cells.length > 0);
             if (roleRows.length > 0) return { type: 'pseudo-table', rows: roleRows.slice(offset, offset + maxRows), total_rows: roleRows.length };
 
@@ -477,43 +579,43 @@ app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
         if (!Array.isArray(data.rows)) return res.json(data);
         const { rows, ...entete } = data;
         const b = bornerValeur(rows, PLAFOND_SORTIE - longueurJsonPy(entete) - 400);
-        const rendues = b.value.length;
-        const suite = offset + rendues < data.total_rows ? offset + rendues : null;
+        const rendues = b.value!.length;
+        const suite = offset + rendues < data.total_rows! ? offset + rendues : null;
         res.json({ ...entete, rows: b.value, offset, count: rendues,
-                   ...(suite !== null ? { truncated: true, next_offset: suite, omitted: `${data.total_rows - offset - rendues} of ${data.total_rows} rows after this page`,
+                   ...(suite !== null ? { truncated: true, next_offset: suite, omitted: `${data.total_rows! - offset - rendues} of ${data.total_rows} rows after this page`,
                                           hint: `${b.truncated ? `${INDICE_PLAFOND} ` : ''}Call again with offset=${suite} for the next rows (max= rows per call, up to 500).` } : {}) });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
-app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
+app.post('/extract_text', getSession, autoSnapshot, async (req: Request<CorpsTexte>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const { selector = 'body', include_hidden = false, include_frames = false, pierce_shadow = true } = req.body;
-        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+        const offset = Math.max(0, parseInt(String(req.body.offset), 10) || 0);
         const { locator } = await resoudreRepli(page, selector);
         const text = include_hidden
             ? await locator.evaluate(el => el.textContent)
             : await locator.innerText();
-        const clean = (t) => (t || '').replace(/\s+/g, ' ').trim();
+        const clean = (t: string | null) => (t || '').replace(/\s+/g, ' ').trim();
         // Le texte PROPRE d'un shadow root (ouvert) n'apparaît jamais dans innerText : celui des hôtes DANS la cible (elle comprise) est ajouté.
         let shadowText = '';
         if (pierce_shadow !== false) {
             shadowText = await locator.evaluate((cible) => {
-                const parts = [];
-                const textOf = (root) => {
+                const parts: string[] = [];
+                const textOf = (root: Node) => {
                     let out = '';
                     const it = document.createNodeIterator(root, NodeFilter.SHOW_TEXT, {
                         acceptNode: n => { const p = n.parentElement; return p && /^(STYLE|SCRIPT|TEMPLATE|NOSCRIPT)$/.test(p.tagName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; },
                     });
-                    let n; while ((n = it.nextNode())) out += n.textContent + ' ';
+                    let n: Node | null; while ((n = it.nextNode())) out += n.textContent + ' ';
                     return out.replace(/\s+/g, ' ').trim();
                 };
-                const hote = (host, depth) => {
+                const hote = (host: Element, depth: number) => {
                     const sr = host.shadowRoot; if (!sr) return;
                     const t = textOf(sr);
                     if (t) parts.push(`[shadow ${host.tagName.toLowerCase()}] ${t.substring(0, 2000)}`);
                     walk(sr, depth + 1);
                 };
-                const walk = (root, depth) => {
+                const walk = (root: Element | ShadowRoot, depth: number) => {
                     if (depth > 4) return;
                     for (const host of root.querySelectorAll('*')) hote(host, depth);
                 };
@@ -533,10 +635,10 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
                 try {
                     const ft = await Promise.race([
                         f.locator('body').innerText(),
-                        new Promise(r => setTimeout(() => r(null), 2500)),
+                        new Promise<null>(r => setTimeout(() => r(null), 2500)),
                     ]);
                     if (ft && clean(ft)) { parts.push(`\n[iframe ${f.url()}]\n` + clean(ft)); read++; }
-                } catch (e) {}
+                } catch { /* frame detached meanwhile */ }
             }
             if (shadowText) parts.push(shadowText);
             return res.json({

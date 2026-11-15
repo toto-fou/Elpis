@@ -1,23 +1,83 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/observation.ts — /expect, /element_screenshot, /observe: assertions, element crop and page perception (indexed, ax, som). */
+/** browser-service/src/routes/observation.ts — /expect, /element_screenshot, /observe : assertions, recadrage d'élément et perception de la page (indexed, ax, som). */
 import path from 'path';
+
+import type { Application, Request, Response } from 'express';
+
 import { screenshotOnFailure } from '../captures.ts';
+import type { ServiceContext } from '../contexte.ts';
 import { locatorFromParams } from '../localisateur.ts';
 import { selecteurUnique, sourceDe } from '../page_util.ts';
+import type { Boite } from '../page_util.ts';
 import { SCREENSHOT_DIR } from '../reglages.ts';
 import { intercepteurs } from '../requete.ts';
 import { echapperDsl } from '../result_util.ts';
+import type { ParamsCible } from '../result_util.ts';
 
+/** Corps de /expect : assertion, valeur attendue (ou attr / attr_value pour attr-equals) et cible (ref ou by_*). */
+interface CorpsExpect extends Pick<ParamsCible, 'ref' | 'by_role' | 'by_name' | 'by_text' | 'by_label' | 'by_placeholder'
+    | 'by_test_id' | 'by_alt' | 'by_title' | 'by_css' | 'by_xpath' | 'nth'> {
+    assertion?: string;
+    value?: string;
+    timeout_ms?: number;
+    attr?: string;
+    attr_value?: string;
+}
 
-export function registerObserveRoutes(app, ctx) {
+/** Résultat de /expect ; une assertion en échec ajoute sa capture et un indice. */
+interface ResultatExpect {
+    pass: boolean;
+    assertion: string;
+    expected: string;
+    actual: string | number | boolean | null;
+    duration_ms: number;
+    screenshot_path?: string;
+    screenshot_file?: string;
+    hint?: string;
+}
+
+/** Corps de /element_screenshot : la cible, et la session pour le nom du fichier. */
+interface CorpsCaptureElement extends ParamsCible {
+    session_id?: string;
+}
+
+/** Requête de /observe. */
+interface QueryObserve {
+    session_id?: string;
+    mode?: string;
+    viewport_only?: string;
+    max_items?: string;
+    since_step?: string;
+    pierce_shadow?: string;
+}
+
+/** Élément lu dans la page : les champs de contrôle de formulaire sont indéfinis sur les autres éléments. */
+type Champ = Element & Partial<Pick<HTMLInputElement, 'type' | 'value'>> & Partial<Pick<HTMLSelectElement, 'options'>> & { onclick?: unknown };
+
+/** Élément listé par /observe. */
+interface ItemObserve {
+    i: number;
+    type: string;
+    text: string;
+    selector: string;
+    target_dsl: string;
+    rect: Boite;
+    in_viewport: boolean;
+    detected_by?: string;
+    in_shadow?: boolean;
+    shadow_host?: string;
+    draggable?: boolean;
+    expanded?: boolean;
+    options?: { value: string; label: string; selected: boolean }[];
+}
+
+export function registerObserveRoutes(app: Application, ctx: ServiceContext): void {
 const { getSession, autoSnapshot } = intercepteurs(ctx);
 // ── /expect : assertion primitive for IHM testing ────────────────────
-app.post('/expect', getSession, autoSnapshot, async (req, res) => {
+app.post('/expect', getSession, autoSnapshot, async (req: Request<CorpsExpect>, res: Response): Promise<Response | void> => {
     const startMs = Date.now();
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const {
             assertion, value = '', timeout_ms = 5000,
             ref, by_role, by_name, by_text, by_label, by_placeholder,
@@ -38,7 +98,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
             while (Date.now() < deadline) {
                 if (assertion === 'url-equals')      { actual = page.url(); pass = actual === value; }
                 else if (assertion === 'url-contains') { actual = page.url(); pass = actual.includes(value); }
-                else if (assertion === 'url-matches')  { actual = page.url(); try { pass = new RegExp(value).test(actual); } catch (e) { return res.status(400).json({ error: `Invalid regex: ${e.message}` }); } }
+                else if (assertion === 'url-matches')  { actual = page.url(); try { pass = new RegExp(value).test(actual); } catch (e) { return res.status(400).json({ error: `Invalid regex: ${(e as Error).message}` }); } }
                 else if (assertion === 'title-equals') { actual = await page.title().catch(() => ''); pass = actual === value; }
                 else if (assertion === 'title-contains') { actual = await page.title().catch(() => ''); pass = actual.includes(value); }
                 if (pass) break;
@@ -56,7 +116,8 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                                             { first: !COUNTING.includes(assertion) });
         if (!loc) return res.status(400).json({ error: 'Could not resolve target. Check params.' });
 
-        let pass = false, actual = null, expected = value, champSecret = false;
+        let pass = false, actual: string | number | boolean | null = null, champSecret = false;
+        const expected = value;
         try {
             // Most assertions tolerate a brief wait. We use a manual loop because
             // Playwright's `expect` API isn't loaded server-side.
@@ -100,7 +161,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                     }
                     case 'value-equals': {
                         // Valeur et nature du champ lues ensemble : le masque ne dépend pas d'une seconde lecture.
-                        const lu = await loc.evaluate(el => ({ v: el.value ?? '', pw: el.type === 'password' }), undefined, { timeout: POLL })
+                        const lu = await loc.evaluate((el: Champ) => ({ v: el.value ?? '', pw: el.type === 'password' }), undefined, { timeout: POLL })
                             .catch(() => ({ v: '', pw: false }));
                         champSecret = lu.pw;
                         actual = lu.v;
@@ -128,7 +189,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         const got = await loc.getAttribute(attrName, { timeout: POLL }).catch(() => null);
                         // Attribut value d'un champ mot de passe (recopié par React) : masqué, et masqué aussi si le contrôle échoue.
                         if (String(attrName).toLowerCase() === 'value' && got !== null) {
-                            champSecret = await loc.evaluate(el => el.type === 'password', undefined, { timeout: POLL }).catch(() => true);
+                            champSecret = await loc.evaluate((el: Champ) => el.type === 'password', undefined, { timeout: POLL }).catch(() => true);
                         }
                         actual = got;
                         return got === attrVal;
@@ -143,12 +204,12 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                 await new Promise(r => setTimeout(r, POLL));
             }
         } catch (e) {
-            return res.status(400).json({ error: e.message, assertion, duration_ms: Date.now() - startMs });
+            return res.status(400).json({ error: (e as Error).message, assertion, duration_ms: Date.now() - startMs });
         }
 
         // Valeur d'un champ mot de passe : comparée, jamais renvoyée.
         if (champSecret && actual) actual = '[password value hidden]';
-        const out = { pass, assertion, expected, actual, duration_ms: Date.now() - startMs };
+        const out: ResultatExpect = { pass, assertion, expected, actual, duration_ms: Date.now() - startMs };
         if (!pass) {
             // Always attach a screenshot on failed assertion — invaluable for debugging.
             const ss = await screenshotOnFailure(page, req.sessionId, `expect_${assertion}`).catch(() => ({}));
@@ -156,13 +217,13 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
             out.hint = `Expected ${assertion} ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`;
         }
         res.json(out);
-    } catch (e) { res.status(500).json({ error: e.message, duration_ms: Date.now() - startMs }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message, duration_ms: Date.now() - startMs }); }
 });
 
 // ── /element_screenshot : crop a single element ─────────────────────
-app.post('/element_screenshot', getSession, autoSnapshot, async (req, res) => {
+app.post('/element_screenshot', getSession, autoSnapshot, async (req: Request<CorpsCaptureElement>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const sid = req.body.session_id;
         const params = req.body;
         const loc = await locatorFromParams(ctx, page, params, req.sessionId);
@@ -173,10 +234,10 @@ app.post('/element_screenshot', getSession, autoSnapshot, async (req, res) => {
             await loc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
             await loc.screenshot({ path: fpath, timeout: 8000 });
         } catch (e) {
-            return res.status(500).json({ error: `element_screenshot failed: ${e.message}` });
+            return res.status(500).json({ error: `element_screenshot failed: ${(e as Error).message}` });
         }
         res.json({ status: 'success', screenshot: fname });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 
 // ── /observe : multi-mode page perception (indexed | ax | som) ──────
@@ -185,23 +246,23 @@ app.post('/element_screenshot', getSession, autoSnapshot, async (req, res) => {
 //   - indexed: "[0] button \"Login\"" — cheapest. LLM responds with the index.
 //   - ax: same as smart_inspect(level=lite) but always with selectors.
 //   - som: Set-of-Mark — annotated screenshot with numbered boxes overlaid.
-app.get('/observe', getSession, autoSnapshot, async (req, res) => {
+app.get('/observe', getSession, autoSnapshot, async (req: Request<unknown, QueryObserve>, res: Response) => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const sid = req.query.session_id;
-        const mode = ['indexed', 'ax', 'som'].includes(req.query.mode) ? req.query.mode : 'indexed';
+        const mode = ['indexed', 'ax', 'som'].includes(req.query.mode!) ? req.query.mode! : 'indexed';
         const viewportOnly = req.query.viewport_only !== 'false';
-        const maxItems = Math.max(1, Math.min(parseInt(req.query.max_items) || 30, 200));
-        const sinceStep = parseInt(req.query.since_step) || 0;
+        const maxItems = Math.max(1, Math.min(parseInt(req.query.max_items!) || 30, 200));
+        const sinceStep = parseInt(req.query.since_step!) || 0;
         const pierceShadow = req.query.pierce_shadow !== 'false';
 
         // For som mode we annotate first, screenshot, then strip annotations.
         const wantAnnotation = mode === 'som';
 
-        const data = await page.evaluate(({ mode, viewportOnly, maxItems, wantAnnotation, pierceShadow, srcUnique }) => {
-            const unique = new Function(`return (${srcUnique})`)();
+        const data = await page.evaluate(({ viewportOnly, maxItems, wantAnnotation, pierceShadow, srcUnique }) => {
+            const unique: typeof selecteurUnique = new Function(`return (${srcUnique})`)();
             // Mirror buildBestSelector from smart_inspect (kept inline for self-containment).
-            function buildSel(el) {
+            function buildSel(el: Element) {
                 const tag = el.tagName.toLowerCase();
                 if (el.id && !/^\d/.test(el.id) && !/^:r/.test(el.id) && el.id.length < 60) return `#${el.id}`;
                 for (const a of ['data-testid','data-cy','data-qa','data-test']) {
@@ -233,31 +294,31 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
             // l'inspection sur une appli GWT/GXT (mesuré : 4 sur 7, dans les
             // trois modes indexed/ax/som).
             const WIDGET_CLASS = /(^|\s)(gwt-|x-btn|x-grid|x-tool|x-tab|v-button|v-select|dijit|z-button|ui-button|ui-menu-item|mdc-button|mat-button|ant-btn|el-button|btn|button|clickable|link|menu-item|list-item|option|tab)/i;
-            const _semantic = Array.from(document.querySelectorAll(interactiveQuery));
+            const _semantic = Array.from(document.querySelectorAll<Champ>(interactiveQuery));
             // Shadow DOM ouvert — même passe que smart_inspect.
-            const _shadowHosts = [];
-            const _inShadow = new WeakMap();
+            const _shadowHosts: Element[] = [];
+            const _inShadow = new WeakMap<Element, string>();
             if (pierceShadow) {
-                const walkShadow = (root, depth) => {
+                const walkShadow = (root: Document | ShadowRoot, depth: number) => {
                     if (depth > 4) return;
                     for (const host of root.querySelectorAll('*')) {
                         const sr = host.shadowRoot;
                         if (!sr) continue;
                         _shadowHosts.push(host);
                         const hostSel = buildSel(host);
-                        for (const el of sr.querySelectorAll(interactiveQuery)) {
+                        for (const el of sr.querySelectorAll<Champ>(interactiveQuery)) {
                             if (!_inShadow.has(el)) { _inShadow.set(el, hostSel); _semantic.push(el); }
                         }
                         walkShadow(sr, depth + 1);
                     }
                 };
-                try { walkShadow(document, 0); } catch (e) {}
+                try { walkShadow(document, 0); } catch { /* the shadow roots read so far are kept */ }
             }
-            const _semSet = new WeakSet(_semantic);
-            const _pool = [];
-            for (const el of document.querySelectorAll('div, span, td, li, i, img, p, label, section, a')) {
+            const _semSet = new WeakSet<Element>(_semantic);
+            const _pool: { el: Champ; why: string }[] = [];
+            for (const el of document.querySelectorAll<Champ>('div, span, td, li, i, img, p, label, section, a')) {
                 if (_semSet.has(el)) continue;
-                let cs2; try { cs2 = window.getComputedStyle(el); } catch (e) { continue; }
+                let cs2: CSSStyleDeclaration; try { cs2 = window.getComputedStyle(el); } catch { continue; }
                 const why = cs2.cursor === 'pointer' ? 'cursor'
                     : (typeof el.onclick === 'function') ? 'onclick-prop'
                     : (typeof el.className === 'string' && WIDGET_CLASS.test(el.className)) ? 'widget-class'
@@ -266,16 +327,16 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 if (el.querySelector(interactiveQuery)) continue;
                 _pool.push({ el, why });
             }
-            const _pSet = new WeakSet(_pool.map(p => p.el));
-            const _why = new WeakMap(_pool.map(p => [p.el, p.why]));
+            const _pSet = new WeakSet<Element>(_pool.map(p => p.el));
+            const _why = new WeakMap<Element, string>(_pool.map(p => [p.el, p.why]));
             const _heur = _pool.filter(p => {
                 let a = p.el.parentElement, h = 0;
                 while (a && h < 8) { if (_pSet.has(a)) return false; a = a.parentElement; h++; }
                 return true;
             }).map(p => p.el);
 
-            const seen = new WeakSet();
-            const items = [];
+            const seen = new WeakSet<Element>();
+            const items: ItemObserve[] = [];
             let i = 0;
             const _all = _semantic.concat(_heur);
             const omitted = { offscreen: 0, hidden: 0, too_small: 0, over_max: 0 };
@@ -299,7 +360,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
                 const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
                 const sel = unique(el, buildSel(el), buildSel);
-                const it = {
+                const it: ItemObserve = {
                     i: i++, type, text, selector: sel,
                     target_dsl: `css=${sel}`,
                     rect: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) },
@@ -317,7 +378,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 items.push(it);
                 if (wantAnnotation) {
                     const lbl = document.createElement('div');
-                    lbl.textContent = i - 1;
+                    lbl.textContent = String(i - 1);
                     lbl.style.cssText = `position:fixed;z-index:99999;background:#FF0000;color:#FFF;font-size:11px;font-weight:bold;padding:1px 4px;border-radius:3px;pointer-events:none;line-height:1.2;left:${r.left}px;top:${Math.max(0, r.top - 16)}px;`;
                     lbl.className = '__pw_annotation__';
                     document.body.appendChild(lbl);
@@ -338,17 +399,17 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 const fname = `view_${sid}.png`;
                 await page.screenshot({ path: path.join(SCREENSHOT_DIR, fname), fullPage: false });
                 screenshot = fname;
-            } catch (e) {}
+            } catch { /* som answers without its screenshot */ }
             await page.evaluate(() => document.querySelectorAll('.__pw_annotation__').forEach(el => el.remove())).catch(() => {});
         }
 
         // since_step diff (uses smart_inspect's snapshot store for cross-tool consistency)
-        const s = req.session;
+        const s = req.session!;
         s._inspectSnapshots = s._inspectSnapshots || {};
         const upcomingStep = (s.screenshotCounter || 0) + 1;
         s._inspectSnapshots[upcomingStep] = new Set(data.items.map(it => `${it.selector}|${it.type}|${it.text}`));
         const snapKeys = Object.keys(s._inspectSnapshots).map(Number).sort((a, b) => a - b);
-        while (snapKeys.length > 20) { delete s._inspectSnapshots[snapKeys.shift()]; }
+        while (snapKeys.length > 20) { delete s._inspectSnapshots[snapKeys.shift()!]; }
 
         let items = data.items;
         let diff = null;
@@ -377,6 +438,6 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
             omitted: data.omitted,
             shadow_hosts: data.shadow_hosts,
         });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 }

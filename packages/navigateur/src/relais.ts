@@ -111,7 +111,7 @@ const METHODES_SUBSTITUTION = new Set(["POST", "PUT", "PATCH"]);
 const NON_RELAYES = new Set([...SAUT_PAR_SAUT, ENTETE_LIAISON]);
 const MASQUE = "[secret]";
 
-/** Formes sous lesquelles une valeur peut revenir, même liste que `formesSecret` du service (browser-service/secret_util.js) : brute, URL et formulaire (%xx en majuscules et en minuscules, tout octet encodé), HTML (entités nommées, décimales, hexadécimales), JSON (`\/`, `\uXXXX` des non-ASCII, des caractères HTML ou de tous), base64, hexadécimal. */
+/** Formes sous lesquelles une valeur peut revenir, même liste que `formesSecret` du service (browser-service/src/secret_util.ts) : brute, URL et formulaire (%xx en majuscules et en minuscules, tout octet encodé), HTML (entités nommées, décimales, hexadécimales), JSON (`\/`, `\uXXXX` des non-ASCII, des caractères HTML ou de tous), base64, hexadécimal. */
 export function formesValeur(v: string): string[] {
   if (v.length < 3) return [];
   const o = Buffer.from(v, "utf8");

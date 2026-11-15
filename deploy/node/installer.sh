@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# deploy/node/installer.sh — installe le runtime Node.js (archive officielle sans npm, empreinte figée) dans node/, le bundle du core dans apps/core/dist, celui de l'hôte d'outils dans apps/toolhost/dist et le frontend construit dans frontend/dist, sans réseau avec --offline.
+# deploy/node/installer.sh — installe le runtime Node.js (archive officielle sans npm, empreinte figée) dans node/, le bundle du core dans apps/core/dist, celui de l'hôte d'outils dans apps/toolhost/dist, le frontend construit dans frontend/dist et le bundle du service navigateur dans browser-service/dist, sans réseau avec --offline.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
@@ -11,6 +11,7 @@ ROOT="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
 DIST="$ROOT/apps/core/dist"
 DIST_HOTE="$ROOT/apps/toolhost/dist"
 DIST_WEB="$ROOT/frontend/dist"
+DIST_NAV="$ROOT/browser-service/dist"
 NETTOYER=()
 NPM_CHEMIN=""
 trap 'rm -rf "${NETTOYER[@]}"' EXIT
@@ -18,7 +19,7 @@ trap 'rm -rf "${NETTOYER[@]}"' EXIT
 info() { printf '\033[1;34m[ node  ]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[  ok   ]\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m[erreur ]\033[0m %s\n' "$*" >&2; exit 1; }
-usage() { die "usage : deploy/node/installer.sh node|core|hote|bundles|web [--offline DOSSIER] | npm DOSSIER"; }
+usage() { die "usage : deploy/node/installer.sh node|core|hote|bundles|web|navigateur [--offline DOSSIER] | npm DOSSIER"; }
 
 ACTION="${1:-}"; shift || true
 OFFLINE=""; DOSSIER_NPM=""
@@ -124,6 +125,15 @@ bundle_hote_sain() {
     return 0
 }
 
+# bundle_navigateur_sain DOSSIER NODE : bundle du service navigateur présent et construit depuis les sources du dépôt (contrôle sans charger le service) ; MOTIF dit sinon pourquoi.
+bundle_navigateur_sain() {
+    local dossier="$1" node="$2" rc=0
+    [ -f "$dossier/main.mjs" ] && [ -f "$dossier/empreinte.mjs" ] || { MOTIF="main.mjs ou empreinte.mjs absent"; return 1; }
+    MOTIF="$(ELPIS_RACINE="$ROOT" "$node" "$dossier/empreinte.mjs" 2>&1)" || rc=$?
+    if [ "$rc" -ne 0 ]; then MOTIF="autre version que ce dépôt : ${MOTIF:-contrôle interrompu (code $rc)}"; return 1; fi
+    return 0
+}
+
 # npm ci une fois par exécution (npm de l'archive officielle, jamais dans node/) ; NPM_CHEMIN = PATH de la construction.
 preparer_npm() {
     [ -n "$NPM_CHEMIN" ] && return 0
@@ -138,7 +148,7 @@ preparer_npm() {
         || die "npm ci échoué (réseau vers le registre npm ? hors ligne : ./install.sh --offline <paquet>)."
 }
 
-# installer_bundle LIBELLÉ DIST DOSSIER_DU_PAQUET CONTRÔLE ESPACE_NPM ANTÉRIEUR : bundle du paquet hors ligne (vérifié), sinon npm ci et construction ; un bundle abîmé est remplacé d'un coup.
+# installer_bundle LIBELLÉ DIST DOSSIER_DU_PAQUET CONTRÔLE ESPACE_NPM ANTÉRIEUR : bundle du paquet hors ligne (vérifié), sinon npm ci et construction (`npm run build -w ESPACE`, ou le script ESPACE s'il ne commence pas par @) ; un bundle abîmé est remplacé d'un coup.
 installer_bundle() {
     local libelle="$1" dist="$2" paquet="$3" controle="$4" espace="$5" anterieur="$6" node neuf rel
     node="$(node_bin)"
@@ -168,7 +178,9 @@ installer_bundle() {
     fi
     info "$libelle : npm ci puis construction…"
     preparer_npm
-    ( cd "$ROOT" && PATH="$NPM_CHEMIN" npm run build -w "$espace" ) \
+    local construction=(run build -w "$espace")
+    case "$espace" in @*) ;; *) construction=(run "$espace") ;; esac
+    ( cd "$ROOT" && PATH="$NPM_CHEMIN" npm "${construction[@]}" ) \
         || die "Construction échouée ($libelle) ; l'hôte d'outils compile node-pty : build-essential et python3 requis (deploy/prerequis-apt.txt)."
     "$controle" "$dist" "$node" || die "$libelle construit mais inutilisable ($MOTIF)."
     ok "$libelle construit ($rel) : $MOTIF"
@@ -198,6 +210,11 @@ installer_web() {
 
 installer_core() { installer_bundle "Core" "$DIST" core bundle_sain @elpis/core "au core Node"; }
 installer_hote() { installer_bundle "Hôte d'outils" "$DIST_HOTE" toolhost bundle_hote_sain @elpis/toolhost "à l'hôte d'outils Node"; }
+# Service navigateur : ses modules (browser-service/node_modules) sont installés avant, sa construction les met en bundle ; hors ligne, browser/dist du paquet.
+installer_navigateur() {
+    [ -d "$ROOT/browser-service/node_modules" ] || die "browser-service/node_modules absent : npm ci dans browser-service d'abord (./install.sh --with-browser)."
+    installer_bundle "Service navigateur" "$DIST_NAV" browser/dist bundle_navigateur_sain build:browser "au service navigateur en TypeScript"
+}
 
 case "$ACTION" in
     node) installer_node ;;
@@ -205,6 +222,7 @@ case "$ACTION" in
     hote) installer_hote ;;
     bundles) installer_core; installer_hote ;;
     web) installer_web ;;
+    navigateur) installer_navigateur ;;
     npm) installer_npm "$DOSSIER_NPM" ;;
     *) usage ;;
 esac

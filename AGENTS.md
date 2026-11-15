@@ -34,7 +34,7 @@ Manual launch (from the root: the server reads `frontend/` relative
 to the current directory):
 
 ```bash
-npm ci && npm run build                                                    # core, tool host and frontend bundles (frontend/dist)
+npm ci && npm ci --prefix browser-service && npm run build               # core, tool host, browser service and frontend bundles (frontend/dist)
 ELPIS_RACINE=$PWD node/bin/node apps/toolhost/dist/main.mjs              # MCP tool host :8765 (Office: Python worker)
 ELPIS_RACINE=$PWD APP_MODE=main LOCAL_MCP_URL=http://127.0.0.1:8765/mcp \
   node/bin/node apps/core/dist/main.mjs                                  # chat :8001
@@ -53,9 +53,10 @@ and size), cached as immutable: a changed file gets a new URL.
 
 ```bash
 npm ci                 # Node ≥ 24 (.nvmrc); exact dependencies, a single package-lock.json
-npm run typecheck      # tsc (core, tool host, packages) and vue-tsc (interface)
+npm ci --prefix browser-service   # the browser service's own dependencies (Express, Playwright)
+npm run typecheck      # tsc (core, tool host, packages, browser service) and vue-tsc (interface)
 npm run lint           # ESLint
-npm run build          # core, tool host and frontend bundles
+npm run build          # core, tool host, browser service and frontend bundles
 npm run format         # applies Prettier (npm run format:check to verify)
 ```
 
@@ -73,7 +74,12 @@ npm workspace at the root: applications in `apps/` (`apps/core`:
 main and admin; `apps/toolhost`: tool host), shared packages in
 `packages/` (`@elpis/auth`, `bac`, `commun`, `config`, `contracts`, `db`,
 `fichiers`, `http`, `mcp`, `outils-mcp`, `securite`…), interface in
-`frontend/` (workspace `@elpis/web`).
+`frontend/` (workspace `@elpis/web`). The browser service
+(`browser-service/`, run only inside each sandbox) is typed with the same
+rules but keeps its own npm dependencies (`browser-service/package.json`,
+mounted in the sandboxes): sources in `browser-service/src` (one module per
+route family in `src/routes`, shared state in `src/contexte.ts`), bundled
+into `browser-service/dist/main.mjs` by `npm run build:browser`.
 
 <!-- REUSE-IgnoreStart -->
 - **Code**: header `// SPDX-License-Identifier: MIT` then `/** path — role */`;
@@ -106,8 +112,8 @@ main and admin; `apps/toolhost`: tool host), shared packages in
 - `frontend/src/features/admin/champs.gen.ts` is generated from the console
   pages (`frontend/src/components/admin/Page*.vue`): after adding or
   renaming a setting (`data-field`), run `node frontend/champs-admin.mts`.
-- `frontend/dist/`, `apps/core/dist/`, `apps/toolhost/dist/`: produced by
-  `npm run build`, never versioned.
+- `frontend/dist/`, `apps/core/dist/`, `apps/toolhost/dist/`,
+  `browser-service/dist/`: produced by `npm run build`, never versioned.
 
 ## Conventions
 

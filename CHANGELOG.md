@@ -42,9 +42,10 @@ follow [SemVer](https://semver.org/).
   authentication only for the session that asked (binding key, expiry), every common encoding
   scrubbed and unscrubbable codings or methods refused, bounded memory, cached verdicts with
   Happy Eyeballs connections, and a 365-day relay CA renewed automatically. When the sandbox
-  cannot serve, the tools answer `browser_sandbox_unavailable` with the cause and its fix (Docker
-  missing or stopped, image missing, browser not installed). `./elpis doctor` and
-  `./elpis logs browser <account>` cover it.
+  cannot serve (Docker missing or stopped, image missing, browser not installed), the tools
+  answer `browser_sandbox_unavailable` and send the user to their administrator, without the
+  cause: it is in the tool host's log, and `./elpis doctor` and `./elpis logs browser <account>`
+  cover it.
 
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
@@ -208,6 +209,17 @@ follow [SemVer](https://semver.org/).
   repository) offers at once what the account can be used for, the whole server by default; the
   type of server is shown by name (GitHub, Gitea / Forgejo…), and a line says which account is
   taken when several fit. An account without a scope is marked *inactif*.
+- **Browser service in TypeScript.** `browser-service/` is strict TypeScript like the rest of
+  the workspace: sources in `browser-service/src` (one module per route family in `src/routes`,
+  shared state in an explicit service context instead of module globals), bundled by esbuild into
+  `browser-service/dist/main.mjs` (`npm run build:browser`, part of `npm run build`; Express is
+  bundled, Playwright stays in `browser-service/node_modules`). HTTP API, model-facing texts and
+  behaviour are unchanged. Each sandbox mounts that bundle instead of the `*.js` files (sandboxes
+  are recreated once at their next use, `/work` kept); `./install.sh` builds it, the offline
+  package ships it (`browser/dist`), `./elpis upgrade` rebuilds it and `./elpis doctor` checks it
+  matches the sources (`browser-service/dist/empreinte.mjs`, which never loads the service). `npm
+  run typecheck` and `npm run lint` cover it; CI installs its dependencies first (`npm ci --prefix
+  browser-service`). Its tests are TypeScript too, still run by `node --test` (type stripping).
 - **Vision only at `pw_page inspect`.** For a model with vision, the core no longer fetches and
   downscales a screenshot after every browser action. `pw_page inspect` asks the service
   (`_meta.vision`, native tool channel) for one JPEG already reduced to 1024 px by Chromium, taken
@@ -509,6 +521,10 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Recorder and clicks by selector.** While pw_recorder was recording, a click resolved by a
+  fallback selector on the page itself (not in a frame) answered an error after the click had
+  happened, and the gesture was not recorded: the frames path was looked up on the page as if it
+  were an element (found by the TypeScript migration). It is now recorded without a frames path.
 - **pw_act and pw_visual small gaps.** `select` on a `<select multiple>` could choose one option only (`"A,C"` gave `option_not_found`): a comma-separated `option_label`/`value` (a list in pw_chain) now selects every option named, and the recorder replays them all. A download started by a click or a key is reported in the gesture's result (`downloads: [{file, path, size}]`, saved under `downloads/<account>/`). pw_act takes `position` ({x, y} from the target's top-left corner) to click, double-click, right-click or hover one point of a canvas or a map. pw_visual takes `mask` (CSS selectors painted over in both the capture and the baseline, `masked`, `mask_not_found`) and answers `element_not_found` after 5 s when its `selector` matches nothing, instead of waiting 30 s.
 - **Browser sessions closed silently at the session limit.** Opening sessions beyond the limit (3 per owner, 4 for an account and its sub-agents) closed the oldest ones without a word, the main working session and a session opened for a secret included, and `pw_session list` only showed the global maximum (10). A session that is busy (a request running or waiting) or opened for a vault secret is now never closed; an isolated session gives way before the main one; the start result names the closed sessions (`evicted_sessions`, with the reason) and adds a warning; when no session can give way the start is refused (`browser_quota` with `protected_sessions` and a fix). `list` gives `max_per_owner`, `max_per_group` and `effective_max` next to `max`, and marks isolated and secret sessions.
 - **pw_recorder exports.** A fill or click inside an iframe was exported on the page (it could not replay); the recorder now notes the frames of each gesture and replays it in its frame (`frameLocator` chain in Playwright, the frame's document body in Cypress, `>>>` in Robot). `pick` on a dropdown (custom list, autocomplete, native select) was not recorded at all; it is now exported as its real steps (open and click the option, type and choose, or select). Uploads were a JSON comment: they are exported as `setInputFiles`, `selectFile` or `Upload File By Selector` with the file names, which dump lists in its notes. The Robot export opened a new tab for every `goto`: only the first one is `New Page`, the next ones are `Go To`. Options, menu items and tabs are recorded by role and name.
@@ -611,6 +627,12 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Browser service: hardening after code scanning.** Calls to the service are rate-limited
+  (300 per second for the tool host, `rate_limited` beyond). A regular expression given by the
+  caller (`pw_expect` `url-matches`, `pw_mock` with `is_regex`) is compiled and tried apart under
+  a time limit: a pattern with endless backtracking answers "no match" instead of holding the
+  service. Screenshot and visual reference files are written through a check that keeps their
+  name inside its folder. Closing a tab no longer reads the tab list through a caller-given key.
 - **RAG: chunking regular expressions off the event loop.** A collection or document chunked by
   a regular expression ran it on the core's event loop, with a 2-second limit per run but none
   per document, so a slow pattern over many blocks could hold main for minutes. Chunking with a

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** eslint.config.mjs — lint du TypeScript (apps/*, packages/*) et du frontend TS (frontend/src, frontend/test, SFC). */
+/** eslint.config.mjs — lint du TypeScript (apps/*, packages/*, browser-service) et du frontend TS (frontend/src, frontend/test, SFC). */
 import { readdirSync, readFileSync } from "node:fs";
 
 import js from "@eslint/js";
@@ -33,7 +33,7 @@ const ratioJetons = [
   },
 ];
 /** contexte/config-contexte.ts estime aussi des tokens (`estTokens`, ratio réglable de context_config.json) : avertissement des budgets au chargement, comme le Python, pas un compteur. */
-const TESTS = ["apps/*/test/**/*.ts", "packages/*/test/**/*.ts"];
+const TESTS = ["apps/*/test/**/*.ts", "packages/*/test/**/*.ts", "browser-service/test/**/*.ts"];
 
 /** Invariant 7 : clés de `config` rechargées à chaud (vivant.ts, ou affectées par la console ailleurs dans src) et lecteurs vivants de config.json, jamais lus au chargement d'un module (limite : fonction locale appelée au chargement, alias local de `config`). */
 const SOURCES = ["apps", "packages"].flatMap((d) =>
@@ -182,7 +182,7 @@ const regleReglagesVifs = {
 export default defineConfig(
   { ignores: ["**/dist/**", "**/node_modules/**", "**/*.gen.ts", "apps/core/greffon-opencode/**"] },
   {
-    files: ["apps/**/*.ts", "packages/**/*.ts"],
+    files: ["apps/**/*.ts", "packages/**/*.ts", "browser-service/**/*.ts"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -200,6 +200,22 @@ export default defineConfig(
   {
     files: TESTS,
     rules: { "no-console": "off" },
+  },
+  /** Service navigateur : la console est son journal (service.log du bac). */
+  { files: ["browser-service/src/**/*.ts"], rules: { "no-console": "off" } },
+  /** Ses tests tournent sous node:test, dont test() et describe() rendent une promesse que le lanceur attend. */
+  {
+    files: ["browser-service/test/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-floating-promises": [
+        "error",
+        {
+          allowForKnownSafeCalls: [
+            { from: "package", package: "node:test", name: ["test", "it", "describe", "suite"] },
+          ],
+        },
+      ],
+    },
   },
   {
     files: ["apps/**/*.ts", "packages/**/*.ts"],

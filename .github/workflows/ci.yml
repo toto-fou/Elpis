@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Intégration continue du dépôt public : installation, typage, lint et construction sur Node 24.
+# Intégration continue du dépôt public : installation, typage, lint et construction sur Node 24 (service navigateur compris).
 # La suite de tests vit dans le dépôt de développement des mainteneurs, qui la passent avant de fusionner.
 # Les actions sont épinglées par SHA de commit (le tag est en commentaire) ; Dependabot les met à jour.
 name: CI
@@ -28,6 +28,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # Service navigateur : ses propres modules (Express, Playwright), typés et mis en bundle avec le reste.
+      - run: npm ci --prefix browser-service --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build

@@ -758,8 +758,8 @@ except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
     pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
     check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
     nm="$(readlink -f "$ROOT/browser-service/node_modules" 2>/dev/null)"
-    check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules}" \
-        test "$(find "$ROOT/browser-service" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 3
+    check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules} browser-service/dist ; chmod o+r browser-service/dist/main.mjs" \
+        test "$(find "$ROOT/browser-service" "$ROOT/browser-service/dist" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 4 -a -n "$(find "$ROOT/browser-service/dist/main.mjs" -perm -o+r 2>/dev/null)"
     sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"
     for s in "${sb:-/nonexistent}"/*/.elpis-agent/browser.sock; do
         [ -S "$s" ] || continue
@@ -1003,6 +1003,10 @@ cmd_doctor() {
     done
     check "Qdrant" "./install.sh" test -x "$ROOT/rag_app/qdrant/qdrant"
     check "service navigateur (monté dans la sandbox de chaque compte)" "./install.sh" test -d "$ROOT/browser-service/node_modules"
+    if [ -d "$ROOT/browser-service/node_modules" ]; then
+        check "service navigateur construit pour ces sources (browser-service/dist)" "deploy/node/installer.sh navigateur" \
+            env ELPIS_RACINE="$ROOT" "$NODE" "$ROOT/browser-service/dist/empreinte.mjs"
+    fi
     doctor_navigateur_bac
     # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
     local distants core_ok=0
@@ -1474,6 +1478,10 @@ cmd_upgrade() {
         || die "Construction du core ou de l'hôte d'outils échouée : l'ancien bundle reste en place ; relancez ./elpis upgrade --no-backup une fois corrigé."
     ELPIS_NODE_CACHE="$CACHE_NODE" "$ROOT/deploy/node/installer.sh" web \
         || die "Construction du frontend échouée : relancez ./elpis upgrade --no-backup une fois corrigé."
+    if [ -d "$ROOT/browser-service/node_modules" ]; then
+        ELPIS_NODE_CACHE="$CACHE_NODE" "$ROOT/deploy/node/installer.sh" navigateur \
+            || die "Construction du service navigateur échouée : l'ancien bundle reste en place ; relancez ./elpis upgrade --no-backup une fois corrigé."
+    fi
     info "Image de la sandbox…"
     ensure_sandbox_image || die "Image de sandbox indisponible : chargez son archive \
 (deploy/docker/sandbox/load_image.sh <archive>) ou construisez-la (./install.sh --sandbox build), \

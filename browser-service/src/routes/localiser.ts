@@ -79,6 +79,8 @@ export function registerLocatorRoutes(app: Application, ctx: ServiceContext) {
         // « scope.name is not a function » sur 100 % des pw_find.
         const scopes = includeFrames ? page.frames() : [page.mainFrame()];
         const matches: Correspondance[] = [];
+        // Éléments trouvés mais cachés, rendus à part (avec leur ref) quand aucun n'est visible.
+        const caches: Correspondance[] = [];
         let total = 0;
         let nameMatch: string | null = null;
 
@@ -103,14 +105,17 @@ export function registerLocatorRoutes(app: Application, ctx: ServiceContext) {
             const item = loc.nth(i);
             try {
               const visible = await item.isVisible({ timeout: 200 }).catch(() => false);
-              if (visible_only && !visible) continue;
+              const cache = visible_only && !visible;
+              if (cache && (matches.length > 0 || caches.length >= max)) continue;
 
               const info = await item.evaluate(decrireNoeud, { xpath: true }).catch(() => null);
 
               if (!info) continue;
               // getByRole a trouvé l'élément par CE rôle : c'est son rôle effectif.
               if (params.by_role) info.role = params.by_role;
-              matches.push({
+              // Élément caché : ni son nom ni son texte ne sont rendus (un contenu invisible n'a pas à parler au modèle).
+              if (cache) Object.assign(info, { name: "", text: "" });
+              (cache ? caches : matches).push({
                 ...info,
                 visible,
                 enabled: await item.isEnabled().catch(() => true),
@@ -128,6 +133,7 @@ export function registerLocatorRoutes(app: Application, ctx: ServiceContext) {
           count: matches.length,
           total,
           matches,
+          ...(matches.length === 0 && caches.length ? { hidden_matches: caches } : {}),
           ...(nameMatch ? { name_match: nameMatch } : {}),
           ...(includeFrames ? { frames_searched: scopes.length } : {}),
           // Durée de vie du ref, DITE : un ref rejoué sur un contenu qui a
@@ -140,7 +146,9 @@ export function registerLocatorRoutes(app: Application, ctx: ServiceContext) {
               ? `Pass ref="${matches[0]!.ref}" to pw_act for this element (reusable for ${ttlS}s — re-run pw_find on content that shifts/disappears)`
               : matches.length > 1
                 ? `Multiple matches. Use refs above, or refine with filter_has_text/nth (refs reusable for ${ttlS}s).`
-                : "No visible matches found.",
+                : caches.length
+                  ? `No visible match: the ${caches.length} element(s) listed in hidden_matches exist but are hidden (zero size, display:none…). Their ref can be waited on: pw_wait(target="ref=…", condition="visible").`
+                  : "No visible matches found.",
         });
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });

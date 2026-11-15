@@ -93,6 +93,12 @@ export async function recordEvent(
   const url = masquerUrl(evt.url);
   if (url !== evt.url) evt = { ...evt, url, url_masked: true };
   const events = session._recorder.events;
+  // Enregistrement démarré sur une page ouverte : son goto ouvre le script, sauf si le premier geste en est un.
+  const depart = session._recorder.depart;
+  if (events.length === 0 && depart && evt.action !== "goto") {
+    const d = masquerUrl(depart);
+    events.push({ ts: 0, action: "goto", url: d, ...(d !== depart ? { url_masked: true } : {}) });
+  }
   events.push({ ts: Date.now() - session._recorder.start_ts, ...evt });
   if (events.length > 1000) events.shift(); // safety cap
 }

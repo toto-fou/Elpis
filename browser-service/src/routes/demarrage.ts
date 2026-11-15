@@ -178,6 +178,22 @@ function refusSessionsProtegees(ctx: ServiceContext, slot: Extract<PlanPlace, { 
   };
 }
 
+/** Nom de fichier libre dans `dossier` (`nom`, sinon `nom (1)`, `nom (2)`…), réservé par une création exclusive : deux téléchargements simultanés n'ont jamais le même. */
+function nomReserve(dossier: string, nom: string): string {
+  const ext = path.extname(nom);
+  const base = nom.slice(0, nom.length - ext.length);
+  for (let i = 0; i < 1000; i++) {
+    const candidat = i === 0 ? nom : `${base} (${i})${ext}`;
+    try {
+      fs.closeSync(fs.openSync(path.join(dossier, candidat), "wx"));
+      return candidat;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    }
+  }
+  return `${base}-${Date.now()}${ext}`;
+}
+
 export function registerStartRoutes(app: Application, ctx: ServiceContext) {
   const { sessions } = ctx;
   app.post("/start", async (req: Request<CorpsDemarrage>, res: Response): Promise<Response | void> => {
@@ -397,18 +413,27 @@ export function registerStartRoutes(app: Application, ctx: ServiceContext) {
         }
       });
 
-      // Téléchargements rangés par propriétaire, pour TOUS les onglets.
+      // Téléchargements rangés par compte (le groupe : un sous-agent range les siens avec ceux de son compte), pour TOUS les onglets.
       // Chaque téléchargement est noté sur la session (début, fichier enregistré) : le geste qui l'a lancé le rapporte.
-      const dossierTelechargements = path.join(DOWNLOAD_DIR, owner);
+      const dossierTelechargements = path.join(DOWNLOAD_DIR, group);
       context.on("page", (pg) =>
         pg.on("download", (download) => {
           const nom = safeDownloadName(download.suggestedFilename());
-          const chemin = path.join(dossierTelechargements, nom);
+          let reserve = "";
           const fini = (async () => {
             fs.mkdirSync(dossierTelechargements, { recursive: true });
+            // Sous-agent : un nom libre, réservé avant l'écriture ; le compte garde le nom du site.
+            const file = owner === group ? nom : nomReserve(dossierTelechargements, nom);
+            const chemin = path.join(dossierTelechargements, file);
+            if (owner !== group) reserve = chemin;
             await download.saveAs(chemin);
-            return { file: nom, path: chemin, size: fs.statSync(chemin).size };
-          })().catch((e: Error) => ({ file: nom, error: sansAnsi(e.message).split("\n")[0] }));
+            reserve = "";
+            return { file, path: chemin, size: fs.statSync(chemin).size };
+          })().catch((e: Error) => {
+            // Nom réservé d'un téléchargement qui échoue : rendu.
+            if (reserve) fs.rmSync(reserve, { force: true });
+            return { file: nom, error: sansAnsi(e.message).split("\n")[0] };
+          });
           const s = sessions.get(sessionId);
           if (s) {
             s.downloads.push({ debut: Date.now(), nom, fini });

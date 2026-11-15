@@ -401,7 +401,10 @@ export function ressemblance(a: unknown, b: unknown): number {
     y = _plat(b).slice(0, LONGUEUR_COMPAREE);
   if (!x || !y) return 0;
   if (x === y) return 1;
-  if (x.includes(y) || y.includes(x)) return 0.8;
+  // Inclusion : un nom d'une ou deux lettres latines est contenu dans presque tous les autres, il ne rapproche rien.
+  const [court, long] = x.length <= y.length ? [x, y] : [y, x];
+  const parlant = court.length >= 3 || (court.length === 2 && /(?!\p{Script=Latin})\p{L}/u.test(court));
+  if (parlant && long.includes(court)) return 0.8;
   const mx = new Set(x.split(" ")),
     my = y.split(" ");
   const communs = my.filter((w) => w.length > 2 && mx.has(w)).length;

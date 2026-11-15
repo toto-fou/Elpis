@@ -424,8 +424,17 @@ export function registerMiscRoutes(app: Application, ctx: ServiceContext) {
         while (Date.now() - start < timeout) {
           const cur = await probe();
           polled = cur;
-          if (condition === "text_contains" && cur.count && cur.text!.includes(expected_text))
-            return done("matched", { text: cur.text });
+          // Un texte présent dans un élément caché n'est pas affiché : la condition attend qu'il se voie.
+          if (condition === "text_contains" && cur.count && cur.text!.includes(expected_text)) {
+            // Conteneur sans hauteur (enfants flottants) : le texte peut se voir alors que le conteneur passe pour caché.
+            if (!cur.visible && expected_text)
+              cur.visible = await first
+                .getByText(expected_text)
+                .first()
+                .isVisible()
+                .catch(() => false);
+            if (cur.visible) return done("matched", { text: cur.text });
+          }
           if (condition === "text_changes" && cur.count && initial.text !== null && cur.text !== initial.text)
             return done("changed", { from: initial.text, to: cur.text });
           if (condition === "count_increases" && cur.count > (initial.count || 0))
@@ -440,9 +449,15 @@ export function registerMiscRoutes(app: Application, ctx: ServiceContext) {
           }
           await page.waitForTimeout(poll_interval);
         }
-        return notYet(`Timeout after ${timeout}ms — condition '${condition}' on '${label}' not met`, {
-          baseline: initial,
-        });
+        const cache =
+          condition === "text_contains" &&
+          polled.count &&
+          !polled.visible &&
+          polled.text!.includes(expected_text);
+        return notYet(
+          `Timeout after ${timeout}ms — condition '${condition}' on '${label}' not met${cache ? " (the text is there, but the element is hidden)" : ""}`,
+          { baseline: initial },
+        );
       } catch (e) {
         res.status(500).json({ error: (e as Error).message });
       }

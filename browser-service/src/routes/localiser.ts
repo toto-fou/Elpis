@@ -1,24 +1,48 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/localiser.ts — /locator and /handle_dropdown: targets found by pw_find (refs, candidates) and dropdown handling. */
+/** browser-service/src/routes/localiser.ts — /locator et /handle_dropdown : cibles trouvées par pw_find (refs, candidats) et gestion des listes déroulantes. */
+import type { Application, Request, Response } from 'express';
+
+import type { ServiceContext } from '../contexte.ts';
 import { recordEvent } from '../enregistrement.ts';
 import { selectOptionSmart } from '../gestes.ts';
 import { smartClick } from '../interaction.ts';
 import { ACTION_TIMEOUT_MS, REF_TTL_MS, decrireNoeud, resolveOfficialLocator, resoudreCible, resoudreRepli, shadowDOMQueryByText, storeLocatorRef } from '../localisateur.ts';
+import type { NoeudDecrit, ParamsLocalisateur } from '../localisateur.ts';
 import { decrireElement } from '../recorder_util.ts';
 import { intercepteurs, repondreErreur } from '../requete.ts';
 
+/** Corps de /locator : les critères by_*, le nombre de correspondances, visibles seulement, iframes fouillées aussi. */
+interface CorpsLocator extends ParamsLocalisateur {
+    max?: number;
+    visible_only?: boolean;
+    include_frames?: boolean;
+}
 
-export function registerLocatorRoutes(app, ctx) {
+/** Corps de /handle_dropdown : la liste déroulante, l'option voulue (texte ou valeur), le texte saisi dans une combobox. */
+interface CorpsListe {
+    selector: string;
+    option_text?: string;
+    option_value?: string;
+    search_text?: string;
+}
+
+/** Élément trouvé par /locator, avec sa ref pour pw_act. */
+type Correspondance = NoeudDecrit & {
+    visible: boolean;
+    enabled: boolean;
+    ref: string;
+    frame?: { name: string; url: string };
+};
+
+export function registerLocatorRoutes(app: Application, ctx: ServiceContext) {
 const { getSession, autoSnapshot } = intercepteurs(ctx);
 // ======================== LOCATOR (officiel Playwright API) ========================
 // Utilise getByRole/getByText/getByLabel/etc. — l'API officielle Playwright.
 // Renvoie un `ref` opaque que pw_act peut utiliser pour cliquer/taper sans
 // reconstruire de sélecteur.
-app.post('/locator', getSession, autoSnapshot, async (req, res) => {
+app.post('/locator', getSession, autoSnapshot, async (req: Request<CorpsLocator>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const params = req.body;
         const max = Math.min(params.max || 5, 20);
         const visible_only = params.visible_only !== false;
@@ -40,9 +64,9 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
         // code tentait alors `scope.name()` — inexistant sur Page → TypeError
         // « scope.name is not a function » sur 100 % des pw_find.
         const scopes = includeFrames ? page.frames() : [page.mainFrame()];
-        const matches = [];
+        const matches: Correspondance[] = [];
         let total = 0;
-        let nameMatch = null;
+        let nameMatch: string | null = null;
 
         for (const scope of scopes) {
             if (matches.length >= max) break;
@@ -53,12 +77,12 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
             const count = c.nth === null ? c.n : await loc.count().catch(() => 0);
             if (count === 0) continue;
             total += count;
-            if (!nameMatch && (c.nameMatch === 'substring' || c.partial > c.n)) nameMatch = c.nameMatch;
+            if (!nameMatch && (c.nameMatch === 'substring' || c.partial! > c.n)) nameMatch = c.nameMatch;
             const isMain = scope === page.mainFrame();
             const frameInfo = isMain ? null : { name: scope.name() || '', url: scope.url() || '' };
             // Le ref mémorise le frame d'origine → resolveRef re-résout sur CE frame
             // (pw_act peut donc agir sur un élément d'iframe).
-            const baseRef = storeLocatorRef(ctx, req.sessionId, loc, c.params, frameInfo);
+            const baseRef = storeLocatorRef(ctx, req.sessionId!, loc, c.params, frameInfo);
 
             for (let i = 0; i < Math.min(count, max); i++) {
                 if (matches.length >= max) break;
@@ -79,7 +103,7 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
                         ref: count > 1 ? `${baseRef}#${i}` : baseRef,
                         ...(frameInfo ? { frame: frameInfo } : {}),
                     });
-                } catch (e) { /* ignore individual failures */ }
+                } catch { /* ignore individual failures */ }
             }
         }
 
@@ -96,18 +120,18 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
             ref_reusable: true,
             // Hint pour le LLM
             usage_hint: matches.length === 1
-                ? `Pass ref="${matches[0].ref}" to pw_act for this element (reusable for ${ttlS}s — re-run pw_find on content that shifts/disappears)`
+                ? `Pass ref="${matches[0]!.ref}" to pw_act for this element (reusable for ${ttlS}s — re-run pw_find on content that shifts/disappears)`
                 : matches.length > 1
                 ? `Multiple matches. Use refs above, or refine with filter_has_text/nth (refs reusable for ${ttlS}s).`
                 : 'No visible matches found.',
         });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 
 // ======================== HANDLE DROPDOWN (custom + natif) ========================
-app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
+app.post('/handle_dropdown', getSession, autoSnapshot, async (req: Request<CorpsListe>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const { selector, option_text, option_value, search_text } = req.body;
 
         const { locator } = await resoudreRepli(page, selector);
@@ -154,7 +178,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         }
 
         // Cas 3 : dropdown custom (div/button) ; le déclencheur est décrit avant que la liste ne s'ouvre
-        const declencheur = req.session._recorder?.recording ? await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
+        const declencheur = req.session!._recorder?.recording ? await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
         await smartClick(page, selector);
         await page.waitForTimeout(350);
 
@@ -175,7 +199,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             const optLoc = page.locator(s).first();
             if (await optLoc.count().catch(() => 0) > 0 && await optLoc.isVisible({ timeout: 500 }).catch(() => false)) {
                 const label = (await optLoc.innerText({ timeout: 1000 }).catch(() => optionText)).trim();
-                const optionDecrite = req.session._recorder?.recording ? await optLoc.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
+                const optionDecrite = req.session!._recorder?.recording ? await optLoc.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
                 await optLoc.click();
                 await recordEvent(req.session, { action: 'pick', kind: 'custom', selector, url: page.url(), option: label,
                     ...(declencheur ? { locator: declencheur } : {}), ...(optionDecrite ? { option_locator: optionDecrite } : {}) }, locator);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// nav_util.js — décision de résultat d'une navigation (page.goto).
+// browser-service/src/nav_util.ts — décision de résultat d'une navigation (page.goto).
 //
 // Extrait dans un module SANS effet de bord (server.js fait app.listen au
 // chargement → non importable en test) pour être testable sans navigateur, et
@@ -24,19 +24,58 @@
 // Chromium engage sa page d'erreur (chrome-error://chromewebdata/) : ni l'un ni
 // l'autre n'est un succès. Le 502 dit ce que montre vraiment l'onglet.
 
+/** Corps de la réponse d'une navigation ; `http_status` et `auth_hint` sont ajoutés par l'appelant. */
+export interface CorpsNavigation {
+    status: 'success' | 'nav_error';
+    url?: string | null;
+    nav_warning?: string;
+    code?: string;
+    error?: string;
+    fix?: string;
+    http_status?: number;
+    auth_hint?: string;
+}
+
+/** Issue d'une navigation : statut HTTP de la réponse du service et son corps. */
+export interface IssueNavigation {
+    httpStatus: 200 | 502;
+    body: CorpsNavigation;
+}
+
+/** Détails TLS d'une réponse (`Response.securityDetails()` de Playwright). */
+export interface DetailsTls {
+    issuer?: string | null;
+    subjectName?: string | null;
+    validFrom?: number | null;
+    validTo?: number | null;
+    protocol?: string | null;
+}
+
+/** Avertissement sur le certificat d'une page HTTPS chargée malgré tout. */
+export interface AvertissementTls {
+    problems: string[];
+    message: string;
+    issuer: string | null;
+    subject: string | null;
+    valid_from: string | null;
+    valid_to: string | null;
+    protocol: string | null;
+}
+
 // Erreur Playwright ramenée à sa cause : séquences ANSI, préfixe « page.goto: » et journal d'appel retirés.
-export function cleanNavError(message) {
+export function cleanNavError(message: unknown): string {
+    // eslint-disable-next-line no-control-regex
     const texte = String(message ?? '').replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
-    return texte.split(/\r?\n/)[0].replace(/^(page|frame)\.goto:\s*/i, '').trim();
+    return (texte.split(/\r?\n/)[0] ?? '').replace(/^(page|frame)\.goto:\s*/i, '').trim();
 }
 
 /** Page d'erreur de Chromium engagée après une navigation en échec. */
-export function estPageErreur(url) {
+export function estPageErreur(url: unknown): boolean {
     return /^chrome-error:/i.test(String(url ?? ''));
 }
 
 // `restored` : après la page d'erreur, l'onglet est revenu en arrière (page précédente rechargée, `landedUrl`).
-export function classifyNavOutcome(targetUrl, previousUrl, landedUrl, navError, { restored = false } = {}) {
+export function classifyNavOutcome(targetUrl: string, previousUrl: string | null | undefined, landedUrl: string | null | undefined, navError: unknown, { restored = false }: { restored?: boolean } = {}): IssueNavigation {
     if (!navError) {
         return { httpStatus: 200, body: { status: 'success', url: landedUrl } };
     }
@@ -74,19 +113,19 @@ export function classifyNavOutcome(targetUrl, previousUrl, landedUrl, navError, 
 }
 
 // Adresse finale d'une navigation quand elle diffère de l'adresse demandée (redirection), sinon null.
-export function finalUrl(targetUrl, landedUrl) {
+export function finalUrl(targetUrl: unknown, landedUrl: string | null | undefined): string | null {
     if (!landedUrl) return null;
     let demandee = String(targetUrl ?? '');
-    try { demandee = new URL(demandee).href; } catch (_) { /* adresse brute */ }
+    try { demandee = new URL(demandee).href; } catch { /* adresse brute */ }
     return landedUrl === demandee ? null : landedUrl;
 }
 
 // Avertissement sur le certificat d'une page HTTPS chargée malgré tout (expiré, pas encore valide, auto-signé), sinon null.
-export function tlsWarning(details, nowS = Date.now() / 1000) {
+export function tlsWarning(details: DetailsTls | null | undefined, nowS: number = Date.now() / 1000): AvertissementTls | null {
     if (!details || typeof details !== 'object') return null;
     const { issuer = null, subjectName = null, validFrom = null, validTo = null, protocol = null } = details;
-    const date = (s) => (typeof s === 'number' && Number.isFinite(s) ? new Date(s * 1000).toISOString() : null);
-    const problemes = [];
+    const date = (s: unknown): string | null => (typeof s === 'number' && Number.isFinite(s) ? new Date(s * 1000).toISOString() : null);
+    const problemes: [string, string][] = [];
     if (typeof validTo === 'number' && validTo > 0 && validTo < nowS) problemes.push(['expired', `certificate expired on ${date(validTo)}`]);
     if (typeof validFrom === 'number' && validFrom > nowS) problemes.push(['not_yet_valid', `certificate not valid before ${date(validFrom)}`]);
     if (issuer && subjectName && issuer === subjectName) problemes.push(['self_signed', `self-signed certificate (issuer ${issuer})`]);
@@ -101,7 +140,7 @@ export function tlsWarning(details, nowS = Date.now() / 1000) {
 
 // Indice d'authentification HTTP (401/407) joint au résultat, en anglais pour le modèle : aucun outil n'accepte d'identifiant ;
 // un secret http-auth attaché à la conversation s'applique à l'ouverture d'une session sur son origine. null sans défi.
-export function authHint(httpStatus) {
+export function authHint(httpStatus: number | null): string | null {
     if (httpStatus === 401) {
         return "This page requires HTTP authentication (401). Credentials are never passed to a tool: "
             + "if a http-auth secret attached to this conversation covers this origin, open the page with "

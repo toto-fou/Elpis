@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// session_lock.js — sérialisation FIFO des opérations par session Playwright.
+// browser-service/src/session_lock.ts — sérialisation FIFO des opérations par session Playwright.
 //
 // AUDIT 2026-06 (le constat n°1 du service) : AUCUN verrou n'existait — deux
 // requêtes HTTP concurrentes sur le même session_id opéraient EN PARALLÈLE
@@ -17,13 +17,35 @@
 //
 // Zéro dépendance (déploiement offline : pas d'async-mutex en node_modules).
 
+/** État du verrou d'une session : fin de la file, attentes et détentions en cours. */
+export interface Verrou {
+    tail: Promise<unknown>;
+    waiters: number;
+    held: number;
+}
+
+/** Libère le verrou acquis (idempotent). */
+export type Liberer = () => void;
+
+/** Attente bornée, file bornée et filet de sécurité d'une acquisition. */
+export interface OptionsVerrou {
+    waitMs?: number;
+    maxWaiters?: number;
+    safetyMs?: number;
+}
+
+/** Rejet d'une acquisition : 429 file pleine, 423 attente expirée. */
+export interface ErreurVerrou extends Error {
+    code: 429 | 423;
+}
+
 /** Crée l'état de verrou d'une session. */
-export function makeLock() {
+export function makeLock(): Verrou {
     return { tail: Promise.resolve(), waiters: 0, held: 0 };
 }
 
 /** Verrou au repos : personne ne le tient ni ne l'attend (purgeable). */
-export function lockIdle(lock) {
+export function lockIdle(lock: Verrou | null | undefined): boolean {
     return !lock || ((lock.waiters || 0) === 0 && (lock.held || 0) === 0);
 }
 
@@ -34,13 +56,13 @@ export function lockIdle(lock) {
  * @param {{tail: Promise, waiters: number}} lock — état créé par makeLock()
  * @param {{waitMs?: number, maxWaiters?: number, safetyMs?: number}} opts
  */
-export function acquireLock(lock, opts = {}) {
+export function acquireLock(lock: Verrou, opts: OptionsVerrou = {}): Promise<Liberer> {
     const waitMs = opts.waitMs ?? 90000;
     const maxWaiters = opts.maxWaiters ?? 8;
     const safetyMs = opts.safetyMs ?? 120000;
 
     if (lock.waiters >= maxWaiters) {
-        const err = new Error('queue_full');
+        const err = new Error('queue_full') as ErreurVerrou;
         err.code = 429;
         return Promise.reject(err);
     }
@@ -48,14 +70,14 @@ export function acquireLock(lock, opts = {}) {
 
     // Notre « tour » : le suivant dans la chaîne ne démarre que quand il est
     // résolu (par release(), par l'abandon, ou par le filet de sécurité).
-    let releaseTurn;
-    const turn = new Promise(r => { releaseTurn = r; });
+    let releaseTurn!: () => void;
+    const turn = new Promise<void>(r => { releaseTurn = r; });
     const prev = lock.tail;
     lock.tail = prev.then(() => turn);
 
     let abandoned = false;
 
-    const acquired = prev.then(() => {
+    const acquired = prev.then((): Liberer | null => {
         if (abandoned) {
             // Le waiter est parti pendant l'attente : on passe le tour
             // immédiatement pour ne pas bloquer les suivants.
@@ -80,15 +102,15 @@ export function acquireLock(lock, opts = {}) {
         return release;
     });
 
-    return new Promise((resolve, reject) => {
+    return new Promise<Liberer>((resolve, reject) => {
         const timer = setTimeout(() => {
             abandoned = true;
             lock.waiters--;
-            const err = new Error('session_busy');
+            const err = new Error('session_busy') as ErreurVerrou;
             err.code = 423;
             reject(err);
         }, waitMs);
-        acquired.then(release => {
+        void acquired.then(release => {
             if (release) {
                 clearTimeout(timer);
                 resolve(release);

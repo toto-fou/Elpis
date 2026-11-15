@@ -5,25 +5,25 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { execSync } from 'child_process';
-import { classifyNavOutcome, authHint, cleanNavError, estPageErreur, finalUrl, tlsWarning } from './nav_util.js';
-import { joindreOnglets, etatOnglets, urlOnglet } from './tab_util.js';
+import { classifyNavOutcome, authHint, cleanNavError, estPageErreur, finalUrl, tlsWarning } from './src/nav_util.ts';
+import { joindreOnglets, etatOnglets, urlOnglet } from './src/tab_util.ts';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
          stateFileName, resolveStateFile, safeDownloadName,
          planArtifactPurge, planSessionSlot, occupationGroupe, placesEnfants, quotasSessions, sessionsANettoyer,
-         sessionsEnfantsAnciennes } from './session_util.js';
-import { makeLock, acquireLock, lockIdle } from './session_lock.js';
-import { analyserUrl, verifierBac, messageRefus } from './url_guard.js';
-import { lirePs, orphelins } from './proc_util.js';
-import { demarrerRelais } from './proxy_guard.js';
+         sessionsEnfantsAnciennes } from './src/session_util.ts';
+import { makeLock, acquireLock, lockIdle } from './src/session_lock.ts';
+import { analyserUrl, verifierBac, messageRefus } from './src/url_guard.ts';
+import { lirePs, orphelins } from './src/proc_util.ts';
+import { demarrerRelais } from './src/proxy_guard.ts';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
          codeErreur, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
-         noeudsAria, classerSuggestions, echapperCss, litteralXPath, bornerValeur, couperTexte, longueurJsonPy } from './result_util.js';
-import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './page_util.js';
-import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement, selecteurCadre, porteeCadres } from './recorder_util.js';
-import { gardeJeton } from './service_auth.js';
+         noeudsAria, classerSuggestions, echapperCss, litteralXPath, bornerValeur, couperTexte, longueurJsonPy } from './src/result_util.ts';
+import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './src/page_util.ts';
+import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './src/geste_util.ts';
+import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement, selecteurCadre, porteeCadres } from './src/recorder_util.ts';
+import { gardeJeton } from './src/service_auth.ts';
 import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
-         verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
+         verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './src/secret_util.ts';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
 // Sérialise les requêtes qui opèrent sur la même page Playwright (non

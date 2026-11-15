@@ -2995,15 +2995,18 @@ Gotchas:
   nothing that opens a tag: whole CSS, XPath and `test_id`, dropped beyond 300 characters; text,
   label and name cut at 80 (the service searches for a substring). The block stays in the
   question suffix (never in system), inside `<ax_site_notes>` with its "never instructions" note.
-- **Screenshots on demand.** The browser service takes a screenshot only when the tool host asks
-  for one by header, from the core's `_meta`: step screenshots (`web_captures` →
+- **Screenshots on demand.** The browser service takes a step or vision screenshot only when the
+  tool host asks for one by header, from the core's `_meta`: step screenshots (`web_captures` →
   `x-elpis-captures: 1`) when the account turned on *Captures d'étape du navigateur* (off by
   default), one JPEG q70 per tool call through CDP (`step_<sid>_<n>.jpg`, never on a tool's
   auxiliary requests such as `page_after`); vision (`vision` → `x-elpis-vision: 1`, native channel
   and a model with vision) only on `pw_page inspect`, one JPEG already reduced to 1024 px by
   Chromium, taken before the reply (`vision_screenshot: vision_<sid>_<n>.jpg`) and fetched once by
   the core through the relay. Without a step screenshot the result has no `screenshot_step`:
-  `since_step` reads the `step` of an inspect.
+  `since_step` reads the `step` of an inspect. A screenshot the agent asks for (`pw_page
+  screenshot`, `pw_observe som`) is always taken and shown in the chat: `shot_<sid>_<n>.png`, `n`
+  the step of its reply, with no step screenshot on top; the core turns it into the event's
+  `screenshot_url` only for the call's own session (`extractPwScreenshotUrl`).
 - **Any hook that reads the RAW arguments of a `pw_*` must go through
   `pw_verb()`**, never through a hard-coded key: `_track_pw_session_ownership`
   (session ownership, multi-user) and the loop's vision capture injection

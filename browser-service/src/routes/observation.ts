@@ -4,7 +4,7 @@ import path from "path";
 
 import type { Application, Request, Response } from "express";
 
-import { screenshotOnFailure } from "../captures.ts";
+import { nomCaptureExplicite, pasDeLAppel, screenshotOnFailure } from "../captures.ts";
 import type { ServiceContext } from "../contexte.ts";
 import { locatorFromParams } from "../localisateur.ts";
 import { compilerMotif } from "../motif.ts";
@@ -50,7 +50,7 @@ interface ResultatExpect {
   hint?: string;
 }
 
-/** Corps de /element_screenshot : la cible, et la session pour le nom du fichier. */
+/** Corps de /element_screenshot : la cible et la session. */
 interface CorpsCaptureElement extends ParamsCible {
   session_id?: string;
 }
@@ -319,11 +319,10 @@ export function registerObserveRoutes(app: Application, ctx: ServiceContext): vo
     async (req: Request<CorpsCaptureElement>, res: Response): Promise<Response | void> => {
       try {
         const { page } = req.session!;
-        const sid = req.body.session_id;
         const params = req.body;
         const loc = await locatorFromParams(ctx, page, params, req.sessionId);
         if (!loc) return res.status(400).json({ error: "Provide ref/by_* params to identify the element" });
-        const fname = `shot_${sid}_${Date.now()}.png`;
+        const fname = nomCaptureExplicite(req);
         const fpath = path.join(SCREENSHOT_DIR, fname);
         try {
           await loc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
@@ -351,7 +350,6 @@ export function registerObserveRoutes(app: Application, ctx: ServiceContext): vo
     async (req: Request<unknown, QueryObserve>, res: Response) => {
       try {
         const { page } = req.session!;
-        const sid = req.query.session_id;
         const mode = ["indexed", "ax", "som"].includes(req.query.mode!) ? req.query.mode! : "indexed";
         const viewportOnly = req.query.viewport_only !== "false";
         const maxItems = Math.max(1, Math.min(parseInt(req.query.max_items!) || 30, 200));
@@ -587,7 +585,7 @@ export function registerObserveRoutes(app: Application, ctx: ServiceContext): vo
         let screenshot = null;
         if (mode === "som") {
           try {
-            const fname = `view_${sid}.png`;
+            const fname = nomCaptureExplicite(req);
             await page.screenshot({ path: path.join(SCREENSHOT_DIR, fname), fullPage: false });
             screenshot = fname;
           } catch {
@@ -601,7 +599,7 @@ export function registerObserveRoutes(app: Application, ctx: ServiceContext): vo
         // since_step diff (uses smart_inspect's snapshot store for cross-tool consistency)
         const s = req.session!;
         s._inspectSnapshots = s._inspectSnapshots || {};
-        const upcomingStep = (s.screenshotCounter || 0) + 1;
+        const upcomingStep = pasDeLAppel(req);
         s._inspectSnapshots[upcomingStep] = new Set(
           data.items.map((it) => `${it.selector}|${it.type}|${it.text}`),
         );

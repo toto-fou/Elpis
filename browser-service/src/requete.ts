@@ -2,7 +2,7 @@
 /** browser-service/src/requete.ts — intergiciels par appel (session de l'appel, compteur d'étapes et capture, téléchargements et navigation lancés par un geste) et erreurs codées. */
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 
-import { capturesDemandees, ecrireCapture } from "./captures.ts";
+import { capturesDemandees, ecrireCapture, nomCaptureExplicite, pasDeLAppel } from "./captures.ts";
 import type { ServiceContext } from "./contexte.ts";
 import { annoncerOnglets } from "./evenements.ts";
 import { GESTES_NAVIGANTS, champsNavigation, suivreNavigation } from "./geste_util.ts";
@@ -87,7 +87,7 @@ const CONNEXION_EN_COURS = Object.freeze({
   retryable: true,
 });
 
-// Chaque réponse réussie compte un pas (repère de since_step) ; captures demandées : `screenshot_step` et step_<sid>_<n>.jpg écrit après la réponse, hors verrou.
+// Chaque réponse réussie compte un pas (repère de since_step) ; captures demandées : `screenshot_step` et step_<sid>_<n>.jpg écrit après la réponse, hors verrou, sauf en double d'une capture explicite.
 function autoSnapshot(ctx: ServiceContext, req: Appel, res: Response, next: NextFunction): void {
   const { sessions } = ctx;
   const origJson = res.json.bind(res);
@@ -97,9 +97,9 @@ function autoSnapshot(ctx: ServiceContext, req: Appel, res: Response, next: Next
       const s = sessions.get(req.sessionId!);
       const page = req.session && req.session.page;
       if (ok && s && page && payload && typeof payload === "object" && !Array.isArray(payload)) {
-        s.screenshotCounter = (s.screenshotCounter || 0) + 1;
-        const n = s.screenshotCounter;
-        if (capturesDemandees(req)) {
+        const n = pasDeLAppel(req);
+        const explicite = (payload as { screenshot?: unknown }).screenshot === nomCaptureExplicite(req);
+        if (capturesDemandees(req) && !explicite) {
           (payload as { screenshot_step?: number }).screenshot_step = n;
           const nom = `step_${req.sessionId}_${n}.jpg`;
           setImmediate(() => {
@@ -118,7 +118,7 @@ function autoSnapshot(ctx: ServiceContext, req: Appel, res: Response, next: Next
 // Fenêtre où un geste peut lancer une navigation (soumission, lien) avant qu'on la tienne pour absente.
 export const NAV_GRACE_MS = Math.max(0, parseInt(process.env.PW_NAV_GRACE_MS || "250", 10) || 0);
 // Durée d'une requête /action ou /chain, depuis son arrivée, sous le délai du client (10 s, 60 s) : l'attente de la page d'arrivée prend ce qui reste.
-const BUDGET_GESTE_MS = parseInt(process.env.PW_GESTURE_BUDGET_MS || "9000", 10);
+export const BUDGET_GESTE_MS = parseInt(process.env.PW_GESTURE_BUDGET_MS || "9000", 10);
 export const BUDGET_CHAINE_MS = parseInt(process.env.PW_CHAIN_BUDGET_MS || "55000", 10);
 
 // Geste de /action qui peut naviguer : la réponse attend la page d'arrivée et en donne l'URL (`navigated`, `url_before`).

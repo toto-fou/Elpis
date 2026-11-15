@@ -188,8 +188,8 @@ const SCREENSHOT_REAPER_INTERVAL_MS = 10 * 60 * 1000; // run every 10 min
 const MAX_SHOTS_PER_SESSION = parseInt(process.env.PW_MAX_SHOTS_PER_SESSION || "300", 10);
 const MAX_SHOTS_MB_PER_SESSION = parseInt(process.env.PW_MAX_SHOTS_MB_PER_SESSION || "200", 10);
 
-// Matches step_<sid>_<n>.jpg (.png before 2026-11), vision_<sid>_<n>.jpg, smart_<sid>.png, view_<sid>.png,
-// shot_<sid>_<ts>.png, fail_<sid8>_<ts>.png, and live_<sid>.png left by older versions. fail_ uses the
+// Matches step_<sid>_<n>.jpg (.png before 2026-11), vision_<sid>_<n>.jpg, smart_<sid>.png, shot_<sid>_<n>.png,
+// fail_<sid8>_<ts>.png, and live_<sid>.png / view_<sid>.png left by older versions. fail_ uses the
 // first 8 chars of the sid so we accept that too.
 // Session id is 8-64 chars of [A-Za-z0-9-].
 const SCREENSHOT_SID_RE =

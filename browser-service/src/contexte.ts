@@ -166,6 +166,8 @@ declare module "express" {
     sessionId?: string;
     /** Arrival time of the call. */
     recuA?: number;
+    /** Step of the call, once reserved (pasDeLAppel). */
+    pas?: number;
   }
 }
 

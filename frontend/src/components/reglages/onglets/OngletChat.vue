@@ -184,7 +184,8 @@ function choisir(r: ReglageAffichage, valeur: string): void {
             <div class="text-sm text-slate-800">Captures d'étape du navigateur</div>
             <div class="text-xs text-slate-500">
               Une capture après chaque action du navigateur, affichée dans la conversation. Désactivé par
-              défaut pour épargner le processeur de la sandbox.
+              défaut pour épargner le processeur de la sandbox ; les captures demandées par l'agent sont
+              toujours affichées.
             </div>
           </div>
           <div class="relative inline-flex items-center shrink-0">

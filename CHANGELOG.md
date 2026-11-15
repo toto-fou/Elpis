@@ -8,6 +8,15 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Help by feature, with clips.** The help window lists the sections of the user guide on the
+  left, with a search field, shows one section at a time and opens on the one that matches the
+  screen it was called from (chat, editor, routines, RAG, Studio, agents, Remote code). Each
+  feature has a short muted clip (VP9, 5 s for one gesture) next to its steps: it plays while it
+  is on screen, and waits for a click when animations are reduced. The French guide is rewritten
+  around what a user does: the essential gesture, tips to get the most out of each feature, then
+  how it works. The clips are recorded by scenarios against the real application
+  (`docs/media/aide/`, 80 clips), so they can be re-recorded when a screen changes.
+
 - **Git accounts for an organization or a repository.** An account now says what it applies
   to: a whole host, an organization (`github.com/acme`) or one repository
   (`github.com/acme/api`). Several accounts can share a host and the most specific one that
@@ -454,6 +463,10 @@ follow [SemVer](https://semver.org/).
   UTC time on hover.
 
 ### Removed
+
+- **Developer documentation in the application.** The *Développeur* tab of the help window is
+  gone: `docs/architecture.md` is no longer served to signed-in accounts and stays in the
+  repository. `GET /api/help/readme` answers the user guide only, and no longer returns `doc`.
 
 - **The central browser service.** No browser service runs on the host any more: port 3000,
   the `browser` service of `./elpis` and its `elpis-browser` unit, `browser.mode` and

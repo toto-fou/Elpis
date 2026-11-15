@@ -1,27 +1,82 @@
 // SPDX-License-Identifier: MIT
-/* eslint-disable */
-// @ts-nocheck
-/** browser-service/src/routes/chaine.ts — /chain: several gestures in one call, stopped at the first failure (screenshot and alternatives). */
+/** browser-service/src/routes/chaine.ts — /chain : plusieurs gestes en un appel, arrêtés au premier échec (capture et alternatives). */
+import type { Application, Request, Response } from 'express';
+import type { Locator } from 'playwright';
+
 import { screenshotOnFailure } from '../captures.ts';
+import type { ServiceContext } from '../contexte.ts';
 import { refusUrl } from '../destinations.ts';
 import { recordEvent } from '../enregistrement.ts';
 import { GESTES_NAVIGANTS, champsNavigation, suivreNavigation } from '../geste_util.ts';
 import { postActionWait, selectOptionSmart } from '../gestes.ts';
+import type { AttenteApresAction, OptionChoisie } from '../gestes.ts';
 import { smartClick } from '../interaction.ts';
 import { ACTION_TIMEOUT_MS, NOT_FOUND_GRACE_MS, cibleDepuisParams, findAlternatives, resoudreRepli, suggestionsCible, trouveParRepli } from '../localisateur.ts';
 import { BUDGET_CHAINE_MS, detailsErreur, erreurCodee, intercepteurs, NAV_GRACE_MS, suiviTelechargements } from '../requete.ts';
+import type { ErreurCodee } from '../requete.ts';
 import { codeErreur, describeLocator, sansAnsi } from '../result_util.ts';
+import type { ParamsCible } from '../result_util.ts';
 import { messageRefus } from '../url_guard.ts';
 
+/** Étape de /chain : geste (`type`, ou `action`), cible (`ref`, `by_*`, `selector` de repli) et options du geste. */
+interface EtapeChaine {
+    type?: string;
+    action?: string;
+    ref?: string;
+    by_role?: string;
+    by_name?: string;
+    by_text?: string;
+    by_label?: string;
+    by_placeholder?: string;
+    by_test_id?: string;
+    by_alt?: string;
+    by_title?: string;
+    by_css?: string;
+    by_xpath?: string;
+    nth?: number;
+    selector?: string;
+    timeout?: number;
+    button?: 'left' | 'right' | 'middle';
+    human?: boolean;
+    text?: string;
+    value?: string;
+    delay?: number;
+    key?: string;
+    option_value?: string;
+    option_label?: string;
+    label?: string;
+    checked?: boolean;
+    wait_for?: string;
+    ms?: number;
+    amount?: number;
+    url?: string;
+    wait_after?: AttenteApresAction;
+}
 
-export function registerChainRoutes(app, ctx) {
+/** Corps de /chain. */
+interface CorpsChaine {
+    actions?: EtapeChaine[];
+    stop_on_error?: boolean;
+    screenshot_on_fail?: boolean;
+}
+
+/** Issue d'une étape : les champs du geste (stratégie, touche, option choisie…), la navigation, ou l'échec et ses alternatives. */
+interface ResultatEtape {
+    success: boolean;
+    code?: string;
+    selected?: OptionChoisie;
+    alternatives?: unknown[];
+    [champ: string]: unknown;
+}
+
+export function registerChainRoutes(app: Application, ctx: ServiceContext) {
 const { getSession, autoSnapshot } = intercepteurs(ctx);
 // ==========================================
 // ACTION CHAINING (Feature 2) — v2: prefers by_* params over selector strings
 // ==========================================
-app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, res) => {
+app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req: Request<CorpsChaine>, res: Response): Promise<Response | void> => {
     try {
-        const { page } = req.session;
+        const { page } = req.session!;
         const { actions = [], stop_on_error = true, screenshot_on_fail = true } = req.body;
 
         if (!Array.isArray(actions) || actions.length === 0)
@@ -32,8 +87,8 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
         // Resolve a chain step's target. Prefers `ref` and explicit `by_*`
         // params (Playwright official API — robust). Falls back to a
         // `selector` string parsed by smartResolveLocator (text/CSS/XPath).
-        async function resolveChainTarget(act) {
-            const params = {
+        async function resolveChainTarget(act: EtapeChaine) {
+            const params: ParamsCible = {
                 ref: act.ref,
                 by_role: act.by_role, by_name: act.by_name, by_text: act.by_text,
                 by_label: act.by_label, by_placeholder: act.by_placeholder,
@@ -57,18 +112,18 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
             throw new Error('No target: provide by_*/ref or selector');
         }
 
-        const results = [];
+        const results: ResultatEtape[] = [];
         let failed = false;
 
         for (let i = 0; i < actions.length; i++) {
-            const act = actions[i];
+            const act = actions[i]!;
             const actType = act.type || act.action || '';
             const startMs = Date.now();
-            let locEtape = null;
+            let locEtape: Locator | null | undefined = null;
             const suivi = GESTES_NAVIGANTS.has(actType) ? suivreNavigation(page, { graceMs: NAV_GRACE_MS }) : null;
 
             try {
-                let result;
+                let result: ResultatEtape;
 
                 switch (actType) {
                     case 'click':
@@ -83,7 +138,7 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
                             await locator.click({ timeout: act.timeout || ACTION_TIMEOUT_MS, button: act.button || 'left' });
                             result = { success: true, action: 'click', strategy: 'official' };
                         } else {
-                            const { locator: cliqueSur, cadre: _c, ...clic } = await smartClick(page, act.selector, {
+                            const { locator: cliqueSur, cadre: _c, ...clic } = await smartClick(page, act.selector!, {
                                 human: act.human, button: act.button || 'left', timeout: act.timeout || ACTION_TIMEOUT_MS
                             });
                             locEtape = cliqueSur;
@@ -96,7 +151,7 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
                         const { locator } = await resolveChainTarget(act);
                         try { await locator.fill(act.text || act.value || '', { timeout: act.timeout || ACTION_TIMEOUT_MS }); }
                         catch {
-                            await locator.evaluate((el, val) => {
+                            await locator.evaluate((el: HTMLInputElement, val: string) => {
                                 el.focus(); el.value = val;
                                 el.dispatchEvent(new Event('input', { bubbles: true }));
                                 el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -119,9 +174,9 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
                             || act.by_placeholder || act.by_test_id || act.by_css || act.by_xpath || act.selector;
                         if (hasTarget) {
                             const { locator } = await resolveChainTarget(act);
-                            await locator.press(act.key, { timeout: act.timeout || ACTION_TIMEOUT_MS });
+                            await locator.press(act.key!, { timeout: act.timeout || ACTION_TIMEOUT_MS });
                         } else {
-                            await page.keyboard.press(act.key);
+                            await page.keyboard.press(act.key!);
                         }
                         result = { success: true, action: 'press', key: act.key };
                         break;
@@ -172,7 +227,7 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
                     case 'goto': {
                         const _motif = await refusUrl(act.url);
                         if (_motif) throw new Error(messageRefus(act.url, _motif));
-                        await page.goto(act.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                        await page.goto(act.url!, { waitUntil: 'domcontentloaded', timeout: 30000 });
                         await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(2000)]);
                         result = { success: true, action: 'goto', url: page.url() };
                         break;
@@ -203,8 +258,8 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
 
                 // Recorder hook (no-op when not recording)
                 if (result && result.success !== false) {
-                    const saisie = (actType === 'fill' || actType === 'type') && req.session._recorder?.recording;
-                    await recordEvent(req.session, {
+                    const saisie = (actType === 'fill' || actType === 'type') && req.session!._recorder?.recording;
+                    await recordEvent(req.session!, {
                         action: actType === 'select_option' ? 'select' : actType,
                         locator: {
                             role: act.by_role, name: act.by_name, text: act.by_text,
@@ -217,17 +272,17 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    }, locEtape || ((saisie || act.ref) && req.session._recorder?.recording ? await resolveChainTarget(act).then(r => r.locator, () => null) : null));
+                    }, locEtape || ((saisie || act.ref) && req.session!._recorder?.recording ? await resolveChainTarget(act).then(r => r.locator, () => null) : null));
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
 
             } catch (e) {
                 if (suivi) suivi.annuler();
-                const msg = sansAnsi(e.message || String(e));
-                const failResult = {
+                const msg = sansAnsi((e as Error).message || String(e));
+                const failResult: ResultatEtape = {
                     step: i, action: actType, success: false, error: msg.substring(0, 200),
-                    code: detailsErreur(e).code || codeErreur(msg), ...(e.details || {}),
+                    code: detailsErreur(e).code || codeErreur(msg), ...((e as ErreurCodee).details || {}),
                     duration_ms: Date.now() - startMs,
                 };
 
@@ -265,6 +320,6 @@ app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, r
             results,
         });
 
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
 });
 }

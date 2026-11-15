@@ -118,7 +118,7 @@ A chat turn, from the request to the last event:
 
 - `elpis_office/`: standalone Python package (python-docx, python-pptx, lxml,
   Pillow, pydantic, markdown-it-py) that carries the seven Word and PowerPoint tools (`word.py`,
-  `powerpoint.py`, `_docx/`, `_pptx/`, `_chart/`, ECharts rendering `echarts_ssr.cjs`).
+  `powerpoint.py`, `_docx/`, `_pptx/`, `_chart/`, ECharts rendering `echarts_ssr.mts`).
   It sees the world only through the `Env` (`commun.py`) that the host plugs into it:
   file reading and writing, charts, PDF conversion.
 - `canal.py` and `__main__.py`: the worker (`python -m elpis_office`), launched by
@@ -168,7 +168,7 @@ container (`/opt/elpis/agent`) and started on demand by the host
   Qdrant, remote toolhost, voice (whisper.cpp :8090, Piper :8091),
   configuration wizard (`configure.py`, `wizard.py`, `tui.py`).
 - `install.sh`, `elpis` (operations CLI), `make_release.sh` (offline
-  package), `tools/generate_tailwind_css.mjs`.
+  package), `tools/generate_tailwind_css.mts`.
 - `system_prompts/` (prompts, in English), `skills/` (global skills;
   `learned/` = administrator's airlock).
 

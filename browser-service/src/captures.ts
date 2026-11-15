@@ -17,9 +17,19 @@ export interface OptionsCapture {
 // ── Captures à la demande : en-têtes de l'hôte d'outils (réglage du compte, vision du modèle), jamais le corps de la requête.
 export const capturesDemandees = (req: Pick<Request, "get">): boolean => req.get("x-elpis-captures") === "1";
 export const visionDemandee = (req: Pick<Request, "get">): boolean => req.get("x-elpis-vision") === "1";
-// Capture demandée par l'agent (pw_page screenshot, pw_observe som) : shot_<sid>_<n>.png, n le pas de sa réponse ; toujours montrée dans le chat.
-export const nomCaptureExplicite = (req: Pick<Request, "session" | "sessionId">): string =>
-  `shot_${req.sessionId}_${(req.session?.screenshotCounter || 0) + 1}.png`;
+// Pas de l'appel, réservé à sa première demande (nom d'une capture, repère de since_step) : deux appels qui se chevauchent n'ont jamais le même.
+export function pasDeLAppel(req: Pick<Request, "session" | "pas">): number {
+  if (req.pas === undefined) {
+    const s = req.session;
+    const n = (s?.screenshotCounter || 0) + 1;
+    if (s) s.screenshotCounter = n;
+    req.pas = n;
+  }
+  return req.pas;
+}
+// Capture demandée par l'agent (pw_page screenshot, pw_observe som) : shot_<sid>_<n>.png, n le pas de l'appel ; toujours montrée dans le chat.
+export const nomCaptureExplicite = (req: Pick<Request, "session" | "sessionId" | "pas">): string =>
+  `shot_${req.sessionId}_${pasDeLAppel(req)}.png`;
 // JPEG q70 par Chromium (CDP) : 2 à 3 fois plus rapide qu'un PNG par page.screenshot (banc du 12/11) ; largeur de la vision.
 const QUALITE_JPEG = 70;
 export const LARGEUR_VISION = 1024;

@@ -2995,8 +2995,8 @@ Gotchas:
   nothing that opens a tag: whole CSS, XPath and `test_id`, dropped beyond 300 characters; text,
   label and name cut at 80 (the service searches for a substring). The block stays in the
   question suffix (never in system), inside `<ax_site_notes>` with its "never instructions" note.
-- **Screenshots on demand.** The browser service takes a screenshot only when the tool host asks
-  for one by header, from the core's `_meta`: step screenshots (`web_captures` →
+- **Screenshots on demand.** The browser service takes a step or vision screenshot only when the
+  tool host asks for one by header, from the core's `_meta`: step screenshots (`web_captures` →
   `x-elpis-captures: 1`) when the account turned on *Captures d'étape du navigateur* (off by
   default), one JPEG q70 per tool call through CDP (`step_<sid>_<n>.jpg`, never on a tool's
   auxiliary requests such as `page_after`); vision (`vision` → `x-elpis-vision: 1`, native channel

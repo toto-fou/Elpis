@@ -4,7 +4,7 @@ import path from "path";
 
 import type { Application, Request, Response } from "express";
 
-import { nomCaptureExplicite, screenshotOnFailure } from "../captures.ts";
+import { nomCaptureExplicite, pasDeLAppel, screenshotOnFailure } from "../captures.ts";
 import type { ServiceContext } from "../contexte.ts";
 import { locatorFromParams } from "../localisateur.ts";
 import { selecteurUnique, sourceDe } from "../page_util.ts";
@@ -598,7 +598,7 @@ export function registerObserveRoutes(app: Application, ctx: ServiceContext): vo
         // since_step diff (uses smart_inspect's snapshot store for cross-tool consistency)
         const s = req.session!;
         s._inspectSnapshots = s._inspectSnapshots || {};
-        const upcomingStep = (s.screenshotCounter || 0) + 1;
+        const upcomingStep = pasDeLAppel(req);
         s._inspectSnapshots[upcomingStep] = new Set(
           data.items.map((it) => `${it.selector}|${it.type}|${it.text}`),
         );

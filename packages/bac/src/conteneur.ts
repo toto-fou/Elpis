@@ -909,16 +909,7 @@ export class UserSandbox implements BacPourAgent {
   /** Arrête le service navigateur du bac (TERM au processus du service). */
   async stopNavigateur(): Promise<void> {
     await this.appel(
-      [
-        "exec",
-        "--user",
-        "0:0",
-        this.containerName,
-        "pkill",
-        "-TERM",
-        "-f",
-        `${MONTAGES_NAVIGATEUR.service}/server.js`,
-      ],
+      ["exec", "--user", "0:0", this.containerName, "pkill", "-TERM", "-f", MONTAGES_NAVIGATEUR.bundle],
       10,
     );
   }

@@ -42,9 +42,10 @@ repository. Before opening a pull request, run:
 
 ```bash
 npm ci
+npm ci --prefix browser-service   # the browser service's own dependencies
 npm run typecheck   # tsc and vue-tsc
 npm run lint        # ESLint
-npm run build       # core, tool host and frontend
+npm run build       # core, tool host, browser service and frontend
 ```
 
 The public CI (GitHub Actions) runs the same commands on Node 24. The

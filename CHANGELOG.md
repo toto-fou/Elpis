@@ -24,7 +24,7 @@ follow [SemVer](https://semver.org/).
   memory), in JPEG q70 through CDP (`step_<sid>_<n>.jpg`, 2 to 3 times faster than the former
   PNG); the `live_<sid>.png` copy is gone. Off, there is no step screenshot and no
   `screenshot_step` (explicit screenshots still show, see Changed). Screenshots already taken stay
-  visible in the history (`.png` still served).
+  visible in the history while their session's files exist (`.png` still served).
 
 - **Browser in the sandbox.** Each account's `pw_*` tools drive Elpis's own browser service,
   started inside the account's sandbox container on the first call (image `elpis/sandbox:1.8.0`;

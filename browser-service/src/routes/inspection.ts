@@ -4,14 +4,14 @@ import path from "path";
 
 import type { Application, Request, Response } from "express";
 
-import { LARGEUR_VISION, ecrireCapture, visionDemandee } from "../captures.ts";
+import { LARGEUR_VISION, ecrireCapture, pasDeLAppel, visionDemandee } from "../captures.ts";
 import type { ServiceContext } from "../contexte.ts";
 import { documentSansFragment } from "../evenements.ts";
 import { getAllFrames } from "../localisateur.ts";
 import { selecteurUnique, sourceDe } from "../page_util.ts";
 import type { Boite } from "../page_util.ts";
 import { SCREENSHOT_DIR } from "../reglages.ts";
-import { intercepteurs } from "../requete.ts";
+import { BUDGET_GESTE_MS, intercepteurs } from "../requete.ts";
 import { compactConsole } from "../result_util.ts";
 
 /** Requête de /smart_inspect. */
@@ -73,6 +73,11 @@ interface ItemInspect {
   frame?: { name: string | null; url: string };
   frame_hint?: string;
 }
+
+// Capture de vision : au plus 3 s, dans ce qui reste du délai du client moins une marge pour la réponse ; en deçà de 300 ms, pas d'image.
+const DELAI_VISION_MAX_MS = 3000;
+const DELAI_VISION_MIN_MS = 300;
+const MARGE_VISION_MS = 1000;
 
 export function registerInspectRoutes(app: Application, ctx: ServiceContext): void {
   const { getSession, autoSnapshot } = intercepteurs(ctx);
@@ -958,10 +963,8 @@ export function registerInspectRoutes(app: Application, ctx: ServiceContext): vo
         const s = req.session!;
         s._inspectSnapshots = s._inspectSnapshots || {}; // step -> Set<key>
         const currentKeys = new Set(data.interactives.map((it) => `${it.selector}|${it.type}|${it.text}`));
-        // Snapshot the current state under the upcoming step number for future diffs.
-        // (autoSnapshot has already incremented screenshotCounter when we get here? No — middleware
-        // runs on res.json. So we register against `screenshotCounter+1`).
-        const upcomingStep = (s.screenshotCounter || 0) + 1;
+        // Snapshot the current state under the step of this call for future diffs.
+        const upcomingStep = pasDeLAppel(req);
         s._inspectSnapshots[upcomingStep] = currentKeys;
         // Bound the snapshot history so it can't grow forever (keep last 20)
         const snapKeys = Object.keys(s._inspectSnapshots)
@@ -984,12 +987,15 @@ export function registerInspectRoutes(app: Application, ctx: ServiceContext): vo
             added_or_changed: filteredInteractives.length,
           };
         }
-        // Vision du modèle demandée par l'hôte d'outils : une capture réduite à 1024 px, prise avant la réponse ; le core la relit par son nom.
-        const vision = visionDemandee(req)
-          ? await ecrireCapture(ctx, page, req.sessionId, `vision_${req.sessionId}_${upcomingStep}.jpg`, {
-              largeur: LARGEUR_VISION,
-            })
-          : null;
+        // Vision du modèle demandée par l'hôte d'outils : une capture réduite à 1024 px, prise avant la réponse dans ce qui reste du délai du client (sans marge : pas d'image, plutôt qu'une inspection hors délai) ; le core la relit par son nom.
+        const resteMs = (req.recuA || Date.now()) + BUDGET_GESTE_MS - MARGE_VISION_MS - Date.now();
+        const vision =
+          visionDemandee(req) && resteMs >= DELAI_VISION_MIN_MS
+            ? await ecrireCapture(ctx, page, req.sessionId, `vision_${req.sessionId}_${upcomingStep}.jpg`, {
+                largeur: LARGEUR_VISION,
+                delaiMs: Math.min(DELAI_VISION_MAX_MS, resteMs),
+              })
+            : null;
 
         res.json({
           ...data,

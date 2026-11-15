@@ -112,6 +112,10 @@ into `browser-service/dist/main.mjs` by `npm run build:browser`.
 - `frontend/src/features/admin/champs.gen.ts` is generated from the console
   pages (`frontend/src/components/admin/Page*.vue`): after adding or
   renaming a setting (`data-field`), run `node frontend/champs-admin.mts`.
+- `docs/media/aide/*.webm`: clips of the user guide (VP9, 5 s for one
+  gesture, 120 KB at most each), recorded by the scenarios of the development
+  branch (`tests/frontend/clips/`, see `docs/testing.md` there). After changing
+  a screen a clip shows, re-record it; never add a GIF or an unrecorded video.
 - `frontend/dist/`, `apps/core/dist/`, `apps/toolhost/dist/`,
   `browser-service/dist/`: produced by `npm run build`, never versioned.
 

@@ -224,7 +224,6 @@ describe("fenêtre d'aide", () => {
     const dom = etat({
       showHelpModal: true,
       isLoadingReadme: false,
-      helpDoc: "user",
       readmeContent: GUIDE,
       handleMarkdownClick: (ev: Event) => clicMarkdown(ev, {}),
     });

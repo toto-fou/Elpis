@@ -423,8 +423,8 @@ function creerCtx(l: LiensCtx) {
     openSettingsTab(onglet: string): unknown {
       return m.reglages?.openSettingsTab(onglet);
     },
-    openHelp(doc?: string): unknown {
-      return m.reglages?.openHelp(doc);
+    openHelp(): unknown {
+      return m.reglages?.openHelp();
     },
     /** Commande `/rag` du module RAG, lue par le menu « / » du composeur. */
     get ragCommande() {

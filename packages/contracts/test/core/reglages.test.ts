@@ -61,8 +61,7 @@ describe("contrats REST : réglages du compte (core réel)", () => {
       templates: { name: string }[];
     };
     expect(modeles.templates.map((t) => t.name)).toContain("explore");
-    expect(await core.appeler("GET", "/api/help/readme", { cookie })).toMatchObject({ doc: "user" });
-    expect(await core.appeler("GET", "/api/help/readme?doc=dev", { cookie })).toMatchObject({ doc: "dev" });
+    expect(await core.appeler("GET", "/api/help/readme", { cookie })).toHaveProperty("content");
     await core.appeler("GET", "/api/settings/agent-templates");
   });
 

@@ -1,51 +1,34 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/aide.ts — fenêtre d'aide : guide utilisateur ou documentation développeur (`/api/help/readme`), chargement à jeton pour ignorer les réponses périmées. */
+/** frontend/src/features/reglages/aide.ts — fenêtre d'aide : guide utilisateur (`/api/help/readme`), chargement à jeton pour ignorer les réponses périmées. */
 import { schemaReponseAide } from "@elpis/contracts";
-import type { Ref } from "vue";
 
 import { lireSchema } from "../../utils/lecture-json";
 import type { CtxReglages, VueReglages } from "./types";
-
-export type DocAide = "user" | "dev";
 
 export function creerAide(vue: VueReglages, ctx: CtxReglages) {
   const { ref } = vue;
   const showHelpModal = ref(false);
   const readmeContent = ref("");
   const isLoadingReadme = ref(false);
-  const helpDoc: Ref<DocAide> = ref("user");
   let sequence = 0;
 
-  async function openHelp(doc?: unknown): Promise<void> {
-    const cible: DocAide = doc === "user" || doc === "dev" ? doc : helpDoc.value || "user";
+  async function openHelp(): Promise<void> {
     const maSequence = ++sequence;
-    helpDoc.value = cible;
     showHelpModal.value = true;
     isLoadingReadme.value = true;
     try {
-      const res = await ctx.fetchAuth("/api/help/readme?doc=" + encodeURIComponent(cible), {}, true);
+      const res = await ctx.fetchAuth("/api/help/readme", {}, true);
       if (maSequence !== sequence) return;
       const d = await lireSchema(res, schemaReponseAide);
       if (maSequence !== sequence) return;
-      if (d) {
-        readmeContent.value = d.content;
-        helpDoc.value = d.doc;
-      } else {
-        readmeContent.value = "# Erreur lors du chargement de la documentation.";
-      }
+      readmeContent.value = d ? d.content : "# Erreur lors du chargement de l'aide.";
     } catch {
       if (maSequence !== sequence) return;
-      readmeContent.value = "# Erreur réseau lors du chargement de la documentation.";
+      readmeContent.value = "# Erreur réseau lors du chargement de l'aide.";
     } finally {
       if (maSequence === sequence) isLoadingReadme.value = false;
     }
   }
 
-  function switchHelpDoc(doc: unknown): void {
-    if (doc !== "user" && doc !== "dev") return;
-    if (doc === helpDoc.value && readmeContent.value) return;
-    void openHelp(doc);
-  }
-
-  return { showHelpModal, readmeContent, isLoadingReadme, helpDoc, openHelp, switchHelpDoc };
+  return { showHelpModal, readmeContent, isLoadingReadme, openHelp };
 }

@@ -32,6 +32,7 @@ import { composer } from "../src/composition";
 import { cheminCacheCategories, reinitialiserRegistre } from "../src/outils/categories";
 import { installerCrochetJournal } from "../src/journal";
 import { appTest, effacementUnifie, journalMuet } from "./aides";
+import { ecartAide } from "./ecart-aide";
 import { reponseSansAvatarAssistant, sansAvatarAssistant } from "./ecart-avatar-assistant";
 import { corpsSansFusion, documentSansFusion } from "./ecart-fusion-skins";
 
@@ -264,9 +265,14 @@ describe.each(MOTEURS)("différentiel contre create_app() (%s)", (moteur) => {
   it(`${V.etapes.length} étapes : statut, corps, type et cache ; puis comptes et avatars`, async () => {
     const ecarts: string[] = [];
     const prefixeSb = realpathSync(dirname(sb)) + "/sb";
+    const sansDocDev = ecartAide();
     for (const [i, e] of V.etapes.entries()) {
-      // Écart voulu : avatar de l'assistant = logo de l'application (ecart-avatar-assistant.ts).
-      const attendu = reponseSansAvatarAssistant(e.m ?? "", e.p ?? "", V.reponses[i] as Reponse);
+      // Écarts voulus : aide réduite au guide utilisateur (ecart-aide.ts) ; avatar de l'assistant = logo de l'application (ecart-avatar-assistant.ts).
+      const attendu = sansDocDev(
+        e.m ?? "",
+        e.p ?? "",
+        reponseSansAvatarAssistant(e.m ?? "", e.p ?? "", V.reponses[i] as Reponse),
+      );
       if (e.config !== undefined) {
         writeFileSync(config, pyJsonDumps(e.config));
         invalidateConfigCache();

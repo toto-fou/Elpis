@@ -771,25 +771,21 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     expect([plage.statusCode, plage.headers["content-range"]]).toEqual([416, `bytes */${PNG.length}`]);
   });
 
-  it("aide : guide utilisateur ou documentation développeur, message si absente", async () => {
+  it("aide : guide utilisateur seul, message neutre s'il est absent ou illisible", async () => {
     await login("admin", "a", "127.0.0.1");
     const c = cookie(await login("admin", "a"));
     const lire = (q: string) =>
       app.inject({ method: "GET", url: `/api/help/readme${q}`, headers: { cookie: c } });
-    expect((await lire("")).json()).toEqual({
-      content: "# Fichier docs/fr/user-guide.md introuvable\n\nAucune documentation n'a été trouvée.",
-      doc: "user",
-    });
-    mkdirSync(join(racine, "docs"));
+    const indisponible = {
+      content: "# Aide indisponible\n\nL'aide n'a pas pu être chargée. Demandez à votre administrateur.",
+    };
+    expect((await lire("")).json()).toEqual(indisponible);
+    mkdirSync(join(racine, "docs", "fr"), { recursive: true });
     writeFileSync(join(racine, "docs", "architecture.md"), "# Archi");
-    expect((await lire("?doc=%20DEV%20")).json()).toEqual({ content: "# Archi", doc: "dev" });
-    expect((await lire("?doc=dev&doc=user")).json<{ doc: string }>().doc).toBe("user");
-    mkdirSync(join(racine, "docs", "fr"));
     writeFileSync(join(racine, "docs", "fr", "user-guide.md"), Buffer.from("ok\xff", "latin1"));
-    expect((await lire("")).json()).toEqual({
-      content:
-        "# Erreur de lecture\n\nImpossible de lire le fichier: 'utf-8' codec can't decode byte 0xff in position 2: invalid start byte",
-      doc: "user",
-    });
+    expect((await lire("")).json()).toEqual(indisponible);
+    writeFileSync(join(racine, "docs", "fr", "user-guide.md"), "# Guide");
+    expect((await lire("")).json()).toEqual({ content: "# Guide" });
+    expect((await lire("?doc=dev")).json()).toEqual({ content: "# Guide" });
   });
 });

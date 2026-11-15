@@ -191,6 +191,6 @@ export const schemaReponseModelesAgents = z.object({
 });
 export type ReponseModelesAgents = z.infer<typeof schemaReponseModelesAgents>;
 
-/** `doc` : `dev` (architecture) ou `user` (guide) ; le texte d'erreur de lecture est rendu en 200. */
-export const schemaReponseAide = z.object({ content: z.string(), doc: z.enum(["user", "dev"]) });
+/** Guide utilisateur en Markdown ; un guide illisible donne un message en 200. */
+export const schemaReponseAide = z.object({ content: z.string() });
 export type ReponseAide = z.infer<typeof schemaReponseAide>;

@@ -3003,7 +3003,10 @@ Gotchas:
   and a model with vision) only on `pw_page inspect`, one JPEG already reduced to 1024 px by
   Chromium, taken before the reply (`vision_screenshot: vision_<sid>_<n>.jpg`) and fetched once by
   the core through the relay. Without a step screenshot the result has no `screenshot_step`:
-  `since_step` reads the `step` of an inspect.
+  `since_step` reads the `step` of an inspect. A screenshot the agent asks for (`pw_page
+  screenshot`, `pw_observe som`) is always taken and shown in the chat: `shot_<sid>_<n>.png`, `n`
+  the step of its reply, with no step screenshot on top; the core turns it into the event's
+  `screenshot_url` only for the call's own session (`extractPwScreenshotUrl`).
 - **Any hook that reads the RAW arguments of a `pw_*` must go through
   `pw_verb()`**, never through a hard-coded key: `_track_pw_session_ownership`
   (session ownership, multi-user) and the loop's vision capture injection

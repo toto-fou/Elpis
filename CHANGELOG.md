@@ -22,8 +22,9 @@ follow [SemVer](https://semver.org/).
   (`_meta.web_captures` from the core, header `x-elpis-captures`): one per tool call, a
   `pw_chain` included, never for a tool's auxiliary requests (`page_after`, the URL read for AX
   memory), in JPEG q70 through CDP (`step_<sid>_<n>.jpg`, 2 to 3 times faster than the former
-  PNG); the `live_<sid>.png` copy is gone. Off, there is no screenshot, no `screenshot_step` and
-  nothing in the chat. Screenshots already taken stay visible in the history (`.png` still served).
+  PNG); the `live_<sid>.png` copy is gone. Off, there is no step screenshot and no
+  `screenshot_step` (explicit screenshots still show, see Changed). Screenshots already taken stay
+  visible in the history (`.png` still served).
 
 - **Browser in the sandbox.** Each account's `pw_*` tools drive Elpis's own browser service,
   started inside the account's sandbox container on the first call (image `elpis/sandbox:1.8.0`;
@@ -209,6 +210,14 @@ follow [SemVer](https://semver.org/).
   repository) offers at once what the account can be used for, the whole server by default; the
   type of server is shown by name (GitHub, Gitea / Forgejo…), and a line says which account is
   taken when several fit. An account without a scope is marked *inactif*.
+- **Explicit browser screenshots always shown in the chat.** A screenshot the agent asks for
+  (`pw_page screenshot`, of the viewport, the full page or one element, and the annotated
+  `pw_observe som`) now shows in the chat like a step screenshot (thumbnail, viewer, history),
+  whatever the step screenshot setting. The service names it after the step of its reply
+  (`shot_<sid>_<n>.png`, `som` included instead of the overwritten `view_<sid>.png`) and takes no
+  step screenshot on top of it; the core reads it from the result of its own session. Vision is
+  unchanged (image to the model only at `pw_page inspect`). A browser tool that brings no
+  screenshot no longer leaves the last thumbnail waiting.
 - **Browser service in TypeScript.** `browser-service/` is strict TypeScript like the rest of
   the workspace: sources in `browser-service/src` (one module per route family in `src/routes`,
   shared state in an explicit service context instead of module globals), bundled by esbuild into

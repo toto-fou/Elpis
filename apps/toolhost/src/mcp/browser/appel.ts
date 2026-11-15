@@ -12,7 +12,7 @@ import {
   rappelOnglet,
   refusSessionDAutrui,
 } from "@elpis/navigateur";
-import { getUsername } from "@elpis/outils-mcp";
+import { getUsername, readMetaField } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 import { current, lireSousAgent } from "@elpis/securite";
 import type { SousAgentHote } from "@elpis/securite";
@@ -56,7 +56,7 @@ export function proprietaireDe(
   return { owner: pwOwnerEnfant(username, sa.id), portee: "isolee" };
 }
 
-/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte ; session ouverte pour un secret dont la politique exclut les sous-agents, pour un sous-agent), ou l'appel au propriétaire du compte, ou de l'enfant isolé. */
+/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte ; session ouverte pour un secret dont la politique exclut les sous-agents, pour un sous-agent), ou l'appel au propriétaire du compte, ou de l'enfant isolé, avec les captures demandées par le core (`_meta`). */
 export async function ouvrirAppel(
   ctx: ContexteAppel,
   s: ServicesBrowser,
@@ -87,7 +87,12 @@ export async function ouvrirAppel(
     refus: null,
     appel: {
       username,
-      client: new ClientNavigateur({ owner, service }),
+      client: new ClientNavigateur({
+        owner,
+        service,
+        captures: readMetaField(ctx, "web_captures") === "1",
+        vision: readMetaField(ctx, "vision") === "1",
+      }),
       ax: s.ax(),
       portee,
     },

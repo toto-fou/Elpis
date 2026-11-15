@@ -12,9 +12,7 @@ const props = defineProps<{ entry: EntreeMessage; texte?: string }>();
 const fil = domaine(CLE_FIL);
 const pref = preferencesChat();
 const captures = computed(() =>
-  pref.deroule === "classic" || !pref.captures
-    ? []
-    : visionneuseCaptures(capturesDuTour(props.entry.msg)).items,
+  pref.deroule === "classic" ? [] : visionneuseCaptures(capturesDuTour(props.entry.msg)).items,
 );
 // « Copier » confirme sur place : coche et libellé « Réponse copiée » pendant 1,5 s (l'échec reste un toast).
 const copiee = ref(false);

@@ -125,6 +125,8 @@ export interface PortVisionBureau {
     toolArgs: unknown,
     resultStr: unknown,
   ): { url: string; step: unknown; session_id: unknown } | null;
+  /** Nom de la capture de la vision rendue par `pw_page inspect` (`vision_<sid>_<n>.jpg`), sinon `null`. */
+  extractPwVisionCapture(toolName: string, toolArgs: unknown, resultStr: unknown): string | null;
   pwVerbOf(toolName: string, toolArgs: unknown): string;
   trackPwSessionOwnership(
     toolName: string,

@@ -86,7 +86,7 @@ export function utiliserTour(entree: () => EntreeMessage) {
       : { content: texte };
   });
 
-  const captures = computed(() => (pref.captures ? capturesDuTour(msg()) : []));
+  const captures = computed(() => capturesDuTour(msg()));
   const visionneuse = computed(() => visionneuseCaptures(captures.value));
 
   function voirCapture(rang: number): void {

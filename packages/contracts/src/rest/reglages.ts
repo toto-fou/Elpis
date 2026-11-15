@@ -68,8 +68,8 @@ const reglagesEcrivables = {
   image_prefs: dictionnaire,
   /** Défaut du compte de « Ne pas me réveiller » (tâches de fond) : absent = vrai (réveil actif). */
   jobs_wake: z.boolean(),
-  /** « Masquer les captures web » : captures du navigateur cachées dans le fil ; absent = faux. */
-  hide_web_screenshots: z.boolean(),
+  /** « Captures d'étape du navigateur » : une capture après chaque action du navigateur, montrée dans le fil ; absent = faux (aucune). */
+  web_step_screenshots: z.boolean(),
   /** Déroulé d'un tour dans le fil : classique (défaut), travail en bloc, chronologie, journal. */
   chat_workflow: z.enum(["classic", "work_block", "timeline", "terminal"]),
   /** Contexte dans la rangée du composeur : jetons utilisés / fenêtre (défaut), bloc qui se remplit, pourcentage, anneau. */

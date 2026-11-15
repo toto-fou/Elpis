@@ -179,10 +179,13 @@ const regleReglagesVifs = {
   },
 };
 
+/** Scripts d'outillage en TypeScript, lancés tels quels par Node. */
+const SCRIPTS = ["tools/*.mts", "migration-kit/*.mts", "office/elpis_office/*.mts"];
+
 export default defineConfig(
   { ignores: ["**/dist/**", "**/node_modules/**", "**/*.gen.ts", "apps/core/greffon-opencode/**"] },
   {
-    files: ["apps/**/*.ts", "packages/**/*.ts", "browser-service/**/*.ts"],
+    files: ["apps/**/*.ts", "packages/**/*.ts", "browser-service/**/*.ts", ...SCRIPTS],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -201,8 +204,8 @@ export default defineConfig(
     files: TESTS,
     rules: { "no-console": "off" },
   },
-  /** Service navigateur : la console est son journal (service.log du bac). */
-  { files: ["browser-service/src/**/*.ts"], rules: { "no-console": "off" } },
+  /** Service navigateur : la console est son journal (service.log du bac) ; scripts d'outillage : leur sortie. */
+  { files: ["browser-service/src/**/*.ts", ...SCRIPTS], rules: { "no-console": "off" } },
   /** Ses tests tournent sous node:test, dont test() et describe() rendent une promesse que le lanceur attend. */
   {
     files: ["browser-service/test/**/*.ts"],

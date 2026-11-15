@@ -17,7 +17,7 @@ type Tache = Record<string, unknown>;
 type RenduUn = (tache: Tache) => unknown;
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const bundle = process.env["ELPIS_ECHARTS_SSR"] ?? join(racine, "frontend", "dist", "echarts-ssr.cjs");
+const bundle = process.env["ELPIS_ECHARTS_SSR"] || join(racine, "frontend", "dist", "echarts-ssr.cjs");
 if (!existsSync(bundle)) {
   process.stderr.write(
     `echarts_ssr: bundle introuvable (${bundle}) — construire le frontend (npm run build -w @elpis/web)\n`,

@@ -15,8 +15,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json && tsc -p browser-service && npm run typecheck -w @elpis/web",
     "lint": "eslint --no-error-on-unmatched-pattern apps packages browser-service/src browser-service/test browser-service/scripts frontend/src frontend/test \"frontend/*.mts\" \"tools/*.mts\" \"migration-kit/*.mts\" \"office/elpis_office/*.mts\"",
-    "format": "prettier --no-error-on-unmatched-pattern --write \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"browser-service/{src,test,scripts}/**/*.ts\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\"",
-    "format:check": "prettier --no-error-on-unmatched-pattern --check \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"browser-service/{src,test,scripts}/**/*.ts\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\"",
+    "format": "prettier --no-error-on-unmatched-pattern --write \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"browser-service/{src,test,scripts}/**/*.ts\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\" \"tools/*.mts\" \"migration-kit/*.mts\" \"office/elpis_office/*.mts\"",
+    "format:check": "prettier --no-error-on-unmatched-pattern --check \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"browser-service/{src,test,scripts}/**/*.ts\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\" \"tools/*.mts\" \"migration-kit/*.mts\" \"office/elpis_office/*.mts\"",
     "test": "vitest run",
     "build": "npm run build -w @elpis/core && npm run build -w @elpis/toolhost && npm run build:browser && npm run build -w @elpis/web",
     "licences": "npm run licences -w @elpis/core && npm run licences -w @elpis/toolhost",

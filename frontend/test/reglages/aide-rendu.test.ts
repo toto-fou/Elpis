@@ -203,6 +203,13 @@ describe("découpe du guide", () => {
     const corps = poser(ref[0]!.md);
     expect(corps.querySelector("a")?.getAttribute("href")).toBe("https://exemple.test/page");
     expect(ref[0]!.recherche).not.toContain("exemple.test");
+    const piege = decouperGuide(
+      '## A\n\nVoir [ici][r].\n\n## B\n\n[r]: <https://exemple.test/a b?x=1\\>2> "dit \\"oui\\" \\\\ non"\n',
+    );
+    const lien = poser(piege[0]!.md).querySelector("a")!;
+    expect(lien.getAttribute("title")).toBe('dit "oui" \\ non');
+    expect(decodeURI(lien.getAttribute("href")!)).toBe("https://exemple.test/a b?x=1>2");
+    expect(lien.parentElement!.querySelectorAll("a").length).toBe(1);
   });
 
   it("lu par tranches, le guide donne les mêmes sections que lu d'une traite, même autour d'un commentaire ou d'un bloc brut", () => {

@@ -131,6 +131,13 @@ function sansFilets(md: string): string {
   return md.slice(0, fin).trimEnd();
 }
 
+// Définition de lien réécrite pour toutes les sections : adresse entre chevrons, titre entre guillemets, barres obliques inverses et délimiteurs échappés.
+function definitionLien(nom: string, adresse: string, titre?: string | null): string {
+  const cible = adresse.replace(/[\\<>]/g, "\\$&");
+  const legende = titre ? ` "${titre.replace(/[\\"]/g, "\\$&")}"` : "";
+  return `[${nom}]: <${cible}>${legende}\n`;
+}
+
 export interface LectureGuide {
   /** Lit le guide pendant `budget` millisecondes au plus ; vrai quand tout est lu. */
   avancer(budget: number): boolean;
@@ -158,7 +165,7 @@ export function lireGuide(texte: string): LectureGuide {
     const lecteur = new marked.Lexer();
     const jetons = lecteur.blockTokens(morceau) as Jeton[];
     for (const [nom, l] of Object.entries(lecteur.tokens.links))
-      definitions += `[${nom}]: <${l.href}>${l.title ? ` "${l.title.replace(/"/g, '\\"')}"` : ""}\n`;
+      definitions += definitionLien(nom, l.href, l.title);
     for (const j of jetons) {
       if (j.type === "heading" && (j.depth === 1 || j.depth === 2)) {
         const titre = texteTitre(j.text ?? "");

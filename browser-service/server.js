@@ -1648,11 +1648,19 @@ async function captureJpeg(page, { largeur = 0, delaiMs = 3000 } = {}) {
     }
 }
 
+// Chemin d'un fichier du service, tenu sous `dossier` : un nom qui en sortirait est refusé.
+function sous(dossier, ...segments) {
+    const racine = path.resolve(dossier);
+    const chemin = path.resolve(racine, ...segments);
+    if (!chemin.startsWith(racine + path.sep)) throw Object.assign(new Error("This file name leaves the folder of the browser service's files."), { code: 'invalid_name' });
+    return chemin;
+}
+
 // Capture écrite sous `nom` dans le dossier des captures ; aucune pendant une connexion par secret.
 async function ecrireCapture(page, sid, nom, options) {
     if (!page || !sid || sessions.get(sid)?._connexionEnCours) return null;
     try {
-        await fs.promises.writeFile(path.join(SCREENSHOT_DIR, nom), await captureJpeg(page, options));
+        await fs.promises.writeFile(sous(SCREENSHOT_DIR, nom), await captureJpeg(page, options));
         return nom;
     } catch (e) {
         console.warn(`[captures] ${nom}: ${e.message}`);

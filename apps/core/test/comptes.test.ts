@@ -771,21 +771,58 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     expect([plage.statusCode, plage.headers["content-range"]]).toEqual([416, `bytes */${PNG.length}`]);
   });
 
-  it("aide : guide utilisateur seul, message neutre s'il est absent ou illisible", async () => {
+  it("aide : guide utilisateur seul ; absent ou illisible, un 503 sans détail", async () => {
     await login("admin", "a", "127.0.0.1");
     const c = cookie(await login("admin", "a"));
     const lire = (q: string) =>
       app.inject({ method: "GET", url: `/api/help/readme${q}`, headers: { cookie: c } });
-    const indisponible = {
-      content: "# Aide indisponible\n\nL'aide n'a pas pu être chargée. Demandez à votre administrateur.",
-    };
-    expect((await lire("")).json()).toEqual(indisponible);
+    const indisponible = [503, { detail: "Aide indisponible" }];
+    const absent = await lire("");
+    expect([absent.statusCode, absent.json()]).toEqual(indisponible);
     mkdirSync(join(racine, "docs", "fr"), { recursive: true });
     writeFileSync(join(racine, "docs", "architecture.md"), "# Archi");
     writeFileSync(join(racine, "docs", "fr", "user-guide.md"), Buffer.from("ok\xff", "latin1"));
-    expect((await lire("")).json()).toEqual(indisponible);
+    const illisible = await lire("");
+    expect([illisible.statusCode, illisible.json()]).toEqual(indisponible);
     writeFileSync(join(racine, "docs", "fr", "user-guide.md"), "# Guide");
     expect((await lire("")).json()).toEqual({ content: "# Guide" });
     expect((await lire("?doc=dev")).json()).toEqual({ content: "# Guide" });
+  });
+
+  it("clips de l'aide : fichier .webm du dossier livré, revalidé par son empreinte, plages d'octets, session exigée, tout autre nom refusé", async () => {
+    await login("admin", "a", "127.0.0.1");
+    const c = cookie(await login("admin", "a"));
+    const lire = (nom: string, entetes: Record<string, string> = { cookie: c }) =>
+      app.inject({ method: "GET", url: `/api/help/media/${nom}`, headers: entetes });
+    expect((await lire("chat-envoyer.webm")).statusCode).toBe(404);
+    mkdirSync(join(racine, "docs", "media", "aide"), { recursive: true });
+    writeFileSync(join(racine, "docs", "media", "aide", "chat-envoyer.webm"), "0123456789");
+    writeFileSync(join(racine, "docs", "media", "secret.webm"), "x");
+    mkdirSync(join(racine, "docs", "media", "aide", "dossier.webm"));
+    const clip = await lire("chat-envoyer.webm");
+    const etag = String(clip.headers["etag"]);
+    expect([clip.statusCode, clip.headers["content-type"], clip.headers["cache-control"], clip.body]).toEqual(
+      [200, "video/webm", "private, no-cache", "0123456789"],
+    );
+    expect(etag).toMatch(/^"[0-9a-f]{32}"$/);
+    const connu = await lire("chat-envoyer.webm", { cookie: c, "if-none-match": etag });
+    expect([connu.statusCode, connu.body, connu.headers["etag"]]).toEqual([304, "", etag]);
+    const plage = await lire("chat-envoyer.webm", { cookie: c, range: "bytes=2-4" });
+    expect([plage.statusCode, plage.headers["content-range"], plage.body]).toEqual([
+      206,
+      "bytes 2-4/10",
+      "234",
+    ]);
+    expect((await lire("chat-envoyer.webm", {})).statusCode).toBe(401);
+    for (const nom of [
+      "absent.webm",
+      "dossier.webm",
+      "..%2Fsecret.webm",
+      "Chat.webm",
+      "chat-envoyer.mp4",
+      "a.b.webm",
+      "a".repeat(65) + ".webm",
+    ])
+      expect([nom, (await lire(nom)).statusCode]).toEqual([nom, 404]);
   });
 });

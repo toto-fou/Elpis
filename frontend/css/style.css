@@ -519,6 +519,44 @@ body {
 }
 .elpis-ext-img:hover { opacity: 1; }
 
+/* Guide de la fenêtre d'aide : une section par écran, titres hiérarchisés. */
+.aide-guide > h2:first-child { margin-top: 0; font-size: 1.5rem; line-height: 1.25; }
+.aide-guide h3 { font-size: 1.125rem; margin-top: 2em; }
+.aide-guide h4 { font-size: 1rem; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; color: var(--prose-heading); }
+
+/* Clip de démonstration du guide (fenêtre d'aide, features/reglages/aide-rendu.ts) : cadre 16:10 réservé avant le chargement, repère de lecture tant que le clip est en pause. */
+.aide-clip { margin: 1rem 0 1.5rem; }
+.aide-clip-cadre {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--surface-2);
+    cursor: pointer;
+}
+.aide-clip-cadre video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.aide-clip-repere { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.aide-clip-repere i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 9999px;
+    background: rgb(15 23 42 / 0.6);
+    color: #fff;
+    font-size: 1.25rem;
+}
+.aide-clip[data-etat="lecture"] .aide-clip-repere { opacity: 0; }
+.aide-clip figcaption { margin-top: 0.5rem; font-size: 0.8rem; text-align: center; color: var(--text-600); }
+@media (prefers-reduced-motion: no-preference) {
+    .aide-clip-repere { transition: opacity 0.15s ease; }
+}
+
 /* Accessibilité : label lu par les lecteurs d'écran mais invisible */
 .sr-only {
     position: absolute !important;

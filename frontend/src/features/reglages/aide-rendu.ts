@@ -1,221 +1,398 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/aide-rendu.ts — guide de la fenêtre d'aide rendu par morceaux : le haut tout de suite, la suite par tranches courtes (la partie proche de l'écran d'abord), diagrammes et coloration à l'approche de l'écran, HTML gardé pour les ouvertures suivantes. */
+/** frontend/src/features/reglages/aide-rendu.ts — guide de la fenêtre d'aide : découpe en sections par titre, rendu de la seule section affichée, liens vers un clip (`media/aide/*.webm`) posés en lecteurs chargés à l'approche de l'écran. */
 import * as marked from "marked";
 
+import { mouvementReduit } from "../../platform/mouvement";
 import { escapeHtml } from "../../utils/utils-purs";
-import { cibleAncre, enrichirBloc } from "../chat/rendu/enrichissement";
+import { enrichirBloc } from "../chat/rendu/enrichissement";
 import { habillerBlocsCode } from "../chat/rendu/habillage-code";
 import { moteurMarkdown } from "../chat/rendu/instance";
 
-/** Taille minimale d'un morceau, en caractères de Markdown : une tranche reste courte, même processeur ralenti. */
-const TAILLE_MORCEAU = 2000;
-/** Taille minimale du premier morceau, posé dans la tâche qui reçoit le guide : le haut seul, la suite vient par tranches. */
-const TAILLE_PREMIER = 500;
-/** Durée d'une tranche de rendu ; au-delà, la suite attend la tranche suivante. */
-const TRANCHE_MS = 8;
-/** Hauteur réservée par caractère d'un morceau pas encore rendu : la barre de défilement est juste dès l'ouverture. */
-const PX_PAR_CARACTERE = 0.38;
-/** Un morceau à moins de cette distance de l'écran est rendu et enrichi en priorité. */
-const MARGE_APPROCHE = "400px 0px";
-const DOCS_GARDES = 2;
+const CLE = /^<!--\s*aide:\s*([a-z0-9-]+)\s*-->\s*$/;
+/** Lien d'un clip du guide : seul le nom du fichier compte, le dossier est fixe côté serveur. */
+const CLIP = /(?:^|\/)media\/aide\/([a-z0-9-]{1,64}\.webm)$/;
+const ROUTE_CLIPS = "/api/help/media/";
+/** Un clip à moins de cette distance de l'écran est chargé. */
+const MARGE_APPROCHE = "300px 0px";
+/** Part d'un clip (ou de l'écran, pour un clip plus haut que lui) à voir pour qu'il joue. */
+const PART_VISIBLE = 0.6;
+const SECTIONS_GARDEES = 12;
 
-const OUVERTURE = /^ {0,3}(`{3,}(?!.*`)|~{3,})/;
-const FERMETURE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
-const TITRE = /^#{1,6}(?:[ \t]|$)/;
-const ELEMENT_LISTE = /^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)/;
-const DEFINITION_LIEN = /^ {0,3}\[[^\]\n]+\]:/m;
-const BALISE_EN_TETE = /^ {0,3}<([A-Za-z][A-Za-z0-9-]*)(?=[\s/>]|$)/;
-const BALISES_VIDES = new Set(
-  "area base br col embed hr img input link meta param source track wbr".split(" "),
-);
-
-// Balises `nom` ouvertes moins fermées sur la ligne (une balise vide ou auto-fermée ne compte pas).
-function profondeur(ligne: string, nom: string): number {
-  const ouvertes = ligne.match(new RegExp("<" + nom + "(?=[\\s>])[^>]*(?<!/)>", "gi"))?.length ?? 0;
-  return ouvertes - (ligne.match(new RegExp("</" + nom + "\\s*>", "gi"))?.length ?? 0);
+export interface SectionAide {
+  /** Ancre du titre, celle des liens `#…` du guide. */
+  id: string;
+  /** Clé d'ouverture en contexte (`<!-- aide: cle -->` sous le titre), vide sinon. */
+  cle: string;
+  titre: string;
+  /** Titre de premier niveau qui coiffe la section, vide avant le premier. */
+  groupe: string;
+  md: string;
+  /** Ancres des sous-titres de la section, dans l'ordre du texte. */
+  ancres: string[];
+  /** Titre et texte sans accents ni casse, pour la recherche. */
+  recherche: string;
 }
 
-/** Découpe aux seules frontières qui ne changent pas le rendu (hors bloc de code, commentaire ou élément HTML ouvert : une ligne sans retrait ni puce après une ligne vide, ou un titre) ; un texte à liens de référence reste entier. */
-export function decouperGuide(texte: string, taille = TAILLE_MORCEAU, premier = TAILLE_PREMIER): string[] {
-  const src = texte.replace(/\r\n?/g, "\n");
-  if (DEFINITION_LIEN.test(src)) return [src];
-  const morceaux: string[] = [];
+interface Jeton {
+  type: string;
+  raw: string;
+  depth?: number;
+  text?: string;
+}
+
+/** Texte d'un titre Markdown sans son balisage en ligne. */
+function texteTitre(brut: string): string {
+  return brut
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[`*]/g, "")
+    .trim();
+}
+
+/** Ancre d'un titre, comme celle d'un Markdown publié : casse basse, ponctuation retirée, chaque espace en tiret. */
+export function ancreTitre(titre: string): string {
+  return texteTitre(titre)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, "")
+    .replace(/ /g, "-");
+}
+
+/** Texte plié pour la recherche : sans accents ni casse. */
+export function plier(texte: string): string {
+  return texte
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+// Ancre libre pour ce titre : un titre déjà vu prend un suffixe, dans l'ordre du document.
+function ancreLibre(titre: string, vues: Map<string, number>): string {
+  const base = ancreTitre(titre);
+  let ancre = base;
+  while (vues.has(ancre)) {
+    const n = (vues.get(base) ?? 0) + 1;
+    vues.set(base, n);
+    ancre = `${base}-${n}`;
+  }
+  vues.set(ancre, 0);
+  return ancre;
+}
+
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const BLOC_BRUT = /^ {0,3}<(pre|script|style|textarea)\b/i;
+
+// Morceaux du guide, coupés avant un titre de niveau 1 ou 2 qui suit une ligne vide, hors bloc de code, commentaire ou bloc HTML brut : le moteur les lit un par un sans que le résultat change.
+function morceaux(texte: string): string[] {
+  const sortie: string[] = [];
   let debut = 0;
   let fence = "";
-  let commentaire = false;
-  let balise = "";
-  let ouvertes = 0;
-  let vide = false;
-  for (let i = 0; i < src.length;) {
-    const nl = src.indexOf("\n", i);
-    const fin = nl === -1 ? src.length : nl;
-    const ligne = src.slice(i, fin);
+  let fermeture = "";
+  let vide = true;
+  for (let i = 0; i < texte.length;) {
+    const nl = texte.indexOf("\n", i);
+    const fin = nl === -1 ? texte.length : nl + 1;
+    const ligne = texte.slice(i, fin);
     if (fence) {
-      const f = FERMETURE.exec(ligne)?.[1];
-      if (f && f[0] === fence[0] && f.length >= fence.length) fence = "";
-    } else if (commentaire) commentaire = !ligne.includes("-->");
-    else if (balise) {
-      ouvertes += profondeur(ligne, balise);
-      if (ouvertes <= 0) balise = "";
+      const f = FENCE.exec(ligne)?.[1];
+      if (
+        f &&
+        f[0] === fence[0] &&
+        f.length >= fence.length &&
+        !ligne.slice(ligne.indexOf(f) + f.length).trim()
+      )
+        fence = "";
+    } else if (fermeture) {
+      if (ligne.toLowerCase().includes(fermeture)) fermeture = "";
     } else {
-      const coupe = /^\S/.test(ligne) && !ELEMENT_LISTE.test(ligne) && (vide || TITRE.test(ligne));
-      if (coupe && i - debut >= (morceaux.length ? taille : premier)) {
-        morceaux.push(src.slice(debut, i));
+      if (vide && i > debut && /^#{1,2}[ \t]/.test(ligne)) {
+        sortie.push(texte.slice(debut, i));
         debut = i;
       }
-      fence = OUVERTURE.exec(ligne)?.[1] ?? "";
-      const debutCommentaire = /^ {0,3}<!--/.exec(ligne);
-      commentaire = !!debutCommentaire && !ligne.includes("-->", debutCommentaire[0].length);
-      const nom = BALISE_EN_TETE.exec(ligne)?.[1]?.toLowerCase();
-      if (nom && !BALISES_VIDES.has(nom)) {
-        ouvertes = profondeur(ligne, nom);
-        if (ouvertes > 0) balise = nom;
-      }
+      fence = FENCE.exec(ligne)?.[1] ?? "";
+      const brut = BLOC_BRUT.exec(ligne)?.[1]?.toLowerCase();
+      const attendue = brut ? `</${brut}>` : /^ {0,3}<!--/.test(ligne) ? "-->" : "";
+      if (attendue && !ligne.toLowerCase().includes(attendue)) fermeture = attendue;
     }
     vide = !ligne.trim();
-    i = fin + 1;
+    i = fin;
   }
-  morceaux.push(src.slice(debut));
-  return morceaux;
+  sortie.push(texte.slice(debut));
+  return sortie;
 }
+
+// Fin de section sans lignes vides ni filets de séparation.
+function sansFilets(md: string): string {
+  let fin = md.length;
+  while (fin > 0) {
+    const debut = md.lastIndexOf("\n", fin - 1) + 1;
+    const ligne = md.slice(debut, fin).trim();
+    if (ligne && !/^(?:-{3,}|\*{3,}|_{3,})$/.test(ligne)) break;
+    fin = Math.max(0, debut - 1);
+  }
+  return md.slice(0, fin).trimEnd();
+}
+
+export interface LectureGuide {
+  /** Lit le guide pendant `budget` millisecondes au plus ; vrai quand tout est lu. */
+  avancer(budget: number): boolean;
+  /** Sections lues, à demander une fois la lecture finie. */
+  sections(): SectionAide[];
+}
+
+/** Lecture du guide en sections, par tranches : une section par titre de niveau 2 (le titre du document est écarté, un titre de niveau 1 nomme le groupe des sections qui le suivent) ; les définitions de liens valent pour toutes. */
+export function lireGuide(texte: string): LectureGuide {
+  const reste = texte.trim() ? morceaux(texte.replace(/\r\n|\r/g, "\n")) : [];
+  const sections: SectionAide[] = [];
+  const vues = new Map<string, number>();
+  let definitions = "";
+  let groupe = "";
+  let documentNomme = false;
+  let courante: SectionAide | null = null;
+  let rang = 0;
+  const ouvrir = (titre: string, id: string): SectionAide => {
+    const section = { id, cle: "", titre, groupe, md: "", ancres: [], recherche: "" };
+    sections.push(section);
+    return section;
+  };
+  // Blocs seuls : le texte en ligne d'une section n'est lu qu'à son affichage.
+  const lire = (morceau: string): void => {
+    const lecteur = new marked.Lexer();
+    const jetons = lecteur.blockTokens(morceau) as Jeton[];
+    for (const [nom, l] of Object.entries(lecteur.tokens.links))
+      definitions += `[${nom}]: <${l.href}>${l.title ? ` "${l.title.replace(/"/g, '\\"')}"` : ""}\n`;
+    for (const j of jetons) {
+      if (j.type === "heading" && (j.depth === 1 || j.depth === 2)) {
+        const titre = texteTitre(j.text ?? "");
+        const id = ancreLibre(titre, vues);
+        if (j.depth === 1) {
+          if (documentNomme) groupe = titre;
+          documentNomme = true;
+          courante = null;
+        } else {
+          courante = ouvrir(titre, id);
+          courante.md = j.raw;
+        }
+        continue;
+      }
+      if (!courante) {
+        if (j.type === "space" || j.type === "hr") continue;
+        courante = ouvrir(groupe || "Présentation", `_${sections.length}`);
+        courante.md = `## ${courante.titre}\n\n`;
+      }
+      const cle = j.type === "html" ? CLE.exec(j.raw)?.[1] : undefined;
+      if (cle) {
+        courante.cle ||= cle;
+        continue;
+      }
+      if (j.type === "heading") courante.ancres.push(ancreLibre(j.text ?? "", vues));
+      courante.md += j.raw;
+    }
+  };
+  return {
+    avancer(budget) {
+      if (rang < reste.length) moteurMarkdown();
+      const debut = performance.now();
+      while (rang < reste.length) {
+        lire(reste[rang++]!);
+        if (performance.now() - debut >= budget) break;
+      }
+      if (rang < reste.length) return false;
+      if (rang === reste.length) {
+        rang++;
+        for (const s of sections) {
+          s.md = sansFilets(s.md);
+          s.recherche = plier(s.md);
+          if (definitions) s.md += "\n\n" + definitions;
+        }
+      }
+      return true;
+    },
+    sections: () => sections,
+  };
+}
+
+/** Sections du guide, lues d'une traite. */
+export function decouperGuide(texte: string): SectionAide[] {
+  const lecture = lireGuide(texte);
+  lecture.avancer(Infinity);
+  return lecture.sections();
+}
+
+/** Section visée par une clé de contexte, sinon par une ancre (titre de section ou sous-titre). */
+export function trouverSection(sections: readonly SectionAide[], cible: string): SectionAide | undefined {
+  if (!cible) return undefined;
+  const ancre = cible.replace(/^#/, "");
+  return (
+    sections.find((s) => s.cle === cible) ??
+    sections.find((s) => s.id === ancre) ??
+    sections.find((s) => s.ancres.includes(ancre))
+  );
+}
+
+/** Titre de la section posée dans `corps` : son titre, ou le sous-titre d'ancre `ancre`. */
+export function titreVise(corps: Element, section: SectionAide, ancre: string): Element | null {
+  const rang = section.ancres.indexOf(ancre);
+  if (rang < 0) return corps.querySelector(":scope > h2");
+  return corps.querySelectorAll(":scope > h3, :scope > h4, :scope > h5, :scope > h6")[rang] ?? null;
+}
+
+const rendus = new Map<string, string>();
 
 // Même `marked` que le chat, configuré pour purifier toute sortie ; hors du cache des messages, que le guide viderait.
-function rendreMorceau(md: string): string {
+function rendreSection(md: string): string {
+  let html = rendus.get(md);
+  if (html !== undefined) return html;
   moteurMarkdown();
   try {
-    const html = marked.parse(md);
-    return typeof html === "string" ? habillerBlocsCode(html) : escapeHtml(md);
+    const sortie = marked.parse(md);
+    html = typeof sortie === "string" ? habillerBlocsCode(sortie) : escapeHtml(md);
   } catch {
-    return escapeHtml(md);
+    html = escapeHtml(md);
   }
+  rendus.set(md, html);
+  if (rendus.size > SECTIONS_GARDEES) rendus.delete(rendus.keys().next().value as string);
+  return html;
 }
 
-interface Rendu {
-  morceaux: string[];
-  html: (string | undefined)[];
+// Lecteur d'un clip : bouton lecture/pause autour d'une vidéo muette en boucle, légende dessous ; l'adresse n'est posée qu'à l'approche de l'écran.
+function lecteur(nom: string, legende: string): HTMLElement {
+  const figure = document.createElement("figure");
+  figure.className = "aide-clip";
+  figure.dataset["etat"] = "pause";
+  const cadre = document.createElement("button");
+  cadre.type = "button";
+  cadre.className = "aide-clip-cadre";
+  cadre.setAttribute("aria-label", "Lire la démonstration : " + legende);
+  cadre.setAttribute("aria-pressed", "false");
+  const video = document.createElement("video");
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = "none";
+  video.tabIndex = -1;
+  video.dataset["src"] = ROUTE_CLIPS + nom;
+  const repere = document.createElement("span");
+  repere.className = "aide-clip-repere";
+  repere.setAttribute("aria-hidden", "true");
+  repere.innerHTML = '<i class="ph ph-play"></i>';
+  cadre.append(video, repere);
+  const texte = document.createElement("figcaption");
+  texte.textContent = legende;
+  figure.append(cadre, texte);
+  return figure;
 }
 
-const rendus = new Map<string, Rendu>();
+// Un clip joue quand sa plus grande part est à l'écran : 60 % de lui-même, ou de l'écran s'il est plus haut que lui.
+function assezVisible(e: IntersectionObserverEntry): boolean {
+  if (!e.isIntersecting) return false;
+  if (e.intersectionRatio >= PART_VISIBLE) return true;
+  const ecran = e.rootBounds?.height ?? 0;
+  return ecran > 0 && e.intersectionRect.height >= PART_VISIBLE * ecran;
+}
 
-function renduDe(texte: string): Rendu {
-  let r = rendus.get(texte);
-  rendus.delete(texte);
-  if (!r) {
-    const morceaux = decouperGuide(texte);
-    r = { morceaux, html: morceaux.map(() => undefined) };
+// Remplace chaque paragraphe fait d'un seul lien vers un clip par son lecteur (retiré si le clip manque ou n'est pas lu par ce navigateur) ; rend l'arrêt de l'observation.
+function poserClips(corps: HTMLElement, defilement: HTMLElement): () => void {
+  const figures: HTMLElement[] = [];
+  for (const a of Array.from(corps.querySelectorAll<HTMLAnchorElement>("p > a[href$='.webm']"))) {
+    const p = a.parentElement;
+    const nom = CLIP.exec(a.getAttribute("href") ?? "")?.[1];
+    if (!p || !nom || (p.textContent ?? "").trim() !== (a.textContent ?? "").trim()) continue;
+    const figure = lecteur(nom, (a.textContent ?? "").trim());
+    p.replaceWith(figure);
+    figures.push(figure);
   }
-  rendus.set(texte, r);
-  if (rendus.size > DOCS_GARDES) rendus.delete(rendus.keys().next().value as string);
-  return r;
+  if (!figures.length) return () => {};
+  const video = (f: Element): HTMLVideoElement => f.querySelector("video")!;
+  const charger = (f: HTMLElement): void => {
+    const v = video(f);
+    if (v.getAttribute("src") || !v.dataset["src"]) return;
+    v.preload = "auto";
+    v.src = v.dataset["src"];
+  };
+  // L'adresse est posée avant la lecture : la poser après annulerait la lecture demandée.
+  const lire = (f: HTMLElement): void => {
+    charger(f);
+    void video(f)
+      .play()
+      .catch(() => {});
+  };
+  for (const f of figures) {
+    const v = video(f);
+    const bouton = f.querySelector("button")!;
+    // L'état suit la vidéo elle-même : une pause décidée par le navigateur (onglet caché) se voit aussi.
+    const suivre = (): void => {
+      f.dataset["etat"] = v.paused ? "pause" : "lecture";
+      bouton.setAttribute("aria-pressed", v.paused ? "false" : "true");
+    };
+    v.addEventListener("play", suivre);
+    v.addEventListener("pause", suivre);
+    v.addEventListener("error", () => f.remove());
+    bouton.addEventListener("click", () => {
+      if (v.paused) {
+        delete f.dataset["arret"];
+        lire(f);
+      } else {
+        f.dataset["arret"] = "1";
+        v.pause();
+      }
+    });
+  }
+  const liberer = (): void => {
+    for (const f of figures) {
+      const v = video(f);
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+    }
+  };
+  if (typeof IntersectionObserver === "undefined") {
+    for (const f of figures) charger(f);
+    return liberer;
+  }
+  const proches = new IntersectionObserver(
+    (entrees) => {
+      for (const e of entrees) if (e.isIntersecting) charger(e.target as HTMLElement);
+    },
+    { root: defilement, rootMargin: MARGE_APPROCHE },
+  );
+  const visibles = new IntersectionObserver(
+    (entrees) => {
+      for (const e of entrees) {
+        const f = e.target as HTMLElement;
+        if (!assezVisible(e)) video(f).pause();
+        else if (!mouvementReduit() && !f.dataset["arret"]) lire(f);
+      }
+    },
+    { root: defilement, threshold: [0, PART_VISIBLE] },
+  );
+  for (const f of figures) {
+    proches.observe(f);
+    visibles.observe(f);
+  }
+  return () => {
+    proches.disconnect();
+    visibles.disconnect();
+    liberer();
+  };
 }
 
-export interface GuideMonte {
-  /** Pose sans attendre, dans l'ordre, les morceaux jusqu'à celui qui porte la cible de l'ancre `href` (tous si aucun ne la porte). */
-  poserJusqua(href: string): void;
+/** Lance `f` dans la tâche suivante. */
+export function tacheSuivante(f: () => void): void {
+  setTimeout(f, 0);
+}
+
+/** Lance `f` dans une tâche à part, après la prochaine peinture de la page : un travail lourd ne retarde pas ce qui vient de s'afficher. */
+export function apresPeinture(f: () => void): void {
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => setTimeout(f, 0));
+  else setTimeout(f, 0);
+}
+
+export interface SectionMontee {
   detacher(): void;
 }
 
-/** Pose `texte` dans `corps` (contenu de `defilement`) : premier morceau tout de suite, les suivants dans des sections de hauteur réservée remplies par tranches. */
-export function monterGuide(corps: HTMLElement, defilement: HTMLElement, texte: string): GuideMonte {
-  const r = renduDe(texte);
-  const html = (i: number): string => (r.html[i] ??= rendreMorceau(r.morceaux[i] ?? ""));
-  // Premier morceau à plat, comme avant le découpage : les règles « premier enfant » du corps le visent toujours.
-  corps.innerHTML = html(0);
+/** Pose une section dans `corps` (contenu de `defilement`) : Markdown purifié, code coloré, clips en lecteurs. */
+export function monterSection(corps: HTMLElement, defilement: HTMLElement, md: string): SectionMontee {
+  corps.innerHTML = rendreSection(md);
   enrichirBloc(corps);
-  const sections = r.morceaux.slice(1).map((md) => {
-    const s = document.createElement("section");
-    s.style.height = Math.round(md.length * PX_PAR_CARACTERE) + "px";
-    return s;
-  });
-  corps.append(...sections);
-  const poses = new Set<number>();
-  const enrichis = new Set<number>();
-  const proches = new Set<number>();
-  let suivant = 0;
-  let actif = true;
-  let annuler: (() => void) | null = null;
-
-  const io =
-    typeof IntersectionObserver === "undefined"
-      ? null
-      : new IntersectionObserver(
-          (entrees) => {
-            for (const e of entrees) {
-              const k = sections.indexOf(e.target as HTMLElement);
-              if (e.isIntersecting && !enrichis.has(k)) proches.add(k);
-              else proches.delete(k);
-            }
-            programmer();
-          },
-          { root: defilement, rootMargin: MARGE_APPROCHE },
-        );
-  for (const s of sections) io?.observe(s);
-
-  function poser(k: number): void {
-    const s = sections[k];
-    if (!s || poses.has(k)) return;
-    s.innerHTML = html(k + 1);
-    s.style.height = "";
-    poses.add(k);
-    if (!io) enrichir(k);
-  }
-
-  function enrichir(k: number): void {
-    const s = sections[k];
-    if (!s) return;
-    enrichis.add(k);
-    proches.delete(k);
-    io?.unobserve(s);
-    enrichirBloc(s);
-  }
-
-  // Travail suivant : un morceau proche de l'écran à poser ou enrichir, sinon le premier morceau pas encore posé.
-  function etape(): boolean {
-    for (const k of proches) {
-      if (poses.has(k)) enrichir(k);
-      else poser(k);
-      return true;
-    }
-    while (poses.has(suivant)) suivant++;
-    if (suivant >= sections.length) return false;
-    poser(suivant);
-    return true;
-  }
-
-  function tranche(): void {
-    annuler = null;
-    if (!actif) return;
-    const debut = performance.now();
-    while (etape()) {
-      if (performance.now() - debut >= TRANCHE_MS) return programmer();
-    }
-  }
-
-  function programmer(): void {
-    if (annuler || !actif) return;
-    if (typeof requestIdleCallback === "function") {
-      const id = requestIdleCallback(tranche, { timeout: 100 });
-      annuler = () => cancelIdleCallback(id);
-    } else {
-      const id = setTimeout(tranche, 0);
-      annuler = () => clearTimeout(id);
-    }
-  }
-
-  programmer();
-  return {
-    poserJusqua(href) {
-      const cible = cibleAncre(href, corps);
-      if (cible && !sections.some((s) => s.contains(cible))) return;
-      for (let k = 0; k < sections.length; k++) {
-        poser(k);
-        if (cibleAncre(href, sections[k]!)) return;
-      }
-    },
-    detacher() {
-      actif = false;
-      annuler?.();
-      io?.disconnect();
-    },
-  };
+  return { detacher: poserClips(corps, defilement) };
 }

@@ -191,6 +191,6 @@ export const schemaReponseModelesAgents = z.object({
 });
 export type ReponseModelesAgents = z.infer<typeof schemaReponseModelesAgents>;
 
-/** Guide utilisateur en Markdown ; un guide illisible donne un message en 200. */
+/** Guide utilisateur en Markdown ; un guide absent ou illisible répond 503. */
 export const schemaReponseAide = z.object({ content: z.string() });
 export type ReponseAide = z.infer<typeof schemaReponseAide>;

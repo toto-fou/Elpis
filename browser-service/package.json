@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsx scripts/construire.ts",
     "start": "node dist/main.mjs",
-    "test": "node --test 'test/**/*.test.js'"
+    "test": "node --test 'test/**/*.test.ts'"
   },
   "dependencies": {
     "express": "^5.3.0",

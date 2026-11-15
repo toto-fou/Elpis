@@ -17,7 +17,7 @@ import type { Boite, RegionsModifiees } from "../page_util.ts";
 import { BASELINE_DIR, SCREENSHOT_DIR } from "../reglages.ts";
 import { intercepteurs, repondreErreur } from "../requete.ts";
 import { bornerValeur, couperTexte, longueurJsonPy, summarizeNetwork } from "../result_util.ts";
-import { safeOwner } from "../session_util.ts";
+import { safeOwner, sous } from "../session_util.ts";
 
 // ======================== VISUAL REGRESSION (in-browser canvas diff) ========================
 // Compare la page (ou un élément) à un baseline "golden". Premier passage (ou
@@ -576,9 +576,9 @@ export function registerPageRoutes(app: Application, ctx: ServiceContext) {
         const update = req.body.update === true;
         // Références par propriétaire : un compte ne compare ni n'écrase
         // celles d'un autre.
-        const dossierRef = path.join(BASELINE_DIR, safeOwner(req.session!.owner) || "_");
+        const dossierRef = sous(BASELINE_DIR, safeOwner(req.session!.owner) || "_");
         fs.mkdirSync(dossierRef, { recursive: true });
-        const baselinePath = path.join(dossierRef, `${name}.png`);
+        const baselinePath = sous(dossierRef, `${name}.png`);
 
         // Élément absent : erreur claire après une courte attente, pas les 30 s de la capture.
         if (selector && !(await attendrePresence(page.locator(selector), VISUAL_ATTENTE_MS))) {
@@ -748,7 +748,7 @@ export function registerPageRoutes(app: Application, ctx: ServiceContext) {
 
         const ts = Date.now();
         const curName = `visual_${name}_current_${ts}.png`;
-        fs.writeFileSync(path.join(SCREENSHOT_DIR, curName), curBuf);
+        fs.writeFileSync(sous(SCREENSHOT_DIR, curName), curBuf);
 
         if (result.size_mismatch) {
           return res.json({
@@ -771,9 +771,9 @@ export function registerPageRoutes(app: Application, ctx: ServiceContext) {
 
         const diffName = `visual_${name}_diff_${ts}.png`;
         const baseName = `visual_${name}_baseline_${ts}.png`;
-        fs.copyFileSync(baselinePath, path.join(SCREENSHOT_DIR, baseName));
+        fs.copyFileSync(baselinePath, sous(SCREENSHOT_DIR, baseName));
         fs.writeFileSync(
-          path.join(SCREENSHOT_DIR, diffName),
+          sous(SCREENSHOT_DIR, diffName),
           Buffer.from(result.diff_png.split(",")[1]!, "base64"),
         );
 

@@ -2,6 +2,7 @@
 /** browser-service/src/contexte.ts — état du service passé à chaque famille de routes (sessions, refs de localisateur, verrous de démarrage, Chromium partagé, proxy du relais) et formes d'une session. */
 import type { Browser, BrowserContext, Locator, Page } from "playwright";
 
+import type { Motif } from "./motif.ts";
 import type { CibleEnregistree, EvenementEnregistre } from "./recorder_util.ts";
 import type { EntreeReseau, EvenementSelect, ParamsCible } from "./result_util.ts";
 import type { Verrou } from "./session_lock.ts";
@@ -61,7 +62,7 @@ export interface Simulation {
   headers?: Record<string, string>;
   delay_ms?: number;
   times: number;
-  _re?: RegExp | null;
+  _re?: Motif | null;
   _used?: number;
   _exhausted?: boolean;
   /** `url_pattern` est une expression régulière (`_re`), pas une sous-chaîne. */

@@ -7,6 +7,7 @@ import type { Application, Request, Response } from "express";
 import { screenshotOnFailure } from "../captures.ts";
 import type { ServiceContext } from "../contexte.ts";
 import { locatorFromParams } from "../localisateur.ts";
+import { compilerMotif } from "../motif.ts";
 import { selecteurUnique, sourceDe } from "../page_util.ts";
 import type { Boite } from "../page_util.ts";
 import { SCREENSHOT_DIR } from "../reglages.ts";
@@ -156,7 +157,7 @@ export function registerObserveRoutes(app: Application, ctx: ServiceContext): vo
             } else if (assertion === "url-matches") {
               actual = page.url();
               try {
-                pass = new RegExp(value).test(actual);
+                pass = compilerMotif(value).test(actual);
               } catch (e) {
                 return res.status(400).json({ error: `Invalid regex: ${(e as Error).message}` });
               }

@@ -3019,9 +3019,10 @@ Gotchas:
 
 Each account gets its own browser service **inside its sandbox container**; there is no browser
 service on the host. Without Docker, the sandbox image or the browser files, the `pw_*` tools
-answer `browser_sandbox_unavailable` with the cause and its fix (Docker not installed or not
-running, image missing, browser not installed, or the start error); `./elpis doctor` checks the
-same prerequisites. `browser.mode` and `browser.sandbox_users`, from earlier versions, are
+answer `browser_sandbox_unavailable` and send the user to their administrator. The answer never
+says why: the cause (Docker not installed or not running, image missing, browser not installed,
+or the start error) is written to the tool host's log, and `./elpis doctor` checks the same
+prerequisites. `browser.mode` and `browser.sandbox_users`, from earlier versions, are
 ignored (one info line from the tool host at start).
 
 - **Container.** The image `elpis/sandbox:1.8.0` is 1.7.0 plus `certutil`

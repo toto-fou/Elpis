@@ -43,9 +43,10 @@ follow [SemVer](https://semver.org/).
   authentication only for the session that asked (binding key, expiry), every common encoding
   scrubbed and unscrubbable codings or methods refused, bounded memory, cached verdicts with
   Happy Eyeballs connections, and a 365-day relay CA renewed automatically. When the sandbox
-  cannot serve, the tools answer `browser_sandbox_unavailable` with the cause and its fix (Docker
-  missing or stopped, image missing, browser not installed). `./elpis doctor` and
-  `./elpis logs browser <account>` cover it.
+  cannot serve (Docker missing or stopped, image missing, browser not installed), the tools
+  answer `browser_sandbox_unavailable` and send the user to their administrator, without the
+  cause: it is in the tool host's log, and `./elpis doctor` and `./elpis logs browser <account>`
+  cover it.
 
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links

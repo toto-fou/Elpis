@@ -109,13 +109,18 @@ describe("relais d'un compte inactif et autorité", () => {
   });
 });
 
-describe("bac qui ne peut pas servir le navigateur : erreur claire avec le correctif, jamais de repli", () => {
+describe("bac qui ne peut pas servir le navigateur : l'outil renvoie vers l'administrateur sans rien dire du mécanisme, jamais de repli", () => {
   const bac = (regles: Regle[] = []): UserSandbox =>
     new UserSandbox(1, "alice", path.join(dossier, "a", "work"), sandboxAdminConfigDepuis({}), null, {
       cli: new FauxCli(regles),
     });
+  /** Ni commande, ni nom de composant, ni chemin : le détail est au journal de l'hôte. */
+  const ADMINISTRATEUR = {
+    message: "The browser is not available on this Elpis server.",
+    fix: "Tell the user to ask their administrator.",
+  };
 
-  it("Docker absent ou arrêté, image absente (sondés) ; sinon le détail de la panne et un nouvel essai", async () => {
+  it("Docker absent ou arrêté, image absente (sondés) : demander à l'administrateur ; sinon un nouvel essai, sans le détail de la panne", async () => {
     const absent = new ErreurLancement(
       Object.assign(new Error("spawn docker ENOENT"), { syscall: "spawn docker", code: "ENOENT" }),
       "docker",
@@ -124,23 +129,15 @@ describe("bac qui ne peut pas servir le navigateur : erreur claire avec le corre
       [bac(), absent],
       [bac([{ motif: ["version"], rc: 1, err: "Cannot connect to the Docker daemon" }]), new Error("x")],
     ] as const)
-      expect(await bacIndisponible(b, panne)).toMatchObject({
-        message:
-          "Docker is not available on the Elpis server (not installed or not running), and the browser only runs inside your sandbox.",
-        fix: expect.stringContaining("installs or starts Docker, then checks ./elpis doctor"),
-      });
+      expect(await bacIndisponible(b, panne)).toMatchObject(ADMINISTRATEUR);
     expect(
       await bacIndisponible(bac([{ motif: ["image", "inspect"], rc: 1 }]), new Error("x")),
-    ).toMatchObject({
-      message:
-        "The sandbox image elpis/sandbox:1.8.0 is not available on the Elpis server, and the browser only runs inside your sandbox.",
-      fix: expect.stringContaining("./install.sh --sandbox build"),
-    });
-    expect(await bacIndisponible(bac(), new Error("boom"))).toMatchObject({
-      message: "The browser of your sandbox could not be started: boom.",
-      fix: expect.stringContaining("Retry once"),
-    });
-    expect((await bacIndisponible(bac(), null)).message).toContain("the sandbox of alice is not running");
+    ).toMatchObject(ADMINISTRATEUR);
+    for (const panne of [new Error("boom"), null])
+      expect(await bacIndisponible(bac(), panne)).toMatchObject({
+        message: "The browser of your sandbox could not be started.",
+        fix: "Retry once; if it fails again, tell the user to ask their administrator.",
+      });
   });
 
   it("navigateur non installé (headless shell absent) : refus avant tout appel au bac", async () => {
@@ -148,8 +145,7 @@ describe("bac qui ne peut pas servir le navigateur : erreur claire avec le corre
     try {
       await expect(serviceDuCompte("alice")).rejects.toMatchObject({
         name: "ErreurNavigateurBac",
-        message: expect.stringContaining("The browser is not installed on the Elpis server"),
-        fix: expect.stringContaining("./install.sh --with-browser"),
+        ...ADMINISTRATEUR,
       });
     } finally {
       montagesDuNavigateur.playwright = null;

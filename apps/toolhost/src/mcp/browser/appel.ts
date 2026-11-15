@@ -80,7 +80,8 @@ export async function ouvrirAppel(
   try {
     service = await serviceDuCompte(username);
   } catch (e) {
-    const panne = e instanceof ErreurNavigateurBac ? e : new ErreurNavigateurBac(demarrageImpossible(e));
+    const panne =
+      e instanceof ErreurNavigateurBac ? e : new ErreurNavigateurBac(demarrageImpossible(username, e));
     return { refus: errPw("browser_sandbox_unavailable", "", { message: panne.message, fix: panne.fix }) };
   }
   return {

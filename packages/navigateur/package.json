@@ -16,6 +16,6 @@
     "@elpis/mcp": "0.1.2",
     "@elpis/outils-mcp": "0.1.2",
     "@elpis/securite": "0.1.2",
-    "undici": "8.12.3"
+    "undici": "8.12.4"
   }
 }

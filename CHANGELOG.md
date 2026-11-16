@@ -10,7 +10,7 @@ follow [SemVer](https://semver.org/).
 
 - **Help by feature, with clips.** The help window lists the sections of the user guide on the
   left, with a search field, shows one section at a time and opens on the one that matches the
-  screen it was called from (chat, editor, routines, RAG, Studio, agents, Remote code). Each
+  screen it was called from (chat, editor, routines, RAG, Studio, agents). Each
   feature has a short muted clip (VP9, 5 s for one gesture) next to its steps: it plays while it
   is on screen, and waits for a click when animations are reduced. The French guide is rewritten
   around what a user does: the essential gesture, tips to get the most out of each feature, then

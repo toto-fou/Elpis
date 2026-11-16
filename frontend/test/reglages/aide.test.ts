@@ -77,9 +77,8 @@ describe("section ouverte selon l'écran", () => {
   });
 
   it("chaque page a sa section ; le chat ouvre l'éditeur s'il est déployé, le chat en conversation, rien sur l'accueil", () => {
-    expect(Object.keys(BLOCS_AIDE).sort()).toEqual(["agents", "code", "rag", "routines", "studio"]);
+    expect(Object.keys(BLOCS_AIDE).sort()).toEqual(["agents", "rag", "routines", "studio"]);
     expect(cleAide("routines", true, true)).toBe("routines");
-    expect(cleAide("code", false, false)).toBe("remote");
     expect(cleAide("inconnue", false, true)).toBe("");
     expect(cleAide("chat", true, true)).toBe("editeur");
     expect(cleAide("chat", false, true)).toBe("chat");

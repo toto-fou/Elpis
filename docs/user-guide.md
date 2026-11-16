@@ -64,7 +64,6 @@ Click your name, at the bottom of the sidebar. The menu shows your name and your
 
 - **Aide** (Help): this help.
 - **Informations** (Information): the name and version of the application, and the engine that serves the model. Useful when you report a problem.
-- **Installer opencode** (Install opencode): present only if the administrator has opened [Remote code](#remote-code).
 - **Se déconnecter** (Sign out): closes your session on this browser.
 
 To change your photo or your password, open Paramètres (the gear icon, to the right of your name) › **Profil** (Profile). See [Settings](#settings).
@@ -101,7 +100,7 @@ From top to bottom:
 - **MCP**: opens on the right the panel of the tools the assistant can use. See [Tools and the MCP panel](#tools-and-the-mcp-panel).
 - **Sandbox**: opens on the right your file space, with the code editor and the terminal. See [The sandbox and the code editor](#the-sandbox-and-the-code-editor).
 - **Routines**: your scheduled tasks. See [Routines](#routines).
-- **Plus**: a submenu to **RAG**, **Bibliothèque** (Library, your generated images), **Studio**, **Agents** and **Remote code**.
+- **Plus**: a submenu to **RAG**, **Bibliothèque** (Library, your generated images), **Studio** and **Agents**.
 - **Conversations**: your conversations, from the most recent to the oldest. The magnifying glass searches for a conversation; the neighboring icon lets you tick several. See [Conversations](#conversations).
 - **At the bottom**: your name (the account menu), the bell for [Notifications](#notifications), the gear icon for [Settings](#settings). A shield is added if you are an administrator or a moderator.
 
@@ -1667,95 +1666,6 @@ A small control program runs on the target machine. It sends captures and the li
 
 A script designates its elements by their identifier, failing that by their name and role, and as a last resort by their coordinates. The more precise the designation, the better the script withstands changes on the screen.
 
-## Remote code
-<!-- aide: remote -->
-
-OpenCode is a programming assistant that runs in the terminal of your workstation, on your code. Remote code links this terminal to the application: you follow your OpenCode sessions from the browser, you send them prompts and you answer their requests, even away from the workstation.
-
-Your administrator must enable the feature. If **Remote code** is missing from the **Plus** (More) menu, ask your administrator.
-
-### The essentials
-
-1. In the sidebar, open **Plus** then **Remote code**.
-2. On the first visit, the **Connecter opencode** (Connect opencode) panel gives the three steps: install, pair, drive.
-3. On your workstation, run `opencode` in your project folder. If nothing appears in the page, type `/remote` in OpenCode: the command turns on the reporting of the current project.
-4. The session appears in the page. Click it to open it and drive it.
-
-### Linking a workstation
-
-[Open Remote code: the Connecter opencode panel gives the three steps](media/aide/remote-connecter.webm)
-
-#### 1 · Install opencode
-
-1. In the **Connecter opencode** panel, click **Ouvrir l'installeur** (Open the installer). The same window opens from your account menu, entry **Installer opencode** (Install opencode).
-2. Choose your system: **Linux**, **Windows** or **macOS**.
-3. Click **Copier** (Copy) under **Installer · mettre à jour** (Install · update) and paste the command into a terminal on the workstation.
-
-The installer sets up OpenCode, its configuration and the plugin that links it to the application. Everything comes from the application's server: the workstation does not need Internet access. Copy the command as it is, even if it starts with `http://`.
-
-#### 2 · Pair the workstation
-
-The installer offers to connect your account: in that case there is nothing to type. Otherwise:
-
-1. In OpenCode, type `/remote login`. A code appears.
-2. In the **Connecter opencode** panel, enter this code and click **Appairer** (Pair).
-
-You can also create a token for the workstation (**Ou créer un jeton pour ce poste** (Or create a token for this workstation)) and give it to OpenCode with `/remote` followed by the token.
-
-#### 3 · Drive
-
-The session appears live in the page, history included. OpenCode only creates the session at its first message: until there is one, the page offers **Nouvelle session** (New session).
-
-The **Connecter** (Connect) button, at the top of the page, reopens the panel at any time.
-
-### Driving a session
-
-[Open an OpenCode session and send it a prompt from the browser](media/aide/remote-code.webm)
-
-The page lists your sessions in two groups: **Connectées** (Connected), which you can drive, and **Historique** (History), which you can reread. Each row shows the title, the folder, the age, the number of messages, the model and a preview of the last exchange.
-
-1. Click a connected session. The thread opens full screen: messages, reasoning, expandable tool calls and file changes in color, as in OpenCode.
-2. Write in the **Envoyer un prompt** (Send a prompt) box and press `Enter`. Your message appears right away.
-3. The answer is written live. While it is generating, the stop button replaces the send button.
-4. The arrow at the top left goes back to the list.
-
-The session header shows the current mode, the context gauge and the state of the workstation: **connecté** (connected) or **hors ligne** (offline).
-
-#### Answering OpenCode's requests
-
-- When OpenCode asks for approval, a banner offers **Autoriser** (Allow), **Toujours** (Always) (stop asking for this reason) or **Refuser** (Deny). The answer counts whether it comes from the page or from the terminal.
-- When OpenCode asks a question, you answer it from the page, or you decline to answer.
-
-#### Commands
-
-Type `/` in the composer. The list brings together the commands of your OpenCode and those of the page:
-
-| Command | Effect |
-|---|---|
-| `/model` | Choose the model of the session |
-| `/session` | Resume another session from the same workstation |
-| `/new` | Create a session on this workstation |
-| `/undo`, `/redo` | Undo the last exchange, restore it |
-| `/compact` | Summarize the history to free up context |
-| `/init` | Analyze the project and create `AGENTS.md` |
-| `/share`, `/unshare` | Share the session through a public link, stop sharing |
-| `/exit` | Close OpenCode on this workstation |
-
-### Getting the most out of it
-
-- The mode button, under the composer, switches between **Build**, which modifies the project, and plan mode, which is read-only. Switch to plan to have things reviewed before letting it write.
-- The **Modèle** (Model) button does the same as `/model`. The choice is kept per session; the cross next to it goes back to the default model.
-- Rename a session with the pencil on its row: `Enter` confirms, `Esc` cancels. The new title also goes to the terminal.
-- In OpenCode, `/remote` turns the reporting of the current project off or on. `/remote status` gives its state.
-- A **plugin à mettre à jour** (plugin to update) badge flags an old plugin on a workstation: type `/remote update` in OpenCode, or run the installer again.
-- In the installer window, **Outils** (Tools) chooses the families of application tools that OpenCode may call. **Config seule** (Config only) brings the configuration up to date without reinstalling everything.
-- A lost or lent workstation can be cut off remotely: Paramètres (Settings) › **Secrets** › **Remote** lists one token per linked workstation, and revoking a token disconnects that workstation.
-- Remove old sessions from the history with the button on their row: the list stays readable.
-
-### How it works
-
-The plugin installed with OpenCode sends the application the thread of the session: messages, tool calls, displayed changes. It receives your prompts in return. The files stay on your workstation: it is OpenCode that reads and modifies them, not the application. Each workstation has its own token, which you can revoke.
-
 ## Notifications
 <!-- aide: notifications -->
 
@@ -1827,7 +1737,7 @@ The rail arranges the tabs in four groups; each tab is detailed in the section i
 
 - **Général** (General): **Profil** (Profile) (photo and password, see below); **Apparence** (Appearance) (see [Appearance](#appearance)); **Chat**, with three parts: **Conversation** (**Prompt système** (System prompt), **Largeur** (Width) of the thread, **Terminal en direct** (Live terminal), wake-up of background tasks, **Notifications système** (System notifications), **Effacer les conversations** (Clear conversations)), **Affichage** (Display) and **Voix** (Voice); **Fonctionnalités** (Features), with **Modules**, **Images** and **Éditeur** (Editor).
 - **Assistant**: **Modèles IA** (AI models), **Prompts**, **Skills** and **Mémoire** (Memory). See [Models and providers](#models-and-providers), [Prompts](#prompts), [Skills](#skills) and [Memory](#memory).
-- **Accès** (Access): **Secrets**, with **Secrets web** (Web secrets), **Comptes Git** (Git accounts), **Jetons MCP** (MCP tokens) and **Remote**. See [Secrets and Git accounts](#secrets-and-git-accounts).
+- **Accès** (Access): **Secrets**, with **Secrets web** (Web secrets), **Comptes Git** (Git accounts) and **Jetons MCP** (MCP tokens). See [Secrets and Git accounts](#secrets-and-git-accounts).
 - **Avancé** (Advanced), collapsed: click it to see **Compaction** (see [The conversation context](#the-conversation-context)), **Sandbox** (see [The sandbox and the code editor](#the-sandbox-and-the-code-editor)), **Archives** (see [Conversations](#conversations)) and **Utilisation** (Usage).
 
 Paramètres › **Fonctionnalités** › **Modules** turns on or off **MCP** (all the assistant's tools), **Images**, **Sandbox** (the code panel) and **Créer des routines** (Create routines) (the assistant can save a routine, always paused, after your approval). The **Images** and **Éditeur** parts only appear if the feature is available and active.
@@ -1960,12 +1870,11 @@ A secret is a login, a password or a token that you entrust to the application s
 3. Create the secret or the account. The value is encrypted as soon as it is sent and will never be shown again.
 4. For a site, attach the secret to the conversation with `/secret`, then ask the assistant to log in to it.
 
-The tab has four parts:
+The tab has three parts:
 
 - **Secrets web**: the logins and tokens that the assistant uses on your sites.
 - **Comptes Git**: your access to Git servers, to clone, push and open PRs.
 - **Jetons MCP** (MCP tokens): tokens to use your tools from another application. See [Using your tools from another application](#tools-and-the-mcp-panel).
-- **Remote**: one token per workstation linked in [Remote code](#remote-code); revoking it disconnects that workstation.
 
 The keys of your model providers and of your MCP servers are managed elsewhere: see [Models and providers](#models-and-providers) and the [MCP panel](#tools-and-the-mcp-panel).
 
@@ -2346,7 +2255,7 @@ Not necessarily. A tool's error message explains how to correct it, and the assi
 
 #### A command or a sidebar entry is missing
 
-First check Paramètres › **Fonctionnalités** (Features) › **Modules**: **MCP**, **Images** and **Sandbox** can be turned off there. The other features depend on your installation and your rights: image generation, documents (RAG), subagents, Remote code, voice. An entry that is still missing has not been opened for your account: ask your administrator.
+First check Paramètres › **Fonctionnalités** (Features) › **Modules**: **MCP**, **Images** and **Sandbox** can be turned off there. The other features depend on your installation and your rights: image generation, documents (RAG), subagents, voice. An entry that is still missing has not been opened for your account: ask your administrator.
 
 ### Voice
 

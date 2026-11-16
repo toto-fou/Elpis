@@ -4,8 +4,7 @@
 > Installation and configuration: [configuration.md](configuration.md).
 > User guide: [user-guide.md](user-guide.md).
 
-Diagrams are written in **Mermaid** (rendered inline by GitHub, GitLab, VS Code —
-and by the application's help modal, *Developer* tab).
+Diagrams are written in **Mermaid** (rendered inline by GitHub, GitLab and VS Code).
 
 ---
 
@@ -2649,7 +2648,8 @@ spoken.
 | `GET /api/system-events` | Consolidated SSE stream |
 | `GET /api/health` · `GET /api/public-config` | Public probes |
 | `GET /api/app-logo?v=…` | Application logo (`app_info.logo_b64`), assistant avatar; fingerprinted address given by `app_logo_url` in `/api/public-config` |
-| `GET /api/help/readme?doc=user\|dev` | Serves this document and the user guide to the help modal |
+| `GET /api/help/readme` | Serves the user guide to the help window |
+| `GET /api/help/media/{name}.webm` | Clip of the user guide (`docs/media/aide/`), byte ranges supported |
 | `POST /api/tools/extract-text` | Text extraction from an upload (**max 2 MB**) |
 | `GET /api/playwright/screenshot/{filename}` | Screenshot, with ownership check and anti-replay deletion |
 | `GET /api/charts/{chart_id}` | Generated chart |

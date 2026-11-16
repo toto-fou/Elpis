@@ -299,7 +299,7 @@ export interface CtxChat {
   onNotificationEvent?: (data: unknown) => void;
   onAnnotationFrame?: (data: unknown) => void;
   openSettingsTab?: (onglet: string) => unknown;
-  openHelp?: (doc?: string) => unknown;
+  openHelp?: (section?: string) => unknown;
   closeSettings?: (sansConfirmer?: boolean) => unknown;
   loadSettingsData?: () => unknown;
   checkExternalModsSoon?: (delai?: number) => void;

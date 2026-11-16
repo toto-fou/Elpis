@@ -151,7 +151,7 @@ export function setupChat(
         return ctx.autoResize;
       },
       openSettingsTab: (onglet: string) => ctx.openSettingsTab?.(onglet),
-      openHelp: (doc?: string) => ctx.openHelp?.(doc),
+      openHelp: (section?: string) => ctx.openHelp?.(section),
       get env() {
         return {
           chatId: currentChatId.value,

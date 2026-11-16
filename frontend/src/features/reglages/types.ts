@@ -156,6 +156,8 @@ export interface CtxReglages {
     },
   ): void;
   fetchAuth: FetchAuth;
+  /** Clé de la section du guide qui correspond à l'écran en cours (fenêtre d'aide). */
+  contexteAide?(): string;
   openConfirm(
     titre: string,
     texte: string,

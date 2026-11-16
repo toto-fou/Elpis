@@ -562,7 +562,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
       name: "help",
       label: "Aide",
       icon: "ph-question",
-      desc: "Ouvrir la documentation",
+      desc: "Ouvrir l'aide",
       run: async () => {
         await ctx.openHelp?.();
         return { ok: true, silent: true };

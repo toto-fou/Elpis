@@ -35,7 +35,7 @@ import {
   verifyUser,
 } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
-import { decoderUtf8Py, HttpError, intPy, messageErreurOs, stripPy, strPy, veritePy } from "@elpis/commun";
+import { decoderUtf8Py, HttpError, intPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
@@ -72,6 +72,7 @@ import {
   corpsJsonValeurs,
   enregistrerBorne,
   entete,
+  entetesStat,
   lireFormulaire,
   reponseFichier,
   reponseJsonPy,
@@ -102,6 +103,12 @@ const REFUS_AVATAR_ASSISTANT =
 function maintenant(dep: DependancesComptes): number {
   return dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000;
 }
+
+/** Guide servi à la fenêtre d'aide ; s'il manque, la cause va au journal et la fenêtre dit seulement que l'aide est indisponible. */
+const GUIDE_UTILISATEUR = "docs/fr/user-guide.md";
+/** Clips du guide : le nom seul vient de la requête, sans séparateur ni point hors de l'extension. */
+const DOSSIER_CLIPS_AIDE = "docs/media/aide";
+const CLIP_AIDE = /^[a-z0-9-]{1,64}\.webm$/;
 
 /** Adresse du client, la même que celle du journal de sécurité (`ipDuClient`). */
 function adresseClient(requete: FastifyRequest, dep: DependancesComptes): string {
@@ -592,31 +599,33 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
         chemin: "/api/help/readme",
         processus: ["main"],
         acces: "session",
-        traiter: async (req) => {
-          const brut = (req.query as Record<string, unknown>)["doc"];
-          const doc = Array.isArray(brut) ? brut[brut.length - 1] : (brut ?? "user");
-          const dev = ["dev", "developer", "developpeur", "devs"].includes(
-            stripPy(strPy(doc || "")).toLowerCase(),
-          );
-          const etiquette = dev ? "docs/architecture.md" : "docs/fr/user-guide.md";
-          const resolu = dev ? "dev" : "user";
-          const chemin = join(dep.racine, etiquette);
-          if ((await stat(chemin).catch(() => null)) === null)
-            return {
-              content: `# Fichier ${etiquette} introuvable\n\nAucune documentation n'a été trouvée.`,
-              doc: resolu,
-            };
+        traiter: async () => {
           try {
-            return { content: decoderUtf8Py(await readFile(chemin)), doc: resolu };
+            return { content: decoderUtf8Py(await readFile(join(dep.racine, GUIDE_UTILISATEUR))) };
           } catch (e) {
-            const message = (e as { code?: unknown }).code
-              ? messageErreurOs(e, chemin)
-              : (e as Error).message;
-            return {
-              content: `# Erreur de lecture\n\nImpossible de lire le fichier: ${message}`,
-              doc: resolu,
-            };
+            dep.journal.warn({ err: e }, `[aide] ${GUIDE_UTILISATEUR} illisible`);
+            throw new HttpError(503, "Aide indisponible");
           }
+        },
+      },
+      {
+        methode: "GET",
+        chemin: "/api/help/media/:nom",
+        processus: ["main"],
+        acces: "session",
+        traiter: async (req, rep: FastifyReply) => {
+          const nom = (req.params as { nom: string }).nom;
+          if (!CLIP_AIDE.test(nom)) throw new HttpError(404, "Not Found");
+          const cible = join(dep.racine, DOSSIER_CLIPS_AIDE, nom);
+          const infos = await stat(cible, { bigint: true }).catch(() => null);
+          if (!infos?.isFile()) throw new HttpError(404, "Not Found");
+          // Revalidé à chaque lecture (un 304 sans corps) : un clip remplacé par une mise à jour se voit tout de suite.
+          const entetes = {
+            "cache-control": "private, no-cache",
+            etag: entetesStat(infos.mtimeNs, infos.size).etag,
+          };
+          if (req.headers["if-none-match"] === entetes.etag) return rep.code(304).headers(entetes).send();
+          return reponseFichier(req, rep, cible, { mediaType: "video/webm", headers: entetes });
         },
       },
     ],

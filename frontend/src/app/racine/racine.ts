@@ -20,6 +20,7 @@ import { creerImportSandbox } from "../../features/editor/import-sandbox";
 import { creerApiImages } from "../../features/images/api";
 import { creerImages } from "../../features/images/images";
 import { creerApiSecrets } from "../../features/secrets/api";
+import { cleAide } from "../../features/reglages/aide";
 import { setupEchantillonnage } from "../../features/reglages/echantillonnage";
 import { reglagesHabillage } from "../../features/reglages/habillage";
 import { setupReglages } from "../../features/reglages/reglages";
@@ -423,8 +424,12 @@ function creerCtx(l: LiensCtx) {
     openSettingsTab(onglet: string): unknown {
       return m.reglages?.openSettingsTab(onglet);
     },
-    openHelp(doc?: string): unknown {
-      return m.reglages?.openHelp(doc);
+    /** Clé de la section du guide qui correspond à l'écran en cours ; l'aide s'y ouvre quand aucune section n'est demandée. */
+    contexteAide(): string {
+      return cleAide(refs.currentView.value, !!m.editeur?.showEditor.value, !!refs.currentChatId.value);
+    },
+    openHelp(section?: string): unknown {
+      return m.reglages?.openHelp(section);
     },
     /** Commande `/rag` du module RAG, lue par le menu « / » du composeur. */
     get ragCommande() {

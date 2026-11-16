@@ -1,51 +1,61 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/aide.ts — fenêtre d'aide : guide utilisateur ou documentation développeur (`/api/help/readme`), chargement à jeton pour ignorer les réponses périmées. */
+/** frontend/src/features/reglages/aide.ts — fenêtre d'aide : guide utilisateur (`/api/help/readme`) chargé une fois, rechargé après un échec, section demandée à l'ouverture. */
 import { schemaReponseAide } from "@elpis/contracts";
-import type { Ref } from "vue";
 
 import { lireSchema } from "../../utils/lecture-json";
 import type { CtxReglages, VueReglages } from "./types";
 
-export type DocAide = "user" | "dev";
+const INDISPONIBLE =
+  "## Aide indisponible\n\nL'aide n'a pas pu être chargée. Réessayez dans un instant ; si cela dure, demandez à votre administrateur.";
+
+/** Section du guide (clé `<!-- aide: cle -->`) ouverte depuis chaque page autre que le chat. */
+export const BLOCS_AIDE: Readonly<Record<string, string>> = {
+  routines: "routines",
+  rag: "rag",
+  studio: "studio",
+  agents: "agents",
+  code: "remote",
+};
+
+/** Clé de la section du guide qui correspond à l'écran en cours ; vide sur l'accueil. */
+export function cleAide(vue: string, editeurOuvert: boolean, enConversation: boolean): string {
+  if (vue !== "chat") return BLOCS_AIDE[vue] ?? "";
+  if (editeurOuvert) return "editeur";
+  return enConversation ? "chat" : "";
+}
 
 export function creerAide(vue: VueReglages, ctx: CtxReglages) {
   const { ref } = vue;
   const showHelpModal = ref(false);
   const readmeContent = ref("");
   const isLoadingReadme = ref(false);
-  const helpDoc: Ref<DocAide> = ref("user");
-  let sequence = 0;
+  const helpSection = ref("");
+  let charge = false;
+  let enCours: Promise<void> | null = null;
 
-  async function openHelp(doc?: unknown): Promise<void> {
-    const cible: DocAide = doc === "user" || doc === "dev" ? doc : helpDoc.value || "user";
-    const maSequence = ++sequence;
-    helpDoc.value = cible;
-    showHelpModal.value = true;
+  async function charger(): Promise<void> {
     isLoadingReadme.value = true;
+    let texte: string;
     try {
-      const res = await ctx.fetchAuth("/api/help/readme?doc=" + encodeURIComponent(cible), {}, true);
-      if (maSequence !== sequence) return;
-      const d = await lireSchema(res, schemaReponseAide);
-      if (maSequence !== sequence) return;
-      if (d) {
-        readmeContent.value = d.content;
-        helpDoc.value = d.doc;
-      } else {
-        readmeContent.value = "# Erreur lors du chargement de la documentation.";
-      }
+      const d = await lireSchema(await ctx.fetchAuth("/api/help/readme", {}, true), schemaReponseAide);
+      texte = d?.content ?? "";
     } catch {
-      if (maSequence !== sequence) return;
-      readmeContent.value = "# Erreur réseau lors du chargement de la documentation.";
-    } finally {
-      if (maSequence === sequence) isLoadingReadme.value = false;
+      texte = "";
     }
+    charge = texte !== "";
+    readmeContent.value = texte || INDISPONIBLE;
+    isLoadingReadme.value = false;
+    enCours = null;
   }
 
-  function switchHelpDoc(doc: unknown): void {
-    if (doc !== "user" && doc !== "dev") return;
-    if (doc === helpDoc.value && readmeContent.value) return;
-    void openHelp(doc);
+  /** Ouvre l'aide sur la section de clé ou d'ancre `section`, sinon sur celle de l'écran en cours ; un chargement en cours est attendu, pas doublé. */
+  async function openHelp(section?: unknown): Promise<void> {
+    helpSection.value = typeof section === "string" ? section : (ctx.contexteAide?.() ?? "");
+    showHelpModal.value = true;
+    if (charge) return;
+    enCours ??= charger();
+    await enCours;
   }
 
-  return { showHelpModal, readmeContent, isLoadingReadme, helpDoc, openHelp, switchHelpDoc };
+  return { showHelpModal, readmeContent, isLoadingReadme, helpSection, openHelp };
 }

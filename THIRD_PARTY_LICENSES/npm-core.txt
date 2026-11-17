@@ -3037,7 +3037,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-undici 8.12.3 — MIT
+undici 8.12.4 — MIT
 ==============================================================================
 
 MIT License

@@ -244,7 +244,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | thread-stream | 4.2.0 | MIT |
 | toad-cache | 3.7.4 | MIT |
 | toidentifier | 1.0.1 | MIT |
-| undici | 8.12.3 | MIT |
+| undici | 8.12.4 | MIT |
 | util-deprecate | 1.0.2 | MIT |
 | wrappy | 1.0.2 | ISC |
 | ws | 8.22.1 | MIT |
@@ -347,7 +347,7 @@ the core bundle.
 | string_decoder | 1.3.0 | MIT |
 | thread-stream | 4.2.0 | MIT |
 | toad-cache | 3.7.4 | MIT |
-| undici | 8.12.3 | MIT |
+| undici | 8.12.4 | MIT |
 | util-deprecate | 1.0.2 | MIT |
 | wrappy | 1.0.2 | ISC |
 | ws | 8.22.1 | MIT |

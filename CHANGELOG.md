@@ -15,6 +15,12 @@ follow [SemVer](https://semver.org/).
   (3.0.0) and the desktop agent (0.0.1) now carry the product version. Release rules are in
   `CONTRIBUTING.md`.
 
+### Security
+
+- **Server-sent events: trailing line breaks removed in linear time.** A message with a long run of
+  line breaks no longer holds the core while it is encoded: 200,000 of them took 23 s, now a few
+  milliseconds (code scanning alert).
+
 ## 0.1.4 — 2026-11-17
 
 ### Added

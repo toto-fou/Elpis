@@ -340,7 +340,7 @@ describe.skipIf(!CIBLES.includes(CIBLE))("bundle de production du core", () => {
     const natif = exploitation(dist, instance, "natif");
     expect(natif.code).toBe(0);
     expect(natif.sortie).toMatch(
-      new RegExp(`^better-sqlite3 13\\.0\\.3, SQLite 3\\.\\d+\\.\\d+ \\(${CIBLE}, Node v24\\.`),
+      new RegExp(`^better-sqlite3 13\\.1\\.1, SQLite 3\\.\\d+\\.\\d+ \\(${CIBLE}, Node v24\\.`),
     );
     const migrations = exploitation(dist, instance, "migrations");
     expect(migrations.code).toBe(0);

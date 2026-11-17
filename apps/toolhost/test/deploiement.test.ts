@@ -139,7 +139,7 @@ describe("bundle de l'hôte d'outils", () => {
     const livre = blocsDeLicence(readFileSync(path.join(fait.sortie, "LICENCES-TIERS.txt"), "utf-8"));
     expect([...livre.keys()].sort()).toEqual(fait.paquets.map((p) => `${p.nom} ${p.version}`).sort());
     expect(fait.paquets.map((p) => `${p.nom} ${p.version}`)).toEqual(
-      expect.arrayContaining(["node-pty 1.1.0", "node-addon-api 7.1.1", "better-sqlite3 13.0.3"]),
+      expect.arrayContaining(["node-pty 1.1.0", "node-addon-api 7.1.1", "better-sqlite3 13.1.1"]),
     );
     expect(livre.get("node-pty 1.1.0")).toContain("Copyright (c) 2012-2015, Christopher Jeffrey");
     for (const f of [
@@ -155,7 +155,7 @@ describe("bundle de l'hôte d'outils", () => {
     const { journal, fin } = lancer(environnement(await portLibre()), ["--natif"]);
     expect(await fin, journal.join("")).toBe(0);
     expect(journal.join("")).toMatch(
-      /^node-pty 1\.1\.0, better-sqlite3 13\.0\.3, SQLite 3\.\d+\.\d+ \(linux-/u,
+      /^node-pty 1\.1\.0, better-sqlite3 13\.1\.1, SQLite 3\.\d+\.\d+ \(linux-/u,
     );
     const autre = CIBLE_LOCALE === "linux-x64" ? "linux-arm64" : "linux-x64";
     await expect(construireHote(path.join(dossier, "autre"), { cibles: [autre] })).rejects.toThrow(

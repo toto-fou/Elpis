@@ -174,7 +174,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | ajv-formats | 3.0.1 | MIT |
 | atomic-sleep | 1.0.0 | MIT |
 | avvio | 9.3.0 | MIT |
-| better-sqlite3 | 13.0.3 | MIT |
+| better-sqlite3 | 13.1.1 | MIT |
 | content-type | 1.0.5 | MIT |
 | cookie | 1.1.1 | MIT |
 | depd | 2.0.0 | MIT |
@@ -287,7 +287,7 @@ the core bundle.
 | ajv-formats | 3.0.1 | MIT |
 | atomic-sleep | 1.0.0 | MIT |
 | avvio | 9.3.0 | MIT |
-| better-sqlite3 | 13.0.3 | MIT |
+| better-sqlite3 | 13.1.1 | MIT |
 | cookie | 1.1.1 | MIT |
 | dequal | 2.0.3 | MIT |
 | duplexify | 4.1.3 | MIT |

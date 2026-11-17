@@ -27,7 +27,6 @@ import type { Base } from "@elpis/db";
 import {
   appliquerSecretsPerso,
   drapeauSecret,
-  FAMILY_NAMES,
   ID_PREFIX,
   invaliderMcp,
   mergePersonalMcp,
@@ -105,7 +104,6 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "hide_thinking",
   "agents_enabled",
   "custom_agents",
-  "opencode_mcp_families",
   "live_shell_enabled",
   "voice_input_enabled",
   "voice_reply_enabled",
@@ -506,15 +504,6 @@ export async function ecrireReglages(
   for (const k of BOOLEENS) if (a(k)) poserCle(data, k, veritePy(data[k]));
   for (const [k, valeurs] of Object.entries(CHOIX_AFFICHAGE))
     if (a(k) && !(typeof data[k] === "string" && valeurs.includes(data[k]))) delete data[k];
-  if (a("opencode_mcp_families")) {
-    const familles = data["opencode_mcp_families"];
-    if (estDict(familles)) {
-      const net: Dict = {};
-      for (const f of clesOrdonnees(familles))
-        if (FAMILY_NAMES.includes(f)) poserCle(net, f, veritePy(familles[f]));
-      poserCle(data, "opencode_mcp_families", net);
-    } else delete data["opencode_mcp_families"];
-  }
   if (a("image_prefs")) poserCle(data, "image_prefs", cleanPrefs(data["image_prefs"]));
   if (a("compression_threshold_pct") || a("compression_threshold_tokens")) {
     if (a("compression_threshold_pct"))

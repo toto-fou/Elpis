@@ -9,7 +9,6 @@ import type { Famille } from "../routes";
 import { AbonnementCanal, CanalInterne, publierVersMain } from "./canal";
 import type { AppelInterne } from "./canal";
 import { SuiviJournalStaff } from "./journal-staff";
-import { PipelineEvents } from "./pipeline";
 import { EmpreinteDemarrage } from "./redemarrage";
 import type { SourceRedemarrage } from "./redemarrage";
 import { applySessionRevocation } from "./revocation";
@@ -69,7 +68,6 @@ export interface OptionsAdmin extends OptionsCommunes {
 export interface Evenements {
   readonly mode: "main" | "admin";
   readonly systemEvents: SystemEvents;
-  readonly pipelineEvents: PipelineEvents;
   readonly famille: Famille;
   readonly suiviJournal: SuiviJournalStaff | undefined;
   readonly canal: CanalInterne | undefined;
@@ -103,9 +101,8 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
           journal,
           suivre: (tache) => cycle.suivre("suivi du journal staff", tache),
         });
-  const pipelineEvents = new PipelineEvents({ revalidationMs: options.revalidationMs });
   const evacuer = (): void => {
-    const n = systemEvents.fermer(RECYCLAGE) + pipelineEvents.fermer(RECYCLAGE);
+    const n = systemEvents.fermer(RECYCLAGE);
     if (n > 0) journal?.info(`[SHUTDOWN] évacuation : ${n} flux renvoyés vers une reconnexion`);
   };
   if (cycle.signalArret.aborted) evacuer();
@@ -113,13 +110,11 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
 
   const cibles = (fermerTerminaux?: CiblesRevocation["fermerTerminaux"]): CiblesRevocation => ({
     systemEvents,
-    pipelineEvents,
     fermerTerminaux,
     journal,
   });
   const commun = {
     systemEvents,
-    pipelineEvents,
     identite: identiteDeSession(options.auth),
     arret: cycle.signalArret,
     journal,
@@ -137,7 +132,6 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     return {
       mode: "main",
       systemEvents,
-      pipelineEvents,
       famille: familleEvenements({
         ...commun,
         main: {
@@ -192,7 +186,6 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
   return {
     mode: "admin",
     systemEvents,
-    pipelineEvents,
     famille: familleEvenements(commun),
     suiviJournal,
     canal: undefined,

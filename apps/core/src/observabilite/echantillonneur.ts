@@ -25,7 +25,7 @@ export interface CompteursProcessus {
   tachesChat?: () => number;
   /** Terminaux PTY ouverts. */
   terminaux?: () => number;
-  /** Clients des flux `system_events` et `pipeline_events`. */
+  /** Clients des flux `system_events`. */
   clientsSse?: () => number;
   /** Tâches de fond suivies par le cycle de vie. */
   tachesFond?: () => number;

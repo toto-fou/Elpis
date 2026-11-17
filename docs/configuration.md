@@ -466,7 +466,7 @@ Sections:
 | `rag` | Extractor, store, Qdrant, embeddings, reranking, OCR, groups, quotas, indexing: see [RAG](#rag-rag) |
 | `maintenance` | Retention, run time, daily digest |
 | `backup` | `include_audit` (security journal in the full backups, `true` by default), `remote.*` (scheduled upload, Admin console › System › Data); `remote.include_audit` (`false` by default) adds the journal to that upload. See [Security journal](#security-journal-securityaudit) |
-| `features` | Global flags (`opencode`, `office_preview`) |
+| `features` | Global flags (`office_preview`) |
 | `welcome` / `app_info` / `login_page` | Branding (edited from the admin console); `app_info.name` is the name of the application and of the assistant, `app_info.logo_b64` is its logo and the assistant's avatar, for all accounts |
 | `skins` | `dir` (folder of imported or created skins, default `user_skins`, overridable with `APP_SKINS_DIR`, read at startup), `enabled` (`{id: boolean}`, re-read live: a built-in that is absent takes its value from `frontend/css/skins/skins.json`, Kiki disabled; an imported skin that is absent is disabled; Ardoise and the default skin stay active), `default` (default `elpis`: skin of accounts with no choice or whose skin was disabled). Set from Admin console › System › Appearance; the folder is included in full backups |
 | `voice` | Voice engine — `enabled`, then two independent sub-blocks: `stt.*` (address, `format` among `whisper.cpp`/`openai`/`llama-audio`, language, vocabulary, `logprob_min`, caps) and `tts.*` (address, `format`, voice, speed, caps). Coercion and bounds in `apps/core/src/voix/config.ts`, re-read on EVERY call |
@@ -780,7 +780,7 @@ them and `PUT /api/config` writes only them. No setting is read from this file.
 > `feature_enabled(name)` (default `true` if missing), **re-read from disk on every
 > call** (so multi-worker-safe and no restart needed), exposed to the front end by
 > `GET /api/public-config`, and **enforced on the backend** (404). Today:
-> `opencode` and `office_preview`. The front end also receives `agents` (derived from `llm.task.enabled`),
+> `office_preview`. The front end also receives `agents` (derived from `llm.task.enabled`),
 > the master switch for subagents, as well as `voice_stt` and `voice_tts`
 > (derived from `voice.enabled` **and** from the presence of an address). These two
 > default to strict **OFF**: unlike the others, a feature that
@@ -961,12 +961,11 @@ is compared with the vault at the next start, and the vault value is kept.
 
 **`mcp.json` manifest.** The default tool servers are
 declared in `mcp.json` at the root (the `mcpServers` format of MCP clients +
-an `x-elpis` block per entry: role, families, `default_on`, families published to
-opencode, exported stdio command). Schema: `docs/schemas/mcp.schema.json`. Loader:
+an `x-elpis` block per entry: role, families, `default_on`, exported stdio
+command; an old `opencode` block is ignored, any other unknown key is a schema error). Schema: `docs/schemas/mcp.schema.json`. Loader:
 `packages/mcp/src/manifeste.ts`. Without a file, the manifest is synthesized from
 the variables below (legacy behavior). With a file, `LOCAL_MCP_URL`,
-`LOCAL_MCP_TOKEN`, `LOCAL_MCP_TOOL_FAMILIES` and `LOCAL_MCP_OPENCODE_FAMILIES`
-remain OVERRIDES. Admin console → Models & services → MCP tools →
+`LOCAL_MCP_TOKEN` and `LOCAL_MCP_TOOL_FAMILIES` remain OVERRIDES. Admin console → Models & services → MCP tools →
 "Default tools": state of the entries + Reload (`POST /api/admin/mcp/manifest/reload`,
 no restart). Servers with `x-elpis.role: external` appear in the
 MCP panel ("Declared" block, per-chat state `mf:<name>`).
@@ -1024,19 +1023,16 @@ Admin console → Models & services → MCP tools → "Default tools" → Export
 service diagnostic goes to `stderr`.
 
 **Personal tokens.** Each account creates its tokens in Settings ›
-Access tokens; only their SHA-256 fingerprint is kept (token shown once,
-regenerable). Three types: `pcr_` (opencode: plugin, `opencode.json`, MCP
-relay), `ept_` (tools: MCP relay and OpenAPI facade, checked families ∩
+Secrets › Jetons MCP; only their SHA-256 fingerprint is kept (token shown once,
+regenerable). Two types: `ept_` (tools: MCP relay and OpenAPI facade, checked families ∩
 policy, expiry) and `evt_` (vision for a desktop automation, 12 h,
 `/api/desktop/locate` only, created automatically, 20 at most per account,
 hidden from the list). `mcp.tokens.*` policy, re-read live: `tools_enabled`
 (true), `tools_families` (`fs,shell,git,desktop,browser,skill_run`),
-`max_days` (90; 0 = no limit), `max_per_user` (20, valid opencode and
-tool tokens). Revoking an account's sessions, resetting or changing
+`max_days` (90; 0 = no limit), `max_per_user` (20, valid tool tokens).
+Revoking an account's sessions, resetting or changing
 its password also revokes all its tokens and its OAuth apps;
 the administrator sees and cuts these accesses from the account's page.
-`GET /api/code/config` no longer returns a token: the installer and pairing
-create one.
 
 **OpenAPI facade.** The families of the shared service that have an
 external access point (`fs`, `shell`, `git`, `desktop`, `browser`, `skill_run`)
@@ -1129,7 +1125,7 @@ session (never from a browser header), pushes the skills mirror
 (``POST /api/sandbox/skills-mirror``), brings back screenshots/frames for vision and
 opens the file-history session at sign-in (``POST /internal/file-history/session``).
 With a ``toolhost.json`` (remote host), the host does not open ``app.db``: identity by envelope/``_meta``
-(``IdentityCapture``), ``/api/internal/*`` callbacks (introspection of ``pcr_``
+(``IdentityCapture``), ``/api/internal/*`` callbacks (introspection of ``ept_``
 tokens, identity, git credentials; for the ``desktop`` family served by the TS host:
 automation-finished notification and anchor memory, account taken from
 the signed identity envelope) with the service token, LOCAL database
@@ -1260,17 +1256,14 @@ must then be removed before recreating an account with the same name.
 | `MCP_TOOL_THREADS` | `64` | Service threads for synchronous tools and its HTTP routes (anyio default: 40); keep 8 more threads than `MCP_TOOL_MAX_CONCURRENT` |
 | `LOCAL_MCP_LIST_PAGE_SIZE` | `100` | Tools per `tools/list` page (pagination by `cursor`) |
 | `LOCAL_MCP_ALLOWED_ORIGINS` | *(empty)* | Browser origins allowed in addition to `mcp.allowed_origins` and `app.cors_origins` (comma-separated, `scheme://host:*` accepted) |
-| `LOCAL_MCP_OPENCODE_FAMILIES` | `git,browser,desktop` | Families **published** to opencode, one **MCP entry (= one toggle) per family** → `…/mcp/<family>`. Inclusion list: a family added later must be named to appear |
-| `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES` | `fs,shell,office,skill_run` | Families **always refused** to opencode clients (elpis-remote token `pcr_…`, accepted as Bearer) — opencode has its own file/shell tools; these families act on the host's sandbox |
-| `LOCAL_MCP_PUBLIC_URL` | — | Service URL as workstations reach it (`mcp` block of `opencode.json`); empty → app host + `LOCAL_MCP_PORT` |
 | `TOOL_TEXT_BUDGET` / `TOOL_LIST_BUDGET` | `6000` / `50` | Tool output budgets (characters of a text / items of a paginated list) |
 
 > **MCP auth.** As soon as a token is configured, the shared service
 > requires `Authorization: Bearer …` (FastMCP `StaticTokenVerifier`). The service
 > token lets the `meta` (username/chat_id) be authoritative; a client token
 > imposes the identity of the account tied to it. **With no token at all, the server
-> refuses to bind off loopback.** External clients (opencode: `type: "remote"`,
-> URL `…/mcp`, Bearer header).
+> refuses to bind off loopback.** External clients use the URL `…/mcp` with
+> that Bearer header.
 
 #### Satellite services
 
@@ -1283,7 +1276,6 @@ must then be removed before recreating an account with the same name.
 | `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, annotation prompt |
 | `APP_DESKTOP_*` | see `config.py` | Control agents: timeouts, observation scope, capture format, caps |
 | `DESKTOP_AGENT_TOKEN` | — | Token sent to desktop agents (`Authorization: Bearer`) when the machine has no `agent_token` of its own (`desktop.targets[].agent_token`, Admin console › Vision & machines, reloaded live). On the controlled machine: `DESKTOP_AGENT_TOKEN` or `agent_token.txt`, generated by the agent installation; with no token or file, the agent generates `agent_token.txt` at startup and writes the token in its log; `DESKTOP_AGENT_INSECURE=1` makes it start without a token. Administrators can see the token in the console (field masked at input only) |
-| `OPENCODE_DIST_DIR` | `cli_dist/` | OpenCode binaries served on the LAN |
 
 #### Resilience and locks
 
@@ -1564,9 +1556,9 @@ Design points:
   the admin console, which writes `security.https.enabled` then restarts the core
   (`SIGHUP`, restart by `./elpis` or systemd), which re-reads the flag at startup. An **anti-lockout
   guard** probes the ports before cutting off direct access.
-- `@bootstrap`: the install routes stay in clear text on `:80` — the
-  target machine does not know the CA yet. See
-  [CLI distribution](architecture.md#cli-distribution--opencode-lan).
+- `@bootstrap`: the desktop agent's install routes stay in clear text on
+  `:80` — the target machine does not know the CA yet. See
+  [deploy/caddy/README.md](../deploy/caddy/README.md).
 
 ### `security.https` belongs to the toggle, and to no one else
 

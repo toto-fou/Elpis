@@ -242,7 +242,7 @@ it has no text.
 |---|---|---|
 | `set-*` | settings (Settings, console) | `set-input`, `set-select`, `set-textarea`, `set-switch-track`, `set-row` |
 | `adm-*` | admin console | `adm-card`, `adm-rows`/`adm-row`, `adm-btn` (+ `--primary`, `--quiet`, `--icon`, `--danger`, `--warn`), `adm-seg`, `adm-pill`, `adm-table`, `adm-details` (and `--rows` for "Advanced"), `adm-savebar`, `adm-drawer`, `adm-zone`, `adm-kpi`, `adm-palette` |
-| `elpis-*` | chat, editor, banners | `elpis-editor-tab`, `elpis-code-diff`, `elpis-effect`, `elpis-banner-btn`, `elpis-slide-panel` |
+| `elpis-*` | chat, editor, banners | `elpis-editor-tab`, `elpis-effect`, `elpis-banner-btn`, `elpis-slide-panel` |
 | `markdown`, `code-*`, `diff-*` | message rendering | prose, code blocks, diffs |
 | `toast`, `modal`, `popover` | layers | notifications, dialogs, menus |
 

@@ -203,7 +203,7 @@ export interface ConfigAdmin {
     max_recent_chats?: number;
     [cle: string]: unknown;
   };
-  features: { opencode: boolean; office_preview: boolean; [cle: string]: unknown };
+  features: { office_preview: boolean; [cle: string]: unknown };
   vision: { endpoint_url: string; format: string; prompt: string; model: string; passes: number };
   voice: {
     enabled: boolean;

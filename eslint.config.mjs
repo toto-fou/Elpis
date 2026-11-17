@@ -183,7 +183,7 @@ const regleReglagesVifs = {
 const SCRIPTS = ["tools/*.mts", "migration-kit/*.mts", "office/elpis_office/*.mts"];
 
 export default defineConfig(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/*.gen.ts", "apps/core/greffon-opencode/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/*.gen.ts"] },
   {
     files: ["apps/**/*.ts", "packages/**/*.ts", "browser-service/**/*.ts", ...SCRIPTS],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

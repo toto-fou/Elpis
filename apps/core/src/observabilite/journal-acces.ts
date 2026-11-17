@@ -23,9 +23,6 @@ import { decouperCible, desechapper, erreursInattendues } from "@elpis/http";
 export const HTTP_SKIP_EXACT: ReadonlySet<string> = new Set([
   "/api/health",
   "/api/system-events",
-  "/api/code/stream",
-  "/api/code/pull",
-  "/api/code/ingest",
   "/favicon.ico",
 ]);
 export const HTTP_SKIP_PREFIXES: readonly string[] = ["/static/", "/avatars/", "/api/webhooks/"];
@@ -45,9 +42,12 @@ export const EXPECTED_404_BY_MODE: readonly (readonly [string, string])[] = [
   ["admin", "/api/debug/"],
   ["admin", "/api/tools/"],
   ["admin", "/api/prompts"],
-  ["admin", "/api/cli/"],
   ["admin", "/ws/"],
   ["main", "/api/admin/"],
+  // Remote code retiré : les anciens greffons des postes sondent encore /api/code/pull toutes les 5 s.
+  ["main", "/api/code/"],
+  ["main", "/api/cli/"],
+  ["main", "/opencode"],
 ];
 
 const CATEGORY_RULES: readonly (readonly [readonly string[], string])[] = [

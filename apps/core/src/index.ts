@@ -2,7 +2,7 @@
 /** apps/core/src/index.ts — API du core pour les tests et les autres paquets. */
 export { creerApp } from "./app";
 export type { Extension, OptionsApp } from "./app";
-export { composer, configurerAuditDuCore, convertirJetonsAuDemarrage } from "./composition";
+export { composer, configurerAuditDuCore } from "./composition";
 export type { Composition } from "./composition";
 export { CycleDeVie } from "./cycle";
 export { clesOrdonnees, ErreurValidation, HttpError, pyJsonLoadsOctets } from "@elpis/commun";

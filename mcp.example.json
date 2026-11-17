@@ -58,10 +58,7 @@
         "host": "main",
         "families": [
           "git"
-        ],
-        "opencode": {
-          "publish": true
-        }
+        ]
       }
     },
     "elpis-office": {
@@ -91,10 +88,7 @@
         "host": "main",
         "families": [
           "browser"
-        ],
-        "opencode": {
-          "publish": true
-        }
+        ]
       }
     },
     "elpis-desktop": {
@@ -109,10 +103,7 @@
         "host": "main",
         "families": [
           "desktop"
-        ],
-        "opencode": {
-          "publish": true
-        }
+        ]
       }
     },
     "elpis-skill-run": {

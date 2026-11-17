@@ -81,17 +81,15 @@
 # certificat AVANT même de télécharger le script (préambule PowerShell de
 # ~400 caractères, cassant selon la version de .NET / TLS 1.2), d'où des
 # commandes longues et instables. Ces routes sont PUBLIQUES et sans
-# secret (scripts d'install, binaire opencode, zip de l'agent, plugin) :
-# les laisser joignables en http rend la commande triviale
-# — `curl -fsSL http://<ip>/opencode | bash`. Le script téléchargé, lui,
-# épingle ensuite la CA locale (http://<ip>/ca.crt) pour tout ce qui
-# parlera à l'app en https. Ne RIEN ajouter ici qui demande une session.
+# secret (scripts d'install, zip de l'agent, CA locale) : les laisser
+# joignables en http rend la commande triviale — `curl -fsSL http://<ip>/agent | bash`.
+# Ne RIEN ajouter ici qui demande une session.
 :80 {
 	handle /ca.crt {
 		root * /etc/caddy/elpis-pki
 		file_server
 	}
-	@bootstrap path /opencode /opencode.ps1 /agent /agent.ps1 /api/cli/* /api/code/plugin.ts /api/code/plugin.js /api/desktop/install.sh /api/desktop/install.ps1 /api/desktop/agent-bundle
+	@bootstrap path /agent /agent.ps1 /api/desktop/install.sh /api/desktop/install.ps1 /api/desktop/agent-bundle /api/desktop/ca.crt
 	handle @bootstrap {
 		reverse_proxy 127.0.0.1:8001
 	}

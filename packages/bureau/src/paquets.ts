@@ -375,7 +375,7 @@ export async function paquetAutomatisation(racine: string, d: DemandePaquet): Pr
   return zipper(entrees);
 }
 
-/** Gabarit de `install.sh` recopié à l'octet de routes.py (base en `__BASE__`). */
+/** Gabarit de `install.sh` de routes.py (base en `__BASE__`), seconde source de la CA sous `/api/desktop`. */
 export const INSTALL_SH_PYTHON = `#!/usr/bin/env bash
 set -euo pipefail
 # Installeur desktop-agent — servi par __BASE__ (réseau local, sans auth).
@@ -385,7 +385,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 # HTTPS (frontal Caddy, cert LAN auto-signé) : vérif normale → CA locale → repli
 # -k. DEUX sources pour la CA : Caddy la publie en clair sur :80, mais ce chemin
 # n'existe pas sur un déploiement en https direct (ou :80 filtré) — l'app la sert
-# donc aussi elle-même sur /api/cli/ca.crt. Sans cette seconde source on tombait
+# donc aussi elle-même sur /api/desktop/ca.crt. Sans cette seconde source on tombait
 # en « -k » définitif alors qu'une vérification réelle était possible.
 CURL_TLS=""
 if [ "\${BASE#https://}" != "$BASE" ]; then
@@ -393,7 +393,7 @@ if [ "\${BASE#https://}" != "$BASE" ]; then
   if curl -fsS -m 5 --head "$BASE/api/desktop/install.sh" >/dev/null 2>&1; then
     :      # certificat déjà reconnu par le poste (CA installée) — rien à faire
   else
-    for CA_URL in "http://$HOST/ca.crt" "$BASE/api/cli/ca.crt"; do
+    for CA_URL in "http://$HOST/ca.crt" "$BASE/api/desktop/ca.crt"; do
       if curl -fsSk -m 5 "$CA_URL" -o "$TMP/ca.crt" 2>/dev/null \\
          && grep -q 'BEGIN CERTIFICATE' "$TMP/ca.crt" 2>/dev/null \\
          && curl -fsS -m 5 --cacert "$TMP/ca.crt" --head "$BASE/api/desktop/install.sh" >/dev/null 2>&1; then
@@ -405,7 +405,7 @@ if [ "\${BASE#https://}" != "$BASE" ]; then
     if [ -z "$CURL_TLS" ]; then
       CURL_TLS="-k"
       echo "AVERTISSEMENT : certificat https non vérifiable — téléchargement en mode non vérifié (-k)."
-      echo "  Installez la CA de l'app sur ce poste ($BASE/api/cli/ca.crt) pour y remédier."
+      echo "  Installez la CA de l'app sur ce poste ($BASE/api/desktop/ca.crt) pour y remédier."
     fi
   fi
 fi

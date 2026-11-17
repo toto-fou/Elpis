@@ -185,13 +185,6 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
             mots: "token jeton mcp openapi opencode connexions acces client application",
             aide: "Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI).",
           },
-          {
-            id: "remote",
-            libelle: "Remote",
-            icone: "ph-terminal-window",
-            mots: "remote code jeton token poste machine appairage harnais opencode",
-            aide: "Jetons Remote : un par poste relié ; révoquer un jeton déconnecte ce poste.",
-          },
         ],
       },
     ],

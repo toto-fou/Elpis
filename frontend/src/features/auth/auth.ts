@@ -175,7 +175,6 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     if (data.features && ctx.features?.value) {
       const f = data.features;
       ctx.features.value = {
-        opencode: f.opencode !== false,
         agents: f.agents !== false,
         office_preview: f.office_preview !== false,
         voice_stt: f.voice_stt === true,

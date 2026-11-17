@@ -41,7 +41,6 @@ const LIBELLES_SOURCE: Readonly<Record<string, string>> = Object.freeze({
   title: "Titres",
   compression: "Compression",
   scenario: "Studio",
-  remote: "Remote code",
   unknown: "Non attribué",
 });
 

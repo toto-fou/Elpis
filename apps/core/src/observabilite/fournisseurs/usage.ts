@@ -38,7 +38,6 @@ export const SOURCE_LABELS: Readonly<Record<string, string>> = {
   title: "Titre",
   compression: "Compression",
   scenario: "Studio",
-  remote: "Remote code",
   unknown: "Non attribué",
 };
 

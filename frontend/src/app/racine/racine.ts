@@ -35,7 +35,6 @@ import { creerClavier } from "./clavier";
 import { creerClicExterieur } from "./clic-exterieur";
 import { creerDefilementChat } from "./defilement";
 import { creerNotifications } from "./notifications";
-import { creerOpencode } from "./opencode";
 import { EVT_OUVRIR_AGENT, EVT_OUVRIR_ROUTINE } from "../../features/chat/outils/actions-resultat";
 import { brouillonAvecCorrection, EVT_SKIN_CORRECTION } from "../../features/reglages/skins-perso";
 import { pageConsole } from "../page";
@@ -158,7 +157,6 @@ export interface ModulesFacultatifs {
   editeur?(c: ContexteModule): NonNullable<Modules["editeur"]>;
   skills?(c: ContexteModule): NonNullable<Modules["skills"]>;
   routines?(c: ContexteModule): NonNullable<Modules["routines"]>;
-  code?(c: ContexteModule): NonNullable<Modules["code"]>;
   mascotte?(c: ContexteModule): NonNullable<Modules["mascotte"]>;
   rag?(c: ContexteModule): NonNullable<Modules["rag"]>;
   studio?(c: ContexteModule): NonNullable<Modules["studio"]>;
@@ -185,7 +183,6 @@ const MODULES_VIDES = (): Modules => ({
   studio: null,
   studioChat: null,
   studioAuto: null,
-  code: null,
   mascotte: null,
   rag: null,
 });
@@ -596,7 +593,7 @@ export function creerRacine(options: OptionsRacine = {}) {
   const systemAlert = ref("");
   const showInfoModal = ref(false);
   const showExportMenu = ref(false);
-  // Sous-menu « Plus » du volet latéral (RAG, Studio, Remote code) : la cascade d'Échap le referme.
+  // Sous-menu « Plus » du volet latéral (RAG, Studio) : la cascade d'Échap le referme.
   const menuPagesOuvert = ref(false);
   const imgZoom = ref<string | null>(null);
   // Un seul journal en direct : le flux système y écrit, la console le lit.
@@ -631,7 +628,6 @@ export function creerRacine(options: OptionsRacine = {}) {
   const mainAppUrl = ref(typeof window.__MAIN_APP_URL__ === "string" ? window.__MAIN_APP_URL__ : "");
   // Drapeaux de l'instance (/api/public-config) ; la voix est fausse par défaut (pas de bouton qui apparaît puis disparaît).
   const features = ref<Record<string, boolean>>({
-    opencode: true,
     agents: true,
     office_preview: true,
     voice_stt: false,
@@ -789,7 +785,6 @@ export function creerRacine(options: OptionsRacine = {}) {
     null;
   m.studio =
     monter("setupStudioMenu", facultatifs.studio && (() => facultatifs.studio?.(contexte) ?? null)) ?? null;
-  m.code = monter("setupCodeMenu", facultatifs.code && (() => facultatifs.code?.(contexte) ?? null)) ?? null;
   m.mascotte =
     monter("setupMascotte", facultatifs.mascotte && (() => facultatifs.mascotte?.(contexte) ?? null)) ?? null;
   m.rag = monter("setupRag", facultatifs.rag && (() => facultatifs.rag?.(contexte) ?? null)) ?? null;
@@ -804,7 +799,7 @@ export function creerRacine(options: OptionsRacine = {}) {
       facultatifs.studioAuto && (() => facultatifs.studioAuto?.(contexte, m.studio, m.studioChat) ?? null),
     ) ?? null;
 
-  // Quitter le Studio par n'importe quel chemin coupe son mini-chat et un glisser armé ; quitter Code coupe son flux.
+  // Quitter le Studio par n'importe quel chemin coupe son mini-chat et un glisser armé.
   watch(currentView, (v, avant) => {
     if (avant === "studio" && v !== "studio") {
       try {
@@ -818,16 +813,7 @@ export function creerRacine(options: OptionsRacine = {}) {
         /* rien d'armé */
       }
     }
-    if (avant === "code" && v !== "code") {
-      try {
-        m.code?.codeDisconnectStream();
-      } catch {
-        /* flux déjà fermé */
-      }
-    }
   });
-
-  const opencode = creerOpencode({ fetchAuth, showToast: toasts.showToast });
 
   // ── Menu contextuel : actions (chats, fichiers, dossiers, fond de l'explorateur) ──
   function handleContextAction(action: string): void {
@@ -910,7 +896,6 @@ export function creerRacine(options: OptionsRacine = {}) {
     modalState: fenetre.modalState,
     contextMenu: menu.contextMenu,
     showInfoModal,
-    showOpenCodeModal: opencode.showOpenCodeModal,
     imgZoom,
     showNotifPanel: n.showNotifPanel,
     menuPagesOuvert,
@@ -1028,9 +1013,6 @@ export function creerRacine(options: OptionsRacine = {}) {
       f.isOpen = false;
     }
     essayer(() => ctx.closeSettings(true));
-    // Page Code : flux coupé, état vidé ; vue neutre pour le compte suivant.
-    essayer(() => m.code?.codeResetOnLogout());
-    opencode.showOpenCodeModal.value = false;
     currentView.value = "chat";
     essayer(() => m.studio?.clearStudio());
     essayer(() => m.studioAuto?.resetAutomation());
@@ -1098,7 +1080,6 @@ export function creerRacine(options: OptionsRacine = {}) {
     ...m.skills,
     ...m.routines,
     ...m.studio,
-    ...m.code,
     ...m.mascotte,
     ragPage: m.rag ? reactive(m.rag) : null,
     openAgentsPage: ctx.openAgentsPage,
@@ -1129,7 +1110,6 @@ export function creerRacine(options: OptionsRacine = {}) {
     showSidebar,
     systemAlert,
     showInfoModal,
-    ...opencode,
     appInfo,
     logoApp,
     imgZoom,

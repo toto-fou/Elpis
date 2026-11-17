@@ -62,7 +62,7 @@ run Elpis on a dedicated machine or VM. Details below.
 - Server ↔ network: addresses of Git repositories and MCP servers checked
   and resolved on the server side (see the limits below).
 - External clients ↔ tools: an MCP or OpenAPI client (editor, agent,
-  script) acts only through a personal token (`ept_`, `pcr_`) or an OAuth
+  script) acts only through a personal token (`ept_`) or an OAuth
   authorization granted by the account on the consent screen,
   with THAT account's rights and only the families granted, bounded
   by the administrator's policy (`mcp.tokens.*`, `mcp.oauth.*`,

@@ -378,7 +378,7 @@ export function creerMoteurMarkdown(dep: DependancesMoteur): MoteurMarkdown {
     return { etat: { ...r.etat, source: texte }, actifHtml: "" };
   }
 
-  // Rendu en direct hors du chat (page Code) : la découpe du dernier texte rendu est reprise, seul le nouveau texte est analysé.
+  // Rendu en direct : la découpe du dernier texte rendu est reprise, seul le nouveau texte est analysé.
   let direct: EtatFlux | null = null;
 
   function renderMarkdownLive(text: string | null | undefined): string {

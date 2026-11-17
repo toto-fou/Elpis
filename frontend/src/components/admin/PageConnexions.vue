@@ -1997,13 +1997,12 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             <div>
               <label
                 class="adm-row__label"
-                title="Coupé : les jetons existants cessent de fonctionner et aucun ne peut être créé. Les jetons opencode ne sont pas concernés."
+                title="Coupé : les jetons existants cessent de fonctionner et aucun ne peut être créé."
                 for="cnx-tok-on"
                 >Jetons d'outils</label
               >
               <span class="sr-only"
-                >Coupé : les jetons existants cessent de fonctionner et aucun ne peut être créé. Les jetons
-                opencode ne sont pas concernés.</span
+                >Coupé : les jetons existants cessent de fonctionner et aucun ne peut être créé.</span
               >
             </div>
             <InterrupteurConsole
@@ -2054,10 +2053,13 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
 
           <div class="adm-row">
             <div>
-              <label class="adm-row__label" title="Jetons opencode et d'outils confondus." for="cnx-tok-max"
+              <label
+                class="adm-row__label"
+                title="Jetons d'outils non expirés d'un même compte."
+                for="cnx-tok-max"
                 >Jetons par compte</label
               >
-              <span class="sr-only">Jetons opencode et d'outils confondus.</span>
+              <span class="sr-only">Jetons d'outils non expirés d'un même compte.</span>
             </div>
             <input
               id="cnx-tok-max"

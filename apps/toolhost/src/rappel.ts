@@ -128,7 +128,7 @@ export class ClientRappel {
     }
   }
 
-  /** Compte lié à un jeton personnel (`pcr_…`, `ept_…`). */
+  /** Compte lié à un jeton d'outils (`ept_…`). */
   async introspectToken(jeton: string): Promise<JetonIntrospecte | null> {
     if (!jeton) return null;
     const cle = "tok:" + jeton;

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/page/menu-pages-plus.ts — sous-menu « Plus » du volet latéral : pages secondaires (RAG, Bibliothèque des images, Studio, Agents, Remote code) selon les droits du compte, et sa position à droite du volet. */
+/** frontend/src/features/chat/page/menu-pages-plus.ts — sous-menu « Plus » du volet latéral : pages secondaires (RAG, Bibliothèque des images, Studio, Agents) selon les droits du compte, et sa position à droite du volet. */
 
 /** Page rangée sous « Plus ». */
 export interface PagePlus {
-  readonly vue: "rag" | "bibliotheque" | "studio" | "agents" | "code";
+  readonly vue: "rag" | "bibliotheque" | "studio" | "agents";
   readonly libelle: string;
   readonly titre: string;
   readonly icone: string;
@@ -14,7 +14,6 @@ export interface DroitsPlus {
   readonly rag: boolean;
   /** Génération d'images disponible : la Bibliothèque ouvre la galerie des images du compte. */
   readonly images: boolean;
-  readonly opencode: boolean;
   /** Sous-agents permis sur l'instance (`features.agents`). */
   readonly agents: boolean;
 }
@@ -40,22 +39,15 @@ export const PAGES_PLUS: readonly PagePlus[] = [
     titre: "Agents — sous-missions confiées par l'assistant",
     icone: "ph-robot",
   },
-  {
-    vue: "code",
-    libelle: "Remote code",
-    titre: "Remote code — sessions opencode déportées",
-    icone: "ph-terminal-window",
-  },
 ];
 
-/** Pages visibles pour ce compte : RAG avec le droit RAG, Bibliothèque avec les images, Agents si les sous-agents sont permis, Remote code avec opencode, Studio toujours. */
+/** Pages visibles pour ce compte : RAG avec le droit RAG, Bibliothèque avec les images, Agents si les sous-agents sont permis, Studio toujours. */
 export function pagesPlus(d: DroitsPlus): PagePlus[] {
   const visible: Record<PagePlus["vue"], boolean> = {
     rag: d.rag,
     bibliotheque: d.images,
     studio: true,
     agents: d.agents,
-    code: d.opencode,
   };
   return PAGES_PLUS.filter((p) => visible[p.vue]);
 }

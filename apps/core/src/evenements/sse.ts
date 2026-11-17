@@ -26,7 +26,9 @@ function lignes(prefixe: string, valeur: string): string {
 
 /** `data: …` après l'adaptateur de routes_events.py : les `\n` finaux tombent, chaque ligne devient un champ `data`. */
 export function encoderDonneeSse(donnees: string): string {
-  return lignes("data: ", donnees.replace(/\n+$/u, "")) + "\r\n";
+  let fin = donnees.length;
+  while (fin > 0 && donnees.charCodeAt(fin - 1) === 10) fin--;
+  return lignes("data: ", donnees.slice(0, fin)) + "\r\n";
 }
 
 export function encoderCommentaireSse(commentaire: string): string {

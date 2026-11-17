@@ -122,6 +122,23 @@ is reserved to it (0700): a container's root can place setuid files there;
 a dedicated `nosuid,nodev` mount point neutralizes them for
 the service account too.
 
+**Sandbox containers** (`packages/bac/src/conteneur.ts`, `durcissement.ts`): the
+commands, the agent and the terminal run as UID 10001, with `no-new-privileges`
+and an empty bounding set, so neither `sudo` nor a setuid binary gives root in the
+container (`executors.allow_sudo = true` gives it back, at the cost of a root one
+kernel flaw away from the host). Only the entrypoint and a few host commands
+(`chown` of `/work`, `pkill`, purge) run as root, with seven capabilities. Open and
+allowlist sandboxes are on the `elpis-sandbox` network (bridge `elpis-sbx0`), with
+traffic between containers disabled. An open sandbox still reaches the LAN, the
+host's ports bound to `0.0.0.0` and the cloud metadata address; filter them on the
+host, for example:
+
+```bash
+iptables -I DOCKER-USER -i elpis-sbx0 -d 169.254.169.254 -j DROP
+iptables -I DOCKER-USER -i elpis-sbx0 -d 10.0.0.0/8 -j DROP   # LAN, adapt
+iptables -I INPUT -i elpis-sbx0 -j DROP                         # the host's own ports
+```
+
 **Hardened isolation**, not covered by our tests:
 
 - an application-kernel runtime, gVisor (`executors.runtime = "runsc"`):

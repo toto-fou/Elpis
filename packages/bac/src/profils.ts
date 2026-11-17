@@ -27,6 +27,8 @@ import {
 import type { Dict } from "@elpis/commun";
 import { configView } from "@elpis/config";
 
+import { argsRunRefuses } from "./durcissement";
+
 /** Règles de la console (POST /api/admin/executors) ; `[a-zA-Z]` : l'IGNORECASE ASCII de Python. */
 export const PROFILE_ID_RE = /^[a-z0-9_-]+$/u;
 export const DOMAIN_RE =
@@ -58,6 +60,8 @@ export interface ConfigBac {
   network_profiles: ProfilReseau[];
   runtime: string;
   extra_run_args: string[];
+  /** `sudo` et les binaires setuid du bac permis (root dans le conteneur) ; faux par défaut. */
+  allow_sudo: boolean;
 }
 
 export type Avertir = (message: string) => void;
@@ -185,10 +189,19 @@ export function configBacDepuis(brut: unknown, avertir: Avertir = signalerUneFoi
     idle_kill_hours: intPy(getPy(d, "idle_kill_hours", 24)),
     network_profiles: profils,
     runtime: texteNet(getPy(d, "runtime")),
-    extra_run_args: iterExige(ouPy(getPy(d, "extra_run_args"), []))
-      .map(strPy)
-      .filter((x) => stripPy(x) !== ""),
+    extra_run_args: extraRunArgs(getPy(d, "extra_run_args"), avertir),
+    allow_sudo: getPy(d, "allow_sudo", false) === true,
   };
+}
+
+/** Options `docker run` de l'administrateur, celles qui défont l'isolation retirées et signalées (config.json édité à la main). */
+function extraRunArgs(brut: unknown, avertir: Avertir): string[] {
+  const args = iterExige(ouPy(brut, []))
+    .map(strPy)
+    .filter((x) => stripPy(x) !== "");
+  const { gardes, refus } = argsRunRefuses(args);
+  for (const r of refus) avertir(`executors.extra_run_args : ${r} ignoré`);
+  return gardes;
 }
 
 /** `get_profile` : le profil demandé, sinon « isolated » lui-même. */

@@ -1051,7 +1051,7 @@ The editor takes the style of the skin, or keeps the classic editor: the choice 
 
 Each account has an isolated, persistent sandbox. Your working folder there is `/work`: the editor, the terminal and the assistant's tools all work in that same folder.
 
-- **In your sandbox, you and the assistant have full rights**: `sudo` without a password, package installation, compilation. This is intended: this sandbox belongs to you alone.
+- **In your sandbox, you and the assistant work as an ordinary user**, never as root: compilation, `pip install` (into `/work/.python-user`), `npm`, Git. `sudo` and system packages (`apt`) are refused, unless the administrator allows them (Console › Sandbox › Limites › **Avancé** › **Sudo**). `/tmp` is kept in memory and emptied at each restart.
 - **The server and the other users are protected**: the sandbox is partitioned, with limits on memory, processor and processes.
 - **The network is off by default.** The administrator defines network profiles (isolated, full access, list of allowed addresses) and you choose one, unless they impose one. A `pip install` or a `git clone` that fails with connection refused probably comes from that, not from an outage; the assistant knows the state of the network.
 - **A disk quota applies**; the editor's gauge shows it.
@@ -1093,7 +1093,7 @@ If your sandbox was stopped, a startup message appears the first time you open i
 - Drag the top edge of the panel to enlarge it. Its height is remembered.
 - After a command, the explorer, the open tabs and the Git view update by themselves.
 - One terminal per task: a development server in one, the tests in another, each renamed. The preview in **Serveur** (Server) mode then shows the running application: see [The sandbox and the code editor](#the-sandbox-and-the-code-editor).
-- You have full rights in your sandbox: `sudo apt install …` or `pip install …` work, if the network profile allows it.
+- `pip install …` works in your sandbox, if the network profile allows it; `sudo apt install …` only if the administrator allows `sudo`.
 
 ### How it works
 

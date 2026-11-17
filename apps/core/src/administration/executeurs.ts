@@ -32,6 +32,7 @@ import {
 import type { Dict, Reseau } from "@elpis/commun";
 import {
   appelDocker,
+  argsRunRefuses,
   assainirSeuilsDisque,
   configuredImage,
   decoderRemplace,
@@ -112,6 +113,7 @@ export function vueExecuteurs(cfg: Dict): Dict {
       extra_run_args: iterExige(ouPy(getPy(bloc, "extra_run_args"), []))
         .map(strPy)
         .filter((x) => stripPy(x) !== ""),
+      allow_sudo: getPy(bloc, "allow_sudo", false) === true,
       jobs: reglagesJobsDepuis(getPy(bloc, "jobs")),
       disk: seuilsDisqueDepuis(getPy(bloc, "disk")),
     },
@@ -279,6 +281,8 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
     extra.push(s);
   }
   if (extra.length > 32) throw new HttpError(400, "extra_run_args : trop d'arguments (max 32)");
+  const { refus } = argsRunRefuses(extra);
+  if (refus.length > 0) throw new HttpError(400, `extra_run_args refusé : ${refus.join(", ")}`);
   const limite = (cle: string, defaut: number): number =>
     intPy(getPy(ouPy(getPy(nouveau, "limits"), {}), cle, defaut));
   const limites: Record<string, number> = {
@@ -294,6 +298,7 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
     exec_user: execUser,
     runtime,
     extra_run_args: extra,
+    allow_sudo: getPy(nouveau, "allow_sudo", getPy(cur, "allow_sudo", false)) === true,
     network_profiles: profils,
   };
   const jobs = getPy(nouveau, "jobs", null);

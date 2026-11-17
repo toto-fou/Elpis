@@ -8,7 +8,7 @@ never touches the contents of `/work` itself, apart from the exceptions below.
 
 | Caller | Path | Boundary |
 |---|---|---|
-| `execute_shell`, terminal | `docker exec`, UID 10001 | kernel / container |
+| `execute_shell`, terminal | `docker exec`, UID 10001, empty bounding set (no `sudo` unless `executors.allow_sudo`) | kernel / container |
 | file tools; editor (tree, read, write, search, previews, imports) | container agent | container |
 | Git tools, editor Git panel | container agent (`git`) | container |
 | Git network operations started by Elpis (`clone`, `fetch`, `pull`, `push`, `ls-remote`) | agent, then host relay | ticket per operation |

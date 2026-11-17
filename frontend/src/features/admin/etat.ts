@@ -73,6 +73,7 @@ export interface ConfigExecEditee {
   exec_user: string;
   runtime: string;
   extra_run_args: string[];
+  allow_sudo: boolean;
   jobs: ConfigJobs;
   disk: SeuilsDisque;
 }
@@ -220,6 +221,7 @@ export function creerEtatAdmin(vue: VueAdmin): EtatAdmin {
       exec_user: "10001:10001",
       runtime: "",
       extra_run_args: [],
+      allow_sudo: false,
       jobs: { ...JOBS_PAR_DEFAUT },
       disk: { ...DISQUE_PAR_DEFAUT },
     }),

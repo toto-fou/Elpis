@@ -34,6 +34,7 @@ export {
   resolveProfileDomains,
   RUN_SPEC,
   sandboxAdminConfigDepuis,
+  specAttendue,
   UserSandbox,
 } from "./conteneur";
 export type {
@@ -45,6 +46,13 @@ export type {
   ResolveurDomaines,
 } from "./conteneur";
 export { reglagesCycle, sousVerrouDeCycle, verrouDeCycle } from "./cycle";
+export {
+  argsRunRefuses,
+  CAPABILITIES_DURCIES,
+  CAPABILITIES_SUDO,
+  PONT_BACS,
+  RESEAU_BACS,
+} from "./durcissement";
 export { arreterReadinessCache, getReadinessCache, ReadinessCache } from "./disponibilite";
 export {
   appelDocker,

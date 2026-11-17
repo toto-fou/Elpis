@@ -742,6 +742,24 @@ sys.exit(0 if lu.startswith(b"HTTP/1.1 200") and b'"ok":true' in lu else 1)
 PY
 }
 
+# Isolation des bacs : root des conteneurs remappé (userns-remap, rootless) ou noyau applicatif (runsc), et sudo laissé aux comptes ; conseils seulement.
+doctor_isolation_bac() {
+    local sec runtime sudo_permis
+    sec="$(docker info --format '{{join .SecurityOptions " "}}' 2>/dev/null)" || return 0
+    runtime="$("${PY:-python3}" -c 'import json, sys
+try: print(((json.load(open(sys.argv[1])).get("executors") or {}).get("runtime") or ""))
+except Exception: print("")' "$ROOT/config.json" 2>/dev/null)"
+    sudo_permis="$("${PY:-python3}" -c 'import json, sys
+try: print("oui" if (json.load(open(sys.argv[1])).get("executors") or {}).get("allow_sudo") is True else "non")
+except Exception: print("non")' "$ROOT/config.json" 2>/dev/null)"
+    case "$sec $runtime" in
+        *userns*|*rootless*|*runsc*|*kata*) ok "isolation des bacs : renforcée (${runtime:-$sec})" ;;
+        *) info "isolation des bacs : ni userns-remap, ni Docker rootless, ni gVisor ; une faille du noyau mène d'un bac à l'hôte (SECURITY.md, « Hardened isolation »)" ;;
+    esac
+    [ "$sudo_permis" = oui ] && warn "sudo permis dans les bacs (executors.allow_sudo) : root dans chaque conteneur ; à réserver aux comptes de confiance"
+    return 0
+}
+
 # Navigateur, dans la sandbox de chaque compte seulement : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
 doctor_navigateur_bac() {
     local ca cpu pw nm sb s d j n=0
@@ -1023,6 +1041,7 @@ cmd_doctor() {
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
     check "image sandbox $image" "./install.sh ou deploy/docker/sandbox/build_offline.sh ; sans elle, ni sandbox ni navigateur" docker image inspect "$image"
+    doctor_isolation_bac
     check "bubblewrap (analyses du RAG et aperçus Office isolés)" \
         "apt install bubblewrap ; user namespaces autorisés ; core construit requis" core_cmd bwrap
     check_opt "LibreOffice (aperçus Office, facultatif)" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt" command -v soffice

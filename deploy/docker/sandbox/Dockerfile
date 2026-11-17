@@ -261,11 +261,11 @@ RUN if [ "$PIP_ONLINE" = "1" ]; then \
  && rm -rf /tmp/wheels /tmp/requirements.txt /root/.cache
 
 # ─── 5. User non-root + sudo ──────────────────────────────────────────────
-# L'user 10001 reste le compte d'exécution par défaut, MAIS il a sudo
-# NOPASSWD : dans son propre container il peut donc tout faire (apt,
-# pip système, chmod, chown, monter un service…) sans avoir besoin d'un
-# accès root "host". L'isolation host reste assurée par Docker (namespaces,
-# seccomp, pas de socket Docker monté) — cf. packages/bac/src/conteneur.ts.
+# L'user 10001 est le compte d'exécution. sudo NOPASSWD reste dans l'image,
+# mais n'opère que si l'admin le permet (executors.allow_sudo) : par défaut,
+# le conteneur tourne en no-new-privileges et chaque exec avec un bounding
+# set vide, donc ni sudo ni un binaire setuid ne redonnent root
+# (packages/bac/src/conteneur.ts, durcissement.ts).
 RUN groupadd -g 10001 elpis \
  && useradd -m -u 10001 -g 10001 -s /bin/bash elpis \
  && echo 'elpis ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/elpis \

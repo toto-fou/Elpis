@@ -301,6 +301,27 @@ const adm = domaineAdmin();
               <div>
                 <label
                   class="adm-row__label"
+                  title="Root dans le conteneur via sudo et les binaires setuid (apt, pip système). Refusé : no-new-privileges et capacités réduites. Recrée les conteneurs."
+                  for="sb-allow-sudo"
+                  >Sudo</label
+                >
+                <span class="sr-only"
+                  >Root dans le conteneur via sudo et les binaires setuid (apt, pip système). Refusé :
+                  no-new-privileges et capacités réduites. Recrée les conteneurs.</span
+                >
+              </div>
+              <InterrupteurConsole
+                id="sb-allow-sudo"
+                v-model="adm.execConfig.allow_sudo"
+                data-field="exec:allow_sudo"
+                oui="Permis"
+                non="Refusé"
+              />
+            </div>
+            <div class="adm-row">
+              <div>
+                <label
+                  class="adm-row__label"
                   title="UID:GID des exécutions. 0:0 = root dans le container. Effet immédiat."
                   for="sb-exec-user"
                   >Identité</label
@@ -339,17 +360,20 @@ const adm = domaineAdmin();
               <div>
                 <label
                   class="adm-row__label"
-                  title="Un par ligne, passés tels quels. Au redémarrage."
+                  title="Un par ligne. Ceux qui défont l'isolation (--privileged, --cap-add, --network, montage de l'hôte…) sont refusés. Au redémarrage."
                   for="sb-extra-args"
                   >Flags <code class="font-mono">docker run</code></label
                 >
-                <span class="sr-only">Un par ligne, passés tels quels. Au redémarrage.</span>
+                <span class="sr-only"
+                  >Un par ligne. Ceux qui défont l'isolation (--privileged, --cap-add, --network, montage de
+                  l'hôte…) sont refusés. Au redémarrage.</span
+                >
               </div>
               <textarea
                 id="sb-extra-args"
                 v-model="adm.execExtraArgsText"
                 rows="3"
-                placeholder="--cap-add=NET_ADMIN&#10;--shm-size=2g"
+                placeholder="--shm-size=2g&#10;--ulimit=nofile=4096:8192"
                 class="set-textarea font-mono text-xs"
               ></textarea>
             </div>

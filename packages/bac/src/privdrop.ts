@@ -2,6 +2,8 @@
 /** packages/bac/src/privdrop.ts — retrait de `net_admin` du bounding set de chaque `docker exec` (executors/_privdrop.py) : entrée en root, `setpriv`, puis l'UID cible ; verdict sondé par conteneur. */
 import { journalDe } from "@elpis/commun";
 
+import { chargerConfigBac } from "./profils";
+
 /** `uid:gid` numérique ou nommé ; `$` de Python : un saut de ligne final est toléré. */
 const EXEC_USER_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]*:[A-Za-z0-9_][A-Za-z0-9_.-]*\n?$/u;
 
@@ -11,8 +13,13 @@ function cle(conteneur: string, execUser: string): string {
   return `${conteneur}\0${execUser}`;
 }
 
+/** Capacités retirées du bounding set des exec : toutes sans `sudo` (un binaire setuid n'en regagne aucune), sinon `net_admin` seul ; relu à chaque appel. */
+export function boundingSetRetire(sudoPermis: boolean = chargerConfigBac().allow_sudo): string {
+  return sudoPermis ? "-net_admin" : "-all";
+}
+
 /** `privdrop_argv` : préfixe `setpriv` (mêmes options que l'entrypoint de l'image), ou `null` si `exec_user` est inattendu. */
-export function privdropArgv(execUser: string): string[] | null {
+export function privdropArgv(execUser: string, retrait: string = boundingSetRetire()): string[] | null {
   if (!execUser || !EXEC_USER_RE.test(execUser)) return null;
   const i = execUser.indexOf(":");
   return [
@@ -20,14 +27,18 @@ export function privdropArgv(execUser: string): string[] | null {
     `--reuid=${execUser.slice(0, i)}`,
     `--regid=${execUser.slice(i + 1)}`,
     "--init-groups",
-    "--bounding-set=-net_admin",
+    `--bounding-set=${retrait}`,
     "--",
   ];
 }
 
 /** `probe_argv` : argv docker de la sonde de la chaîne complète dans ce conteneur. */
-export function probeArgv(conteneur: string, execUser: string): string[] | null {
-  const prefixe = privdropArgv(execUser);
+export function probeArgv(
+  conteneur: string,
+  execUser: string,
+  retrait: string = boundingSetRetire(),
+): string[] | null {
+  const prefixe = privdropArgv(execUser, retrait);
   if (prefixe === null) return null;
   return ["exec", "--user", "0:0", conteneur, ...prefixe, "true"];
 }
@@ -75,8 +86,13 @@ export class RetraitNetAdminAbsent extends Error {
 }
 
 /** `resolve` : (`--user` de docker, préfixe) d'après le cache seul ; sans retrait garanti, forme historique, ou refus si `exigerRetrait`. */
-export function resolve(conteneur: string, execUser: string, exigerRetrait = false): [string, string[]] {
-  const prefixe = privdropArgv(execUser);
+export function resolve(
+  conteneur: string,
+  execUser: string,
+  exigerRetrait = false,
+  retrait: string = boundingSetRetire(),
+): [string, string[]] {
+  const prefixe = privdropArgv(execUser, retrait);
   if (prefixe !== null && cached(conteneur, execUser)) return ["0:0", prefixe];
   if (exigerRetrait) throw new RetraitNetAdminAbsent(conteneur);
   return [execUser, []];

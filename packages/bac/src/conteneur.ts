@@ -42,6 +42,7 @@ import type { CliDocker, ReponseDocker } from "./cli";
 import { sousVerrouDeCycle } from "./cycle";
 import { getReadinessCache } from "./disponibilite";
 import { containerName, decoderRemplace, label, labelTpl } from "./docker";
+import { argvCreationReseau, CAPABILITIES_DURCIES, CAPABILITIES_SUDO, RESEAU_BACS } from "./durcissement";
 import { configuredImage } from "./image";
 import {
   AGENT_MOUNT,
@@ -59,25 +60,19 @@ import {
   SCRIPT_NAVIGATEUR,
 } from "./navigateur";
 import * as privdrop from "./privdrop";
-import { configBacDepuis, netcfgHash, profilParId } from "./profils";
+import { configBacDepuis, netcfgHash, profilParId, signalerUneFois } from "./profils";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
 import { MODES_MARKER, PERMS_MARKER_LEGACY } from "./travail";
 
-/** Seules capacités du conteneur (`--cap-drop ALL` puis celles-ci), mesurées sur l'image. */
-export const CAPABILITIES: readonly string[] = [
-  "CHOWN",
-  "DAC_OVERRIDE",
-  "FOWNER",
-  "FSETID",
-  "SETUID",
-  "SETGID",
-  "SETPCAP",
-  "KILL",
-  "AUDIT_WRITE",
-  "NET_BIND_SERVICE",
-];
+/** Capacités du conteneur sans `sudo` (`--cap-drop ALL` puis celles-ci) ; `CAPABILITIES_SUDO` quand il est permis. */
+export const CAPABILITIES: readonly string[] = CAPABILITIES_DURCIES;
 /** Version des options de `docker run` qui touchent à la sécurité (étiquette `elpis.spec`) ; la changer recrée les conteneurs. */
-export const RUN_SPEC = "6";
+export const RUN_SPEC = "7";
+
+/** Étiquette `elpis.spec` attendue : `sudo` permis ou non change les options, donc recrée le conteneur. */
+export function specAttendue(cfg: Pick<ConfigBac, "allow_sudo">): string {
+  return cfg.allow_sudo ? `${RUN_SPEC}-sudo` : RUN_SPEC;
+}
 const FORMAT_STATUT = "{{.Id}}|{{.Name}}|{{.State.Running}}|{{.Config.Image}}|{{.State.StartedAt}}";
 const FORMAT_STATS =
   '{"cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","mem_pct":"{{.MemPerc}}",' + '"pids":"{{.PIDs}}"}';
@@ -385,7 +380,11 @@ export class UserSandbox implements BacPourAgent {
       "",
       "",
     ];
-    if (spec !== RUN_SPEC || (image && image !== this.cfg.image) || !["", agentEmpreinte()].includes(agent))
+    if (
+      spec !== specAttendue(this.cfg) ||
+      (image && image !== this.cfg.image) ||
+      !["", agentEmpreinte()].includes(agent)
+    )
       return false;
     if (navigateur && nav !== navigateur) return false;
     if (!cur || cur === "<no value>") return profil.mode !== "allowlist_ip";
@@ -606,16 +605,28 @@ export class UserSandbox implements BacPourAgent {
       "--label",
       label("username", this.username),
       "--security-opt",
-      "no-new-privileges:false",
+      `no-new-privileges:${this.cfg.allow_sudo ? "false" : "true"}`,
       "--cap-drop",
       "ALL",
-      ...CAPABILITIES.flatMap((cap) => ["--cap-add", cap]),
+      ...(this.cfg.allow_sudo ? CAPABILITIES_SUDO : CAPABILITIES_DURCIES).flatMap((cap) => [
+        "--cap-add",
+        cap,
+      ]),
       "--tmpfs",
       "/run:rw,size=10m,mode=755",
+      // /tmp et /var/tmp en mémoire (comptés dans --memory) : la couche du conteneur ne remplit plus le disque de l'hôte.
+      "--tmpfs",
+      `/tmp:rw,exec,nosuid,nodev,size=${this.cfg.memory_mb}m,mode=1777`,
+      "--tmpfs",
+      `/var/tmp:rw,exec,nosuid,nodev,size=${this.cfg.memory_mb}m,mode=1777`,
       "--shm-size",
       "1g",
       "--memory",
       `${this.cfg.memory_mb}m`,
+      "--memory-swap",
+      `${this.cfg.memory_mb}m`,
+      "--ulimit",
+      "core=0:0",
       "--cpus",
       fixePy(this.cfg.cpu_quota_pct / 100, 2),
       "--pids-limit",
@@ -646,12 +657,13 @@ export class UserSandbox implements BacPourAgent {
       "--label",
       label("netcfg", netcfgHash(profil)),
       "--label",
-      label("spec", RUN_SPEC),
+      label("spec", specAttendue(this.cfg)),
       "--label",
       label("agent", agentEmpreinte()),
     );
     if (profil.mode === "none") args.push("--network", "none");
-    else if (profil.mode === "allowlist_ip") {
+    else args.push("--network", RESEAU_BACS);
+    if (profil.mode === "allowlist_ip") {
       args.push("--cap-add", "NET_ADMIN");
       const r = resolus ?? {};
       const permis: string[] = profil.ips.map((x) => x as string);
@@ -690,6 +702,33 @@ export class UserSandbox implements BacPourAgent {
       throw new ExecError(`Image '${this.cfg.image}' indisponible. ${st.error || st.progress_msg}`);
   }
 
+  /** Réseau des bacs présent (créé au besoin, course entre processus tolérée) ; signalé s'il laisse passer le trafic entre conteneurs. */
+  private async ensureReseau(signal?: AbortSignal): Promise<void> {
+    const [rc, out] = await this.appel(
+      [
+        "network",
+        "inspect",
+        RESEAU_BACS,
+        "--format",
+        '{{index .Options "com.docker.network.bridge.enable_icc"}}',
+      ],
+      10,
+      signal,
+    );
+    if (rc === 0) {
+      if (stripPy(decoderRemplace(out)) === "true" || stripPy(decoderRemplace(out)) === "")
+        signalerUneFois(
+          `[sandbox] réseau Docker ${RESEAU_BACS} sans enable_icc=false : les bacs peuvent se joindre (docker network rm ${RESEAU_BACS} une fois les bacs arrêtés)`,
+        );
+      return;
+    }
+    const [rcCree, , err] = await this.appel(argvCreationReseau(), 20, signal);
+    if (rcCree !== 0 && !lowerPy(decoderRemplace(err)).includes("already exists"))
+      throw new ExecError(
+        `Réseau Docker ${RESEAU_BACS} non créé : ${prefixePy(stripPy(decoderRemplace(err)), 300)}`,
+      );
+  }
+
   /** `_create` : idempotent face à une création concurrente ; journaux du conteneur rendus si l'entrypoint plante. */
   private async create(signal?: AbortSignal): Promise<void> {
     const pre = await this.status(signal);
@@ -723,6 +762,7 @@ export class UserSandbox implements BacPourAgent {
         );
       }
     }
+    if (profil.mode !== "none") await this.ensureReseau(signal);
     const [rc, , err] = await this.appel(this.buildRunArgs(profil, resolus), 60, signal);
     if (rc !== 0) {
       const texte = stripPy(decoderRemplace(err));
@@ -811,7 +851,11 @@ export class UserSandbox implements BacPourAgent {
       if (this.networkProfile.mode !== "allowlist_ip") return;
       privdrop.oublierVerdict(this.containerName, execUser);
     }
-    const argv = privdrop.probeArgv(this.containerName, execUser);
+    const argv = privdrop.probeArgv(
+      this.containerName,
+      execUser,
+      privdrop.boundingSetRetire(this.cfg.allow_sudo),
+    );
     if (argv === null) return;
     let rc: number;
     try {
@@ -826,7 +870,12 @@ export class UserSandbox implements BacPourAgent {
   /** Utilisateur et préfixe d'exec ; en liste blanche IP, échoue fermé si `net_admin` pourrait rester. */
   private resoudreUtilisateur(execUser: string): [string, string[]] {
     try {
-      return privdrop.resolve(this.containerName, execUser, this.networkProfile.mode === "allowlist_ip");
+      return privdrop.resolve(
+        this.containerName,
+        execUser,
+        this.networkProfile.mode === "allowlist_ip",
+        privdrop.boundingSetRetire(this.cfg.allow_sudo),
+      );
     } catch (e) {
       if (e instanceof privdrop.RetraitNetAdminAbsent) throw new ExecError(e.message);
       throw e;

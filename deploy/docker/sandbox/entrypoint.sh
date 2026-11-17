@@ -183,7 +183,7 @@ done
 # sudo et les autres caps du conteneur (modèle « permissif dans le container »
 # voulu ; ``ping`` passe par les sockets ICMP sans privilège, pas par net_raw).
 # Retirer une cap absente du bounding set (modes none/bridge) est sans effet.
-log "Drop privilege → UID 10001 (sudo NOPASSWD, sans net_admin)"
+log "Drop privilege → UID 10001 (sans net_admin ; sudo inopérant sous no-new-privileges)"
 # Masque du seul processus principal (inactif) : les shells prennent celui
 # de /etc/profile (0022) et l'agent, lancé par docker exec, le sien.
 umask 0002

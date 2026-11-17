@@ -667,6 +667,21 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: no more root in the container by default.** The containers run with
+  `no-new-privileges` and only the capabilities their entrypoint and the host's root commands
+  use (`FSETID`, `AUDIT_WRITE` and `NET_BIND_SERVICE` dropped); every command, the agent and the
+  terminal start with an empty bounding set. `sudo` (NOPASSWD in the image) and setuid binaries
+  therefore give nothing: before, any command of the assistant could become root in its
+  container, one kernel flaw away from root on the host. New setting `executors.allow_sudo`
+  (console › Sandbox › Limits › Advanced › *Sudo*, off) to give it back. Open and allowlist
+  sandboxes now share a dedicated Docker network, `elpis-sandbox` (bridge `elpis-sbx0`), with
+  inter-container traffic disabled: before, on the default bridge, a sandbox could reach the
+  ports of every other account's sandbox. `/tmp` and `/var/tmp` are in memory (counted in the
+  memory limit) so the container layer no longer fills the host's disk; swap is disabled
+  (`--memory-swap` = `--memory`), core dumps too. `extra_run_args` refuses the options that
+  undo the isolation (`--privileged`, `--cap-add`, `--security-opt`, `--network`, host
+  namespaces, devices, mounts of the Docker socket, of system folders or of Elpis's data).
+  The containers are recreated at their next use (`elpis.spec` 7); `/work` is kept.
 - **Browser service: hardening after code scanning.** Calls to the service are rate-limited
   (300 per second for the tool host, `rate_limited` beyond). A regular expression given by the
   caller (`pw_expect` `url-matches`, `pw_mock` with `is_regex`) is compiled and tried apart under

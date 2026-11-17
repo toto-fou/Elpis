@@ -2,17 +2,13 @@
 /** packages/mcp/src/index.ts — point d'entrée de @elpis/mcp : pool unique, manifeste, familles, serveurs des comptes, origines, délégation. */
 export {
   APP_FAMILIES,
-  DEFAULT_OPENCODE_EXCLUDE,
-  DEFAULT_OPENCODE_FAMILIES,
   FAMILY_CATEGORY,
   FAMILY_NAMES,
   isFamilyName,
-  opencodeFamilies,
   parseFamilies,
-  parseFamilySet,
   SANDBOX_FAMILIES,
 } from "./familles";
-export type { Avertir, OptionsOpencode } from "./familles";
+export type { Avertir } from "./familles";
 export {
   BUILTIN_SENTINEL,
   builtinClientCfg,
@@ -28,7 +24,6 @@ export {
   MANIFEST_VERSION,
   manifestPath,
   normalizeEntry,
-  OPENCODE_PREFIX_DEFAULT,
   oublierManifeste,
   reglerEnvironnementManifeste,
   reload,
@@ -127,7 +122,7 @@ export type {
   MotifSecretMcp,
   SecretsServeur,
 } from "./coffre";
-export { localServers, opencodeEntryFor, opencodeLocalServers } from "./registre-local";
+export { localServers } from "./registre-local";
 export { allowedOrigins, originAllowed } from "./origines";
 export { DELEGATION_TOKEN_PREFIX, delegationToken, verifyDelegation } from "./delegation";
 export type { ClientDelegue } from "./delegation";

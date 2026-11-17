@@ -406,11 +406,6 @@ first startup (the new version's markers are removed for this). Restart the
 sandbox containers after the rollback (Admin console › Sandbox › Containers › Active
 containers).
 
-Since the version where personal tokens are stored as fingerprints, a database
-restored from BEFORE the upgrade gets its old opencode tokens back; a database
-upgraded and then kept with the old code does not (pair opencode again from the
-Remote code page).
-
 The rest of the archive (sandboxes, `user_db/`, skills…) is restored from
 Admin console › System › Data › Restore, within the limit of 500 MB per upload
 (`APP_MAX_RESTORE_MB`), or unpacked by hand with services stopped. Database on

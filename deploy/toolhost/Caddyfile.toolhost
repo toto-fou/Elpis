@@ -1,5 +1,5 @@
-# Frontal TLS de l'hôte d'outils (l'app le joint en HTTPS ; opencode passe
-# toujours par l'origine de l'app, jamais par cette adresse).
+# Frontal TLS de l'hôte d'outils (l'app le joint en HTTPS ; les clients MCP
+# passent toujours par l'origine de l'app, jamais par cette adresse).
 #
 #   caddy run --config deploy/toolhost/Caddyfile.toolhost
 #

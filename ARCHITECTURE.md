@@ -141,7 +141,7 @@ container (`/opt/elpis/agent`) and started on demand by the host
   `<!-- @entree … -->` (manifest read by `apps/core/src/interface/pages.ts`).
 - `src/platform/` (HTTP client, `ApiResult`, NDJSON reader),
   `src/features/<domain>/` (typed logic: auth, chat, editor, terminal,
-  admin, reglages, routines, studio, images, voix, mascotte, skills, code),
+  admin, reglages, routines, studio, images, voix, mascotte, skills),
   `src/components/<domain>/` (SFCs), `src/utils/`, `src/modeles/`; network
   contracts validated by `@elpis/contracts` (Zod). Console: registry
   `features/admin/registre.ts`, Ctrl+K index `features/admin/champs.gen.ts`

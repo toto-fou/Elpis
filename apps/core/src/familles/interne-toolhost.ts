@@ -173,7 +173,7 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
           }
           const jeton = stripPy(strPy(ouPy(getPy(ouPy(corps, {}), "token"), "")));
           if (!jeton) throw new HttpError(400, "token requis");
-          const d = await resoudreJeton(dep.auth, jeton, ["opencode", "tools"]);
+          const d = await resoudreJeton(dep.auth, jeton, ["tools"]);
           if (!d) return { ok: false };
           const ident = await identite(dep, d.user_id);
           if (!ident) return { ok: false };

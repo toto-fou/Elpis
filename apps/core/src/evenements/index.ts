@@ -24,8 +24,6 @@ export {
 } from "./journal-commun";
 export type { EcrivainJournal } from "./journal-commun";
 export { FileTail, logRecordToEvent, SuiviJournalStaff } from "./journal-staff";
-export { PipelineEvents } from "./pipeline";
-export type { OptionsListenPipeline, Rendu, StatsPipeline } from "./pipeline";
 export {
   digest,
   digests,

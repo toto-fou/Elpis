@@ -3,7 +3,6 @@
 import { mkdir } from "node:fs/promises";
 
 import {
-  convertirAnciensJetons,
   creerGardes,
   dependancesParDefaut,
   getUser,
@@ -98,8 +97,6 @@ import { creerFamilleSkills } from "./familles/skills";
 import { creerFamilleMetriques } from "./familles/metriques";
 import { creerFamilleUsage } from "./familles/usage";
 import { creerFamilleNotifications } from "./familles/notifications";
-import { creerFamilleCli } from "./familles/cli";
-import { creerFamilleCode } from "./familles/code";
 import { creerFamilleAdminRag } from "./familles/admin-rag";
 import { creerFamilleRag } from "./familles/rag";
 import { creerFamilleVoix } from "./familles/voix";
@@ -176,20 +173,6 @@ const SOURCE_REDEMARRAGE: SourceRedemarrage = {
 /** `APP_SERVICE` (posé par `elpis`) en minuscules, sinon le mode : étiquette du process dans l'audit et le journal commun. */
 export function serviceDuProcess(mode: ModeApp, env: NodeJS.ProcessEnv = process.env): string {
   return (env["APP_SERVICE"] ?? mode).toLowerCase() || mode;
-}
-
-/** `convert_legacy` de `_prepare`, une fois par process au démarrage : un échec est journalisé, jamais bloquant. */
-export async function convertirJetonsAuDemarrage(
-  base: Base,
-  journal: Journal,
-  maintenant = Date.now() / 1000,
-): Promise<void> {
-  try {
-    const n = await convertirAnciensJetons(base, maintenant);
-    if (n) journal.info(`[tokens] ${n} ancien(s) jeton(s) opencode converti(s) en empreinte`);
-  } catch (e) {
-    journal.warn({ err: e }, "[tokens] conversion des anciens jetons impossible");
-  }
 }
 
 /** Journal d'audit du process : service `APP_SERVICE` (posé par `elpis`) ou le mode, dossier de repli sous la racine du dépôt. */
@@ -385,7 +368,6 @@ export async function composer(
   configurerAuditDuCore(mode, journal);
   brancherGardeUrl((url, schemas) => blockRemoteUrlReason(url, { allowSchemes: schemas }));
   brancherCoffreMcpDuCore();
-  await convertirJetonsAuDemarrage(base, journal);
   installerPortsMemoire(base);
   installerPortsSkills(base);
   installerPortsBureau(base);
@@ -463,13 +445,6 @@ export async function composer(
     arret: cycle.signalArret,
     enProcessus: () => serviceEnProcessus(),
   });
-  const code = {
-    base,
-    auth,
-    bus: evenements.pipelineEvents,
-    journal: journal.child({ domaine: "code" }),
-    arret: cycle.signalArret,
-  };
   return {
     extensions: [
       ...(ecrivainDuProcess() === null
@@ -513,13 +488,7 @@ export async function composer(
       creerFamilleChat({ base, auth, arret: cycle.signalArret }),
       creerFamilleChatCompression({ base }),
       ...(mode === "main"
-        ? [
-            creerFamilleCode(code),
-            creerFamilleCli({ base, auth, journal: code.journal }),
-            creerFamilleVoix({ base }),
-            creerFamilleRag({ base }),
-            creerFamilleBureau({ base, auth }),
-          ]
+        ? [creerFamilleVoix({ base }), creerFamilleRag({ base }), creerFamilleBureau({ base, auth })]
         : []),
       familleOutils,
       creerFamilleConfig({ auth, racine }),

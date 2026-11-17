@@ -169,7 +169,6 @@ function configPublique(req: FastifyRequest, mode: ModeApp): Dict {
     main_url: urlPublique("MAIN_PUBLIC_URL", req, "main"),
     app_mode: mode,
     features: {
-      opencode: fonctions["opencode"] !== false,
       agents: Boolean(config.AGENTS_ENABLED),
       office_preview: fonctions["office_preview"] !== false,
       voice_stt: stt,

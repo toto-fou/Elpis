@@ -38,7 +38,6 @@ export {
 export { fluxEncoreValide, Session, validerSession } from "./session";
 export type { DependancesSession, LigneUtilisateur } from "./session";
 export {
-  convertirAnciensJetons,
   creerJeton,
   ErreurJeton,
   FAMILLES_EXTERNES,
@@ -46,14 +45,12 @@ export {
   lireJeton,
   listerJetons,
   nomPropre,
-  opencodeActif,
   politique,
   PREFIXES,
   regenererJeton,
   resoudreJeton,
   revoquerJeton,
   revoquerTousAcces,
-  revoquerType,
   supprimerJetonsCompte,
   toucherJeton,
   typeDe,

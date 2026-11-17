@@ -118,21 +118,21 @@ export function premiereValeur(requete: FastifyRequest, nom: string): string | u
   return undefined;
 }
 
-/** `_caller_token` : `Authorization: Bearer …` (clients MCP, opencode) ou `x-elpis-token` (le greffon), sinon "". */
+/** `_caller_token` : `Authorization: Bearer …`, sinon `x-elpis-token`, sinon "". */
 export function jetonAppelant(requete: FastifyRequest): string {
   const auth = stripPy(premiereValeur(requete, "authorization") ?? "");
   if (lowerPy(auth).startsWith("bearer ")) return stripPy(auth.slice(7));
   return stripPy(premiereValeur(requete, "x-elpis-token") ?? "");
 }
 
-/** `verify_client` : jeton personnel (opencode, outils) puis jeton d'accès OAuth ; un vérificateur en panne ne refuse rien d'autre. */
+/** `verify_client` : jeton d'outils puis jeton d'accès OAuth ; un vérificateur en panne ne refuse rien d'autre. */
 export async function verifierClient(
   dep: Pick<DependancesPontMcp, "jetons" | "oauth" | "journal">,
   jeton: string,
 ): Promise<ClientPont | null> {
   const verificateurs: (() => Promise<ClientPont | null>)[] = [
     async () => {
-      const d = await resoudreJeton(dep.jetons, jeton, ["opencode", "tools"]);
+      const d = await resoudreJeton(dep.jetons, jeton, ["tools"]);
       if (!d) return null;
       return {
         user_id: intPy(veritePy(d.user_id) ? d.user_id : 0),

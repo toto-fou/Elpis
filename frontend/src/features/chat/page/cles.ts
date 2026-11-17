@@ -115,7 +115,6 @@ const ENTETE: Cles<DomaineEntete> = {
   showExportFormatMenu: true,
   messageSearchActive: true,
   messageSearch: true,
-  showOpenCodeModal: true,
   showInfoModal: true,
   commitChatTitleEdit: true,
   cancelChatTitleEdit: true,
@@ -373,13 +372,11 @@ const BARRE: Cles<DomaineBarre> = {
   openRagPage: true,
   openAgentsPage: true,
   openStudio: true,
-  openCodePage: true,
   openSettings: true,
   goToAdmin: true,
   logout: true,
   openHelp: true,
   showInfoModal: true,
-  showOpenCodeModal: true,
 };
 
 const PAGE: Cles<DomainePage> = {

@@ -36,12 +36,11 @@ export interface DomaineEntete {
   readonly selectedConnector: string | null;
   readonly activeModelIds: readonly string[];
   readonly showSamplingPanel: boolean;
-  readonly features: { opencode?: boolean; agents?: boolean };
+  readonly features: { agents?: boolean };
   showChatMenu: boolean;
   showExportFormatMenu: boolean;
   messageSearchActive: boolean;
   messageSearch: string;
-  showOpenCodeModal: boolean;
   showInfoModal: boolean;
   commitChatTitleEdit(): unknown;
   cancelChatTitleEdit(): unknown;
@@ -451,7 +450,7 @@ export type DomaineBarre = Pick<
   readonly currentChatId: string | null;
   readonly editorFullscreen: boolean;
   readonly showEditor: boolean;
-  readonly features: { opencode?: boolean; agents?: boolean };
+  readonly features: { agents?: boolean };
   readonly settings: {
     enable_mcp?: boolean;
     enable_editor?: boolean;
@@ -490,7 +489,7 @@ export type DomaineBarre = Pick<
   openContextMenu(e: Event, type: string, item: ChatResume): unknown;
   toggleEditor(): unknown;
   openRoutinesPage(): unknown;
-  /** Sous-menu « Plus » du volet ouvert (RAG, Bibliothèque, Studio, Remote code). */
+  /** Sous-menu « Plus » du volet ouvert (RAG, Bibliothèque, Studio, Agents). */
   menuPagesOuvert: boolean;
   /** Génération d'images disponible : l'entrée « Bibliothèque » ouvre la galerie. */
   readonly imageAvailable: boolean;
@@ -500,14 +499,12 @@ export type DomaineBarre = Pick<
   openRagPage(): unknown;
   openAgentsPage(): unknown;
   openStudio(): unknown;
-  openCodePage(): unknown;
   openSettings(): unknown;
   goToAdmin(tab?: unknown): unknown;
   logout(): unknown;
-  /** Menu du compte : aide, informations, installation d'opencode. */
+  /** Menu du compte : aide et informations. */
   openHelp(): void;
   showInfoModal: boolean;
-  showOpenCodeModal: boolean;
 };
 
 /** Colonne du chat : dépôt de fichiers, composeur (saisie, mentions, micro, mode plan, tâches), perchoir de la mascotte. */

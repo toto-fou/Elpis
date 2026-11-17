@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/outils-mcp/src/jetons.ts — vérification Bearer du service d'outils : jeton de service (`trusted_meta`), jetons clients, jetons personnels `pcr_`/`ept_` (base puis introspection), délégation `dlg_`. */
+/** packages/outils-mcp/src/jetons.ts — vérification Bearer du service d'outils : jeton de service (`trusted_meta`), jetons clients, jetons d'outils `ept_` (base puis introspection), délégation `dlg_`. */
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import { intPy, journalDe, strPy, stripPy, veritePy } from "@elpis/commun";
@@ -10,22 +10,19 @@ import { DELEGATION_TOKEN_PREFIX, verifyDelegation } from "@elpis/mcp";
 import type { JetonAcces } from "./contexte";
 
 export const SCOPE_LOCAL_TOOLS = "local-tools";
-export const OPENCODE_TOKEN_PREFIX = "pcr_";
 export const TOOLS_TOKEN_PREFIX = "ept_";
-export const OPENCODE_CLIENT_PREFIX = "opencode:";
 export const TOOLS_CLIENT_PREFIX = "tools:";
-const PREFIXES_PERSONNELS = [OPENCODE_TOKEN_PREFIX, TOOLS_TOKEN_PREFIX];
 export const TTL_JETON_S = 15.0;
 export const TTL_JETON_NEGATIF_S = 5.0;
 
-/** Compte lié à un jeton personnel : nom, type (`opencode`, `tools`), familles cochées. */
+/** Compte lié à un jeton personnel : nom, type (`tools`), familles cochées. */
 export interface IdentiteJeton {
   username: string;
   kind: string;
   families: string[];
 }
 
-/** `tokens.resolve(jeton, kinds=("opencode","tools"))` : la base de l'app (core), absente sur un hôte distant. */
+/** `tokens.resolve(jeton, kinds=("tools",))` : la base de l'app (core), absente sur un hôte distant. */
 export type ResolveurJetonPersonnel = (jeton: string) => Promise<IdentiteJeton | null>;
 
 /** `toolhost.client.introspect_token` : rappel vers `/api/internal/tokens/introspect` (hôte distant). */
@@ -90,8 +87,7 @@ const empreinte = (s: string): Buffer => createHash("sha256").update(s, "utf8").
 export function jetonDelegue(jeton: string, deleg: Dict): JetonAcces {
   const compte = strPy(veritePy(deleg["sub"]) ? deleg["sub"] : "");
   const type = strPy(veritePy(deleg["kind"]) ? deleg["kind"] : "");
-  const prefixe =
-    type === "tools" ? TOOLS_CLIENT_PREFIX : type === "opencode" ? OPENCODE_CLIENT_PREFIX : `${type}:`;
+  const prefixe = type === "tools" ? TOOLS_CLIENT_PREFIX : `${type}:`;
   const claims: Dict = {
     username: compte,
     trusted_meta: false,
@@ -104,8 +100,7 @@ export function jetonDelegue(jeton: string, deleg: Dict): JetonAcces {
   } catch {
     claims["user_id"] = 0;
   }
-  if (type !== "opencode")
-    claims["families"] = (Array.isArray(deleg["families"]) ? deleg["families"] : []).map((f) => strPy(f));
+  claims["families"] = (Array.isArray(deleg["families"]) ? deleg["families"] : []).map((f) => strPy(f));
   return {
     token: jeton,
     client_id: `${prefixe}${compte}`,
@@ -185,7 +180,7 @@ export class VerificateurJetons {
         expires_at: null,
         claims,
       };
-    if (!jeton || !PREFIXES_PERSONNELS.some((p) => jeton.startsWith(p))) return null;
+    if (!jeton || !jeton.startsWith(TOOLS_TOKEN_PREFIX)) return null;
     let ident = await this.personnel(jeton);
     if (ident === null && this.introspection?.actif) {
       try {
@@ -194,7 +189,7 @@ export class VerificateurJetons {
           d && typeof d.username === "string" && stripPy(d.username) !== ""
             ? {
                 username: d.username,
-                kind: strPy(veritePy(d.kind) ? d.kind : "opencode"),
+                kind: strPy(veritePy(d.kind) ? d.kind : ""),
                 families: (Array.isArray(d.families) ? d.families : []).map((f) => strPy(f)),
               }
             : null;
@@ -202,28 +197,20 @@ export class VerificateurJetons {
         ident = null;
       }
     }
-    if (ident === null) return null;
+    if (ident === null || ident.kind !== "tools") return null;
     const compte = ident.username;
-    if (ident.kind === "tools")
-      return {
-        token: jeton,
-        client_id: `${TOOLS_CLIENT_PREFIX}${compte}`,
-        scopes: [SCOPE_LOCAL_TOOLS],
-        expires_at: null,
-        claims: {
-          username: compte,
-          trusted_meta: false,
-          client_kind: "tools",
-          families: ident.families.map((f) => strPy(f)),
-          scopes: [SCOPE_LOCAL_TOOLS],
-        },
-      };
     return {
       token: jeton,
-      client_id: `${OPENCODE_CLIENT_PREFIX}${compte}`,
+      client_id: `${TOOLS_CLIENT_PREFIX}${compte}`,
       scopes: [SCOPE_LOCAL_TOOLS],
       expires_at: null,
-      claims: { username: compte, trusted_meta: false, client_kind: "opencode", scopes: [SCOPE_LOCAL_TOOLS] },
+      claims: {
+        username: compte,
+        trusted_meta: false,
+        client_kind: "tools",
+        families: ident.families.map((f) => strPy(f)),
+        scopes: [SCOPE_LOCAL_TOOLS],
+      },
     };
   }
 }

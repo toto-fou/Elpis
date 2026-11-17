@@ -455,7 +455,6 @@ dependencies, and uuid; their license texts are written next to it in
 | LibreOffice (Office previews, `--with-office`; installed from the OS repositories as a prerequisite, never redistributed) | MPL-2.0 |
 | PostgreSQL server (`--db postgres-local`; installed from the OS repositories, never redistributed) | PostgreSQL License |
 | bubblewrap (isolation of Office previews; installed from the OS repositories, never redistributed) | LGPL-2.0-or-later |
-| OpenCode CLI (optional, dropped in `cli_dist/` by the administrator) | MIT |
 | Sandbox image (`deploy/docker/sandbox/Dockerfile`) | built from Debian packages, each under its own license, plus binaries fetched by `build_offline.sh`: Firefox ESR and geckodriver (MPL-2.0), yq, gh, duckdb, delta (MIT), shfmt (BSD-3-Clause), hadolint (GPL-3.0), upx (GPL-2.0-or-later), radare2 (LGPL-3.0) |
 | Voice engine, speech-to-text (`deploy/voice/`) | whisper.cpp and Whisper ggml models: MIT |
 | Voice engine, text-to-speech (`deploy/voice/tts/`) | piper-tts: **GPL-3.0-or-later** (see § 3); onnxruntime: MIT; Piper voices: license per voice, see each voice's `MODEL_CARD` |

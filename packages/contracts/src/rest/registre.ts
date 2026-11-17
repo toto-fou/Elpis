@@ -30,8 +30,6 @@ import * as chats from "./chats";
 import * as jobs from "./jobs";
 import * as bacInstantanes from "./bac-instantanes";
 import * as ax from "./ax";
-import * as cli from "./cli";
-import * as code from "./code";
 import * as outils from "./outils";
 import * as webhooks from "./webhooks";
 import { schemaOk } from "./commun";
@@ -869,72 +867,6 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminSauvegarde.schemaReponseEssaiSauvegarde,
     adminSauvegarde.schemaCorpsEnvoiSauvegarde,
   ),
-  c("code", "GET", "/api/code/health", code.schemaReponseSanteCode),
-  c("code", "GET", "/api/code/config", code.schemaReponseConfigCode),
-  c("code", "POST", "/api/code/token", code.schemaReponseJetonCode, code.schemaCorpsJetonCode),
-  c("code", "POST", "/api/code/token/rotate", code.schemaReponseJetonCode),
-  c("code", "GET", "/api/code/hello", code.schemaReponseBonjourCode),
-  c("code", "POST", "/api/code/pair/start", code.schemaReponseAppairageCode),
-  c("code", "GET", "/api/code/pair/poll", code.schemaReponseSondeAppairageCode),
-  c("code", "POST", "/api/code/pair/confirm", schemaOk, code.schemaCorpsConfirmationAppairageCode),
-  c("code", "POST", "/api/code/ingest", code.schemaReponseIngestionCode, code.schemaCorpsIngestionCode),
-  c("code", "GET", "/api/code/pull", code.schemaReponseTirageCode),
-  c("code", "GET", "/api/code/sessions", code.schemaReponseSessionsCode),
-  c("code", "GET", "/api/code/sessions/:sid/messages", code.schemaReponseMessagesCode),
-  c(
-    "code",
-    "POST",
-    "/api/code/sessions/:sid/prompt",
-    code.schemaReponseCommandeCode,
-    code.schemaCorpsPromptCode,
-  ),
-  c("code", "GET", "/api/code/commands", code.schemaReponseCommandesCode),
-  c("code", "GET", "/api/code/models", code.schemaReponseModelesCode),
-  c("code", "GET", "/api/code/agents", code.schemaReponseAgentsCode),
-  c(
-    "code",
-    "POST",
-    "/api/code/sessions/:sid/command",
-    code.schemaReponseCommandeCode,
-    code.schemaCorpsCommandeCode,
-  ),
-  c("code", "POST", "/api/code/sessions/:sid/abort", code.schemaReponseCommandeCode),
-  c(
-    "code",
-    "POST",
-    "/api/code/sessions/:sid/action",
-    code.schemaReponseCommandeCode,
-    code.schemaCorpsActionCode,
-  ),
-  c("code", "GET", "/api/code/clients", code.schemaReponseClientsCode),
-  c("code", "POST", "/api/code/clients/:cid/disconnect", code.schemaReponseCommandeCode),
-  c("code", "POST", "/api/code/clients/:cid/exit", code.schemaReponseCommandeCode),
-  c("code", "POST", "/api/code/new", code.schemaReponseCommandeCode, code.schemaCorpsNouvelleSessionCode),
-  c("code", "DELETE", "/api/code/sessions/:sid", schemaOk),
-  c("code", "POST", "/api/code/bye", schemaOk, code.schemaCorpsAuRevoirCode),
-  c(
-    "code",
-    "POST",
-    "/api/code/sessions/:sid/rename",
-    code.schemaReponseCommandeCode,
-    code.schemaCorpsRenommerCode,
-  ),
-  c("code", "GET", "/api/code/sessions/:sid/permissions", code.schemaReponsePermissionsCode),
-  c(
-    "code",
-    "POST",
-    "/api/code/sessions/:sid/permissions/:pid",
-    code.schemaReponseCommandeCode,
-    code.schemaCorpsPermissionCode,
-  ),
-  c("code", "GET", "/api/code/sessions/:sid/questions", code.schemaReponseQuestionsCode),
-  c(
-    "code",
-    "POST",
-    "/api/code/sessions/:sid/questions/:qid",
-    code.schemaReponseCommandeCode,
-    code.schemaCorpsReponseQuestionCode,
-  ),
   c("ax", "GET", "/api/ax/sites", ax.schemaReponseSitesAx),
   c("ax", "GET", "/api/ax/sites/:site/stats", ax.schemaReponseStatsSiteAx),
   c("ax", "GET", "/api/ax/sites/:site/tree", ax.schemaReponseArbreAx),
@@ -945,8 +877,6 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   c("ax", "POST", "/api/ax/bulk-delete", ax.schemaReponseSuppressionLotAx, ax.schemaCorpsLotAx),
   c("ax", "POST", "/api/ax/bulk-mark-stale", ax.schemaReponsePerimeLotAx, ax.schemaCorpsLotAx),
   c("ax", "DELETE", "/api/ax/all", ax.schemaReponseSuppressionSiteAx),
-  c("cli", "GET", "/api/cli/opencode/families", cli.schemaReponseFamillesCli),
-  c("cli", "GET", "/api/cli/opencode.json", cli.schemaReponseConfigOpencode),
   c("outils", "POST", "/api/tools/extract-text", outils.schemaReponseExtractionTexte),
   {
     ...c("webhooks", "POST", "/api/webhooks/routines/:routine_id", webhooks.schemaReponseWebhook),

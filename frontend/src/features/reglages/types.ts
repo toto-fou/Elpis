@@ -87,7 +87,6 @@ export interface ReglagesApp {
   routine_tool_enabled?: boolean;
   image_prefs?: PreferencesImage;
   agents_enabled?: boolean;
-  opencode_mcp_families?: Record<string, boolean>;
   compression_enabled?: boolean;
   compression_threshold_pct?: number;
   compression_threshold_tokens?: number;

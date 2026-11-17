@@ -8,8 +8,6 @@ import { fournirDomaineRoutines } from "../../features/routines/domaine";
 import { creerApiSkills } from "../../features/skills/api";
 import { creerSkills } from "../../features/skills/skills";
 import { fournirDomaineSkills } from "../../features/skills/domaine";
-import { creerCode } from "../../features/code/code";
-import { fournirDomaineCode } from "../../features/code/domaine";
 import { creerMascotte } from "../../features/mascotte/mascotte";
 import { creerApiRag } from "../../features/rag/api";
 import { fournirDomaineRag } from "../../features/rag/domaine";
@@ -48,7 +46,6 @@ import ModaleAPropos from "../chat/modales/ModaleAPropos.vue";
 import ModaleAgent from "../chat/modales/ModaleAgent.vue";
 import ModaleAide from "../chat/modales/ModaleAide.vue";
 import ModaleAx from "../chat/modales/ModaleAx.vue";
-import ModaleOpenCode from "../chat/modales/ModaleOpenCode.vue";
 import ModaleTransfert from "../chat/modales/ModaleTransfert.vue";
 import ProprietesModele from "../chat/modales/ProprietesModele.vue";
 import RemplissageTemplate from "../chat/modales/RemplissageTemplate.vue";
@@ -86,7 +83,6 @@ const r = creerRacine({
         refs as unknown as Arg<typeof creerRoutines, 1>,
         ctx as unknown as Arg<typeof creerRoutines, 2>,
       ),
-    code: ({ refs, ctx }) => creerCode(refs, ctx as unknown as Arg<typeof creerCode, 1>),
     mascotte: ({ refs, ctx }) =>
       creerMascotte(
         refs as unknown as Arg<typeof creerMascotte, 0>,
@@ -116,7 +112,6 @@ fournirDomaineEditeur(r);
 fournirDomaineRoutines(r);
 fournirDomaineRag(r);
 fournirDomaineSkills(r);
-fournirDomaineCode(r);
 fournirDomaineReglages(r);
 fournirDomaineAdmin(r);
 fournirDomaineStudio(r);
@@ -140,7 +135,6 @@ const IMPORTS = {
   agents: () => import("../agents/PageAgents.vue"),
   rag: () => import("../rag/PageRag.vue"),
   studio: () => import("../studio/PageStudio.vue"),
-  code: () => import("../code/PageCode.vue"),
 };
 type Rare = keyof typeof IMPORTS;
 const RARES = Object.keys(IMPORTS) as Rare[];
@@ -153,7 +147,6 @@ const LIBELLES: Record<Rare, string> = {
   agents: "Agents",
   rag: "RAG",
   studio: "Studio",
-  code: "Remote code",
 };
 // Monté (caché par sa propre condition) dès que son morceau est là, préchargé ou demandé.
 const montes = reactive(Object.fromEntries(RARES.map((k) => [k, false])) as Record<Rare, boolean>);
@@ -184,7 +177,6 @@ const PageRoutines = defineAsyncComponent(rares.charger.routines);
 const PageAgents = defineAsyncComponent(rares.charger.agents);
 const PageRag = defineAsyncComponent(rares.charger.rag);
 const PageStudio = defineAsyncComponent(rares.charger.studio);
-const PageCode = defineAsyncComponent(rares.charger.code);
 
 // Ce que l'écran demande à afficher : la page rechargée après une mise à jour, un message et un nouvel essai sur une coupure.
 const demandes = computed<Record<Rare, boolean>>(() => ({
@@ -196,7 +188,6 @@ const demandes = computed<Record<Rare, boolean>>(() => ({
   agents: r.currentView === "agents",
   rag: r.currentView === "rag",
   studio: r.currentView === "studio",
-  code: r.currentView === "code",
 }));
 watch(
   demandes,
@@ -237,7 +228,6 @@ watch(
       () => r.ragAllowed && rares.precharger("rag"),
       () => r.features.agents && rares.precharger("agents"),
       () => rares.precharger("studio"),
-      () => r.features.opencode && rares.precharger("code"),
       () => r.settings.enable_editor && rares.precharger("git"),
       () => prechaufferMonaco((f) => auReposProlonge(f)),
     ),
@@ -276,7 +266,6 @@ watch(
       <PageAgents v-if="montes.agents" />
       <PageRag v-if="montes.rag && r.ragPage" />
       <PageStudio v-if="montes.studio" />
-      <PageCode v-if="montes.code" />
     </div>
   </div>
 
@@ -291,7 +280,6 @@ watch(
   <DetailsExecution />
   <ModaleAgent />
   <ModaleAPropos />
-  <ModaleOpenCode />
   <ModaleAide />
   <VisionneuseImages />
   <GalerieImages />

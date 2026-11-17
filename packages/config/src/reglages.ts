@@ -242,7 +242,6 @@ export function builtinLocalMcpDepuis(hote: string, port: number, serveursBruts:
     host: hote || "127.0.0.1",
     port: port || 8765,
     mount: "",
-    expose_opencode: true,
   };
   const surcharge = estDict(serveursBruts) ? getPy(serveursBruts, "local-tools") : null;
   if (estDict(surcharge)) {
@@ -616,17 +615,6 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
   const LOCAL_MCP_URL = LOCAL_MCP_URL_EXPLICIT || builtinLocalMcpUrlDepuis(descripteurIntegre);
   const LOCAL_MCP_TOOL_FAMILIES =
     stripPy(envStr("LOCAL_MCP_TOOL_FAMILIES", "mcp.local_tool_families", "all")) || "all";
-  const LOCAL_MCP_OPENCODE_FAMILIES = stripPy(
-    envStr("LOCAL_MCP_OPENCODE_FAMILIES", "mcp.opencode_families", "git,browser,desktop"),
-  );
-  const LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES = stripPy(
-    envStr(
-      "LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES",
-      "mcp.opencode_exclude_families",
-      "fs,shell,office,skill_run",
-    ),
-  );
-  const LOCAL_MCP_PUBLIC_URL = stripPy(envStr("LOCAL_MCP_PUBLIC_URL", "mcp.public_url", ""));
   const LOCAL_MCP_CLIENT_TOKENS = parseClientTokens(
     env["LOCAL_MCP_CLIENT_TOKENS"],
     lire("mcp.local_client_tokens", null),
@@ -942,9 +930,6 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
     LOCAL_MCP_URL_EXPLICIT,
     LOCAL_MCP_URL,
     LOCAL_MCP_TOOL_FAMILIES,
-    LOCAL_MCP_OPENCODE_FAMILIES,
-    LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES,
-    LOCAL_MCP_PUBLIC_URL,
     LOCAL_MCP_CLIENT_TOKENS,
     LOCAL_MCP_CLIENT_TOKEN_FAMILIES,
     MCP_SERVERS_DIR,

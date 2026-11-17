@@ -42,8 +42,6 @@ const props = defineProps<{
   recherche?: string | null;
   /** Renvois [n] d'une réponse du RAG : pastilles posées après le rendu ; absent hors RAG. */
   renvois?: RenvoisMessage | null;
-  /** Code coloré seulement, jamais remplacé par une carte, un diagramme ou un graphique (page Code). */
-  colorationSeule?: boolean;
 }>();
 const emit = defineEmits<{ "click-markdown": [evenement: MouseEvent] }>();
 const moteur = moteurMarkdown();
@@ -118,8 +116,7 @@ function enrichirComplet(): void {
   if (!el) return;
   if (enrichi && enrichi.el === el && enrichi.html === html.value) return;
   enrichi = { el, html: html.value };
-  if (props.colorationSeule) planifierColoration(el);
-  else enrichirBlocs(el);
+  enrichirBlocs(el);
 }
 
 /** Enrichit en place les blocs dont le HTML vient de changer : seuls ceux qui portent un bloc spécial ou une référence de graphique sont parcourus, les autres vont à la coloration. */
@@ -131,7 +128,7 @@ function enrichirFlux(): void {
     const bloc = el.children[i];
     const h = liste.value[i]?.html ?? "";
     if (!bloc) continue;
-    if (!props.colorationSeule && A_ENRICHIR.test(h)) {
+    if (A_ENRICHIR.test(h)) {
       balayerGraphiques();
       enrichirBloc(bloc);
     } else if (h.includes("code-wrapper")) planifierColoration(bloc);

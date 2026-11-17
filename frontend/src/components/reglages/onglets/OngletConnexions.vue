@@ -1,35 +1,24 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/onglets/OngletConnexions.vue — Paramètres › Secrets : jetons personnels d'un genre, « Jetons MCP » (outils, applications autorisées) ou « Remote » (un jeton par poste relié). -->
+<!-- frontend/src/components/reglages/onglets/OngletConnexions.vue — Paramètres › Secrets › Jetons MCP : jetons d'outils et applications autorisées. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { genreDe } from "../../../features/reglages/connexions";
-import type { GenreJeton } from "../../../features/reglages/connexions";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
-const props = defineProps<{ genre: GenreJeton }>();
 const rg = domaineReglages();
-const remote = computed(() => props.genre === "opencode");
-/** Ce que cette partie garde pour elle (formulaire, jeton montré, onglet, erreur) : l'autre a les siens. */
-const partie = computed(() => rg.cnxState.parties[props.genre]);
-const jetons = computed(() => rg.cnxState.tokens.filter((t) => genreDe(t) === props.genre));
-const montre = computed(() => partie.value.reveal);
-const formulaire = computed(() => partie.value.form);
-/** Création possible : jetons d'outils permis par l'administrateur, ou Remote activé ; rien n'est dit fermé avant que la liste soit arrivée. */
-const creable = computed(() =>
-  remote.value
-    ? !rg.cnxState.charge || rg.cnxState.opencode
-    : !rg.cnxState.policy || rg.cnxState.policy.tools_enabled,
-);
+const jetons = computed(() => rg.cnxState.tokens);
+const montre = computed(() => rg.cnxState.reveal);
+const formulaire = computed(() => rg.cnxState.form);
+/** Création possible : jetons d'outils permis par l'administrateur ; rien n'est dit fermé avant que la liste soit arrivée. */
+const creable = computed(() => !rg.cnxState.policy || rg.cnxState.policy.tools_enabled);
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
-  <div class="space-y-5 max-w-2xl" :data-jetons="genre">
+  <div class="space-y-5 max-w-2xl" data-jetons>
     <p class="text-xs text-slate-500 leading-snug" data-protection>
-      <template v-if="remote">Un jeton par poste relié en Remote : le révoquer déconnecte ce poste. </template
-      >Elpis ne garde que l'empreinte d'un jeton et ses 4 derniers caractères : sa valeur entière n'est
-      montrée qu'à sa création.
+      Elpis ne garde que l'empreinte d'un jeton et ses 4 derniers caractères : sa valeur entière n'est montrée
+      qu'à sa création.
     </p>
     <div
       v-if="montre"
@@ -45,7 +34,7 @@ const creable = computed(() =>
         <button
           aria-label="Fermer"
           class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 flex items-center justify-center"
-          @click="rg.cnxCloseReveal(genre)"
+          @click="rg.cnxCloseReveal()"
         >
           <i class="ph ph-x" aria-hidden="true"></i>
         </button>
@@ -70,23 +59,23 @@ const creable = computed(() =>
       </p>
       <div class="flex flex-wrap gap-1" role="tablist">
         <button
-          v-for="b in rg.cnxBlocks(genre)"
+          v-for="b in rg.cnxBlocks()"
           :key="b.id"
           role="tab"
-          :aria-selected="partie.tab === b.id ? 'true' : 'false'"
+          :aria-selected="rg.cnxState.tab === b.id ? 'true' : 'false'"
           class="h-7 px-2.5 rounded-md text-xs transition-colors"
           :class="
-            partie.tab === b.id
+            rg.cnxState.tab === b.id
               ? 'bg-blue-50 text-blue-700 font-semibold'
               : 'text-slate-600 hover:bg-slate-100'
           "
-          @click="partie.tab = b.id"
+          @click="rg.cnxState.tab = b.id"
         >
           {{ b.label }}
         </button>
       </div>
-      <template v-for="b in rg.cnxBlocks(genre)" :key="'blk' + b.id">
-        <div v-if="partie.tab === b.id" class="relative">
+      <template v-for="b in rg.cnxBlocks()" :key="'blk' + b.id">
+        <div v-if="rg.cnxState.tab === b.id" class="relative">
           <pre
             class="font-mono text-xs leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-64 overflow-auto custom-scrollbar whitespace-pre"
             >{{ b.text }}</pre>
@@ -118,11 +107,7 @@ const creable = computed(() =>
         class="border border-slate-200 rounded-xl p-3.5 flex items-center gap-3"
         data-jeton
       >
-        <i
-          class="ph text-lg text-slate-400 shrink-0"
-          :class="remote ? 'ph-terminal-window' : 'ph-key'"
-          aria-hidden="true"
-        ></i>
+        <i class="ph ph-key text-lg text-slate-400 shrink-0" aria-hidden="true"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium text-slate-800 truncate">
             {{ t.name }}
@@ -136,8 +121,8 @@ const creable = computed(() =>
           </div>
         </div>
         <button
-          :title="remote ? 'Commande de connexion' : 'Configuration des clients'"
-          :aria-label="remote ? 'Commande de connexion' : 'Configuration des clients'"
+          title="Configuration des clients"
+          aria-label="Configuration des clients"
           class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"
           @click="rg.cnxShowConfig(t)"
         >
@@ -161,36 +146,23 @@ const creable = computed(() =>
           <i class="ph ph-trash" aria-hidden="true"></i>
         </button>
       </div>
-      <div v-if="remote && jetons.length > 1" class="flex justify-end">
-        <button
-          type="button"
-          :disabled="rg.cnxState.busy"
-          class="text-xs text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50"
-          data-tout-revoquer
-          @click="rg.cnxRevokeAll(genre)"
-        >
-          Tout révoquer
-        </button>
-      </div>
     </div>
-    <p v-else-if="!formulaire" class="text-sm text-slate-500 py-4 text-center">
-      {{ remote ? "Aucun poste relié." : "Aucun jeton." }}
-    </p>
+    <p v-else-if="!formulaire" class="text-sm text-slate-500 py-4 text-center">Aucun jeton.</p>
 
     <div v-if="formulaire" class="border border-blue-200 bg-blue-50/40 rounded-xl p-4 space-y-2.5">
       <div class="text-sm font-medium text-slate-700">Nouveau jeton</div>
       <div>
-        <label :for="'cnx-name-' + genre" class="text-xs font-medium text-slate-500">Nom</label>
+        <label for="cnx-name" class="text-xs font-medium text-slate-500">Nom</label>
         <input
-          :id="'cnx-name-' + genre"
+          id="cnx-name"
           v-model="formulaire.name"
           maxlength="80"
-          :placeholder="remote ? 'ex. poste du bureau' : 'ex. VS Code du bureau, agent CI'"
+          placeholder="ex. VS Code du bureau, agent CI"
           class="set-input mt-0.5"
           data-nom-jeton
         />
       </div>
-      <template v-if="!remote && rg.cnxState.policy">
+      <template v-if="rg.cnxState.policy">
         <div>
           <div class="text-xs font-medium text-slate-500 mb-1">Familles d'outils</div>
           <div class="flex flex-wrap gap-x-4 gap-y-1.5">
@@ -226,18 +198,18 @@ const creable = computed(() =>
           </div>
         </div>
       </template>
-      <p v-if="partie.error" class="text-xs text-red-600" role="alert">{{ partie.error }}</p>
+      <p v-if="rg.cnxState.error" class="text-xs text-red-600" role="alert">{{ rg.cnxState.error }}</p>
       <div class="flex items-center gap-2 pt-1">
         <button
           :disabled="rg.cnxState.busy"
           class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-          @click="rg.cnxCreate(genre)"
+          @click="rg.cnxCreate()"
         >
           Créer
         </button>
         <button
           class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-          @click="rg.cnxCancel(genre)"
+          @click="rg.cnxCancel()"
         >
           Annuler
         </button>
@@ -248,19 +220,15 @@ const creable = computed(() =>
       :disabled="!creable"
       data-nouveau-jeton
       class="w-full px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-      @click="rg.cnxNew(genre)"
+      @click="rg.cnxNew()"
     >
       <i class="ph ph-plus" aria-hidden="true"></i> Nouveau jeton
     </button>
     <p v-if="rg.cnxState.charge && !creable" class="text-xs text-slate-500" data-desactive>
-      {{
-        remote
-          ? "Remote est désactivé par l'administrateur."
-          : "Les jetons d'outils sont désactivés par l'administrateur."
-      }}
+      Les jetons d'outils sont désactivés par l'administrateur.
     </p>
 
-    <div v-if="!remote && (rg.cnxState.oauthEnabled || rg.cnxState.grants.length)" class="pt-2 space-y-2">
+    <div v-if="rg.cnxState.oauthEnabled || rg.cnxState.grants.length" class="pt-2 space-y-2">
       <div class="text-sm font-medium text-slate-700">Applications autorisées</div>
       <p class="text-xs text-slate-500">
         Un client MCP peut aussi se connecter avec la seule adresse

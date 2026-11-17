@@ -28,10 +28,7 @@ export function brancherMoteurMetriques(o: {
   journal: Journal;
 }): MoteurMetriques {
   const { cycle, evenements } = o;
-  installerCompteurProcessus(
-    "clientsSse",
-    () => evenements.systemEvents.nombreClients + evenements.pipelineEvents.nombreClients,
-  );
+  installerCompteurProcessus("clientsSse", () => evenements.systemEvents.nombreClients);
   installerCompteurProcessus("tachesFond", () => cycle.nombreTachesFond);
   installerCompteurProcessus("tachesChat", nombreTachesChat);
   installerCompteurProcessus("terminaux", () => 0);

@@ -61,8 +61,6 @@ Diagrams are written in **Mermaid** (rendered inline by GitHub, GitLab and VS Co
 - [Memory (API)](#memory-api)
 - [Routines and webhooks (API)](#routines-and-webhooks-api)
 - [Studio and desktop (API)](#studio-and-desktop-api)
-- [CLI distribution — OpenCode (LAN)](#cli-distribution--opencode-lan)
-- [Remote code page (`/api/code/*`)](#remote-code-page-apicode)
 - [Voice engine](#voice-engine)
 - [Notifications, usage, events](#notifications-usage-events)
 - [RAG (API)](#rag-api)
@@ -106,7 +104,7 @@ Multi-process application:
 
 | Process | Port | Role |
 |---|---|---|
-| **main** | 8001 | Chat, sandbox, editor, routines, Studio, Remote code, static files. TypeScript core (`apps/core/dist/main.mjs`), one process, unprivileged account |
+| **main** | 8001 | Chat, sandbox, editor, routines, Studio, static files. TypeScript core (`apps/core/dist/main.mjs`), one process, unprivileged account |
 | **admin** | 8002 | Only `/api/admin/*` and the console. Same core, one process, **same unprivileged account** as main (never root) |
 | **toolhost** | 8765 | Host for the local MCP tools (`apps/toolhost`, Node bundle): streamable HTTP `/mcp[/<family>]` and SSE, sandbox and terminal API; Office family through a Python worker (`office/`) |
 | **llama-server** | 8080 | Local inference engine, standalone |
@@ -233,7 +231,7 @@ flowchart LR
         s["toolhost :8765<br/>(apps/toolhost, Node)<br/>+ Office worker (Python)"]
         r["rag_app extractor :8000"]
         q[("Qdrant :6333")]
-        d[["user_db/ (incl. rag/) · user_sandboxes/<br/>user_skills/ · mcp_custom_servers/ · cli_dist/"]]
+        d[["user_db/ (incl. rag/) · user_sandboxes/<br/>user_skills/ · mcp_custom_servers/"]]
         dk[["dockerd — elpis-sb-&lt;user&gt;<br/>(browser-service inside)"]]
         c --> m & a
         m --- d
@@ -267,8 +265,8 @@ flowchart LR
   (`/mcp[/<family>]`) and SSE, plus the sandbox and terminal API; the
   `families` ported to TypeScript are served by it;
   avoids N cold starts and N sets of subprocesses; the app never launches it
-  as a subprocess: it is a required service, like the database. The same service serves the users' **opencode** clients
-  (elpis-remote token as Bearer, fs/shell families hidden from them).
+  as a subprocess: it is a required service, like the database. The same service serves the users' MCP clients
+  through the app's relay (tool token as Bearer, within the account's families).
 - **llama-server** — `--jinja` **required** for native tool calling.
 - **Caddy** — catch-all, stable local PKI; switching between HTTPS and direct HTTP
   is driven from the admin console (the core restarts and rereads its bind).
@@ -377,7 +375,9 @@ notes for the startup log; its security journal events are written once the oute
 committed, and dropped if it is rolled back. A pending migration without an implementation in the
 process (admin, tool host, commands), or that throws `MigrationDifferee`, is deferred: not
 stamped, logged as info, and the ones after it wait. A failure is logged as an error and retried
-at the next start. The registry is `0027_vault_git`, `0028_vault_llm_images` and `0029_vault_mcp`;
+at the next start. The registry is `0027_vault_git`, `0028_vault_llm_images`, `0029_vault_mcp`,
+`0030_git_account_scope` and `0031_remove_remote_code` (drops the Remote code tables and the former
+`opencode` personal tokens; a new database gets it stamped, with nothing to drop);
 `main` passes their implementations (`MIGRATIONS_DU_CORE`) with the core's ports
 (`portsMigrationsDuCore`: `ranger` inserts a row as `creerSecret` does and returns its id, or
 `null` when the vault rules refuse the value; `chiffrer(x, valeur, aad)` encrypts outside
@@ -398,8 +398,6 @@ erDiagram
     users ||--o{ git_connectors : ""
     users }o--o{ groups : "user_groups"
     editor_routines ||--o{ editor_routine_runs : ""
-    code_sessions ||--o{ code_messages : ""
-    code_messages ||--o{ code_parts : ""
 ```
 
 ### Tables
@@ -412,7 +410,6 @@ erDiagram
 | **Memory** | `session_messages` + `session_messages_fts*` (FTS5) |
 | **Routines** | `editor_routines`, `editor_routine_runs`, `editor_webhook_deliveries` |
 | **Studio** | `editor_action_cache` (memory of live-targeting anchors) — automation scripts are sandbox files (`automations/`), not database rows |
-| **Remote code** | `code_sessions`, `code_messages`, `code_parts`, `code_clients`, `code_commands`, `code_notes`, `code_permissions`, `code_questions`, `code_meta`, `code_remote_tokens`, `code_pairings` |
 | **Connectors** | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers` |
 | **Secrets** | `vault_secrets` (one row per secret of an account, or of the instance when `user_id` is `NULL`; value encrypted, see [Secrets vault](#secrets-vault)) |
 | **RAG** | `rag_collections` (owner, visibility, embedding model, counters), `rag_grants` (groups of a publication), `rag_documents`, `rag_jobs` (indexing queue), `rag_hidden` ("Hide from my list"); active collections of a chat in `chats.meta_json.rag` |
@@ -488,7 +485,7 @@ by the [secrets vault](#secrets-vault); the old plain `webhook_secret` stays emp
 ## Shared state between processes
 
 main is **a single process**: running turns, conversation presence locks,
-cancellations, the system event bus and the Code page bus
+cancellations and the system event bus
 live in memory (`apps/core/src/tour/etat.ts`,
 `apps/core/src/evenements/`). Between processes (main, admin, tool host),
 shared state goes through one of these channels, never through a
@@ -961,8 +958,7 @@ the slots of a model.
 
 > ⚠ **`GET /props?model=X` LOADS the model X** on the router side. Never probe
 > a model "just to see": that is why the model selector auto-loads
-> nothing and why the generated OpenCode config propagates the `n_ctx` values **already known**
-> from the cache instead of probing.
+> nothing.
 
 **Cache invalidation**: when a model is loaded or unloaded,
 through `POST /api/admin/cache/invalidate`, or with the admin button.
@@ -1074,7 +1070,7 @@ routines, Studio…) and `src/entries/admin.ts` (console), preceded by
 | `src/features/editor/`, `src/components/editor/` | Editor: Monaco (ESM, workers), tree, tabs, split view, save (409/412/503), Git, terminal, previews, Office; `src/features/terminal/` (xterm, sessions) |
 | `src/features/admin/`, `src/components/admin/` | Console: page registry (`registre.ts`), navigation, per-page saving, Ctrl+K palette (`champs.gen.ts`, generated), pages as SFCs (`Page*.vue`) |
 | `src/features/reglages/`, `src/components/reglages/` | Settings: appearance and skins, prompts, archives, MCP servers, connectors, sampling, memory |
-| `src/features/{routines,studio,images,voix,mascotte,skills,code}/` and `src/components/` of the same name | Routines, automation Studio, image generation, voice (AudioWorklet), mascots, skills, Remote code page |
+| `src/features/{routines,studio,images,voix,mascotte,skills}/` and `src/components/` of the same name | Routines, automation Studio, image generation, voice (AudioWorklet), mascots, skills |
 | `src/utils/`, `src/modeles/` | Pure functions (JSON, ANSI, line diff, minimal edit, Office model, scenarios and automations) |
 | `src/app/racine/`, `src/components/racine/` | Page root: `creerRacine()` (shared state, session and HTTP, module mounting), common layer (toasts, confirmation windows, context menu), keyboard (focus trap, Esc cascade, shortcuts), outside click, thread scrolling, notifications, tab resume; `App.vue` (chat) and `AppConsole.vue` (console) |
 | `frontend/test/` | Vitest tests (`web` project, happy-dom), same layout |
@@ -1128,7 +1124,7 @@ routines, Studio…) and `src/entries/admin.ts` (console), preceded by
   provided to the injected domains. Common parts: `chrome.ts` (toasts,
   announcements, confirmation, input and choice windows, context menu),
   `clavier.ts` (Esc cascade, Tab trap of large windows, Alt+I,
-  Ctrl+Shift+O), `clic-exterieur.ts`, `notifications.ts`, `opencode.ts`,
+  Ctrl+Shift+O), `clic-exterieur.ts`, `notifications.ts`,
   `defilement.ts`, `session-onglet.ts`. No global is published for other
   scripts; only page flags (`window.__ADMIN_ONLY_MODE__`, addresses
   of the other process) are set before mounting (`src/app/page.ts`).
@@ -2254,7 +2250,7 @@ for inactive sessions.
 
 | Endpoint | Description |
 |---|---|
-| `GET/POST/DELETE /api/mcp-bridge[/<family>]` | Public MCP relay (streamable HTTP) to the tool service: personal `ept_`/`pcr_` token or OAuth token, `Origin` check, signed delegation to the service |
+| `GET/POST/DELETE /api/mcp-bridge[/<family>]` | Public MCP relay (streamable HTTP) to the tool service: personal `ept_` token or OAuth token, `Origin` check, signed delegation to the service |
 | `GET /api/tools/<family>/openapi.json` · `POST /api/tools/<family>/<tool>` | OpenAPI 3.1 facade of the same tools (`ept_` token) |
 | `GET /api/tokens` · `POST /api/tokens` · `POST /api/tokens/{id}/regenerate` · `DELETE /api/tokens/{id}` | The account's personal tokens (Settings › Access tokens), token shown only once |
 | `GET /api/tokens/schema/{family}` | `tools/list` of a family (blocks and schemas of Access tokens) |
@@ -2335,264 +2331,7 @@ removed by migration `0017_drop_scenarios`).
 | `POST /api/desktop/capture` · `/read` · `/act` · `/launch` · `/wait-window` · `/select-monitor` | Control |
 | `GET /api/desktop/frame/{token}` | Capture (strict token ownership) |
 | `GET /agent` · `/agent.ps1` · `/api/desktop/install.{sh,ps1}` · `/api/desktop/agent-bundle` | Agent installation |
-
----
-
-## CLI distribution — OpenCode (LAN)
-
-Lets you download OpenCode from any machine on the network (offline).
-The admin drops the binaries in `cli_dist/`. Guarded by `features.opencode`
-(404 if disabled); **public** routes (no auth, LAN use).
-
-| Endpoint | Description |
-|---|---|
-| `GET /opencode` · `GET /opencode.ps1` | Short aliases (path shown by the app) |
-| `GET /api/cli/install.sh` · `/install.ps1` | Scripts rendered with the LAN URL actually contacted |
-| `GET /api/cli/opencode.json` | Config generated on the fly (endpoint + live models); authenticated (session or `x-elpis-token`) → + `mcp` block for the ELPIS tools with the account's token |
-| `GET /api/cli/bundle/{os}` | `linux` / `macos` / `windows` artifact (opencode **1.18.16**) |
-| `GET /api/cli/ca.crt` | Local CA (PEM) — **outside** the `features.opencode` gate |
-
-> Security: the base URL interpolated into the scripts is **validated** against
-> `^https?://[A-Za-z0-9.\-]+(:\d+)?$` before rendering — this prevents
-> shell/PowerShell injection via the `Host` header.
-
-**Plain-text bootstrap (:80).** Behind Caddy, the target machine does not know
-the CA yet: an https command would have to disable certificate verification
-**even before** downloading the script (a PowerShell preamble of ~400
-characters, which breaks depending on the .NET version). So Caddy relays these routes
-in plain text on `:80` (`@bootstrap` matcher); everything else redirects to https. Two
-URLs are baked into the script:
-
-- `BASE` = the origin actually contacted = base for **downloads**;
-- `APP_URL` = the **app** URL for whatever talks to it afterwards (the
-  `elpis-remote` plugin) = https if `security.https.enabled`, regardless of the
-  bootstrap scheme.
-
-**Self-signed certificate: plain-text bootstrap, then the CA on the MACHINE.** This
-is the intended model for a LAN without Internet — the certificate keeps its role, and
-there is no `-k` anywhere. Three steps:
-
-1. **Fetch**, two sources: `http://<host>/ca.crt` (Caddy `:80`) **then**
-   `GET /api/cli/ca.crt` (served by the app). The second covers deployments
-   without a `:80` front end, where the installer found nothing and stayed on `-k`. The
-   script refuses to pin anything that is not a PEM (captive portal) and distinguishes
-   "no CA reachable" from "CA fetched but it does not sign this certificate".
-   It is stored right away in a **durable** location
-   (`~/.config/opencode/elpis-ca.crt`), regardless of the plugin choice.
-2. **Install on the machine — BY DEFAULT** (`update-ca-certificates` /
-   `update-ca-trust` / `Cert:\CurrentUser\Root`), opt-out `ELPIS_TRUST_CA=n`.
-   If the certificate is already trusted, the script touches nothing and says so. Without
-   privileges, it does not fail: it prints the exact command to replay. `sudo`
-   is never run on the `curl` pipe (`sudo -n`, otherwise `/dev/tty`) —
-   otherwise it would read its password from the script.
-3. **Pinning** (`ca_file`) kept in all cases: ⚠ **Bun does not use
-   the OS store**, so the plugin needs the explicit path even on a
-   machine where the CA is installed.
-
-Contract locked by the maintainers' tests; the desktop installer
-shares the same two sources.
-
-**Instant offline startup (fix for the 30 s – 1 min 30 delay).** As soon as a
-plugin is present, opencode runs `npm install @opencode-ai/plugin` in
-each config folder and **blocks plugin loading** on it
-(`config.ts › waitForDependencies`): measured 30 s (1.17.7) / 71 s (1.18.16)
-*with* Internet, and **never finishing** without it (network that drops). The installers
-therefore create `node_modules/` (empty) + `package.json` + `package-lock.json`
-declaring the dependency: opencode considers its dependencies satisfied and no longer
-touches the network (**11 s** with the network cut, versus a TUI that never
-appeared). An already populated `node_modules` is never overwritten. ⚠ A project that has
-its own `.opencode/` pays the cost once (opencode installs there too).
-
----
-
-## Remote code page (`/api/code/*`)
-
-opencode sessions **reported up and controllable** from the "Remote code" page.
-The user runs `opencode` wherever they want with the `elpis-remote` plugin (dropped
-by the installer, served by `GET /api/code/plugin.js`); the
-`/remote <token>` command enables reporting. Gated by `features.opencode`.
-Backend: `apps/core/src/familles/code.ts` + store `apps/core/src/code/magasin.ts`.
-
-### Architecture
-
-- The plugin **pushes** raw opencode events (`session.*`,
-  `message.updated`, `message.part.updated` with 150 ms coalescing,
-  `permission.asked/replied`, `question.asked/replied/rejected`) to `POST /api/code/ingest` (header
-  `x-elpis-token`, per-user token in the `code_remote_tokens` table) and **pulls**
-  commands via `GET /api/code/pull` (25 s long-poll).
-- **SQLite store**: `code_sessions` (denormalized meta `last_model`/`preview`),
-  `code_messages`, `code_parts`, `code_clients` (`bye` tombstone),
-  `code_commands`, `code_meta`, `code_notes` (command traces),
-  `code_permissions`, `code_questions`. Short transactions; command **claim** is
-  atomic (write transaction) with routing by session owner →
-  two concurrent pulls never consume the same command twice. The
-  long-poll does short DB polling (0.4 s). Throttled pruning.
-- **Clean disconnect**: on close, the plugin sends
-  `POST /api/code/bye`. ⚠ In serve mode, the `dispose` hook is **not** invoked
-  on SIGINT/SIGTERM → the plugin listens for the signals and launches a **detached
-  curl** (an async fetch would not survive). `bye=1` tombstone: a `/pull`
-  still in flight does not resurrect the client; an ingest lifts the tombstone. Safety net:
-  40 s TTL.
-- ⚠ **A signal can be SWALLOWED** (v12). Depending on the terminal mode, a Ctrl-C
-  reaches the TUI as a *key* or the process as a *signal*, and opentui's
-  native handler can swallow it without exiting. The plugin then announced its death
-  but kept running: "disconnected" page, a CLI that thinks it is active, page
-  commands going nowhere — the "remote stays active but session
-  unreachable" symptom. Now: immediate `bye`, then a **survival
-  guard** — still alive after 2.5 s ⇒ re-announce (`announce()` lifts the
-  tombstone) and resume reporting. The handler is re-armed with `once` (never
-  `on`: remaining a listener would break the re-raise's `listenerCount === 0`, and so
-  closing by signal). `process.exit` is never **forced**: killing an opencode
-  that deliberately intercepted the signal would destroy work in progress.
-- **Undeliverable command**: a CLI that dies without saying goodbye used to let the
-  page accept a prompt (client alive during the TTL) that then expired silently.
-  `sweep_undeliverable()` (called by `/api/code/health`, the page's 15 s
-  heartbeat) purges any command exceeding the client TTL whose possible
-  recipient is dead, and adds an **error note** in the
-  transcript. A command that a live CLI can still take is never
-  cancelled.
-- **Interactive permissions**: v2 shape (`{id, permission, patterns[],
-  metadata, tool}`) and v1 accepted, normalized once
-  (`normalize_permission`). The page replies via
-  `POST /api/code/sessions/{sid}/permissions/{pid}` (`once|always|reject`) →
-  `permission` kind of the pull → the plugin calls the opencode API.
-  `permission.replied` removes the request, whether it came from the page or the TUI.
-- **`question` tool questions** (plugin **v14**): the tool BLOCKS the turn
-  until answered — without reporting, the page saw an endlessly "busy"
-  session and the question existed only in the terminal. 1.18.16 shape (read
-  from the binary): `question.asked` = `{id "que_…", sessionID, questions[{question,
-  header, options[{label, description}], multiple?, custom?}], tool?}`;
-  `question.replied` = `{sessionID, requestID, answers: string[][]}`;
-  `question.rejected` = `{sessionID, requestID}`. Normalized and **bounded** at the
-  store (`normalize_question`: 20 questions, 30 options, 4000 chars — the payload
-  is model-driven). The page replies via
-  `POST /api/code/sessions/{sid}/questions/{qid}` — `{"answers": [["Postgres"],
-  ["tests", "docs"]]}` (one array of labels PER question, free input is a label
-  like any other) or `{"reject": true}` — → `question` kind of the pull
-  (`{questionID, answers}` | `{questionID, response: "reject"}`) → the plugin
-  calls `POST /question/{requestID}/reply|reject`. Explicit 409 if the active plugin
-  is ≤ v13 (it would silently ignore the kind: false success, CLI blocked).
-  ⚠ **The v1 SDK that plugins receive (1.17.7 AND 1.18.16) has NO `question`
-  resource** (generated class: `session`, `tui`, `command`, `config`, `app`…,
-  `postSessionIdPermissionsPermissionId`) even though the server exposes the route.
-  The plugin therefore goes through the internal HTTP client of the generated methods
-  (`client._client.post({url, path, body})` — hey-api), which also works
-  when opencode runs without a port (in-process fetch); a future SDK's
-  `client.question.reply` is preferred if it exists, raw fetch on `serverUrl` as a last
-  resort. A hey-api client does not throw on 4xx: `{error}` is translated into a
-  failure + TUI toast. Verified end to end on the 1.18.16 binary (mock LLM calling
-  the `question` tool) and by a Bun test by the maintainers.
-- **SSE**: `GET /api/code/stream` filters the bus's `code.event` events per
-  account (`apps/core/src/evenements/pipeline.ts`).
-- **Persisted epoch** (`code_meta`): stable across restarts and redeployments — the
-  plugin only re-snapshots if the database was actually reset.
-- **EMPTY sessions** (v13): the plugin also publishes sessions without a message.
-  Versions ≤ v12 held them back to avoid ghost entries at
-  restart, but the side effect was worse — a fresh session stayed
-  invisible while the page showed "CLI connected", and you had to
-  send a message to see it. The ghost is now handled at the source,
-  app side: `_prune_empty_siblings()` keeps **only one** empty session per CLI
-  (an empty session has no content to lose; one that receives a message or
-  a note stops being a candidate).
-- ⚠ **Irreducible case**: opencode only materializes the session at the **first
-  message** — a freshly opened TUI has NO session server-side (measured
-  1.17.7 and 1.18.16: no `session.created`, no entry in `session.list`, and
-  `/remote` changes nothing). So there is nothing to publish. The landing says so
-  explicitly ("CLI connected, no open session", via
-  `GET /api/code/clients` filtered of the CLIs already carrying a session) and offers to
-  create one.
-- **"New session" really creates one** (v13): the TUI's `session.new` does not
-  materialize anything, hence "/new does nothing". The plugin creates the session through
-  the API (`session.create`) — so it exists and gets published — then switches the TUI
-  to it via `tui.selectSession` (⚠ this API **exists**: the opposite claim
-  in versions ≤ v12 was wrong, verified against both binaries' OpenAPI).
-  `POST /api/code/new` therefore requires plugin **v13** (explicit 409 otherwise).
-- **Versioning**: `GET /api/code/health` returns `plugin_version` (min of the
-  active clients) + `plugin_current` → "plugin needs updating" badge.
-  Current plugin version: **v14** (single source: `const PLUGIN_VERSION`
-  parsed from the `.ts`; the migration shim must replicate the same number, otherwise
-  the core refuses to serve the plugin, `apps/core/src/code/greffon.ts`).
-- **`/remote status` tells the truth** (v12): it does a real `/hello`
-  round trip and shows the local state **and** the link state (app unreachable, token
-  refused, identity). Before, it only reported `enabled`, which stays true
-  when nothing works anymore.
-
-### Frontend
-
-Two views. **Landing** = centered list grouped *Connected / History*
-(badge per session, relative time, enriched meta, dismiss, inline rename).
-**Session** = full-screen transcript + composer visually matching the chat's
-prompt bar, width = `chat_width` setting.
-
-- **Context gauge**: tokens of the last assistant message vs the model's `limit.context`
-  (reported by the plugin; `_generate_opencode_config` also propagates the
-  `n_ctx` values **already known** from the cache — never a probe, `/props?model=X`
-  would load the model). Unknown limit → "N tk" chip without %.
-- **Rich rendering** (`frontend/src/features/code/rendu.ts`, `components/code/PageCode.vue`): markdown, thinking **collapsed by
-  default**, errors in danger tokens, and **one line per tool call** —
-  the TUI's: state, name, *subject* and *metric* taken from the metadata the
-  tool actually publishes (`filepath`/`filediff`, `command`+`exitCode`,
-  `pattern`+`matches`, `todos`, `preview`, `truncated`). What the tool did
-  reads without opening anything; the fold is only for parameters and raw
-  output. An unknown tool (an MCP server plugged into the CLI) keeps the
-  generic line — `state.title` then the call parameters.
-- **Part types** (schemas of the shipped binary, `cli_dist/`): `text`,
-  `reasoning`, `tool`, `file`, `patch`, `step-start`/`step-finish`, and for
-  opencode ≥ 1.18 `subtask` (subagent frame), `compaction` ("Context
-  compacted" — which explains why a history can "disappear"), `retry`
-  ("Attempt N"). `snapshot` (`/undo` restore) and `agent` (the `@name`
-  mention, already in the text) are deliberately **hidden**: showing them
-  produced two mute pills per turn. An unexpected type stays a
-  gray pill, never a crash.
-- **A single activity signal**, in the column of the message the CLI writes —
-  so aligned with its text, with no padding to tune. It announces the **actual
-  phase** (thinking / tool *name* / writing) and its duration. The store's `busy`
-  flag is backed by a page-side guard (last assistant message
-  `time.completed` ⇒ nothing is running anymore): opencode 1.18 mostly publishes
-  `session.status`, which plugin v13 does not report, and the indicator stayed
-  on. The clock (1 s) is only armed during generation.
-- **Turn error** (`info.error`) and **summary message** (`info.summary`)
-  rendered in the transcript: the error used to be only a fleeting toast.
-- **`plan` / `build` modes** (plugin v12): these are opencode's *primary agents*
-  (TUI `tab` key). The plugin pushes `client.agents`
-  (`client.app.agents()`, filtered `mode === "primary"` and `!hidden` — so neither the
-  `explore`/`general` subagents nor the internal `title`/`summary`/`compaction`),
-  the app serves them on `GET /api/code/agents`, and the prompt's `agent` field is
-  relayed to `promptAsync` (accepted by the 1.17 **and** 1.18 OpenAPI — machines
-  not updated therefore keep working, without the selector).
-  On the page side, you switch modes with the **`/plan` and `/build` commands** — one
-  *app* command per primary agent, generated from what the CLI reported (so
-  custom primary agents too), never hard-coded. They appear
-  in the "/" dropdown like `/model` or `/compact`, and are intercepted by the
-  interface (`codeAppCmds` — not the static `APP_CMDS` list, otherwise a
-  `/plan` typed by hand would go to the model as a prompt).
-  **Permanent indicator** in two places: a pill in the input bar (where
-  you write) and in the session header; clicking the pill switches to the next
-  mode — the TUI `tab` shortcut, same code path as the command.
-  The displayed agent follows the explicit choice first, otherwise that of the **last
-  assistant message** (if the user switched with `tab` on the TUI side), otherwise the
-  CLI default — the page mirrors the CLI instead of contradicting it. No
-  `agent` is sent until the user has chosen, and the change only applies
-  **from the next message** (that is what the toast says).
-- **Diffs "like opencode"** everywhere, as colorized cards collapsed beyond
-  12 lines: tools' `metadata.diff` (**always visible, never behind a
-  click** — it is the result of the turn), **closed** `diff` code blocks in
-  markdown (a fence still open during streaming stays text), outputs that *are* a
-  diff (`diff --git` / `---`+`+++`+`@@` heuristic, ≤ 200 k), expandable `patch`
-  part. A `write` produces no diff on the opencode side (there is no
-  before): the "all additions" card is built from `input.content`,
-  capped at 200 k. The four surfaces share **a single component**
-  (SFC `frontend/src/components/code/CarteDiff.vue`).
-- **Command traces**: each slash command leaves a persistent pill
-  (`code_notes` table, synthetic `note` role, survives re-snapshots).
-- **`/` commands**: the CLI's + app actions — `/model` (validated against
-  `config/providers` **before** attaching: an unknown model used to end in
-  `ProviderModelNotFoundError` and could kill the TUI), `/session`, and the native
-  actions `/undo` `/redo` `/compact` `/share` `/unshare` `/init` `/new`.
-- `Escape` chain: rename → session picker → model picker → slash → drawer →
-  session → list → chat (`codeEscape()`).
-
-Tests: routes and browser flows in the maintainers' suite.
+| `GET /api/desktop/ca.crt` | Local CA (PEM), second source of the agent's `install.sh` when `:80` does not serve it |
 
 ---
 

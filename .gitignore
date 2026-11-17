@@ -32,7 +32,6 @@ pages/
 Mo/
 .agent/
 .code/
-.opencode-runtime/
 .load-instance
 # Binaire et données de Qdrant (installés par install.sh) — ancré : la règle
 # « qdrant/ » avalait aussi deploy/qdrant/, dont install.sh a besoin.

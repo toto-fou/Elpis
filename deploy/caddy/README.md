@@ -68,7 +68,7 @@ once).
 
 ## Bootstrapping the installers (in clear, on purpose)
 
-The install one-liners (OpenCode, desktop agent) run on a
+The desktop agent's install one-liners run on a
 machine that **does not yet know** the local CA. While they used
 https, the command had to disable certificate verification itself:
 on Windows, a preamble of about 400 characters (forced TLS 1.2
@@ -82,19 +82,17 @@ to `:8001` instead of being redirected. Everything else redirects
 as before. The commands become simple again:
 
 ```bash
-curl -fsSL http://<ip>/opencode | bash     # OpenCode (Linux/macOS)
-curl -fsSL http://<ip>/agent    | bash     # desktop agent (Linux)
+curl -fsSL http://<ip>/agent | bash     # desktop agent (Linux)
 ```
 ```powershell
-iex(irm http://<ip>/opencode.ps1)          # OpenCode (Windows)
-iex(irm http://<ip>/agent.ps1)             # desktop agent (Windows)
+iex(irm http://<ip>/agent.ps1)          # desktop agent (Windows)
 ```
 
-The downloaded script then fetches the CA (`http://<ip>/ca.crt`) and
-**pins** it in the `elpis-remote` plugin config: whatever talks to the app
-afterwards does so over **verified** https — better than the old
-`-k` fallback. The trade-off is limited to bootstrapping: on a trusted LAN, a binary
-downloaded in clear is equivalent to the old `-k` (neither
+Started from the https address instead, the Linux script looks for the CA at
+`http://<ip>/ca.crt`, then at `/api/desktop/ca.crt` (served by the app, for
+deployments without the `:80` site), and downloads over verified https once
+it has one. The trade-off is limited to bootstrapping: on a trusted LAN, an
+archive downloaded in clear is equivalent to the old `-k` (neither
 authenticates the server), for a command without pitfalls.
 
 > Never add anything to `@bootstrap` that requires a session or exposes a

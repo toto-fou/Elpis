@@ -186,7 +186,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-@fastify/multipart 10.1.6 — MIT
+@fastify/multipart 10.1.8 — MIT
 ==============================================================================
 
 MIT License
@@ -497,7 +497,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-better-sqlite3 13.0.3 — MIT
+better-sqlite3 13.1.1 — MIT
 ==============================================================================
 
 The MIT License (MIT)
@@ -3037,7 +3037,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-undici 8.12.3 — MIT
+undici 8.12.4 — MIT
 ==============================================================================
 
 MIT License

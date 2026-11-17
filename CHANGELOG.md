@@ -4,7 +4,7 @@ Notable changes to Elpis, newest first. Format inspired by
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version numbers
 follow [SemVer](https://semver.org/).
 
-## Unreleased
+## 0.1.4 — 2026-11-17
 
 ### Added
 
@@ -16,7 +16,6 @@ follow [SemVer](https://semver.org/).
   around what a user does: the essential gesture, tips to get the most out of each feature, then
   how it works. The clips are recorded by scenarios against the real application
   (`docs/media/aide/`, 80 clips), so they can be re-recorded when a screen changes.
-
 - **Git accounts for an organization or a repository.** An account now says what it applies
   to: a whole host, an organization (`github.com/acme`) or one repository
   (`github.com/acme/api`). Several accounts can share a host and the most specific one that
@@ -35,6 +34,141 @@ follow [SemVer](https://semver.org/).
   `screenshot_step` (explicit screenshots still show, see Changed). Screenshots already taken stay
   visible in the history while their session's files exist (`.png` still served).
 
+### Changed
+
+- **Secrets web looks like the other parts of Secrets.** One block per secret instead of a table:
+  the name with its states in plain words (*à vérifier*, *TLS non vérifié*, *autre clé*), a line
+  with the type, the version, the identifier and the last use, then each site in full on its own
+  line (long lists fold after three). The actions are visible on the right, as for Git accounts
+  and tokens (*Vérifier*, rotation, edit, delete confirmed on the same button), the panel opens
+  inside the block, and *Nouveau secret* is at the bottom. The console keeps its table of instance
+  secrets, with columns named in plain words (*Nom*, *Utilisé pour*, *Identifiant*, *Dernier
+  usage*).
+- **One window to add a repository in the editor.** *Ajouter un dépôt* replaces the *Cloner* and
+  *Initialiser* buttons and their two windows. Three ways, one at a time: *Mes dépôts* (the
+  repositories of a Git account, listed as soon as the window opens; the account is chosen when
+  there are several), *Depuis une URL* (one field, with an example on your own server; an SSH URL,
+  credentials in the URL, a query or a malformed host are refused with the reason) and *Nouveau
+  dépôt* (its folder only: commits are attributed automatically, yours to your account, the
+  assistant's to "account (Elpis agent)"; the author name and e-mail fields are gone, since
+  filling them made the assistant commit under that name). For a clone, three
+  lines say what will happen: the repository as it was read, the account that will authenticate
+  it (with the reason when several accounts exist on that server) or that none applies, and the
+  folder. *Cloner* is offered once a repository is read. The window opens smoothly: no blur behind
+  it (nor behind the other Git windows), it is anchored at the top so that it never jumps when
+  its content changes, and the list keeps its place while loading. Without an account, or after an access refusal (said
+  in plain words above git's message), credentials are typed in place and saved for the host,
+  the organization or the repository; before, the window sent you to Settings and lost the
+  address. Typed credentials are kept only when the host asked for them and the clone succeeded,
+  the window says whether they were saved and when a choice updates an existing account, and it
+  forgets them when the host or the scheme of the address changes or when it closes. An account
+  holding an imported token still to verify is named as such, here and in Settings.
+- **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
+  *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
+  `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).
+  The form names things for what they are: one **URL** field (of the server, an organization or a
+  repository) offers at once what the account can be used for, the whole server by default; the
+  type of server is shown by name (GitHub, Gitea / Forgejo…), and a line says which account is
+  taken when several fit. An account without a scope is marked *inactif*.
+- **Explicit browser screenshots always shown in the chat.** A screenshot the agent asks for
+  (`pw_page screenshot`, of the viewport, the full page or one element, and the annotated
+  `pw_observe som`) now shows in the chat like a step screenshot (thumbnail, viewer, history),
+  whatever the step screenshot setting. The service names it after the step of its reply
+  (`shot_<sid>_<n>.png`, `som` included instead of the overwritten `view_<sid>.png`) and takes no
+  step screenshot on top of it; the core reads it from the result of its own session. Vision is
+  unchanged (image to the model only at `pw_page inspect`). A browser tool that brings no
+  screenshot no longer leaves the last thumbnail waiting.
+- **Browser service in TypeScript.** `browser-service/` is strict TypeScript like the rest of
+  the workspace: sources in `browser-service/src` (one module per route family in `src/routes`,
+  shared state in an explicit service context instead of module globals), bundled by esbuild into
+  `browser-service/dist/main.mjs` (`npm run build:browser`, part of `npm run build`; Express is
+  bundled, Playwright stays in `browser-service/node_modules`). HTTP API, model-facing texts and
+  behaviour are unchanged. Each sandbox mounts that bundle instead of the `*.js` files (sandboxes
+  are recreated once at their next use, `/work` kept); `./install.sh` builds it, the offline
+  package ships it (`browser/dist`), `./elpis upgrade` rebuilds it and `./elpis doctor` checks it
+  matches the sources (`browser-service/dist/empreinte.mjs`, which never loads the service). `npm
+  run typecheck` and `npm run lint` cover it; CI installs its dependencies first (`npm ci --prefix
+  browser-service`). Its tests are TypeScript too, still run by `node --test` (type stripping).
+- **Vision only at `pw_page inspect`.** For a model with vision, the core no longer fetches and
+  downscales a screenshot after every browser action. `pw_page inspect` asks the service
+  (`_meta.vision`, native tool channel) for one JPEG already reduced to 1024 px by Chromium, taken
+  before the reply (`vision_screenshot`); the core fetches it once through the relay and injects it
+  as before, without a second downscale. No capture, no image: never a stale one.
+- **« Masquer les captures web » retired.** It only hid thumbnails; the step screenshot setting
+  replaces it and the stored `hide_web_screenshots` is ignored. `pw_page inspect` and `pw_observe`
+  return `step` for `since_step` (`screenshot_step` now comes only with a step screenshot).
+- **Browser unavailable: the user is sent to the administrator.** When the browser in the sandbox
+  cannot serve (Docker missing or stopped, image missing, browser not installed), the tools answer
+  `browser_sandbox_unavailable` and send the user to their administrator, without the cause: it is
+  in the tool host's log, and `./elpis doctor` and `./elpis logs browser <account>` cover it.
+- **Playwright 1.65.1: Chromium headless shell 159 (revision 1255).** An offline install or update
+  must carry the new browser (`make_release.sh --with-browser`); a connected one runs
+  `playwright install --only-shell chromium` once. better-sqlite3 13.1.1 brings SQLite 3.54.1.
+
+### Removed
+
+- **Developer documentation in the application.** The *Développeur* tab of the help window is
+  gone: `docs/architecture.md` is no longer served to signed-in accounts and stays in the
+  repository. `GET /api/help/readme` answers the user guide only, and no longer returns `doc`.
+- **Remote code and the OpenCode distribution.** Nobody used them, and each coding harness needed
+  its own plugin, installer and pairing flow to maintain. The *Remote code* page, the OpenCode
+  plugin and installers (*Installer opencode* in the account menu, `/opencode`, `/opencode.ps1`,
+  `/api/cli/*`, the `cli_dist/` folder), the `/api/code/*` routes, the *Remote* part of
+  Settings › Secrets, `pcr_` tokens and the *OpenCode* switch of the console (`features.opencode`)
+  are gone, with `mcp.opencode_families`, `mcp.opencode_exclude_families`, `mcp.public_url`,
+  `LOCAL_MCP_OPENCODE_FAMILIES`, `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES`, `LOCAL_MCP_PUBLIC_URL`,
+  `OPENCODE_DIST_DIR` and `opencode.*` of `config.json` (ignored if left there); an `opencode`
+  block left in `mcp.json` is ignored. Migration `0031_remove_remote_code` drops the Remote code
+  tables and deletes the old Remote tokens; tool and vision tokens stay. The desktop agent's
+  installer fetches the app's CA from `/api/desktop/ca.crt`. OpenCode still reaches the Elpis
+  tools as an MCP client, with a tool token (Settings › Secrets › Jetons MCP).
+- **Remote code plugin left on workstations.** Workstations can delete
+  `~/.config/opencode/plugin/elpis-remote.ts` and `~/.config/opencode/elpis-remote.json`; until
+  then the plugin's calls to `/api/code/*`, `/api/cli/*` and `/opencode` get a 404 logged at
+  DEBUG, not a live warning. The `elpis-*` entries the old installer wrote under `mcp` in
+  `~/.config/opencode/opencode.json` carry a Remote token that is now refused: remove them, or
+  replace their Bearer with a tool token (Settings › Secrets › Jetons MCP).
+
+### Fixed
+
+- **Browser tools: fixes from a non-regression run.** `pw_chain`: a `wait` step with a
+  `text=` target waits for that text, resolved like the other steps (it was read as a CSS
+  selector) and, with `nth`, for that element; a click on an element still covered when the
+  step's time is up answers `click_intercepted` and names what covers it, instead of a timeout;
+  an unknown action fails the chain (`unknown_action`; it used to answer `ok: true`); `rclick`
+  and `dblclick` are accepted as in `pw_act`; a target without a DSL key is no longer dropped.
+  `pw_wait` `text_contains` no longer matches the text of a hidden element. `pw_find` returns
+  the elements that exist but are hidden apart, in `hidden_matches`, with their ref and without
+  their text. The recorder starts with the `goto` of the open page when the first gesture is not
+  one, and exports a name cut by "…" so that it replays. A name of one or two letters is no
+  longer proposed as a close target. A sub-agent's downloads go to its account's folder
+  (`downloads/<account>/`), under a free name when one is taken. `pw_page inspect` with
+  `skip_screenshot=true` no longer attaches the vision image. A client timeout says that the
+  action may have been performed.
+- **Browser relay: invalid certificates now and then.** About one certificate in 256 issued by
+  the relay authority (the authority itself or the certificate of a secret's site) had a serial
+  number with a padding byte that strict parsers refuse, so the relay could fail to start or a
+  login to fail for no visible reason. Serial numbers are now written in their shortest form.
+- **Recorder and clicks by selector.** While pw_recorder was recording, a click resolved by a
+  fallback selector on the page itself (not in a frame) answered an error after the click had
+  happened, and the gesture was not recorded: the frames path was looked up on the page as if it
+  were an element (found by the TypeScript migration). It is now recorded without a frames path.
+
+### Security
+
+- **Browser service: hardening after code scanning.** Calls to the service are rate-limited
+  (300 per second for the tool host, `rate_limited` beyond). A regular expression given by the
+  caller (`pw_expect` `url-matches`, `pw_mock` with `is_regex`) is compiled and tried apart under
+  a time limit: a pattern with endless backtracking answers "no match" instead of holding the
+  service. Screenshot and visual reference files are written through a check that keeps their
+  name inside its folder. Closing a tab no longer reads the tab list through a caller-given key.
+- **Dependency updates with security fixes.** undici 8.12.4, @fastify/multipart 10.1.8,
+  markdown-it-py 4.3.0, pypdf 7.1.0, pypdfium2 5.15.2 (PDFium) and, for development, happy-dom 21.0.4.
+
+## 0.1.3 — 2026-11-14
+
+### Added
+
 - **Browser in the sandbox.** Each account's `pw_*` tools drive Elpis's own browser service,
   started inside the account's sandbox container on the first call (image `elpis/sandbox:1.8.0`;
   service, Node runtime and Chromium headless shell mounted read-only; Unix socket and
@@ -52,10 +186,9 @@ follow [SemVer](https://semver.org/).
   authentication only for the session that asked (binding key, expiry), every common encoding
   scrubbed and unscrubbable codings or methods refused, bounded memory, cached verdicts with
   Happy Eyeballs connections, and a 365-day relay CA renewed automatically. When the sandbox
-  cannot serve (Docker missing or stopped, image missing, browser not installed), the tools
-  answer `browser_sandbox_unavailable` and send the user to their administrator, without the
-  cause: it is in the tool host's log, and `./elpis doctor` and `./elpis logs browser <account>`
-  cover it.
+  cannot serve, the tools answer `browser_sandbox_unavailable` with the cause and its fix (Docker
+  missing or stopped, image missing, browser not installed). `./elpis doctor` and
+  `./elpis logs browser <account>` cover it.
 
 - **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
   (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
@@ -180,67 +313,6 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
-- **Secrets web looks like the other parts of Secrets.** One block per secret instead of a table:
-  the name with its states in plain words (*à vérifier*, *TLS non vérifié*, *autre clé*), a line
-  with the type, the version, the identifier and the last use, then each site in full on its own
-  line (long lists fold after three). The actions are visible on the right, as for Git accounts
-  and tokens (*Vérifier*, rotation, edit, delete confirmed on the same button), the panel opens
-  inside the block, and *Nouveau secret* is at the bottom. The console keeps its table of instance
-  secrets, with columns named in plain words (*Nom*, *Utilisé pour*, *Identifiant*, *Dernier
-  usage*).
-- **One window to add a repository in the editor.** *Ajouter un dépôt* replaces the *Cloner* and
-  *Initialiser* buttons and their two windows. Three ways, one at a time: *Mes dépôts* (the
-  repositories of a Git account, listed as soon as the window opens; the account is chosen when
-  there are several), *Depuis une URL* (one field, with an example on your own server; an SSH URL,
-  credentials in the URL, a query or a malformed host are refused with the reason) and *Nouveau
-  dépôt* (its folder only: commits are attributed automatically, yours to your account, the
-  assistant's to "account (Elpis agent)"; the author name and e-mail fields are gone, since
-  filling them made the assistant commit under that name). For a clone, three
-  lines say what will happen: the repository as it was read, the account that will authenticate
-  it (with the reason when several accounts exist on that server) or that none applies, and the
-  folder. *Cloner* is offered once a repository is read. The window opens smoothly: no blur behind
-  it (nor behind the other Git windows), it is anchored at the top so that it never jumps when
-  its content changes, and the list keeps its place while loading. Without an account, or after an access refusal (said
-  in plain words above git's message), credentials are typed in place and saved for the host,
-  the organization or the repository; before, the window sent you to Settings and lost the
-  address. Typed credentials are kept only when the host asked for them and the clone succeeded,
-  the window says whether they were saved and when a choice updates an existing account, and it
-  forgets them when the host or the scheme of the address changes or when it closes. An account
-  holding an imported token still to verify is named as such, here and in Settings.
-- **Git accounts under Secrets.** Settings › Secrets has a third part, *Comptes Git*, between
-  *Secrets web* and *Jetons MCP*; the rail entry is gone, old links to `connectors` and
-  `/settings` open the part, and the page says « compte » throughout (it said « connecteur »).
-  The form names things for what they are: one **URL** field (of the server, an organization or a
-  repository) offers at once what the account can be used for, the whole server by default; the
-  type of server is shown by name (GitHub, Gitea / Forgejo…), and a line says which account is
-  taken when several fit. An account without a scope is marked *inactif*.
-- **Explicit browser screenshots always shown in the chat.** A screenshot the agent asks for
-  (`pw_page screenshot`, of the viewport, the full page or one element, and the annotated
-  `pw_observe som`) now shows in the chat like a step screenshot (thumbnail, viewer, history),
-  whatever the step screenshot setting. The service names it after the step of its reply
-  (`shot_<sid>_<n>.png`, `som` included instead of the overwritten `view_<sid>.png`) and takes no
-  step screenshot on top of it; the core reads it from the result of its own session. Vision is
-  unchanged (image to the model only at `pw_page inspect`). A browser tool that brings no
-  screenshot no longer leaves the last thumbnail waiting.
-- **Browser service in TypeScript.** `browser-service/` is strict TypeScript like the rest of
-  the workspace: sources in `browser-service/src` (one module per route family in `src/routes`,
-  shared state in an explicit service context instead of module globals), bundled by esbuild into
-  `browser-service/dist/main.mjs` (`npm run build:browser`, part of `npm run build`; Express is
-  bundled, Playwright stays in `browser-service/node_modules`). HTTP API, model-facing texts and
-  behaviour are unchanged. Each sandbox mounts that bundle instead of the `*.js` files (sandboxes
-  are recreated once at their next use, `/work` kept); `./install.sh` builds it, the offline
-  package ships it (`browser/dist`), `./elpis upgrade` rebuilds it and `./elpis doctor` checks it
-  matches the sources (`browser-service/dist/empreinte.mjs`, which never loads the service). `npm
-  run typecheck` and `npm run lint` cover it; CI installs its dependencies first (`npm ci --prefix
-  browser-service`). Its tests are TypeScript too, still run by `node --test` (type stripping).
-- **Vision only at `pw_page inspect`.** For a model with vision, the core no longer fetches and
-  downscales a screenshot after every browser action. `pw_page inspect` asks the service
-  (`_meta.vision`, native tool channel) for one JPEG already reduced to 1024 px by Chromium, taken
-  before the reply (`vision_screenshot`); the core fetches it once through the relay and injects it
-  as before, without a second downscale. No capture, no image: never a stale one.
-- **« Masquer les captures web » retired.** It only hid thumbnails; the step screenshot setting
-  replaces it and the stored `hide_web_screenshots` is ignored. `pw_page inspect` and `pw_observe`
-  return `step` for `since_step` (`screenshot_step` now comes only with a step screenshot).
 - **Browser refusal messages in English.** An address refused by the browser policy (scheme,
   malformed address, destination) is reported to the model in English, like the relay's reasons.
 - **The browser runs in the user's sandbox.** The `pw_*` tools, the chat's screenshots, vision
@@ -459,28 +531,6 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
-- **Developer documentation in the application.** The *Développeur* tab of the help window is
-  gone: `docs/architecture.md` is no longer served to signed-in accounts and stays in the
-  repository. `GET /api/help/readme` answers the user guide only, and no longer returns `doc`.
-
-- **Remote code and the OpenCode distribution.** Nobody used them, and each coding harness needed
-  its own plugin, installer and pairing flow to maintain. The *Remote code* page, the OpenCode
-  plugin and installers (*Installer opencode* in the account menu, `/opencode`, `/opencode.ps1`,
-  `/api/cli/*`, the `cli_dist/` folder), the `/api/code/*` routes, the *Remote* part of
-  Settings › Secrets, `pcr_` tokens and the *OpenCode* switch of the console (`features.opencode`)
-  are gone, with `mcp.opencode_families`, `mcp.opencode_exclude_families`, `mcp.public_url`,
-  `LOCAL_MCP_OPENCODE_FAMILIES`, `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES`, `LOCAL_MCP_PUBLIC_URL`,
-  `OPENCODE_DIST_DIR` and `opencode.*` of `config.json` (ignored if left there); an `opencode`
-  block left in `mcp.json` is ignored. Migration `0031_remove_remote_code` drops the Remote code
-  tables and deletes the old Remote tokens; tool and vision tokens stay. The desktop agent's
-  installer fetches the app's CA from `/api/desktop/ca.crt`. OpenCode still reaches the Elpis
-  tools as an MCP client, with a tool token (Settings › Secrets › Jetons MCP).
-- **Remote code plugin left on workstations.** Workstations can delete
-  `~/.config/opencode/plugin/elpis-remote.ts` and `~/.config/opencode/elpis-remote.json`; until
-  then the plugin's calls to `/api/code/*`, `/api/cli/*` and `/opencode` get a 404 logged at
-  DEBUG, not a live warning. The `elpis-*` entries the old installer wrote under `mcp` in
-  `~/.config/opencode/opencode.json` carry a Remote token that is now refused: remove them, or
-  replace their Bearer with a tool token (Settings › Secrets › Jetons MCP).
 - **The central browser service.** No browser service runs on the host any more: port 3000,
   the `browser` service of `./elpis` and its `elpis-browser` unit, `browser.mode` and
   `browser.sandbox_users` (ignored if left in `config.json`, with one line in the tool host's
@@ -556,28 +606,6 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
-- **Browser tools: fixes from a non-regression run.** `pw_chain`: a `wait` step with a
-  `text=` target waits for that text, resolved like the other steps (it was read as a CSS
-  selector) and, with `nth`, for that element; a click on an element still covered when the
-  step's time is up answers `click_intercepted` and names what covers it, instead of a timeout;
-  an unknown action fails the chain (`unknown_action`; it used to answer `ok: true`); `rclick`
-  and `dblclick` are accepted as in `pw_act`; a target without a DSL key is no longer dropped.
-  `pw_wait` `text_contains` no longer matches the text of a hidden element. `pw_find` returns
-  the elements that exist but are hidden apart, in `hidden_matches`, with their ref and without
-  their text. The recorder starts with the `goto` of the open page when the first gesture is not
-  one, and exports a name cut by "…" so that it replays. A name of one or two letters is no
-  longer proposed as a close target. A sub-agent's downloads go to its account's folder
-  (`downloads/<account>/`), under a free name when one is taken. `pw_page inspect` with
-  `skip_screenshot=true` no longer attaches the vision image. A client timeout says that the
-  action may have been performed.
-- **Browser relay: invalid certificates now and then.** About one certificate in 256 issued by
-  the relay authority (the authority itself or the certificate of a secret's site) had a serial
-  number with a padding byte that strict parsers refuse, so the relay could fail to start or a
-  login to fail for no visible reason. Serial numbers are now written in their shortest form.
-- **Recorder and clicks by selector.** While pw_recorder was recording, a click resolved by a
-  fallback selector on the page itself (not in a frame) answered an error after the click had
-  happened, and the gesture was not recorded: the frames path was looked up on the page as if it
-  were an element (found by the TypeScript migration). It is now recorded without a frames path.
 - **pw_act and pw_visual small gaps.** `select` on a `<select multiple>` could choose one option only (`"A,C"` gave `option_not_found`): a comma-separated `option_label`/`value` (a list in pw_chain) now selects every option named, and the recorder replays them all. A download started by a click or a key is reported in the gesture's result (`downloads: [{file, path, size}]`, saved under `downloads/<account>/`). pw_act takes `position` ({x, y} from the target's top-left corner) to click, double-click, right-click or hover one point of a canvas or a map. pw_visual takes `mask` (CSS selectors painted over in both the capture and the baseline, `masked`, `mask_not_found`) and answers `element_not_found` after 5 s when its `selector` matches nothing, instead of waiting 30 s.
 - **Browser sessions closed silently at the session limit.** Opening sessions beyond the limit (3 per owner, 4 for an account and its sub-agents) closed the oldest ones without a word, the main working session and a session opened for a secret included, and `pw_session list` only showed the global maximum (10). A session that is busy (a request running or waiting) or opened for a vault secret is now never closed; an isolated session gives way before the main one; the start result names the closed sessions (`evicted_sessions`, with the reason) and adds a warning; when no session can give way the start is refused (`browser_quota` with `protected_sessions` and a fix). `list` gives `max_per_owner`, `max_per_group` and `effective_max` next to `max`, and marks isolated and secret sessions.
 - **pw_recorder exports.** A fill or click inside an iframe was exported on the page (it could not replay); the recorder now notes the frames of each gesture and replays it in its frame (`frameLocator` chain in Playwright, the frame's document body in Cypress, `>>>` in Robot). `pick` on a dropdown (custom list, autocomplete, native select) was not recorded at all; it is now exported as its real steps (open and click the option, type and choose, or select). Uploads were a JSON comment: they are exported as `setInputFiles`, `selectFile` or `Upload File By Selector` with the file names, which dump lists in its notes. The Robot export opened a new tab for every `goto`: only the first one is `New Page`, the next ones are `Go To`. Options, menu items and tabs are recorded by role and name.
@@ -680,12 +708,6 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
-- **Browser service: hardening after code scanning.** Calls to the service are rate-limited
-  (300 per second for the tool host, `rate_limited` beyond). A regular expression given by the
-  caller (`pw_expect` `url-matches`, `pw_mock` with `is_regex`) is compiled and tried apart under
-  a time limit: a pattern with endless backtracking answers "no match" instead of holding the
-  service. Screenshot and visual reference files are written through a check that keeps their
-  name inside its folder. Closing a tab no longer reads the tab list through a caller-given key.
 - **RAG: chunking regular expressions off the event loop.** A collection or document chunked by
   a regular expression ran it on the core's event loop, with a 2-second limit per run but none
   per document, so a slow pattern over many blocks could hold main for minutes. Chunking with a

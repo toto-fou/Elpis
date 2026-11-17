@@ -1,6 +1,6 @@
 {
   "name": "@elpis/navigateur",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -9,13 +9,13 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@elpis/bac": "0.1.2",
-    "@elpis/commun": "0.1.2",
-    "@elpis/config": "0.1.2",
-    "@elpis/db": "0.1.2",
-    "@elpis/mcp": "0.1.2",
-    "@elpis/outils-mcp": "0.1.2",
-    "@elpis/securite": "0.1.2",
-    "undici": "8.12.3"
+    "@elpis/bac": "0.1.4",
+    "@elpis/commun": "0.1.4",
+    "@elpis/config": "0.1.4",
+    "@elpis/db": "0.1.4",
+    "@elpis/mcp": "0.1.4",
+    "@elpis/outils-mcp": "0.1.4",
+    "@elpis/securite": "0.1.4",
+    "undici": "8.12.4"
   }
 }

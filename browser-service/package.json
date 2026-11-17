@@ -1,6 +1,6 @@
 {
   "name": "mcp-browser-service",
-  "version": "12.0.0",
+  "version": "0.1.4",
   "private": true,
   "license": "MIT",
   "description": "Autonomous Playwright Server V12",

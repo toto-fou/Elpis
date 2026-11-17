@@ -179,7 +179,7 @@ describe("routes du bureau rejouées contre la vraie app FastAPI", () => {
     rmSync(dossier, { recursive: true, force: true });
   });
 
-  it("famille conforme à l'inventaire : main seulement, publiques comme en Python, trames relayées vers l'hôte d'outils", () => {
+  it("famille conforme à l'inventaire, plus la CA locale reprise de /api/cli/ca.crt : main seulement, publiques comme en Python, trames relayées vers l'hôte d'outils", () => {
     const inventaire = pyJsonLoads(
       readFileSync(new URL("../../../../migration-kit/routes.inventory.json", import.meta.url), "utf-8"),
     ) as { routes: { methodes: string[]; chemin: string; process: string[]; publique: boolean | null }[] };
@@ -191,9 +191,12 @@ describe("routes du bureau rejouées contre la vraie app FastAPI", () => {
     expect(attendues).toHaveLength(22);
     const famille = creerFamilleBureau({ base: t.base, auth: dependancesParDefaut(t.base) });
     expect(famille.routes.map((r) => `${String(r.methode)} ${r.chemin} ${r.acces}`).sort()).toEqual(
-      attendues
-        .map((r) => `${r.methodes.join(",")} ${r.chemin} ${r.publique === false ? "session" : "public"}`)
-        .sort(),
+      [
+        ...attendues.map(
+          (r) => `${r.methodes.join(",")} ${r.chemin} ${r.publique === false ? "session" : "public"}`,
+        ),
+        "GET /api/desktop/ca.crt public",
+      ].sort(),
     );
     expect(new Set(famille.routes.flatMap((r) => [...r.processus]))).toEqual(new Set(["main"]));
   });

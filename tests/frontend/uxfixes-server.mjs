@@ -234,13 +234,7 @@ http.createServer(async (req, res) => {
         // ── Boot (logged-in, MCP activé) ────────────────────────────────
         if (url === '/api/public-config') return json(res, { app_info: { name: 'Elpis' }, features: {} });
         if (url === '/api/me-lite') return json(res, { logged_in: true, id: 1, username: 'alice', is_admin: false, role: 'user', avatar: null });
-        // opencode : familles d'outils publiées (une entrée MCP chacune) et
-        // capture du PUT de préférences (bascule « Outils » de la modale).
-        if (url === '/api/cli/opencode/families') return json(res, { families: [
-            { name: 'git', label: 'Git', server: 'elpis-git', enabled: true },
-            { name: 'browser', label: 'Navigateur', server: 'elpis-browser', enabled: true },
-            { name: 'desktop', label: "Contrôle d'écran", server: 'elpis-desktop', enabled: true },
-        ] });
+        // Capture du PUT de préférences.
         if (url === '/mock/last-settings-put') return json(res, lastSettingsPut || {});
         if (url === '/api/settings' && req.method === 'PUT') {
             let body = '';

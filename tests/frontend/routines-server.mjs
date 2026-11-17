@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Harnais route-mock pour VÉRIFIER la page « Routines » (journal des runs :
 // rendu Markdown de la réponse, fichiers produits cliquables) sans backend ni
-// scheduler. Même recette que code-server.mjs : @include + /static, mocks
+// scheduler. Recette des autres harnais : @include + /static, mocks
 // /api/routines*. GET /__opened liste les fichiers ouverts dans l'éditeur.
 // Lancement : PERF_PORT=8907 node tests/frontend/routines-server.mjs
 import http from 'http';

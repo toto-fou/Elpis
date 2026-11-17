@@ -18,8 +18,6 @@ import {
   brancherGardeUrl,
   CLES_HERITEES,
   clientBuiltinRef,
-  DEFAULT_OPENCODE_EXCLUDE,
-  DEFAULT_OPENCODE_FAMILIES,
   delegationToken,
   entreeReprise,
   estConfigIntegree,
@@ -32,13 +30,10 @@ import {
   mergePairs,
   mergePersonalMcp,
   normalizeSecret,
-  opencodeEntryFor,
-  opencodeFamilies,
   originAllowed,
   oublierVerdictsUrl,
   pairsPublic,
   parseFamilies,
-  parseFamilySet,
   personalPublic,
   personalToConfig,
   publicId,
@@ -68,10 +63,6 @@ function estDictTest(v: unknown): v is Dict {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-function trie(v: unknown): unknown {
-  return v instanceof Set ? [...(v as Set<string>)].sort() : v;
-}
-
 describe("familles d'outils", () => {
   const F = V["familles"] as Dict;
 
@@ -82,11 +73,9 @@ describe("familles d'outils", () => {
     expect([...SANDBOX_FAMILIES]).toEqual(c["SANDBOX_FAMILIES"]);
     expect([...APP_FAMILIES]).toEqual(c["APP_FAMILIES"]);
     expect(FAMILY_CATEGORY).toEqual(c["FAMILY_CATEGORY"]);
-    expect(DEFAULT_OPENCODE_FAMILIES).toBe(c["DEFAULT_OPENCODE_FAMILIES"]);
-    expect(DEFAULT_OPENCODE_EXCLUDE).toBe(c["DEFAULT_OPENCODE_EXCLUDE"]);
   });
 
-  it("parse_families et parse_family_set : sortie et avertissements", async () => {
+  it("parse_families : sortie et avertissements", async () => {
     for (const cas of F["parse_families"] as Dict[]) {
       const avert: string[] = [];
       await rejouer(
@@ -96,35 +85,11 @@ describe("familles d'outils", () => {
       );
       expect(avert, String(cas["raw"])).toEqual(cas["warnings"]);
     }
-    for (const cas of F["parse_family_set"] as Dict[]) {
-      const avert: string[] = [];
-      await rejouer(
-        () => trie(parseFamilySet(cas["raw"] as string, (m) => avert.push(m))),
-        cas["out"] as Issue,
-        String(cas["raw"]),
-      );
-      expect(avert, String(cas["raw"])).toEqual(cas["warnings"]);
-    }
   });
 
-  it("is_family_name et opencode_families sans manifeste", async () => {
+  it("is_family_name", () => {
     for (const cas of F["is_family_name"] as Dict[])
       expect(isFamilyName(cas["segment"]), String(cas["segment"])).toBe(cas["out"]);
-    for (const cas of F["opencode_families"] as Dict[]) {
-      const avert: string[] = [];
-      await rejouer(
-        () =>
-          opencodeFamilies({
-            includeRaw: cas["include"] as string | null,
-            excludeRaw: cas["exclude"] as string | null,
-            warn: (m) => avert.push(m),
-            useManifest: false,
-          }),
-        cas["out"] as Issue,
-        JSON.stringify(cas),
-      );
-      expect(avert, JSON.stringify(cas)).toEqual(cas["warnings"]);
-    }
   });
 });
 
@@ -188,13 +153,9 @@ describe("délégation", () => {
     expect(verifyDelegation("dlg_x.y", "", { now: maintenant })).toEqual(D["sans_cle"]);
     await rejouer(
       () =>
-        delegationToken(
-          { username: "alice", user_id: 7, kind: "opencode", families: ["git", "browser"] },
-          "",
-          {
-            now: maintenant,
-          },
-        ),
+        delegationToken({ username: "alice", user_id: 7, kind: "tools", families: ["git", "browser"] }, "", {
+          now: maintenant,
+        }),
       D["signature_sans_cle"] as Issue,
       "sans clé",
       true,
@@ -473,7 +434,7 @@ describe("serveurs des comptes", () => {
 describe("registre local (déprécié)", () => {
   const R = V["registre"] as Dict;
 
-  it("local_servers et opencode_entry_for", async () => {
+  it("local_servers", async () => {
     for (const cas of R["local_servers"] as Dict[]) {
       const restaurer = surchargerConfig({
         LOCAL_MCP_SERVERS_RAW: cas["raw"] as never,
@@ -486,7 +447,5 @@ describe("registre local (déprécié)", () => {
         restaurer();
       }
     }
-    for (const cas of R["opencode_entry_for"] as Dict[])
-      expect(opencodeEntryFor(cas["d"] as Dict)).toEqual(cas["out"]);
   });
 });

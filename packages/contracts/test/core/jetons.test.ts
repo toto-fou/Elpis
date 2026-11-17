@@ -32,11 +32,17 @@ describe("contrats REST : jetons (core réel)", () => {
       }),
     );
     expect(cree.token).toMatch(/^ept_/u);
-    await core.appeler("POST", "/api/tokens", { cookie, corps: { kind: "opencode", name: "cli", days: "" } });
+    await core.appeler("POST", "/api/tokens", {
+      cookie,
+      corps: { kind: "tools", name: "cli", families: ["git"], days: "" },
+    });
     await core.appeler("POST", "/api/tokens", { cookie, corps: { name: "vide" } });
     await core.appeler("POST", "/api/tokens", { cookie, corps: { kind: "inconnu" } });
     expect(await core.appeler("GET", "/api/tokens", { cookie })).toMatchObject({
-      tokens: [{ kind: "opencode" }, { name: "outils", families: ["fs"] }],
+      tokens: [
+        { name: "cli", families: ["git"] },
+        { name: "outils", families: ["fs"] },
+      ],
     });
     const nouveau = schemaReponseJetonCree.parse(
       await core.appeler("POST", `/api/tokens/${cree.item.id}/regenerate`, { cookie }),

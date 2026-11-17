@@ -205,7 +205,6 @@ describe("garde de focus des grandes fenêtres", () => {
       modalState: ref({ isOpen: false }),
       contextMenu: ref({ isOpen: false }),
       showInfoModal: ref(false),
-      showOpenCodeModal: ref(false),
       imgZoom: ref(null),
       showNotifPanel: ref(false),
       menuPagesOuvert: ref(false),
@@ -232,7 +231,6 @@ describe("garde de focus des grandes fenêtres", () => {
       modalState: ref({ isOpen: false }),
       contextMenu: ref({ isOpen: false }),
       showInfoModal: ref(false),
-      showOpenCodeModal: ref(false),
     } as unknown as EtatClavier;
     const { onGlobalKeydown } = creerClavier(s);
     document.getElementById("p2")?.focus();

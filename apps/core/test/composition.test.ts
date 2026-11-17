@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/composition.test.ts — composition du core : authentification installée, gardes branchées, anciens jetons convertis au démarrage, bus d'événements, relais, page Code et CLI montés selon le process. */
-import { createUser, creerJeton, signerSession } from "@elpis/auth";
+/** apps/core/test/composition.test.ts — composition du core : authentification installée, gardes branchées, bus d'événements, relais. */
+import { createUser, signerSession } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
-import type { Base } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -22,7 +21,6 @@ import {
   brancherNettoyageNavigateursEnfants,
   composer,
   configurerAuditDuCore,
-  convertirJetonsAuDemarrage,
   serviceDuProcess,
 } from "../src/composition";
 import { remplacerBase } from "../src/base";
@@ -402,24 +400,6 @@ describe("composition du core", () => {
     }
   });
 
-  it("anciens jetons opencode convertis au démarrage, journalisés", async () => {
-    await t.base.exec("CREATE TABLE code_remote_tokens(user_id INTEGER, token TEXT, created_at REAL)");
-    await t.base.run("INSERT INTO code_remote_tokens VALUES (1, ?, 5)", [`pcr_${"a".repeat(40)}`]);
-    await composer("main", t.base, journalMuet, dep);
-    expect(await t.base.all("SELECT kind, hint FROM tool_tokens")).toEqual([
-      { kind: "opencode", hint: "aaaa" },
-    ]);
-    expect(lignesJournal.join("\n")).toContain(
-      "[tokens] 1 ancien(s) jeton(s) opencode converti(s) en empreinte",
-    );
-  });
-
-  it("une conversion en échec est journalisée sans bloquer le démarrage", async () => {
-    const enPanne = { ecriture: () => Promise.reject(new Error("base verrouillée")) } as unknown as Base;
-    await expect(convertirJetonsAuDemarrage(enPanne, journalMuet)).resolves.toBeUndefined();
-    expect(lignesJournal.join("\n")).toContain("[tokens] conversion des anciens jetons impossible");
-  });
-
   it("audit du process : APP_SERVICE prioritaire, sinon le mode ; clé illisible journalisée", () => {
     const d = mkdtempSync(join(tmpdir(), "elpis-audit-core-"));
     try {
@@ -579,11 +559,10 @@ describe("composition du core", () => {
       });
       expect(dansAdmin.statusCode).toBe(404);
 
-      expect(await main.evenements.revoquer(1)).toEqual({ uid: 1, systeme: 0, pipeline: 0, terminaux: 0 });
+      expect(await main.evenements.revoquer(1)).toEqual({ uid: 1, systeme: 0, terminaux: 0 });
       expect(await main.evenements.revoquer(null)).toEqual({
         uid: null,
         systeme: 0,
-        pipeline: 0,
         terminaux: -1,
       });
       await appMain.close();
@@ -648,7 +627,7 @@ describe("composition du core", () => {
     }
   });
 
-  it("voix, RAG intégré et bureau dans main seulement ; publics : archive, installeurs et vision des scripts", async () => {
+  it("voix, RAG intégré et bureau dans main seulement ; publics : archive, installeurs, CA locale et vision des scripts", async () => {
     for (const mode of ["main", "admin"] as const) {
       const c = await composer(mode, t.base, journalMuet, dep);
       const app = await appTest({ ...c, mode });
@@ -708,57 +687,13 @@ describe("composition du core", () => {
               "POST /api/desktop/automation-bundle session",
               "GET /api/desktop/install.sh public",
               "GET /api/desktop/install.ps1 public",
+              "GET /api/desktop/ca.crt public",
               "GET /agent public",
               "GET /agent.ps1 public",
             ]
           : [],
       );
       await app.close();
-    }
-  });
-
-  it("page Code et CLI dans main seulement ; le flux de la page Code écoute le bus du process, fermé à la révocation", async () => {
-    const dossier = mkdtempSync(join(tmpdir(), "elpis-composition-code-"));
-    writeFileSync(join(dossier, "config.json"), "{}");
-    const restaurer = surchargerConfig({ CONFIG_JSON_PATH: join(dossier, "config.json") });
-    invalidateConfigCache();
-    try {
-      for (const mode of ["main", "admin"] as const) {
-        const c = await composer(mode, t.base, journalMuet, dep);
-        const app = await appTest({ ...c, mode });
-        expect([routesDe(app, "code").length, routesDe(app, "cli").length], mode).toEqual(
-          mode === "main" ? [33, 8] : [0, 0],
-        );
-        await app.close();
-      }
-      const c = await composer("main", t.base, journalMuet, dep);
-      const app = await appTest(c);
-      await app.listen({ port: 0, host: "127.0.0.1" });
-      const { port } = app.server.address() as { port: number };
-      const cookie = `mcpwebui_session=${signerSession({ user_id: 1, _login_ts: T - 10 }, "secret-de-test", T)}`;
-      const flux = await fetch(`http://127.0.0.1:${port}/api/code/stream`, { headers: { cookie } });
-      expect(flux.status).toBe(200);
-      for (let i = 0; i < 100 && c.evenements.pipelineEvents.snapshotQueues(1).length === 0; i++)
-        await new Promise((r) => setTimeout(r, 10));
-      const [jeton] = await creerJeton(dep, 1, "opencode", "cli");
-      const bye = await app.inject({
-        method: "POST",
-        url: "/api/code/bye",
-        headers: { "x-elpis-token": jeton },
-        payload: { client: "c1" },
-      });
-      expect(bye.json()).toEqual({ ok: true });
-      expect(await c.evenements.revoquer(1)).toEqual({ uid: 1, systeme: 0, pipeline: 1, terminaux: 0 });
-      const texte = await flux.text();
-      expect(texte).toContain(
-        'data: {"type": "client.disconnected", "properties": {"client": "c1"}}\r\n\r\n',
-      );
-      expect(texte.endsWith('data: {"__control": {"type": "session_expired"}}\r\n\r\n')).toBe(true);
-      await app.close();
-    } finally {
-      restaurer();
-      invalidateConfigCache();
-      rmSync(dossier, { recursive: true, force: true });
     }
   });
 });

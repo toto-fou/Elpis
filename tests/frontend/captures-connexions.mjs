@@ -11,8 +11,8 @@ await page.setViewportSize({ width: 1280, height: 900 });
 const checks = [];
 const ok = (n, c) => { checks.push([c, n]); if (!c) console.log('  ✗ ' + n); };
 
-let jetons = [{ id: 1, user_id: 1, kind: 'opencode', name: 'opencode - poste-a', hint: 'x9Kq', families: [],
-                created_at: 1780000000, expires_at: null, last_used_at: 1780500000 }];
+let jetons = [{ id: 1, user_id: 1, kind: 'tools', name: 'agent CI', hint: 'x9Kq', families: ['fs', 'git'],
+                created_at: 1780000000, expires_at: 1783000000, last_used_at: 1780500000 }];
 const POLICY = { tools_enabled: true, tools_families: ['fs', 'shell', 'git', 'desktop', 'skill_run'], max_days: 90, max_per_user: 20,
                  families: [{ name: 'fs', label: 'Fichiers' }, { name: 'shell', label: 'Shell' },
                             { name: 'git', label: 'Git' }, { name: 'desktop', label: 'Bureau' },
@@ -26,7 +26,7 @@ await page.route('**/api/tokens', async (route) => {
         jetons = [item, ...jetons];
         return route.fulfill({ json: { token: 'ept_Demo0nlyShownOnce_Qw3r', item } });
     }
-    return route.fulfill({ json: { tokens: jetons, policy: POLICY, opencode_enabled: true,
+    return route.fulfill({ json: { tokens: jetons, policy: POLICY,
                                    bridge_url: 'http://elpis.lan/api/mcp-bridge',
                                    tools_url: 'http://elpis.lan/api/tools' } });
 });
@@ -36,7 +36,7 @@ try {
     await page.locator('button[title="Paramètres"]:visible').first().click();
     await page.locator('button:has-text("Connexions"):visible').first().click();
     await page.waitForTimeout(500);
-    ok('liste affichée', await page.locator('text=opencode - poste-a').isVisible());
+    ok('liste affichée', await page.locator('text=agent CI').isVisible());
     await page.screenshot({ path: DIR + '/connexions-1-liste.png' });
     await page.locator('button:has-text("Nouveau jeton")').click();
     await page.locator('#cnx-name').fill('VS Code du bureau');

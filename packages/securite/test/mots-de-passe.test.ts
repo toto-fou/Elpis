@@ -132,7 +132,7 @@ describe("bytes.fromhex, compare_digest et tokens.digest", () => {
 });
 
 describe("secrets.token_hex / token_urlsafe", () => {
-  it("ont la forme de Python (sel de 16 octets, jeton pcr_ de 30 octets)", () => {
+  it("ont la forme de Python (sel de 16 octets, jeton personnel de 30 octets)", () => {
     expect(tokenHex(16)).toMatch(/^[0-9a-f]{32}$/);
     expect(tokenHex()).toMatch(/^[0-9a-f]{64}$/);
     expect(tokenUrlsafe(30)).toMatch(/^[A-Za-z0-9_-]{40}$/);

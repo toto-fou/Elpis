@@ -100,7 +100,6 @@ function monterTout(brouillon = "") {
     modalState: Vue.ref({ isOpen: false }),
     contextMenu: Vue.ref({ isOpen: false }),
     showInfoModal: Vue.ref(false),
-    showOpenCodeModal: Vue.ref(false),
     imgZoom: Vue.ref(null),
     showNotifPanel: Vue.ref(false),
     menuPagesOuvert: Vue.ref(false),

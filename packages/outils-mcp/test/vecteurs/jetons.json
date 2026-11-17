@@ -129,30 +129,6 @@
     },
     {
       "entree": {
-        "sub": "bob",
-        "uid": "7",
-        "kind": "opencode",
-        "families": [
-          "git"
-        ]
-      },
-      "client_id": "opencode:bob",
-      "scopes": [
-        "local-tools"
-      ],
-      "claims": {
-        "username": "bob",
-        "trusted_meta": false,
-        "client_kind": "opencode",
-        "delegated": true,
-        "scopes": [
-          "local-tools"
-        ],
-        "user_id": 7
-      }
-    },
-    {
-      "entree": {
         "sub": "carl",
         "uid": null,
         "kind": "oauth",
@@ -390,78 +366,6 @@
     },
     {
       "claims": {
-        "client_kind": "opencode"
-      },
-      "famille": null,
-      "cachees": [
-        "chart",
-        "fs",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
-        "client_kind": "opencode"
-      },
-      "famille": "git",
-      "cachees": [
-        "browser",
-        "chart",
-        "desktop",
-        "fs",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
-        "client_kind": "opencode"
-      },
-      "famille": "memory",
-      "cachees": [
-        "browser",
-        "chart",
-        "desktop",
-        "fs",
-        "git",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
-        "client_kind": "opencode"
-      },
-      "famille": "fs",
-      "cachees": [
-        "browser",
-        "chart",
-        "desktop",
-        "fs",
-        "git",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
         "client_kind": "tools",
         "families": [
           "git"
@@ -1013,96 +917,6 @@
         "browser",
         "chart",
         "desktop",
-        "git",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
-        "client_kind": "opencode",
-        "families": [
-          "git",
-          "fs"
-        ]
-      },
-      "famille": null,
-      "cachees": [
-        "browser",
-        "chart",
-        "desktop",
-        "fs",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
-        "client_kind": "opencode",
-        "families": [
-          "git",
-          "fs"
-        ]
-      },
-      "famille": "git",
-      "cachees": [
-        "browser",
-        "chart",
-        "desktop",
-        "fs",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
-        "client_kind": "opencode",
-        "families": [
-          "git",
-          "fs"
-        ]
-      },
-      "famille": "memory",
-      "cachees": [
-        "browser",
-        "chart",
-        "desktop",
-        "fs",
-        "git",
-        "memory",
-        "office",
-        "shell",
-        "skill",
-        "skill_run",
-        "todo"
-      ]
-    },
-    {
-      "claims": {
-        "client_kind": "opencode",
-        "families": [
-          "git",
-          "fs"
-        ]
-      },
-      "famille": "fs",
-      "cachees": [
-        "browser",
-        "chart",
-        "desktop",
-        "fs",
         "git",
         "memory",
         "office",

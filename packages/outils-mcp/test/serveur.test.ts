@@ -29,7 +29,6 @@ afterEach(async () => {
 function serveur(o: OptionsServeur = {}, journal: unknown[] = []): ServeurOutils {
   const s = new ServeurOutils({
     version: "9.9.9",
-    famillesOpencode: ["git"],
     limiteDebit: null,
     limiteConcurrence: null,
     ...o,
@@ -117,12 +116,9 @@ describe("tools/list", () => {
     expect(() => decoderCurseur("eyJvIjogMn0")).toThrow("Invalid cursor");
   });
 
-  it("portée de session, opencode, jeton d'outils, délégation sans famille, extinctions", async () => {
+  it("portée de session, jeton d'outils, délégation sans famille, extinctions", async () => {
     const s = serveur({ outilsEteints: () => ["texte_brut", "inexistant"] });
     expect(noms(await (await client(s, { famille: "memory" })).requete("tools/list"))).toEqual(["memory"]);
-    expect(
-      noms(await (await client(s, { jeton: jeton({ client_kind: "opencode" }) })).requete("tools/list")),
-    ).toEqual(["git_query"]);
     const outilsGitMem = await client(s, {
       jeton: jeton({ client_kind: "tools", families: ["git", "memory"] }),
     });
@@ -316,7 +312,7 @@ describe("notifications", () => {
 describe("identité et limites", () => {
   function serveurIdentite(o: OptionsServeur = {}): { s: ServeurOutils; vus: unknown[] } {
     const vus: unknown[] = [];
-    const s = new ServeurOutils({ famillesOpencode: [], limiteDebit: null, limiteConcurrence: null, ...o });
+    const s = new ServeurOutils({ limiteDebit: null, limiteConcurrence: null, ...o });
     s.enregistrerFamille("todo", [
       {
         nom: "qui",

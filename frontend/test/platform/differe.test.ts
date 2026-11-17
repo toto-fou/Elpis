@@ -62,8 +62,8 @@ describe("morceaux à la demande", () => {
     const m = creerMorceaux(
       {
         studio: () => Promise.resolve({ default: "PageStudio" }),
-        code: () =>
-          coupure ? Promise.reject(new Error("coupure")) : Promise.resolve({ default: "PageCode" }),
+        agents: () =>
+          coupure ? Promise.reject(new Error("coupure")) : Promise.resolve({ default: "PageAgents" }),
         rag: () => Promise.reject(new Error("404")),
       },
       {
@@ -78,11 +78,11 @@ describe("morceaux à la demande", () => {
     expect(charges).toEqual(["studio"]);
 
     servir(() => Promise.resolve(new Response(PAGE)));
-    await m.demander("code");
+    await m.demander("agents");
     expect([charges, echecs.length, recharge.mock.calls.length]).toEqual([["studio"], 1, 0]);
     coupure = false;
     echecs[0]?.();
-    await vi.waitFor(() => expect(charges).toEqual(["studio", "code"]));
+    await vi.waitFor(() => expect(charges).toEqual(["studio", "agents"]));
 
     servir(() => Promise.resolve(new Response(PAGE.replace("AAAA1111", "CCCC3333"))));
     saisie = "brouillon en cours";

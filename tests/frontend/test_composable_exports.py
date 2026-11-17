@@ -33,7 +33,7 @@ SRC = RACINE / "frontend" / "src"
 COMPOSABLES = [
     "features/chat/coeur/chat.ts", "features/reglages/reglages.ts", "features/editor/editeur.ts", "features/auth/auth.ts",
     "features/routines/routines.ts", "features/skills/skills.ts",
-    "features/studio/menu.ts", "features/code/code.ts", "features/studio/automatisation.ts",
+    "features/studio/menu.ts", "features/studio/automatisation.ts",
     "features/mascotte/mascotte.ts",
 ]
 

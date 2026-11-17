@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/page/menu-compte.test.ts — menu du compte dans le pied du volet : nom et rôle, Aide, Informations, Installer opencode, Se déconnecter ; rail réduit. */
+/** frontend/test/chat/page/menu-compte.test.ts — menu du compte dans le pied du volet : nom et rôle, Aide, Informations, Se déconnecter ; rail réduit. */
 import { nextTick } from "vue";
 import type { InjectionKey } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
@@ -28,7 +28,7 @@ describe("rôle et position", () => {
 
 describe("pied du volet", () => {
   it("le nom ouvre le menu du compte ; le pied garde notifications, Paramètres, Admin", async () => {
-    const b = barre({ user: { username: "alice", is_admin: 1 }, features: { opencode: true } });
+    const b = barre({ user: { username: "alice", is_admin: 1 } });
     const hote = monter(BarreLaterale, [[cle, b]]);
     const pied = hote.querySelector(".elpis-rail-foot:last-child") as HTMLElement;
     expect(pied.querySelector('button[title="Déconnexion"]')).toBeNull();
@@ -43,7 +43,7 @@ describe("pied du volet", () => {
     const menu = document.querySelector('[role="menu"][aria-label="Compte"]') as HTMLElement;
     expect(texte(menu.querySelector("[data-compte-identite]"))).toBe("aliceAdministrateur");
     const items = [...menu.querySelectorAll('[role="menuitem"]')] as HTMLElement[];
-    expect(items.map(texte)).toEqual(["Aide", "Informations", "Installer opencode", "Se déconnecter"]);
+    expect(items.map(texte)).toEqual(["Aide", "Informations", "Se déconnecter"]);
     expect(document.activeElement).toBe(items[0]);
     menu.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(document.activeElement).toBe(items[1]);
@@ -56,13 +56,12 @@ describe("pied du volet", () => {
     expect(noms()).toContain("logout");
   });
 
-  it("Échap ferme et rend le focus ; sans opencode, pas d'installation", async () => {
+  it("Échap ferme et rend le focus", async () => {
     const hote = monter(BarreLaterale, [[cle, barre()]]);
     const bouton = hote.querySelector("[data-menu-compte]") as HTMLButtonElement;
     bouton.click();
     await nextTick();
     const menu = document.querySelector('[role="menu"][aria-label="Compte"]') as HTMLElement;
-    expect(menu.textContent).not.toContain("opencode");
     menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await nextTick();
     expect(bouton.getAttribute("aria-expanded")).toBe("false");

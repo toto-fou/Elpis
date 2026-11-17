@@ -11,13 +11,6 @@
       null
     ],
     [
-      "bob",
-      "opencode",
-      "pcr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "",
-      null
-    ],
-    [
       "alice",
       "tools",
       "ept_cccccccccccccccccccccccccccccccccccccccc",
@@ -794,14 +787,11 @@
       }
     },
     {
-      "statut": 200,
-      "corps": "{\"methode\": \"POST\", \"chemin\": \"/mcp/git\", \"entetes\": {\"accept\": \"application/json, text/event-stream\", \"content-type\": \"application/json\", \"accept-encoding\": \"identity\", \"user-agent\": \"client-test/1\"}, \"delegation\": \"service\", \"claims\": {\"sub\": \"bob\", \"uid\": 2, \"kind\": \"opencode\", \"families\": []}, \"corps\": \"{\\\"jsonrpc\\\": \\\"2.0\\\", \\\"id\\\": 2, \\\"method\\\": \\\"tools/list\\\"}\"}",
+      "statut": 401,
+      "corps": "{\"detail\":\"Jeton invalide, expir\u00e9 ou r\u00e9voqu\u00e9.\"}",
       "entetes": {
         "content-type": "application/json",
-        "cache-control": "no-store",
-        "x-accel-buffering": "no",
-        "mcp-session-id": "s-1",
-        "x-amont": "oui"
+        "www-authenticate": "Bearer error=\"invalid_token\", resource_metadata=\"http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge/git\", scope=\"tools:git\""
       }
     },
     {

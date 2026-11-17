@@ -55,12 +55,10 @@ describe("table, délégation, portée, liaison (vecteurs local_mcp_server.py)",
   });
 
   it("hidden_families_for_current_client (jeton × portée par l'URL)", () => {
-    const opencode = new Set(["git", "browser", "desktop"]);
     for (const c of V.cachees)
-      expect(
-        [...famillesCachees(c.claims, c.famille, opencode)].sort(),
-        JSON.stringify([c.claims, c.famille]),
-      ).toEqual(c.cachees);
+      expect([...famillesCachees(c.claims, c.famille)].sort(), JSON.stringify([c.claims, c.famille])).toEqual(
+        c.cachees,
+      );
   });
 
   it("bind_allowed", () => {
@@ -98,12 +96,12 @@ describe("vérificateur Bearer", () => {
       expect(await v.verifier(faux)).toBeNull();
   });
 
-  it("jetons personnels : base d'abord (cache 15 s, 5 s si inconnu), puis introspection ; type outils ou opencode", async () => {
+  it("jetons personnels : base d'abord (cache 15 s, 5 s si inconnu), puis introspection ; jeton d'outils seul", async () => {
     vi.useFakeTimers({ toFake: ["performance"] });
     try {
       const base = new Map<string, IdentiteJeton>([
         ["ept_" + "a".repeat(40), { username: "alice", kind: "tools", families: ["git", "fs"] }],
-        ["pcr_" + "b".repeat(40), { username: "bob", kind: "opencode", families: [] }],
+        ["ept_" + "b".repeat(40), { username: "bob", kind: "vision", families: [] }],
       ]);
       const lus: string[] = [];
       const introspectes: string[] = [];
@@ -117,7 +115,9 @@ describe("vérificateur Bearer", () => {
           actif: true,
           introspectToken: (j) => {
             introspectes.push(j);
-            return Promise.resolve(j === "pcr_distant" ? { username: "carl", families: ["x"] } : null);
+            return Promise.resolve(
+              j === "ept_distant" ? { username: "carl", kind: "tools", families: ["git"] } : null,
+            );
           },
         },
       });
@@ -134,18 +134,14 @@ describe("vérificateur Bearer", () => {
           scopes: ["local-tools"],
         },
       });
-      expect((await v.verifier("pcr_" + "b".repeat(40)))?.claims).toEqual({
-        username: "bob",
-        trusted_meta: false,
-        client_kind: "opencode",
-        scopes: ["local-tools"],
-      });
-      expect((await v.verifier("pcr_distant"))?.client_id).toBe("opencode:carl");
-      expect(await v.verifier("autre")).toBeNull();
+      expect(await v.verifier("ept_" + "b".repeat(40))).toBeNull();
+      expect((await v.verifier("ept_distant"))?.client_id).toBe("tools:carl");
+      for (const autre of ["autre", "pcr_" + "c".repeat(40), "evt_" + "d".repeat(40)])
+        expect(await v.verifier(autre), autre).toBeNull();
       await v.verifier("ept_" + "a".repeat(40));
-      await v.verifier("pcr_distant");
-      expect(lus).toEqual(["ept_" + "a".repeat(40), "pcr_" + "b".repeat(40), "pcr_distant"]);
-      expect(introspectes).toEqual(["pcr_distant", "pcr_distant"]);
+      await v.verifier("ept_distant");
+      expect(lus).toEqual(["ept_" + "a".repeat(40), "ept_" + "b".repeat(40), "ept_distant"]);
+      expect(introspectes).toEqual(["ept_distant", "ept_distant"]);
       base.delete("ept_" + "a".repeat(40));
       vi.advanceTimersByTime(14_000);
       expect(await v.verifier("ept_" + "a".repeat(40))).not.toBeNull();
@@ -163,11 +159,12 @@ describe("vérificateur Bearer", () => {
 
   it("introspection sans compte (absent, vide, blanc, non textuel) : refus", async () => {
     const reponses: Record<string, unknown> = {
-      pcr_absent: { kind: "opencode", families: [] },
-      pcr_vide: { username: "" },
-      pcr_blanc: { username: "  " },
-      pcr_nombre: { username: 7 },
-      pcr_null: { username: null },
+      ept_absent: { kind: "tools", families: [] },
+      ept_vide: { username: "" },
+      ept_blanc: { username: "  " },
+      ept_nombre: { username: 7 },
+      ept_null: { username: null },
+      ept_sans_genre: { username: "dan", families: ["git"] },
     };
     const v = new VerificateurJetons({
       table,

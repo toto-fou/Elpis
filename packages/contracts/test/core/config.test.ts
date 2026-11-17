@@ -42,7 +42,7 @@ describe("contrats REST : configuration (core réel)", () => {
   it("configuration publique, lisible sans session", async () => {
     expect(await core.appeler("GET", "/api/public-config")).toMatchObject({
       app_mode: "main",
-      features: { opencode: true },
+      features: { office_preview: true },
     });
   });
 

@@ -57,11 +57,6 @@
       ]
     ],
     [
-      "modo",
-      "opencode",
-      null
-    ],
-    [
       "bob",
       "vision",
       null
@@ -570,7 +565,7 @@
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"user_id\":3,\"username\":\"modo\",\"network_profile_id\":\"corp\",\"is_admin\":false,\"kind\":\"opencode\",\"families\":[]}",
+      "corps": "{\"ok\":false}",
       "www": null
     },
     {

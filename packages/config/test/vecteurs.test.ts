@@ -212,9 +212,22 @@ function avecEcartDonnees(
   return corrige;
 }
 
-/** Réglages retirés du TS depuis les vecteurs (écart voulu) : `mcp.server_cmd`, sans lecteur depuis le retrait d'elpis-tools ; `llm.max_runs_per_user`, remplacé par `llm.max_requests_per_user` ; `BACKEND_DIR`, dossier de shared_infra retiré. */
-const RETIRES: readonly string[] = ["MCP_SERVER_CMD", "MAX_RUNS_PER_USER", "BACKEND_DIR"];
-const LECTURES_RETIREES: readonly string[] = ["mcp.server_cmd", "llm.max_runs_per_user"];
+/** Réglages retirés du TS depuis les vecteurs (écart voulu) : `mcp.server_cmd`, sans lecteur depuis le retrait d'elpis-tools ; `llm.max_runs_per_user`, remplacé par `llm.max_requests_per_user` ; `BACKEND_DIR`, dossier de shared_infra retiré ; familles et adresse publiées pour opencode, retirées avec Remote code. */
+const RETIRES: readonly string[] = [
+  "MCP_SERVER_CMD",
+  "MAX_RUNS_PER_USER",
+  "BACKEND_DIR",
+  "LOCAL_MCP_OPENCODE_FAMILIES",
+  "LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES",
+  "LOCAL_MCP_PUBLIC_URL",
+];
+const LECTURES_RETIREES: readonly string[] = [
+  "mcp.server_cmd",
+  "llm.max_runs_per_user",
+  "mcp.opencode_families",
+  "mcp.opencode_exclude_families",
+  "mcp.public_url",
+];
 const CLES = vecteurs.cles.filter((c) => !RETIRES.includes(c));
 
 /** Écart voulu : chaque machine de bureau porte `agent_token` (vide sans jeton propre). */
@@ -224,6 +237,13 @@ function avecJetonAgent(v: unknown): unknown {
       ? { ...t, agent_token: "" }
       : t;
   return Array.isArray(v) ? v.map(cible) : cible(v);
+}
+
+/** Écart voulu : le descripteur du serveur intégré n'a plus le défaut `expose_opencode: true`, retiré avec Remote code (une valeur de la configuration reste recopiée). */
+function sansExposeOpencode(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(sansExposeOpencode);
+  if (typeof v !== "object" || v === null) return v;
+  return Object.fromEntries(Object.entries(v).filter(([k, x]) => k !== "expose_opencode" || x !== true));
 }
 
 /** Valeurs attendues du Python sans les réglages retirés, machines de bureau munies de leur jeton. */
@@ -371,7 +391,10 @@ function verifierFonctions(attendu: Fonctions, j: [string, string][], libelle: s
       `${libelle} live_config_value(${chemin})`,
     ).toEqual(resultat);
   }
-  expect(appel(builtinLocalMcp, j), `${libelle} builtin_local_mcp`).toEqual(attendu.builtin_local_mcp);
+  const integre = attendu.builtin_local_mcp;
+  expect(appel(builtinLocalMcp, j), `${libelle} builtin_local_mcp`).toEqual(
+    "valeur" in integre ? { valeur: sansExposeOpencode(integre.valeur) } : integre,
+  );
   expect(appel(builtinLocalMcpUrl, j), `${libelle} builtin_local_mcp_url`).toEqual(
     attendu.builtin_local_mcp_url,
   );
@@ -537,7 +560,9 @@ describe("fonctions pures de config.py", () => {
         const voulu =
           nom === "coerce_desktop_targets" && "valeur" in resultat
             ? { valeur: avecJetonAgent(resultat.valeur) }
-            : resultat;
+            : nom === "mcp_integre" && "valeur" in resultat
+              ? { valeur: sansExposeOpencode(resultat.valeur) }
+              : resultat;
         expect(
           appel(() => fonction(...(decoder(entree) as unknown[])), []),
           `${nom}(${JSON.stringify(entree)})`,

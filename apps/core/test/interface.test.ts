@@ -170,16 +170,12 @@ describe("routes de l'interface", () => {
     >;
     expect(defauts["app_mode"]).toBe("main");
     expect((defauts["welcome"] as Record<string, unknown>)["image_b64"]).toBe("static/elpis-256.png");
-    expect(defauts["features"]).toMatchObject({
-      opencode: true,
-      office_preview: true,
-      voice_stt: false,
-      voice_tts: false,
-    });
+    expect(defauts["features"]).toMatchObject({ office_preview: true, voice_stt: false, voice_tts: false });
+    expect(defauts["features"]).not.toHaveProperty("opencode");
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString("base64");
     const config = {
       welcome: { image_b64: `data:image/png;base64,${png}` },
-      features: { opencode: false },
+      features: { opencode: true, office_preview: false },
       voice: { enabled: true, stt: { endpoint_url: "http://voix:8090" } },
     };
     await avecConfig(config, async () => {
@@ -190,7 +186,8 @@ describe("routes de l'interface", () => {
       expect((r["welcome"] as Record<string, unknown>)["image_b64"]).toMatch(
         /^\/api\/welcome-image\?v=[0-9a-f]{16}$/,
       );
-      expect(r["features"]).toMatchObject({ opencode: false, voice_stt: true, voice_tts: false });
+      expect(r["features"]).toMatchObject({ office_preview: false, voice_stt: true, voice_tts: false });
+      expect(r["features"]).not.toHaveProperty("opencode");
       const logo = await app.inject({ method: "GET", url: "/api/welcome-image" });
       expect([logo.statusCode, logo.headers["content-type"], logo.rawPayload.length]).toEqual([
         200,

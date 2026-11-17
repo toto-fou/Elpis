@@ -1,28 +1,22 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/mcp/familles-compte.test.ts — familles todo et memory servies en processus (SQLite et PostgreSQL) : client `inprocess` du pool, pont `/api/mcp-bridge`, identité, validation, fichiers de la mémoire, liste du chat, plafond de mots, composition. */
+/** apps/core/test/mcp/familles-compte.test.ts — familles todo et memory servies en processus (SQLite et PostgreSQL) : client `inprocess` du pool, identité, validation, fichiers de la mémoire, liste du chat, plafond de mots, composition. */
 import "../moteur-environnement";
 
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createUser, dependancesParDefaut, getUser } from "@elpis/auth";
-import type { DependancesOAuth } from "@elpis/auth";
-import { config, configView, invalidateConfigCache, surchargerConfig } from "@elpis/config";
+import { createUser, getUser } from "@elpis/auth";
+import { config, invalidateConfigCache, surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { load, oublierManifeste } from "@elpis/mcp";
-import { tokenDigest } from "@elpis/securite";
-import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { getChatTodos, upsertChat } from "../../src/chats/stockage";
 import { brancherFamillesDuCompte } from "../../src/composition";
 import { familyCfg } from "../../src/outils/openapi";
-import { creerPontMcp } from "../../src/familles/pont-mcp";
-import type { PontMcp } from "../../src/familles/pont-mcp";
 import { installerComptesMemoire } from "../../src/memoire";
 import { MAX_MOTS_REQUETE, sessionSearch } from "../../src/memoire/outil";
 import { sessionIndexMessages } from "../../src/memoire/sessions";
@@ -34,40 +28,18 @@ import {
   serveurEnProcessus,
   serviceEnProcessus,
 } from "../../src/outils/mcp/en-processus";
-import { appTest, journalMuet } from "../aides";
 
 type Dict = Record<string, unknown>;
 
-const OPENCODE = "pcr_" + "o".repeat(40);
-const J = { "content-type": "application/json", accept: "application/json, text/event-stream" };
-const INIT = {
-  jsonrpc: "2.0",
-  id: 1,
-  method: "initialize",
-  params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } },
-};
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
-
-function messages(texte: string): Dict[] {
-  return texte
-    .split("\r\n\r\n")
-    .filter((b) => b.startsWith("event: message"))
-    .map((b) => JSON.parse(b.split("\r\ndata: ")[1] ?? "null") as Dict);
-}
-
-const resultatDe = (ms: Dict[]): Dict =>
-  (ms.find((m) => m["result"] !== undefined)?.["result"] ?? {}) as Dict;
 
 const texteDe = (r: unknown): string =>
   (((r as Dict)["content"] as Dict[] | undefined) ?? []).map((c) => String(c["text"])).join("");
 
 describe.each(MOTEURS)("familles todo et memory servies en processus (%s)", (moteur) => {
   let t: BaseDeTest;
-  let app: FastifyInstance;
-  let pont: PontMcp;
   let dossier: string;
   let restaurer: () => void;
-  let base = "";
   let uid = 0;
   let refBob = 0;
 
@@ -108,10 +80,6 @@ describe.each(MOTEURS)("familles todo et memory servies en processus (%s)", (mot
     refBob =
       (await t.base.get<{ id: number }>("SELECT id FROM session_messages WHERE user_id=?", [uidBob]))?.id ??
       0;
-    await t.base.run(
-      "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
-      [uid, "opencode", "opencode", tokenDigest(OPENCODE), OPENCODE.slice(-4), "", Date.now() / 1000],
-    );
     dossier = mkdtempSync(join(tmpdir(), "elpis-familles-compte-"));
     writeFileSync(join(dossier, "config.json"), "{}");
     writeFileSync(
@@ -134,31 +102,14 @@ describe.each(MOTEURS)("familles todo et memory servies en processus (%s)", (mot
     vi.stubEnv("APP_MCP_MANIFEST", join(dossier, "mcp.json"));
     oublierManifeste();
     installerComptesMemoire({ idUtilisateur: async (nom) => (await getUser(t.base, nom))?.id ?? null });
-    creerServeurEnProcessus({
-      famillesOpencode: ["memory", "todo"],
-      limiteDebit: null,
-      limiteConcurrence: null,
-    });
+    creerServeurEnProcessus({ limiteDebit: null, limiteConcurrence: null });
     brancherFamillesDuCompte(t.base);
-    const oauth: DependancesOAuth = { base: t.base, config: () => configView() };
-    pont = creerPontMcp({
-      jetons: dependancesParDefaut(t.base),
-      oauth,
-      journal: journalMuet,
-      reverificationMs: 50,
-      enProcessus: () => serviceEnProcessus(),
-    });
-    app = await appTest({ familles: [pont.famille], extensions: [pont.extension] });
-    await app.listen({ port: 0, host: "127.0.0.1" });
-    base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
   });
 
   afterAll(async () => {
     try {
       await poolMcp.reset({ keepPersistent: false });
       await serviceEnProcessus()?.fermer();
-      app?.server.closeAllConnections();
-      await app?.close();
     } finally {
       oublierServeurEnProcessus();
       installerComptesMemoire(null);
@@ -363,88 +314,6 @@ describe.each(MOTEURS)("familles todo et memory servies en processus (%s)", (mot
     expect((await chercher(requete(MAX_MOTS_REQUETE - 1, MAX_MOTS_REQUETE)))["matches"]).toEqual(
       trouve["matches"],
     );
-  });
-
-  async function poster(
-    chemin: string,
-    entetes: Record<string, string>,
-    corps: unknown,
-  ): Promise<{ statut: number; entetes: Headers; texte: string }> {
-    const r = await fetch(base + chemin, {
-      method: "POST",
-      headers: { ...J, ...entetes },
-      body: JSON.stringify(corps),
-    });
-    return { statut: r.status, entetes: r.headers, texte: await r.text() };
-  }
-
-  it("pont /api/mcp-bridge : jeton opencode → délégation, compte du jeton imposé malgré un `_meta` menteur, appels des deux familles", async () => {
-    const auth = { authorization: `Bearer ${OPENCODE}` };
-    const ouvrir = async (famille: string): Promise<Record<string, string>> => {
-      const init = await poster(`/api/mcp-bridge/${famille}`, auth, INIT);
-      expect(init.statut).toBe(200);
-      const S = { ...auth, "mcp-session-id": init.entetes.get("mcp-session-id") ?? "" };
-      await poster(`/api/mcp-bridge/${famille}`, S, { jsonrpc: "2.0", method: "notifications/initialized" });
-      return S;
-    };
-    const SM = await ouvrir("memory");
-    const liste = messages(
-      (await poster("/api/mcp-bridge/memory", SM, { jsonrpc: "2.0", id: 2, method: "tools/list" })).texte,
-    );
-    expect(((liste[0]?.["result"] as Dict)["tools"] as Dict[]).map((o) => o["name"])).toEqual([
-      "memory",
-      "session_search",
-    ]);
-    const ecrit = messages(
-      (
-        await poster("/api/mcp-bridge/memory", SM, {
-          jsonrpc: "2.0",
-          id: 3,
-          method: "tools/call",
-          params: {
-            name: "memory",
-            arguments: { action: "add", store: "memory", content: "Écrit par le pont" },
-            _meta: { username: "mallory", chat_id: "c1" },
-          },
-        })
-      ).texte,
-    );
-    expect((resultatDe(ecrit)["structuredContent"] as Dict)["result"]).toMatchObject({
-      ok: true,
-      action: "add",
-    });
-    expect(readFileSync(join(dossier, "mem", "alice", "memory", "MEMORY.md"), "utf8")).toContain(
-      "Écrit par le pont",
-    );
-    expect(existsSync(join(dossier, "mem", "mallory"))).toBe(false);
-    const ST = await ouvrir("todo");
-    const todo = messages(
-      (
-        await poster("/api/mcp-bridge/todo", ST, {
-          jsonrpc: "2.0",
-          id: 4,
-          method: "tools/call",
-          params: {
-            name: "todowrite",
-            arguments: { todos: [{ content: "Via le pont", status: "pending" }] },
-            _meta: { username: "alice", chat_id: "c1" },
-          },
-        })
-      ).texte,
-    );
-    expect(resultatDe(todo)["structuredContent"]).toMatchObject({ ok: true, total: 1 });
-    expect((await getChatTodos(t.base, uid, "c1"))[0]).toMatchObject({ content: "Via le pont" });
-    const croise = messages(
-      (
-        await poster("/api/mcp-bridge/todo", ST, {
-          jsonrpc: "2.0",
-          id: 5,
-          method: "tools/call",
-          params: { name: "memory", arguments: {} },
-        })
-      ).texte,
-    );
-    expect(JSON.stringify(croise)).toContain("Unknown tool");
   });
 
   it("boucle : executerOutilMcp rend la charge utile JSON de chaque outil par le pool du process (todos gardés pour l'événement UI)", async () => {

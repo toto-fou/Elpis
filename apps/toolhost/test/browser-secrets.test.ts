@@ -35,8 +35,8 @@ const DE_CONFIANCE: JetonAcces = {
   claims: { trusted_meta: true },
 };
 const EXTERNE: JetonAcces = {
-  token: "pcr_x",
-  client_id: "opencode",
+  token: "ept_x",
+  client_id: "tools:alice",
   scopes: [],
   expires_at: null,
   claims: { trusted_meta: false, username: "alice" },

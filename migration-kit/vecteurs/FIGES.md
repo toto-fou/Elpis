@@ -24,12 +24,26 @@ reportés depuis dans les JSON, chacun signalé dans le message de son commit :
 | `apps/core/test/vecteurs/boucle-analyse.json` | `extraction`, `reprise`, `reprise_connus` : du JSON ou des balises dans la prose ne sont plus des appels (réponse entière, ou balisage final du raisonnement), clôture de code comprise |
 | `tests/goldens/boucle_a1_appel_texte_malforme.json` | relance d'un appel illisible : consigne au modèle complétée (« and nothing else in your reply »), une réponse avec autre chose que l'appel n'est plus exécutée |
 | `tests/goldens/boucle_troncature_texte.json` | relance compacte d'une phrase suivie d'une balise ouverte : consigne complétée (« This may be a false alarm… ») car le texte coupé peut être une citation ; `tool_input_tokens` 807 → 808 en découle ; événements, réponse finale et ordre des messages inchangés |
+| `packages/auth/test/vecteurs/auth.json` | retrait de Remote code : plus de genre de jeton `opencode` (préfixes `ept_` et `evt_` seuls, `pcr_…` sans genre) |
+| `packages/mcp/test/vecteurs/mcp-manifeste.json` | sorties sans `opencode_families`, `opencode_prefix`, `opencode_publish` ni familles publiées pour opencode ; entrées gardées (un ancien bloc `x-elpis.opencode` se charge toujours) |
+| `packages/mcp/test/vecteurs/mcp-paquet.json` | constantes, `opencode_families`, `parse_family_set`, `opencode_entry_for` et `expose_opencode` retirés ; jeton délégué recalculé pour le genre `tools` |
+| `packages/outils-mcp/test/vecteurs/jetons.json` | délégation `opencode` et familles cachées d'opencode retirées |
+| `packages/outils-mcp/test/vecteurs/protocole.json` | `LOCAL_MCP_OPENCODE_FAMILIES` et l'étape HTTP d'un jeton délégué `opencode` retirés |
+| `apps/core/test/vecteurs/admin-integrations.json` | vue publique du manifeste sans `opencode_families` ni `opencode_publish` |
+| `apps/core/test/vecteurs/admin-base.json` | transfert sans les tables de Remote code (migration 0031) : 49 tables au lieu de 59, contrôle d'une copie partielle à 50 |
+| `apps/core/test/vecteurs/bureau-lan.json`, `apps/core/test/vecteurs/routes-bureau.json` | seconde source de la CA des installeurs de l'agent : `/api/cli/ca.crt` → `/api/desktop/ca.crt` |
+| `apps/core/test/vecteurs/interne.json` | plus de jeton `opencode` demandé ; l'introspection d'un ancien `pcr_…` rend `{"ok":false}` |
+| `apps/core/test/vecteurs/openapi.json` | le jeton d'un autre genre refusé sur `/api/tools` est un jeton de vision (`evt_…`), plus un `pcr_…` |
+| `apps/core/test/vecteurs/pont-mcp.json` | plus de jeton `opencode` en base ; le pont refuse un ancien `pcr_…` (401 `invalid_token`) |
+| `apps/core/test/vecteurs/reglages.json` | `opencode_mcp_families` ni rendu ni gardé (une ancienne valeur envoyée reste acceptée et ignorée) ; création d'un jeton `opencode` refusée (422), d'où les identifiants suivants décalés d'un ; listes de jetons sans `opencode_enabled` |
 
 Les autres écarts sont déclarés dans les tests qui relisent les vecteurs, sans toucher aux JSON :
 `apps/core/test/aides.ts` (`effacementUnifie`, cookie effacé), `apps/core/test/llm/fournisseurs/ecart-anthropic.ts`
 (réflexion adaptative demandée aussi avec des outils), `apps/core/test/ecart-spdx-css.ts` (en-tête SPDX
-des feuilles de style), `apps/core/test/code/ecart-empreinte-ca.ts` (empreinte de la CA des installeurs),
-`packages/config/test/vecteurs.test.ts` (`mcp.server_cmd` et `llm.max_runs_per_user` retirés, `agent_token` des machines),
+des feuilles de style),
+`packages/config/test/vecteurs.test.ts` (`mcp.server_cmd` et `llm.max_runs_per_user` retirés, `agent_token` des machines,
+réglages d'opencode et défaut `expose_opencode` retirés avec Remote code), `packages/db/test/schema.test.ts` (tables de
+Remote code retirées du schéma, migration 0031),
 `packages/mcp/test/manifeste.test.ts` (repli stdio sur l'hôte TS), `apps/toolhost/test/shell-vecteurs.test.ts`
 (pas de +/- au-delà de 4 000 lignes), `packages/bac/test/bac.test.ts` (« conteneur en marche » gardé 5 min), `packages/securite/test/{identite,mots-de-passe,audit}.test.ts`
 (enveloppe typée et audience refusée, PBKDF2 versionné, clé d'audit sans blancs).
@@ -56,8 +70,6 @@ des feuilles de style), `apps/core/test/code/ecart-empreinte-ca.ts` (empreinte d
 | `bureau_lan` | `apps/core/test/vecteurs/bureau-lan.json` |
 | `capture_parite` | `apps/core/test/vecteurs/capture-parite.json` |
 | `chat_compression` | `apps/core/test/vecteurs/chat-compression.json` |
-| `code_cli` | `apps/core/test/vecteurs/code-cli.json` |
-| `code_page` | `apps/core/test/vecteurs/code-page.json` |
 | `contexte_assemblage` | `apps/core/test/vecteurs/contexte-assemblage.json` |
 | `contexte_compresseur` | `apps/core/test/vecteurs/contexte-compresseur.json` |
 | `contexte_compression` | `apps/core/test/vecteurs/contexte-compression.json` |

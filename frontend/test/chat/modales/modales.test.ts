@@ -161,7 +161,7 @@ describe("barre latérale", () => {
     nomMarque: "Elpis",
     logoApp: "static/elpis-256.png",
     user: { username: "alice" },
-    features: { opencode: false },
+    features: {},
     ragAllowed: false,
     imageAvailable: false,
     menuPagesOuvert: false,
@@ -408,7 +408,7 @@ describe("barre latérale", () => {
     const defaut = "static/elpis-256.png";
     expect(rendre({})).toEqual({ logos: [defaut, defaut], kiki: 0, phosphor: 0 });
   });
-  it("« Plus » sous MCP, Sandbox et Routines : sous-menu RAG, Bibliothèque, Studio, Remote code selon les droits, page active signalée", async () => {
+  it("« Plus » sous MCP, Sandbox et Routines : sous-menu RAG, Bibliothèque, Studio selon les droits, page active signalée", async () => {
     for (const showSidebar of [true, false]) {
       const b = etat<Record<string, unknown>>({
         ...BARRE,
@@ -416,7 +416,6 @@ describe("barre latérale", () => {
         settings: { enable_mcp: true, enable_editor: true },
         ragAllowed: true,
         imageAvailable: true,
-        features: { opencode: true },
       });
       const hote = monter(BarreLaterale, CLE_BARRE as InjectionKey<object>, b);
       const vue = hote.querySelector<HTMLElement>(
@@ -424,12 +423,8 @@ describe("barre latérale", () => {
       );
       const titres = [...(vue?.querySelectorAll<HTMLElement>("button[title]") ?? [])].map((x) => x.title);
       const iSb = titres.indexOf("Sandbox");
-      expect(titres.slice(iSb, iSb + 3)).toEqual([
-        "Sandbox",
-        "Routines",
-        "Plus — RAG, Bibliothèque, Studio, Remote code",
-      ]);
-      expect(titres.some((t) => t === "RAG" || /^Studio d|^Remote code/.test(t))).toBe(false);
+      expect(titres.slice(iSb, iSb + 3)).toEqual(["Sandbox", "Routines", "Plus — RAG, Bibliothèque, Studio"]);
+      expect(titres.some((t) => t === "RAG" || /^Studio d/.test(t))).toBe(false);
       const plus = vue?.querySelector<HTMLButtonElement>("button[data-menu-plus]");
       expect(plus?.getAttribute("aria-haspopup")).toBe("menu");
       expect(plus?.getAttribute("aria-expanded")).toBe("false");
@@ -440,16 +435,11 @@ describe("barre latérale", () => {
       expect(plus?.getAttribute("aria-expanded")).toBe("true");
       expect(plus?.getAttribute("aria-controls")).toBe(menu?.id);
       const entrees = [...(menu?.querySelectorAll<HTMLElement>("[role='menuitem']") ?? [])];
-      expect(entrees.map((e) => e.textContent?.trim())).toEqual([
-        "RAG",
-        "Bibliothèque",
-        "Studio",
-        "Remote code",
-      ]);
+      expect(entrees.map((e) => e.textContent?.trim())).toEqual(["RAG", "Bibliothèque", "Studio"]);
       expect(document.activeElement).toBe(entrees[0]);
       // Flèches entre les pages, avec bouclage.
       menu?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
-      expect(document.activeElement).toBe(entrees[3]);
+      expect(document.activeElement).toBe(entrees[2]);
       // Bibliothèque : la galerie de toutes les images ; le focus passe au déclencheur, où la galerie le rendra.
       entrees[1]?.click();
       await nextTick();
@@ -487,7 +477,7 @@ describe("barre latérale", () => {
       appels.length = 0;
       document.body.innerHTML = "";
     }
-    // Sans droit RAG, ni images, ni opencode : seul Studio reste sous « Plus ».
+    // Sans droit RAG ni images : seul Studio reste sous « Plus ».
     const sansDroits = etat<Record<string, unknown>>({ ...BARRE, menuPagesOuvert: true });
     const hote = monter(BarreLaterale, CLE_BARRE as InjectionKey<object>, sansDroits);
     await nextTick();

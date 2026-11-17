@@ -28,8 +28,8 @@
     "publiques": 57,
     "session_a_relire": 12,
     "par_etat": {
-      "retiré": 1,
-      "ts": 458
+      "retiré": 42,
+      "ts": 417
     },
     "par_prefixe": {
       "/": 2,
@@ -3525,7 +3525,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3544,7 +3544,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3563,7 +3563,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3582,7 +3582,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3604,7 +3604,7 @@
         "session_lue",
         "jeton"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3626,7 +3626,7 @@
         "session_lue",
         "jeton"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3648,7 +3648,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3669,7 +3669,7 @@
       "gardes": [
         "jeton"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3691,7 +3691,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3713,7 +3713,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3735,7 +3735,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3757,7 +3757,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3779,7 +3779,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3801,7 +3801,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3822,7 +3822,7 @@
       "gardes": [
         "jeton"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3843,7 +3843,7 @@
       "gardes": [
         "jeton"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3865,7 +3865,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3887,7 +3887,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3909,7 +3909,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3928,7 +3928,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3947,7 +3947,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3966,7 +3966,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -3985,7 +3985,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4006,7 +4006,7 @@
       "gardes": [
         "jeton"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4028,7 +4028,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4050,7 +4050,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4072,7 +4072,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4094,7 +4094,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4116,7 +4116,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4138,7 +4138,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4160,7 +4160,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4182,7 +4182,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4204,7 +4204,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4226,7 +4226,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4248,7 +4248,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4270,7 +4270,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4292,7 +4292,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4314,7 +4314,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -4336,7 +4336,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -10122,7 +10122,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [
@@ -10141,7 +10141,7 @@
       ],
       "publique": true,
       "gardes": [],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [

@@ -17,7 +17,6 @@ import {
   builtinClientCfgs,
   exportServers,
   normalizeEntry,
-  opencodeFamilies,
   oublierManifeste,
   parseFamilies,
   reglerEnvironnementManifeste,
@@ -167,9 +166,6 @@ function vueEntree(e: ServerEntry | null, racine: string): unknown {
     "families",
     "default_on",
     "default_on_self",
-    "opencode_families",
-    "opencode_prefix",
-    "opencode_publish",
     "sandbox",
     "host",
     "fallback",
@@ -222,7 +218,6 @@ function scenario(m: Manifest, racine: string, attendu: Dict): Dict {
       appel(racine, () => e.endpoints()),
       appel(racine, () => e.endpoints("http://b:1/")),
     ]),
-    opencode_entry: parNom((e) => sansRacine(e.opencodeEntry(), racine)),
     toolhost: m.toolhost()?.name ?? null,
     toolhosts: m.toolhosts(false).map((e) => e.name),
     toolhosts_actifs: m.toolhosts().map((e) => e.name),
@@ -233,8 +228,6 @@ function scenario(m: Manifest, racine: string, attendu: Dict): Dict {
     toolhost_families: m.toolhostFamilies(),
     default_on_categories: [...m.defaultOnCategories()].sort(),
     default_on_externals: m.defaultOnExternals(),
-    opencode_families: m.opencodeFamilies(),
-    opencode_prefix: m.opencodePrefix(),
     hotes: Object.fromEntries(
       Object.keys(attendu["hotes"] as Dict).map((k) => [
         k,
@@ -257,7 +250,6 @@ function scenario(m: Manifest, racine: string, attendu: Dict): Dict {
       [...noms, "absent"].map((n) => [n, sansRacine(resolveExternalCfg(n), racine)]),
     ),
     service_upstream: appel(racine, () => serviceUpstream()),
-    opencode_famille_module: opencodeFamilies(),
     export: exports,
   };
 }
@@ -364,6 +356,47 @@ describe("scénarios complets", () => {
       }
     });
   }
+
+  it("ancien mcp.json aux blocs `x-elpis.opencode` : valide pour le schéma livré, blocs ignorés au chargement", () => {
+    const racine = mkdtempSync(path.join(tmpdir(), "elpis-mcp-ancien-"));
+    mkdirSync(path.join(racine, "docs", "schemas"), { recursive: true });
+    copyFileSync(
+      new URL("../../../docs/schemas/mcp.schema.json", import.meta.url),
+      path.join(racine, "docs", "schemas", "mcp.schema.json"),
+    );
+    const ancien = { families: ["git", "browser"], prefix: "elpis", publish: true };
+    writeFileSync(
+      path.join(racine, "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          "elpis-git": {
+            type: "http",
+            url: "http://127.0.0.1:8765/mcp/git",
+            "x-elpis": { role: "toolhost", identity: "meta", families: ["git"], opencode: ancien },
+          },
+          externe: { type: "http", url: "http://10.0.0.7/mcp", "x-elpis": { opencode: ancien } },
+        },
+      }),
+    );
+    process.env["APP_MCP_MANIFEST"] = path.join(racine, "mcp.json");
+    const restaurer = reglerEnvironnementManifeste({ racine, node: NODE });
+    oublierManifeste();
+    try {
+      const m = reload();
+      expect([m.source, m.errors]).toEqual(["file", []]);
+      const pub = m.toPublicDict();
+      expect((pub["servers"] as Dict[]).map((e) => [e["name"], e["role"], e["families"]])).toEqual([
+        ["elpis-git", "toolhost", ["git"]],
+        ["externe", "external", []],
+      ]);
+      expect(JSON.stringify(pub)).not.toContain("opencode");
+    } finally {
+      restaurer();
+      delete process.env["APP_MCP_MANIFEST"];
+      oublierManifeste();
+      rmSync(racine, { recursive: true, force: true });
+    }
+  });
 
   it("une entrée app sans URL est signalée au chargement comme servie en processus", () => {
     const racine = racineTemporaire({

@@ -972,7 +972,7 @@
       "m": "GET",
       "u": "/api/tools/fs/openapi.json",
       "entetes": {
-        "authorization": "Bearer pcr_pppppppppppppppppppppppppppppppppppppppp"
+        "authorization": "Bearer evt_pppppppppppppppppppppppppppppppppppppppp"
       }
     },
     {

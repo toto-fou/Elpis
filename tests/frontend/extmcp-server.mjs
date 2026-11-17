@@ -141,7 +141,6 @@ http.createServer(async (req, res) => {
         if (url === '/api/mcp/shared-servers') return json(res, { ok: true, servers: [], can_publish: true });
         if (url === '/api/mcp/custom-servers') return json(res, { servers: [], root_path: '/tmp' });
         if (url === '/api/mcp/categories') return json(res, { ok: true, categories: CATS });
-        if (url === '/api/cli/opencode/families') return json(res, { families: [] });
         if (url === '/api/llm/models') return json(res, { models: ['m1'], models_with_status: [{ id: 'm1', status: 'loaded' }], server_reachable: true, status: 'ok', props: { n_ctx: 8192 } });
         if (url === '/api/skills') return json(res, { skills: [], count: 0 });
         if (url === '/api/notifications/unread-count') return json(res, { count: 0 });

@@ -60,7 +60,7 @@ describe("client de rappel", () => {
     ] as const) {
       const c = new ClientRappel({ appUrl, jeton, journal: journalMuet });
       expect(c.actif).toBe(false);
-      expect(await c.introspectToken("pcr_x")).toBeNull();
+      expect(await c.introspectToken("ept_x")).toBeNull();
       expect(await c.identityForUsername("a")).toBeNull();
       expect(await c.gitCredential({ user_id: 1, username: "u" }, "https://h/r.git")).toBeNull();
       expect(await c.connectorHosts({ user_id: 1, username: "u" })).toEqual([]);

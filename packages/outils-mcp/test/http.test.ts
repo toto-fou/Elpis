@@ -33,7 +33,6 @@ let base = "";
 beforeAll(async () => {
   const serveur = new ServeurOutils({
     version: "1",
-    famillesOpencode: ["git"],
     limiteDebit: null,
     limiteConcurrence: null,
   });
@@ -376,7 +375,6 @@ describe("requête déjà authentifiée (pont du core)", () => {
   it("jeton fourni par l'appelant : pas de Bearer exigé, revendications du client délégué appliquées", async () => {
     const serveur = new ServeurOutils({
       version: "1",
-      famillesOpencode: [],
       limiteDebit: null,
       limiteConcurrence: null,
     });

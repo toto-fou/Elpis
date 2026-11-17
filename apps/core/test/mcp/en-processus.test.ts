@@ -33,7 +33,6 @@ import { appTest, journalMuet } from "../aides";
 type Dict = Record<string, unknown>;
 
 const OUTILS_FS = "ept_" + "f".repeat(40);
-const OPENCODE = "pcr_" + "o".repeat(40);
 const J = { "content-type": "application/json", accept: "application/json, text/event-stream" };
 const INIT = {
   jsonrpc: "2.0",
@@ -74,14 +73,10 @@ describe("familles du compte servies en processus", () => {
     t = ouvrirBaseDeTest("sqlite");
     await initialiserBase(t.base);
     await createUser(t.base, "alice", "mdp-alice", { isAdmin: 1 });
-    for (const [jeton, type, familles] of [
-      [OUTILS_FS, "tools", "fs"],
-      [OPENCODE, "opencode", ""],
-    ] as const)
-      await t.base.run(
-        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
-        [1, type, type, tokenDigest(jeton), jeton.slice(-4), familles, Date.now() / 1000],
-      );
+    await t.base.run(
+      "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
+      [1, "tools", "tools", tokenDigest(OUTILS_FS), OUTILS_FS.slice(-4), "fs", Date.now() / 1000],
+    );
     dossier = mkdtempSync(join(tmpdir(), "elpis-enprocessus-"));
     writeFileSync(
       join(dossier, "config.json"),
@@ -101,7 +96,7 @@ describe("familles du compte servies en processus", () => {
     invalidateConfigCache();
     vi.stubEnv("APP_MCP_MANIFEST", join(dossier, "mcp.json"));
     oublierManifeste();
-    creerServeurEnProcessus({ famillesOpencode: ["todo"], limiteDebit: null, limiteConcurrence: null });
+    creerServeurEnProcessus({ limiteDebit: null, limiteConcurrence: null });
     enregistrerFamilleEnProcessus("todo", [outil("todo_a", "todo"), outil("todo_b", "todo")]);
     enregistrerFamilleEnProcessus("memory", [outil("souvenir", "memory")]);
     const oauth: DependancesOAuth = { base: t.base, config: () => configView() };
@@ -174,8 +169,8 @@ describe("familles du compte servies en processus", () => {
     return { statut: r.status, entetes: r.headers, texte: await r.text() };
   }
 
-  it("pont : jeton opencode vérifié, délégation appliquée sans réseau (aucun LOCAL_MCP_URL), en-têtes du relais", async () => {
-    const auth = { authorization: `Bearer ${OPENCODE}` };
+  it("pont : jeton d'outils vérifié, délégation appliquée sans réseau (aucun LOCAL_MCP_URL, familles du jeton seules), en-têtes du relais", async () => {
+    const auth = { authorization: `Bearer ${OUTILS_FS}` };
     const init = await poster("/api/mcp-bridge/todo", auth, INIT);
     expect(init.statut).toBe(200);
     expect(init.entetes.get("cache-control")).toContain("no-store");
@@ -190,10 +185,7 @@ describe("familles du compte servies en processus", () => {
     const liste = messages(
       (await poster("/api/mcp-bridge/todo", S, { jsonrpc: "2.0", id: 2, method: "tools/list" })).texte,
     );
-    expect(((liste[0]?.["result"] as Dict)["tools"] as Dict[]).map((o) => o["name"])).toEqual([
-      "todo_a",
-      "todo_b",
-    ]);
+    expect((liste[0]?.["result"] as Dict)["tools"]).toEqual([]);
     const appel = messages(
       (
         await poster("/api/mcp-bridge/todo", S, {
@@ -204,18 +196,16 @@ describe("familles du compte servies en processus", () => {
         })
       ).texte,
     );
-    expect((appel[0]?.["result"] as Dict)["structuredContent"]).toEqual({
-      ok: true,
-      compte: "alice",
-      uid: 0,
-      x: 1,
-    });
+    expect([appel[0]?.["result"], typeof (appel[0]?.["error"] as Dict | undefined)?.["message"]]).toEqual([
+      undefined,
+      "string",
+    ]);
     const fin = await fetch(base + "/api/mcp-bridge/todo", { method: "DELETE", headers: S });
     expect(fin.status).toBe(200);
     await fin.arrayBuffer();
   });
 
-  it("pont : familles refusées au client (jeton d'outils sans la famille, famille hors opencode) et flux GET sans session → 405", async () => {
+  it("pont : familles refusées au client (jeton d'outils sans la famille) et flux GET sans session → 405", async () => {
     const restreint = await poster("/api/mcp-bridge/todo", { authorization: `Bearer ${OUTILS_FS}` }, INIT);
     const sid = restreint.entetes.get("mcp-session-id") ?? "";
     const vue = messages(
@@ -228,20 +218,8 @@ describe("familles du compte servies en processus", () => {
       ).texte,
     );
     expect((vue[0]?.["result"] as Dict)["tools"]).toEqual([]);
-    const oc = await poster("/api/mcp-bridge/memory", { authorization: `Bearer ${OPENCODE}` }, INIT);
-    const sidOc = oc.entetes.get("mcp-session-id") ?? "";
-    const vueOc = messages(
-      (
-        await poster(
-          "/api/mcp-bridge/memory",
-          { authorization: `Bearer ${OPENCODE}`, "mcp-session-id": sidOc },
-          { jsonrpc: "2.0", id: 2, method: "tools/list" },
-        )
-      ).texte,
-    );
-    expect((vueOc[0]?.["result"] as Dict)["tools"]).toEqual([]);
     const get = await fetch(base + "/api/mcp-bridge/todo", {
-      headers: { authorization: `Bearer ${OPENCODE}`, accept: "text/event-stream" },
+      headers: { authorization: `Bearer ${OUTILS_FS}`, accept: "text/event-stream" },
     });
     expect([get.status, get.headers.get("allow")]).toEqual([405, "POST"]);
     await get.arrayBuffer();
@@ -250,19 +228,19 @@ describe("familles du compte servies en processus", () => {
       401,
     );
     expect(
-      (await poster("/api/mcp-bridge/inconnue", { authorization: `Bearer ${OPENCODE}` }, INIT)).statut,
+      (await poster("/api/mcp-bridge/inconnue", { authorization: `Bearer ${OUTILS_FS}` }, INIT)).statut,
     ).toBe(404);
   });
 
   it("pont : flux GET d'une session fermé quand le jeton est révoqué", async () => {
-    const auth = { authorization: `Bearer ${OPENCODE}` };
+    const auth = { authorization: `Bearer ${OUTILS_FS}` };
     const init = await poster("/api/mcp-bridge/todo", auth, INIT);
     const sid = init.entetes.get("mcp-session-id") ?? "";
     const flux = await fetch(base + "/api/mcp-bridge/todo", {
       headers: { ...auth, "mcp-session-id": sid, accept: "text/event-stream" },
     });
     expect(flux.status).toBe(200);
-    await t.base.run("DELETE FROM tool_tokens WHERE token_hash=?", [tokenDigest(OPENCODE)]);
+    await t.base.run("DELETE FROM tool_tokens WHERE token_hash=?", [tokenDigest(OUTILS_FS)]);
     const lu = await Promise.race([
       flux.text().then(() => "fermé"),
       new Promise((fin) => setTimeout(() => fin("ouvert"), 18_000)),

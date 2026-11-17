@@ -1844,46 +1844,6 @@
           "source": 5,
           "dropped_columns": []
         },
-        "code_clients": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_commands": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_messages": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_meta": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_notes": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_pairings": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_parts": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_permissions": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_questions": {
-          "source": 0,
-          "dropped_columns": []
-        },
-        "code_sessions": {
-          "source": 0,
-          "dropped_columns": []
-        },
         "daily_usage_reports": {
           "source": 0,
           "dropped_columns": []
@@ -2101,96 +2061,6 @@
           "rejected": 1,
           "dropped_columns": [],
           "target": 3
-        },
-        "code_clients": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_commands": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_messages": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_meta": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_notes": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_pairings": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_parts": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_permissions": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_questions": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_sessions": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
         },
         "daily_usage_reports": {
           "source": 0,
@@ -2959,16 +2829,6 @@
         "ax_selectors",
         "ax_transitions",
         "chats",
-        "code_clients",
-        "code_commands",
-        "code_messages",
-        "code_meta",
-        "code_notes",
-        "code_pairings",
-        "code_parts",
-        "code_permissions",
-        "code_questions",
-        "code_sessions",
         "daily_usage_reports",
         "editor_action_cache",
         "editor_routine_runs",
@@ -3049,7 +2909,7 @@
     },
     "non_vide": {
       "erreur": "TransferError",
-      "message": "cible non vide (59 tables) : le transfert exige une base vierge"
+      "message": "cible non vide (49 tables) : le transfert exige une base vierge"
     },
     "identiques": {
       "erreur": "TransferError",
@@ -3058,7 +2918,7 @@
     "partielle_check": {
       "ok": true,
       "target": "sqlite:<d>/cible.db",
-      "tables": 60,
+      "tables": 50,
       "empty": true,
       "partial": true
     },
@@ -3120,96 +2980,6 @@
           "rejected": 1,
           "dropped_columns": [],
           "target": 3
-        },
-        "code_clients": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_commands": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_messages": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_meta": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_notes": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_pairings": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_parts": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_permissions": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_questions": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "code_sessions": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
         },
         "daily_usage_reports": {
           "source": 0,
@@ -3931,16 +3701,6 @@
         "ax_selectors",
         "ax_transitions",
         "chats",
-        "code_clients",
-        "code_commands",
-        "code_messages",
-        "code_meta",
-        "code_notes",
-        "code_pairings",
-        "code_parts",
-        "code_permissions",
-        "code_questions",
-        "code_sessions",
         "daily_usage_reports",
         "editor_action_cache",
         "editor_routine_runs",

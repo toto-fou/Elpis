@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/reglages/connexions.test.ts — Paramètres › Connexions : blocs à copier, jeton montré une fois, création, régénération, OAuth. */
+/** frontend/test/reglages/connexions.test.ts — Paramètres › Secrets › Jetons MCP : blocs à copier, jeton montré une fois, création, régénération, révocation, OAuth. */
 import { describe, expect, it } from "vitest";
 
 import { buildBlocks, setupConnexions } from "../../src/features/reglages/connexions";
@@ -35,7 +35,6 @@ const LISTE = (tokens: unknown[] = []) => ({
   policy: POLITIQUE,
   bridge_url: "b",
   tools_url: "o",
-  opencode_enabled: true,
 });
 
 type Route = (url: string, init?: RequestInit) => Response;
@@ -51,31 +50,26 @@ function monter(route: Route) {
 
 describe("blocs de configuration", () => {
   it("jeton d'outils : une entrée par famille, le jeton en Bearer", () => {
-    const blocs = buildBlocks(
-      "ept_abc",
-      ["fs", "git"],
-      "http://lan/api/mcp-bridge",
-      "http://lan/api/tools",
-      "tools",
-    );
+    const blocs = buildBlocks("ept_abc", ["fs", "git"], "http://lan/api/mcp-bridge", "http://lan/api/tools");
     const par = Object.fromEntries(blocs.map((b) => [b.id, b.text]));
+    expect(blocs.map((b) => b.id)).toEqual(["mcp", "vscode", "opencode", "openapi", "curl"]);
     const mcp = JSON.parse(par.mcp!).mcpServers;
     expect(Object.keys(mcp)).toEqual(["elpis-fs", "elpis-git"]);
     expect(mcp["elpis-fs"].url).toBe("http://lan/api/mcp-bridge/fs");
     expect(mcp["elpis-fs"].headers.Authorization).toBe("Bearer ept_abc");
     expect(JSON.parse(par.vscode!).servers["elpis-git"].type).toBe("http");
-    expect(JSON.parse(par.opencode!).mcp["elpis-fs"].type).toBe("remote");
+    expect(JSON.parse(par.opencode!).mcp["elpis-fs"]).toEqual({
+      type: "remote",
+      url: "http://lan/api/mcp-bridge/fs",
+      enabled: true,
+      headers: { Authorization: "Bearer ept_abc" },
+    });
     expect(par.openapi).toContain("http://lan/api/tools/git");
     expect(par.curl).toContain("http://lan/api/tools/fs/openapi.json");
   });
 
-  it("sans jeton en clair : espace réservé partout ; opencode : /remote", () => {
-    expect(buildBlocks("", ["fs"], "u", "v", "tools").every((b) => b.text.includes("<VOTRE_JETON>"))).toBe(
-      true,
-    );
-    expect(buildBlocks("pcr_x", [], "u", "v", "opencode")).toEqual([
-      { id: "remote", label: "Commande", lang: "text", text: "/remote pcr_x" },
-    ]);
+  it("sans jeton en clair : espace réservé partout", () => {
+    expect(buildBlocks("", ["fs"], "u", "v").every((b) => b.text.includes("<VOTRE_JETON>"))).toBe(true);
   });
 });
 
@@ -84,67 +78,12 @@ describe("setupConnexions", () => {
     const { D } = monter(() => json(LISTE()));
     await D.loadConnexions();
     D.cnxNew();
-    expect(D.cnxState.value.parties.tools.form?.families).toEqual({ fs: true, git: true, desktop: false });
-    expect(D.cnxState.value.parties.tools.form?.days).toBe(30);
-  });
-
-  it("nouveau jeton Remote : un nom seulement, ni familles ni durée ; envoyé avec son genre", async () => {
-    const { D, vus } = monter((_u, o) =>
-      o?.method === "POST"
-        ? json({ token: "pcr_neuf", item: jeton(5, { kind: "opencode", families: [] }) })
-        : json(LISTE()),
-    );
-    await D.loadConnexions();
-    D.cnxNew("opencode");
-    expect(D.cnxState.value.parties.opencode.form).toEqual({
-      kind: "opencode",
+    expect(D.cnxState.value.form).toEqual({
+      kind: "tools",
       name: "",
-      families: {},
-      days: null,
+      families: { fs: true, git: true, desktop: false },
+      days: 30,
     });
-    expect(D.cnxState.value.parties.tools.form).toBeNull();
-    D.cnxState.value.parties.opencode.form!.name = "poste du bureau";
-    await D.cnxCreate("opencode");
-    expect(JSON.parse(vus.find((v) => v[1] === "POST")![2] as string)).toEqual({
-      kind: "opencode",
-      name: "poste du bureau",
-      families: [],
-      days: null,
-    });
-    expect(D.cnxState.value.parties.opencode.tab).toBe("remote");
-    expect(D.cnxBlocks("opencode").map((b) => b.text)).toEqual(["/remote pcr_neuf"]);
-    expect(D.cnxBlocks()).toEqual([]);
-  });
-
-  it("chaque partie garde les siens : un jeton montré ou un brouillon d'un côté survit à ce qu'on fait de l'autre", async () => {
-    const { D } = monter((u, o) => {
-      if (o?.method !== "POST") return json(LISTE([jeton(4), jeton(5, { kind: "opencode", families: [] })]));
-      const remote =
-        u.includes("/regenerate") || (JSON.parse(o.body as string) as { kind?: string }).kind === "opencode";
-      return remote
-        ? json({ token: "pcr_neuf", item: jeton(5, { kind: "opencode", families: [] }) })
-        : json({ token: "ept_neuf", item: jeton(4) });
-    });
-    await D.loadConnexions();
-    expect(D.cnxState.value.charge).toBe(true);
-    D.cnxNew();
-    await D.cnxCreate();
-    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_neuf");
-    // Côté Remote : formulaire ouvert, commande consultée, jeton régénéré, formulaire annulé.
-    D.cnxNew("opencode");
-    D.cnxShowConfig(D.cnxState.value.tokens[1]!);
-    await D.cnxRegenerate(D.cnxState.value.tokens[1]!);
-    expect(D.cnxState.value.parties.opencode.reveal?.token).toBe("pcr_neuf");
-    D.cnxCancel("opencode");
-    D.cnxCloseReveal("opencode");
-    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_neuf");
-    // Et l'inverse : un brouillon Remote survit à un jeton d'outils consulté puis révoqué.
-    D.cnxNew("opencode");
-    D.cnxState.value.parties.opencode.form!.name = "brouillon";
-    D.cnxShowConfig(D.cnxState.value.tokens[0]!);
-    await D.cnxRevoke(D.cnxState.value.tokens[0]!);
-    expect(D.cnxState.value.parties.tools.reveal).toBeNull();
-    expect(D.cnxState.value.parties.opencode.form?.name).toBe("brouillon");
   });
 
   it("création : familles cochées envoyées, jeton montré une fois", async () => {
@@ -153,15 +92,34 @@ describe("setupConnexions", () => {
     );
     await D.loadConnexions();
     D.cnxNew();
-    D.cnxState.value.parties.tools.form!.families.git = false;
+    D.cnxState.value.form!.families.git = false;
+    D.cnxState.value.form!.name = "CI";
     await D.cnxCreate();
     const post = vus.find((v) => v[1] === "POST")!;
-    expect(JSON.parse(post[2] as string).families).toEqual(["fs"]);
-    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_neuf");
-    expect(D.cnxState.value.parties.tools.form).toBeNull();
+    expect(JSON.parse(post[2] as string)).toEqual({ kind: "tools", name: "CI", families: ["fs"], days: 30 });
+    expect(D.cnxState.value.reveal?.token).toBe("ept_neuf");
+    expect(D.cnxState.value.tab).toBe("mcp");
+    expect(D.cnxState.value.form).toBeNull();
     D.cnxShowConfig(D.cnxState.value.tokens[0]!);
-    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("");
+    expect(D.cnxState.value.reveal?.token).toBe("");
     expect(D.cnxBlocks().every((b) => !b.text.includes("ept_neuf"))).toBe(true);
+  });
+
+  it("régénération : le nouveau jeton est montré ; révoquer le jeton montré le referme", async () => {
+    const { D, vus } = monter((u, o) => {
+      if (o?.method === "POST") return json({ token: "ept_regen", item: jeton(4) });
+      if (o?.method === "DELETE") return json({ ok: true });
+      return json(LISTE(vus.some((v) => v[1] === "DELETE") ? [] : [jeton(4)]));
+    });
+    await D.loadConnexions();
+    await D.cnxRegenerate(D.cnxState.value.tokens[0]!);
+    expect(vus.some((v) => v[0] === "/api/tokens/4/regenerate" && v[1] === "POST")).toBe(true);
+    expect(D.cnxState.value.reveal?.token).toBe("ept_regen");
+    expect(D.cnxBlocks()[0]?.text).toContain("Bearer ept_regen");
+    await D.cnxRevoke(D.cnxState.value.tokens[0]!);
+    expect(vus.some((v) => v[0] === "/api/tokens/4" && v[1] === "DELETE")).toBe(true);
+    expect(D.cnxState.value.reveal).toBeNull();
+    expect(D.cnxState.value.tokens).toEqual([]);
   });
 
   it("erreur de création : message du serveur affiché", async () => {
@@ -171,8 +129,8 @@ describe("setupConnexions", () => {
     await D.loadConnexions();
     D.cnxNew();
     await D.cnxCreate();
-    expect(D.cnxState.value.parties.tools.error).toBe("Durée maximale : 90 jours.");
-    expect(D.cnxState.value.parties.tools.reveal).toBeNull();
+    expect(D.cnxState.value.error).toBe("Durée maximale : 90 jours.");
+    expect(D.cnxState.value.reveal).toBeNull();
     expect(D.cnxState.value.busy).toBe(false);
   });
 
@@ -183,9 +141,9 @@ describe("setupConnexions", () => {
     await D.loadConnexions();
     D.cnxNew();
     await D.cnxCreate();
-    expect(D.cnxState.value.parties.tools.reveal?.token).toBe("ept_secret");
+    expect(D.cnxState.value.reveal?.token).toBe("ept_secret");
     D.cnxReset();
-    expect(D.cnxState.value.parties.tools.reveal).toBeNull();
+    expect(D.cnxState.value.reveal).toBeNull();
     expect(JSON.stringify(D.cnxState.value)).not.toContain("ept_secret");
   });
 

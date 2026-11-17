@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/test/core/divers.test.ts — contrats de la CLI opencode, de l'extraction de texte et du webhook de routine rejoués contre le core TS réel. */
+/** packages/contracts/test/core/divers.test.ts — contrats de l'extraction de texte et du webhook de routine rejoués contre le core TS réel. */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { CONTRATS_REST } from "../../src";
@@ -19,16 +19,7 @@ afterAll(async () => {
   await core.fermer();
 });
 
-describe("contrats REST : CLI, extraction de texte, webhook (core réel)", () => {
-  it("CLI : familles réservées aux comptes identifiés, configuration générée", async () => {
-    await core.appeler("GET", "/api/cli/opencode/families");
-    const familles = (await core.appeler("GET", "/api/cli/opencode/families", { cookie })) as {
-      families: { name: string }[];
-    };
-    expect(familles.families.length).toBeGreaterThan(0);
-    expect(await core.appeler("GET", "/api/cli/opencode.json", { cookie })).toHaveProperty("$schema");
-  });
-
+describe("contrats REST : extraction de texte, webhook (core réel)", () => {
   it("extraction de texte : UTF-8, latin-1, fichier vide refusé, sans session", async () => {
     expect(
       await core.televerser("/api/tools/extract-text", {
@@ -67,7 +58,7 @@ describe("contrats REST : CLI, extraction de texte, webhook (core réel)", () =>
 
   it("toutes les routes des domaines interrogées", () => {
     const manquantes = CONTRATS_REST.filter(
-      (r) => ["cli", "outils", "webhooks"].includes(r.domaine) && !core.couvertes.has(cle(r)),
+      (r) => ["opencode", "outils", "webhooks"].includes(r.domaine) && !core.couvertes.has(cle(r)),
     );
     expect(manquantes.map(cle)).toEqual([]);
   });

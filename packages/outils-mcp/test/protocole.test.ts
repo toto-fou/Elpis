@@ -32,7 +32,6 @@ function serveurTs(): { serveur: ServeurOutils; verificateur: VerificateurJetons
     // Scénarios enregistrés sur le Python 0.1.0 : la version annoncée est celle de l'enregistrement, pas celle du dépôt.
     version: VERSION_ENREGISTREE,
     taillePage: Number(V.env["LOCAL_MCP_LIST_PAGE_SIZE"]),
-    famillesOpencode: (V.env["LOCAL_MCP_OPENCODE_FAMILIES"] ?? "").split(","),
   });
   for (const [famille, outils] of famillesTodoMemory()) serveur.enregistrerFamille(famille, outils);
   const verificateur = new VerificateurJetons({

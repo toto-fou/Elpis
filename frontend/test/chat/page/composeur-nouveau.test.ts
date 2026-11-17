@@ -41,12 +41,11 @@ const ENTETE = {
   selectedConnector: null,
   activeModelIds: ["m"],
   showSamplingPanel: false,
-  features: { opencode: false },
+  features: {},
   showChatMenu: false,
   showExportFormatMenu: false,
   messageSearchActive: false,
   messageSearch: "",
-  showOpenCodeModal: false,
   showInfoModal: false,
 };
 

@@ -103,9 +103,7 @@
         "todo": "task",
         "browser": "browser",
         "desktop": "desktop"
-      },
-      "DEFAULT_OPENCODE_FAMILIES": "git,browser,desktop",
-      "DEFAULT_OPENCODE_EXCLUDE": "fs,shell,office,skill_run"
+      }
     },
     "parse_families": [
       {
@@ -604,126 +602,6 @@
         "warnings": []
       }
     ],
-    "parse_family_set": [
-      {
-        "raw": null,
-        "out": {
-          "valeur": []
-        },
-        "warnings": []
-      },
-      {
-        "raw": "",
-        "out": {
-          "valeur": []
-        },
-        "warnings": []
-      },
-      {
-        "raw": "fs",
-        "out": {
-          "valeur": [
-            "fs"
-          ]
-        },
-        "warnings": []
-      },
-      {
-        "raw": "fs, git ,",
-        "out": {
-          "valeur": [
-            "fs",
-            "git"
-          ]
-        },
-        "warnings": []
-      },
-      {
-        "raw": "-fs",
-        "out": {
-          "valeur": [
-            "fs"
-          ]
-        },
-        "warnings": []
-      },
-      {
-        "raw": "--shell,office",
-        "out": {
-          "valeur": [
-            "office",
-            "shell"
-          ]
-        },
-        "warnings": []
-      },
-      {
-        "raw": "inconnue,fs",
-        "out": {
-          "valeur": [
-            "fs"
-          ]
-        },
-        "warnings": [
-          "famille inconnue ignor\u00e9e : 'inconnue'"
-        ]
-      },
-      {
-        "raw": "FS,Todo",
-        "out": {
-          "valeur": [
-            "fs",
-            "todo"
-          ]
-        },
-        "warnings": []
-      },
-      {
-        "raw": "all",
-        "out": {
-          "valeur": []
-        },
-        "warnings": [
-          "famille inconnue ignor\u00e9e : 'all'"
-        ]
-      },
-      {
-        "raw": "  ",
-        "out": {
-          "valeur": []
-        },
-        "warnings": []
-      },
-      {
-        "raw": "skill_run,skill",
-        "out": {
-          "valeur": [
-            "skill",
-            "skill_run"
-          ]
-        },
-        "warnings": []
-      },
-      {
-        "raw": "\u00e9,\ud83d\ude00",
-        "out": {
-          "valeur": []
-        },
-        "warnings": [
-          "famille inconnue ignor\u00e9e : '\u00e9'",
-          "famille inconnue ignor\u00e9e : '\ud83d\ude00'"
-        ]
-      },
-      {
-        "raw": "- fs",
-        "out": {
-          "valeur": []
-        },
-        "warnings": [
-          "famille inconnue ignor\u00e9e : ' fs'"
-        ]
-      }
-    ],
     "is_family_name": [
       {
         "segment": "fs",
@@ -764,151 +642,6 @@
       {
         "segment": "task",
         "out": false
-      }
-    ],
-    "opencode_families": [
-      {
-        "include": null,
-        "exclude": null,
-        "warnings": [],
-        "out": {
-          "valeur": [
-            "git",
-            "browser",
-            "desktop"
-          ]
-        }
-      },
-      {
-        "include": "fs,git",
-        "exclude": null,
-        "warnings": [],
-        "out": {
-          "valeur": [
-            "git"
-          ]
-        }
-      },
-      {
-        "include": "all",
-        "exclude": "",
-        "warnings": [],
-        "out": {
-          "valeur": [
-            "fs",
-            "shell",
-            "git",
-            "chart",
-            "office",
-            "memory",
-            "skill",
-            "skill_run",
-            "todo",
-            "browser",
-            "desktop"
-          ]
-        }
-      },
-      {
-        "include": "",
-        "exclude": null,
-        "warnings": [],
-        "out": {
-          "valeur": []
-        }
-      },
-      {
-        "include": "all",
-        "exclude": "git",
-        "warnings": [],
-        "out": {
-          "valeur": [
-            "fs",
-            "shell",
-            "chart",
-            "office",
-            "memory",
-            "skill",
-            "skill_run",
-            "todo",
-            "browser",
-            "desktop"
-          ]
-        }
-      },
-      {
-        "include": "browser,desktop",
-        "exclude": "-browser",
-        "warnings": [],
-        "out": {
-          "valeur": [
-            "desktop"
-          ]
-        }
-      },
-      {
-        "include": "inconnue",
-        "exclude": null,
-        "warnings": [
-          "famille d'outils inconnue ignor\u00e9e : 'inconnue'",
-          "aucune famille connue dans 'inconnue' \u2192 toutes les familles"
-        ],
-        "out": {
-          "valeur": [
-            "git",
-            "chart",
-            "memory",
-            "skill",
-            "todo",
-            "browser",
-            "desktop"
-          ]
-        }
-      },
-      {
-        "include": "git,browser",
-        "exclude": "inconnue,git",
-        "warnings": [
-          "famille inconnue ignor\u00e9e : 'inconnue'"
-        ],
-        "out": {
-          "valeur": [
-            "browser"
-          ]
-        }
-      },
-      {
-        "include": "all,-git",
-        "exclude": "fs,shell,office,skill_run",
-        "warnings": [],
-        "out": {
-          "valeur": [
-            "chart",
-            "memory",
-            "skill",
-            "todo",
-            "browser",
-            "desktop"
-          ]
-        }
-      },
-      {
-        "include": "  ",
-        "exclude": "",
-        "warnings": [],
-        "out": {
-          "valeur": []
-        }
-      },
-      {
-        "include": "desktop",
-        "exclude": "  ",
-        "warnings": [],
-        "out": {
-          "valeur": [
-            "desktop"
-          ]
-        }
       }
     ]
   },
@@ -1508,14 +1241,14 @@
         "client": {
           "username": "alice",
           "user_id": 7,
-          "kind": "opencode",
+          "kind": "tools",
           "families": [
             "git",
             "browser"
           ]
         },
         "jeton": {
-          "valeur": "dlg_eyJhdWQiOiJlbHBpcy1tY3AiLCJmYW1pbGllcyI6WyJnaXQiLCJicm93c2VyIl0sImtpbmQiOiJvcGVuY29kZSIsInN1YiI6ImFsaWNlIiwidHMiOjE3MDAwMDAwMDAuMCwidWlkIjo3fQ.eVGwfRpvb9_YNuAT0MYPRMMTxaXWty3pDLi903aX7Sg"
+          "valeur": "dlg_eyJhdWQiOiJlbHBpcy1tY3AiLCJmYW1pbGllcyI6WyJnaXQiLCJicm93c2VyIl0sImtpbmQiOiJ0b29scyIsInN1YiI6ImFsaWNlIiwidHMiOjE3MDAwMDAwMDAuMCwidWlkIjo3fQ.Flmv_MZXvigEgfyizfLXbQEuHbJEGM8ctfEHhZRKv7s"
         },
         "verifs": [
           {
@@ -1526,7 +1259,7 @@
                 "git",
                 "browser"
               ],
-              "kind": "opencode",
+              "kind": "tools",
               "sub": "alice",
               "ts": 1700000000.0,
               "uid": 7
@@ -1540,7 +1273,7 @@
                 "git",
                 "browser"
               ],
-              "kind": "opencode",
+              "kind": "tools",
               "sub": "alice",
               "ts": 1700000000.0,
               "uid": 7
@@ -1554,7 +1287,7 @@
                 "git",
                 "browser"
               ],
-              "kind": "opencode",
+              "kind": "tools",
               "sub": "alice",
               "ts": 1700000000.0,
               "uid": 7
@@ -8493,7 +8226,6 @@
               "host": "127.0.0.1",
               "port": 8765,
               "mount": "/mcp",
-              "expose_opencode": true,
               "name": "local-tools"
             }
           }
@@ -8509,7 +8241,6 @@
               "host": "127.0.0.1",
               "port": 8765,
               "mount": "/mcp",
-              "expose_opencode": true,
               "name": "local-tools"
             }
           }
@@ -8525,7 +8256,6 @@
               "host": "127.0.0.1",
               "port": 8765,
               "mount": "/mcp",
-              "expose_opencode": true,
               "name": "local-tools"
             }
           }
@@ -8542,8 +8272,7 @@
             "url": "http://a/mcp"
           },
           " b ": {
-            "command": "x",
-            "expose_opencode": 1
+            "command": "x"
           },
           "c": {
             "transport": "sse"
@@ -8574,19 +8303,16 @@
               "host": "127.0.0.1",
               "port": 9000,
               "mount": "/sse",
-              "expose_opencode": true,
               "name": "local-tools"
             },
             "a": {
               "transport": "streamable-http",
               "url": "http://a/mcp",
               "name": "a",
-              "builtin": false,
-              "expose_opencode": false
+              "builtin": false
             },
             "b": {
               "command": "x",
-              "expose_opencode": true,
               "name": "b",
               "transport": "stdio",
               "builtin": false
@@ -8595,15 +8321,13 @@
               "transport": "stdio",
               "command": "y",
               "builtin": true,
-              "name": "e",
-              "expose_opencode": false
+              "name": "e"
             },
             "g": {
               "transport": "streamable-http",
               "url": " ",
               "builtin": true,
-              "name": "g",
-              "expose_opencode": false
+              "name": "g"
             }
           }
         }
@@ -8613,7 +8337,6 @@
           "local-tools": {
             "transport": "stdio",
             "host": "0.0.0.0",
-            "expose_opencode": false,
             "mount": "/x"
           }
         },
@@ -8625,60 +8348,9 @@
               "host": "0.0.0.0",
               "port": 8765,
               "mount": "/x",
-              "expose_opencode": false,
               "name": "local-tools"
             }
           }
-        }
-      }
-    ],
-    "opencode_entry_for": [
-      {
-        "d": {},
-        "out": {
-          "type": "remote",
-          "url": "",
-          "enabled": true
-        }
-      },
-      {
-        "d": {
-          "url": " http://x/mcp ",
-          "enabled": 0,
-          "headers": {
-            "A": 1,
-            "B": null
-          }
-        },
-        "out": {
-          "type": "remote",
-          "url": "http://x/mcp",
-          "enabled": false,
-          "headers": {
-            "A": "1",
-            "B": "None"
-          }
-        }
-      },
-      {
-        "d": {
-          "url": null,
-          "headers": {}
-        },
-        "out": {
-          "type": "remote",
-          "url": "",
-          "enabled": true
-        }
-      },
-      {
-        "d": {
-          "headers": "texte"
-        },
-        "out": {
-          "type": "remote",
-          "url": "",
-          "enabled": true
         }
       }
     ]

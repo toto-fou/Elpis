@@ -48,11 +48,8 @@ afterAll(() => {
   rmSync(dossier, { recursive: true, force: true });
 });
 
-function evenementsFactices(systeme: number, pipeline: number): Evenements {
-  return {
-    systemEvents: { nombreClients: systeme },
-    pipelineEvents: { nombreClients: pipeline },
-  } as unknown as Evenements;
+function evenementsFactices(systeme: number): Evenements {
+  return { systemEvents: { nombreClients: systeme } } as unknown as Evenements;
 }
 
 describe("moniteur de fond", () => {
@@ -182,7 +179,7 @@ describe("échantillonneur et cycle de vie", () => {
       mode: "admin",
       base: t.base,
       cycle,
-      evenements: evenementsFactices(2, 1),
+      evenements: evenementsFactices(3),
       journal: journalMuet,
     });
     expect(moteur.moniteur?.actif).toBe(false);
@@ -203,7 +200,7 @@ describe("échantillonneur et cycle de vie", () => {
       mode: "main",
       base: t.base,
       cycle,
-      evenements: evenementsFactices(0, 0),
+      evenements: evenementsFactices(0),
       journal: journalMuet,
     });
     expect(moteur.moniteur).toBeNull();

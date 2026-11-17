@@ -20,8 +20,6 @@ const CLES_ANCIENNE_SURFACE = [
   "voiceMicSupported",
   "voiceReadSupported",
   "voiceCompatInfo",
-  "opencodeFamilyOn",
-  "toggleOpencodeFamily",
   "compactionUnit",
   "compactionPct",
   "compactionTokensLabel",

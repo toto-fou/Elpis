@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/evenements/vecteurs.test.ts — cron, journal staff, trames SSE, diffusion, pipeline et redémarrage rejouent le Python. */
+/** apps/core/test/evenements/vecteurs.test.ts — cron, journal staff, trames SSE, diffusion et redémarrage rejouent le Python. */
 import { readFileSync } from "node:fs";
 
 import { comparePointsDeCode, pyJsonDumps } from "@elpis/commun";
@@ -8,8 +8,6 @@ import { describe, expect, it } from "vitest";
 import { cronMatches } from "../../src/evenements/cron";
 import { FileAttente } from "../../src/evenements/file";
 import { logRecordToEvent } from "../../src/evenements/journal-staff";
-import { PipelineEvents } from "../../src/evenements/pipeline";
-import type { ElementPipeline } from "../../src/evenements/pipeline";
 import {
   digest,
   digests,
@@ -52,20 +50,9 @@ const V = JSON.parse(readFileSync(new URL("../vecteurs/evenements.json", import.
     messages: Message[];
     files: { inscrit: boolean; elements: string[] }[];
   }[];
-  pipeline: {
-    nom: string;
-    abonnes: [number, number][];
-    operations: (
-      ["distribuer", number, Message] | ["deconnecter", number, Message | null] | ["tout", Message | null]
-    )[];
-    inscriptions: boolean[];
-    retours: (number | null)[];
-    files: string[][];
-    stats: Dict;
-  }[];
 };
 
-function rendu(element: ElementSysteme | ElementPipeline): string {
+function rendu(element: ElementSysteme): string {
   if (element === CLIENT_CLOSED) return "<FERME>";
   return typeof element === "string" ? element : pyJsonDumps(element);
 }
@@ -140,38 +127,6 @@ describe("SystemEvents._fanout", () => {
       for (const m of scenario.messages) bus.fanout(m);
       const obtenu = files.map((f) => ({ inscrit: bus.clients.has(f), elements: f.contenu().map(rendu) }));
       expect(obtenu).toEqual(scenario.files);
-    });
-  }
-});
-
-describe("PipelineEvents : inscription, distribution, déconnexion", () => {
-  for (const scenario of V.pipeline) {
-    it(scenario.nom, () => {
-      const bus = new PipelineEvents();
-      const inscriptions: boolean[] = [];
-      const files = scenario.abonnes.map(([uid, taille]) => {
-        const file = new FileAttente<ElementPipeline>(taille);
-        inscriptions.push(bus.register(uid, file));
-        return file;
-      });
-      const retours = scenario.operations.map((op) => {
-        if (op[0] === "distribuer") {
-          bus.distributeLocal(op[1], op[2]);
-          return null;
-        }
-        if (op[0] === "deconnecter") return bus.disconnectUser(op[1], op[2] ?? undefined);
-        return bus.disconnectAll(op[1] ?? undefined);
-      });
-      const stats = bus.stats();
-      expect(inscriptions).toEqual(scenario.inscriptions);
-      expect(retours).toEqual(scenario.retours);
-      expect(files.map((f) => f.contenu().map(rendu))).toEqual(scenario.files);
-      expect({
-        users_connected: stats.users_connected,
-        total_clients: stats.total_clients,
-        events_dropped: stats.events_dropped,
-        errors: stats.errors,
-      }).toEqual(scenario.stats);
     });
   }
 });

@@ -617,7 +617,7 @@ try {
     ok('instance : titre et parent', (await headTitle()) === 'Instance' && (await headParent()) === 'Système');
     ok('instance : section Identité', await bodyHas(/Nom de l’application|Identité/));
     ok('instance : chemins disque présents', await bodyHas(/Dossier des sandboxes/));
-    ok('instance : les fonctionnalités sont parties dans Droits par défaut', !(await bodyHas(/OpenCode/)));
+    ok('instance : les fonctionnalités sont parties dans Droits par défaut', !(await bodyHas(/Aperçu Office/)));
     ok('instance : plus de sous-onglets « Identité & branding »', !(await bodyHas(/Identité & branding/)));
 
     // ── Enregistrement par écran : barre en bas, seulement si modifié ──
@@ -885,7 +885,7 @@ try {
     ok('droits : titre', (await headTitle()) === 'Droits par défaut');
     ok('droits : fournisseurs autorisés', await bodyHas(/Fournisseurs autorisés/));
     ok('droits : sélecteur de modèle', await bodyHas(/Sélecteur de modèle/));
-    ok('droits : fonctionnalités (OpenCode, aperçu Office)', await bodyHas(/OpenCode/) && await bodyHas(/Aperçu Office/));
+    ok('droits : fonctionnalités (aperçu Office)', await bodyHas(/Aperçu Office/));
 
     // ─────────────────────────────────────────────────────────────────
     //  SÉCURITÉ

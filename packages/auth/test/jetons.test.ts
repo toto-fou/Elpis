@@ -2,14 +2,13 @@
 /** packages/auth/test/jetons.test.ts — jetons personnels : vecteurs Python (préfixes, noms, demandes, politique) et cycle de vie sur SQLite et PostgreSQL. */
 import { readFileSync } from "node:fs";
 
-import { initialiserBase, ouvrirBase } from "@elpis/db";
-import { ouvrirBaseDeTest, PG_DE_TEST, reglagesPgDeTest } from "@elpis/db/test";
+import { initialiserBase } from "@elpis/db";
+import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { tokenDigest } from "@elpis/securite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  convertirAnciensJetons,
   creerJeton,
   FAMILLES_EXTERNES,
   lireJeton,
@@ -21,7 +20,6 @@ import {
   resoudreJeton,
   revoquerJeton,
   revoquerTousAcces,
-  revoquerType,
   supprimerJetonsCompte,
   typeDe,
   validerDemandeOutils,
@@ -156,7 +154,7 @@ describe.each(MOTEURS)("cycle de vie (%s)", (moteur) => {
     };
     expect(await resoudreJeton(dep, jeton)).toEqual(attendu);
     expect(await resoudreJeton(dep, `\x1c ${jeton}\n`)).toEqual(attendu);
-    expect(await resoudreJeton(dep, jeton, ["opencode", "vision"])).toBeNull();
+    expect(await resoudreJeton(dep, jeton, ["vision"])).toBeNull();
     expect(await resoudreJeton(dep, jeton.slice(0, -1) + (jeton.endsWith("A") ? "B" : "A"))).toBeNull();
     expect(await resoudreJeton(dep, "ept_court")).toBeNull();
     expect(await lireJeton(t.base, alice, l.id)).toEqual({ ...l, last_used_at: horloge });
@@ -180,17 +178,17 @@ describe.each(MOTEURS)("cycle de vie (%s)", (moteur) => {
     expect(await resoudreJeton(dep, jeton)).toBeNull();
   });
 
-  it("respecte les interrupteurs de l'administrateur et les types", async () => {
-    await expect(creerJeton(dep, alice, "autre")).rejects.toThrow("Type de jeton inconnu.");
-    const [oc] = await creerJeton(dep, alice, "opencode", "");
-    expect(oc.startsWith("pcr_")).toBe(true);
-    expect((await resoudreJeton(dep, oc, ["opencode"]))?.name).toBe("opencode");
-    expect(await resoudreJeton(dep, oc)).toBeNull();
-    config = { features: { opencode: false }, mcp: { tokens: { tools_enabled: false } } };
-    expect(await resoudreJeton(dep, oc, ["opencode"])).toBeNull();
-    await expect(creerJeton(dep, alice, "opencode")).rejects.toThrow(
-      "OpenCode est désactivé par l'administrateur.",
+  it("respecte les interrupteurs de l'administrateur et les types ; un ancien jeton `pcr_` ne résout plus rien", async () => {
+    for (const type of ["autre", "opencode"])
+      await expect(creerJeton(dep, alice, type)).rejects.toThrow("Type de jeton inconnu.");
+    const ancien = `pcr_${"a".repeat(40)}`;
+    await t.base.run(
+      "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
+      [alice, "opencode", "opencode", tokenDigest(ancien), "aaaa", "", horloge],
     );
+    for (const types of [undefined, ["opencode"], ["tools", "vision"]])
+      expect(await resoudreJeton(dep, ancien, types)).toBeNull();
+    config = { mcp: { tokens: { tools_enabled: false } } };
     await expect(creerJeton(dep, alice, "tools", "", ["fs"])).rejects.toThrow(
       "Les jetons d'outils sont désactivés par l'administrateur.",
     );
@@ -204,14 +202,14 @@ describe.each(MOTEURS)("cycle de vie (%s)", (moteur) => {
   it("plafonne les jetons valides par compte, hors vision et expirés", async () => {
     config = { mcp: { tokens: { max_per_user: 2 } } };
     await creerJeton(dep, alice, "tools", "", ["fs"], 1);
-    await creerJeton(dep, alice, "opencode");
+    await creerJeton(dep, alice, "tools", "", ["git"]);
     await creerJeton(dep, alice, "vision");
-    await expect(creerJeton(dep, alice, "opencode")).rejects.toThrow(
+    await expect(creerJeton(dep, alice, "tools", "", ["fs"])).rejects.toThrow(
       "Nombre maximal de jetons atteint (2). Révoquez-en un d'abord.",
     );
-    await creerJeton(dep, bob, "opencode");
+    await creerJeton(dep, bob, "tools", "", ["fs"]);
     horloge += 86400;
-    await creerJeton(dep, alice, "opencode");
+    await creerJeton(dep, alice, "tools", "", ["fs"]);
     expect(await t.base.all("SELECT id FROM tool_tokens WHERE user_id=?", [alice])).toHaveLength(4);
   });
 
@@ -236,19 +234,20 @@ describe.each(MOTEURS)("cycle de vie (%s)", (moteur) => {
     expect(await resoudreJeton(dep, vus[20] ?? "", ["vision"])).toBeNull();
   });
 
-  it("liste, révoque un jeton ou un type, purge un compte", async () => {
-    const [, a] = await creerJeton(dep, alice, "opencode", "a");
+  it("liste, révoque un jeton, purge un compte", async () => {
+    const [, a] = await creerJeton(dep, alice, "tools", "a", ["git"]);
     await creerJeton(dep, alice, "tools", "b", ["fs"]);
     horloge += 1;
     await creerJeton(dep, alice, "tools", "c", ["shell"]);
-    await creerJeton(dep, bob, "opencode");
+    await creerJeton(dep, bob, "tools", "", ["fs"]);
     expect((await listerJetons(t.base, alice)).map((l) => l.name)).toEqual(["c", "b", "a"]);
     expect(await revoquerJeton(t.base, bob, a.id)).toBe(false);
     expect(await revoquerJeton(t.base, alice, a.id)).toBe(true);
     expect(await revoquerJeton(t.base, alice, a.id)).toBe(false);
-    expect(await revoquerType(t.base, alice, "tools")).toBe(2);
-    expect(await listerJetons(t.base, alice)).toEqual([]);
+    expect((await listerJetons(t.base, alice)).map((l) => l.name)).toEqual(["c", "b"]);
     await supprimerJetonsCompte(t.base, bob);
+    expect(await t.base.all("SELECT id FROM tool_tokens")).toHaveLength(2);
+    await supprimerJetonsCompte(t.base, alice);
     expect(await t.base.all("SELECT id FROM tool_tokens")).toHaveLength(0);
   });
 
@@ -277,35 +276,31 @@ describe.each(MOTEURS)("cycle de vie (%s)", (moteur) => {
     });
     expect(await resoudreJeton(dep, vieux)).toBeNull();
     expect((await resoudreJeton(dep, r?.[0] ?? ""))?.id).toBe(r?.[1].id);
-    const [, oc] = await creerJeton(dep, alice, "opencode", "poste");
-    config = { features: { opencode: false } };
-    await expect(regenererJeton(dep, alice, oc.id)).rejects.toThrow("OpenCode est désactivé");
-    expect(await lireJeton(t.base, alice, oc.id)).not.toBeNull();
   });
 
   it("n'écrit last_used_at qu'au plus toutes les cinq minutes", async () => {
-    const [jeton, l] = await creerJeton(dep, alice, "opencode");
+    const [jeton, l] = await creerJeton(dep, alice, "tools", "", ["fs"]);
     const vu = async (): Promise<unknown> =>
       (await t.base.get<{ v: number | null }>("SELECT last_used_at AS v FROM tool_tokens WHERE id=?", [l.id]))
         ?.v;
-    await resoudreJeton(dep, jeton, ["opencode"], false);
+    await resoudreJeton(dep, jeton, ["tools"], false);
     expect(await vu()).toBeNull();
-    await resoudreJeton(dep, jeton, ["opencode"]);
+    await resoudreJeton(dep, jeton);
     const premier = horloge;
     expect(await vu()).toBe(premier);
     horloge += 299;
-    await resoudreJeton(dep, jeton, ["opencode"]);
+    await resoudreJeton(dep, jeton);
     expect(await vu()).toBe(premier);
     horloge += 1;
-    await resoudreJeton(dep, jeton, ["opencode"]);
+    await resoudreJeton(dep, jeton);
     expect(await vu()).toBe(horloge);
   });
 
   it("révoque tous les accès non interactifs d'un compte", async () => {
-    await creerJeton(dep, alice, "opencode");
+    await creerJeton(dep, alice, "tools", "", ["git"]);
     await creerJeton(dep, alice, "tools", "", ["fs"]);
     await creerJeton(dep, alice, "vision");
-    await creerJeton(dep, bob, "opencode");
+    await creerJeton(dep, bob, "tools", "", ["fs"]);
     const oauth: number[] = [];
     dep.revoquerOauth = async (uid) => {
       oauth.push(uid);
@@ -318,79 +313,5 @@ describe.each(MOTEURS)("cycle de vie (%s)", (moteur) => {
     dep.avertir = (m, e) => avis.push(`${m} : ${(e as Error).message}`);
     expect(await revoquerTousAcces(dep, bob)).toEqual({ tokens: 1, oauth: 0 });
     expect(avis).toEqual([`[tokens] révocation OAuth du compte ${bob} impossible : oauth indisponible`]);
-  });
-
-  it("convertit une fois les anciens jetons opencode en clair", async () => {
-    expect(await convertirAnciensJetons(t.base, horloge)).toBe(0);
-    await t.base.exec(
-      "CREATE TABLE code_remote_tokens(user_id BIGINT, token TEXT, created_at DOUBLE PRECISION)",
-    );
-    expect(await convertirAnciensJetons(t.base, horloge)).toBe(0);
-    const ancien = `pcr_${"a".repeat(40)}`;
-    for (const [uid, tok, cree] of [
-      [alice, ancien, 123],
-      [bob, "", 5],
-      [bob, `pcr_${"b".repeat(40)}`, 0],
-      [9999, `pcr_${"c".repeat(40)}`, 7],
-    ] as const) {
-      await t.base.run("INSERT INTO code_remote_tokens(user_id, token, created_at) VALUES (?,?,?)", [
-        uid,
-        tok,
-        cree,
-      ]);
-    }
-    const appairer = (id: string, tok: string | null) =>
-      t.base.run(
-        "INSERT INTO code_pairings(id, code, created_at, expires_at, token) VALUES (?, 'c', 0, 0, ?)",
-        [id, tok],
-      );
-    await appairer("p1", ancien);
-    await appairer("p2", null);
-    expect(await convertirAnciensJetons(t.base, horloge)).toBe(2);
-    const lignes = await t.base.all(
-      "SELECT user_id, kind, name, hint, families, created_at FROM tool_tokens ORDER BY id",
-    );
-    expect(lignes).toEqual([
-      { user_id: alice, kind: "opencode", name: "opencode", hint: "aaaa", families: "", created_at: 123 },
-      { user_id: bob, kind: "opencode", name: "opencode", hint: "bbbb", families: "", created_at: horloge },
-    ]);
-    expect(await t.base.all("SELECT * FROM code_remote_tokens")).toEqual([]);
-    expect((await t.base.all<{ id: string }>("SELECT id FROM code_pairings")).map((r) => r.id)).toEqual([
-      "p2",
-    ]);
-    expect((await resoudreJeton(dep, ancien, ["opencode"]))?.username).toBe("alice");
-    await appairer("p3", `pcr_${"d".repeat(40)}`);
-    expect(await convertirAnciensJetons(t.base, horloge)).toBe(0);
-    expect(await t.base.all("SELECT id FROM code_pairings")).toHaveLength(2);
-    await t.base.run("INSERT INTO code_remote_tokens(user_id, token, created_at) VALUES (?,?,?)", [
-      alice,
-      ancien,
-      1,
-    ]);
-    expect(await convertirAnciensJetons(t.base, horloge)).toBe(0);
-    expect(await t.base.all("SELECT id FROM tool_tokens")).toHaveLength(2);
-    expect(await t.base.all("SELECT * FROM code_remote_tokens")).toEqual([]);
-  });
-  it("conversion lancée par plusieurs processus à la fois : une seule écriture, aucun doublon", async () => {
-    await t.base.exec(
-      "CREATE TABLE code_remote_tokens(user_id BIGINT, token TEXT, created_at DOUBLE PRECISION)",
-    );
-    for (const c of "abcdefgh")
-      await t.base.run("INSERT INTO code_remote_tokens(user_id, token, created_at) VALUES (?,?,1)", [
-        alice,
-        `pcr_${c.repeat(40)}`,
-      ]);
-    const autres = [0, 1, 2].map(() =>
-      ouvrirBase(
-        moteur === "sqlite" ? { backend: "sqlite", path: t.emplacement } : reglagesPgDeTest(t.emplacement),
-      ),
-    );
-    try {
-      const n = await Promise.all(autres.map((b) => convertirAnciensJetons(b, horloge)));
-      expect(n.reduce((a, b) => a + b, 0)).toBe(8);
-    } finally {
-      await Promise.all(autres.map((b) => b.fermer()));
-    }
-    expect(await t.base.all("SELECT id FROM tool_tokens")).toHaveLength(8);
   });
 });

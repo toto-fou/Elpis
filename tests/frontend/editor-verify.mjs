@@ -159,7 +159,7 @@ try {
     ok('contenu du serveur sandbox rendu dans l\'iframe', frameTxt === 'serveur sandbox OK');
     await page.screenshot({ path: path.join(SHOTS, 'ed6-preview-server.png') });
     // Retour au mode Code pour la suite (badge +X sur les onglets).
-    // Scopé .h-9 : « Remote code » de la sidebar matche aussi has-text("Code").
+    // Scopé .h-9 : le bouton « Code » de la barre de l'éditeur, pas un autre texte « Code » de la page.
     await page.locator('.h-9 button:has-text("Code")').first().click();
     await page.waitForTimeout(300);
 

@@ -11,6 +11,7 @@ import {
   pgFtsDocument,
   tableParNom,
 } from "../src/schema";
+import { TABLES_REMOTE_CODE } from "../src/retrait-remote-code";
 import { TABLES } from "../src/schema.gen";
 import { ouvrirBaseDeTest } from "../src/test";
 
@@ -20,12 +21,14 @@ interface DdlDialecte {
   ajout_colonnes: Record<string, string>;
 }
 
-const { tables, pg_fts_document: ftsPg } = JSON.parse(
-  readFileSync(new URL("./vecteurs/schema.json", import.meta.url), "utf-8"),
-) as {
+/** Écart voulu : les tables de Remote code ont quitté le schéma (migration 0031). */
+const retiree = (nom: string): boolean => TABLES_REMOTE_CODE.includes(nom);
+const vecteur = JSON.parse(readFileSync(new URL("./vecteurs/schema.json", import.meta.url), "utf-8")) as {
   tables: ({ nom: string } & Partial<Record<"sqlite" | "postgres", DdlDialecte>>)[];
   pg_fts_document: string;
 };
+const tables = vecteur.tables.filter((t) => !retiree(t.nom));
+const ftsPg = vecteur.pg_fts_document;
 const python = JSON.parse(readFileSync(new URL("./vecteurs/base_python.json", import.meta.url), "utf-8")) as {
   objets: [string, string, string, string][];
   migrations: string[];
@@ -34,7 +37,8 @@ const python = JSON.parse(readFileSync(new URL("./vecteurs/base_python.json", im
 describe("DDL table par table", () => {
   it("même liste de tables, dans le même ordre", () => {
     expect(TABLES.map((t) => t.name)).toEqual(tables.map((t) => t.nom));
-    expect(TABLES).toHaveLength(55);
+    expect(TABLES).toHaveLength(45);
+    expect(vecteur.tables.filter((t) => retiree(t.nom))).toHaveLength(10);
   });
 
   const cas = tables.flatMap((t) =>
@@ -65,7 +69,9 @@ describe("base neuve", () => {
       const objets = await t.base.all<{ type: string; name: string; tbl_name: string; sql: string }>(
         "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type, name",
       );
-      expect(objets.map((o) => [o.type, o.name, o.tbl_name, o.sql])).toEqual(python.objets);
+      expect(objets.map((o) => [o.type, o.name, o.tbl_name, o.sql])).toEqual(
+        python.objets.filter(([, , table]) => !retiree(table)),
+      );
     } finally {
       await t.fermer();
     }

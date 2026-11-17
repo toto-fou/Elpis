@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/reglages/secrets-sections.test.ts — Paramètres › Secrets : sections « Secrets web », « Comptes Git », « Jetons MCP » et « Remote », anciens onglets « connexions » et « connectors » qui mènent à leur section, recherche fusionnée. */
+/** frontend/test/reglages/secrets-sections.test.ts — Paramètres › Secrets : sections « Secrets web », « Comptes Git » et « Jetons MCP », anciens onglets « connexions » et « connectors » qui mènent à leur section, recherche fusionnée. */
 import * as Vue from "vue";
 import { createApp, h, nextTick, reactive } from "vue";
 import type { App } from "vue";
@@ -27,12 +27,7 @@ vi.mock("../../src/components/reglages/onglets/OngletConnecteurs.vue", async () 
 });
 vi.mock("../../src/components/reglages/onglets/OngletConnexions.vue", async () => {
   const { defineComponent, h: rendu } = await import("vue");
-  return {
-    default: defineComponent({
-      props: { genre: { type: String, required: true } },
-      setup: (p) => () => rendu("div", { "data-page": p.genre === "opencode" ? "remote" : "jetons" }),
-    }),
-  };
+  return { default: defineComponent({ render: () => rendu("div", { "data-page": "jetons" }) }) };
 });
 
 let app: App | null = null;
@@ -50,19 +45,17 @@ const contexte = (sections: Record<string, string> = {}): ContexteSections => ({
 });
 const ids = (q: string): string[] => filtrerRail(q).flatMap((g) => g.entrees.map((e) => e.id));
 
-describe("Secrets : quatre sections", () => {
-  it("« Secrets web », « Comptes Git », « Jetons MCP » puis « Remote », chacune avec son aide ; plus d'entrée « connexions » ni « connectors »", () => {
+describe("Secrets : trois sections", () => {
+  it("« Secrets web », « Comptes Git » puis « Jetons MCP », chacune avec son aide ; plus d'entrée « connexions » ni « connectors »", () => {
     const l = sectionsVisibles(contexte(), "secrets");
     expect(l.map((s) => [s.id, s.libelle])).toEqual([
       ["web", "Secrets web"],
       ["git", "Comptes Git"],
       ["jetons", "Jetons MCP"],
-      ["remote", "Remote"],
     ]);
     expect(l[0]!.aide).toContain("il n'en voit jamais la valeur");
     expect(l[1]!.aide).toContain("GitHub, GitLab, Bitbucket, Gitea");
     expect(l[2]!.aide).toContain("(MCP, OpenAPI)");
-    expect(l[3]!.aide).toContain("un par poste relié");
     expect(sectionCourante(contexte(), "secrets")?.id).toBe("web");
     expect(sectionCourante(contexte({ secrets: "jetons" }), "secrets")?.id).toBe("jetons");
     expect(GROUPES_RAIL.flatMap((g) => g.entrees).some((e) => e.id === "connexions")).toBe(false);
@@ -83,10 +76,9 @@ describe("Secrets : quatre sections", () => {
     ])
       expect(ids(q), q).toContain("secrets");
     expect(sectionTrouvee("secrets", "openapi")).toBe("jetons");
-    expect(sectionTrouvee("secrets", "appairage")).toBe("remote");
-    // « opencode » : la configuration du client MCP est dans Jetons MCP, première des deux parties qui en parlent.
     expect(sectionTrouvee("secrets", "opencode")).toBe("jetons");
-    expect(sectionTrouvee("secrets", "poste")).toBe("remote");
+    expect(sectionTrouvee("secrets", "vllm")).toBeNull();
+    expect(sectionTrouvee("secrets", "appairage")).toBeNull();
     expect(sectionTrouvee("secrets", "github")).toBe("git");
     expect(sectionTrouvee("secrets", "Comptes Git")).toBe("git");
     expect(sectionTrouvee("secrets", "Jetons d'accès")).toBeNull();
@@ -128,10 +120,6 @@ describe("Secrets dans la modale", () => {
     await nextTick();
     expect(rg.settingsSections["secrets"]).toBe("jetons");
     expect(pages()).toEqual(["jetons"]);
-    document.querySelector<HTMLButtonElement>('[data-sous-menu] [data-section="remote"]')!.click();
-    await nextTick();
-    expect(rg.settingsSections["secrets"]).toBe("remote");
-    expect(pages()).toEqual(["remote"]);
     document.querySelector<HTMLButtonElement>('[data-sous-menu] [data-section="git"]')!.click();
     await nextTick();
     expect(pages()).toEqual(["git"]);
@@ -227,15 +215,16 @@ describe("openSettingsTab", () => {
     expect(dep.loadSecrets).toHaveBeenCalledTimes(1);
   });
 
-  it("« secrets:jetons », « secrets:remote » et « secrets:web » ciblent la section", async () => {
+  it("« secrets:jetons » et « secrets:web » ciblent la section ; « secrets:remote » et « secrets:opencode » n'en ciblent plus", async () => {
     expect((await ouvrir("secrets:jetons")).m.settingsSections.value["secrets"]).toBe("jetons");
-    expect((await ouvrir("secrets:remote")).m.settingsSections.value["secrets"]).toBe("remote");
+    expect((await ouvrir("secrets:opencode")).m.settingsSections.value["secrets"]).toBeUndefined();
+    expect((await ouvrir("secrets:remote")).m.settingsSections.value["secrets"]).toBeUndefined();
     expect((await ouvrir("secrets:web")).m.settingsSections.value["secrets"]).toBe("web");
   });
 });
 
 describe("sous-menu", () => {
-  it("Secrets a un bandeau à quatre éléments", async () => {
+  it("Secrets a un bandeau à trois éléments", async () => {
     const rg = reactive({
       settingsTab: "secrets",
       settingsSections: {},
@@ -248,6 +237,6 @@ describe("sous-menu", () => {
     app = createApp({ render: () => h(SousMenuReglages) });
     app.provide(CLE_REGLAGES, rg as never);
     app.mount(hote);
-    expect(hote.querySelectorAll("[data-sous-menu] nav button")).toHaveLength(4);
+    expect(hote.querySelectorAll("[data-sous-menu] nav button")).toHaveLength(3);
   });
 });

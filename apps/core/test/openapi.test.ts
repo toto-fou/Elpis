@@ -168,7 +168,7 @@ describe("façade OpenAPI : routes", () => {
       );
     await t.base.run(
       "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
-      [V.ids["alice"] ?? 0, "opencode", "opencode", tokenDigest("pcr_" + "p".repeat(40)), "pppp", "", T0],
+      [V.ids["alice"] ?? 0, "vision", "vision", tokenDigest("evt_" + "p".repeat(40)), "pppp", "", T0],
     );
     dossier = mkdtempSync(join(tmpdir(), "elpis-openapi-"));
     writeFileSync(join(dossier, "mcp.json"), JSON.stringify(V.manifeste));

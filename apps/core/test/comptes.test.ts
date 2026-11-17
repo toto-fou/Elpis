@@ -338,7 +338,7 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     await login("admin", "ancien", "127.0.0.1");
     const ici = cookie(await login("admin", "ancien"));
     const ailleurs = cookie(await login("admin", "ancien"));
-    await creerJeton(dep, 1, "opencode", "poste");
+    await creerJeton(dep, 1, "tools", "poste", ["fs"], 30);
     const changer = (corps: Dict, entetes: Dict = {}, c = ici) =>
       app.inject({
         method: "POST",
@@ -572,7 +572,8 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     const c = cookie(await login("admin", "a"));
     const creer = (corps: unknown) =>
       app.inject({ method: "POST", url: "/api/tokens", headers: { cookie: c }, payload: corps as Dict });
-    expect((await creer({ kind: "vision" })).json()).toEqual({ detail: "Type de jeton inconnu." });
+    for (const kind of ["vision", "opencode"])
+      expect((await creer({ kind })).json()).toEqual({ detail: "Type de jeton inconnu." });
     expect((await creer({ families: ["chart"] })).json()).toEqual({
       detail: "Famille non autorisée : chart.",
     });
@@ -584,14 +585,16 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     const { token, item } = outils.json<{ token: string; item: Dict }>();
     expect(token).toMatch(/^ept_/u);
     expect(item).toMatchObject({ kind: "tools", name: "CI", families: ["fs", "git"], hint: token.slice(-4) });
-    const oc = await app.inject({
+    const malforme = await app.inject({
       method: "POST",
       url: "/api/tokens",
       headers: { cookie: c, "content-type": "application/json" },
-      payload: '{"kind": "opencode"',
+      payload: '{"kind": "tools"',
     });
-    expect(oc.statusCode).toBe(422);
-    expect((await creer({ kind: "opencode", name: "poste" })).json<{ item: Dict }>().item).toMatchObject({
+    expect(malforme.statusCode).toBe(422);
+    expect(
+      (await creer({ name: "poste", families: ["fs"], days: "" })).json<{ item: Dict }>().item,
+    ).toMatchObject({
       name: "poste",
     });
     const liste = await app.inject({
@@ -602,15 +605,14 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     const l = liste.json<{
       tokens: Dict[];
       policy: Dict;
-      opencode_enabled: boolean;
       bridge_url: string;
       tools_url: string;
     }>();
     expect(l.tokens.map((x) => x["name"])).toEqual(["poste", "CI"]);
     expect(l.policy).toMatchObject({ tools_enabled: true, max_days: 90, max_per_user: 20 });
     expect((l.policy["families"] as Dict[])[0]).toEqual({ name: "fs", label: "fs" });
-    expect([l.opencode_enabled, l.bridge_url, l.tools_url]).toEqual([
-      true,
+    expect(l).not.toHaveProperty("opencode_enabled");
+    expect([l.bridge_url, l.tools_url]).toEqual([
       "http://elpis.lan:8080/api/mcp-bridge",
       "http://elpis.lan:8080/api/tools",
     ]);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/outils/mcp/famille-skill-integration.test.ts — famille skill servie en processus : client `inprocess` du pool, pont /api/mcp-bridge/skill (jeton d'outils, identité, portée), façade OpenAPI (famille du compte non exposée), écritures sous verrou. */
+/** apps/core/test/outils/mcp/famille-skill-integration.test.ts — famille skill servie en processus : client `inprocess` du pool, pont /api/mcp-bridge/skill (liste vide sans la famille), façade OpenAPI (famille du compte non exposée), écritures sous verrou. */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,8 +39,6 @@ type Dict = Record<string, unknown>;
 const GOLDEN = JSON.parse(
   readFileSync(new URL("../../../../../packages/outils-mcp/goldens/skill.json", import.meta.url), "utf-8"),
 ) as Golden;
-const OPENCODE = "pcr_" + "a".repeat(40);
-const OPENCODE_BOB = "pcr_" + "b".repeat(40);
 const OUTILS_FS = "ept_" + "f".repeat(40);
 const J = { "content-type": "application/json", accept: "application/json, text/event-stream" };
 const INIT = {
@@ -71,15 +69,10 @@ describe("famille skill servie en processus", () => {
     await initialiserBase(t.base);
     await createUser(t.base, "alice", "mdp-alice", { isAdmin: 1 });
     await createUser(t.base, "bob", "mdp-bob", { isAdmin: 0 });
-    for (const [jeton, uid, type, familles] of [
-      [OPENCODE, 1, "opencode", ""],
-      [OPENCODE_BOB, 2, "opencode", ""],
-      [OUTILS_FS, 1, "tools", "fs"],
-    ] as const)
-      await t.base.run(
-        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
-        [uid, type, type, tokenDigest(jeton), jeton.slice(-4), familles, Date.now() / 1000],
-      );
+    await t.base.run(
+      "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
+      [1, "tools", "tools", tokenDigest(OUTILS_FS), OUTILS_FS.slice(-4), "fs", Date.now() / 1000],
+    );
     dossier = mkdtempSync(join(tmpdir(), "elpis-skill-integration-"));
     await mkdir(join(dossier, "global"), { recursive: true });
     writeFileSync(
@@ -103,7 +96,7 @@ describe("famille skill servie en processus", () => {
     invalidateConfigCache();
     vi.stubEnv("APP_MCP_MANIFEST", join(dossier, "mcp.json"));
     oublierManifeste();
-    creerServeurEnProcessus({ famillesOpencode: ["skill"], limiteDebit: null, limiteConcurrence: null });
+    creerServeurEnProcessus({ limiteDebit: null, limiteConcurrence: null });
     enregistrerFamillesEnProcessus([["skill", outilsSkill()]]);
     const oauth: DependancesOAuth = { base: t.base, config: () => configView() };
     const jetons = dependancesParDefaut(t.base);
@@ -209,43 +202,6 @@ describe("famille skill servie en processus", () => {
     await poster("/api/mcp-bridge/skill", S, { jsonrpc: "2.0", method: "notifications/initialized" });
     return S;
   }
-
-  async function appeler(S: Record<string, string>, id: number, nom: string, args: Dict, meta?: Dict) {
-    const r = await poster("/api/mcp-bridge/skill", S, {
-      jsonrpc: "2.0",
-      id,
-      method: "tools/call",
-      params: { name: nom, arguments: args, ...(meta ? { _meta: meta } : {}) },
-    });
-    return (messages(r.texte).find((m) => m["id"] === id)?.["result"] ?? null) as Dict;
-  }
-
-  it("pont /api/mcp-bridge/skill : jeton opencode, cinq outils, compte du jeton (un _meta menteur est ignoré), cloisonnement", async () => {
-    const S = await session(OPENCODE);
-    const liste = messages(
-      (await poster("/api/mcp-bridge/skill", S, { jsonrpc: "2.0", id: 2, method: "tools/list" })).texte,
-    );
-    expect(((liste[0]?.["result"] as Dict)["tools"] as Dict[]).map((o) => o["name"])).toEqual(
-      GOLDEN.outils.map((o) => o["name"]),
-    );
-    const r = await appeler(
-      S,
-      3,
-      "skill_save",
-      { name: "Pont", description: "d", body: "via le pont" },
-      { username: "mallory", user_id: 99 },
-    );
-    expect((r["structuredContent"] as Dict)["result"]).toMatchObject({ ok: true, name: "pont" });
-    expect(await readFile(join(dossier, "user_skills", "alice", "pont", "SKILL.md"), "utf8")).toContain(
-      "via le pont",
-    );
-    const SB = await session(OPENCODE_BOB);
-    const refus = await appeler(SB, 5, "skill_get", { name: "pont" });
-    expect(refus["isError"]).toBe(true);
-    expect(JSON.parse(((refus["content"] as Dict[])[0] as Dict)["text"] as string)["error"]).toBe(
-      "skill_not_found",
-    );
-  });
 
   it("pont : un jeton sans la famille voit une liste vide ; façade OpenAPI : famille du compte non exposée (404)", async () => {
     const S = await session(OUTILS_FS);

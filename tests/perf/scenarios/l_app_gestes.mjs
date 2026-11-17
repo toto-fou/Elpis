@@ -198,7 +198,6 @@ const ONGLETS = [
 const PAGES_PLUS = [
   ["Studio", "studio", ".elpis-studio-page", ""],
   ["Agents", "agents", ".elpis-agents-page", ""],
-  ["Remote code", "code", ".elpis-code-page", "sessions opencode déportées : aucune sur le cœur de test"],
   ["RAG", "rag", ".elpis-rag-page", "services RAG (Qdrant, extracteur) absents : page vide ou en erreur"],
 ];
 

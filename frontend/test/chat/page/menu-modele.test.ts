@@ -351,7 +351,6 @@ describe("menu du modèle", () => {
       modalState: ref({ isOpen: false }),
       contextMenu: ref({ isOpen: false }),
       showInfoModal: ref(false),
-      showOpenCodeModal: ref(false),
       imgZoom: ref(null),
       showNotifPanel: ref(false),
       menuPagesOuvert: ref(false),

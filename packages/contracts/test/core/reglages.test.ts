@@ -30,7 +30,6 @@ describe("contrats REST : réglages du compte (core réel)", () => {
           dark_mode: true,
           assistant_name: "Iris",
           compression_enabled: 1,
-          opencode_mcp_families: { fs: true, inconnue: true },
           cle_inconnue: 1,
         },
       }),

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/mcp/chart-pont.test.ts — famille chart servie en processus : entrée `inprocess` du manifeste (client du pool), pont `/api/mcp-bridge/chart` (jeton, identité, ressource), façade OpenAPI qui ne l'expose pas, retour arrière par le manifeste. */
+/** apps/core/test/mcp/chart-pont.test.ts — famille chart servie en processus : entrée `inprocess` du manifeste (client du pool), pont `/api/mcp-bridge/chart` (rien sans la famille, 401 sans jeton valide), façade OpenAPI qui ne l'expose pas, retour arrière par le manifeste. */
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -32,8 +32,6 @@ import { appTest, journalMuet } from "../aides";
 
 type Dict = Record<string, unknown>;
 
-const ALICE = "pcr_" + "a".repeat(40);
-const BOB = "pcr_" + "b".repeat(40);
 const FS = "ept_" + "f".repeat(40);
 const J = { "content-type": "application/json", accept: "application/json, text/event-stream" };
 const INIT = {
@@ -71,15 +69,10 @@ describe("famille chart servie en processus", () => {
     await initialiserBase(t.base);
     await createUser(t.base, "alice", "mdp-alice", { isAdmin: 1 });
     await createUser(t.base, "bob", "mdp-bob");
-    for (const [jeton, uid, type, familles] of [
-      [ALICE, 1, "opencode", ""],
-      [BOB, 2, "opencode", ""],
-      [FS, 1, "tools", "fs"],
-    ] as const)
-      await t.base.run(
-        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
-        [uid, type, type, tokenDigest(jeton), jeton.slice(-4), familles, Date.now() / 1000],
-      );
+    await t.base.run(
+      "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
+      [1, "tools", "tools", tokenDigest(FS), FS.slice(-4), "fs", Date.now() / 1000],
+    );
     dossier = mkdtempSync(join(tmpdir(), "elpis-chart-pont-"));
     writeFileSync(
       join(dossier, "config.json"),
@@ -98,7 +91,7 @@ describe("famille chart servie en processus", () => {
     vi.stubEnv("CHART_CACHE_DIR", join(dossier, "cache"));
     oublierManifeste();
     reinitialiserRefus();
-    creerServeurEnProcessus({ famillesOpencode: ["chart"], limiteDebit: null, limiteConcurrence: null });
+    creerServeurEnProcessus({ limiteDebit: null, limiteConcurrence: null });
     expect(enregistrerFamillesEnProcessus([familleChart()])).toEqual(["chart"]);
     expect(enregistrerFamillesEnProcessus([familleChart()])).toEqual([]);
     const jetons = dependancesParDefaut(t.base);
@@ -201,45 +194,6 @@ describe("famille chart servie en processus", () => {
     } finally {
       await client.fermer();
     }
-  });
-
-  it("pont /api/mcp-bridge/chart : jeton opencode vérifié, 30 outils, identité du jeton (pas du _meta), ressource chart:// limitée au compte du jeton", async () => {
-    const S = await session(ALICE);
-    const liste = (await requete(S, 2, "tools/list"))["result"] as Dict;
-    expect((liste["tools"] as Dict[]).map((o) => o["name"]).slice(0, 3)).toEqual([
-      "chart_bar",
-      "chart_line",
-      "chart_area",
-    ]);
-    expect(liste["tools"]).toHaveLength(30);
-    const appel = (
-      await requete(S, 3, "tools/call", {
-        name: "chart_line",
-        arguments: {
-          data: [
-            { x: "a", y: 1.0 },
-            { x: "b", y: 2 },
-          ],
-          trend: true,
-        },
-        _meta: { username: "mallory", chat_id: "c9" },
-      })
-    )["result"] as Dict;
-    expect(appel["isError"]).toBe(false);
-    const id = ((appel["structuredContent"] as Dict)["result"] as Dict)["chart_id"] as string;
-    expect(fichiers("alice")).toContain(`${id}.json`);
-    expect(fichiers("mallory")).toEqual([]);
-    const lire = async (jeton: string, compte: string): Promise<string> => {
-      const s = await session(jeton);
-      const r = (await requete(s, 4, "resources/read", { uri: `chart://${compte}/${id}` }))["result"] as Dict;
-      return ((r["contents"] as Dict[])[0] as Dict)["text"] as string;
-    };
-    expect(await lire(ALICE, "alice")).toContain('"series"');
-    expect(await lire(BOB, "alice")).toBe(`{"ok": false, "error": "chart_not_found", "chart_id": "${id}"}`);
-    const modeles = (await requete(S, 5, "resources/templates/list"))["result"] as Dict;
-    expect((modeles["resourceTemplates"] as Dict[]).map((m) => m["uriTemplate"])).toEqual([
-      "chart://{username}/{chart_id}",
-    ]);
   });
 
   it("pont : un jeton d'outils sans la famille chart ne voit aucun outil et ne peut pas appeler chart_bar ; jeton absent ou inconnu → 401", async () => {

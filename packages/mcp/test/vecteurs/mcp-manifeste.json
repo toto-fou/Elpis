@@ -380,9 +380,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -431,9 +428,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -472,9 +466,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -520,9 +511,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -557,9 +545,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -594,9 +579,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -667,9 +649,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -706,9 +685,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -750,9 +726,6 @@
           ],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -796,9 +769,6 @@
           ],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -837,9 +807,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -884,9 +851,6 @@
             "chart"
           ],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -923,9 +887,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -965,9 +926,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1011,9 +969,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1051,9 +1006,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1091,9 +1043,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1135,9 +1084,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1186,9 +1132,6 @@
             "fs"
           ],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1227,9 +1170,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": true,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1266,9 +1206,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1320,12 +1257,6 @@
           ],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [
-            "git",
-            "office"
-          ],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": true,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1368,9 +1299,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "p-",
-          "opencode_publish": true,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1407,9 +1335,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1456,9 +1381,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": {
@@ -1505,9 +1427,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1546,9 +1465,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1587,9 +1503,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1628,9 +1541,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1701,9 +1611,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "sb",
           "host": "sb",
           "fallback": null,
@@ -1746,9 +1653,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "s2",
           "host": "s2",
           "fallback": null,
@@ -1786,9 +1690,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -1823,9 +1724,6 @@
           "families": [],
           "default_on": [],
           "default_on_self": false,
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
-          "opencode_publish": false,
           "sandbox": "",
           "host": "",
           "fallback": null,
@@ -2113,12 +2011,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [
-                  "git",
-                  "browser",
-                  "desktop"
-                ],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -2160,13 +2052,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [
-                "git",
-                "browser",
-                "desktop"
-              ],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -2269,16 +2154,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "elpis-tools": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer tok"
-              }
-            }
-          },
           "toolhost": "elpis-tools",
           "toolhosts": [
             "elpis-tools"
@@ -2319,12 +2194,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [
-            "git",
-            "browser",
-            "desktop"
-          ],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {},
@@ -2518,11 +2387,6 @@
               "tok"
             ]
           },
-          "opencode_famille_module": [
-            "git",
-            "browser",
-            "desktop"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -3113,12 +2977,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [
-                  "git",
-                  "browser",
-                  "desktop"
-                ],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": true,
                 "sandbox": "",
@@ -3144,8 +3002,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": true,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -3166,8 +3022,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -3191,8 +3045,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -3226,13 +3078,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [
-                "git",
-                "browser",
-                "desktop"
-              ],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -3268,9 +3113,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": true,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -3297,9 +3139,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -3324,9 +3163,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -3516,31 +3352,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "elpis-tools": {
-              "type": "remote",
-              "url": "http://10.1.2.3:8765/sse/",
-              "enabled": true
-            },
-            "meteo": {
-              "type": "remote",
-              "url": "http://m/mcp",
-              "enabled": true,
-              "headers": {
-                "K": "v"
-              }
-            },
-            "stdio-x": {
-              "type": "remote",
-              "url": "",
-              "enabled": true
-            },
-            "sse-y": {
-              "type": "remote",
-              "url": "http://y/sse",
-              "enabled": true
-            }
-          },
           "toolhost": "elpis-tools",
           "toolhosts": [
             "elpis-tools"
@@ -3567,10 +3378,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [
-            "git"
-          ],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {},
@@ -3761,11 +3568,6 @@
               ""
             ]
           },
-          "opencode_famille_module": [
-            "git",
-            "browser",
-            "desktop"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -4339,12 +4141,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [
-                  "git",
-                  "browser",
-                  "desktop"
-                ],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -4386,13 +4182,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [
-                "git",
-                "browser",
-                "desktop"
-              ],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -4493,16 +4282,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "elpis-tools": {
-              "type": "remote",
-              "url": "",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer t"
-              }
-            }
-          },
           "toolhost": "elpis-tools",
           "toolhosts": [
             "elpis-tools"
@@ -4543,12 +4322,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [
-            "git",
-            "browser",
-            "desktop"
-          ],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {},
@@ -4742,11 +4515,6 @@
               ""
             ]
           },
-          "opencode_famille_module": [
-            "git",
-            "browser",
-            "desktop"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -5362,8 +5130,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -5404,8 +5170,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -5446,8 +5210,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": true,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -5488,8 +5250,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -5530,8 +5290,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": true,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -5572,8 +5330,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": true,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -5614,8 +5370,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -5642,8 +5396,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -5670,8 +5422,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -5698,8 +5448,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -5726,8 +5474,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -5776,9 +5522,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -5820,9 +5563,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -5864,9 +5604,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": true,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -5908,9 +5645,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -5952,9 +5686,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": true,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -5996,9 +5727,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": true,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -6040,9 +5768,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -6084,9 +5809,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -6115,9 +5837,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -6146,9 +5865,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -6177,9 +5893,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -6819,96 +6532,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "elpis-fs": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/fs",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-shell": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/shell",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-git": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/git",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-office": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/office",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-browser": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/browser",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-desktop": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/desktop",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-skill-run": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/skill_run",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-chart": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/chart",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-memory": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/memory",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-skill": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/skill",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-todo": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/todo",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            }
-          },
           "toolhost": "elpis-fs",
           "toolhosts": [
             "elpis-fs",
@@ -6968,12 +6591,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [
-            "git",
-            "browser",
-            "desktop"
-          ],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {
@@ -7469,11 +7086,6 @@
               "jeton-local"
             ]
           },
-          "opencode_famille_module": [
-            "git",
-            "browser",
-            "desktop"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -9608,8 +9220,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -9650,10 +9260,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [
-                  "git"
-                ],
-                "opencode_publish": true,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -9680,8 +9286,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -9708,8 +9312,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -9758,9 +9360,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -9802,11 +9401,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [
-                "git"
-              ],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": true,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -9848,9 +9442,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -9879,9 +9470,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -10108,40 +9696,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "elpis-fs": {
-              "type": "remote",
-              "url": "http://10.0.0.5:9000/sse/fs",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer envtok"
-              }
-            },
-            "elpis-git": {
-              "type": "remote",
-              "url": "http://10.0.0.5:9000/sse/git",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer envtok"
-              }
-            },
-            "elpis-chart": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/chart",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer envtok"
-              }
-            },
-            "elpis-memory": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/memory",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer envtok"
-              }
-            }
-          },
           "toolhost": "elpis-fs",
           "toolhosts": [
             "elpis-fs",
@@ -10172,10 +9726,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [
-            "git"
-          ],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {
@@ -10482,9 +10032,6 @@
               "envtok"
             ]
           },
-          "opencode_famille_module": [
-            "git"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -11564,8 +11111,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -11606,8 +11151,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -11648,8 +11191,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -11690,8 +11231,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -11732,8 +11271,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -11774,8 +11311,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -11816,8 +11351,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -11844,8 +11377,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -11872,8 +11403,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -11900,8 +11429,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -11928,8 +11455,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -11978,9 +11503,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -12022,9 +11544,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -12066,9 +11585,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -12110,9 +11626,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -12154,9 +11667,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -12198,9 +11708,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -12242,9 +11749,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "main",
               "fallback": {
@@ -12286,9 +11790,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -12317,9 +11818,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -12348,9 +11846,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -12379,9 +11874,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -13021,96 +12513,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "elpis-fs": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/fs",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-shell": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/shell",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-git": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/git",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-office": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/office",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-browser": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/browser",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-desktop": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/desktop",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-skill-run": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/skill_run",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-chart": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/chart",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-memory": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/memory",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-skill": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/skill",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            },
-            "elpis-todo": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8766/mcp/todo",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-local"
-              }
-            }
-          },
           "toolhost": "elpis-fs",
           "toolhosts": [
             "elpis-fs",
@@ -13170,8 +12572,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {
@@ -13667,7 +13067,6 @@
               "jeton-local"
             ]
           },
-          "opencode_famille_module": [],
           "export": [
             {
               "portee": "toolhost",
@@ -15682,12 +15081,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [
-                  "fs",
-                  "git",
-                  "browser"
-                ],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -15712,8 +15105,6 @@
                   "memory"
                 ],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -15739,8 +15130,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": true,
-                "opencode_families": [],
-                "opencode_publish": true,
                 "has_token": true,
                 "fallback": false,
                 "sandbox": "",
@@ -15764,8 +15153,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -15789,8 +15176,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -15842,13 +15227,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [
-                "fs",
-                "git",
-                "browser"
-              ],
-              "opencode_prefix": "e-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -15890,9 +15268,6 @@
                 "memory"
               ],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -15919,9 +15294,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": true,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": true,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -15951,9 +15323,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -15978,9 +15347,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -16232,40 +15598,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "outils": {
-              "type": "remote",
-              "url": "http://127.0.0.1:8765/mcp/",
-              "enabled": true,
-              "headers": {
-                "Authorization": "Bearer jeton-fichier",
-                "X-Root": "<RACINE>"
-              }
-            },
-            "memoire": {
-              "type": "remote",
-              "url": "",
-              "enabled": true
-            },
-            "meteo": {
-              "type": "remote",
-              "url": "http://meteo/sse",
-              "enabled": true,
-              "headers": {
-                "Authorization": "jeton-env"
-              }
-            },
-            "local": {
-              "type": "remote",
-              "url": "",
-              "enabled": true
-            },
-            "remote": {
-              "type": "remote",
-              "url": "http://r/mcp",
-              "enabled": true
-            }
-          },
           "toolhost": "outils",
           "toolhosts": [
             "outils"
@@ -16317,11 +15649,6 @@
           "default_on_externals": [
             "meteo"
           ],
-          "opencode_families": [
-            "git",
-            "browser"
-          ],
-          "opencode_prefix": "e-",
           "hotes": {
             "": {
               "host": {},
@@ -16573,10 +15900,6 @@
               "jeton-fichier"
             ]
           },
-          "opencode_famille_module": [
-            "git",
-            "browser"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -17160,8 +16483,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": true,
                 "sandbox": "",
@@ -17185,8 +16506,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -17232,9 +16551,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -17272,9 +16588,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -17391,18 +16704,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "x": {
-              "type": "remote",
-              "url": "http://x/mcp",
-              "enabled": true
-            },
-            "nom invalide !": {
-              "type": "remote",
-              "url": "http://y/mcp",
-              "enabled": true
-            }
-          },
           "toolhost": "x",
           "toolhosts": [
             "x"
@@ -17425,8 +16726,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {
@@ -17613,7 +16912,6 @@
               ""
             ]
           },
-          "opencode_famille_module": [],
           "export": [
             {
               "portee": "toolhost",
@@ -18170,12 +17468,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [
-                  "git",
-                  "browser",
-                  "desktop"
-                ],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": true,
                 "sandbox": "",
@@ -18207,13 +17499,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [
-                "git",
-                "browser",
-                "desktop"
-              ],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -18296,13 +17581,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "elpis-tools": {
-              "type": "remote",
-              "url": "http://h:1/mcp",
-              "enabled": true
-            }
-          },
           "toolhost": "elpis-tools",
           "toolhosts": [
             "elpis-tools"
@@ -18323,10 +17601,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [
-            "git"
-          ],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {},
@@ -18480,11 +17754,6 @@
               ""
             ]
           },
-          "opencode_famille_module": [
-            "git",
-            "browser",
-            "desktop"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -19050,8 +18319,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": true,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -19072,8 +18339,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -19103,9 +18368,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": true,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -19130,9 +18392,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -19214,18 +18473,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "a": {
-              "type": "remote",
-              "url": "http://a/mcp",
-              "enabled": true
-            },
-            "b": {
-              "type": "remote",
-              "url": "",
-              "enabled": false
-            }
-          },
           "toolhost": null,
           "toolhosts": [],
           "toolhosts_actifs": [],
@@ -19251,8 +18498,6 @@
           "toolhost_families": [],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {},
@@ -19395,11 +18640,6 @@
               ""
             ]
           },
-          "opencode_famille_module": [
-            "git",
-            "browser",
-            "desktop"
-          ],
           "export": [
             {
               "portee": "toolhost",
@@ -19835,8 +19075,6 @@
                   "git"
                 ],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": true,
                 "fallback": true,
                 "sandbox": "",
@@ -19862,8 +19100,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -19887,8 +19123,6 @@
                 "families": [],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -19913,8 +19147,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -19968,9 +19200,6 @@
                 "git"
               ],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "h2",
               "fallback": {
@@ -20010,9 +19239,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -20037,9 +19263,6 @@
               "families": [],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -20066,9 +19289,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -20264,31 +19484,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "th1": {
-              "type": "remote",
-              "url": "http://h1:1/mcp/git",
-              "enabled": true,
-              "headers": {
-                "authorization": "bearer abc"
-              }
-            },
-            "th2": {
-              "type": "remote",
-              "url": "http://h2:2/sse/fs",
-              "enabled": true
-            },
-            "th3": {
-              "type": "remote",
-              "url": "",
-              "enabled": true
-            },
-            "app": {
-              "type": "remote",
-              "url": "http://h:8766/mcp/todo",
-              "enabled": true
-            }
-          },
           "toolhost": "th1",
           "toolhosts": [
             "th1",
@@ -20322,8 +19517,6 @@
             "git"
           ],
           "default_on_externals": [],
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {
@@ -20576,7 +19769,6 @@
               "t3"
             ]
           },
-          "opencode_famille_module": [],
           "export": [
             {
               "portee": "toolhost",
@@ -21358,8 +20550,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": true,
                 "sandbox": "",
@@ -21391,9 +20581,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -21488,13 +20675,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "a": {
-              "type": "remote",
-              "url": "http://a/mcp",
-              "enabled": true
-            }
-          },
           "toolhost": "a",
           "toolhosts": [
             "a"
@@ -21515,8 +20695,6 @@
           ],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {},
@@ -21670,7 +20848,6 @@
               ""
             ]
           },
-          "opencode_famille_module": [],
           "export": [
             {
               "portee": "toolhost",
@@ -22263,8 +21440,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": true,
                 "sandbox": "",
@@ -22289,8 +21464,6 @@
                 ],
                 "default_on": [],
                 "default_on_self": false,
-                "opencode_families": [],
-                "opencode_publish": false,
                 "has_token": false,
                 "fallback": false,
                 "sandbox": "",
@@ -22321,9 +21494,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": {
@@ -22363,9 +21533,6 @@
               ],
               "default_on": [],
               "default_on_self": false,
-              "opencode_families": [],
-              "opencode_prefix": "elpis-",
-              "opencode_publish": false,
               "sandbox": "",
               "host": "",
               "fallback": null,
@@ -22488,18 +21655,6 @@
               }
             ]
           },
-          "opencode_entry": {
-            "th": {
-              "type": "remote",
-              "url": "http://t/mcp",
-              "enabled": false
-            },
-            "app": {
-              "type": "remote",
-              "url": "http://a/mcp/memory",
-              "enabled": true
-            }
-          },
           "toolhost": "th",
           "toolhosts": [
             "th"
@@ -22517,8 +21672,6 @@
           "toolhost_families": [],
           "default_on_categories": [],
           "default_on_externals": [],
-          "opencode_families": [],
-          "opencode_prefix": "elpis-",
           "hotes": {
             "": {
               "host": {},
@@ -22676,7 +21829,6 @@
               ""
             ]
           },
-          "opencode_famille_module": [],
           "export": [
             {
               "portee": "toolhost",

@@ -108,7 +108,7 @@ try {
     await plus.click();
     const entree = page.locator('aside.elpis-slide-panel [role="menuitem"][title="RAG"]');
     const sousMenu = await page.locator('aside.elpis-slide-panel [role="menu"] [role="menuitem"]').allTextContents();
-    v.ok('« Plus » ouvre le sous-menu RAG, Studio, Remote code ; RAG en premier, icône ph-books', texte(sousMenu[0]) === 'RAG' && texte(sousMenu[1]) === 'Studio' && (await entree.locator('i.ph-books').count()) === 1 && (await plus.getAttribute('aria-expanded')) === 'true', sousMenu.join(' | '));
+    v.ok('« Plus » ouvre le sous-menu RAG, Studio ; RAG en premier, icône ph-books', texte(sousMenu[0]) === 'RAG' && texte(sousMenu[1]) === 'Studio' && (await entree.locator('i.ph-books').count()) === 1 && (await plus.getAttribute('aria-expanded')) === 'true', sousMenu.join(' | '));
     await page.keyboard.press('Escape');
     v.ok('Échap referme le sous-menu, le focus revient sur « Plus »', await jusqua(async () => (await page.locator('aside.elpis-slide-panel [role="menu"]').count()) === 0, 3000) && await plus.evaluate((b) => document.activeElement === b));
     const actifPlus = page.locator('aside.elpis-slide-panel button[data-menu-plus]:visible [data-menu-plus-actif]');

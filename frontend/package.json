@@ -1,6 +1,6 @@
 {
   "name": "@elpis/web",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "private": true,
   "license": "MIT",
   "description": "Frontend d'Elpis : entrées Vite (chat, console), pont avec les scripts historiques",
@@ -10,8 +10,8 @@
     "test": "vitest run --project web"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.2",
-    "@elpis/contracts": "0.1.2",
+    "@elpis/commun": "0.1.4",
+    "@elpis/contracts": "0.1.4",
     "@highlightjs/cdn-assets": "11.7.0",
     "@sgratzl/chartjs-chart-boxplot": "4.4.5",
     "@xterm/addon-fit": "0.11.0",

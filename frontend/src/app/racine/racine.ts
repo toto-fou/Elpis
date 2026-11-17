@@ -600,7 +600,7 @@ export function creerRacine(options: OptionsRacine = {}) {
   const liveLogs = ref<unknown[]>([]);
   const appInfo = ref<Record<string, unknown>>({
     name: "Elpis",
-    version: "0.1.2",
+    version: "0.1.4",
     teamName: "",
     engine: "llama.cpp",
     description: "",

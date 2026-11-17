@@ -274,4 +274,4 @@ short, a change must never:
   secrets, tokens, database password), `logs/`, `dist/`, archives.
 - Offline release: `./make_release.sh [VERSION]` produces
   `dist/elpis-offline-<version>-<arch>/` (and its `.tar`), installed by
-  `./install.sh --offline FOLDER`; the version comes from `pyproject.toml`.
+  `./install.sh --offline FOLDER`; the version is the product version (`npm run bump`, see `CONTRIBUTING.md`).

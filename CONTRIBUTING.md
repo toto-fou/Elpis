@@ -68,7 +68,51 @@ the commands above on Node 24.
 <!-- REUSE-IgnoreStart -->
 - New source files: `SPDX-License-Identifier: MIT` header.
 <!-- REUSE-IgnoreEnd -->
+- Describe the change under `## Unreleased` in `CHANGELOG.md`; never change the
+  version (see "Versions and releases" below).
 - Sign your commits (`git commit -s`): see "Developer Certificate of Origin" below.
+
+## Versions and releases
+
+Elpis has one version for the whole product. The root `package.json` carries
+it, and `npm run bump` copies it everywhere else: workspace packages and their
+`@elpis/*` pins, lockfiles, `pyproject.toml`, the browser service, the RAG
+extractor, the desktop agent and the interface defaults.
+
+- **Pull requests never change the version.** They add their entry under
+  `## Unreleased` in `CHANGELOG.md`.
+- **A release groups merged work.** A patch release batches fixes; it is not
+  cut for each pull request.
+- Versions are `X.Y.Z`, with no pre-release suffix. A version exists once its
+  tag `vX.Y.Z` is pushed, and only the maintainer tags.
+- Until 1.0.0:
+  - `0.Y.0` (minor): new features, removals, or anything an administrator must
+    act on: a database migration, a renamed or removed setting, a new
+    prerequisite (sandbox image, Chromium, Node), an API or file format change
+    (`mcp.json`, REST contracts).
+  - `0.Y.Z` (patch): fixes and dependency updates, security ones included, that
+    ask nothing of the administrator.
+- 1.0.0 is the first stable release, and the maintainer alone decides when it
+  comes. From then on, standard SemVer: a major version for any breaking change
+  for administrators or integrations.
+- Kept apart, with their own numbering: the sandbox image tag (a new tag
+  whenever its sources change), database migrations, the Office engine channel
+  protocol and the `mcp.json` schema.
+
+Cutting a release:
+
+```bash
+npm run bump -- 0.1.5    # versions everywhere; "## Unreleased" becomes "## 0.1.5 — <date>"
+npm run bump -- --check  # every location agrees (also run by the CI)
+```
+
+1. Open a "Release X.Y.Z" pull request with that change.
+2. Test that commit on a staging instance: there are no release-candidate tags.
+3. Merge, tag the merge commit (`git tag vX.Y.Z && git push origin vX.Y.Z`) and
+   publish the GitHub release from its `CHANGELOG.md` section.
+
+`npm run bump` refuses a version that is not newer, and 1.0.0 or above without
+`--stable`.
 
 ## Developer Certificate of Origin (DCO)
 

@@ -4,6 +4,17 @@ Notable changes to Elpis, newest first. Format inspired by
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version numbers
 follow [SemVer](https://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- **One version for the whole product.** `npm run bump -- X.Y.Z` writes it everywhere (workspace
+  packages and their `@elpis/*` pins, lockfiles, `pyproject.toml`, browser service, RAG extractor,
+  desktop agent, interface defaults) and turns *Unreleased* into the new section of this file;
+  `npm run bump -- --check` runs in the CI. The browser service (was 12.0.0), the RAG extractor
+  (3.0.0) and the desktop agent (0.0.1) now carry the product version. Release rules are in
+  `CONTRIBUTING.md`.
+
 ## 0.1.4 — 2026-11-17
 
 ### Added

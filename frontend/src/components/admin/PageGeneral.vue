@@ -844,25 +844,6 @@ const adm = domaineAdmin();
             <div>
               <label
                 class="adm-row__label"
-                title="Entrée du menu chat qui installe le CLI sur le poste de l'utilisateur."
-                for="cfg-feat-opencode"
-                >OpenCode</label
-              >
-              <span class="sr-only"
-                >Entrée du menu chat qui installe le CLI sur le poste de l'utilisateur.</span
-              >
-            </div>
-            <InterrupteurConsole
-              id="cfg-feat-opencode"
-              v-model="adm.configForm.features.opencode"
-              data-field="config:features.opencode"
-            />
-          </div>
-
-          <div v-if="adm.configForm.features" class="adm-row">
-            <div>
-              <label
-                class="adm-row__label"
                 title="Word, PowerPoint et Excel dans l'éditeur. Conversion LibreOffice isolée (bubblewrap) sur le serveur. Les PDF restent visibles même désactivé."
                 for="cfg-feat-office"
                 >Aperçu Office</label

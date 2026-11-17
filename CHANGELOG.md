@@ -10,7 +10,7 @@ follow [SemVer](https://semver.org/).
 
 - **Help by feature, with clips.** The help window lists the sections of the user guide on the
   left, with a search field, shows one section at a time and opens on the one that matches the
-  screen it was called from (chat, editor, routines, RAG, Studio, agents, Remote code). Each
+  screen it was called from (chat, editor, routines, RAG, Studio, agents). Each
   feature has a short muted clip (VP9, 5 s for one gesture) next to its steps: it plays while it
   is on screen, and waits for a click when animations are reduced. The French guide is rewritten
   around what a user does: the essential gesture, tips to get the most out of each feature, then
@@ -188,11 +188,6 @@ follow [SemVer](https://semver.org/).
   inside the block, and *Nouveau secret* is at the bottom. The console keeps its table of instance
   secrets, with columns named in plain words (*Nom*, *Utilisé pour*, *Identifiant*, *Dernier
   usage*).
-- **Remote tokens have their own part.** Settings › Secrets gets a fourth part, *Remote*: the
-  tokens of the machines connected to Remote code (one per machine, with its command, last use,
-  regeneration, revocation one by one or all at once). *Jetons MCP* now lists tool tokens only,
-  and its form no longer asks for a type. Each part keeps its own form and its own token shown
-  once, and says how tokens are kept: only a fingerprint and the last 4 characters.
 - **One window to add a repository in the editor.** *Ajouter un dépôt* replaces the *Cloner* and
   *Initialiser* buttons and their two windows. Three ways, one at a time: *Mes dépôts* (the
   repositories of a Git account, listed as soon as the window opens; the account is chosen when
@@ -468,6 +463,24 @@ follow [SemVer](https://semver.org/).
   gone: `docs/architecture.md` is no longer served to signed-in accounts and stays in the
   repository. `GET /api/help/readme` answers the user guide only, and no longer returns `doc`.
 
+- **Remote code and the OpenCode distribution.** Nobody used them, and each coding harness needed
+  its own plugin, installer and pairing flow to maintain. The *Remote code* page, the OpenCode
+  plugin and installers (*Installer opencode* in the account menu, `/opencode`, `/opencode.ps1`,
+  `/api/cli/*`, the `cli_dist/` folder), the `/api/code/*` routes, the *Remote* part of
+  Settings › Secrets, `pcr_` tokens and the *OpenCode* switch of the console (`features.opencode`)
+  are gone, with `mcp.opencode_families`, `mcp.opencode_exclude_families`, `mcp.public_url`,
+  `LOCAL_MCP_OPENCODE_FAMILIES`, `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES`, `LOCAL_MCP_PUBLIC_URL`,
+  `OPENCODE_DIST_DIR` and `opencode.*` of `config.json` (ignored if left there); an `opencode`
+  block left in `mcp.json` is ignored. Migration `0031_remove_remote_code` drops the Remote code
+  tables and deletes the old Remote tokens; tool and vision tokens stay. The desktop agent's
+  installer fetches the app's CA from `/api/desktop/ca.crt`. OpenCode still reaches the Elpis
+  tools as an MCP client, with a tool token (Settings › Secrets › Jetons MCP).
+- **Remote code plugin left on workstations.** Workstations can delete
+  `~/.config/opencode/plugin/elpis-remote.ts` and `~/.config/opencode/elpis-remote.json`; until
+  then the plugin's calls to `/api/code/*`, `/api/cli/*` and `/opencode` get a 404 logged at
+  DEBUG, not a live warning. The `elpis-*` entries the old installer wrote under `mcp` in
+  `~/.config/opencode/opencode.json` carry a Remote token that is now refused: remove them, or
+  replace their Bearer with a tool token (Settings › Secrets › Jetons MCP).
 - **The central browser service.** No browser service runs on the host any more: port 3000,
   the `browser` service of `./elpis` and its `elpis-browser` unit, `browser.mode` and
   `browser.sandbox_users` (ignored if left in `config.json`, with one line in the tool host's

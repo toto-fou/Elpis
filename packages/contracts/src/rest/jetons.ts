@@ -27,16 +27,15 @@ export const schemaPolitiqueJetons = z.object({
 export const schemaReponseJetons = z.object({
   tokens: z.array(schemaJeton),
   policy: schemaPolitiqueJetons,
-  opencode_enabled: z.boolean(),
   bridge_url: z.string(),
   tools_url: z.string(),
 });
 export type ReponseJetons = z.infer<typeof schemaReponseJetons>;
 
-/** `days` vide ou absent : durée maximale de la politique ; `kind` : `tools` (défaut) ou `opencode`. */
+/** `days` vide ou absent : durée maximale de la politique ; `kind` : `tools`, seul genre créable. */
 export const schemaCorpsCreationJeton = z.object({
   name: z.string().optional(),
-  kind: z.enum(["tools", "opencode"]).optional(),
+  kind: z.literal("tools").optional(),
   families: z.array(z.string()).optional(),
   days: z.union([entier, z.string(), z.null()]).optional(),
 });

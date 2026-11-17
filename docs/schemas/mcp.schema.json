@@ -209,19 +209,7 @@
               "$ref": "#/$defs/familyList"
             },
             "opencode": {
-              "type": "object",
-              "properties": {
-                "families": {
-                  "$ref": "#/$defs/familyList"
-                },
-                "prefix": {
-                  "type": "string"
-                },
-                "publish": {
-                  "type": "boolean"
-                }
-              },
-              "additionalProperties": false
+              "description": "Ignored (Remote code removed)"
             },
             "sandbox": {
               "type": "string"

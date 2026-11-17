@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/jetons.ts — Paramètres › Connexions : jetons personnels du compte connecté (accounts/routes_tokens.py). */
-import {
-  creerJeton,
-  ErreurJeton,
-  listerJetons,
-  opencodeActif,
-  politique,
-  regenererJeton,
-  revoquerJeton,
-} from "@elpis/auth";
+import { creerJeton, ErreurJeton, listerJetons, politique, regenererJeton, revoquerJeton } from "@elpis/auth";
 import { estDict, FlottantPy, HttpError, rstripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { serviceUpstream } from "@elpis/mcp";
@@ -23,8 +15,6 @@ import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
 import type { DependancesComptes } from "./comptes";
 import { corpsJson, entrees, py } from "@elpis/http";
-
-const TYPES_CREABLES = ["tools", "opencode"];
 
 /** Famille d'outils → catégorie portée par ses outils (`mcp/families.py`, FAMILY_CATEGORY). */
 const CATEGORIE_DE_FAMILLE: Readonly<Record<string, string>> = {
@@ -132,8 +122,7 @@ export function creerFamilleJetons(dep: DependancesComptes): Famille {
         traiter: async (req) => {
           const uid = utilisateur(req);
           const tokens = await listerJetons(base, uid);
-          const config = dep.auth.config();
-          const pol = politique(config);
+          const pol = politique(dep.auth.config());
           const url = urlDeBase(req);
           let libelles: Readonly<Record<string, string>> = {};
           try {
@@ -150,7 +139,6 @@ export function creerFamilleJetons(dep: DependancesComptes): Famille {
                 label: libelles[CATEGORIE_DE_FAMILLE[f] ?? f] || f,
               })),
             },
-            opencode_enabled: opencodeActif(config),
             bridge_url: `${url}/api/mcp-bridge`,
             tools_url: `${url}/api/tools`,
           };
@@ -165,7 +153,7 @@ export function creerFamilleJetons(dep: DependancesComptes): Famille {
           const uid = utilisateur(req);
           const corps = corpsTolerant(req);
           const type = strPy(veritePy(corps["kind"]) ? corps["kind"] : "tools");
-          if (!TYPES_CREABLES.includes(type)) throw new HttpError(422, "Type de jeton inconnu.");
+          if (type !== "tools") throw new HttpError(422, "Type de jeton inconnu.");
           const familles = Array.isArray(corps["families"]) ? corps["families"] : [];
           const jours = corps["days"];
           try {

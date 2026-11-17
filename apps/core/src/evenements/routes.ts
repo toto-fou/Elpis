@@ -9,7 +9,6 @@ import { LIVE_BODY_MAX } from "../notifications/envoi";
 import type { DefinitionRoute, Famille } from "../routes";
 import { servirCanal } from "./canal";
 import type { CanalInterne } from "./canal";
-import type { PipelineEvents } from "./pipeline";
 import type { EmpreinteDemarrage } from "./redemarrage";
 import { applySessionRevocation } from "./revocation";
 import type { CiblesRevocation } from "./revocation";
@@ -91,7 +90,6 @@ export interface ContexteMain {
 
 export interface ContexteRoutes {
   readonly systemEvents: SystemEvents;
-  readonly pipelineEvents: PipelineEvents;
   readonly identite: ResoudreIdentite;
   readonly arret: AbortSignal;
   readonly journal?: Journal;

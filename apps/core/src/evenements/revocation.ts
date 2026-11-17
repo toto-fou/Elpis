@@ -3,12 +3,10 @@
 import { intPy, reprPy } from "@elpis/commun";
 
 import type { Journal } from "../journal";
-import type { PipelineEvents } from "./pipeline";
 import type { Message, SystemEvents } from "./systeme";
 
 export interface CiblesRevocation {
   readonly systemEvents: SystemEvents;
-  readonly pipelineEvents: PipelineEvents;
   /** Terminaux du compte (`null` : tous) ; rend leur nombre, -1 pour « tous ». */
   readonly fermerTerminaux?: (uid: number | null) => number | Promise<number>;
   readonly journal?: Journal;
@@ -17,7 +15,6 @@ export interface CiblesRevocation {
 export interface BilanRevocation {
   uid: number | null;
   systeme: number;
-  pipeline: number;
   terminaux: number;
 }
 
@@ -36,21 +33,17 @@ export async function applySessionRevocation(
   }
   const expire: Message = { type: "session_expired" };
   const systeme = cibles.systemEvents.disconnectUser(uid, expire);
-  const pipeline =
-    uid === null
-      ? cibles.pipelineEvents.disconnectAll(expire)
-      : cibles.pipelineEvents.disconnectUser(uid, expire);
   let terminaux = 0;
   try {
     terminaux = (await cibles.fermerTerminaux?.(uid)) ?? 0;
   } catch (e) {
     cibles.journal?.error({ err: e }, "[session_revoked] fermeture des terminaux échouée");
   }
-  if (systeme || pipeline || terminaux) {
+  if (systeme || terminaux) {
     cibles.journal?.info(
-      `[session_revoked] uid=${uid ?? "ALL"} : ${systeme} flux système, ${pipeline} flux pipeline, ` +
+      `[session_revoked] uid=${uid ?? "ALL"} : ${systeme} flux système, ` +
         `${terminaux === -1 ? "tous" : terminaux} PTY fermés (pid=${process.pid})`,
     );
   }
-  return { uid, systeme, pipeline, terminaux };
+  return { uid, systeme, terminaux };
 }

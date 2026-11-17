@@ -63,7 +63,6 @@ export const schemaReponseConfigPublique = z.object({
   main_url: z.string(),
   app_mode: z.enum(["main", "admin"]),
   features: z.object({
-    opencode: z.boolean(),
     agents: z.boolean(),
     office_preview: z.boolean(),
     voice_stt: z.boolean(),

@@ -52,7 +52,6 @@ const reglagesEcrivables = {
   hide_thinking: z.boolean(),
   agents_enabled: z.boolean(),
   custom_agents: z.array(dictionnaire),
-  opencode_mcp_families: z.record(z.string(), z.boolean()),
   live_shell_enabled: z.boolean(),
   voice_input_enabled: z.boolean(),
   voice_reply_enabled: z.boolean(),

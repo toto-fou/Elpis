@@ -14,7 +14,6 @@ export const BLOCS_AIDE: Readonly<Record<string, string>> = {
   rag: "rag",
   studio: "studio",
   agents: "agents",
-  code: "remote",
 };
 
 /** Clé de la section du guide qui correspond à l'écran en cours ; vide sur l'accueil. */

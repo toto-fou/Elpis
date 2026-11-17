@@ -14,7 +14,6 @@ export interface EtatClavier {
   readonly modalState: Ref<EtatFenetre>;
   readonly contextMenu: Ref<MenuContextuel>;
   readonly showInfoModal: Ref<boolean>;
-  readonly showOpenCodeModal: Ref<boolean>;
   readonly imgZoom: Ref<string | null>;
   readonly showNotifPanel: Ref<boolean>;
   readonly menuPagesOuvert: Ref<boolean>;
@@ -54,7 +53,6 @@ export function creerClavier(s: EtatClavier) {
       vrai(r?.isShareModalOpen) ||
       vrai(r?.showHelpModal) ||
       s.showInfoModal.value ||
-      s.showOpenCodeModal.value ||
       vrai(c?.showModelProps) ||
       vrai(c?.taskModal) ||
       vrai(c?.toolInfo) ||
@@ -222,10 +220,6 @@ export function creerClavier(s: EtatClavier) {
       s.showInfoModal.value = false;
       return true;
     }
-    if (s.showOpenCodeModal.value) {
-      s.showOpenCodeModal.value = false;
-      return true;
-    }
     if (c?.showModelProps.value) {
       c.showModelProps.value = false;
       return true;
@@ -360,13 +354,6 @@ export function creerClavier(s: EtatClavier) {
         return true;
       }
       if (m.studio) m.studio.closeStudio();
-      else s.currentView.value = "chat";
-      return true;
-    }
-    if (vue === "code") {
-      const co = m.code;
-      if (co?.codeEscape()) return true;
-      if (co) co.closeCodePage();
       else s.currentView.value = "chat";
       return true;
     }

@@ -184,7 +184,7 @@ into `browser-service/dist/main.mjs` by `npm run build:browser`.
 - Layout of `frontend/src/`: `platform/` (HTTP client and `ApiResult`,
   NDJSON reader), `features/<domain>/` (logic and state in strict TS: auth,
   chat, editor, terminal, admin, reglages, routines, studio, images, voix,
-  mascotte, skills, code), `components/<domain>/` (SFCs
+  mascotte, skills), `components/<domain>/` (SFCs
   `<script setup lang="ts">`, checked by `vue-tsc`), `utils/` and `modeles/`
   (pure functions), `app/racine/` (root: shared state, session, module
   mounting, keyboard).

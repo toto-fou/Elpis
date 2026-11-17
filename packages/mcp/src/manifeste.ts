@@ -18,16 +18,7 @@ import {
 import { config, parseJsonPy } from "@elpis/config";
 import type { ValidateFunction } from "ajv/dist/2020.js";
 
-import {
-  APP_FAMILIES,
-  brancherManifesteFamilles,
-  DEFAULT_OPENCODE_EXCLUDE,
-  FAMILY_CATEGORY,
-  FAMILY_NAMES,
-  opencodeFamilies,
-  parseFamilies,
-  parseFamilySet,
-} from "./familles";
+import { APP_FAMILIES, FAMILY_CATEGORY, FAMILY_NAMES, parseFamilies } from "./familles";
 import { estDict, iterer, lire, poser, repr, texte, texteNet } from "./outils";
 import type { Dict } from "./outils";
 import { journalDe, marquerConfiance } from "./ports";
@@ -50,7 +41,6 @@ export const IDENTITY_META = "meta";
 export const IDENTITY_TOKEN = "token";
 
 export const DEFAULT_TOOLHOST_NAME = "elpis-tools";
-export const OPENCODE_PREFIX_DEFAULT = "elpis-";
 export const MANIFEST_VERSION = 1;
 
 const SUBST_RE = /\$\{(env|file|python|root)(?::([^}]*))?\}/g;
@@ -237,9 +227,6 @@ export class ServerEntry {
   families: string[] = [];
   default_on: string[] = [];
   default_on_self = false;
-  opencode_families: string[] = [];
-  opencode_prefix = OPENCODE_PREFIX_DEFAULT;
-  opencode_publish = false;
   sandbox = "";
   host = "";
   fallback: RepliStdio | null = null;
@@ -328,13 +315,6 @@ export class ServerEntry {
       out["stdio"] = { command: fb.command, args: [...(fb.args ?? [])], env: { ...(fb.env ?? {}) } };
     return out;
   }
-
-  /** Entrée `opencode.json` (`type: remote`) d'un serveur externe publié tel quel. */
-  opencodeEntry(): Dict {
-    const entry: Dict = { type: "remote", url: this.url, enabled: Boolean(this.enabled) };
-    if (Object.keys(this.headers).length > 0) entry["headers"] = { ...this.headers };
-    return entry;
-  }
 }
 
 export class Manifest {
@@ -353,7 +333,7 @@ export class Manifest {
     return [...this.servers.values()];
   }
 
-  /** La première entrée `role: toolhost` (activée ou non) : transport, jeton et préfixe opencode de référence. */
+  /** La première entrée `role: toolhost` (activée ou non) : transport et jeton de référence. */
   toolhost(): ServerEntry | null {
     return this.entrees().find((e) => e.role === ROLE_TOOLHOST) ?? null;
   }
@@ -389,7 +369,7 @@ export class Manifest {
     return "";
   }
 
-  /** Base du service MCP (`…/mcp`), à laquelle opencode ajoute `/<famille>`. */
+  /** Base du service MCP (`…/mcp`), à laquelle un client ajoute `/<famille>`. */
   mcpBaseUrl(key: unknown = ""): string {
     const base = this.hostBaseUrl(key);
     return base ? base + "/mcp" : "";
@@ -449,21 +429,6 @@ export class Manifest {
       .map((e) => e.name);
   }
 
-  /** Familles publiées à opencode (`publish: true` et forme héritée `families`), exclusion invariante appliquée. */
-  opencodeFamilies(): string[] {
-    const want = new Set<string>();
-    for (const e of this.toolhosts()) {
-      if (e.opencode_publish) for (const f of e.families) want.add(f);
-      for (const f of e.opencode_families) if (e.families.includes(f)) want.add(f);
-    }
-    const exc = parseFamilySet(DEFAULT_OPENCODE_EXCLUDE);
-    return FAMILY_NAMES.filter((f) => want.has(f) && !exc.has(f));
-  }
-
-  opencodePrefix(): string {
-    return this.toolhost()?.opencode_prefix ?? OPENCODE_PREFIX_DEFAULT;
-  }
-
   /** Vue d'administration, jetons masqués. */
   toPublicDict(): Dict {
     const masquer = (h: Record<string, string>): Dict => {
@@ -488,8 +453,6 @@ export class Manifest {
       families: [...e.families],
       default_on: [...e.default_on],
       default_on_self: e.default_on_self,
-      opencode_families: [...e.opencode_families],
-      opencode_publish: e.opencode_publish,
       has_token: Boolean(e.token),
       fallback: Boolean(e.fallback),
       sandbox: e.sandbox,
@@ -677,14 +640,6 @@ export function normalizeEntry(name: string, raw: unknown, warnings: string[]): 
     defaultOnSelf = veritePy(dOnBrut);
   }
 
-  const ocBrut = lire(xe, "opencode");
-  const oc: Dict = estDict(ocBrut) ? ocBrut : {};
-  const ocPublish = veritePy(Object.hasOwn(oc, "publish") ? oc["publish"] : false);
-  const ocPrefix = strPy(veritePy(lire(oc, "prefix")) ? lire(oc, "prefix") : OPENCODE_PREFIX_DEFAULT);
-  const ocFamilies = isBuiltin
-    ? listeFamilles(lire(oc, "families"), warnings, `${name}.opencode.families`, [])
-    : [];
-
   let fb: unknown = Object.hasOwn(xe, "fallback") ? xe["fallback"] : null;
   let fallback: RepliStdio | null = null;
   if (fb === false) fb = null;
@@ -719,9 +674,6 @@ export function normalizeEntry(name: string, raw: unknown, warnings: string[]): 
     families,
     default_on: defaultOn,
     default_on_self: defaultOnSelf,
-    opencode_families: ocFamilies,
-    opencode_prefix: ocPrefix,
-    opencode_publish: ocPublish,
     sandbox: texteNet(lire(xe, "sandbox")),
     host: texteNet(veritePy(lire(xe, "host")) ? lire(xe, "host") : lire(xe, "sandbox")),
     fallback,
@@ -792,10 +744,6 @@ function toolhostHerite(warnings: string[]): Dict {
       identity: IDENTITY_META,
       families: familles,
       default_on: [],
-      opencode: {
-        families: opencodeFamilies({ warn: (m) => warnings.push(m), useManifest: false }),
-        prefix: OPENCODE_PREFIX_DEFAULT,
-      },
       fallback: commandeStdioHote(familles),
     },
   };
@@ -820,9 +768,7 @@ function serveursHerites(warnings: string[]): Dict {
     const type = Object.hasOwn(d, "transport") ? d["transport"] : (d["type"] ?? null);
     delete d["transport"];
     poser(d, "type", type);
-    const expose = Object.hasOwn(d, "expose_opencode") ? d["expose_opencode"] : false;
-    delete d["expose_opencode"];
-    poser(d, "x-elpis", { role: ROLE_EXTERNAL, opencode: { publish: veritePy(expose) } });
+    poser(d, "x-elpis", { role: ROLE_EXTERNAL });
     poser(out, stripPy(name), d);
   }
   return out;
@@ -836,7 +782,7 @@ function synthetiser(warnings: string[]): Dict {
 
 // ── Surcharges d'environnement ───────────────────────────────────────────────
 
-/** `LOCAL_MCP_URL` / `_TOKEN` / `_TOOL_FAMILIES` / `_OPENCODE_FAMILIES` en environnement priment sur le fichier, pour toutes les entrées intégrées. */
+/** `LOCAL_MCP_URL` / `_TOKEN` / `_TOOL_FAMILIES` en environnement priment sur le fichier, pour toutes les entrées intégrées. */
 function appliquerSurchargesEnv(
   servers: Map<string, ServerEntry>,
   warnings: string[],
@@ -888,14 +834,6 @@ function appliquerSurchargesEnv(
         e.families = gardees;
         e.default_on = e.default_on.filter((f) => gardees.includes(f));
       }
-    }
-  }
-  const ocf = process.env["LOCAL_MCP_OPENCODE_FAMILIES"];
-  if (ocf !== undefined) {
-    const permises = stripPy(ocf) ? new Set(parseFamilies(ocf, (m) => warnings.push(m))) : new Set<string>();
-    for (const e of [...servers.values()].filter((x) => x.role === ROLE_TOOLHOST)) {
-      e.opencode_families = e.families.filter((f) => permises.has(f));
-      e.opencode_publish = e.opencode_families.length > 0;
     }
   }
 }
@@ -1045,11 +983,6 @@ export function oublierManifeste(): void {
   cleCache = "";
   schemas.clear();
 }
-
-brancherManifesteFamilles(() => {
-  const m = load();
-  return { source: m.source, toolhost: () => m.toolhost(), opencodeFamilies: () => m.opencodeFamilies() };
-});
 
 // ── Raccourcis ─────────────────────────────────────────────────────────────
 

@@ -20,7 +20,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { racineDepot } from "@elpis/config";
-import { compilerSchema, FAMILY_NAMES, meilleureErreur, opencodeFamilies } from "@elpis/mcp";
+import { compilerSchema, FAMILY_NAMES, meilleureErreur } from "@elpis/mcp";
 import { avecIdentite, creerIdentite, fromMeta, restaurerArgsOutil } from "@elpis/securite";
 import type { Identity } from "@elpis/securite";
 import { Protocol } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -154,7 +154,6 @@ export interface OptionsServeur {
   readonly version?: string;
   readonly instructions?: string;
   readonly taillePage?: number;
-  readonly famillesOpencode?: Iterable<string>;
   readonly limiteDebit?: LimiteDebit | null;
   readonly limiteConcurrence?: LimiteConcurrence | null;
   /** `CTX.disabled_tools()` : outils éteints par `tools.<nom>.enabled=false`. */
@@ -350,7 +349,6 @@ export class ServeurOutils {
   readonly version: string;
   readonly instructions: string;
   private readonly taillePage: number;
-  private readonly opencode: ReadonlySet<string>;
   private readonly debit: LimiteDebit | null;
   private readonly concurrence: LimiteConcurrence | null;
   private readonly eteintsVoulus: (() => Iterable<string>) | null;
@@ -367,7 +365,6 @@ export class ServeurOutils {
     this.version = options.version ?? versionElpis();
     this.instructions = options.instructions ?? SERVER_INSTRUCTIONS;
     this.taillePage = options.taillePage ?? taillePageEnv();
-    this.opencode = new Set(options.famillesOpencode ?? opencodeFamilies());
     this.debit = options.limiteDebit === undefined ? new LimiteDebit() : options.limiteDebit;
     this.concurrence =
       options.limiteConcurrence === undefined ? new LimiteConcurrence() : options.limiteConcurrence;
@@ -434,7 +431,7 @@ export class ServeurOutils {
   }
 
   private cachees(requete: ContexteRequete): Set<string> {
-    return famillesCachees(requete.jeton?.claims ?? null, requete.famille, this.opencode);
+    return famillesCachees(requete.jeton?.claims ?? null, requete.famille);
   }
 
   /** `_tool_callable` : l'outil existe, n'est pas éteint et sa famille est visible du client. */

@@ -5,7 +5,6 @@ import type { setupChat } from "../../features/chat/coeur/chat";
 import type { SurfaceAdmin } from "../../features/admin/console";
 import type { setupAdminRuns } from "../../features/admin/executions";
 import type { setupAdminSkins } from "../../features/admin/skins";
-import type { SurfaceCode } from "../../features/code/code";
 import type { SurfaceEditeur } from "../../features/editor/editeur";
 import type { SurfaceMascotte } from "../../features/mascotte/mascotte";
 import type { SurfaceRag } from "../../features/rag/rag";
@@ -35,7 +34,6 @@ export interface Modules {
   studio: SurfaceMenuStudio | null;
   studioChat: SurfaceDialogueStudio | null;
   studioAuto: SurfaceAutomatisationStudio | null;
-  code: SurfaceCode | null;
   mascotte: SurfaceMascotte | null;
   rag: SurfaceRag | null;
 }

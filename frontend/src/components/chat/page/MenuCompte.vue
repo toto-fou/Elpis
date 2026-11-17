@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/MenuCompte.vue — bouton du compte du volet et son menu ouvert vers le haut : nom et rôle, Aide, Informations, Installer opencode, Se déconnecter ; avatar seul sur le rail réduit. -->
+<!-- frontend/src/components/chat/page/MenuCompte.vue — bouton du compte du volet et son menu ouvert vers le haut : nom et rôle, Aide, Informations, Se déconnecter ; avatar seul sur le rail réduit. -->
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef } from "vue";
 
@@ -29,11 +29,10 @@ function fermer(rendreFocus: boolean): void {
   if (rendreFocus) void nextTick(() => bouton.value?.focus());
 }
 
-function choisir(action: "aide" | "infos" | "opencode" | "sortie"): void {
+function choisir(action: "aide" | "infos" | "sortie"): void {
   fermer(action !== "sortie");
   if (action === "aide") b.openHelp();
   else if (action === "infos") b.showInfoModal = true;
-  else if (action === "opencode") b.showOpenCodeModal = true;
   else b.logout();
 }
 
@@ -103,15 +102,6 @@ const ITEM =
         </button>
         <button type="button" role="menuitem" :class="ITEM" @click="choisir('infos')">
           <i class="ph ph-info text-slate-500" aria-hidden="true"></i> Informations
-        </button>
-        <button
-          v-if="b.features.opencode"
-          type="button"
-          role="menuitem"
-          :class="ITEM"
-          @click="choisir('opencode')"
-        >
-          <i class="ph ph-terminal text-slate-500" aria-hidden="true"></i> Installer opencode
         </button>
         <div class="h-px bg-slate-100 my-1" role="separator"></div>
         <button type="button" role="menuitem" :class="ITEM" data-compte-sortie @click="choisir('sortie')">

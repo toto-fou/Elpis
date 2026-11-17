@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/auth/src/jetons.ts — jetons personnels (accounts/tokens.py) : opencode `pcr_`, outils `ept_`, vision `evt_` ; seule l'empreinte est gardée. */
-import { hasTable } from "@elpis/db";
+/** packages/auth/src/jetons.ts — jetons personnels (accounts/tokens.py) : outils `ept_`, vision `evt_` ; seule l'empreinte est gardée. */
 import type { Base, Executeur } from "@elpis/db";
 import { tokenDigest, tokenUrlsafe } from "@elpis/securite";
 
@@ -8,9 +7,9 @@ import { arrondiEntierPy, comparePointsDeCode, intPy, stripPy, strPy, veritePy }
 
 import { valeur } from "./dict";
 
-export const PREFIXES = { opencode: "pcr_", tools: "ept_", vision: "evt_" } as const;
+export const PREFIXES = { tools: "ept_", vision: "evt_" } as const;
 export type TypeJeton = keyof typeof PREFIXES;
-export const TYPES: readonly TypeJeton[] = ["opencode", "tools", "vision"];
+export const TYPES: readonly TypeJeton[] = ["tools", "vision"];
 export const FAMILLES_EXTERNES: readonly string[] = ["fs", "shell", "git", "desktop", "browser", "skill_run"];
 const FAMILLES_PAR_DEFAUT = "fs,shell,git,desktop,browser,skill_run";
 const JOURS_MAX_PAR_DEFAUT = 90;
@@ -107,18 +106,7 @@ export function politique(config: unknown): Politique {
   };
 }
 
-/** `feature_enabled("opencode")` sur la config donnée : seul un `false` explicite coupe. */
-export function opencodeActif(config: unknown): boolean {
-  const f = valeur(config, "features", {});
-  const v =
-    f !== null && typeof f === "object" && Object.hasOwn(f, "opencode")
-      ? (f as Record<string, unknown>).opencode
-      : true;
-  return v !== false;
-}
-
-function typeActif(type: TypeJeton, config: unknown, pol: Politique): boolean {
-  if (type === "opencode") return opencodeActif(config);
+function typeActif(type: TypeJeton, pol: Politique): boolean {
   if (type === "tools") return pol.tools_enabled;
   return true;
 }
@@ -214,7 +202,6 @@ export async function verifierQuota(x: Executeur, userId: number, pol: Politique
 }
 
 const NOMS_PAR_DEFAUT: Readonly<Record<TypeJeton, string>> = {
-  opencode: "opencode",
   tools: "outils",
   vision: "vision",
 };
@@ -240,8 +227,6 @@ export async function creerJeton(
     [retenues, expire] = validerDemandeOutils(fams, jours, pol, maintenant(dep));
   } else if (t0 === "vision") {
     expire = maintenant(dep) + VISION_TTL_S;
-  } else if (!opencodeActif(config)) {
-    throw new ErreurJeton("OpenCode est désactivé par l'administrateur.");
   }
   const jeton = PREFIXES[t0] + tokenUrlsafe(30);
   const t = maintenant(dep);
@@ -303,7 +288,7 @@ export async function resoudreJeton(
   if (!type || !types.includes(type) || Array.from(tok).length < 20) return null;
   const config = dep.config();
   const pol = politique(config);
-  if (!typeActif(type, config, pol)) return null;
+  if (!typeActif(type, pol)) return null;
   let r: Record<string, unknown> | undefined;
   try {
     r = await dep.base.get(
@@ -352,10 +337,6 @@ export async function revoquerJeton(x: Executeur, userId: number, id: number): P
   return (await x.run("DELETE FROM tool_tokens WHERE id=? AND user_id=?", [id, userId])).changes > 0;
 }
 
-export async function revoquerType(x: Executeur, userId: number, type: string): Promise<number> {
-  return (await x.run("DELETE FROM tool_tokens WHERE user_id=? AND kind=?", [userId, type])).changes;
-}
-
 /** Nouveau jeton de même nom, type et familles ; l'ancien est révoqué dans la même transaction (tout refus le laisse intact). */
 export async function regenererJeton(
   dep: DependancesJetons,
@@ -378,8 +359,6 @@ export async function regenererJeton(
       fams = ancien.families.filter((f) => pol.tools_families.includes(f));
       if (!fams.length) throw new ErreurJeton("Aucune des familles de ce jeton n'est encore autorisée.");
     } else {
-      if (ancien.kind === "opencode" && !opencodeActif(dep.config()))
-        throw new ErreurJeton("OpenCode est désactivé par l'administrateur.");
       fams = ancien.families;
     }
     await x.run("DELETE FROM tool_tokens WHERE id=? AND user_id=?", [id, userId]);
@@ -407,30 +386,4 @@ export async function revoquerTousAcces(
   if (tokens || oauth)
     dep.informer?.(`[tokens] compte ${userId} : ${tokens} jeton(s) et ${oauth} application(s) révoqués`);
   return { tokens, oauth };
-}
-
-/** `convert_legacy` : anciens jetons opencode en clair (`code_remote_tokens`) → empreintes ; une fois par base au démarrage. */
-export async function convertirAnciensJetons(base: Base, t: number): Promise<number> {
-  return base.ecriture(async (x) => {
-    if (!(await hasTable(x, "code_remote_tokens"))) return 0;
-    const lignes = await x.all<{ user_id: number; token: string | null; created_at: number | null }>(
-      "SELECT t.user_id, t.token, t.created_at FROM code_remote_tokens t JOIN users u ON u.id = t.user_id",
-    );
-    let n = 0;
-    for (const l of lignes) {
-      const tok = String(l.token ?? "");
-      if (!tok) continue;
-      const h = tokenDigest(tok);
-      if (await x.get("SELECT 1 AS un FROM tool_tokens WHERE token_hash=?", [h])) continue;
-      await x.run(
-        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
-        [Number(l.user_id), "opencode", "opencode", h, tok.slice(-4), "", Number(l.created_at ?? 0) || t],
-      );
-      n += 1;
-    }
-    if (!lignes.length && !(await x.get("SELECT 1 AS un FROM code_remote_tokens"))) return 0;
-    await x.run("DELETE FROM code_remote_tokens");
-    if (await hasTable(x, "code_pairings")) await x.run("DELETE FROM code_pairings WHERE token IS NOT NULL");
-    return n;
-  });
 }

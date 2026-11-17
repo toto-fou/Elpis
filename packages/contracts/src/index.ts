@@ -32,8 +32,6 @@ export * from "./rest/rag";
 export * from "./rest/rag-admin";
 export * from "./rest/ax";
 export * from "./rest/chats";
-export * from "./rest/cli";
-export * from "./rest/code";
 export * from "./rest/config";
 export * from "./rest/jetons";
 export * from "./rest/llm";

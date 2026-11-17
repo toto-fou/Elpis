@@ -64,7 +64,6 @@ Cliquez sur votre nom, en bas de la barre latérale. Le menu rappelle votre nom 
 
 - **Aide** : cette aide.
 - **Informations** : le nom et la version de l'application, et le moteur qui sert le modèle. Utile quand vous signalez un problème.
-- **Installer opencode** : présent seulement si l'administrateur a ouvert [Remote code](#remote-code).
 - **Se déconnecter** : ferme votre session sur ce navigateur.
 
 Pour changer de photo ou de mot de passe, ouvrez Paramètres (la roue dentée, à droite de votre nom) › **Profil**. Voir [Paramètres](#paramètres).
@@ -101,7 +100,7 @@ De haut en bas :
 - **MCP** : ouvre à droite le panneau des outils que l'assistant peut utiliser. Voir [Les outils et le panneau MCP](#les-outils-et-le-panneau-mcp).
 - **Sandbox** : ouvre à droite votre espace de fichiers, avec l'éditeur de code et le terminal. Voir [La sandbox et l'éditeur de code](#la-sandbox-et-léditeur-de-code).
 - **Routines** : vos tâches planifiées. Voir [Les routines](#les-routines).
-- **Plus** : un sous-menu vers **RAG**, **Bibliothèque** (vos images générées), **Studio**, **Agents** et **Remote code**.
+- **Plus** : un sous-menu vers **RAG**, **Bibliothèque** (vos images générées), **Studio** et **Agents**.
 - **Conversations** : vos conversations, de la plus récente à la plus ancienne. La loupe cherche une conversation ; l'icône voisine permet d'en cocher plusieurs. Voir [Les conversations](#les-conversations).
 - **En bas** : votre nom (le menu du compte), la cloche des [Notifications](#notifications), la roue dentée des [Paramètres](#paramètres). Un bouclier s'ajoute si vous êtes administrateur ou modérateur.
 
@@ -1667,95 +1666,6 @@ Un petit programme de contrôle tourne sur la machine cible. Il envoie des captu
 
 Un script désigne ses éléments par leur identifiant, à défaut par leur nom et leur rôle, et en dernier recours par leurs coordonnées. Plus la désignation est précise, mieux le script résiste aux changements de l'écran.
 
-## Remote code
-<!-- aide: remote -->
-
-OpenCode est un assistant de programmation qui tourne dans le terminal de votre poste, sur votre code. Remote code relie ce terminal à l'application : vous suivez vos sessions OpenCode depuis le navigateur, vous leur envoyez des prompts et vous répondez à leurs demandes, même loin du poste.
-
-La fonction doit être activée par votre administrateur. Si **Remote code** est absent du menu **Plus**, demandez à votre administrateur.
-
-### L'essentiel
-
-1. Dans la barre latérale, ouvrez **Plus** puis **Remote code**.
-2. À la première visite, le volet **Connecter opencode** donne les trois étapes : installer, appairer, piloter.
-3. Sur votre poste, lancez `opencode` dans le dossier de votre projet. Si rien n'apparaît dans la page, tapez `/remote` dans OpenCode : la commande active la remontée du projet en cours.
-4. La session apparaît dans la page. Cliquez-la pour l'ouvrir et la piloter.
-
-### Relier un poste
-
-[Ouvrir Remote code : le volet Connecter opencode donne les trois étapes](../media/aide/remote-connecter.webm)
-
-#### 1 · Installer opencode
-
-1. Dans le volet **Connecter opencode**, cliquez sur **Ouvrir l'installeur**. La même fenêtre s'ouvre par le menu de votre compte, entrée **Installer opencode**.
-2. Choisissez votre système : **Linux**, **Windows** ou **macOS**.
-3. Cliquez sur **Copier** sous **Installer · mettre à jour** et collez la commande dans un terminal du poste.
-
-L'installeur pose OpenCode, sa configuration et le greffon qui le relie à l'application. Tout vient du serveur de l'application : le poste n'a pas besoin d'Internet. Copiez la commande telle quelle, même si elle commence par `http://`.
-
-#### 2 · Appairer le poste
-
-L'installeur propose de connecter votre compte : dans ce cas, il n'y a rien à saisir. Sinon :
-
-1. Dans OpenCode, tapez `/remote login`. Un code s'affiche.
-2. Dans le volet **Connecter opencode**, saisissez ce code et cliquez sur **Appairer**.
-
-Vous pouvez aussi créer un jeton pour le poste (**Ou créer un jeton pour ce poste**) et le donner à OpenCode par `/remote` suivi du jeton.
-
-#### 3 · Piloter
-
-La session apparaît dans la page en direct, historique compris. OpenCode ne crée la session qu'à son premier message : tant qu'il n'y en a pas, la page propose **Nouvelle session**.
-
-Le bouton **Connecter**, en haut de la page, rouvre le volet à tout moment.
-
-### Piloter une session
-
-[Ouvrir une session OpenCode et lui envoyer un prompt depuis le navigateur](../media/aide/remote-code.webm)
-
-La page liste vos sessions en deux groupes : **Connectées**, que vous pouvez piloter, et **Historique**, que vous pouvez relire. Chaque ligne montre le titre, le dossier, l'ancienneté, le nombre de messages, le modèle et un aperçu du dernier échange.
-
-1. Cliquez une session connectée. Le fil s'ouvre en plein écran : messages, réflexions, appels d'outils dépliables et modifications de fichiers en couleurs, comme dans OpenCode.
-2. Écrivez dans la zone **Envoyer un prompt** et appuyez sur `Entrée`. Votre message s'affiche tout de suite.
-3. La réponse s'écrit en direct. Pendant la génération, le bouton d'arrêt remplace l'envoi.
-4. La flèche en haut à gauche revient à la liste.
-
-L'en-tête de la session montre le mode en cours, la jauge de contexte et l'état du poste : **connecté** ou **hors ligne**.
-
-#### Répondre aux demandes d'OpenCode
-
-- Quand OpenCode demande une validation, une bannière propose **Autoriser**, **Toujours** (ne plus demander pour ce motif) ou **Refuser**. La réponse compte, qu'elle vienne de la page ou du terminal.
-- Quand OpenCode pose une question, vous y répondez depuis la page, ou vous refusez de répondre.
-
-#### Commandes
-
-Tapez `/` dans la barre de saisie. La liste réunit les commandes de votre OpenCode et celles de la page :
-
-| Commande | Effet |
-|---|---|
-| `/model` | Choisir le modèle de la session |
-| `/session` | Reprendre une autre session du même poste |
-| `/new` | Créer une session sur ce poste |
-| `/undo`, `/redo` | Annuler le dernier échange, le rétablir |
-| `/compact` | Résumer l'historique pour libérer du contexte |
-| `/init` | Analyser le projet et créer `AGENTS.md` |
-| `/share`, `/unshare` | Partager la session par un lien public, arrêter le partage |
-| `/exit` | Fermer OpenCode sur ce poste |
-
-### Pour en tirer le maximum
-
-- Le bouton de mode, sous la barre de saisie, alterne entre **Build**, qui modifie le projet, et le mode plan, en lecture seule. Passez en plan pour faire relire avant de laisser écrire.
-- Le bouton **Modèle** fait la même chose que `/model`. Le choix est retenu par session ; la croix à côté revient au modèle par défaut.
-- Renommez une session par le crayon de sa ligne : `Entrée` valide, `Échap` annule. Le nouveau titre part aussi vers le terminal.
-- Dans OpenCode, `/remote` coupe ou réactive la remontée du projet en cours. `/remote status` en donne l'état.
-- Une pastille **plugin à mettre à jour** signale un greffon ancien sur un poste : tapez `/remote update` dans OpenCode, ou relancez l'installeur.
-- Dans la fenêtre de l'installeur, **Outils** choisit les familles d'outils de l'application qu'OpenCode pourra appeler. **Config seule** remet la configuration à jour sans tout réinstaller.
-- Un poste perdu ou prêté se coupe à distance : Paramètres › **Secrets** › **Remote** liste un jeton par poste relié, et révoquer un jeton déconnecte ce poste.
-- Retirez les vieilles sessions de l'historique par le bouton de leur ligne : la liste reste lisible.
-
-### Comment ça marche
-
-Le greffon installé avec OpenCode envoie à l'application le fil de la session : messages, appels d'outils, modifications affichées. Il reçoit vos prompts en retour. Les fichiers restent sur votre poste : c'est OpenCode qui les lit et les modifie, pas l'application. Chaque poste a son propre jeton, que vous pouvez révoquer.
-
 ## Notifications
 <!-- aide: notifications -->
 
@@ -1827,7 +1737,7 @@ Le rail range les onglets en quatre groupes ; chaque onglet est détaillé dans 
 
 - **Général** : **Profil** (photo et mot de passe, voir plus bas) ; **Apparence** (voir [Apparence](#apparence)) ; **Chat**, avec trois parties : **Conversation** (**Prompt système**, **Largeur** du fil, **Terminal en direct**, réveil des tâches de fond, **Notifications système**, **Effacer les conversations**), **Affichage** et **Voix** ; **Fonctionnalités**, avec **Modules**, **Images** et **Éditeur**.
 - **Assistant** : **Modèles IA**, **Prompts**, **Skills** et **Mémoire**. Voir [Modèles et fournisseurs](#modèles-et-fournisseurs), [Les prompts](#les-prompts), [Les skills](#les-skills) et [La mémoire](#la-mémoire).
-- **Accès** : **Secrets**, avec **Secrets web**, **Comptes Git**, **Jetons MCP** et **Remote**. Voir [Secrets et comptes Git](#secrets-et-comptes-git).
+- **Accès** : **Secrets**, avec **Secrets web**, **Comptes Git** et **Jetons MCP**. Voir [Secrets et comptes Git](#secrets-et-comptes-git).
 - **Avancé**, replié : cliquez dessus pour voir **Compaction** (voir [Le contexte de la conversation](#le-contexte-de-la-conversation)), **Sandbox** (voir [La sandbox et l'éditeur de code](#la-sandbox-et-léditeur-de-code)), **Archives** (voir [Les conversations](#les-conversations)) et **Utilisation**.
 
 Paramètres › **Fonctionnalités** › **Modules** active ou coupe **MCP** (tous les outils de l'assistant), **Images**, **Sandbox** (le panneau de code) et **Créer des routines** (l'assistant peut enregistrer une routine, toujours en pause, après votre accord). Les parties **Images** et **Éditeur** n'apparaissent que si la fonction est disponible et active.
@@ -1960,12 +1870,11 @@ Un secret est un identifiant, un mot de passe ou un jeton que vous confiez à l'
 3. Créez le secret ou le compte. La valeur est chiffrée dès l'envoi et ne sera plus jamais affichée.
 4. Pour un site, attachez le secret à la conversation avec `/secret`, puis demandez à l'assistant de s'y connecter.
 
-L'onglet a quatre parties :
+L'onglet a trois parties :
 
 - **Secrets web** : les identifiants et jetons que l'assistant utilise sur vos sites.
 - **Comptes Git** : vos accès aux serveurs Git, pour cloner, pousser et ouvrir des PR.
 - **Jetons MCP** : des jetons pour utiliser vos outils depuis une autre application. Voir [Utiliser vos outils depuis une autre application](#utiliser-vos-outils-depuis-une-autre-application).
-- **Remote** : un jeton par poste relié en [Remote code](#remote-code) ; le révoquer déconnecte ce poste.
 
 Les clés de vos fournisseurs de modèles et de vos serveurs MCP se gèrent ailleurs : voir [Modèles et fournisseurs](#modèles-et-fournisseurs) et le [panneau MCP](#les-outils-et-le-panneau-mcp).
 
@@ -2346,7 +2255,7 @@ Pas forcément. Le message d'erreur d'un outil explique comment se corriger, et 
 
 #### Il me manque une commande ou une entrée de la barre latérale
 
-Vérifiez d'abord Paramètres › **Fonctionnalités** › **Modules** : **MCP**, **Images** et **Sandbox** s'y coupent. Les autres fonctionnalités dépendent de votre installation et de vos droits : la génération d'images, les documents (RAG), les sous-agents, Remote code, la voix. Une entrée encore absente n'a pas été ouverte pour votre compte : demandez à votre administrateur.
+Vérifiez d'abord Paramètres › **Fonctionnalités** › **Modules** : **MCP**, **Images** et **Sandbox** s'y coupent. Les autres fonctionnalités dépendent de votre installation et de vos droits : la génération d'images, les documents (RAG), les sous-agents, la voix. Une entrée encore absente n'a pas été ouverte pour votre compte : demandez à votre administrateur.
 
 ### Voix
 

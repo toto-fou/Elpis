@@ -240,7 +240,7 @@ const courante = (id: string): boolean =>
                    "Nouveau chat" = seul élément plein bleu (action principale).
                    Puis MCP / Sandbox (bascules) et Routines en lignes pleine
                    largeur, même langage visuel, rythme serré ; « Plus » range RAG,
-                   Studio et Remote code dans un sous-menu (MenuPagesPlus.vue).
+                   Studio et Agents dans un sous-menu (MenuPagesPlus.vue).
                    MCP/Éditeur basculent currentView -> 'chat' pour ne pas ouvrir
                    le panneau caché derrière une vue pleine page. -->
         <div class="px-2 pt-0.5 shrink-0">

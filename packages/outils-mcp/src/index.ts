@@ -92,8 +92,6 @@ export {
   erreurConfigJetons,
   jetonDelegue,
   liaisonPermise,
-  OPENCODE_CLIENT_PREFIX,
-  OPENCODE_TOKEN_PREFIX,
   SCOPE_LOCAL_TOOLS,
   TOOLS_CLIENT_PREFIX,
   TOOLS_TOKEN_PREFIX,

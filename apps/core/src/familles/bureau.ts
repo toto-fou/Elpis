@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/bureau.ts — `/api/desktop/*`, `/agent`, `/agent.ps1` : cibles du compte, capture annotée, action, OCR, lancement, scripts d'automatisation sur les postes du LAN, vision pour les scripts, paquets et installeurs (shared_infra/desktop/routes.py). */
+/** apps/core/src/familles/bureau.ts — `/api/desktop/*`, `/agent`, `/agent.ps1` : cibles du compte, capture annotée, action, OCR, lancement, scripts d'automatisation sur les postes du LAN, vision pour les scripts, paquets, installeurs et CA locale (shared_infra/desktop/routes.py). */
 import { creerJeton, exigerUtilisateur, getUsernameById, resoudreJeton } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import {
@@ -7,6 +7,7 @@ import {
   arrondiPy,
   ErreurPython,
   estDict,
+  estFichierPy,
   floatPy,
   getPy,
   HttpError,
@@ -21,7 +22,7 @@ import {
   versFlottantPy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { config, getDesktopTargets } from "@elpis/config";
+import { config, configView, getDesktopTargets } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -62,14 +63,14 @@ import { urlDeBase } from "../comptes/aides";
 import { journal } from "../journal";
 import { createNotification } from "../notifications/stockage";
 import type { Famille } from "../routes";
-import { jetonPresente } from "./cli";
 import { utilisateur } from "./comptes";
-import { corpsJsonValeurs, entrees, py, reponseJsonPy } from "@elpis/http";
+import { corpsJsonValeurs, entrees, premierEntete, py, reponseFichier, reponseJsonPy } from "@elpis/http";
 import type { Borne } from "@elpis/http";
 
 const log = journal("desktop");
 /** Corps de `locate` : image de 16 Mio au plus en base64 (≈ 21,4 Mio), description et marge. */
 const CORPS_LOCALISER_MAX = 32 * 1024 * 1024;
+const CA_DEFAUT = "/etc/caddy/elpis-pki/ca.crt";
 
 export interface DependancesBureau {
   readonly base: Base;
@@ -88,6 +89,24 @@ async function nomCompte(base: Base, req: FastifyRequest): Promise<string> {
   } catch {
     return `user_${uid}`;
   }
+}
+
+/** `_request_token` : `x-elpis-token`, sinon `Authorization: Bearer …`. */
+function jetonPresente(req: FastifyRequest): string {
+  let tok = stripPy(premierEntete(req, "x-elpis-token") ?? "");
+  if (!tok) {
+    const auth = stripPy(premierEntete(req, "authorization") ?? "");
+    if (lowerPy(auth).startsWith("bearer ")) tok = stripPy(auth.slice(7));
+  }
+  return tok;
+}
+
+/** Chemin de la CA locale (`ELPIS_CA_FILE`, sinon `security.https.ca_file`, sinon celui de Caddy). */
+function cheminCa(): string {
+  const env = process.env["ELPIS_CA_FILE"];
+  const https = ou(getPy(ou(getPy(ou(configView(), {}), "security"), {}), "https"), {});
+  const brut = stripPy(veritePy(env) ? (env as string) : strPy(ou(getPy(https, "ca_file"), "")));
+  return brut || CA_DEFAUT;
 }
 
 /** `await request.json()` gardé : corps illisible → `{}`. */
@@ -627,7 +646,7 @@ export function creerFamilleBureau(dep: DependancesBureau): Famille {
     } catch (e) {
       if (!(e instanceof HttpError)) throw e;
       const tok = jetonPresente(req);
-      uid = tok ? ((await resoudreJeton(dep.auth, tok, ["vision", "opencode"]))?.user_id ?? null) : null;
+      uid = tok ? ((await resoudreJeton(dep.auth, tok, ["vision"]))?.user_id ?? null) : null;
     }
     if (uid === null) throw new HttpError(401, "auth requise (session ou jeton de vision)");
     comptesVision.set(req, uid);
@@ -722,6 +741,14 @@ export function creerFamilleBureau(dep: DependancesBureau): Famille {
     return rep.type("text/plain; charset=utf-8").send(script);
   };
 
+  /** CA du frontal https, seconde source des installeurs de l'agent quand `:80` ne la sert pas. */
+  const ca = async (req: FastifyRequest, rep: FastifyReply): Promise<unknown> => {
+    const chemin = cheminCa();
+    if (!estFichierPy(chemin))
+      throw new HttpError(404, "Aucune CA locale (HTTPS non déployé sur cette instance).");
+    return reponseFichier(req, rep, chemin, { mediaType: "application/x-pem-file", filename: "ca.crt" });
+  };
+
   const route = (
     methode: "GET" | "POST",
     chemin: string,
@@ -757,6 +784,7 @@ export function creerFamilleBureau(dep: DependancesBureau): Famille {
       route("POST", "/api/desktop/automation-bundle", "session", paquet),
       route("GET", "/api/desktop/install.sh", "public", scriptSh),
       route("GET", "/api/desktop/install.ps1", "public", scriptPs1),
+      route("GET", "/api/desktop/ca.crt", "public", ca),
       route("GET", "/agent", "public", scriptSh),
       route("GET", "/agent.ps1", "public", scriptPs1),
     ],

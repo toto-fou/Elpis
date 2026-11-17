@@ -61,11 +61,6 @@ export interface InfoApplication {
   logoUrl?: string;
 }
 
-export interface FamilleOpenCode {
-  name: string;
-  label?: string;
-}
-
 export interface SiteAx {
   site: string;
   elements?: number;
@@ -80,17 +75,6 @@ export interface RacineDivers {
   showInfoModal: boolean;
   readonly appInfo: InfoApplication;
   readonly logoApp: string;
-  showOpenCodeModal: boolean;
-  openCodePlatform: string;
-  readonly openCodeCopied: string;
-  readonly openCodeFamilies: readonly FamilleOpenCode[];
-  readonly openCodeCommand: string;
-  readonly openCodeSyncCommand: string;
-  copyOpenCodeCommand(kind: string): unknown;
-  downloadOpenCodeBundle(): unknown;
-  opencodeFamilyOn(name: string): boolean;
-  toggleOpencodeFamily(name: string): unknown;
-  readonly features: { readonly opencode?: boolean };
   showHelpModal: boolean;
   readonly isLoadingReadme: boolean;
   readonly readmeContent: string;
@@ -224,17 +208,6 @@ const CLES_CHAT: Readonly<Record<Exclude<keyof DomaineModalesChat, keyof Domaine
   showInfoModal: true,
   appInfo: true,
   logoApp: true,
-  showOpenCodeModal: true,
-  openCodePlatform: true,
-  openCodeCopied: true,
-  openCodeFamilies: true,
-  openCodeCommand: true,
-  openCodeSyncCommand: true,
-  copyOpenCodeCommand: true,
-  downloadOpenCodeBundle: true,
-  opencodeFamilyOn: true,
-  toggleOpencodeFamily: true,
-  features: true,
   showHelpModal: true,
   isLoadingReadme: true,
   readmeContent: true,

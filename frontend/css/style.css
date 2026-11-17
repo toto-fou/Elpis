@@ -978,7 +978,7 @@ aside.elpis-slide-panel .elpis-notif-pop .text-slate-500 { color: var(--text-500
 @keyframes elpis-run-dot {
     50% { transform: scale(1.17); opacity: 0.25; }
 }
-/* Sous-menu « Plus » (RAG, Studio, Remote code) : enfant DOM du rail posé en
+/* Sous-menu « Plus » (RAG, Studio, Agents) : enfant DOM du rail posé en
    fixed à sa droite ; même fond et mêmes remaps que le rail, qu'il prolonge. */
 aside.elpis-slide-panel .elpis-rail-flyout {
     --sb-ring-offset: var(--rail-bg);
@@ -1556,78 +1556,6 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
 }
 .diff-download-btn:active {
     background: #e2e8f0;                /* slate-200 -- feedback bref */
-}
-
-/* ── Page Code : diff inline (diffs unifiés DÉJÀ calculés par opencode) ──
-   Corps de la carte .diff-file-block côté page Code : lignes colorisées
-   +/− (emerald/rose, mêmes accents que les compteurs de l'encart fichiers),
-   replié au-delà de 12 lignes (bouton « Afficher les N lignes restantes »). */
-.elpis-code-diff {
-    margin: 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
-    line-height: 1.5;
-    overflow-x: auto;
-    background: #ffffff;
-    color: #475569;                    /* lignes de contexte (slate-600) */
-}
-.elpis-code-diff > div { padding: 0 10px; white-space: pre; }
-.elpis-code-diff-add  { background: rgba(16, 185, 129, 0.08);  color: #047857; }  /* emerald */
-.elpis-code-diff-del  { background: rgba(244, 63, 94, 0.08);   color: #be123c; }  /* rose */
-.elpis-code-diff-hunk { background: #f8fafc;                   color: #94a3b8; }  /* slate  */
-body.elpis-dark-surface .elpis-code-diff      { background: var(--surface); color: var(--text-600); }
-body.elpis-dark-surface .elpis-code-diff-add  { background: rgba(16, 185, 129, 0.13); color: #34d399; }
-body.elpis-dark-surface .elpis-code-diff-del  { background: rgba(244, 63, 94, 0.13);  color: #fb7185; }
-body.elpis-dark-surface .elpis-code-diff-hunk { background: var(--surface-2);         color: var(--text-400); }
-
-/* ── Page Remote code : ligne d'un appel d'outil ─────────────────────────
-   La ligne que montre le TUI opencode : état, nom de l'outil, SUJET (fichier
-   édité, commande lancée, motif cherché) et métrique à droite. Une ligne
-   pleine largeur, pas une pastille : le sujet est souvent un chemin, et les
-   métriques d'appels successifs doivent s'aligner sur la même verticale. */
-.elpis-code-tool-row {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    width: 100%;
-    min-width: 0;
-    padding: 0.25rem 0.5rem;
-    border: 1px solid transparent;
-    border-radius: 0.5rem;
-    background: #f8fafc;                /* slate-50 */
-    line-height: 1.4;
-}
-/* :not() — sinon la teinte d'erreur (classe simple) perdrait contre ce
-   sélecteur plus spécifique, et un outil en échec redeviendrait neutre. */
-body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
-    background: var(--surface-2);
-}
-/* Ligne qui cache un détail (paramètres, sortie brute) : cliquable en entier,
-   comme l'était la pastille qu'elle remplace. */
-.elpis-code-tool-row-btn { cursor: pointer; }
-.elpis-code-tool-row-btn:hover { border-color: var(--border); }
-/* Métrique qui porte un échec (code de sortie non nul). Token « texte » et
-   NON « strong » : en sombre, --danger-strong est un rouge très pâle (red-200,
-   fait pour des titres) qui, à 11 px, se lit comme du blanc. */
-.elpis-code-metric-err { color: var(--danger-text); }
-
-/* Pill/texte d'un tool call en ERREUR (page Code) — tokens sémantiques
-   --danger-* (cf. .elpis-error-*), jamais de rouge Tailwind cru. */
-.elpis-code-tool-err {
-    background-color: var(--danger-surface);
-    border-color: var(--danger-border);
-    color: var(--danger-strong);
-}
-.elpis-code-tool-errtext { color: var(--danger-text); }
-/* Bouton fantôme dont le hover signale une action destructive (dismiss). */
-.elpis-code-danger-hover:hover {
-    color: var(--danger-strong);
-    background-color: var(--danger-surface);
-}
-/* Jauge de contexte (header session) : ≥ 90 % — tokens sémantiques danger. */
-.elpis-code-ctx-high {
-    background-color: var(--danger-surface);
-    color: var(--danger-strong);
 }
 
 /* Mouvement réduit : l'entrée se fait en fondu seul. */

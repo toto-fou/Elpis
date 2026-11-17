@@ -1,19 +1,13 @@
 // SPDX-License-Identifier: MIT
-/** packages/outils-mcp/src/portee.ts — portée d'une requête : familles cachées selon le client (opencode, jeton d'outils, délégation) et l'URL `/mcp/<famille>`. */
+/** packages/outils-mcp/src/portee.ts — portée d'une requête : familles cachées selon le client (jeton d'outils, délégation) et l'URL `/mcp/<famille>`. */
 import { strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { FAMILY_NAMES } from "@elpis/mcp";
 
 /** `hidden_families_for_current_client` : la portée par l'URL ne fait que restreindre, jamais élargir. */
-export function famillesCachees(
-  claims: Dict | null,
-  famille: string | null,
-  famillesOpencode: ReadonlySet<string>,
-): Set<string> {
+export function famillesCachees(claims: Dict | null, famille: string | null): Set<string> {
   const cachees = new Set<string>();
   const c = claims ?? {};
-  if (c["client_kind"] === "opencode")
-    for (const f of FAMILY_NAMES) if (!famillesOpencode.has(f)) cachees.add(f);
   const permises = c["families"];
   if (
     (Array.isArray(permises) || permises instanceof Set) &&

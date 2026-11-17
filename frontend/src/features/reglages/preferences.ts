@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/preferences.ts — bascules à effet immédiat des Paramètres : sous-agents, terminal, voix, familles opencode, compaction (activation, seuil, nombre maximal), interface de l'éditeur. */
+/** frontend/src/features/reglages/preferences.ts — bascules à effet immédiat des Paramètres : sous-agents, terminal, voix, compaction (activation, seuil, nombre maximal), interface de l'éditeur. */
 import type { Ref } from "vue";
 
 import { CHOIX_INTERFACES_EDITEUR, lireInterfaceEditeur } from "../editor/interface";
@@ -29,7 +29,7 @@ export function creerPreferences(
   persistance: Persistance,
 ) {
   const { computed, ref } = vue;
-  const { persistImmediat, persistKeys } = persistance;
+  const { persistImmediat } = persistance;
 
   const persistAgentsEnabled = (): Promise<void> => {
     const val = !!settings.value.agents_enabled;
@@ -144,18 +144,6 @@ export function creerPreferences(
         avertissement: null,
       },
   );
-
-  // ── Familles d'outils publiées à opencode ────────────────────────────────
-  const opencodeFamilyOn = (name: string): boolean => settings.value.opencode_mcp_families?.[name] !== false;
-  async function toggleOpencodeFamily(name: string): Promise<void> {
-    const avant = { ...(settings.value.opencode_mcp_families ?? {}) };
-    settings.value.opencode_mcp_families = { ...avant, [name]: !opencodeFamilyOn(name) };
-    await persistKeys(["opencode_mcp_families"], {
-      rollback: () => {
-        settings.value.opencode_mcp_families = avant;
-      },
-    });
-  }
 
   // ── Seuil de compaction ──────────────────────────────────────────────────
   const compactionUnitPin: Ref<UniteCompaction | ""> = ref("");
@@ -300,8 +288,6 @@ export function creerPreferences(
     voiceMicSupported,
     voiceReadSupported,
     voiceCompatInfo,
-    opencodeFamilyOn,
-    toggleOpencodeFamily,
     compactionUnit,
     compactionPct,
     compactionTokensLabel,

@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/MenuPagesPlus.vue — entrée « Plus » du volet latéral (rail réduit ou vue déployée) et son sous-menu à droite du volet : RAG, Bibliothèque (galerie des images), Studio, Remote code ; flèches, Échap par la cascade de la racine, clic extérieur, retour du focus. -->
+<!-- frontend/src/components/chat/page/MenuPagesPlus.vue — entrée « Plus » du volet latéral (rail réduit ou vue déployée) et son sous-menu à droite du volet : RAG, Bibliothèque (galerie des images), Studio, Agents ; flèches, Échap par la cascade de la racine, clic extérieur, retour du focus. -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 
@@ -26,7 +26,6 @@ const pages = computed(() =>
   pagesPlus({
     rag: b.ragAllowed,
     images: b.imageAvailable,
-    opencode: !!b.features.opencode,
     agents: !!b.features.agents,
   }),
 );
@@ -39,7 +38,6 @@ const ouvrirPage: Record<PagePlus["vue"], () => unknown> = {
   bibliotheque: () => b.openImageGallery("all"),
   studio: () => b.openStudio(),
   agents: () => b.openAgentsPage(),
-  code: () => b.openCodePage(),
 };
 
 /** Flèche droite ou bas sur le déclencheur : ouvre le sous-menu. */

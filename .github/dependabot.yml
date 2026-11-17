@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Mises à jour automatiques hebdomadaires : npm, pip (fichiers requirements*.txt) et actions GitHub.
+# Mises à jour automatiques hebdomadaires : npm, pip (tous les requirements*.txt, office/ et desktop-agent/ compris) et actions GitHub.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,6 +7,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Le runtime est Node 24 (.nvmrc) : ses types le suivent.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /browser-service
     schedule:
@@ -14,16 +18,6 @@ updates:
     open-pull-requests-limit: 5
   - package-ecosystem: pip
     directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-  - package-ecosystem: pip
-    directory: /office
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-  - package-ecosystem: pip
-    directory: /desktop-agent
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

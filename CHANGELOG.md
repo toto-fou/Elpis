@@ -4,7 +4,7 @@ Notable changes to Elpis, newest first. Format inspired by
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version numbers
 follow [SemVer](https://semver.org/).
 
-## Unreleased
+## 0.1.3 — 2026-11-14
 
 ### Added
 

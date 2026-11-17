@@ -28,6 +28,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # Une seule version du produit : chaque emplacement porte celle du package.json racine.
+      - run: npm run bump -- --check
       # Service navigateur : ses propres modules (Express, Playwright), typés et mis en bundle avec le reste.
       - run: npm ci --prefix browser-service --no-audit --no-fund
         env:

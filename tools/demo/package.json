@@ -1,6 +1,6 @@
 {
   "name": "elpis-demo",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
   "description": "Elpis — scripted README demo (GIF, MP4, PNG) recorded against an isolated instance and a scripted engine",
   "license": "MIT",

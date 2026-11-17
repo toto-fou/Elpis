@@ -23,7 +23,8 @@
     "goldens:rejeux": "test ! -f migration-kit/goldens_check.mts || node migration-kit/goldens_check.mts --rejeux .vitest/rapport.json",
     "verifier": "npm run typecheck && npm run lint && npm run format:check && npm run build:web && npm run test -- --passWithNoTests --reporter=default --reporter=json --outputFile.json=.vitest/rapport.json && npm run goldens:rejeux",
     "build:web": "npm run build -w @elpis/web",
-    "build:browser": "tsx browser-service/scripts/construire.ts"
+    "build:browser": "tsx browser-service/scripts/construire.ts",
+    "bump": "node tools/version.mts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

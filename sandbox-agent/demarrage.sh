@@ -91,6 +91,6 @@ case "$mode" in
         ;;
 esac
 
-# Dossiers du compte créés sous son UID : root ne suit aucun lien posé dans /work.
+# Dossiers du compte créés sous son UID : root ne suit aucun lien posé dans /work ; la commande écrit dans /dev/null, pas dans le journal du conteneur.
 exec setpriv --reuid=10001 --regid=10001 --clear-groups --bounding-set=-net_admin -- \
-    /bin/sh -c 'mkdir -p /work/.python-user /work/.local/bin /work/.npm-global 2>/dev/null; exec "$@"' demarrage "$@"
+    /bin/sh -c 'mkdir -p /work/.python-user /work/.local/bin /work/.npm-global 2>/dev/null; exec "$@" >/dev/null 2>&1' demarrage "$@"

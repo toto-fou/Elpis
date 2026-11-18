@@ -260,7 +260,7 @@ above. A cross-site refusal carries the account of the signed session cookie whe
 | `admin.user.create`          | success | Account created.                                                                                    | `target_user_id`, `target_username`, `role` (`admin`, `moderator`, `user`)          |
 | `admin.user.delete`          | success | Account deleted.                                                                                    | `target_user_id`, `target_username`                                                 |
 | `admin.user.role`            | success | Role changed.                                                                                       | `target_user_id`, `before`, `after`                                                 |
-| `admin.user.suspend`         | success | Account suspended (every access cut, data kept). Also written when it already was.                  | `target_user_id`, `by` (operator id)                                                |
+| `admin.user.suspend`         | success | Account suspended (every access cut, data kept). Written only when the state changed.               | `target_user_id`, `by`, `propagated`, `sandbox_stopped`                             |
 | `admin.user.unsuspend`       | success | Account reactivated (earlier sessions stay dead). Also written when it was not suspended.           | `target_user_id`, `by` (operator id)                                                |
 | `admin.user.password_reset`  | success | Password reset by an admin. Nothing when the account does not exist (the route still answers `ok`). | `target_user_id`, `must_change` (`true`)                                            |
 | `admin.user.groups`          | success | Group membership replaced.                                                                          | `target_user_id`, `before`, `after` (group ids, sorted)                             |
@@ -271,6 +271,8 @@ above. A cross-site refusal carries the account of the signed session cookie whe
 | `admin.group.update`         | success | Group renamed or described again.                                                                   | `group_id`, `before`, `after` (only the changed fields among `name`, `description`) |
 | `admin.group.delete`         | success | Group deleted.                                                                                      | `group_id`, `group_name`                                                            |
 | `admin.group.llm_access`     | success | LLM access of a group set.                                                                          | `group_id`, `group_name`, `engine_keys`, `can_manage_models`                        |
+
+A suspension does not interrupt a relayed download already open, queued RAG indexing or a compaction in progress: they end on their own, and the container destruction and the 60 s revalidation bound the effect.
 
 ### Settings and security (admin)
 

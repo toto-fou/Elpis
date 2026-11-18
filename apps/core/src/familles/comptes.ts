@@ -337,12 +337,10 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
           const essai = debitConnexion.prendre(username, ip, arrivee);
           let uid: number | null;
+          let verifieParMotDePasse: number | null;
           try {
             uid = await verifyUser(base, username, secret);
-            if (uid !== null) {
-              const verifie = uid;
-              await sansEchec(() => rehacherSiAncien(base, verifie, secret));
-            }
+            verifieParMotDePasse = uid;
             if (uid === null) {
               uid = await sousVerrouAmorcage(async () => {
                 const comptes = await getAllUsers(base);
@@ -403,6 +401,10 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           } catch (e) {
             if (e instanceof ConnexionRefusee && essai.delaiMs > 0) await attendre(essai.delaiMs);
             throw e;
+          }
+          if (verifieParMotDePasse !== null) {
+            const verifie = verifieParMotDePasse;
+            await sansEchec(() => rehacherSiAncien(base, verifie, secret));
           }
           debitConnexion.reussite(essai, maintenant(dep));
           return {

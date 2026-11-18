@@ -366,6 +366,30 @@ describe("identité et limites", () => {
     expect(vus).toEqual([null, null]);
   });
 
+  it("compte refusé par le core (inconnu ou suspendu) : appel refusé, même par jeton client ; core injoignable : appel poursuivi par nom", async () => {
+    let refuse = true;
+    const { s, vus } = serveurIdentite({
+      rappel: {
+        actif: true,
+        identityForUsername: () => Promise.resolve(null),
+        compteRefuse: () => Promise.resolve(refuse),
+      },
+    });
+    const b = await client(s);
+    const direct = await b.appeler("qui", {}, { username: "carl" });
+    expect([direct["isError"], vus]).toEqual([true, []]);
+    const tiers = await client(s, { jeton: jeton({ username: "dora", trusted_meta: false }) });
+    expect((await tiers.appeler("qui", {}, {}))["isError"]).toBe(true);
+    expect(vus).toEqual([]);
+    refuse = false;
+    expect((await b.appeler("qui", {}, { username: "carl" }))["isError"]).toBe(false);
+    expect((await tiers.appeler("qui", {}, {}))["isError"]).toBe(false);
+    expect(vus).toEqual([
+      { u: "carl", id: 0, np: "", admin: false },
+      { u: "dora", id: 0, np: "", admin: false },
+    ]);
+  });
+
   it("rappel au core quand l'id manque : le champ du sous-agent est gardé ; l'hôte n'applique aucun périmètre d'outils", async () => {
     const { s } = serveurIdentite({
       rappel: {

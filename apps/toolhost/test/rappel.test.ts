@@ -68,6 +68,22 @@ describe("client de rappel", () => {
     }
   });
 
+  it("compteRefuse : vrai seulement quand le core répond que le compte est inconnu ou suspendu ; core muet ou en panne : faux", async () => {
+    const c0 = await core({
+      "/api/internal/identity": [200, '{"ok":false}'],
+    });
+    const refus = new ClientRappel({ appUrl: c0.url, jeton: SVC, journal: journalMuet });
+    expect(await refus.compteRefuse("sam")).toBe(true);
+    expect(await refus.identityForUsername("sam")).toBeNull();
+    const panne = await core({ "/api/internal/identity": [500, "{}"] });
+    const c = new ClientRappel({ appUrl: panne.url, jeton: SVC, journal: journalMuet });
+    expect(await c.compteRefuse("sam")).toBe(false);
+    const muet = new ClientRappel({ appUrl: "http://127.0.0.1:1", jeton: SVC, journal: journalMuet });
+    expect(await muet.compteRefuse("sam")).toBe(false);
+    const inactif = new ClientRappel({ appUrl: "", jeton: SVC, journal: journalMuet });
+    expect(await inactif.compteRefuse("sam")).toBe(false);
+  });
+
   it("formes du Python, jeton de service en Bearer, paramètres en requête, cache court", async () => {
     const c0 = await core({
       "/api/internal/tokens/introspect": [

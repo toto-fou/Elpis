@@ -795,7 +795,8 @@ export async function exchangeCode(dep: DependancesOAuth, e: Echange): Promise<D
       return [new ErreurOAuth("invalid_grant", "Vérification PKCE refusée."), {}];
     if (cible !== null) return [cible, {}];
     const compte = await tx.get("SELECT suspended_at FROM users WHERE id=?", [Number(r["user_id"])]);
-    if (!compte || compteSuspendu(compte)) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    if (compteSuspendu(compte)) return [new ErreurOAuth("invalid_grant", "Code inconnu."), {}];
     if (familles.length === 0)
       return [new ErreurOAuth("invalid_scope", "Aucune famille encore autorisée."), {}];
     const paire = await emettrePaire(
@@ -862,7 +863,9 @@ export async function refresh(dep: DependancesOAuth, f: Rafraichissement): Promi
       return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement expiré."), {}];
     if (cible !== null) return [cible, {}];
     const compte = await tx.get("SELECT suspended_at FROM users WHERE id=?", [Number(r["user_id"])]);
-    if (!compte || compteSuspendu(compte)) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    if (compteSuspendu(compte))
+      return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement inconnu."), {}];
     if (err !== null) return [err, {}];
     if (accordees.length === 0)
       return [new ErreurOAuth("invalid_scope", "Aucune famille encore autorisée."), {}];

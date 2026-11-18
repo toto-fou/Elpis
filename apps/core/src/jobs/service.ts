@@ -2,7 +2,7 @@
 /** apps/core/src/jobs/service.ts — tâches de fond du process main (commandes de l'hôte d'outils, sous-agents en fond) : enregistrement, événements reçus, livraison (résultat d'outil, message, réveil), réveilleur (regroupement, saisie, file par compte, profondeur, quotas), arrêts, plafond de durée, rétention, reprise au démarrage. */
 import { randomBytes } from "node:crypto";
 
-import { getUser, getUserSettings } from "@elpis/auth";
+import { compteSuspendu, getUser, getUserSettings, ligneUtilisateur } from "@elpis/auth";
 import { estDict, HttpError, poserCle, pyJsonDumps } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -618,6 +618,28 @@ export class ServiceJobs {
     this.suspendus.delete(cle(uid, chatId));
   }
 
+  /** Compte suspendu : file, lots, relances, admissions, marques et saisies du compte oubliés ; les événements restent en base. */
+  oublierCompte(uid: number): void {
+    const debut = `${uid}\x00`;
+    for (const [k, l] of this.lots)
+      if (k.startsWith(debut)) {
+        l.annuler();
+        this.lots.delete(k);
+      }
+    for (const [k, annuler] of this.relances)
+      if (k.startsWith(debut)) {
+        annuler();
+        this.relances.delete(k);
+      }
+    for (const k of [...this.admissions.keys(), ...this.marques, ...this.saisies.keys()])
+      if (k.startsWith(debut)) {
+        this.admissions.delete(k);
+        this.marques.delete(k);
+        this.saisies.delete(k);
+      }
+    this.files.get(uid)?.attente.splice(0);
+  }
+
   /** Conversation retirée de la file du compte, réveil écarté (`reason`). */
   private async retirerDeLaFile(uid: number, chatId: string, raison: string): Promise<void> {
     const f = this.file(uid);
@@ -766,6 +788,7 @@ export class ServiceJobs {
     meta: Dict,
     evts: readonly EvenementEnAttente[],
   ): Promise<string | null> {
+    if (compteSuspendu(await ligneUtilisateur(this.base, uid))) return "account_suspended";
     const r = this.reglages();
     const reveillants = evts.filter(reveillant);
     if (!reveillants.length)

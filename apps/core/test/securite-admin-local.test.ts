@@ -61,7 +61,7 @@ describe.each(MOTEURS)("administrateur local (%s)", (moteur) => {
           auth,
           journal: journalMuet,
           revoquer: async () => undefined,
-          publierSuspension: async (uid) => void suspensions.push(uid),
+          publierSuspension: async (uid) => suspensions.push(uid) > 0,
           bac: {
             supprimerSurHote: async () => null,
             retirerConteneur: async () => undefined,
@@ -138,7 +138,7 @@ describe.each(MOTEURS)("administrateur local (%s)", (moteur) => {
             {
               base: t.base,
               maintenant: () => 1,
-              publierSuspension: async () => undefined,
+              publierSuspension: async () => true,
               journal: journalMuet,
             },
             chef,

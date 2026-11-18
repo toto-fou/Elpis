@@ -193,13 +193,13 @@ export function creerFamilleWebhooks(dep: DependancesWebhooks): Famille {
     const r = await getRoutineInternal(base, id);
     const secret = r ? await getRoutineWebhookSecret(base, id) : null;
     if (!r || !veritePy(r["enabled"]) || !veritePy(r["webhook_enabled"]) || !secret) return ok(rep);
-    if (compteSuspendu(await ligneUtilisateur(base, intPy(r["owner_user_id"])))) return ok(rep);
     const ip = hoteClient(req);
     const [authentifie, nature] = authentifier(req, secret, brut);
     if (!authentifie) {
       log.warn(`[webhooks] secret invalide routine=${id} ip=${ip} (${nature})`);
       return ok(rep);
     }
+    if (compteSuspendu(await ligneUtilisateur(base, intPy(r["owner_user_id"])))) return ok(rep);
     let event = lowerPy(
       stripPy(
         entete(req, "x-gitea-event") || entete(req, "x-github-event") || entete(req, "x-webhook-event"),

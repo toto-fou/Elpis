@@ -481,11 +481,12 @@ export class Planificateur {
     const uid = intPy(routine["owner_user_id"]);
     const rid = intPy(routine["id"]);
     if (compteSuspendu(await ligneUtilisateur(this.base, uid))) {
-      try {
-        await insertSkippedRun(this.base, rid, uid, { trigger: o.trigger, reason: "compte suspendu" });
-      } catch {
-        // journal au mieux
-      }
+      if (o.trigger !== "schedule")
+        try {
+          await insertSkippedRun(this.base, rid, uid, { trigger: o.trigger, reason: "compte suspendu" });
+        } catch {
+          // journal au mieux
+        }
       log.info(`[ROUTINES] SKIP routine=${rid} user=${uid} (compte suspendu)`);
       return null;
     }
@@ -809,6 +810,7 @@ export class Planificateur {
                 mcpConfigs,
                 onEvent: null,
                 username,
+                userId: compte,
                 model: modele,
                 builtinTools: null,
                 isCancelled: estAnnule,

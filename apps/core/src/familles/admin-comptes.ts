@@ -83,7 +83,7 @@ export interface DependancesAdminComptes {
   /** `publish_event({"type": "session_revoked", "uid": …})` : flux du compte coupés dans tous les process. */
   readonly revoquer: (uid: number | null) => Promise<unknown>;
   /** Suspension propagée aux process (flux, terminaux, exécutions) ; absente : une simple révocation. */
-  readonly publierSuspension?: (uid: number) => Promise<unknown>;
+  readonly publierSuspension?: (uid: number) => Promise<boolean>;
   readonly bac?: PortBac;
 }
 
@@ -182,24 +182,30 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
 
   async function suspendreCompte(req: FastifyRequest): Promise<Dict> {
     const cible = await cibleDeSuspension(req);
-    await suspendre(
+    const bilan = await suspendre(
       {
         base,
         maintenant,
-        publierSuspension: dep.publierSuspension ?? ((uid) => dep.revoquer(uid)),
+        publierSuspension: dep.publierSuspension ?? (async (uid) => (await dep.revoquer(uid), true)),
         bac: dep.bac,
         journal: dep.journal,
       },
       cible,
       "admin",
     );
-    auditer(req, "admin.user.suspend", { target_user_id: cible, by: utilisateur(req) });
-    return { ok: true };
+    if (bilan.change)
+      auditer(req, "admin.user.suspend", {
+        target_user_id: cible,
+        by: utilisateur(req),
+        propagated: bilan.propage,
+        sandbox_stopped: bilan.bacArrete,
+      });
+    return { ok: true, propagated: bilan.propage };
   }
 
   async function reactiverCompte(req: FastifyRequest): Promise<Dict> {
     const cible = await cibleDeSuspension(req);
-    await reactiver({ base }, cible);
+    await reactiver({ base, maintenant }, cible);
     auditer(req, "admin.user.unsuspend", { target_user_id: cible, by: utilisateur(req) });
     return { ok: true };
   }

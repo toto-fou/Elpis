@@ -43,7 +43,9 @@ import { brancherBoucle } from "./boucle/branchements";
 import { brancherContexte } from "./contexte/branchements";
 import { brancherExecutions } from "./executions/branchements";
 import { brancherTour } from "./tour/branchements";
+import { annulerEnFondDuCompte } from "./outils/integres/task/fond";
 import { arreterToursDuCompte, isGenerationActive } from "./tour/etat";
+import { jobsTour } from "./tour/ports-jobs";
 import { famillesParDefaut } from "./familles";
 import { creerFamilleAdminAgents } from "./familles/admin-agents";
 import { creerFamilleAdminExecuteurs } from "./familles/admin-executeurs";
@@ -266,10 +268,19 @@ function brancherBus(
     surOuvertureFlux,
     redemarrage: SOURCE_REDEMARRAGE,
     fermerTerminaux: (uid) => relais?.fermerTerminauxDuCompte(uid) ?? 0,
-    arreterExecutions: (uid) =>
-      arreterToursDuCompte(uid) + (planificateurDuProcess()?.arreterCompte(uid) ?? 0),
+    arreterExecutions: (uid) => arreterExecutionsDuCompte(uid),
     rafraichirModeles,
   });
+}
+
+/** Coupe tout ce que le compte fait dans ce process (tours, runs de routine, sous-agents en fond) et oublie ses réveils en attente ; nombre d'exécutions coupées. */
+function arreterExecutionsDuCompte(uid: number): number {
+  jobsTour()?.oublierCompte(uid);
+  return (
+    arreterToursDuCompte(uid) +
+    (planificateurDuProcess()?.arreterCompte(uid) ?? 0) +
+    annulerEnFondDuCompte(uid)
+  );
 }
 
 /** Vue d'ensemble de la console : sondes et faits réels, réglages en attente lus auprès de main. */
@@ -508,7 +519,7 @@ export async function composer(
         auth,
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
-        publierSuspension: (uid) => evenements.suspendre(uid),
+        publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
         bac: piloteBac(),
       }),
       creerFamilleAdminIdentite({

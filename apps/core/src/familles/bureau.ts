@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/bureau.ts — `/api/desktop/*`, `/agent`, `/agent.ps1` : cibles du compte, capture annotée, action, OCR, lancement, scripts d'automatisation sur les postes du LAN, vision pour les scripts, paquets, installeurs et CA locale (shared_infra/desktop/routes.py). */
-import { creerJeton, exigerUtilisateur, getUsernameById, resoudreJeton } from "@elpis/auth";
+import {
+  compteSuspendu,
+  creerJeton,
+  exigerUtilisateur,
+  getUsernameById,
+  ligneUtilisateur,
+  resoudreJeton,
+} from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import {
   arrondiEntierPy,
@@ -626,6 +633,7 @@ export function creerFamilleBureau(dep: DependancesBureau): Famille {
         libs: libsEt(b, "libs"),
         assets: libsEt(b, "assets"),
         notify_user_id: uid,
+        compte_actif: async () => !compteSuspendu(await ligneUtilisateur(base, uid)),
         notifier: async (u, titre, corps) => {
           await createNotification(base, u, "automation", titre, corps, "automation", null);
         },

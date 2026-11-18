@@ -3,6 +3,7 @@
 import { surchargerConfig } from "@elpis/config";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { appelerHote } from "../../src/admin/pilote-bac";
 import { makePreviewToken } from "../../src/relais/apercu";
 import { entetesRelais, identiteRelais } from "../../src/relais/identite";
 import { FauxToolhost, JETON, monterBanc } from "./aides";
@@ -43,6 +44,18 @@ describe("enveloppe d'identité (6)", () => {
     );
     await reactiver(1);
     expect((await identiteRelais(1)).user_id).toBe(1);
+  });
+});
+
+describe("appels de l'hôte au nom d'un compte suspendu", () => {
+  it("la veille périodique est refusée ; un arrêt ou un nettoyage explicite passe l'enveloppe", async () => {
+    const h = { id: "main", url: hote.url, token: JETON, relay: true } as never;
+    await suspendre(1);
+    await expect(appelerHote(h, 1, "alice", "POST", "/api/internal/jobs/watch")).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    await appelerHote(h, 1, "alice", "POST", "/api/internal/jobs/kill", { tolererSuspension: true });
+    expect(hote.requetes.at(-1)?.url).toBe("/api/internal/jobs/kill");
   });
 });
 

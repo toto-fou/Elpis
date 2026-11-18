@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/evenements/branchement.ts — bus, routes et tâches du cycle de vie d'un process (main ou admin). */
 import type { DependancesAuth } from "@elpis/auth";
+import { dormirMs } from "@elpis/commun";
 import { jetonInterne } from "@elpis/securite";
 
 import type { CycleDeVie } from "../cycle";
@@ -63,6 +64,8 @@ export interface OptionsAdmin extends OptionsCommunes {
     readonly seuilAlerteMs?: number;
     readonly rappelAlerteMs?: number;
     readonly fetch?: typeof fetch;
+    /** Attentes (ms) avant chaque nouvel essai de publication d'une suspension vers main. */
+    readonly delaisEssaiSuspensionMs?: readonly number[];
   };
 }
 
@@ -78,8 +81,8 @@ export interface Evenements {
   readonly versMain: AppelInterne | undefined;
   /** Révocation : flux de ce process fermés ; depuis l'admin, main est prévenu par un appel interne. */
   revoquer(uid: number | null): Promise<BilanRevocation | null>;
-  /** Suspension : comme la révocation, plus les exécutions du compte coupées dans main (appel interne depuis l'admin). */
-  suspendre(uid: number): Promise<BilanRevocation | null>;
+  /** Suspension : comme la révocation, plus les exécutions du compte coupées dans main (appel interne depuis l'admin) ; `propage` faux si main ne l'a pas reçue. */
+  suspendre(uid: number): Promise<{ bilan: BilanRevocation | null; propage: boolean }>;
   /** Diffusion à tous les process : ici, et vers main quand on est l'admin (bannière de redémarrage…). */
   diffuserPartout(message: Message): Promise<boolean>;
 }
@@ -155,7 +158,10 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
       abonnement: undefined,
       versMain: undefined,
       revoquer: (uid) => applySessionRevocation({ type: "session_revoked", uid }, ciblesMain),
-      suspendre: (uid) => applyAccountSuspension({ type: "account_suspended", uid }, ciblesMain),
+      suspendre: async (uid) => ({
+        bilan: await applyAccountSuspension({ type: "account_suspended", uid }, ciblesMain),
+        propage: true,
+      }),
       diffuserPartout: (message) => {
         systemEvents.broadcast(message);
         return Promise.resolve(true);
@@ -209,8 +215,13 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     suspendre: async (uid) => {
       const evenement: Message = { type: "account_suspended", uid, ts: Date.now() / 1000 };
       const bilan = await applySessionRevocation(evenement, ciblesAdmin);
-      await publierVersMain(evenement, versMain);
-      return bilan;
+      let propage = await publierVersMain(evenement, versMain);
+      for (const attente of canalAdmin.delaisEssaiSuspensionMs ?? [300, 1000, 2500]) {
+        if (propage) break;
+        await dormirMs(attente);
+        propage = await publierVersMain(evenement, versMain);
+      }
+      return { bilan, propage };
     },
     diffuserPartout: (message) => {
       systemEvents.broadcast(message, { relais: false });

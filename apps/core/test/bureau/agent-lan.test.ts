@@ -255,6 +255,37 @@ describe("agent bureau : transport, mémos, stabilisation, matrice", () => {
     }
   });
 
+  it("matrice : compte suspendu relu avant chaque cible (cibles suivantes sautées) et pendant le sondage (script arrêté)", async () => {
+    const horlogeAvant = { ...HORLOGE_AUTOMATISATION };
+    let t = 0;
+    Object.assign(HORLOGE_AUTOMATISATION, { maintenant: () => t, dormir: async (s: number) => void (t += s) });
+    try {
+      lan.reponses = [ok(), ok({ run_id: "r" }), ok({ running: false, code: 0 })];
+      const vuesAvant = lan.vues.length;
+      let lectures = 0;
+      let doc = await runAutomationCore("alice", ["vm1", "vm2", "vm3"], "x", "code", {
+        compte_actif: async () => ++lectures <= 2,
+      });
+      const resultats = doc["results"] as Record<string, unknown>[];
+      expect(resultats.map((r) => r["ok"])).toEqual([true, false, false]);
+      expect(resultats[1]).toMatchObject({ error: "skipped", message: "compte suspendu" });
+      expect(resultats[2]).toMatchObject({ error: "skipped", message: "compte suspendu" });
+      expect(lan.vues).toHaveLength(vuesAvant + 3);
+      lan.reponses = [ok(), ok({ run_id: "r" }), ok({ running: true }), ok()];
+      lectures = 0;
+      doc = await runAutomationCore("alice", ["vm1"], "x", "code", {
+        compte_actif: async () => ++lectures <= 2,
+      });
+      expect((doc["results"] as Record<string, unknown>[])[0]).toMatchObject({
+        error: "account_suspended",
+        ok: false,
+      });
+      expect(lan.vues.at(-1)?.p).toBe("/a/run_stop");
+    } finally {
+      Object.assign(HORLOGE_AUTOMATISATION, horlogeAvant);
+    }
+  });
+
   it("aucun jeton de vision dans le journal : il ne part que vers l'agent qui lance le script", async () => {
     const lignes: string[] = [];
     installerCrochetJournal((_n, m) => void lignes.push(m));

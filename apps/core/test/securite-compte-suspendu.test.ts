@@ -56,6 +56,7 @@ import {
   registerChatTask,
   unregisterChatTask,
 } from "../src/tour/etat";
+import { installerCrochetJournal } from "../src/journal";
 import { appTest, journalMuet, lignesAuditRecentes } from "./aides";
 
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
@@ -95,13 +96,14 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     await reactiverSql(bob);
   });
 
-  it("compteSuspendu : positif seulement, valeur absente ou illisible = actif", () => {
+  it("compteSuspendu : nul, 0 ou absent = actif ; toute autre valeur (négative, illisible) = suspendu", () => {
     expect(compteSuspendu({ suspended_at: T0 })).toBe(true);
     expect(compteSuspendu({ suspended_at: 0 })).toBe(false);
     expect(compteSuspendu({ suspended_at: null })).toBe(false);
     expect(compteSuspendu({})).toBe(false);
     expect(compteSuspendu(undefined)).toBe(false);
-    expect(compteSuspendu({ suspended_at: "abc" })).toBe(false);
+    expect(compteSuspendu({ suspended_at: "abc" })).toBe(true);
+    expect(compteSuspendu({ suspended_at: -5 })).toBe(true);
   });
 
   it("1. session : refusée comme révoquée, l'autre compte passe, réactivée elle repasse", async () => {
@@ -202,6 +204,15 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     expect(await verifyAccessToken(od, paireBob["access_token"])).not.toBeNull();
     expect(await motif(() => rafraichir(String(paire["refresh_token"])))).toBe("invalid_grant");
     expect(await motif(async () => echange(await code(alice)))).toBe("invalid_grant");
+    const description = async (f: () => Promise<unknown>): Promise<string> =>
+      f().then(
+        () => "",
+        (e: unknown) => (e instanceof ErreurOAuth ? e.description : ""),
+      );
+    expect(await description(() => rafraichir(String(paire["refresh_token"])))).toBe(
+      "Jeton de rafraîchissement inconnu.",
+    );
+    expect(await description(async () => echange(await code(alice)))).toBe("Code inconnu.");
     expect(await motif(() => rafraichir(String(paireBob["refresh_token"])))).toBe("ok");
     await reactiverSql(alice);
     expect(await verifyAccessToken(od, paire["access_token"])).not.toBeNull();
@@ -251,6 +262,8 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     await suspendreSql(alice);
     expect(await p.lancerRun(await routine(ra), { trigger: "manual" })).toBeNull();
     expect(await statuts(ra)).toEqual(["skipped"]);
+    expect(await p.lancerRun(await routine(ra), { trigger: "schedule" })).toBeNull();
+    expect(await statuts(ra)).toEqual(["skipped"]);
     const autre = await p.lancerRun(await routine(rb), { trigger: "manual" });
     expect(autre).not.toBeNull();
     await p.drainer();
@@ -273,13 +286,16 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     const d = {
       base: t.base,
       maintenant: () => horloge,
-      publierSuspension: async (uid: number) => void publies.push(uid),
+      publierSuspension: async (uid: number) => {
+        publies.push(uid);
+        return true;
+      },
       bac,
       journal: journalMuet,
     };
-    expect(await suspendre(d, alice, "admin")).toBe(true);
+    expect((await suspendre(d, alice, "admin")).change).toBe(true);
     horloge += 100;
-    expect(await suspendre(d, alice, "directory:x")).toBe(false);
+    expect((await suspendre(d, alice, "directory:x")).change).toBe(false);
     const ligne = await ligneUtilisateur(t.base, alice);
     expect([Number(ligne?.suspended_at), ligne?.suspended_by, Number(ligne?.session_min_ts) > 0]).toEqual([
       T0,
@@ -290,14 +306,16 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     expect(appels.map((a) => a[0])).toEqual([alice, alice]);
     expect(compteSuspendu(await ligneUtilisateur(t.base, bob))).toBe(false);
     const min = Number((await ligneUtilisateur(t.base, alice))?.session_min_ts);
-    expect(await reactiver(d, alice)).toBe(true);
-    expect(await reactiver(d, alice)).toBe(false);
+    horloge += 50;
+    expect(await reactiver({ base: t.base, maintenant: () => horloge }, alice)).toBe(true);
+    expect(await reactiver({ base: t.base, maintenant: () => horloge }, alice)).toBe(false);
     const apres = await ligneUtilisateur(t.base, alice);
     expect([compteSuspendu(apres), apres?.suspended_by ?? null, Number(apres?.session_min_ts)]).toEqual([
       false,
       null,
-      min,
+      horloge,
     ]);
+    expect(min).toBe(T0);
     const ancienne = new Session({ user_id: alice, _login_ts: T0 - 10, _sid: "s" });
     expect((await validerSession(ancienne, alice, dependancesSession(dep))).valide).toBe(false);
   });
@@ -319,7 +337,7 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
       } satisfies PortBac,
       journal: journalMuet,
     };
-    expect(await suspendre(d, bob, "admin")).toBe(true);
+    expect(await suspendre(d, bob, "admin")).toEqual({ change: true, propage: false, bacArrete: false });
     expect(compteSuspendu(await ligneUtilisateur(t.base, bob))).toBe(true);
   });
 });
@@ -565,6 +583,22 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
         await reactiverSql(alice);
         expect((await livrer(ra))[1]).not.toBe(inconnu[1]);
         expect(lancer).toHaveBeenCalledTimes(3);
+        await suspendreSql(alice);
+        const lignes: string[] = [];
+        installerCrochetJournal((_n, m) => void lignes.push(m));
+        try {
+          const faux = await app.inject({
+            method: "POST",
+            url: `/api/webhooks/routines/${ra}?token=${"x".repeat(32)}`,
+            headers: { "content-type": "application/json", "x-webhook-event": "push" },
+            payload: {},
+          });
+          expect(faux.body).toBe(inconnu[1]);
+          expect(lignes.join("\n")).toContain(`secret invalide routine=${ra}`);
+        } finally {
+          installerCrochetJournal(null);
+        }
+        expect(lancer).toHaveBeenCalledTimes(3);
       } finally {
         await app.close();
       }
@@ -578,6 +612,7 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
     const revoques: unknown[] = [];
     const suspensions: number[] = [];
     const detruits: number[] = [];
+    let propage = true;
 
     beforeAll(async () => {
       chef = await createUser(t.base, "chef", "mdp-chef", { isAdmin: 1 });
@@ -597,7 +632,10 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
             auth,
             journal: journalMuet,
             revoquer: async (uid) => void revoques.push(uid),
-            publierSuspension: async (uid) => void suspensions.push(uid),
+            publierSuspension: async (uid) => {
+              suspensions.push(uid);
+              return propage;
+            },
             bac: {
               supprimerSurHote: async () => null,
               retirerConteneur: async () => undefined,
@@ -627,6 +665,7 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
       revoques.length = 0;
       suspensions.length = 0;
       detruits.length = 0;
+      propage = true;
       await t.base.run("UPDATE users SET suspended_at=0, suspended_by=NULL, is_admin=1 WHERE id=?", [chef]);
     });
 
@@ -639,7 +678,7 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
 
     it("suspend : propage, détruit le bac, audite, idempotente ; la liste rend l'état ; unsuspend rend l'accès", async () => {
       const r = await appel(chef, "suspend", alice);
-      expect([r.statusCode, r.json()]).toEqual([200, { ok: true }]);
+      expect([r.statusCode, r.json()]).toEqual([200, { ok: true, propagated: true }]);
       expect(suspensions).toEqual([alice]);
       expect(detruits).toEqual([alice]);
       expect(revoques).toEqual([]);
@@ -665,6 +704,15 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
       expect(compteSuspendu(await ligneUtilisateur(t.base, alice))).toBe(false);
       expect((await appel(chef, "unsuspend", alice)).statusCode).toBe(200);
       expect(lignesAuditRecentes({ actionPrefix: "admin.user.unsuspend" }).length).toBeGreaterThan(0);
+    });
+
+    it("publication vers main en échec : la réponse et l'audit disent propagated=false, la suspension tient", async () => {
+      propage = false;
+      const r = await appel(chef, "suspend", alice);
+      expect([r.statusCode, r.json()]).toEqual([200, { ok: true, propagated: false }]);
+      expect(compteSuspendu(await ligneUtilisateur(t.base, alice))).toBe(true);
+      const ligne = lignesAuditRecentes({ actionPrefix: "admin.user.suspend" })[0];
+      expect(ligne?.["details"]).toMatchObject({ propagated: false, sandbox_stopped: true });
     });
 
     it("gardes : soi-même 400, inconnu 404, modérateur 403", async () => {

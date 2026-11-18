@@ -508,7 +508,7 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminComptes.schemaCorpsReinitialisationMotDePasse,
   ),
   c("admin-comptes", "GET", "/api/admin/users-with-groups", adminComptes.schemaReponseComptesConsole),
-  c("admin-comptes", "POST", "/api/admin/users/:target_id/suspend", schemaOk),
+  c("admin-comptes", "POST", "/api/admin/users/:target_id/suspend", adminComptes.schemaReponseSuspension),
   c("admin-comptes", "POST", "/api/admin/users/:target_id/unsuspend", schemaOk),
   c(
     "admin-comptes",

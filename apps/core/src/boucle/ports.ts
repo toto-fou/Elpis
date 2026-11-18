@@ -302,3 +302,14 @@ export function installerPorteeExecution(
 export function dansPorteeExecution<T>(p: PorteeExecution, fn: () => Promise<T>): Promise<T> {
   return porteeExecution ? porteeExecution(p, fn) : fn();
 }
+
+/** Le compte est-il suspendu ? Relu par la boucle à chaque étape ; absent, aucun contrôle. */
+let compteSuspenduPort: ((uid: number) => Promise<boolean>) | null = null;
+
+export function installerCompteSuspendu(f: ((uid: number) => Promise<boolean>) | null): void {
+  compteSuspenduPort = f;
+}
+
+export function compteSuspenduPourBoucle(): ((uid: number) => Promise<boolean>) | null {
+  return compteSuspenduPort;
+}

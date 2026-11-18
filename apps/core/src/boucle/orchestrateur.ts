@@ -47,7 +47,14 @@ import type { ChannelSpec } from "./dispatch-outils";
 import { emit } from "./evenements";
 import type { SurEvenement } from "./evenements";
 import { llamaChatWithToolsStream } from "./flux-llm";
-import { portTodos, portVisionBureau, recordTurnUsage, sandboxLimitsText, tokenHex } from "./ports";
+import {
+  compteSuspenduPourBoucle,
+  portTodos,
+  portVisionBureau,
+  recordTurnUsage,
+  sandboxLimitsText,
+  tokenHex,
+} from "./ports";
 import { ResumeState } from "./reprise";
 import { contentText, RunContext, RunRecord } from "./run";
 import type { LoopDeps } from "./run";
@@ -479,6 +486,22 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     );
   };
 
+  /** Compte suspendu (état relu en base) : arrêt propre comme une annulation ; une lecture en échec est journalisée, le contrôle suivant tranchera. */
+  const arretSiSuspendu = async (): Promise<void> => {
+    const lire = compteSuspenduPourBoucle();
+    if (!o.userId || lire === null) return;
+    let suspendu = false;
+    try {
+      suspendu = await lire(o.userId);
+    } catch (e) {
+      log.warn(`[run_chat_multi_mcp] état du compte illisible (user=${o.userId}) : ${String(e)}`);
+    }
+    if (!suspendu) return;
+    log.info(`[run_chat_multi_mcp] compte suspendu (user=${o.userId}) → arrêt`);
+    await rec.emitPartialSnapshot(onEvent);
+    throw new CancelledError("compte suspendu");
+  };
+
   while (effectiveIter < budget && hardIter < capDur && !forcedStop) {
     await rec.guardCancel(onEvent, Promise.resolve(), signal);
     if (ctx.cancelled()) {
@@ -486,6 +509,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       await rec.emitPartialSnapshot(onEvent);
       throw new CancelledError("User cancelled");
     }
+    await arretSiSuspendu();
     poserMessagesParent();
     if (conclure?.aborted || ((murRestantS() ?? 1) < 0 && (effectiveIter > 0 || hardIter > 0))) {
       await arretMur();
@@ -621,6 +645,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     }
     trunc.reset();
     resume.resetChain();
+    await arretSiSuspendu();
     const issue = await runToolBatch(channel, ctx, rec, deps, workingMessages, prepared, {
       iteration,
       cycle,

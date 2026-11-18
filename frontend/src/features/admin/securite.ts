@@ -201,7 +201,7 @@ export function creerSecurite(b: BaseAdmin) {
         showToast("Révocation levée pour " + (username || "uid=" + userId), "success");
         await loadSecurityOverview();
       } else {
-        showToast("Échec", "error");
+        showToast(detailErreur(await corpsJson(res)) || "Échec", "error");
       }
     } catch {
       showToast("Erreur réseau", "error");

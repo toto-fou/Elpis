@@ -11,7 +11,7 @@ import { dossierTemporaire } from "./aides";
 const SCRIPT = new URL("../../../sandbox-agent/demarrage.sh", import.meta.url);
 const SETPRIV =
   "setpriv --reuid=10001 --regid=10001 --clear-groups --bounding-set=-net_admin -- /bin/sh -c " +
-  'mkdir -p /work/.python-user /work/.local/bin /work/.npm-global 2>/dev/null; exec "$@" demarrage sleep infinity';
+  'mkdir -p /work/.python-user /work/.local/bin /work/.npm-global 2>/dev/null; exec "$@" >/dev/null 2>&1 demarrage sleep infinity';
 const ENTETE = [
   "*filter",
   ":INPUT ACCEPT [0:0]",

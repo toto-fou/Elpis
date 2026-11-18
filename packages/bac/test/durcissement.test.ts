@@ -138,8 +138,8 @@ describe("constantes", () => {
     expect("privdrop" in bac).toBe(false);
   });
 
-  it("version des options de lancement : 9", () => {
-    expect(RUN_SPEC).toBe("9");
+  it("version des options de lancement : 10", () => {
+    expect(RUN_SPEC).toBe("10");
   });
 });
 
@@ -169,6 +169,40 @@ describe("docker run", () => {
     const argv = sb.buildRunArgs(sb.networkProfile, {});
     expect(argv[pos(argv, "--security-opt") + 1]).toBe(`no-new-privileges:${valeur}`);
     expect(argv.filter((a) => a.startsWith("no-new-privileges"))).toHaveLength(1);
+  });
+});
+
+describe("docker run : mémoire, vidage mémoire et journal bornés", () => {
+  it.each(["isolated", "open", "lan"])(
+    "profil %s : swap = mémoire, aucun core dump, journal json-file de 2 x 1 Mo",
+    (profil) => {
+      const { sb } = bacDe(profil);
+      const argv = sb.buildRunArgs(sb.networkProfile, {});
+      const apres = (v: string, n = 1): string | undefined => argv[argv.indexOf(v) + n];
+      expect(apres("--memory")).toBe(`${sb.cfg.memory_mb}m`);
+      expect(apres("--memory-swap")).toBe(apres("--memory"));
+      expect(apres("--ulimit")).toBe("core=0:0");
+      expect(argv.slice(argv.indexOf("--log-driver"), argv.indexOf("--log-driver") + 6)).toEqual([
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
+      ]);
+    },
+  );
+
+  it("la limite du réglage suit : --memory-swap reprend memory_mb", () => {
+    const cfg = sandboxAdminConfigDepuis({ limits: { memory_mb: 512 } }, () => undefined);
+    const sb = new UserSandbox(1, "alice", travail, cfg, null, { cli: new FauxCli() });
+    const argv = sb.buildRunArgs(sb.networkProfile, {});
+    expect(argv.slice(argv.indexOf("--memory"), argv.indexOf("--memory") + 4)).toEqual([
+      "--memory",
+      "512m",
+      "--memory-swap",
+      "512m",
+    ]);
   });
 });
 
@@ -605,7 +639,7 @@ esac
   const bacs = (): string => path.join(tmp, "sb");
   const lignes = (journal: string): string[] => readFileSync(journal, "utf8").split("\n").filter(Boolean);
 
-  it("arrête seulement : spec périmée ET de cette instance ET (illisible OU réseau modifiable, no-new-privileges ou non)", async () => {
+  it("arrête seulement : spec périmée ET de cette instance, sans rien inspecter", async () => {
     const { journal } = fauxDocker({
       ps:
         `elpis-sb-vieux1\t6\nelpis-sb-vieux2\t\nelpis-sb-vieux3\t5\nelpis-sb-vieux4\t6\n` +
@@ -614,32 +648,21 @@ esac
         .map((n) => `/elpis-sb-${n}|${bacs()}/${n}/work`)
         .concat([`/elpis-sb-autre|/srv/autre/bacs/a/work`])
         .join("\n"),
-      entrees: {
-        vieux1: NET_SANS_GAIN, // arrêté : réseau sans gain
-        vieux2: "", // arrêté : illisible
-        vieux3: NET_AVEC_GAIN, // arrêté : réseau modifiable, même avec no-new-privileges
-        vieux4: SANS, // gardé : pas de NET_ADMIN
-        vieux5: "pas du json", // arrêté : illisible
-        neuf: NET_SANS_GAIN,
-        autre: NET_SANS_GAIN,
-      },
+      entrees: {},
     });
     const arretes = await arreterBacsPerimes(bacs());
-    expect(arretes.sort()).toEqual([
+    const vieux = [
       "elpis-sb-vieux1",
       "elpis-sb-vieux2",
       "elpis-sb-vieux3",
+      "elpis-sb-vieux4",
       "elpis-sb-vieux5",
-    ]);
+    ];
+    expect(arretes.sort()).toEqual(vieux);
     const l = lignes(journal);
-    expect(l.filter((x) => x.startsWith("stop")).sort()).toEqual([
-      "stop -t 5 elpis-sb-vieux1",
-      "stop -t 5 elpis-sb-vieux2",
-      "stop -t 5 elpis-sb-vieux3",
-      "stop -t 5 elpis-sb-vieux5",
-    ]);
-    expect(l.some((x) => x.includes("neuf") && x.includes("HostConfig"))).toBe(false);
-    expect(l.some((x) => x.includes("autre") && x.includes("HostConfig"))).toBe(false);
+    expect(l.filter((x) => x.startsWith("stop")).sort()).toEqual(vieux.map((n) => `stop -t 5 ${n}`));
+    expect(l.some((x) => x.includes("HostConfig"))).toBe(false);
+    expect(l.some((x) => x.includes("stop") && (x.includes("neuf") || x.includes("autre")))).toBe(false);
   });
 
   it("docker absent ou ps en échec : liste vide", async () => {

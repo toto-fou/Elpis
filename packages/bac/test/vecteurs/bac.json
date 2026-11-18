@@ -41,7 +41,7 @@
     "--tmpfs",
     "/tmp"
   ],
-  "run_spec": "9",
+  "run_spec": "10",
   "default_image": "elpis/sandbox:1.8.0",
   "run_args": [
     {
@@ -97,6 +97,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -126,7 +136,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -192,6 +202,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -221,7 +241,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -332,6 +352,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -361,7 +391,7 @@
         "--label",
         "elpis.netcfg=c6e3b2679567",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -472,6 +502,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -501,7 +541,7 @@
         "--label",
         "elpis.netcfg=cc3ca5743576",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -628,6 +668,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -657,7 +707,7 @@
         "--label",
         "elpis.netcfg=c9b70535cd34",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -786,6 +836,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -815,7 +875,7 @@
         "--label",
         "elpis.netcfg=c9b70535cd34",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -940,6 +1000,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -969,7 +1039,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1050,6 +1120,16 @@
         "1g",
         "--memory",
         "512m",
+        "--memory-swap",
+        "512m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "0.33",
         "--pids-limit",
@@ -1079,7 +1159,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1152,6 +1232,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "0.01",
         "--pids-limit",
@@ -1181,7 +1271,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1252,6 +1342,16 @@
         "1g",
         "--memory",
         "4096m",
+        "--memory-swap",
+        "4096m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "2.50",
         "--pids-limit",
@@ -1281,7 +1381,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1351,6 +1451,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "0.07",
         "--pids-limit",
@@ -1380,7 +1490,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1450,6 +1560,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "-0.15",
         "--pids-limit",
@@ -1479,7 +1599,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1549,6 +1669,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "999.99",
         "--pids-limit",
@@ -1578,7 +1708,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1647,6 +1777,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -1676,7 +1816,7 @@
         "--label",
         "elpis.netcfg=c6e3b2679567",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1744,6 +1884,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -1773,7 +1923,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -1850,6 +2000,16 @@
         "1g",
         "--memory",
         "2048m",
+        "--memory-swap",
+        "2048m",
+        "--ulimit",
+        "core=0:0",
+        "--log-driver",
+        "json-file",
+        "--log-opt",
+        "max-size=1m",
+        "--log-opt",
+        "max-file=2",
         "--cpus",
         "1.00",
         "--pids-limit",
@@ -1879,7 +2039,7 @@
         "--label",
         "elpis.netcfg=d9496c312c57",
         "--label",
-        "elpis.spec=9",
+        "elpis.spec=10",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
@@ -3302,7 +3462,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6' rc=0",
+      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3323,7 +3483,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3355,7 +3515,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|9|elpis/sandbox:1.8.0' rc=0",
+      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3376,7 +3536,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0||9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0||9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3408,7 +3568,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|9|elpis/sandbox:1.8.0|autre' rc=0",
+      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0|autre' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3429,7 +3589,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|autre|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|autre|9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3461,7 +3621,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|9|elpis/sandbox:1.8.0|<no value>' rc=0",
+      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0|<no value>' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3482,7 +3642,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|<no value>|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|<no value>|9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3514,7 +3674,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|9|elpis/sandbox:1.6.0' rc=0",
+      "nom": "config '6907f24f152c|10|elpis/sandbox:1.6.0' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3535,7 +3695,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|9|elpis/sandbox:1.6.0||9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.6.0||9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3567,7 +3727,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|9|' rc=0",
+      "nom": "config '6907f24f152c|10|' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3588,7 +3748,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|9|||9a365cd367f1\n"
+          "out": "6907f24f152c|10|||9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3800,7 +3960,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "<no value>|9|||9a365cd367f1\n"
+          "out": "<no value>|10|||9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3853,7 +4013,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "|9|||9a365cd367f1\n"
+          "out": "|10|||9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -3959,7 +4119,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "autre|9|||9a365cd367f1\n"
+          "out": "autre|10|||9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -4056,7 +4216,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "<no value>|9|||9a365cd367f1"
+          "out": "<no value>|10|||9a365cd367f1"
         }
       ],
       "processus": null,
@@ -4088,7 +4248,7 @@
       }
     },
     {
-      "nom": "config web 'c9b70535cd34|9|elpis/sandbox:1.8.0|120fce89f7f6'",
+      "nom": "config web 'c9b70535cd34|10|elpis/sandbox:1.8.0|120fce89f7f6'",
       "methode": "_config_matches",
       "executors": {
         "network_profiles": [
@@ -4153,7 +4313,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "c9b70535cd34|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "c9b70535cd34|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         }
       ],
       "processus": null,
@@ -4250,7 +4410,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|||9a365cd367f1"
+          "out": "6907f24f152c|10|||9a365cd367f1"
         }
       ],
       "processus": null,
@@ -4282,7 +4442,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 137|false 6907f24f152c|9|elpis",
+      "nom": "red\u00e9marrage 137|false 6907f24f152c|10|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4312,7 +4472,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         },
         {
           "motif": [
@@ -4393,7 +4553,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 143|false 6907f24f152c|9|elpis",
+      "nom": "red\u00e9marrage 143|false 6907f24f152c|10|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4423,7 +4583,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         },
         {
           "motif": [
@@ -4504,7 +4664,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 137|true 6907f24f152c|9|elpis",
+      "nom": "red\u00e9marrage 137|true 6907f24f152c|10|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4534,7 +4694,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         },
         {
           "motif": [
@@ -4630,6 +4790,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -4659,7 +4829,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -4715,7 +4885,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 0|false 6907f24f152c|9|elpis",
+      "nom": "red\u00e9marrage 0|false 6907f24f152c|10|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4745,7 +4915,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         },
         {
           "motif": [
@@ -4826,7 +4996,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 1|false 6907f24f152c|9|elpis",
+      "nom": "red\u00e9marrage 1|false 6907f24f152c|10|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4856,7 +5026,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         },
         {
           "motif": [
@@ -4952,6 +5122,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -4981,7 +5161,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -5037,7 +5217,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage abc 6907f24f152c|9|elpis",
+      "nom": "red\u00e9marrage abc 6907f24f152c|10|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5067,7 +5247,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         },
         {
           "motif": [
@@ -5163,6 +5343,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -5192,7 +5382,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -5387,6 +5577,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -5416,7 +5616,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -5472,7 +5672,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage  6907f24f152c|9|elpis",
+      "nom": "red\u00e9marrage  6907f24f152c|10|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5502,7 +5702,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
         },
         {
           "motif": [
@@ -5598,6 +5798,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -5627,7 +5837,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -5713,7 +5923,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         },
         {
           "motif": [
@@ -5828,6 +6038,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -5857,7 +6077,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -6034,6 +6254,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -6063,7 +6293,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -6347,6 +6577,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -6376,7 +6616,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -6570,6 +6810,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -6599,7 +6849,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -6786,6 +7036,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -6815,7 +7075,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -6961,6 +7221,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -6990,7 +7260,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -7150,6 +7420,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -7179,7 +7459,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -7353,6 +7633,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -7382,7 +7672,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -7765,7 +8055,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -7884,7 +8174,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         },
         {
           "motif": [
@@ -8046,7 +8336,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         },
         {
           "motif": [
@@ -8213,7 +8503,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         },
         {
           "motif": [
@@ -8335,7 +8625,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -8591,6 +8881,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -8620,7 +8920,7 @@
           "--label",
           "elpis.netcfg=c9b70535cd34",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -8926,6 +9226,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -8955,7 +9265,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -9068,7 +9378,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -9212,7 +9522,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": null,
@@ -9339,7 +9649,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         },
         {
           "motif": [
@@ -9558,6 +9868,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -9587,7 +9907,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
@@ -9944,7 +10264,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": [
@@ -10100,7 +10420,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": [
@@ -10258,7 +10578,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": [
@@ -10422,7 +10742,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": [
@@ -10573,7 +10893,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": [
@@ -10726,7 +11046,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": [
@@ -10880,7 +11200,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|9|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
         }
       ],
       "processus": [
@@ -11110,6 +11430,16 @@
           "1g",
           "--memory",
           "2048m",
+          "--memory-swap",
+          "2048m",
+          "--ulimit",
+          "core=0:0",
+          "--log-driver",
+          "json-file",
+          "--log-opt",
+          "max-size=1m",
+          "--log-opt",
+          "max-file=2",
           "--cpus",
           "1.00",
           "--pids-limit",
@@ -11139,7 +11469,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=9",
+          "elpis.spec=10",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",

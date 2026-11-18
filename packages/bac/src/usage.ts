@@ -8,7 +8,7 @@ import { rstripPy, strPy } from "@elpis/commun";
 import { config, pyPath, realpathPy } from "@elpis/config";
 
 import { appelDocker, decoderRemplace, labelFilter, labelTpl, which } from "./docker";
-import { ENTREE_ROOT, FORMAT_ENTREE, lireEntree, RUN_SPEC } from "./durcissement";
+import { ENTREE_ROOT, RUN_SPEC } from "./durcissement";
 
 const USAGE_TTL_S = 30;
 /** Au-delà de ce remplissage, un chemin qui fait respecter le quota recalcule au lieu de croire le cache. */
@@ -182,7 +182,7 @@ export async function balayerPartsOrphelines(
   return retires;
 }
 
-/** Conteneurs en marche de CETTE instance lancés avec d'anciennes options et capables de toucher à leur réseau : arrêtés (recréés à leur prochain usage) ; rend leurs noms. */
+/** Conteneurs en marche de CETTE instance lancés avec d'anciennes options (`elpis.spec`) : arrêtés, recréés à leur prochain usage ; rend leurs noms. */
 export async function arreterBacsPerimes(
   racineBacs: string = strPy(config.SANDBOX_DIR || ""),
 ): Promise<string[]> {
@@ -197,9 +197,6 @@ export async function arreterBacsPerimes(
     .map(([nom = ""]) => nom);
   const arretes: string[] = [];
   for (const nom of await conteneursDeLInstance(anciens, racineBacs)) {
-    const r = await appelDocker(["inspect", "--format", FORMAT_ENTREE, nom], 10_000);
-    const e = r.code === 0 ? lireEntree(decoderRemplace(r.sortie)) : null;
-    if (e !== null && !e.reseau) continue;
     const arret = await appelDocker(["stop", "-t", "5", nom], 30_000);
     if (arret.code === 0) arretes.push(nom);
   }

@@ -8,6 +8,11 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: swap, core dumps and container log bounded.** A sandbox no longer swaps beyond its
+  memory limit (`--memory-swap` equal to `--memory`), writes no core dump (`--ulimit core=0:0`)
+  and keeps at most two 1 MB files of container log (`json-file`); its background command writes to
+  `/dev/null`, not to that log. When the tool host starts, this instance's running sandboxes created
+  with older options are stopped, then recreated at their next use. `elpis.spec` 10.
 - **Sandbox: dedicated Docker network, no traffic between sandboxes.** Open and allowlist
   sandboxes are attached to the `elpis-sandbox` network (bridge `br-elpis-sb`, traffic between
   containers disabled), created on demand: on Docker's default bridge, a sandbox could reach the

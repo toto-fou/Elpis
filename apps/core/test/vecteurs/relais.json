@@ -3533,7 +3533,10 @@
     },
     {
       "texte": "{\"limits\": {\"memory_mb\": \"4096\", \"cpu_quota_pct\": 50.9, \"pids_max\": true, \"timeout_s\": \" 7_0 \"}, \"idle_kill_hours\": \" 12 \", \"exec_user\": \"  0:0 \", \"force_user_docker\": \"non\", \"runtime\": \" runsc \", \"extra_run_args\": [\"--a\", \" \", 5, [\"x\"], null, \"\"], \"image\": \"autre/image:1\"}",
-      "avertissements": [],
+      "avertissements": [
+        "[sandbox] executors.extra_run_args : --a 5 (option non permise) ignor\u00e9",
+        "[sandbox] executors.extra_run_args : ['x'] None (option non permise) ignor\u00e9"
+      ],
       "config": {
         "memory_mb": 4096,
         "cpu_quota_pct": 50,
@@ -3543,12 +3546,7 @@
         "force_user_docker": true,
         "idle_kill_hours": 12,
         "runtime": "runsc",
-        "extra_run_args": [
-          "--a",
-          "5",
-          "['x']",
-          "None"
-        ],
+        "extra_run_args": [],
         "network_profiles": [
           {
             "id": "isolated",
@@ -3711,7 +3709,10 @@
     },
     {
       "texte": "{\"extra_run_args\": \"--x\"}",
-      "avertissements": [],
+      "avertissements": [
+        "[sandbox] executors.extra_run_args : - (option non permise) ignor\u00e9",
+        "[sandbox] executors.extra_run_args : - x (option non permise) ignor\u00e9"
+      ],
       "config": {
         "memory_mb": 2048,
         "cpu_quota_pct": 100,
@@ -3721,11 +3722,7 @@
         "force_user_docker": false,
         "idle_kill_hours": 24,
         "runtime": "",
-        "extra_run_args": [
-          "-",
-          "-",
-          "x"
-        ],
+        "extra_run_args": [],
         "network_profiles": [
           {
             "id": "isolated",

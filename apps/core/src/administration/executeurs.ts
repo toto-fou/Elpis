@@ -31,6 +31,7 @@ import {
 import type { Dict, Reseau } from "@elpis/commun";
 import {
   appelDocker,
+  argsRunPermis,
   assainirSeuilsDisque,
   configuredImage,
   decoderRemplace,
@@ -288,10 +289,15 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
     const s = stripPy(strPy(x));
     if (!s) continue;
     if (longueurPy(s) > 200 || s.includes("\n") || s.includes("\r"))
-      throw new HttpError(400, `extra_run_args : argument invalide ${reprPy(prefixePy(s, 40))}`);
+      throw new HttpError(
+        400,
+        "extra_run_args : un argument dépasse 200 caractères ou tient sur plusieurs lignes",
+      );
     extra.push(s);
   }
   if (extra.length > 32) throw new HttpError(400, "extra_run_args : trop d'arguments (max 32)");
+  const refuses = argsRunPermis(extra).refus;
+  if (refuses.length > 0) throw new HttpError(400, `extra_run_args refusé : ${refuses.join(", ")}`);
   const limite = (cle: string, defaut: number): number =>
     intPy(getPy(ouPy(getPy(nouveau, "limits"), {}), cle, defaut));
   const limites: Record<string, number> = {

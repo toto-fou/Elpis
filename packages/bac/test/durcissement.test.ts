@@ -140,8 +140,8 @@ describe("constantes", () => {
     expect("privdrop" in bac).toBe(false);
   });
 
-  it("version des options de lancement : 11", () => {
-    expect(RUN_SPEC).toBe("11");
+  it("version des options de lancement : 12", () => {
+    expect(RUN_SPEC).toBe("12");
   });
 });
 

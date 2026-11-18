@@ -501,6 +501,43 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     expect(JSON.parse(readFileSync(path.join(d, "config.json"), "utf-8")).executors.allow_sudo).toBe(false);
   });
 
+  it("extra_run_args : options hors liste et montage dont la source manque refusés (400) avec leur motif, sans valeur de variable ; permises enregistrées", async () => {
+    const poster = (extra: unknown[]): Promise<LightMyRequestResponse> =>
+      appel(1, "POST", "/api/admin/executors", { executors: { extra_run_args: extra } });
+    const refus = await poster(["--cap-add=NET_ADMIN", "--env", "LD_PRELOAD=/secret.so", "--shm-size=1g"]);
+    expect([refus.statusCode, refus.json()]).toEqual([
+      400,
+      {
+        detail:
+          "extra_run_args refusé : --cap-add NET_ADMIN (option non permise), --env LD_PRELOAD (variable réservée ou mal formée)",
+      },
+    ]);
+    expect(refus.body).not.toContain("secret.so");
+    const trop = await poster(Array.from({ length: 33 }, () => "--shm-size=1g"));
+    expect([trop.statusCode, trop.json()]).toEqual([
+      400,
+      { detail: "extra_run_args : trop d'arguments (max 32)" },
+    ]);
+    const montage = await poster(["--volume", "/data/absent-elpis-42:/mnt/x:ro"]);
+    expect([montage.statusCode, montage.json()]).toEqual([
+      400,
+      {
+        detail:
+          "extra_run_args : montage refusé : /data/absent-elpis-42 → /mnt/x (source absente, illisible ou sans réponse)",
+      },
+    ]);
+    const ok = await poster(["--shm-size", "2g", "-e", "A=1", "--ulimit", "nofile=4096:8192"]);
+    expect(ok.statusCode).toBe(200);
+    expect((ok.json() as { config: Dict }).config["extra_run_args"]).toEqual([
+      "--shm-size",
+      "2g",
+      "-e",
+      "A=1",
+      "--ulimit",
+      "nofile=4096:8192",
+    ]);
+  });
+
   it("vue des exécuteurs : allow_sudo vrai seulement pour true, un autre type est rendu faux", () => {
     const vue = (executors: Dict): unknown => (vueExecuteurs({ executors })["config"] as Dict)["allow_sudo"];
     expect(

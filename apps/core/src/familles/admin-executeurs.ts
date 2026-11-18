@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-executeurs.ts — `/api/admin` des exécuteurs et des hôtes d'outils : réglages des bacs à sable, santé Docker, conteneurs des comptes, GC ; affectations et migration entre hôtes (shared_infra/routes/admin/executors.py, toolhosts.py). */
 import { getUserSettings, getUsernameById } from "@elpis/auth";
-import { chargerConfigBac, configuredImage, containerName } from "@elpis/bac";
+import {
+  argsRunPermis,
+  chargerConfigBac,
+  configuredImage,
+  containerName,
+  verifierMontages,
+} from "@elpis/bac";
 import { estDict, getPy, HttpError, intPy, ouPy, poserCle, prefixePy, stripPy, strPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { safeSandboxName } from "@elpis/config";
@@ -54,12 +60,20 @@ function sectionExecuteurs(): unknown {
 
 // ── Exécuteurs (executors.py) ────────────────────────────────────────────────
 
+/** Montages d'`extra_run_args` vérifiés sur le disque avant l'écriture (400 sinon) ; le reste du filtre est celui de `configAssainie`. */
+async function exigerMontages(bruts: unknown): Promise<void> {
+  if (!Array.isArray(bruts)) return;
+  const v = await verifierMontages(argsRunPermis(bruts.map((x) => stripPy(strPy(x))).filter(Boolean)).gardes);
+  if (v.refus.length > 0) throw new HttpError(400, `extra_run_args : montage refusé : ${v.refus.join(", ")}`);
+}
+
 async function enregistrer(dep: DependancesAdminExecuteurs, req: FastifyRequest): Promise<Dict> {
   const corps = corpsJsonValeurs(req);
   const nouveau = estDict(corps) ? getPy(corps, "executors") : null;
   if (!estDict(nouveau)) throw new HttpError(400, "Body invalide : besoin de {executors: {...}}");
   const avertissements: string[] = [];
   const profils = profilsAssainis(nouveau, avertissements);
+  await exigerMontages(getPy(nouveau, "extra_run_args"));
   let assainie: Dict = {};
   await modifierConfigJson((cfg) => {
     assainie = configAssainie(nouveau, ouPy(getPy(cfg, "executors"), {}), profils);

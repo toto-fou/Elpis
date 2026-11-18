@@ -4,6 +4,13 @@
 set -euf
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+# Étape root sous un environnement propre : seuls PATH et les variables du filtre passent (une variable de l'image ou de l'administrateur ne détourne ni iptables ni ses bibliothèques).
+if [ "${1:-}" != "--environnement-propre" ]; then
+    exec env -i PATH="$PATH" ELPIS_NET_MODE="${ELPIS_NET_MODE:-}" ELPIS_ALLOWLIST="${ELPIS_ALLOWLIST:-}" \
+        ELPIS_ALLOWLIST_PORTS="${ELPIS_ALLOWLIST_PORTS:-}" ELPIS_DNS="${ELPIS_DNS:-}" \
+        /bin/sh "$0" --environnement-propre "$@"
+fi
+shift
 
 log() { printf '[demarrage] %s\n' "$*" >&2; }
 

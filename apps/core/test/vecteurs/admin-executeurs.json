@@ -46,7 +46,7 @@
     ]
   ],
   "docker_factice": "#!/bin/sh\nd=\"$FAUX_DOCKER\"\nprintf '%s\\n' \"$*\" >> \"$d/appels.log\"\ncase \"$1\" in\n  version) k=version ;;\n  image) k=image-inspect ;;\n  ps) case \"$*\" in *\" -a \"*) k=ps-a ;; *netcfg*) k=ps-netcfg ;; *) k=ps-noms ;; esac ;;\n  inspect) for a; do n=\"$a\"; done\n           case \"$*\" in *user_id*) k=\"inspect-$n\" ;; *) k=\"inspect-nom-$n\" ;; esac ;;\n  stop) k=stop ;;\n  rm) k=rm ;;\n  *) k=autre ;;\nesac\n[ -f \"$d/$k.dort\" ] && exec sleep \"$(cat \"$d/$k.dort\")\"\n[ -f \"$d/$k.out\" ] && cat \"$d/$k.out\"\n[ -f \"$d/$k.err\" ] && cat \"$d/$k.err\" >&2\n[ -f \"$d/$k.rc\" ] && exit \"$(cat \"$d/$k.rc\")\"\nexit 0\n",
-  "config_texte": "{\n  \"executors\": {\n    \"limits\": {\n      \"memory_mb\": 1024.0,\n      \"cpu_quota_pct\": 50\n    },\n    \"exec_user\": \"1000:1000\",\n    \"runtime\": \"runsc\",\n    \"extra_run_args\": [\n      \"--cap-add\",\n      2.0,\n      \"  \"\n    ],\n    \"idle_kill_hours\": \"6\",\n    \"image\": \"registre.lan:5000/outils/bac:2\",\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist_ip\",\n        \"ips\": [\n          \"10.0.0.0/8\"\n        ],\n        \"domains\": [\n          \"pypi.org\"\n        ],\n        \"ports\": [\n          443\n        ],\n        \"dns\": []\n      },\n      {\n        \"id\": \"lan\",\n        \"name\": \"LAN\",\n        \"mode\": \"bridge\"\n      }\n    ]\n  },\n  \"autre\": {\n    \"x\": 1.0\n  }\n}",
+  "config_texte": "{\n  \"executors\": {\n    \"limits\": {\n      \"memory_mb\": 1024.0,\n      \"cpu_quota_pct\": 50\n    },\n    \"exec_user\": \"1000:1000\",\n    \"runtime\": \"runsc\",\n    \"extra_run_args\": [\n      \"--shm-size\",\n      2.0,\n      \"  \"\n    ],\n    \"idle_kill_hours\": \"6\",\n    \"image\": \"registre.lan:5000/outils/bac:2\",\n    \"network_profiles\": [\n      {\n        \"id\": \"isolated\",\n        \"name\": \"Isol\u00e9\",\n        \"mode\": \"none\"\n      },\n      {\n        \"id\": \"web\",\n        \"name\": \"Web\",\n        \"mode\": \"allowlist_ip\",\n        \"ips\": [\n          \"10.0.0.0/8\"\n        ],\n        \"domains\": [\n          \"pypi.org\"\n        ],\n        \"ports\": [\n          443\n        ],\n        \"dns\": []\n      },\n      {\n        \"id\": \"lan\",\n        \"name\": \"LAN\",\n        \"mode\": \"bridge\"\n      }\n    ]\n  },\n  \"autre\": {\n    \"x\": 1.0\n  }\n}",
   "hotes": {
     "GET /a/health": [
       200,
@@ -980,7 +980,7 @@
       {
         "executors": {
           "extra_run_args": [
-            "  --init  ",
+            "  --shm-size  ",
             0
           ]
         }
@@ -994,8 +994,11 @@
         "executors": {
           "runtime": 1.0,
           "extra_run_args": [
+            "--shm-size",
             2.0,
+            "--hostname",
             1e+16,
+            "--add-host",
             true
           ],
           "limits": {
@@ -1721,7 +1724,7 @@
     },
     {
       "statut": 200,
-      "corps": "{\"config\":{\"limits\":{\"memory_mb\":1024.0,\"cpu_quota_pct\":50},\"force_user_docker\":false,\"idle_kill_hours\":6,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.0.0.0/8\"],\"domains\":[\"pypi.org\"],\"ports\":[443],\"dns\":[]},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":1024.0,\"cpu_quota_pct\":50},\"force_user_docker\":false,\"idle_kill_hours\":6,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.0.0.0/8\"],\"domains\":[\"pypi.org\"],\"ports\":[443],\"dns\":[]},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--shm-size\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
     },
     null,
     {
@@ -1846,11 +1849,11 @@
     },
     {
       "statut": 400,
-      "corps": "{\"detail\":\"extra_run_args : argument invalide 'a\\\\nb'\"}"
+      "corps": "{\"detail\":\"extra_run_args : un argument d\u00e9passe 200 caract\u00e8res ou tient sur plusieurs lignes\"}"
     },
     {
       "statut": 400,
-      "corps": "{\"detail\":\"extra_run_args : argument invalide '\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9'\"}"
+      "corps": "{\"detail\":\"extra_run_args : un argument d\u00e9passe 200 caract\u00e8res ou tient sur plusieurs lignes\"}"
     },
     {
       "statut": 400,
@@ -1882,11 +1885,11 @@
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"],\"allow_sudo\":true,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[\"Le profil 'isolated' est le repli de s\u00e9curit\u00e9 : son mode est forc\u00e9 \u00e0 \u00ab Tout bloquer \u00bb.\",\"Profil 'web' : 0.0.0.0/0 autorise TOUT internet \u2014 autant utiliser le mode Ouvert (bridge).\",\"Profil 'web' : 169.254.10.0/24 recouvre 169.254.0.0/16 (m\u00e9tadonn\u00e9es cloud, ex. 169.254.169.254).\"],\"stale_containers\":[{\"user_id\":3,\"username\":\"bob\",\"container\":\"elpis-sb-bob\",\"profile_id\":\"web\"},{\"user_id\":99,\"username\":null,\"container\":\"elpis-sb-fantome\",\"profile_id\":\"isolated\"}]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--shm-size\",\"2.0\"],\"allow_sudo\":true,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[\"Le profil 'isolated' est le repli de s\u00e9curit\u00e9 : son mode est forc\u00e9 \u00e0 \u00ab Tout bloquer \u00bb.\",\"Profil 'web' : 0.0.0.0/0 autorise TOUT internet \u2014 autant utiliser le mode Ouvert (bridge).\",\"Profil 'web' : 169.254.10.0/24 recouvre 169.254.0.0/16 (m\u00e9tadonn\u00e9es cloud, ex. 169.254.169.254).\"],\"stale_containers\":[{\"user_id\":3,\"username\":\"bob\",\"container\":\"elpis-sb-bob\",\"profile_id\":\"web\"},{\"user_id\":99,\"username\":null,\"container\":\"elpis-sb-fantome\",\"profile_id\":\"isolated\"}]}"
     },
     {
       "statut": 200,
-      "corps": "{\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--shm-size\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
     },
     {
       "statut": 200,
@@ -1907,11 +1910,11 @@
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"--init\",\"0\"],\"allow_sudo\":true,\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"--shm-size\",\"0\"],\"allow_sudo\":true,\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"1.0\",\"extra_run_args\":[\"2.0\",\"1e+16\",\"True\"],\"allow_sudo\":true,\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"1.0\",\"extra_run_args\":[\"--shm-size\",\"2.0\",\"--hostname\",\"1e+16\",\"--add-host\",\"True\"],\"allow_sudo\":true,\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
     },
     null,
     {

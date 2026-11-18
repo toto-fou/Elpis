@@ -47,21 +47,23 @@ beforeEach(() => {
   inet6 = path.join(tmp, "if_inet6");
   writeFileSync(journal, "");
   writeFileSync(inet6, "");
+  writeFileSync(path.join(tmp, "echec"), "");
   for (const nom of ["iptables", "ip6tables", "iptables-restore", "setpriv"]) {
-    // STUB_ECHEC : noms de stubs en échec, `iptables-P` pour la politique d'iptables.
+    // Fichier `echec` : noms de stubs en échec, `iptables-P` pour la politique d'iptables (le script ne garde plus l'environnement).
     writeFileSync(
       path.join(bin, nom),
       `#!/bin/sh
 { printf '%s' "${nom}"; for a; do printf ' %s' "$a"; done; printf '\\n'; } >> "${journal}"
 [ "${nom}" = iptables-restore ] && cat > "${ruleset}"
-case " \${STUB_ECHEC:-} " in *" ${nom} "*) exit 1 ;; esac
-if [ "${nom}" = iptables ] && [ "\${1:-}" = -P ]; then case " \${STUB_ECHEC:-} " in *" iptables-P "*) exit 1 ;; esac; fi
+echec=" $(cat "${path.join(tmp, "echec")}") "
+case "$echec" in *" ${nom} "*) exit 1 ;; esac
+if [ "${nom}" = iptables ] && [ "\${1:-}" = -P ]; then case "$echec" in *" iptables-P "*) exit 1 ;; esac; fi
 exit 0
 `,
     );
     chmodSync(path.join(bin, nom), 0o755);
   }
-  for (const outil of ["tr", "cat"])
+  for (const outil of ["tr", "cat", "env"])
     symlinkSync(
       spawnSync("sh", ["-c", `command -v ${outil}`], { encoding: "utf8" }).stdout.trim(),
       path.join(bin, outil),
@@ -85,7 +87,8 @@ interface Sortie {
   err: string;
 }
 
-function jouer(env: Record<string, string> = {}): Sortie {
+function jouer({ STUB_ECHEC = "", ...env }: Record<string, string> = {}): Sortie {
+  writeFileSync(path.join(tmp, "echec"), STUB_ECHEC);
   const r = spawnSync("/bin/sh", [copie, "sleep", "infinity"], {
     env: { ...env, HOME: tmp },
     encoding: "utf8",
@@ -304,5 +307,69 @@ describe("demarrage.sh : sans filtre, mode inconnu, échecs", () => {
     const { rc, appels } = jouer(liste({ ELPIS_ALLOWLIST: "10.0.0.5" }));
     expect(rc).not.toBe(0);
     expect(appels.some((a) => a.startsWith("setpriv"))).toBe(false);
+  });
+});
+
+describe("demarrage.sh : étape root sous un environnement propre", () => {
+  const noter = (nom: string): void => {
+    writeFileSync(
+      path.join(tmp, "bin", nom),
+      `#!/bin/sh\necho "${nom} $*" >> "${journal}"\nenv > "${path.join(tmp, `env-${nom}`)}"\n[ "${nom}" = iptables-restore ] && cat > "${ruleset}"\nexit 0\n`,
+    );
+    chmodSync(path.join(tmp, "bin", nom), 0o755);
+  };
+  const variables = (nom: string): string[] =>
+    readFileSync(path.join(tmp, `env-${nom}`), "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => l.slice(0, l.indexOf("=")));
+  const ETRANGERES = {
+    XTABLES_LIBDIR: "/etranger",
+    IPTABLES_LIBDIR: "/etranger",
+    LD_PRELOAD: "/etranger/x.so",
+    LD_LIBRARY_PATH: "/etranger",
+    GCONV_PATH: "/etranger",
+    MALLOC_CHECK_: "3",
+    BASH_ENV: "/etranger/env",
+    ENV: "/etranger/env",
+    AUTRE: "1",
+  };
+
+  it("une variable étrangère n'atteint ni iptables, ni ip6tables, ni iptables-restore", () => {
+    for (const nom of ["iptables", "ip6tables", "iptables-restore"]) noter(nom);
+    const { rc } = jouer(liste({ ELPIS_ALLOWLIST: "10.0.0.5", ...ETRANGERES }));
+    expect(rc).toBe(0);
+    for (const nom of ["iptables", "ip6tables", "iptables-restore"])
+      for (const v of variables(nom))
+        expect(
+          ["PATH", "PWD", "SHLVL", "_", "OLDPWD"].includes(v) || /^ELPIS_/u.test(v),
+          `${nom} : ${v}`,
+        ).toBe(true);
+  });
+
+  it("les variables du filtre passent telles quelles, y compris vides", () => {
+    noter("iptables");
+    jouer(
+      liste({ ELPIS_ALLOWLIST: "10.0.0.5 10.0.0.6", ELPIS_ALLOWLIST_PORTS: "443", ELPIS_DNS: "9.9.9.9" }),
+    );
+    const env = readFileSync(path.join(tmp, "env-iptables"), "utf8").split("\n");
+    expect(env).toEqual(
+      expect.arrayContaining([
+        "ELPIS_NET_MODE=allowlist",
+        "ELPIS_ALLOWLIST=10.0.0.5 10.0.0.6",
+        "ELPIS_ALLOWLIST_PORTS=443",
+        "ELPIS_DNS=9.9.9.9",
+      ]),
+    );
+  });
+
+  it("le filtre posé est le même avec ou sans variables étrangères", () => {
+    const base = jouer(liste({ ELPIS_ALLOWLIST: "10.0.0.5", ELPIS_DNS: "9.9.9.9" }));
+    const avec = jouer(liste({ ELPIS_ALLOWLIST: "10.0.0.5", ELPIS_DNS: "9.9.9.9", ...ETRANGERES }));
+    expect([avec.rc, avec.appels.slice(base.appels.length), avec.regles]).toEqual([
+      base.rc,
+      base.appels,
+      base.regles,
+    ]);
   });
 });

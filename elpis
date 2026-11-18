@@ -749,6 +749,46 @@ sys.exit(0 if lu.startswith(b"HTTP/1.1 200") and b'"ok":true' in lu else 1)
 PY
 }
 
+# Isolation des bacs : script de démarrage, réseau sans trafic entre bacs, filtrage du pont, version de Docker, swap, root remappé ou noyau applicatif, sudo ; script, réseau, filtrage et version comptés (compteur bad), le reste en conseil.
+doctor_isolation_bac() {
+    local sec runtime sudo_permis reseau version majeure py
+    if [ -r "$ROOT/sandbox-agent/demarrage.sh" ]; then ok "script de démarrage des bacs présent"
+    else warn "script de démarrage des bacs absent (sandbox-agent/demarrage.sh) : aucun bac ne démarre ; réinstallez ou mettez à jour"; bad=$((bad + 1)); fi
+    sec="$(docker info --format '{{join .SecurityOptions " "}}' 2>/dev/null)" || return 0
+    if reseau="$(docker network inspect elpis-sandbox --format '{{.Driver}}|{{.EnableIPv6}}|{{index .Options "com.docker.network.bridge.enable_icc"}}|{{index .Options "com.docker.network.bridge.name"}}' 2>/dev/null)"; then
+        if [ "$reseau" = "bridge|false|false|br-elpis-sb" ]; then ok "réseau des bacs : pont dédié, trafic entre bacs coupé"
+        else warn "réseau Docker elpis-sandbox non conforme ($reseau) : les bacs des profils ouverts ou filtrés ne démarrent pas (docker network rm elpis-sandbox une fois les bacs arrêtés : il sera recréé)"; bad=$((bad + 1)); fi
+        if [ "$(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null)" != 1 ]; then
+            warn "filtrage du trafic ponté inactif (net.bridge.bridge-nf-call-iptables) : la coupure entre bacs repose dessus (module br_netfilter)"; bad=$((bad + 1))
+        fi
+    else
+        info "réseau des bacs : créé au premier bac d'un profil ouvert ou filtré"
+    fi
+    version="$(docker version --format '{{.Server.Version}}' 2>/dev/null)"; majeure="${version%%.*}"
+    case "$majeure" in ''|*[!0-9]*) ;; *) if [ "$majeure" -lt 26 ]; then warn "Docker $version : la coupure entre bacs demande Docker 26 ou plus récent (avant, l'IPv6 lien-local des interfaces relie les conteneurs)"; bad=$((bad + 1)); fi ;; esac
+    [ "$(docker info --format '{{.SwapLimit}}' 2>/dev/null)" != false ] || warn "noyau sans limite du swap des conteneurs : un bac peut dépasser sa mémoire en swap (cgroup swap à activer)"
+    py="${PY:-python3}"; [ -x "$py" ] || py=python3
+    runtime="$("$py" -c 'import json, sys
+try: print(((json.load(open(sys.argv[1])).get("executors") or {}).get("runtime") or ""))
+except Exception: print("")' "$ROOT/config.json" 2>/dev/null)"
+    sudo_permis="$("$py" -c 'import json, sys
+lu = True
+try: v = (json.load(open(sys.argv[1])).get("executors") or {}).get("allow_sudo", True)
+except FileNotFoundError: v = True
+except Exception: lu = False
+print(("oui" if v is True else "non") if lu else "")' "$ROOT/config.json" 2>/dev/null)"
+    case "$sec $runtime" in
+        *userns*|*rootless*|*runsc*|*kata*) ok "isolation des bacs : renforcée (${runtime:-$sec})" ;;
+        *) info "isolation des bacs : ni userns-remap, ni Docker rootless, ni gVisor ; une faille du noyau mène d'un bac à l'hôte (SECURITY.md, « Hardened isolation »)" ;;
+    esac
+    case "$sudo_permis" in
+        oui) info "sudo permis dans les bacs au réseau non filtré (executors.allow_sudo) : le compte y est root de son conteneur" ;;
+        non) ok "bacs durcis : sudo refusé (executors.allow_sudo)" ;;
+        *) warn "réglage executors.allow_sudo non lu (config.json ou Python indisponible)" ;;
+    esac
+    return 0
+}
+
 # Navigateur, dans la sandbox de chaque compte seulement : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
 doctor_navigateur_bac() {
     local ca cpu pw nm sb s d j n=0
@@ -1059,6 +1099,7 @@ cmd_doctor() {
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
     check "image sandbox $image" "./install.sh ou deploy/docker/sandbox/build_offline.sh ; sans elle, ni sandbox ni navigateur" docker image inspect "$image"
+    doctor_isolation_bac
     check "bubblewrap (analyses du RAG et aperçus Office isolés)" \
         "apt install bubblewrap ; user namespaces autorisés ; core construit requis" core_cmd bwrap
     check_opt "LibreOffice (aperçus Office, facultatif)" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt" command -v soffice

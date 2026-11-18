@@ -8,6 +8,12 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **`./elpis doctor`: sandbox isolation.** It now reports the startup script, the sandbox network
+  (exactly as Elpis creates it) and bridged-traffic filtering, Docker older than 26 (counted:
+  traffic between sandboxes is not fully cut there), a kernel without container swap limits, a
+  reinforced isolation (userns-remap, rootless, gVisor) and whether `sudo` is allowed, or that the
+  setting could not be read. `SECURITY.md` describes the sandbox containers and their known
+  limits.
 - **Sandbox: extra `docker run` options limited to an allowed list.** `executors.extra_run_args`
   now takes only options that neither undo the isolation nor override what Elpis sets: shared
   memory, ulimits (open files, stack, locked memory), extra hosts, DNS, GPU, CPU set and shares,

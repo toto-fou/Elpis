@@ -15,4 +15,4 @@ httpx==0.28.1
 -r office/requirements.txt
 
 # ---- Outils appelés en sous-processus ----
-ruff==0.17.3                 # lint de l'éditeur (/api/sandbox/lint)
+ruff==0.17.5                 # lint de l'éditeur (/api/sandbox/lint)

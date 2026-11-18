@@ -158,12 +158,12 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   }
 
   /** Écriture sous le verrou d'écriture de la base puis celui de config.json : l'invariant gardé et l'action se décident au même instant. */
-  async function ecrire<T>(f: (x: Executeur, cfg: Dict) => Promise<T>): Promise<T> {
+  async function ecrire<T>(f: (x: Executeur, cfg: Dict) => Promise<T>, ecrireFichier = true): Promise<T> {
     return base.ecriture((x) =>
       sousVerrouConfigJson(async () => {
         const cfg = lireConfigPourEcrire();
         const r = await f(x, cfg);
-        writeConfigJson(cfg);
+        if (ecrireFichier) writeConfigJson(cfg);
         return r;
       }),
     );
@@ -200,12 +200,16 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   async function creer(req: FastifyRequest): Promise<unknown> {
     const f = validerCreation(corpsJson(req));
-    await ecrire(async (_x, cfg) => {
+    await ecrire(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
       if (providers.length >= FOURNISSEURS_MAX)
         throw new HttpError(400, `${FOURNISSEURS_MAX} fournisseurs au plus.`);
       if (positionDuFournisseur(providers, f.id) >= 0)
         throw new HttpError(409, "Cet identifiant est déjà pris.");
+      if ((await nombreIdentites(x, f.id)) > 0)
+        throw new HttpError(409, "Cet identifiant est encore lié à des comptes : choisissez-en un autre.");
+      await supprimerSecretFournisseur(base, f.id, acteur(req));
+      await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [f.id]);
       providers.push(f);
     });
     auditer(req, "admin.auth.provider.create", {
@@ -277,11 +281,13 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       throw new HttpError(400, "Champ « secret » : texte attendu.");
     if (valeur.length > BORNES_AUTH.secret_max || !valeur.isWellFormed())
       throw new HttpError(400, `Champ « secret » : ${BORNES_AUTH.secret_max} caractères au plus.`);
-    const f = lireReglagesAuth().providers.find((p) => p.id === id);
-    if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
     try {
-      if (valeur === "") await supprimerSecretFournisseur(base, id, acteur(req));
-      else await enregistrerSecret(base, f, valeur, acteur(req));
+      await ecrire(async (_x, cfg) => {
+        const f = reglagesAuthDepuis(cfg["auth"]).providers.find((p) => p.id === id);
+        if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
+        if (valeur === "") await supprimerSecretFournisseur(base, id, acteur(req));
+        else await enregistrerSecret(base, f, valeur, acteur(req));
+      }, false);
     } catch (e) {
       if (e instanceof ErreurSecret) throw new HttpError(e.statut === 409 ? 409 : 400, "Secret refusé.");
       throw e;

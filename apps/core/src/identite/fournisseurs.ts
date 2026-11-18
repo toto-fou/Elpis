@@ -18,6 +18,7 @@ import {
   supprimerSecret,
 } from "../secrets/stockage";
 import type { Acteur } from "../secrets/stockage";
+import { compterAdminsLocaux } from "./etat";
 import { hotePortHttps, hotePortLdaps, lireReglagesAuth } from "./reglages";
 import type { Fournisseur, ReglagesAuthLus } from "./reglages";
 
@@ -149,12 +150,20 @@ export async function nombreIdentites(x: Executeur, id: string): Promise<number>
   return Number(r[0]?.[0] ?? 0);
 }
 
-/** Champs figés tant que des identités existent, parmi ceux que `apres` change. */
+const hoteSeul = (url: string): string => hotePortLdaps(url).replace(/:\d+$/u, "");
+
+/** Champs figés tant que des identités existent, parmi ceux que `apres` change (pour `urls` : plus aucun hôte d'origine ne demeure). */
 export function champsFigesChanges(avant: Fournisseur, apres: Fournisseur): string[] {
   if (avant.type === "oidc" && apres.type === "oidc")
     return (["issuer", "client_id", "subject_claim"] as const).filter((k) => avant[k] !== apres[k]);
-  if (avant.type === "ldap" && apres.type === "ldap")
-    return avant.attrs.id !== apres.attrs.id ? ["attrs.id"] : [];
+  if (avant.type === "ldap" && apres.type === "ldap") {
+    const restants = new Set(apres.urls.map(hoteSeul));
+    const figes: string[] = [];
+    if (avant.attrs.id !== apres.attrs.id) figes.push("attrs.id");
+    if (avant.user_base_dn !== apres.user_base_dn) figes.push("user_base_dn");
+    if (!avant.urls.some((u) => restants.has(hoteSeul(u)))) figes.push("urls");
+    return figes;
+  }
   return ["type"];
 }
 
@@ -172,13 +181,15 @@ export async function etatFournisseur(
       ? "adresse publique absente ou invalide"
       : !cookieSecure
         ? "cookie de session non sécurisé"
-        : f.required_groups.length === 0
-          ? "aucun groupe requis"
-          : !tested
-            ? "pas de test réussi pour les réglages courants"
-            : !has_secret
-              ? "secret absent ou hors de portée"
-              : null;
+        : (await compterAdminsLocaux(x)) === 0
+          ? "aucun administrateur local actif"
+          : f.required_groups.length === 0
+            ? "aucun groupe requis"
+            : !tested
+              ? "pas de test réussi pour les réglages courants"
+              : !has_secret
+                ? "secret absent ou hors de portée"
+                : null;
   return { has_secret, tested, ecart };
 }
 

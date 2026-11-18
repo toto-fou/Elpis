@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/reglages.ts — réglages `config.json › auth` : types, lecteur tolérant lu à chaud et validateur strict des écritures. */
-import { X509Certificate } from "node:crypto";
+import { createHash, X509Certificate } from "node:crypto";
 
 import { estDict, FlottantPy, HttpError } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
@@ -10,9 +10,10 @@ export const CA_PEM_MAX = 64 * 1024;
 const REGEX_ID = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const CONTROLE = /\p{Cc}/u;
 const REGEX_ATTRIBUT = /^[A-Za-z][A-Za-z0-9.;-]{0,63}$/u;
+const REGEX_REVENDICATION = /^[A-Za-z0-9_.:-]{1,64}$/u;
 const REGEX_JETON_SCOPE = /^[\x21\x23-\x5b\x5d-\x7e]+$/u;
-const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._-]+)(?::(\d{1,5}))?$/u;
-const REGEX_PEM = /^(?:\s*-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/u;
+const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9._-]*)(?::(\d{1,5}))?$/u;
+const REGEX_PEM = /^\s*(?:-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/u;
 const BLOC_PEM = /-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----/gu;
 
 export type ModeLocal = "all" | "admins";
@@ -191,26 +192,49 @@ export function hotePortHttps(url: string): string {
   return `${u.hostname}:${u.port || "443"}`;
 }
 
+const PEM_VERDICTS_MAX = 64;
+const verdictsPem = new Map<string, boolean>();
+
+/** Verdict (lisible ou non) d'un PEM déjà analysé, gardé par empreinte du contenu : les lectures à chaud ne refont pas l'analyse. */
+function pemLisible(v: string): boolean {
+  const cle = createHash("sha256").update(v, "utf8").digest("hex");
+  const connu = verdictsPem.get(cle);
+  if (connu !== undefined) return connu;
+  let ok = true;
+  try {
+    for (const bloc of v.match(BLOC_PEM) ?? []) new X509Certificate(bloc);
+  } catch {
+    ok = false;
+  }
+  if (verdictsPem.size >= PEM_VERDICTS_MAX) verdictsPem.clear();
+  verdictsPem.set(cle, ok);
+  return ok;
+}
+
 function certificats(v: unknown): string {
   if (typeof v !== "string" || !v.isWellFormed() || Buffer.byteLength(v) > CA_PEM_MAX)
     return refus("ca_pem", "certificats PEM de 64 Kio au plus");
   if (v === "") return v;
   if (!REGEX_PEM.test(v)) return refus("ca_pem", "certificats PEM attendus");
-  try {
-    for (const bloc of v.match(BLOC_PEM) ?? []) new X509Certificate(bloc);
-  } catch {
-    return refus("ca_pem", "certificat illisible");
-  }
+  if (!pemLisible(v)) return refus("ca_pem", "certificat illisible");
   return v;
 }
 
+/** Vrai si le nom, ou l'un des segments d'un chemin pointé, existe sur `Object.prototype`. */
+function nomDePrototype(v: string): boolean {
+  return [v, ...v.split(".")].some((segment) => segment in Object.prototype);
+}
+
 function nomAttribut(v: unknown, nom: string): string {
-  if (typeof v !== "string" || !REGEX_ATTRIBUT.test(v)) return refus(nom, "nom d'attribut attendu");
+  if (typeof v !== "string" || !REGEX_ATTRIBUT.test(v) || nomDePrototype(v))
+    return refus(nom, "nom d'attribut attendu");
   return v;
 }
 
 function nomRevendication(v: unknown, nom: string): string {
-  return texte(v, nom, 1, 64);
+  if (typeof v !== "string" || !REGEX_REVENDICATION.test(v) || nomDePrototype(v))
+    return refus(nom, "nom de revendication attendu (lettres, chiffres, _, -, . ou :)");
+  return v;
 }
 
 function correspondances(v: unknown): CorrespondanceGroupe[] {

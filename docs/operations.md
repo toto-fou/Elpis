@@ -822,7 +822,7 @@ with the core bundle, as the service account (with `sudo` they switch to it):
 | Command | Role |
 |---|---|
 | `./elpis auth status` | Public address, local password mode, number of active administrators with a local password, and for each provider: id, type, switched on, active, tested |
-| `./elpis auth off` | Switches off every provider, reopens the local password to every account (`auth.local.mode` back to `all`), cuts the sessions of the accounts attached to the providers and writes `auth.cli.off` to the security journal. Nothing else in `config.json` changes; no restart is needed |
+| `./elpis auth off` | Switches off every provider, reopens the local password to every account (`auth.local.mode` back to `all`), cuts the sessions of every account attached to a provider recorded in the database, whatever the file says (run it again if the database was unreachable), and writes `auth.cli.off` to the security journal. Nothing else in `config.json` changes; no restart is needed |
 | `./elpis auth reactivate <account>` | Lifts the suspension of an account through the same function as the console (sessions opened during the suspension stay refused) and writes `auth.cli.reactivate` to the security journal. The way back in when every administrator is suspended |
 
 At least one active administrator with a local password must always remain: suspending, deleting

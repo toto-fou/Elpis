@@ -20,6 +20,7 @@ import {
   estLocalDirect,
   exigerUtilisateur,
   getAllUsers,
+  getUser,
   getUserGroups,
   getUsernameById,
   getUsersLite,
@@ -46,6 +47,7 @@ import {
   auditLogin,
   cleAuditCourante,
   compareDigest,
+  completerCoutRefus,
   empreinteIdentifiant,
   texteBorne,
   tokenUrlsafe,
@@ -339,9 +341,16 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           let uid: number | null;
           let verifieParMotDePasse: number | null;
           try {
-            uid = await verifyUser(base, username, secret);
+            const compte =
+              lireReglagesAuth().local.mode === "admins" ? await getUser(base, username) : undefined;
+            const refuseParMode = compte !== undefined && Number(compte.is_admin) !== 1;
+            if (refuseParMode) {
+              if (secret.isWellFormed()) await completerCoutRefus(secret, null);
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
+            }
+            uid = refuseParMode ? null : await verifyUser(base, username, secret);
             verifieParMotDePasse = uid;
-            if (uid === null) {
+            if (uid === null && !refuseParMode) {
               uid = await sousVerrouAmorcage(async () => {
                 const comptes = await getAllUsers(base);
                 const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";

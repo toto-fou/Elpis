@@ -405,7 +405,7 @@ includes it only if `backup.remote.include_audit` is `true`.
 Directory (LDAP, FreeIPA) and single sign-on (OIDC) providers. The section is read from disk on every
 use, with no restart, and is written only by Administration › Users & access › Enterprise sign-in and
 by `./elpis auth off`: the raw editor and `PATCH /api/admin/config` can neither create nor overwrite
-it. `./elpis configure` keeps it; `--force` starts again from the example file (the old one is kept as `config.json.bak`), which switches every provider off. Without the section nothing changes: no new route
+it. `./elpis configure` re-reads it from disk just before writing and keeps it as it is; `--force` starts again from the example file (the old one is kept as `config.json.bak`) but carries the section over with every provider switched off and the local password open to everyone. Without the section nothing changes: no new route
 answers, no outgoing call is made, the login page is the same. Passwords and client secrets are
 never in `config.json`: they live in the secrets vault as the instance secrets `auth-<id>`, bound
 to the host and port of the provider (changing either asks for the secret again), and no route

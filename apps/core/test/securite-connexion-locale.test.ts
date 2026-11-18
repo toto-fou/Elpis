@@ -5,13 +5,31 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { config, invalidateConfigCache } from "@elpis/config";
+import type * as Securite from "@elpis/securite";
 import { configureAudit, oublierConfigurationAudit } from "@elpis/securite";
 import type { LightMyRequestResponse } from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { creerCompte, demarrerCore } from "../../../packages/contracts/test/core/aides";
 import type { CoreDeTest } from "../../../packages/contracts/test/core/aides";
 import { lignesAuditRecentes } from "./aides";
+
+const compteurs = vi.hoisted(() => ({ refus: 0, verifications: 0 }));
+
+vi.mock("@elpis/securite", async (original) => {
+  const reel = await original<typeof Securite>();
+  return {
+    ...reel,
+    completerCoutRefus: (...a: Parameters<typeof reel.completerCoutRefus>) => {
+      compteurs.refus += 1;
+      return reel.completerCoutRefus(...a);
+    },
+    verifyPassword: (...a: Parameters<typeof reel.verifyPassword>) => {
+      compteurs.verifications += 1;
+      return reel.verifyPassword(...a);
+    },
+  };
+});
 
 describe("connexion locale et mot de passe (core réel, process console)", () => {
   let core: CoreDeTest;
@@ -70,17 +88,25 @@ describe("connexion locale et mot de passe (core réel, process console)", () =>
     const raisons = lignesAuditRecentes({ actionPrefix: "auth.login.denied" }).map(
       (l) => `${String(l["username"])}:${String((l["details"] as { reason?: unknown }).reason)}`,
     );
-    expect(raisons).toEqual(
-      expect.arrayContaining(["bob:local_disabled", "bob:bad_password", "modo:local_disabled"]),
-    );
+    expect(raisons).toEqual(expect.arrayContaining(["bob:local_disabled", "modo:local_disabled"]));
     expect(raisons).not.toContain("racine:local_disabled");
   });
 
-  it("mode `admins` : le refus suit la vérification du mot de passe : même réponse qu'un compte inconnu", async () => {
+  it("mode `admins` : un non-administrateur suit le chemin d'un compte inconnu : même réponse, même nombre de hachages, aucune vérification du mot de passe", async () => {
     ecrireAuth({ local: { mode: "admins" } });
+    const compter = async (nom: string, mdp: string): Promise<[number, number, string]> => {
+      compteurs.refus = 0;
+      compteurs.verifications = 0;
+      const r = await connexion(nom, mdp);
+      return [compteurs.refus, compteurs.verifications, r.body];
+    };
+    const inconnu = await compter("personne", "mdp-bob-1");
+    const nonAdmin = await compter("bob", "mdp-bob-1");
+    expect(nonAdmin).toEqual(inconnu);
+    expect(nonAdmin.slice(0, 2)).toEqual([1, 0]);
+    expect((await compter("bob", "mauvais"))[0]).toBe(1);
     const r = await connexion("bob", "mdp-bob-1");
-    const inconnu = await connexion("personne", "x");
-    expect([r.statusCode, inconnu.statusCode, r.body]).toEqual([401, 401, inconnu.body]);
+    expect(r.statusCode).toBe(401);
     ecrireAuth({ local: { mode: "all" } });
     expect((await connexion("bob", "mdp-bob-1")).statusCode).toBe(200);
   });

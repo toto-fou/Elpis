@@ -38,6 +38,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
   beforeEach(async () => {
     t = ouvrirBaseDeTest(moteur);
     await initialiserBase(t.base);
+    await createUser(t.base, "chef-local", "mdp-chef-1", { isAdmin: 1 });
     cleCoffreDeTest();
     cfg = configDeTest();
     lignes = [];

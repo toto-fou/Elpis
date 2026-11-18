@@ -52,6 +52,7 @@ import {
   PATCH_MAX_CHANGES,
   PATCH_PATH_RE,
   plant,
+  tropProfond,
   removePath,
   restaurerSecretsMasques,
   sameValue,
@@ -71,6 +72,7 @@ export interface DependancesAdminConfig {
   readonly fermerClientCompression?: () => Promise<void>;
 }
 
+const MESSAGE_TROP_PROFOND = "Le contenu est trop imbriqué.";
 const MORTES = ["trigger_after_turns", "compress_every", "pct_of_ctx", "cooldown_iters", "min_growth_tokens"];
 
 function route(
@@ -291,24 +293,25 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       throw e;
     }
     if (!estDict(entrant)) throw new HttpError(400, "Le contenu doit être un objet JSON.");
+    if (tropProfond(entrant)) throw new HttpError(400, MESSAGE_TROP_PROFOND);
     if (type !== "main") throw new HttpError(400, "Unknown config type");
     const chemin = config.CONFIG_JSON_PATH;
     let avantDisque: Dict = {};
     let ecrit: unknown = {};
     await sousVerrouConfigJson(() => {
-      let texte = contenu;
-      try {
-        let disque: unknown = {};
-        if (existePy(chemin)) {
-          try {
-            disque = pyJsonLoads(lireTextePy(chemin));
-          } catch {
-            disque = null;
-          }
+      let disque: unknown = {};
+      if (existePy(chemin)) {
+        try {
+          disque = pyJsonLoads(lireTextePy(chemin));
+        } catch {
+          disque = null;
         }
-        const disqueLu = estDict(disque);
-        if (!disqueLu) disque = {};
-        avantDisque = disque as Dict;
+      }
+      const disqueLu = estDict(disque);
+      if (!disqueLu) disque = {};
+      avantDisque = disque as Dict;
+      let texte: string;
+      try {
         restaurerSecretsMasques(entrant, disque as Dict);
         if (Object.hasOwn(entrant, "llm") && !estDict(entrant["llm"])) poserCle(entrant, "llm", {});
         const restaures = applySectionOwnership(entrant, disque as Dict, disqueLu);
@@ -320,8 +323,9 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         texte = pyJsonDumps(entrant, { ensureAscii: false, indent: 2 });
       } catch (e) {
         dep.journal.warn(
-          `[admin] save config-file : merge propriété échoué (${(e instanceof Error ? e.message : String(e)).slice(0, 200)}) — écriture du payload tel quel en fallback`,
+          `[admin] save config-file : fusion échouée, rien n'est écrit (${(e instanceof Error ? e.message : String(e)).slice(0, 200)})`,
         );
+        throw new HttpError(500, "Enregistrement impossible : le fichier n'a pas été modifié.");
       }
       try {
         if (existePy(chemin)) copyFileSync(chemin, cheminCopieConfigJson(chemin));
@@ -357,6 +361,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         throw new HttpError(400, `Chemin de réglage invalide : ${reprPy(chemin)}`);
       if (!Object.hasOwn(c, "to") && !veritePy(getPy(c, "delete", null)))
         throw new HttpError(400, `Valeur manquante pour ${chemin}.`);
+      if (tropProfond(c["to"])) throw new HttpError(400, MESSAGE_TROP_PROFOND);
       lus.push([chemin.split("."), c]);
     }
     const possedes = lus.filter(([p]) => touchesOwned(p)).map(([p]) => p.join("."));

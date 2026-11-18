@@ -236,11 +236,11 @@ def test_doctor_sans_core_non_verifie(depot):
 
 def _unites(depot: Path, **env: str) -> dict[str, str]:
     """Unités rendues par `_render_units` (dépendances du rendu remplacées par des talons)."""
-    talons = f"""
-load_runtime() {{ :; }}; need_core() {{ :; }}; _db_local_unit() {{ :; }}; _https_enabled() {{ return 1; }}
-svc_available() {{ :; }}
-svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true "$1"); SPEC_ENV=(A=1); }}
-core_cmd() {{ [ "$*" = "config DB_PATH" ] && echo /srv/donnees/app.db; }}
+    talons = """
+load_runtime() { :; }; need_core() { :; }; _db_local_unit() { :; }; _https_enabled() { return 1; }
+svc_available() { :; }
+svc_spec() { SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true "$1"); SPEC_ENV=(A=1); }
+core_cmd() { [ "$*" = "config DB_PATH" ] && echo /srv/donnees/app.db; }
 SERVICES=(qdrant rag toolhost main admin); VAULT_KEY_SYS=/etc/elpis/vault.key
 """
     sortie = depot.parent / "unites"

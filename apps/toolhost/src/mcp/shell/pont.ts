@@ -7,7 +7,7 @@ import path from "node:path";
 import { bacDeLOutil, erreurAgent, estErreurAgent } from "@elpis/bac";
 import type { PortProfilRappel } from "@elpis/bac";
 import type { AgentBac, DonneesEnvoi, ExecResult, OptionsExec } from "@elpis/bac";
-import { decoderRemplace } from "@elpis/bac";
+import { decoderRemplace, PATH_COMPTE } from "@elpis/bac";
 import { fixePy, journalDe, longueurPy, prefixePy, reprPy, suffixePy } from "@elpis/commun";
 import type { Dict, Journal } from "@elpis/commun";
 import {
@@ -52,13 +52,10 @@ export const SCRIPT_PURGE =
   'printf \'%s\\n\' "$ouverts" | grep -Fqx -- "$base/$p" && continue; ' +
   'rm -f -- "$p" && total=$((total - taille)); fi; done';
 
-export const PATH_CONTENEUR =
-  "/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin" +
-  ":/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const MARQUE_STDERR = Buffer.from("\n--- STDERR ---\n");
 /** Environnement de base des commandes de l'outil (`execute_shell`, jobs de fond). */
 export const ENV_BASE: Readonly<Record<string, string>> = {
-  PATH: PATH_CONTENEUR,
+  PATH: PATH_COMPTE,
   HOME: "/work",
   LANG: "C.UTF-8",
   LC_ALL: "C.UTF-8",

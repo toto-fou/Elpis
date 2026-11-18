@@ -84,7 +84,7 @@ export {
   SCRIPT_NAVIGATEUR,
   sourcesNavigateur,
 } from "./navigateur";
-export * as privdrop from "./privdrop";
+export { entreePermise, FORMAT_ENTREE, PATH_COMPTE } from "./durcissement";
 export {
   messageSuppression,
   mettreBacDeCote,
@@ -134,6 +134,7 @@ export {
 } from "./seuils-disque";
 export type { SeuilsDisque } from "./seuils-disque";
 export {
+  arreterBacsPerimes,
   balayerPartsOrphelines,
   bumpSandboxUsage,
   invalidateSandboxUsage,

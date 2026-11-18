@@ -26,6 +26,7 @@ case "$1" in
     n=$(nom "$@")
     [ -f "$d/$n.run" ] || { echo "Error: No such object: $n" >&2; exit 1; }
     case "$*" in
+      *HostConfig.Privileged*) printf 'false\\nnull\\n["no-new-privileges:false"]\\n' ;;
       *Mounts*) sed -n 's/^\\(.*\\):\\/work:rw$/\\1/p' "$d/$n.run" ;;
       *elpis.netcfg*)
         net=$(sed -n 's/^elpis.netcfg=//p' "$d/$n.run"); spec=$(sed -n 's/^elpis.spec=//p' "$d/$n.run")

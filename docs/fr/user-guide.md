@@ -1063,7 +1063,7 @@ L'éditeur prend le style de l'habillage, ou garde l'éditeur classique : le cho
 
 Chaque compte dispose d'une sandbox isolée et persistante. Votre dossier de travail y est `/work` : l'éditeur, le terminal et les outils de l'assistant travaillent tous dans ce même dossier.
 
-- **Dans votre sandbox, vous et l'assistant avez tous les droits** : `sudo` sans mot de passe, installation de paquets, compilation. C'est voulu : cette sandbox n'appartient qu'à vous.
+- **Dans votre sandbox, vous et l'assistant avez tous les droits** : `sudo` sans mot de passe, installation de paquets, compilation. C'est voulu : cette sandbox n'appartient qu'à vous. Sur un profil réseau limité à une liste d'adresses, `sudo` est refusé : demandez à votre administrateur les paquets système dont vous avez besoin.
 - **Le serveur et les autres utilisateurs sont protégés** : la sandbox est cloisonnée, avec des limites de mémoire, de processeur et de processus.
 - **Le réseau est coupé par défaut.** L'administrateur définit des profils réseau (isolé, accès complet, liste d'adresses autorisées) et vous en choisissez un, sauf s'il en impose un. Un `pip install` ou un `git clone` qui échoue en connexion refusée vient probablement de là, pas d'une panne ; l'assistant connaît l'état du réseau.
 - **Un quota disque s'applique** ; la jauge de l'éditeur le montre.
@@ -1105,7 +1105,7 @@ Si votre sandbox était arrêtée, un message de démarrage s'affiche à la prem
 - Faites glisser le bord supérieur du panneau pour l'agrandir. Sa hauteur est retenue.
 - Après une commande, l'explorateur, les onglets ouverts et la vue Git se mettent à jour seuls.
 - Un terminal par tâche : un serveur de développement dans l'un, les tests dans l'autre, chacun renommé. L'aperçu en mode **Serveur** affiche ensuite l'application lancée : voir [La sandbox et l'éditeur de code](#la-sandbox-et-léditeur-de-code).
-- Vous avez tous les droits dans votre sandbox : `sudo apt install …` ou `pip install …` fonctionnent, si le profil réseau le permet.
+- Vous avez tous les droits dans votre sandbox : `sudo apt install …` ou `pip install …` fonctionnent, si le profil réseau le permet (`sudo` est refusé sur un profil limité à une liste d'adresses).
 
 ### Comment ça marche
 

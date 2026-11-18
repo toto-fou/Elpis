@@ -6,6 +6,16 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+### Security
+
+- **Sandbox: an account's commands no longer go through a root step.** Commands, the container
+  agent, the browser service and the terminal enter the container directly under the account's
+  UID. The container's own `PATH` holds system folders only; the account's folders in `/work` are
+  added for the account's commands alone, and the image health check is disabled. A sandbox on an
+  allowlist network profile now runs with `no-new-privileges`: `sudo` is refused there, because a
+  root in the container could undo the filter. Other profiles keep `sudo`. Containers are
+  recreated at their next use (`elpis.spec` 7); `/work` is kept.
+
 ## 0.1.5 — 2026-11-22
 
 ### Added

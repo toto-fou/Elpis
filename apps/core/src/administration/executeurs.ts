@@ -42,8 +42,10 @@ import {
   labelTpl,
   netcfgHash,
   PROFILE_ID_RE,
+  profilFiltre,
   profilReseauDepuis,
   resolveurValide,
+  RUN_SPEC,
   seuilsDisqueDepuis,
   sousVerrouDeCycle,
   which,
@@ -113,6 +115,7 @@ export function vueExecuteurs(cfg: Dict): Dict {
       extra_run_args: iterExige(ouPy(getPy(bloc, "extra_run_args"), []))
         .map(strPy)
         .filter((x) => stripPy(x) !== ""),
+      allow_sudo: getPy(bloc, "allow_sudo", true) === true,
       jobs: reglagesJobsDepuis(getPy(bloc, "jobs")),
       disk: seuilsDisqueDepuis(getPy(bloc, "disk")),
     },
@@ -266,7 +269,12 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
     strPy(ouPy(getPy(nouveau, "exec_user", getPy(cur, "exec_user", "10001:10001")), "10001:10001")),
   );
   if (!EXEC_USER_RE.test(execUser))
-    throw new HttpError(400, "exec_user doit être au format UID:GID (ex. 10001:10001 ; 0:0 = root)");
+    throw new HttpError(400, "exec_user doit être au format UID:GID (ex. 10001:10001)");
+  const brutSudo = getPy(nouveau, "allow_sudo", getPy(cur, "allow_sudo", true));
+  if (typeof brutSudo !== "boolean") throw new HttpError(400, "allow_sudo doit valoir true ou false");
+  const sudo = brutSudo;
+  if (!sudo && /^0+:/u.test(execUser))
+    throw new HttpError(400, "exec_user root refusé : sudo n'est pas permis dans les sandboxes");
   const runtime = prefixePy(
     stripPy(strPy(ouPy(getPy(nouveau, "runtime", getPy(cur, "runtime", "")), ""))),
     64,
@@ -299,6 +307,7 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
     exec_user: execUser,
     runtime,
     extra_run_args: extra,
+    allow_sudo: sudo,
     network_profiles: profils,
   };
   const jobs = getPy(nouveau, "jobs", null);
@@ -320,23 +329,25 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
 
 // ── Conteneurs des comptes (CLI Docker locale) ─────────────────────────────
 
-/** `_find_stale_network_containers` : conteneurs en marche dont l'étiquette `elpis.netcfg` ne suit plus le profil du compte ; toute erreur → `[]`. */
+/** `_find_stale_network_containers` : conteneurs en marche dont le réseau (`elpis.netcfg`), la version des options (`elpis.spec`) ou le durcissement (`elpis.durci`) ne suivent plus les réglages ; toute erreur → `[]`. */
 export async function conteneursPerimes(
   profils: readonly Dict[],
   reglagesDe: (uid: number) => Promise<Dict>,
   profilDe: (reglages: Dict) => string,
+  sudo: boolean,
 ): Promise<Dict[]> {
   try {
     const parId = new Map<string, ProfilReseau>(profils.map((p) => [strPy(p["id"]), profilReseauDepuis(p)]));
     const format =
-      `{{.Names}}\t${labelTpl("user_id", true)}\t${labelTpl("username", true)}\t` + labelTpl("netcfg", true);
+      `{{.Names}}\t${labelTpl("user_id", true)}\t${labelTpl("username", true)}\t` +
+      `${labelTpl("netcfg", true)}\t${labelTpl("spec", true)}\t${labelTpl("durci", true)}`;
     const r = await appelDocker(["ps", ...labelFilter("user_id"), "--format", format], delaisDocker.ps);
     if (r.delaiDepasse || r.code !== 0) return [];
     const perimes: Dict[] = [];
     for (const ligne of splitlinesPy(decoderRemplace(r.sortie))) {
       const parts = ligne.split("\t");
       if (parts.length < 4) continue;
-      const [nomConteneur = "", uidTexte = "", nomCompte = "", brut = ""] = parts;
+      const [nomConteneur = "", uidTexte = "", nomCompte = "", brut = "", spec = "", durci = ""] = parts;
       const etiquette = stripPy(brut);
       let uid: number;
       try {
@@ -347,8 +358,9 @@ export async function conteneursPerimes(
       }
       const profil = parId.get(profilDe(await reglagesDe(uid))) ?? parId.get("isolated");
       if (profil === undefined) continue;
-      if (etiquette === netcfgHash(profil)) continue;
-      if (!etiquette && profil.mode !== "allowlist_ip") continue;
+      const options = spec === RUN_SPEC && durci === (!sudo || profilFiltre(profil) ? "1" : "0");
+      if (options && etiquette === netcfgHash(profil)) continue;
+      if (options && !etiquette && profil.mode !== "allowlist_ip") continue;
       perimes.push({
         user_id: uid,
         username: nomCompte || null,

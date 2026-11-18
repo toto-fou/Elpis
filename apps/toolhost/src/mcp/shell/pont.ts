@@ -7,7 +7,7 @@ import path from "node:path";
 import { bacDeLOutil, erreurAgent, estErreurAgent } from "@elpis/bac";
 import type { PortProfilRappel } from "@elpis/bac";
 import type { AgentBac, DonneesEnvoi, ExecResult, OptionsExec } from "@elpis/bac";
-import { decoderRemplace, PATH_COMPTE } from "@elpis/bac";
+import { decoderRemplace, PATH_COMPTE, PREFIXE_NPM } from "@elpis/bac";
 import { fixePy, journalDe, longueurPy, prefixePy, reprPy, suffixePy } from "@elpis/commun";
 import type { Dict, Journal } from "@elpis/commun";
 import {
@@ -61,6 +61,7 @@ export const ENV_BASE: Readonly<Record<string, string>> = {
   LC_ALL: "C.UTF-8",
   TZ: "UTC",
   PYTHONUSERBASE: "/work/.python-user",
+  NPM_CONFIG_PREFIX: PREFIXE_NPM,
   PIP_DISABLE_PIP_VERSION_CHECK: "1",
   PIP_BREAK_SYSTEM_PACKAGES: "1",
 };

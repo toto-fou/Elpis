@@ -9,6 +9,8 @@ export const RUN_SPEC = "11";
 export const PATH_SYSTEME = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 /** PATH des entrées du compte (commandes, agent, navigateur, terminal) : ses dossiers de `/work` d'abord. */
 export const PATH_COMPTE = `/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:${PATH_SYSTEME}`;
+/** Préfixe des paquets npm globaux du compte : `npm install -g` y écrit sans root. */
+export const PREFIXE_NPM = "/work/.npm-global";
 /** Options `docker exec` d'une étape root de l'hôte : PATH du système, dossier courant hors de `/work`. */
 export const ENTREE_ROOT: readonly string[] = ["-u", "0:0", "-e", `PATH=${PATH_SYSTEME}`, "-w", "/"];
 
@@ -89,10 +91,11 @@ export function lireEntree(inspection: string): { reseau: boolean; sansGain: boo
   return { reseau, sansGain: dernier !== undefined && /^no-new-privileges(?:[:=]true)?$/iu.test(dernier) };
 }
 
-/** Entrée permise dans le conteneur inspecté : s'il peut toucher à son réseau, `no-new-privileges` exigé ; dans un conteneur durci, jamais d'entrée du compte en root (`null` : étape root de l'hôte). */
-export function entreePermise(inspection: string, execUser: string | null): boolean {
+/** Entrée permise dans le conteneur inspecté : s'il peut toucher à son réseau ou s'il doit être durci (`durciAttendu`), `no-new-privileges` exigé ; dans un conteneur durci, jamais d'entrée du compte en root (`null` : étape root de l'hôte). */
+export function entreePermise(inspection: string, execUser: string | null, durciAttendu = false): boolean {
   const e = lireEntree(inspection);
   if (e === null) return false;
+  if (durciAttendu && execUser !== null && !e.sansGain) return false;
   if (e.sansGain && execUser !== null && !UID_COMPTE.test(execUser)) return false;
   if (!e.reseau) return true;
   return e.sansGain && (execUser === null || UID_COMPTE.test(execUser));

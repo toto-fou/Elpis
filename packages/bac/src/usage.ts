@@ -9,6 +9,7 @@ import { config, pyPath, realpathPy } from "@elpis/config";
 
 import { appelDocker, decoderRemplace, labelFilter, labelTpl, which } from "./docker";
 import { ENTREE_ROOT, RUN_SPEC } from "./durcissement";
+import { chargerConfigBac } from "./profils";
 
 const USAGE_TTL_S = 30;
 /** Au-delà de ce remplissage, un chemin qui fait respecter le quota recalcule au lieu de croire le cache. */
@@ -182,18 +183,22 @@ export async function balayerPartsOrphelines(
   return retires;
 }
 
-/** Conteneurs en marche de CETTE instance lancés avec d'anciennes options (`elpis.spec`) : arrêtés, recréés à leur prochain usage ; rend leurs noms. */
+/** Conteneurs en marche de CETTE instance lancés avec d'anciennes options (`elpis.spec`), ou non durcis quand sudo est refusé : arrêtés, recréés à leur prochain usage ; rend leurs noms. */
 export async function arreterBacsPerimes(
   racineBacs: string = strPy(config.SANDBOX_DIR || ""),
+  sudo: boolean = chargerConfigBac().allow_sudo,
 ): Promise<string[]> {
   if (which("docker") === null) return [];
-  const gabarit = `{{.Names}}\t${labelTpl("spec", true)}`;
+  const gabarit = `{{.Names}}\t${labelTpl("spec", true)}\t${labelTpl("durci", true)}`;
   const ps = await appelDocker(["ps", ...labelFilter("user_id"), "--format", gabarit], 15_000);
   if (ps.delaiDepasse || ps.code !== 0) return [];
   const anciens = decoderRemplace(ps.sortie)
     .split("\n")
     .map((ligne) => ligne.split("\t"))
-    .filter(([nom = "", spec = ""]) => nom !== "" && spec.trim() !== RUN_SPEC)
+    .filter(
+      ([nom = "", spec = "", durci = ""]) =>
+        nom !== "" && (spec.trim() !== RUN_SPEC || (!sudo && durci.trim() !== "1")),
+    )
     .map(([nom = ""]) => nom);
   const arretes: string[] = [];
   for (const nom of await conteneursDeLInstance(anciens, racineBacs)) {

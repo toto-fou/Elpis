@@ -50,6 +50,7 @@ describe("contrats REST : sécurité de la console (core réel)", () => {
     expect(await core.appeler("GET", "/api/admin/security/sessions", { cookie })).toMatchObject({
       revoked_user_count: 1,
     });
+    await core.base.run("UPDATE users SET session_min_ts=1 WHERE id=2");
     expect(
       await core.appeler("POST", "/api/admin/security/sessions/clear-user-revocation/2", { cookie }),
     ).toEqual({ ok: true, user_id: 2 });

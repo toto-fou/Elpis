@@ -6,6 +6,7 @@ import type { BaseDeTest } from "@elpis/db/test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  dureeMaxSession,
   effacerMinSession,
   estRevoquee,
   leverMinSession,
@@ -65,5 +66,27 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
     expect((await t.base.get("SELECT session_min_ts AS v FROM users WHERE id=?", [uid]))?.v).toBe(0);
     expect(await leverMinSession(t.base, uid + 1, 1)).toBe(false);
     expect(await effacerMinSession(t.base, uid + 1)).toBe(false);
+  });
+
+  it("effacement conditionnel : refusé si la coupure est récente, permis sinon, dans la requête", async () => {
+    const uid = await t.base.insertId(
+      "INSERT INTO users(username, pass_salt, pass_hash, created_at) VALUES ('carol', 's', 'h', 0)",
+    );
+    const lire = async () =>
+      (await t.base.get<{ v: number }>("SELECT session_min_ts AS v FROM users WHERE id=?", [uid]))?.v;
+    await leverMinSession(t.base, uid, 500);
+    expect(await effacerMinSession(t.base, uid, 500)).toBe(false);
+    expect(await effacerMinSession(t.base, uid, 400)).toBe(false);
+    expect(await lire()).toBe(500);
+    expect(await effacerMinSession(t.base, uid, 501)).toBe(true);
+    expect(await lire()).toBe(0);
+    expect(await effacerMinSession(t.base, uid, 1)).toBe(true);
+    expect(await effacerMinSession(t.base, uid + 1, 1000)).toBe(false);
+  });
+
+  it("durée de vie d'une session lue dans la configuration, 86400 par défaut", () => {
+    expect(dureeMaxSession({ security: { session: { max_age_sec: 120 } } })).toBe(120);
+    expect(dureeMaxSession({})).toBe(86400);
+    expect(dureeMaxSession(null)).toBe(86400);
   });
 });

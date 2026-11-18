@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-securite.ts — console : révocation des sessions, mode HTTPS et écoute (admin/security.py). */
 import {
+  dureeMaxSession,
   estLocalDirect,
   effacerMinSession,
   leverMinSession,
@@ -81,6 +82,10 @@ function clientLocal(requete: FastifyRequest): boolean {
   } catch {
     return false;
   }
+}
+
+function formaterDate(secondes: number): string {
+  return new Date(secondes * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
 export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famille {
@@ -180,8 +185,18 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
   async function effacerRevocation(req: FastifyRequest): Promise<Dict> {
     const cible = cheminEntier(req, "user_id");
     try {
-      await effacerMinSession(base, cible);
+      const coupureMax = maintenant() - dureeMaxSession(auth.config());
+      if (!(await effacerMinSession(base, cible, coupureMax))) {
+        const ligne = await ligneUtilisateur(base, cible);
+        const coupure = floatPy(veritePy(ligne?.session_min_ts) ? ligne?.session_min_ts : 0.0);
+        if (ligne && coupure > 0) {
+          const possible = coupure + dureeMaxSession(auth.config());
+          auditer(req, "admin.security.sessions.clear_user_revocation.denied", { target_user_id: cible });
+          throw new HttpError(409, `Levée possible à partir du ${formaterDate(possible)}.`);
+        }
+      }
     } catch (e) {
+      if (e instanceof HttpError) throw e;
       dep.journal.error({ err: e }, "clear-user-revocation failed");
       throw new HttpError(500, "Échec du reset");
     }

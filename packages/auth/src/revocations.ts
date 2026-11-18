@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** packages/auth/src/revocations.ts — révocation des sessions : par `_sid` (déconnexion) et par compte (`session_min_ts`). */
+import { intPy } from "@elpis/commun";
 import type { Executeur } from "@elpis/db";
+
+import { lire, sousObjet } from "./dict";
 
 function sid128(sid: string): string {
   return Array.from(sid).slice(0, 128).join("");
@@ -36,6 +39,29 @@ export async function leverMinSession(x: Executeur, userId: number, ts: number):
   return (await x.run("UPDATE users SET session_min_ts=? WHERE id=?", [ts, userId])).changes > 0;
 }
 
-export async function effacerMinSession(x: Executeur, userId: number): Promise<boolean> {
-  return (await x.run("UPDATE users SET session_min_ts=0 WHERE id=?", [userId])).changes > 0;
+/** Durée de vie maximale d'une session en secondes (`security.session.max_age_sec`), comme la lit `validerSession`. */
+export function dureeMaxSession(config: unknown): number {
+  try {
+    return intPy(lire(sousObjet(sousObjet(config, "security"), "session"), "max_age_sec", 86400));
+  } catch {
+    return 86400;
+  }
+}
+
+/** Remet `session_min_ts` à 0 ; avec `coupureAvant`, seulement si la coupure est plus ancienne (condition dans la requête). */
+export async function effacerMinSession(
+  x: Executeur,
+  userId: number,
+  coupureAvant?: number,
+): Promise<boolean> {
+  if (coupureAvant === undefined)
+    return (await x.run("UPDATE users SET session_min_ts=0 WHERE id=?", [userId])).changes > 0;
+  return (
+    (
+      await x.run(
+        "UPDATE users SET session_min_ts=0 WHERE id=? AND (session_min_ts IS NULL OR session_min_ts <= 0 OR session_min_ts < ?)",
+        [userId, coupureAvant],
+      )
+    ).changes > 0
+  );
 }

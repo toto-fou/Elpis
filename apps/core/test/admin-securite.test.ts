@@ -78,6 +78,7 @@ describe.each(MOTEURS)("console : sécurité et configuration (%s)", (moteur) =>
   let configJson: string;
   let restaurer: () => void;
   const horloge = V.t0;
+  let decalage = 0;
   const evenements: unknown[][] = [];
   const ouverts = new Set<number>();
 
@@ -97,7 +98,7 @@ describe.each(MOTEURS)("console : sécurité et configuration (%s)", (moteur) =>
       hmacKeyPath: join(dossier, "sans-cle"),
       maintenant: () => horloge,
     });
-    const auth = { ...dependancesParDefaut(t.base), maintenant: () => horloge };
+    const auth = { ...dependancesParDefaut(t.base), maintenant: () => horloge + decalage };
     const role = async (req: FastifyRequest, roles: number[], message: string): Promise<void> => {
       const uid = req.headers["x-uid"];
       if (!uid) throw new HttpError(401, "not logged in");
@@ -176,6 +177,8 @@ describe.each(MOTEURS)("console : sécurité et configuration (%s)", (moteur) =>
     const bak = join(dossier, "config.json.bak");
     for (const [i, e] of V.etapes.entries()) {
       evenements.length = 0;
+      // Écart voulu : la levée d'une révocation n'est permise qu'une fois la coupure plus vieille qu'une session.
+      decalage = e.u?.includes("/clear-user-revocation/") ? 86_401 : 0;
       const res: Partial<Sortie> = {};
       if (e.config !== undefined || e.config_brut !== undefined) {
         writeFileSync(configJson, e.config_brut ?? JSON.stringify(e.config, null, 2));

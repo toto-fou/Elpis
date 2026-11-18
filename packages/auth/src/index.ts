@@ -29,6 +29,7 @@ export {
 export type { Reseau } from "./ip-client";
 export { estLocalDirect, MANDATAIRES_DE_CONFIANCE } from "./local";
 export {
+  dureeMaxSession,
   effacerMinSession,
   estRevoquee,
   leverMinSession,

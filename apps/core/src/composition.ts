@@ -28,6 +28,7 @@ import { blockRemoteUrlReason, configureAudit, defaultAuditDir, defaultAuditKeyP
 
 import type { Extension } from "./app";
 import { CycleDeVie } from "./cycle";
+import { brancherPurgeRevocations } from "./ops/purge-revocations";
 import { installerRefusGeneriques, signalerRefusAuth } from "./journal-securite/auditer";
 import { etatJournalSecurite } from "./journal-securite/etat";
 import {
@@ -395,6 +396,7 @@ export async function composer(
   const planificateur = brancherPlanificateur(mode, base, cycle);
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
+  brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());

@@ -70,6 +70,8 @@ describe.each(MOTEURS)("avis aux lecteurs à la suppression de l'auteur (%s)", (
       group_ids: [],
       allow_source_open: false,
     });
+    // Un autre administrateur local reste : la suppression du dernier est refusée.
+    await b.base.run("UPDATE users SET is_admin=1 WHERE id=?", [b.id.alice]);
     expect(await deleteUserFull(b.base, b.id.admin)).toBe(true);
     for (const uid of [b.id.alice, b.id.bob, b.id.carol, b.id.dave])
       expect(

@@ -27,10 +27,6 @@ export interface BilanSuspension {
   readonly bacArrete: boolean;
 }
 
-/** Remonte `session_min_ts` à `?` sans jamais le baisser (fragment SQL portable). */
-const MONTER_MIN_SESSION =
-  "session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END";
-
 /** Pose la suspension et la coupure des sessions en UNE écriture (refusée si elle retire le dernier administrateur local actif, sans écraser une suspension déjà posée), puis coupe flux, exécutions et bac. */
 export async function suspendre(dep: DependancesEtat, uid: number, par: string): Promise<BilanSuspension> {
   const t = dep.maintenant();
@@ -39,7 +35,7 @@ export async function suspendre(dep: DependancesEtat, uid: number, par: string):
     return (
       (
         await x.run(
-          `UPDATE users SET suspended_at=?, suspended_by=?, ${MONTER_MIN_SESSION} WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)`,
+          "UPDATE users SET suspended_at=?, suspended_by=?, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
           [t, par, t, t, uid],
         )
       ).changes > 0
@@ -80,7 +76,7 @@ export async function reactiver(
   return (
     (
       await dep.base.run(
-        `UPDATE users SET suspended_at=0, suspended_by=NULL, ${MONTER_MIN_SESSION} WHERE id=? AND suspended_at IS NOT NULL AND suspended_at<>0`,
+        "UPDATE users SET suspended_at=0, suspended_by=NULL, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND suspended_at IS NOT NULL AND suspended_at<>0",
         [t, t, uid],
       )
     ).changes > 0

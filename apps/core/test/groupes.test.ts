@@ -160,7 +160,13 @@ describe.each(MOTEURS)("groupes et suppression d'un compte (%s)", (moteur) => {
       let obtenu: unknown;
       try {
         const r = await executer(e);
-        obtenu = { r: pyJsonDumps(r ?? null, { ensureAscii: false }) };
+        // Écart voulu : l'état de suspension (absent du Python) est retiré avant comparaison, à sa valeur par défaut exacte.
+        obtenu = {
+          r: pyJsonDumps(r ?? null, { ensureAscii: false }).replaceAll(
+            ', "suspended_at": 0.0, "suspended_by": null',
+            "",
+          ),
+        };
       } catch (x) {
         if (x instanceof ErreurGroupe) obtenu = { erreur: "ValueError", message: x.message };
         else if (x instanceof ErreurIntegrite) obtenu = { erreur: "IntegrityError", message: "" };

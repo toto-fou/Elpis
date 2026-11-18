@@ -267,7 +267,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-@fastify/websocket 11.3.3 — MIT
+@fastify/websocket 11.3.7 — MIT
 ==============================================================================
 
 MIT License

@@ -1,0 +1,339 @@
+// SPDX-License-Identifier: MIT
+/** apps/core/src/familles/admin-identite.ts — console › connexion d'entreprise (admins seulement) : réglages `auth`, fournisseurs d'identité, secret, activation et extinction. */
+import { createHash } from "node:crypto";
+
+import type { DependancesAuth } from "@elpis/auth";
+import { estDict, HttpError, poserCle } from "@elpis/commun";
+import type { Dict } from "@elpis/commun";
+import { sousVerrouConfigJson, writeConfigJson } from "@elpis/config";
+import type { Base, Executeur } from "@elpis/db";
+import { corpsJson } from "@elpis/http";
+import type { FastifyReply, FastifyRequest } from "fastify";
+
+import { auditer, lireConfigPourEcrire } from "../admin/aides";
+import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
+import {
+  couperSessionsDesFournisseurs,
+  empreinteFournisseur,
+  enregistrerSecret,
+  etatFournisseur,
+  champsFigesChanges,
+  nombreIdentites,
+  supprimerSecretFournisseur,
+} from "../identite/fournisseurs";
+import {
+  BORNES_AUTH,
+  FOURNISSEURS_MAX,
+  lireReglagesAuth,
+  reglagesAuthDepuis,
+  validerCreation,
+  validerFournisseur,
+  validerModification,
+  validerReglagesGeneraux,
+} from "../identite/reglages";
+import type { Fournisseur } from "../identite/reglages";
+import { diffConfig } from "../journal-securite/diff-config";
+import type { Journal } from "../journal";
+import { ErreurSecret } from "../secrets/erreurs";
+import type { Acteur } from "../secrets/stockage";
+import { ipDeRequete } from "../journal-securite/auditer";
+import type { DefinitionRoute, Famille, Traitement } from "../routes";
+
+export interface DependancesAdminIdentite {
+  readonly base: Base;
+  readonly auth: Pick<DependancesAuth, "attributsCookie" | "maintenant">;
+  readonly journal: Journal;
+  /** Flux ouverts d'un compte coupés dans tous les process (`session_revoked`). */
+  readonly revoquer: (uid: number) => Promise<unknown>;
+}
+
+const SANS_CACHE = { "cache-control": "no-store" };
+
+function route(
+  methode: "GET" | "PUT" | "POST" | "DELETE",
+  chemin: string,
+  traiter: Traitement,
+): DefinitionRoute {
+  return { methode, chemin, processus: ["admin"], acces: "admin", traiter };
+}
+
+function idDuChemin(req: FastifyRequest): string {
+  const brut = (req.params as Record<string, unknown> | undefined)?.["id"];
+  return typeof brut === "string" ? brut : "";
+}
+
+/** Section `auth` du fichier (créée vide si absente) rangée dans `cfg`, `providers` toujours une liste. */
+function sectionAEcrire(cfg: Dict): { section: Dict; providers: unknown[] } {
+  const brute = cfg["auth"];
+  const section: Dict = estDict(brute) ? brute : {};
+  if (!Array.isArray(section["providers"])) poserCle(section, "providers", []);
+  poserCle(cfg, "auth", section);
+  return { section, providers: section["providers"] as unknown[] };
+}
+
+function positionDuFournisseur(providers: readonly unknown[], id: string): number {
+  return providers.findIndex((p) => estDict(p) && p["id"] === id);
+}
+
+/** Fournisseur du fichier lu strictement ; 404 s'il n'existe pas, 409 s'il ne se lit pas. */
+function fournisseurDuFichier(providers: readonly unknown[], id: string): { f: Fournisseur; i: number } {
+  const i = positionDuFournisseur(providers, id);
+  if (i < 0) throw new HttpError(404, "Fournisseur introuvable.");
+  try {
+    return { f: validerFournisseur(providers[i]), i };
+  } catch (e) {
+    if (e instanceof HttpError)
+      throw new HttpError(409, "Ce fournisseur est illisible : supprimez-le puis recréez-le.");
+    throw e;
+  }
+}
+
+/** Fournisseur réduit pour le journal : le PEM devient sa longueur et son empreinte. */
+function pourJournal(f: Fournisseur | null): Dict {
+  if (f === null) return {};
+  const pem =
+    f.ca_pem === ""
+      ? ""
+      : `pem len=${f.ca_pem.length} sha256=${createHash("sha256").update(f.ca_pem).digest("hex").slice(0, 12)}`;
+  return { ...f, ca_pem: pem } as unknown as Dict;
+}
+
+export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famille {
+  const { base } = dep;
+  const maintenant = (): number => (dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000);
+
+  function acteur(req: FastifyRequest): Acteur {
+    return {
+      userId: req.utilisateur?.id ?? null,
+      username: req.utilisateur?.username ?? null,
+      ip: ipDeRequete(req),
+    };
+  }
+
+  /** Réglages, état de chaque fournisseur et prérequis, tels que la console les lit. */
+  async function vue(x: Executeur): Promise<Record<string, unknown>> {
+    const r = lireReglagesAuth();
+    const providers = [];
+    for (const f of r.providers) {
+      const e = await etatFournisseur(x, f, r.public_url);
+      providers.push({
+        ...f,
+        has_secret: e.has_secret,
+        tested: e.tested,
+        active: f.enabled && e.ecart === null,
+        identities: await nombreIdentites(x, f.id),
+      });
+    }
+    return {
+      public_url: r.public_url,
+      local: r.local,
+      providers,
+      invalid_providers: r.invalides,
+      prerequisites: {
+        public_url_https: r.public_url !== "",
+        cookie_secure: dep.auth.attributsCookie().https_only === true,
+        local_admins: await compterAdminsLocaux(x),
+      },
+      bounds: {
+        providers_max: FOURNISSEURS_MAX,
+        label_max: BORNES_AUTH.label.max,
+        ca_pem_max: BORNES_AUTH.ca_pem_max,
+        required_groups_max: BORNES_AUTH.required_groups_max,
+        ldap_urls_max: BORNES_AUTH.ldap_urls_max,
+        secret_max: BORNES_AUTH.secret_max,
+        freshness_days: BORNES_AUTH.freshness_days,
+        max_failures: BORNES_AUTH.max_failures,
+        failure_window_sec: BORNES_AUTH.failure_window_sec,
+        timeout_sec: BORNES_AUTH.timeout_sec,
+        clock_skew_sec: BORNES_AUTH.clock_skew_sec,
+      },
+    };
+  }
+
+  /** Écriture sous le verrou d'écriture de la base puis celui de config.json : l'invariant gardé et l'action se décident au même instant. */
+  async function ecrire<T>(f: (x: Executeur, cfg: Dict) => Promise<T>): Promise<T> {
+    return base.ecriture((x) =>
+      sousVerrouConfigJson(async () => {
+        const cfg = lireConfigPourEcrire();
+        const r = await f(x, cfg);
+        writeConfigJson(cfg);
+        return r;
+      }),
+    );
+  }
+
+  async function lire(_req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
+    void rep.headers(SANS_CACHE);
+    return vue(base);
+  }
+
+  async function reglages(req: FastifyRequest): Promise<unknown> {
+    const corps = corpsJson(req);
+    const [avant, apres] = await ecrire<[Dict, Dict]>(async (x, cfg) => {
+      const { section } = sectionAEcrire(cfg);
+      const actuels = reglagesAuthDepuis(section);
+      const nouveaux = validerReglagesGeneraux(corps, actuels);
+      if (nouveaux.public_url !== actuels.public_url && actuels.providers.some((p) => p.enabled))
+        throw new HttpError(409, "Désactivez d'abord les fournisseurs pour changer l'adresse publique.");
+      if (nouveaux.local.mode === "admins" && actuels.local.mode !== "admins") await exigerAdminLocal(x);
+      poserCle(section, "public_url", nouveaux.public_url);
+      poserCle(section, "local", {
+        ...(estDict(section["local"]) ? section["local"] : {}),
+        mode: nouveaux.local.mode,
+      });
+      return [
+        { public_url: actuels.public_url, local: actuels.local },
+        { public_url: nouveaux.public_url, local: nouveaux.local },
+      ] as [Dict, Dict];
+    });
+    const changes = diffConfig(avant, apres).changes;
+    if (changes.length) auditer(req, "admin.auth.settings", { changes });
+    return vue(base);
+  }
+
+  async function creer(req: FastifyRequest): Promise<unknown> {
+    const f = validerCreation(corpsJson(req));
+    await ecrire(async (_x, cfg) => {
+      const { providers } = sectionAEcrire(cfg);
+      if (providers.length >= FOURNISSEURS_MAX)
+        throw new HttpError(400, `${FOURNISSEURS_MAX} fournisseurs au plus.`);
+      if (positionDuFournisseur(providers, f.id) >= 0)
+        throw new HttpError(409, "Cet identifiant est déjà pris.");
+      providers.push(f);
+    });
+    auditer(req, "admin.auth.provider.create", {
+      provider_id: f.id,
+      type: f.type,
+      changes: diffConfig({}, pourJournal(f)).changes,
+    });
+    return vue(base);
+  }
+
+  async function modifier(req: FastifyRequest): Promise<unknown> {
+    const id = idDuChemin(req);
+    const corps = corpsJson(req);
+    const [avant, apres] = await ecrire<[Fournisseur, Fournisseur]>(async (x, cfg) => {
+      const { providers } = sectionAEcrire(cfg);
+      const { f: actuel, i } = fournisseurDuFichier(providers, id);
+      const nouveau = validerModification(corps, actuel);
+      const publique = reglagesAuthDepuis(cfg["auth"]).public_url;
+      if (
+        actuel.enabled &&
+        empreinteFournisseur(nouveau, publique) !== empreinteFournisseur(actuel, publique)
+      )
+        throw new HttpError(409, "Désactivez ce fournisseur avant de modifier ses réglages.");
+      if (champsFigesChanges(actuel, nouveau).length > 0 && (await nombreIdentites(x, id)) > 0)
+        throw new HttpError(
+          409,
+          "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur.",
+        );
+      providers[i] = nouveau;
+      return [actuel, nouveau];
+    });
+    const changes = diffConfig(pourJournal(avant), pourJournal(apres)).changes;
+    if (changes.length) auditer(req, "admin.auth.provider.update", { provider_id: id, changes });
+    return vue(base);
+  }
+
+  async function supprimer(req: FastifyRequest): Promise<unknown> {
+    const id = idDuChemin(req);
+    const type = await ecrire(async (x, cfg) => {
+      const { providers } = sectionAEcrire(cfg);
+      const i = positionDuFournisseur(providers, id);
+      if (i < 0) throw new HttpError(404, "Fournisseur introuvable.");
+      let lu: Fournisseur | null = null;
+      try {
+        lu = validerFournisseur(providers[i]);
+      } catch (e) {
+        if (!(e instanceof HttpError)) throw e;
+      }
+      if (lu?.enabled) throw new HttpError(409, "Désactivez ce fournisseur avant de le supprimer.");
+      if ((await nombreIdentites(x, id)) > 0)
+        throw new HttpError(
+          409,
+          "Des comptes sont rattachés à ce fournisseur : il ne peut pas être supprimé.",
+        );
+      providers.splice(i, 1);
+      await supprimerSecretFournisseur(base, id, acteur(req));
+      await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [id]);
+      return lu?.type ?? null;
+    });
+    auditer(req, "admin.auth.provider.delete", { provider_id: id, type });
+    return { ok: true };
+  }
+
+  async function secret(req: FastifyRequest): Promise<unknown> {
+    const id = idDuChemin(req);
+    const corps = corpsJson(req);
+    const valeur = estDict(corps) ? corps["secret"] : undefined;
+    if (typeof valeur !== "string" || Object.keys(corps as Dict).length !== 1)
+      throw new HttpError(400, "Champ « secret » : texte attendu.");
+    if (valeur.length > BORNES_AUTH.secret_max || !valeur.isWellFormed())
+      throw new HttpError(400, `Champ « secret » : ${BORNES_AUTH.secret_max} caractères au plus.`);
+    const f = lireReglagesAuth().providers.find((p) => p.id === id);
+    if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
+    try {
+      if (valeur === "") await supprimerSecretFournisseur(base, id, acteur(req));
+      else await enregistrerSecret(base, f, valeur, acteur(req));
+    } catch (e) {
+      if (e instanceof ErreurSecret) throw new HttpError(e.statut === 409 ? 409 : 400, "Secret refusé.");
+      throw e;
+    }
+    auditer(req, "admin.auth.provider.secret", { provider_id: id, action: valeur === "" ? "delete" : "set" });
+    return vue(base);
+  }
+
+  async function activer(req: FastifyRequest): Promise<unknown> {
+    const id = idDuChemin(req);
+    await ecrire(async (x, cfg) => {
+      const { providers } = sectionAEcrire(cfg);
+      const { f, i } = fournisseurDuFichier(providers, id);
+      const publique = reglagesAuthDepuis(cfg["auth"]).public_url;
+      if (publique === "") throw new HttpError(409, "L'adresse publique en https est requise.");
+      if (dep.auth.attributsCookie().https_only !== true)
+        throw new HttpError(409, "La connexion sécurisée (https) doit être en vigueur sur ce serveur.");
+      await exigerAdminLocal(x);
+      if (f.required_groups.length === 0)
+        throw new HttpError(409, "Au moins un groupe requis doit être renseigné.");
+      const e = await etatFournisseur(x, f, publique);
+      if (!e.has_secret) throw new HttpError(409, "Le secret du fournisseur est absent.");
+      if (!e.tested) throw new HttpError(409, "Un test réussi sur les réglages courants est requis.");
+      providers[i] = { ...f, enabled: true };
+    });
+    auditer(req, "admin.auth.provider.enable", { provider_id: id });
+    return vue(base);
+  }
+
+  async function desactiver(req: FastifyRequest): Promise<unknown> {
+    const id = idDuChemin(req);
+    const comptes = await ecrire(async (x, cfg) => {
+      const { providers } = sectionAEcrire(cfg);
+      const i = positionDuFournisseur(providers, id);
+      if (i < 0) throw new HttpError(404, "Fournisseur introuvable.");
+      providers[i] = { ...(providers[i] as Dict), enabled: false };
+      return couperSessionsDesFournisseurs(x, [id], maintenant());
+    });
+    for (const uid of comptes)
+      try {
+        await dep.revoquer(uid);
+      } catch (e) {
+        dep.journal.error({ err: e }, "[admin] publication session_revoked (fournisseur éteint) échouée");
+      }
+    auditer(req, "admin.auth.provider.disable", { provider_id: id, sessions_cut: comptes.length });
+    return vue(base);
+  }
+
+  return {
+    nom: "admin-identite",
+    routes: [
+      route("GET", "/api/admin/auth", lire),
+      route("PUT", "/api/admin/auth/settings", reglages),
+      route("POST", "/api/admin/auth/providers", creer),
+      route("PUT", "/api/admin/auth/providers/:id", modifier),
+      route("DELETE", "/api/admin/auth/providers/:id", supprimer),
+      route("PUT", "/api/admin/auth/providers/:id/secret", secret),
+      route("POST", "/api/admin/auth/providers/:id/enable", activer),
+      route("POST", "/api/admin/auth/providers/:id/disable", desactiver),
+    ],
+  };
+}

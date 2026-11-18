@@ -10,7 +10,6 @@ import {
   getGroup,
   getUserGroups,
   getUser,
-  compteSuspendu,
   getUsernameById,
   getUserSettings,
   leverMinSession,
@@ -21,6 +20,7 @@ import {
   listGroups,
   mergeUserSettings,
   resetUserPassword,
+  ErreurSansMotDePasseLocal,
   revoquerTousAcces,
   setUserGroups,
   updateGroup,
@@ -59,6 +59,7 @@ import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } f
 import { validerMotDePasse } from "../comptes/aides";
 import { reactiver, suspendre } from "../comptes/etat";
 import { deleteUserFull } from "../comptes/suppression";
+import { exigerAdminLocal } from "../identite/etat";
 import type { Journal } from "../journal";
 import {
   deletePrincipalRows,
@@ -132,6 +133,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     const uid = utilisateur(req);
     const cible = cheminEntier(req, "target_id");
     if (uid === cible) throw new HttpError(400, "Vous ne pouvez pas vous supprimer vous-même.");
+    await exigerAdminLocal(base, { sauf: cible });
     const avecBac = (parametreRequete(req, "delete_sandbox") ?? "false").toLowerCase() === "true";
     let dossier: string | null = null;
     if (avecBac) {
@@ -169,26 +171,17 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     return reponse;
   }
 
-  /** Compte visé par une suspension : jamais l'opérateur, jamais le dernier administrateur actif. */
-  async function cibleDeSuspension(req: FastifyRequest, avecGardeAdmin: boolean): Promise<number> {
+  /** Compte visé par une suspension : jamais l'opérateur. */
+  async function cibleDeSuspension(req: FastifyRequest): Promise<number> {
     const operateur = utilisateur(req);
     const cible = cheminEntier(req, "target_id");
     if (cible === operateur) throw new HttpError(400, "Vous ne pouvez pas suspendre votre propre compte.");
-    const ligne = await ligneUtilisateur(base, cible);
-    if (!ligne) throw new HttpError(404, "Utilisateur introuvable");
-    if (avecGardeAdmin && Number(ligne.is_admin) === 1 && !compteSuspendu(ligne)) {
-      const autres = await base.valeurs<[number]>(
-        "SELECT COUNT(*) FROM users WHERE is_admin=1 AND id<>? AND (suspended_at IS NULL OR suspended_at=0)",
-        [cible],
-      );
-      if (Number(autres[0]?.[0] ?? 0) === 0)
-        throw new HttpError(409, "Impossible de suspendre le dernier administrateur actif.");
-    }
+    if (!(await ligneUtilisateur(base, cible))) throw new HttpError(404, "Utilisateur introuvable");
     return cible;
   }
 
   async function suspendreCompte(req: FastifyRequest): Promise<Dict> {
-    const cible = await cibleDeSuspension(req, true);
+    const cible = await cibleDeSuspension(req);
     await suspendre(
       {
         base,
@@ -205,7 +198,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
   }
 
   async function reactiverCompte(req: FastifyRequest): Promise<Dict> {
-    const cible = await cibleDeSuspension(req, false);
+    const cible = await cibleDeSuspension(req);
     await reactiver({ base }, cible);
     auditer(req, "admin.user.unsuspend", { target_user_id: cible, by: utilisateur(req) });
     return { ok: true };
@@ -248,7 +241,10 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (!avant) throw new HttpError(404, "Utilisateur non trouvé");
     if (cible === uid && niveau !== 1)
       throw new HttpError(400, "Impossible de retirer vos propres droits admin");
-    await base.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
+    await base.ecriture(async (x) => {
+      if (niveau !== 1) await exigerAdminLocal(x, { sauf: cible });
+      await x.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
+    });
     invaliderAccesRag(base);
     auditer(req, "admin.user.role", {
       target_user_id: cible,
@@ -269,7 +265,14 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       throw new ErreurPython("AttributeError", `'${nomTypePy(mdp)}' object has no attribute 'encode'`);
     const cible = entierBase(exact);
     // Compte inexistant : réponse `ok` comme le Python, sans ligne de succès au journal.
-    const change = await resetUserPassword(base, cible, mdp);
+    let change: boolean;
+    try {
+      change = await resetUserPassword(base, cible, mdp);
+    } catch (e) {
+      if (e instanceof ErreurSansMotDePasseLocal)
+        throw new HttpError(409, "Ce compte n'a pas de mot de passe local.");
+      throw e;
+    }
     await leverMinSession(base, cible, maintenant());
     try {
       await dep.revoquer(cible);

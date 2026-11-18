@@ -29,6 +29,8 @@ import {
   rehacherSiAncien,
   renouvelerSession,
   resetUserPassword,
+  aMotDePasseLocal,
+  ErreurSansMotDePasseLocal,
   revoquerSid,
   revoquerTousAcces,
   updateUserAvatar,
@@ -62,6 +64,7 @@ import {
 import { DebitConnexion } from "../comptes/debit-connexion";
 import { ConnexionRefusee, etablirConnexion } from "../comptes/ouverture";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
+import { lireReglagesAuth } from "../identite/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
 import type { Journal } from "../journal";
@@ -373,6 +376,13 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             debitConnexion.annulation(essai, maintenant(dep));
             throw e;
           }
+          if (uid !== null && lireReglagesAuth().local.mode === "admins") {
+            const verifie = await ligneUtilisateur(base, uid);
+            if (Number(verifie?.is_admin) !== 1) {
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
+              uid = null;
+            }
+          }
           if (uid === null) {
             if (essai.epuise)
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "rate_limited" });
@@ -455,6 +465,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             auditerRefus(req, "auth.password.change.denied", { reason });
             throw e;
           };
+          const refusGere = (): never =>
+            refuser(
+              "no_local_password",
+              new HttpError(403, "Votre mot de passe est géré par votre organisation."),
+            );
+          if (!aMotDePasseLocal(moi)) refusGere();
           if (!veritePy(ancien)) {
             if (!veritePy(moi.must_change_pwd))
               refuser("missing_old_password", new HttpError(400, "Ancien mot de passe requis"));
@@ -468,7 +484,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             if (e instanceof HttpError) refuser("policy", e);
             throw e;
           }
-          await resetUserPassword(base, uid, motDePasse);
+          try {
+            await resetUserPassword(base, uid, motDePasse);
+          } catch (e) {
+            if (e instanceof ErreurSansMotDePasseLocal) refusGere();
+            throw e;
+          }
           const t = maintenant(dep);
           await leverMinSession(base, uid, t);
           renouvelerSession(req.session, t);

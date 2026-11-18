@@ -58,6 +58,7 @@ import {
 } from "./bureau";
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
+import { creerFamilleAdminIdentite } from "./familles/admin-identite";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
 import { faitsParDefaut, sondesParDefaut } from "./admin/vue";
@@ -507,6 +508,12 @@ export async function composer(
         revoquer: (uid) => evenements.revoquer(uid),
         publierSuspension: (uid) => evenements.suspendre(uid),
         bac: piloteBac(),
+      }),
+      creerFamilleAdminIdentite({
+        base,
+        auth,
+        journal: journal.child({ domaine: "admin" }),
+        revoquer: (uid) => evenements.revoquer(uid),
       }),
       creerFamilleAdminSecurite({
         base,

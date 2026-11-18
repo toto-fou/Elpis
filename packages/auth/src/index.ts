@@ -65,8 +65,11 @@ export {
 export type { DependancesJetons, Jeton, JetonResolu, Politique, TypeJeton } from "./jetons";
 export { dependancesParDefaut } from "./defaut";
 export {
+  aMotDePasseLocal,
   createUser,
   ErreurNomUtilisateur,
+  ErreurSansMotDePasseLocal,
+  MARQUEUR_SANS_MOT_DE_PASSE,
   getAllUsers,
   getUser,
   getUserGroups,

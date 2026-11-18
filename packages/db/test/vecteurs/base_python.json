@@ -417,9 +417,27 @@
     ],
     [
       "index",
+      "idx_user_identities_subject",
+      "user_identities",
+      "CREATE UNIQUE INDEX \"idx_user_identities_subject\" ON \"user_identities\" (\"provider_id\", \"subject\")"
+    ],
+    [
+      "index",
+      "idx_user_identities_user",
+      "user_identities",
+      "CREATE UNIQUE INDEX \"idx_user_identities_user\" ON \"user_identities\" (\"user_id\")"
+    ],
+    [
+      "index",
       "idx_vault_secrets_owner_name",
       "vault_secrets",
       "CREATE UNIQUE INDEX \"idx_vault_secrets_owner_name\" ON \"vault_secrets\" ((COALESCE(user_id, 0)), \"name\")"
+    ],
+    [
+      "table",
+      "auth_provider_state",
+      "auth_provider_state",
+      "CREATE TABLE \"auth_provider_state\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"tested_hash\" TEXT DEFAULT NULL,\n  \"tested_at\" REAL DEFAULT 0,\n  \"sweep_at\" REAL DEFAULT 0,\n  \"sweep_result\" TEXT DEFAULT NULL\n)"
     ],
     [
       "table",
@@ -768,6 +786,12 @@
       "user_groups",
       "user_groups",
       "CREATE TABLE \"user_groups\" (\n  \"user_id\" INTEGER NOT NULL,\n  \"group_id\" INTEGER NOT NULL,\n  PRIMARY KEY (\"user_id\", \"group_id\"),\n  FOREIGN KEY (\"group_id\") REFERENCES \"groups\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
+      "user_identities",
+      "user_identities",
+      "CREATE TABLE \"user_identities\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"issuer\" TEXT NOT NULL DEFAULT '',\n  \"ext_username\" TEXT DEFAULT NULL,\n  \"ext_email\" TEXT DEFAULT NULL,\n  \"ext_name\" TEXT DEFAULT NULL,\n  \"linked_by\" TEXT NOT NULL DEFAULT '',\n  \"linked_at\" REAL NOT NULL,\n  \"checked_at\" REAL DEFAULT 0,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
     ],
     [
       "table",

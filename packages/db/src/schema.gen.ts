@@ -773,6 +773,34 @@ export const TABLES: readonly Table[] = [
     indexes: [{"name": "idx_vault_secrets_owner_name", "cols": ["(COALESCE(user_id, 0))", "name"], "unique": true}],
   },
   {
+    name: "user_identities",
+    cols: [
+      { name: "id", type: "id" },
+      { name: "user_id", type: "int", null: false },
+      { name: "provider_id", type: "text", null: false },
+      { name: "subject", type: "text", null: false },
+      { name: "issuer", type: "text", null: false, default: "" },
+      { name: "ext_username", type: "text", default: null },
+      { name: "ext_email", type: "text", default: null },
+      { name: "ext_name", type: "text", default: null },
+      { name: "linked_by", type: "text", null: false, default: "" },
+      { name: "linked_at", type: "real", null: false },
+      { name: "checked_at", type: "real", default: 0 },
+    ],
+    fks: [{"cols": ["user_id"], "table": "users", "refCols": ["id"], "onDelete": "CASCADE"}],
+    indexes: [{"name": "idx_user_identities_subject", "cols": ["provider_id", "subject"], "unique": true}, {"name": "idx_user_identities_user", "cols": ["user_id"], "unique": true}],
+  },
+  {
+    name: "auth_provider_state",
+    cols: [
+      { name: "provider_id", type: "text", primary: true },
+      { name: "tested_hash", type: "text", default: null },
+      { name: "tested_at", type: "real", default: 0 },
+      { name: "sweep_at", type: "real", default: 0 },
+      { name: "sweep_result", type: "text", default: null },
+    ],
+  },
+  {
     name: "schema_migrations",
     cols: [
       { name: "id", type: "id" },

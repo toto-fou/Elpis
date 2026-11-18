@@ -10,6 +10,7 @@
 - [Startup](#startup)
 - [Configuration](#configuration)
   - [`config.json` file](#configjson-file)
+  - [Enterprise sign-in](#enterprise-sign-in-auth)
   - [RAG](#rag-rag)
   - [Cloud providers for accounts](#cloud-providers-for-accounts-llmallowed_provider_types)
   - [Environment variables](#environment-variables)
@@ -398,6 +399,47 @@ the section, and deletes nothing if `config.json` cannot be read.
 
 Full backups include the journal unless `backup.include_audit` is `false`; a scheduled remote send
 includes it only if `backup.remote.include_audit` is `true`.
+
+### Enterprise sign-in (`auth`)
+
+Directory (LDAP, FreeIPA) and single sign-on (OIDC) providers. The section is read from disk on every
+use, with no restart, and is written only by Administration › Users & access › Enterprise sign-in and
+by `./elpis auth off`: the raw editor and `PATCH /api/admin/config` can neither create nor overwrite
+it. `./elpis configure` keeps it; `--force` starts again from the example file (the old one is kept as `config.json.bak`), which switches every provider off. Without the section nothing changes: no new route
+answers, no outgoing call is made, the login page is the same. Passwords and client secrets are
+never in `config.json`: they live in the secrets vault as the instance secrets `auth-<id>`, bound
+to the host and port of the provider (changing either asks for the secret again), and no route
+returns them.
+
+| Key | Default | Description |
+|---|---|---|
+| `public_url` | `""` | `https` origin of the application (no path, query or credentials), the only source of the redirect address. Required to switch a provider on; cannot change while a provider is on |
+| `local.mode` | `all` | `all`: every account signs in with its password; `admins`: only administrators do (others get the usual 401). Refused unless an active administrator with a local password remains |
+| `providers` | `[]` | Five providers at most |
+
+Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at most, never changed),
+`type` (`ldap` or `oidc`, never changed), `label` (1 to 40 characters), `enabled`, `preset`, `ca_pem`
+(PEM certificates, 64 KiB at most; when present, the only trust anchor of this provider),
+`required_groups` (0 to 20 entries; at least one is needed to switch on), `roles`, `group_map` and
+`freshness_days` (1 to 90, default 14).
+
+- LDAP: `urls` (one to three `ldaps://host[:port]`, never plain `ldap://`), `bind_dn`, `user_base_dn`,
+  `user_filter` (contains `{username}` exactly once), `attrs` (`id`, `username`, `email`, `name`),
+  `groups.mode` (`memberof`, `chain`, `member`), `max_failures` (1 to 20, default 4),
+  `failure_window_sec` (60 to 86400, default 900), `timeout_sec` (2 to 30, default 10).
+- OIDC: `issuer` (`https`, no query or fragment), `client_id`, `client_auth` (`basic`, `post`),
+  `scopes` (must contain `openid`), `subject_claim`, `username_claim`, `email_claim`, `name_claim`,
+  `groups_claim`, `required_acr`, `required_amr`, `max_age_sec` (0 = none), `clock_skew_sec` (0 to
+  300, default 60), `session_max_age_sec` (0 = global duration), `logout`
+  (`rp_initiated`, `backchannel`).
+
+A provider counts as active only when, at every read: it is switched on, all its settings are valid
+(unknown keys included), `required_groups` is not empty, `public_url` is a valid `https` origin,
+its secret is stored and in scope, and its settings (all but `label`, `enabled` and
+`freshness_days`, plus `public_url`) are those of its last successful test. Whatever is written by
+hand in the file, a provider that fails one of these stays inactive, with one warning line in the
+log. If every provider is locked out, `./elpis auth off` switches them all off and reopens the local
+password for everyone (run on the host; it is logged as `auth.cli.off`).
 
 ### Production mode (systemd)
 

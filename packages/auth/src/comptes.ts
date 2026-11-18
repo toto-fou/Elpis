@@ -13,6 +13,19 @@ export class ErreurNomUtilisateur extends Error {
   override name = "ErreurNomUtilisateur";
 }
 
+/** Empreinte d'un compte sans mot de passe local : aucune saisie ne la produit. */
+export const MARQUEUR_SANS_MOT_DE_PASSE = "!";
+
+/** Refus de poser un mot de passe sur un compte sans mot de passe local. */
+export class ErreurSansMotDePasseLocal extends Error {
+  override name = "ErreurSansMotDePasseLocal";
+}
+
+/** Vrai si le compte se connecte par un mot de passe local (empreinte autre que le marqueur). */
+export function aMotDePasseLocal(ligne: Record<string, unknown> | null | undefined): boolean {
+  return String(ligne?.pass_hash ?? "") !== MARQUEUR_SANS_MOT_DE_PASSE;
+}
+
 export type CompteResume = {
   id: number;
   username: string;
@@ -105,6 +118,10 @@ export async function verifyUser(x: Executeur, username: string, password: strin
     await completerCoutRefus(password, null);
     return null;
   }
+  if (!aMotDePasseLocal(ligne)) {
+    await completerCoutRefus(password, null);
+    return null;
+  }
   const stocke = String(ligne.pass_hash);
   if (await verifyPassword(password, String(ligne.pass_salt), stocke)) return Number(ligne.id);
   await completerCoutRefus(password, stocke);
@@ -114,7 +131,7 @@ export async function verifyUser(x: Executeur, username: string, password: strin
 /** Rehache au format courant un mot de passe vérifié ; sans effet si la ligne a changé entre-temps. */
 export async function rehacherSiAncien(x: Executeur, uid: number, motDePasse: string): Promise<void> {
   const ligne = await x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
-  if (!ligne || hachageAJour(String(ligne.pass_hash))) return;
+  if (!ligne || !aMotDePasseLocal(ligne) || hachageAJour(String(ligne.pass_hash))) return;
   const sel = String(ligne.pass_salt);
   const empreinte = await hashPassword(motDePasse, sel);
   await x.run("UPDATE users SET pass_hash=? WHERE id=? AND pass_hash=? AND pass_salt=?", [
@@ -125,12 +142,22 @@ export async function rehacherSiAncien(x: Executeur, uid: number, motDePasse: st
   ]);
 }
 
-export async function resetUserPassword(x: Executeur, uid: number, motDePasse: string): Promise<boolean> {
+/** Pose un mot de passe ; un compte sans mot de passe local le refuse (`ErreurSansMotDePasseLocal`) sauf `detacher`. */
+export async function resetUserPassword(
+  x: Executeur,
+  uid: number,
+  motDePasse: string,
+  options: { detacher?: boolean } = {},
+): Promise<boolean> {
   const sel = tokenHex(16);
   const empreinte = await hashPassword(motDePasse, sel);
-  return (
-    (await x.run("UPDATE users SET pass_salt=?, pass_hash=? WHERE id=?", [sel, empreinte, uid])).changes > 0
-  );
+  const garde = options.detacher === true ? "" : " AND pass_hash <> ?";
+  const params = [sel, empreinte, uid, ...(options.detacher === true ? [] : [MARQUEUR_SANS_MOT_DE_PASSE])];
+  if ((await x.run(`UPDATE users SET pass_salt=?, pass_hash=? WHERE id=?${garde}`, params)).changes > 0)
+    return true;
+  const ligne = await x.get<{ pass_hash: unknown }>("SELECT pass_hash FROM users WHERE id=?", [uid]);
+  if (ligne && !aMotDePasseLocal(ligne)) throw new ErreurSansMotDePasseLocal();
+  return false;
 }
 
 export async function updateUserAvatar(x: Executeur, uid: number, fichier: string | null): Promise<void> {

@@ -5,6 +5,7 @@ import type { Base } from "@elpis/db";
 
 import { travailBac } from "../admin/bac";
 import type { PortBac } from "../admin/bac";
+import { exigerAdminLocal } from "../identite/etat";
 import { profilReseauDesReglages } from "../relais/identite";
 import type { Journal } from "../journal";
 
@@ -17,16 +18,20 @@ export interface DependancesEtat {
   readonly journal: Journal;
 }
 
-/** Pose la suspension sans écraser une suspension déjà posée, lève `session_min_ts`, coupe flux, exécutions et bac ; vrai si l'état a changé. */
+/** Pose la suspension (refusée si elle retire le dernier administrateur local actif) sans écraser une suspension déjà posée, lève `session_min_ts`, coupe flux, exécutions et bac ; vrai si l'état a changé. */
 export async function suspendre(dep: DependancesEtat, uid: number, par: string): Promise<boolean> {
   const t = dep.maintenant();
-  const change =
-    (
-      await dep.base.run(
-        "UPDATE users SET suspended_at=?, suspended_by=? WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
-        [t, par, uid],
-      )
-    ).changes > 0;
+  const change = await dep.base.ecriture(async (x) => {
+    await exigerAdminLocal(x, { sauf: uid });
+    return (
+      (
+        await x.run(
+          "UPDATE users SET suspended_at=?, suspended_by=? WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
+          [t, par, uid],
+        )
+      ).changes > 0
+    );
+  });
   await leverMinSession(dep.base, uid, t);
   try {
     await dep.publierSuspension(uid);

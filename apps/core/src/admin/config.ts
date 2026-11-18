@@ -16,6 +16,8 @@ export const OWNED_PATHS: readonly (readonly string[])[] = [
   ["image", "api_key_enc"],
   // Propre au TS : réglages des sous-agents, écrits et validés par `/api/admin/agents` seulement.
   ["agents"],
+  // Propre au TS : connexion d'entreprise, écrite et validée par `/api/admin/auth*` et `./elpis auth` seulement.
+  ["auth"],
 ];
 
 /** `_PRESERVE_IF_ABSENT` : restaurées seulement si le formulaire ne les porte pas (ou les porte vides). */
@@ -115,7 +117,7 @@ export function applySectionOwnership(entrant: Dict, disque: Dict, disqueLu = tr
 }
 
 /** Sections réservées propres au TS (sans équivalent Python) : écrites seulement par leur route. */
-const PROPRES_AU_TS: ReadonlySet<string> = new Set(["security.audit", "agents"]);
+const PROPRES_AU_TS: ReadonlySet<string> = new Set(["security.audit", "agents", "auth"]);
 
 /** `_touches_owned` : le chemin est une zone possédée, est dedans, ou la contient. */
 export function touchesOwned(parties: readonly string[]): boolean {

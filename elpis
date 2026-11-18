@@ -38,6 +38,10 @@
 #  ./elpis vault rekey --from FICHIER   rechiffre avec la clé courante les
 #                                secrets de l'ancienne clé FICHIER
 #  ./elpis secret ls [--user COMPTE]   secrets du coffre : métadonnées seules
+#  ./elpis auth status           connexion d'entreprise : fournisseurs (allumé,
+#                                actif, testé), mot de passe local, administrateurs
+#  ./elpis auth off              issue de secours : éteint tous les fournisseurs
+#                                et rouvre le mot de passe local à tous
 #  ./elpis audit verify [--from AAAA-MM-JJ] [--to AAAA-MM-JJ] [--key CHEMIN]
 #                                vérifie le journal de sécurité : signatures,
 #                                lignes manquantes, arrêts propres (0 = intègre)
@@ -1156,6 +1160,18 @@ cmd_secret() {
     vault_core secret "$@"
 }
 
+# Connexion d'entreprise : état et coupure de secours des fournisseurs d'identité (config.json relu à chaud, rien à redémarrer).
+cmd_auth() {
+    case "${1:-}" in
+        status|off) [ $# -eq 1 ] || die "Usage : ./elpis auth status | ./elpis auth off" ;;
+        *) die "Usage : ./elpis auth status | ./elpis auth off" ;;
+    esac
+    charger_env
+    charger_instance
+    need_exploitation
+    vault_core auth "$@"
+}
+
 # Commande du coffre par le core : sous le compte des services quand root la lance (runuser, ses groupes compris : clé lisible, fichiers de la base jamais créés par root), telle quelle sinon.
 vault_core() {
     local compte
@@ -1523,6 +1539,7 @@ case "${1:-}" in
     audit)     shift; cmd_audit "$@" ;;
     vault)     shift; cmd_vault "$@" ;;
     secret)    shift; cmd_secret "$@" ;;
+    auth)      shift; cmd_auth "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 2 ;;
 esac

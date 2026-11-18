@@ -1,0 +1,274 @@
+// SPDX-License-Identifier: MIT
+/** apps/core/test/identite/reglages.test.ts — réglages `auth` : lecteur tolérant (section absente ou corrompue, fournisseur invalide écarté) et validateur strict (une valeur fausse par champ sensible). */
+import { HttpError } from "@elpis/commun";
+import { describe, expect, it } from "vitest";
+
+import {
+  reglagesAuthDepuis,
+  validerCreation,
+  validerFournisseur,
+  validerModification,
+  validerReglagesGeneraux,
+} from "../../src/identite/reglages";
+import { CA_PEM, ldapValide, oidcValide } from "./aides";
+
+function refus(f: () => unknown): string {
+  try {
+    f();
+  } catch (e) {
+    if (e instanceof HttpError) return `${e.statusCode} ${e.message}`;
+    throw e;
+  }
+  return "aucun refus";
+}
+
+describe("lecteur tolérant", () => {
+  it("section absente, illisible ou d'un autre type : réglages d'aujourd'hui", () => {
+    for (const s of [undefined, null, "x", 3, [], { providers: "x", local: 5 }]) {
+      const r = reglagesAuthDepuis(s);
+      expect([r.public_url, r.local.mode, r.providers, r.invalides]).toEqual(["", "all", [], []]);
+    }
+  });
+
+  it("adresse publique : seule une origine https sans chemin, requête ni identifiants est gardée, normalisée", () => {
+    const lire = (u: unknown): string => reglagesAuthDepuis({ public_url: u }).public_url;
+    expect(lire("https://Elpis.exemple.lan/")).toBe("https://elpis.exemple.lan");
+    expect(lire("https://elpis.exemple.lan:8443")).toBe("https://elpis.exemple.lan:8443");
+    for (const mauvais of [
+      "http://elpis.lan",
+      "https://elpis.lan/chemin",
+      "https://elpis.lan/?x=1",
+      "https://elpis.lan/#f",
+      "https://u:p@elpis.lan",
+      "ftp://elpis.lan",
+      "elpis.lan",
+      42,
+      null,
+    ])
+      expect(lire(mauvais), String(mauvais)).toBe("");
+  });
+
+  it("mode local : `admins` seulement s'il est écrit tel quel", () => {
+    expect(reglagesAuthDepuis({ local: { mode: "admins" } }).local.mode).toBe("admins");
+    for (const m of ["Admins", "admin", "all", "", 1, null])
+      expect(reglagesAuthDepuis({ local: { mode: m } }).local.mode).toBe("all");
+  });
+
+  it("un fournisseur valide est lu ; un invalide, un doublon ou un excédent sont mis à part, jamais lus", () => {
+    const r = reglagesAuthDepuis({
+      providers: [
+        ldapValide(),
+        { ...ldapValide(), id: "casse", urls: ["ldap://clair.lan"], enabled: true },
+        ldapValide({ label: "Doublon" }),
+        "pas un objet",
+        { ...oidcValide(), enabled: true, scopes: ["profile"] },
+      ],
+    });
+    expect(r.providers.map((p) => p.id)).toEqual(["annuaire"]);
+    expect(r.invalides).toEqual([
+      { id: "casse", label: "Annuaire", enabled: true },
+      { id: "annuaire", label: "Doublon", enabled: false },
+      { id: null, label: null, enabled: false },
+      { id: "sso", label: "SSO", enabled: true },
+    ]);
+  });
+
+  it("nombres écrits à la main : entier flottant accepté, texte refusé", () => {
+    const ok = reglagesAuthDepuis({ providers: [ldapValide({ max_failures: 4.0 })] });
+    expect(ok.providers).toHaveLength(1);
+    const non = reglagesAuthDepuis({ providers: [ldapValide({ max_failures: "4" })] });
+    expect(non.providers).toHaveLength(0);
+  });
+});
+
+describe("validateur strict (une valeur fausse par champ sensible)", () => {
+  const fautes: [string, () => unknown, RegExp][] = [
+    ["schéma ldap://", () => validerFournisseur(ldapValide({ urls: ["ldap://ldap.lan"] })), /urls/u],
+    ["schéma http://", () => validerFournisseur(ldapValide({ urls: ["http://ldap.lan"] })), /urls/u],
+    [
+      "adresse avec chemin",
+      () => validerFournisseur(ldapValide({ urls: ["ldaps://ldap.lan/dc=x"] })),
+      /urls/u,
+    ],
+    [
+      "adresse avec identifiants",
+      () => validerFournisseur(ldapValide({ urls: ["ldaps://u:p@ldap.lan"] })),
+      /urls/u,
+    ],
+    [
+      "quatre adresses",
+      () =>
+        validerFournisseur(
+          ldapValide({ urls: ["ldaps://a.lan", "ldaps://b.lan", "ldaps://c.lan", "ldaps://d.lan"] }),
+        ),
+      /urls/u,
+    ],
+    [
+      "adresses en double",
+      () => validerFournisseur(ldapValide({ urls: ["ldaps://a.lan", "ldaps://A.lan:636"] })),
+      /double/u,
+    ],
+    ["port hors bornes", () => validerFournisseur(ldapValide({ urls: ["ldaps://a.lan:70000"] })), /port/u],
+    [
+      "filtre sans {username}",
+      () => validerFournisseur(ldapValide({ user_filter: "(uid=jean)" })),
+      /user_filter/u,
+    ],
+    [
+      "filtre avec deux {username}",
+      () => validerFournisseur(ldapValide({ user_filter: "(|(uid={username})(mail={username}))" })),
+      /user_filter/u,
+    ],
+    [
+      "filtre sans parenthèses",
+      () => validerFournisseur(ldapValide({ user_filter: "uid={username}" })),
+      /user_filter/u,
+    ],
+    ["bind_dn vide", () => validerFournisseur(ldapValide({ bind_dn: "" })), /bind_dn/u],
+    [
+      "mode de groupes inconnu",
+      () => validerFournisseur(ldapValide({ groups: { mode: "tous" } })),
+      /groups\.mode/u,
+    ],
+    ["max_failures hors bornes", () => validerFournisseur(ldapValide({ max_failures: 21 })), /max_failures/u],
+    [
+      "failure_window_sec hors bornes",
+      () => validerFournisseur(ldapValide({ failure_window_sec: 59 })),
+      /failure_window_sec/u,
+    ],
+    ["timeout_sec hors bornes", () => validerFournisseur(ldapValide({ timeout_sec: 1 })), /timeout_sec/u],
+    ["issuer http://", () => validerFournisseur(oidcValide({ issuer: "http://idp.lan" })), /issuer/u],
+    [
+      "issuer avec requête",
+      () => validerFournisseur(oidcValide({ issuer: "https://idp.lan/?x=1" })),
+      /issuer/u,
+    ],
+    [
+      "issuer avec fragment",
+      () => validerFournisseur(oidcValide({ issuer: "https://idp.lan/#x" })),
+      /issuer/u,
+    ],
+    [
+      "issuer avec identifiants",
+      () => validerFournisseur(oidcValide({ issuer: "https://u:p@idp.lan" })),
+      /issuer/u,
+    ],
+    ["scopes sans openid", () => validerFournisseur(oidcValide({ scopes: ["profile", "email"] })), /openid/u],
+    ["scopes vide", () => validerFournisseur(oidcValide({ scopes: [] })), /scopes/u],
+    ["client_auth inconnu", () => validerFournisseur(oidcValide({ client_auth: "none" })), /client_auth/u],
+    [
+      "clock_skew_sec hors bornes",
+      () => validerFournisseur(oidcValide({ clock_skew_sec: 301 })),
+      /clock_skew_sec/u,
+    ],
+    ["id invalide (majuscule)", () => validerFournisseur(ldapValide({ id: "Annuaire" })), /id/u],
+    ["id invalide (tiret initial)", () => validerFournisseur(ldapValide({ id: "-a" })), /id/u],
+    ["id trop long", () => validerFournisseur(ldapValide({ id: "a".repeat(32) })), /id/u],
+    ["type inconnu", () => validerFournisseur({ ...ldapValide(), type: "saml" }), /type/u],
+    ["libellé vide", () => validerFournisseur(ldapValide({ label: "  " })), /label/u],
+    ["libellé trop long", () => validerFournisseur(ldapValide({ label: "x".repeat(41) })), /label/u],
+    [
+      "fraîcheur hors bornes",
+      () => validerFournisseur(ldapValide({ freshness_days: 91 })),
+      /freshness_days/u,
+    ],
+    [
+      "vingt et un groupes requis",
+      () =>
+        validerFournisseur(ldapValide({ required_groups: Array.from({ length: 21 }, (_, i) => `g${i}`) })),
+      /required_groups/u,
+    ],
+    [
+      "groupe requis trop long",
+      () => validerFournisseur(ldapValide({ required_groups: ["g".repeat(513)] })),
+      /required_groups/u,
+    ],
+    [
+      "PEM invalide",
+      () =>
+        validerFournisseur(
+          ldapValide({ ca_pem: "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----" }),
+        ),
+      /ca_pem/u,
+    ],
+    ["PEM trop gros", () => validerFournisseur(ldapValide({ ca_pem: "A".repeat(70_000) })), /ca_pem/u],
+    ["clé inconnue", () => validerFournisseur(ldapValide({ verify_tls: false })), /verify_tls/u],
+    [
+      "clé inconnue imbriquée",
+      () =>
+        validerFournisseur(ldapValide({ attrs: { id: "a", username: "u", email: "e", name: "n", x: "y" } })),
+      /attrs\.x/u,
+    ],
+    ["clé d'un autre type", () => validerFournisseur(ldapValide({ issuer: "https://idp.lan" })), /issuer/u],
+    ["activation en texte", () => validerFournisseur(ldapValide({ enabled: "true" })), /enabled/u],
+  ];
+  it.each(fautes)("%s : 400", (_nom, f, motif) => {
+    const r = refus(f);
+    expect(r).toMatch(/^400 /u);
+    expect(r).toMatch(motif);
+  });
+
+  it("autorité PEM : un ou plusieurs certificats lisibles passent, vide aussi", () => {
+    expect(validerFournisseur(ldapValide({ ca_pem: CA_PEM })).ca_pem).toBe(CA_PEM);
+    expect(validerFournisseur(ldapValide({ ca_pem: `${CA_PEM}${CA_PEM}` })).ca_pem).toBe(
+      `${CA_PEM}${CA_PEM}`,
+    );
+    expect(validerFournisseur(ldapValide({ ca_pem: "" })).ca_pem).toBe("");
+  });
+
+  it("un fournisseur correct passe, avec ses valeurs par défaut à la création", () => {
+    expect(validerFournisseur(ldapValide()).type).toBe("ldap");
+    const cree = validerCreation({
+      type: "oidc",
+      id: "sso",
+      label: "SSO",
+      issuer: "https://idp.lan",
+      client_id: "c",
+    });
+    expect([cree.enabled, cree.type === "oidc" && cree.scopes, cree.freshness_days]).toEqual([
+      false,
+      ["openid", "profile", "email"],
+      14,
+    ]);
+  });
+
+  it("création : toujours éteint ; sixième fournisseur géré par la route, doublon d'id par la route", () => {
+    expect(refus(() => validerCreation({ ...ldapValide(), enabled: true }))).toMatch(/^400 .*éteint/u);
+    expect(validerCreation({ ...ldapValide(), enabled: false }).enabled).toBe(false);
+    expect(refus(() => validerCreation("x"))).toMatch(/^400 /u);
+    expect(refus(() => validerCreation({ id: "a" }))).toMatch(/^400 .*type/u);
+  });
+
+  it("modification : id, type et activation ne bougent pas ; objets imbriqués fusionnés", () => {
+    const actuel = validerFournisseur(ldapValide());
+    expect(refus(() => validerModification({ id: "autre" }, actuel))).toMatch(/identifiant/u);
+    expect(refus(() => validerModification({ type: "oidc" }, actuel))).toMatch(/type/u);
+    expect(refus(() => validerModification({ enabled: true }, actuel))).toMatch(/Activer/u);
+    const m = validerModification({ attrs: { id: "ipaUniqueID" }, label: " Autre " }, actuel);
+    expect(m.type === "ldap" && m.attrs).toEqual({
+      id: "ipaUniqueID",
+      username: "uid",
+      email: "mail",
+      name: "cn",
+    });
+    expect(m.label).toBe("Autre");
+  });
+
+  it("réglages généraux : clé inconnue, adresse non https, mode inconnu : 400 ; champs absents gardés", () => {
+    const base = { public_url: "https://elpis.lan", local: { mode: "all" as const } };
+    expect(refus(() => validerReglagesGeneraux({ providers: [] }, base))).toMatch(/^400 .*providers/u);
+    expect(refus(() => validerReglagesGeneraux({ public_url: "http://elpis.lan" }, base))).toMatch(
+      /public_url/u,
+    );
+    expect(refus(() => validerReglagesGeneraux({ public_url: "https://elpis.lan/x" }, base))).toMatch(
+      /public_url/u,
+    );
+    expect(refus(() => validerReglagesGeneraux({ local: { mode: "none" } }, base))).toMatch(/local\.mode/u);
+    expect(refus(() => validerReglagesGeneraux({ local: { mode: "all", x: 1 } }, base))).toMatch(/local\.x/u);
+    expect(validerReglagesGeneraux({ local: { mode: "admins" } }, base)).toEqual({
+      public_url: "https://elpis.lan",
+      local: { mode: "admins" },
+    });
+    expect(validerReglagesGeneraux({ public_url: "" }, base).public_url).toBe("");
+  });
+});

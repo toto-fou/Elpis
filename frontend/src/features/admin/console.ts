@@ -17,6 +17,7 @@ import type { BaseAdmin, LiensAdmin } from "./etat";
 import { setupAdminHotesOutils } from "./hotes-outils";
 import { creerInference } from "./inference";
 import { creerJournalSecurite } from "./journal-securite";
+import { creerIdentite } from "./identite";
 import { creerJournalisation } from "./journalisation";
 import { creerJournaux } from "./journaux";
 import { creerMetriques } from "./metriques";
@@ -136,6 +137,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     loadAuditStatus: journalisation.loadAuditStatus,
     saveAuditSettings: journalisation.saveAuditSettings,
   });
+  const identite = creerIdentite(b);
   const config = creerConfig(b);
   Object.assign(lien, { loadAdminConfig: config.loadAdminConfig, saveConfigStore: config.saveConfigStore });
   const { liberer: libererPalette, ...palette } = creerPalette(b, {
@@ -190,6 +192,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     ...sandbox,
     ...agents,
     ...journalisation,
+    ...identite,
     ...config,
     ...observabilite,
     ...journalSecurite,

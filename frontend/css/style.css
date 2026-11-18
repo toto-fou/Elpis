@@ -5250,3 +5250,6 @@ aside.elpis-slide-panel :is(:hover, :focus-within, .elpis-defile) {
     scrollbar-color: color-mix(in srgb, var(--rail-muted) 50%, transparent) transparent;
 }
 :is(.overflow-y-auto, .overflow-auto, .overflow-x-auto) { scrollbar-gutter: stable; }
+
+/* Connexion d'entreprise : prérequis non satisfait. */
+.ent-ko .adm-row__label { color: var(--danger-text); }

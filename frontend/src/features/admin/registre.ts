@@ -167,6 +167,14 @@ const ENTREES: readonly EntreeAdmin[] = [
         loaders: [CONFIG, ["loadSecurityOverview"]],
         paths: ["security.session.", "security.password_policy."],
       },
+      {
+        id: "enterprise-login",
+        label: "Connexion d'entreprise",
+        role: "admin",
+        wide: true,
+        loaders: [["loadEnterpriseAuth"]],
+        paths: ["auth."],
+      },
     ],
   },
   {

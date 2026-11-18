@@ -40,7 +40,7 @@ export const ARBRE_DEPLIE: readonly GroupeArbre[] = Object.freeze([
     id: "access",
     label: "Utilisateurs & accès",
     icon: "ph-users",
-    pages: ["accounts", "groups", "rights", "sessions", "https"],
+    pages: ["accounts", "groups", "rights", "sessions", "enterprise-login", "https"],
   },
   {
     id: "sandbox",

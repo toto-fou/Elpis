@@ -86,6 +86,21 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
     ).toMatchObject({
       providers: [{ enabled: false }, {}],
     });
+    expect(
+      await core.appeler("POST", "/api/admin/auth/providers/test", {
+        cookie,
+        corps: { ...LDAP, urls: ["ldaps://127.0.0.1:9"] },
+      }),
+    ).toMatchObject({
+      ok: false,
+      complete: false,
+      steps: [
+        { id: "settings" },
+        { id: "prerequisites" },
+        { id: "resolve" },
+        { id: "address", level: "fail" },
+      ],
+    });
     await core.appeler("PUT", "/api/admin/auth/providers/inconnu", { cookie, corps: {} });
     expect(await core.appeler("DELETE", "/api/admin/auth/providers/annuaire", { cookie })).toEqual({
       ok: true,
@@ -108,7 +123,7 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
 
   it("toutes les routes du domaine admin-identite ont été interrogées", () => {
     const attendues = CONTRATS_REST.filter((r) => r.domaine === "admin-identite").map(cle);
-    expect(attendues).toHaveLength(8);
+    expect(attendues).toHaveLength(9);
     expect([...core.couvertes].filter((k) => attendues.includes(k)).sort()).toEqual([...attendues].sort());
   });
 });

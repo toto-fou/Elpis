@@ -658,6 +658,13 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   ),
   c("admin-identite", "POST", "/api/admin/auth/providers/:id/enable", adminIdentite.schemaReglagesAuth),
   c("admin-identite", "POST", "/api/admin/auth/providers/:id/disable", adminIdentite.schemaReglagesAuth),
+  c(
+    "admin-identite",
+    "POST",
+    "/api/admin/auth/providers/test",
+    adminIdentite.schemaReponseEssaiFournisseur,
+    adminIdentite.schemaCorpsEssaiFournisseur,
+  ),
   c("admin-runs", "GET", "/api/admin/runs/accounts", adminRuns.schemaReponseExecutionsParCompte),
   c("admin-runs", "GET", "/api/admin/runs", adminRuns.schemaReponseExecutionsConsole),
   c("admin-runs", "GET", "/api/admin/runs/:run_id/timeline", runs.schemaChronologie),

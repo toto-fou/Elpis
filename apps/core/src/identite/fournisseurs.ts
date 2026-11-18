@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 
 import { estDict } from "@elpis/commun";
+import { sessionCookieAttrs } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
 
 import { journal } from "../journal";
@@ -162,19 +163,22 @@ export async function etatFournisseur(
   x: Executeur,
   f: Fournisseur,
   publicUrl: string,
+  cookieSecure = true,
 ): Promise<{ has_secret: boolean; tested: boolean; ecart: string | null }> {
   const has_secret = (await secretFournisseur(x, f)) !== null;
   const tested = await testReussiCourant(x, f, publicUrl);
   const ecart =
     publicUrl === ""
       ? "adresse publique absente ou invalide"
-      : f.required_groups.length === 0
-        ? "aucun groupe requis"
-        : !tested
-          ? "pas de test réussi pour les réglages courants"
-          : !has_secret
-            ? "secret absent ou hors de portée"
-            : null;
+      : !cookieSecure
+        ? "cookie de session non sécurisé"
+        : f.required_groups.length === 0
+          ? "aucun groupe requis"
+          : !tested
+            ? "pas de test réussi pour les réglages courants"
+            : !has_secret
+              ? "secret absent ou hors de portée"
+              : null;
   return { has_secret, tested, ecart };
 }
 
@@ -210,8 +214,11 @@ function signaler(id: string, raison: string | null): void {
   log.warn(`fournisseur d'identité ${id} allumé mais écarté : ${raison}`);
 }
 
-/** Fournisseurs allumés dont tous les invariants de lecture tiennent, quoi que le fichier contienne ; chaque écart est signalé une fois au journal. */
-export async function fournisseursActifs(x: Executeur): Promise<Fournisseur[]> {
+/** Fournisseurs allumés dont tous les invariants de lecture tiennent (cookie `Secure` compris), quoi que le fichier contienne ; chaque écart est signalé une fois au journal. */
+export async function fournisseursActifs(
+  x: Executeur,
+  cookieSecure: () => boolean = () => sessionCookieAttrs().https_only,
+): Promise<Fournisseur[]> {
   const r = lireReglagesAuth();
   const actifs: Fournisseur[] = [];
   for (const f of r.providers) {
@@ -219,7 +226,7 @@ export async function fournisseursActifs(x: Executeur): Promise<Fournisseur[]> {
       signales.delete(f.id);
       continue;
     }
-    const raison = (await etatFournisseur(x, f, r.public_url)).ecart;
+    const raison = (await etatFournisseur(x, f, r.public_url, cookieSecure())).ecart;
     signaler(f.id, raison);
     if (raison === null) actifs.push(f);
   }

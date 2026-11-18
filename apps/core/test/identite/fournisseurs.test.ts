@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/identite/fournisseurs.test.ts — fournisseurs actifs : chaque invariant de lecture tient quoi que le fichier contienne, secret absent ou hors portée = null, empreinte du dernier test réussi, coupure des sessions (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+import { readFileSync } from "node:fs";
 import { createUser } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
@@ -61,11 +62,30 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [{ ...brut, ...ecart }] } });
     return id;
   }
-  const actifs = async (): Promise<string[]> => (await fournisseursActifs(t.base)).map((f) => f.id);
+  const actifs = async (cookieSecure = true): Promise<string[]> =>
+    (await fournisseursActifs(t.base, () => cookieSecure)).map((f) => f.id);
 
   it("fournisseur prêt : actif", async () => {
     const id = await pret();
     expect(await actifs()).toEqual([id]);
+  });
+
+  it("cookie de session sans l'attribut Secure : plus aucun fournisseur actif, signalé au journal", async () => {
+    const id = await pret();
+    expect(await actifs(false)).toEqual([]);
+    expect(lignes.join("\n")).toContain(
+      `fournisseur d'identité ${id} allumé mais écarté : cookie de session non sécurisé`,
+    );
+    expect(await actifs(true)).toEqual([id]);
+  });
+
+  it("par défaut, l'attribut est lu dans la configuration en vigueur", async () => {
+    const id = await pret();
+    const brut = JSON.parse(readFileSync(cfg.chemin, "utf8")) as Record<string, unknown>;
+    cfg.ecrire({ ...brut, security: { session: { https_only: false } } });
+    expect((await fournisseursActifs(t.base)).map((f) => f.id)).toEqual([]);
+    cfg.ecrire({ ...brut, security: { session: { https_only: true } } });
+    expect((await fournisseursActifs(t.base)).map((f) => f.id)).toEqual([id]);
   });
 
   it("section absente ou corrompue : aucun fournisseur actif", async () => {

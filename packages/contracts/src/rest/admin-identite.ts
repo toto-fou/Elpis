@@ -110,3 +110,21 @@ export const schemaCorpsCreationFournisseur = z.record(z.string(), z.unknown());
 export const schemaCorpsMajFournisseur = z.record(z.string(), z.unknown());
 /** Secret du fournisseur : texte vide pour le supprimer. */
 export const schemaCorpsSecretFournisseur = z.object({ secret: z.string() });
+
+/** Test d'un fournisseur : ses réglages tels que le formulaire les contient, enregistrés ou non. */
+export const schemaCorpsEssaiFournisseur = z.record(z.string(), z.unknown());
+/** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse ; `complete` reste faux tant que la liaison LDAP et les clés OIDC ne sont pas essayées. */
+export const schemaReponseEssaiFournisseur = z.object({
+  ok: z.boolean(),
+  complete: z.boolean(),
+  steps: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      level: z.enum(["ok", "warn", "fail"]),
+      detail: z.string(),
+      target: z.string().nullable(),
+    }),
+  ),
+});
+export type ReponseEssaiFournisseur = z.infer<typeof schemaReponseEssaiFournisseur>;

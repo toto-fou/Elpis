@@ -816,13 +816,14 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
 
 ## Enterprise sign-in: emergency exit
 
-Settings: [configuration.md](configuration.md#enterprise-sign-in-auth). Two commands run on the host,
+Settings: [configuration.md](configuration.md#enterprise-sign-in-auth). Three commands run on the host,
 with the core bundle, as the service account (with `sudo` they switch to it):
 
 | Command | Role |
 |---|---|
 | `./elpis auth status` | Public address, local password mode, number of active administrators with a local password, and for each provider: id, type, switched on, active, tested |
 | `./elpis auth off` | Switches off every provider, reopens the local password to every account (`auth.local.mode` back to `all`), cuts the sessions of the accounts attached to the providers and writes `auth.cli.off` to the security journal. Nothing else in `config.json` changes; no restart is needed |
+| `./elpis auth reactivate <account>` | Lifts the suspension of an account through the same function as the console (sessions opened during the suspension stay refused) and writes `auth.cli.reactivate` to the security journal. The way back in when every administrator is suspended |
 
 At least one active administrator with a local password must always remain: suspending, deleting
 or demoting the last one, switching the local mode to `admins` or switching a provider on is

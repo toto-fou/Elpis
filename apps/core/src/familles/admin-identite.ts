@@ -12,6 +12,8 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
+import { testerFournisseur } from "../identite/essai";
+import type { OptionsEssai } from "../identite/essai";
 import {
   couperSessionsDesFournisseurs,
   empreinteFournisseur,
@@ -45,8 +47,13 @@ export interface DependancesAdminIdentite {
   readonly journal: Journal;
   /** Flux ouverts d'un compte coupés dans tous les process (`session_revoked`). */
   readonly revoquer: (uid: number) => Promise<unknown>;
+  /** Résolution, juge et bornes du test (tests seulement). */
+  readonly essai?: OptionsEssai;
 }
 
+const TESTS_MAX = 2;
+
+const REGEX_ID_AUDIT = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const SANS_CACHE = { "cache-control": "no-store" };
 
 function route(
@@ -115,7 +122,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
     const r = lireReglagesAuth();
     const providers = [];
     for (const f of r.providers) {
-      const e = await etatFournisseur(x, f, r.public_url);
+      const e = await etatFournisseur(x, f, r.public_url, dep.auth.attributsCookie().https_only === true);
       providers.push({
         ...f,
         has_secret: e.has_secret,
@@ -323,12 +330,49 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
     return vue(base);
   }
 
+  let testsEnCours = 0;
+
+  /** Test d'un fournisseur sous le plafond de deux à la fois pour l'instance : 429 au-delà ; toujours 200 avec le résultat. */
+  async function tester(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
+    const corps = corpsJson(req);
+    if (testsEnCours >= TESTS_MAX)
+      throw new HttpError(429, "Deux tests sont déjà en cours, réessayez dans un instant.", {
+        "Retry-After": "5",
+      });
+    testsEnCours += 1;
+    try {
+      const r = await testerFournisseur(
+        corps,
+        {
+          publicUrl: lireReglagesAuth().public_url,
+          cookieSecure: dep.auth.attributsCookie().https_only === true,
+          adminsLocaux: await compterAdminsLocaux(base),
+        },
+        dep.essai,
+      );
+      const brut = estDict(corps) ? corps : {};
+      const id = typeof brut["id"] === "string" && REGEX_ID_AUDIT.test(brut["id"]) ? brut["id"] : null;
+      const type = brut["type"] === "ldap" || brut["type"] === "oidc" ? brut["type"] : null;
+      auditer(req, "admin.auth.provider.test", {
+        provider_id: id,
+        type,
+        ok: r.ok,
+        failed_step: r.steps.find((e) => e.level === "fail")?.id ?? null,
+      });
+      void rep.headers(SANS_CACHE);
+      return r;
+    } finally {
+      testsEnCours -= 1;
+    }
+  }
+
   return {
     nom: "admin-identite",
     routes: [
       route("GET", "/api/admin/auth", lire),
       route("PUT", "/api/admin/auth/settings", reglages),
       route("POST", "/api/admin/auth/providers", creer),
+      route("POST", "/api/admin/auth/providers/test", tester),
       route("PUT", "/api/admin/auth/providers/:id", modifier),
       route("DELETE", "/api/admin/auth/providers/:id", supprimer),
       route("PUT", "/api/admin/auth/providers/:id/secret", secret),

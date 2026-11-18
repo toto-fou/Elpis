@@ -42,6 +42,8 @@
 #                                actif, testé), mot de passe local, administrateurs
 #  ./elpis auth off              issue de secours : éteint tous les fournisseurs
 #                                et rouvre le mot de passe local à tous
+#  ./elpis auth reactivate COMPTE  lève la suspension d'un compte (issue de
+#                                secours si tous les administrateurs le sont)
 #  ./elpis audit verify [--from AAAA-MM-JJ] [--to AAAA-MM-JJ] [--key CHEMIN]
 #                                vérifie le journal de sécurité : signatures,
 #                                lignes manquantes, arrêts propres (0 = intègre)
@@ -1163,8 +1165,9 @@ cmd_secret() {
 # Connexion d'entreprise : état et coupure de secours des fournisseurs d'identité (config.json relu à chaud, rien à redémarrer).
 cmd_auth() {
     case "${1:-}" in
-        status|off) [ $# -eq 1 ] || die "Usage : ./elpis auth status | ./elpis auth off" ;;
-        *) die "Usage : ./elpis auth status | ./elpis auth off" ;;
+        status|off) [ $# -eq 1 ] || die "Usage : ./elpis auth status | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
+        reactivate) [ $# -eq 2 ] || die "Usage : ./elpis auth status | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
+        *) die "Usage : ./elpis auth status | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
     esac
     charger_env
     charger_instance

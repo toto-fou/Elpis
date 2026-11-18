@@ -182,6 +182,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       ["PUT", "/api/admin/auth/providers/annuaire/secret"],
       ["POST", "/api/admin/auth/providers/annuaire/enable"],
       ["POST", "/api/admin/auth/providers/annuaire/disable"],
+      ["POST", "/api/admin/auth/providers/test"],
     ];
 
     it("chaque route : modérateur 403, simple compte 403, sans session 401, et rien n'est écrit", async () => {

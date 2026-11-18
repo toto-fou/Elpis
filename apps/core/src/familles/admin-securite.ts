@@ -39,6 +39,7 @@ import {
   urlsHttps,
 } from "../admin/securite";
 import type { PortCycleVie } from "../admin/securite";
+import { reglagesAuthDepuis } from "../identite/reglages";
 import type { Journal } from "../journal";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
@@ -244,6 +245,12 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     }
     const hote = await sousVerrouConfigJson(() => {
       const cfg = lireConfigPourEcrire();
+      const auth = reglagesAuthDepuis(cfg["auth"]);
+      if (!actif && [...auth.providers, ...auth.invalides].some((p) => p.enabled))
+        throw new HttpError(
+          409,
+          "Éteignez d'abord les fournisseurs de connexion d'entreprise : sans https, les mots de passe circuleraient en clair.",
+        );
       const sec = sectionDict(cfg, "security");
       const https = sectionDict(sec, "https");
       poserCle(https, "enabled", actif);

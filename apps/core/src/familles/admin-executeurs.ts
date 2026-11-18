@@ -70,6 +70,7 @@ async function enregistrer(dep: DependancesAdminExecuteurs, req: FastifyRequest)
     profils,
     (uid) => getUserSettings(dep.base, uid),
     (reglages) => resolveNetworkProfileId(reglages),
+    getPy(assainie, "allow_sudo", true) === true,
   );
   return { ok: true, config: assainie, warnings: avertissements, stale_containers: perimes };
 }

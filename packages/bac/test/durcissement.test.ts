@@ -274,6 +274,7 @@ describe("exec : entrée directe sous l'UID du compte", () => {
 
   it("profil filtré avec recréation reportée : ExecError ; profil sans réseau : la commande part", async () => {
     const lan = bacEnMarche("lan");
+    await lan.sb.ensureRunning();
     lan.sb.recreationReportee = "Recréation reportée";
     lan.sb.configVerified = true;
     await expect(lan.sb.exec(["id"])).rejects.toThrow(ExecError);
@@ -281,6 +282,7 @@ describe("exec : entrée directe sous l'UID du compte", () => {
     expect(lan.cli.lances).toEqual([]);
 
     const aucun = bacEnMarche("isolated");
+    await aucun.sb.ensureRunning();
     aucun.sb.recreationReportee = "Recréation reportée";
     aucun.sb.configVerified = true;
     const r = await aucun.sb.exec(["id"]);
@@ -294,9 +296,18 @@ describe("agent et navigateur : sous exec_user, PATH du compte", () => {
     const { sb, cli } = bacDe(null);
     await sb.startAgent();
     const argv = cli.appels.at(-1) as unknown[];
-    expect(argv.slice(0, 6)).toEqual(["exec", "-d", "--user", "10001:10001", "-e", `PATH=${PATH_COMPTE}`]);
-    expect(argv[6]).toBe(CONTENEUR);
-    expect(argv[7]).toBe("python3");
+    expect(argv.slice(0, 8)).toEqual([
+      "exec",
+      "-d",
+      "--user",
+      "10001:10001",
+      "-e",
+      `PATH=${PATH_COMPTE}`,
+      "-e",
+      "NPM_CONFIG_PREFIX=/work/.npm-global",
+    ]);
+    expect(argv[8]).toBe(CONTENEUR);
+    expect(argv[9]).toBe("python3");
     expect(JSON.stringify(argv)).not.toContain("setpriv");
   });
 
@@ -520,7 +531,7 @@ describe("garde de l'entrée du conteneur", () => {
     expect(inspections(cli)).toHaveLength(4);
   });
 
-  it("exec_user 0:0 et root:root : l'utilisateur de l'image dans un conteneur durci, tels quels sinon", async () => {
+  it("exec_user 0:0 : l'utilisateur de l'image dans un conteneur durci, tel quel sinon ; root:root : toujours l'utilisateur de l'image", async () => {
     const utilisateur = (lances: readonly (readonly string[])[]): string | undefined => {
       const a = lances.find((x) => x[1] === "exec" && x.includes("id"));
       return a?.[a.indexOf("--user") + 1];
@@ -533,7 +544,7 @@ describe("garde de l'entrée du conteneur", () => {
       const libre = bacEnMarche("isolated", { exec_user: u });
       libre.cli.entree = [0, Buffer.from(SANS), Buffer.alloc(0)];
       expect((await libre.sb.exec(["id"])).returncode).toBe(0);
-      expect(utilisateur(libre.cli.lances)).toBe(u);
+      expect(utilisateur(libre.cli.lances)).toBe(u === "0:0" ? u : "10001:10001");
     }
   });
 
@@ -986,5 +997,181 @@ describe("conteneur durci (profil filtré)", () => {
     expect(entreePermise(sansReseau, null)).toBe(true);
     // sans no-new-privileges et sans réseau : toujours permis, comme avant
     expect(entreePermise(SANS, "0:0")).toBe(true);
+  });
+});
+
+describe("sudo refusé : réglage allow_sudo", () => {
+  const lire = (executors: unknown): { sudo: boolean; avis: string[]; execUser: string } => {
+    const avis: string[] = [];
+    const cfg = configBacDepuis(executors, (m) => avis.push(m));
+    return { sudo: cfg.allow_sudo, avis, execUser: cfg.exec_user };
+  };
+
+  it("absent ou true : sudo permis, sans avertissement", () => {
+    for (const e of [{}, { allow_sudo: true }]) expect(lire(e)).toMatchObject({ sudo: true, avis: [] });
+  });
+
+  it("false : sudo refusé, sans avertissement", () => {
+    expect(lire({ allow_sudo: false })).toMatchObject({ sudo: false, avis: [] });
+  });
+
+  it.each([["true"], ["false"], [1], [0], [null], [[]], [{}]])(
+    "valeur %j non booléenne : sudo refusé avec avertissement",
+    (valeur) => {
+      const r = lire({ allow_sudo: valeur });
+      expect(r.sudo).toBe(false);
+      expect(r.avis).toHaveLength(1);
+      expect(r.avis[0]).toContain("allow_sudo");
+    },
+  );
+
+  it("exec_user : numérique seulement ; root refusé quand sudo l'est, avec avertissement", () => {
+    expect(lire({ exec_user: "2000:3000" })).toMatchObject({ execUser: "2000:3000", avis: [] });
+    expect(lire({ exec_user: "0:0" })).toMatchObject({ execUser: "0:0", avis: [] });
+    for (const u of ["root:root", "a b:c", "1000", "1:2:3"]) {
+      const r = lire({ exec_user: u });
+      expect([u, r.execUser, r.avis.length]).toEqual([u, "10001:10001", 1]);
+    }
+    const root = lire({ exec_user: "0:0", allow_sudo: false });
+    expect(root.execUser).toBe("10001:10001");
+    expect(root.avis).toHaveLength(1);
+    expect(lire({ exec_user: "00:0", allow_sudo: false }).execUser).toBe("10001:10001");
+    expect(lire({ exec_user: "2000:3000", allow_sudo: false }).execUser).toBe("2000:3000");
+  });
+});
+
+describe("sudo refusé : conteneurs durcis", () => {
+  it.each([
+    ["isolated", true, false],
+    ["open", true, false],
+    ["lan", true, true],
+    ["isolated", false, true],
+    ["open", false, true],
+    ["lan", false, true],
+  ])("profil %s, sudo permis %s : durci %s", (profil, sudo, durci) => {
+    const { sb } = bacDe(profil, { allow_sudo: sudo });
+    expect(sb.durci(sb.networkProfile)).toBe(durci);
+    const argv = sb.buildRunArgs(sb.networkProfile, {});
+    expect(argv).toContain(`elpis.durci=${durci ? 1 : 0}`);
+    expect(argv).toContain(`no-new-privileges:${durci}`);
+    expect(argv.includes("--read-only")).toBe(durci);
+  });
+
+  it("sudo refusé : un profil ouvert a les options durcies sans NET_ADMIN, l'utilisateur d'entrée n'est jamais root", () => {
+    const { sb } = bacDe("open", { allow_sudo: false });
+    const argv = sb.buildRunArgs(sb.networkProfile, {});
+    expect(argv.filter((a, i) => argv[i - 1] === "--cap-add")).not.toContain("FSETID");
+    expect(sb.utilisateurExec()).toBe("10001:10001");
+  });
+
+  it("entreePermise : conteneur durci attendu sans no-new-privileges refusé pour le compte, étape root de l'hôte inchangée", () => {
+    expect(entreePermise(SANS, "10001:10001", true)).toBe(false);
+    expect(entreePermise(SANS, "10001:10001", false)).toBe(true);
+    expect(entreePermise(SANS, "10001:10001")).toBe(true);
+    expect(entreePermise(SANS, null, true)).toBe(true);
+    const gain = 'false\nnull\n["no-new-privileges:true"]';
+    expect(entreePermise(gain, "10001:10001", true)).toBe(true);
+    expect(entreePermise(gain, "0:0", true)).toBe(false);
+    expect(entreePermise(NET_SANS_GAIN, "10001:10001", true)).toBe(false);
+    expect(entreePermise("illisible", "10001:10001", true)).toBe(false);
+  });
+
+  it("entrées du compte : sans no-new-privileges refusées quand sudo l'est, acceptées sinon", async () => {
+    const refus = bacEnMarche("isolated", { allow_sudo: false });
+    await expect(refus.sb.exec(["id"])).rejects.toThrow(A_RELANCER);
+    expect(refus.cli.lances).toEqual([]);
+    const ok = bacEnMarche("isolated", { allow_sudo: false });
+    ok.cli.entree = [0, Buffer.from('false\nnull\n["no-new-privileges:true"]\n'), Buffer.alloc(0)];
+    expect((await ok.sb.exec(["id"])).returncode).toBe(0);
+    const libre = bacEnMarche("isolated", { allow_sudo: true });
+    expect((await libre.sb.exec(["id"])).returncode).toBe(0);
+  });
+});
+
+describe("réglages suivis par un conteneur vérifié", () => {
+  const inspectionsOptions = (cli: FauxCli): number =>
+    cli.appels.filter((a) => a.join(" ").includes("elpis.netcfg")).length;
+  const etapesRoot = (cli: FauxCli): number =>
+    cli.appels.filter((a) => a[0] === "exec" && a[1] === "-u").length;
+
+  async function bacVerifie() {
+    const { sb, cli } = bacEnMarche("open");
+    await sb.ensureRunning();
+    return { sb, cli };
+  }
+
+  it("rien ne change : aucune revérification au prochain usage", async () => {
+    const { sb, cli } = await bacVerifie();
+    const [options, root] = [inspectionsOptions(cli), etapesRoot(cli)];
+    expect(options).toBeGreaterThan(0);
+    await sb.ensureRunning();
+    await sb.ensureRunning();
+    expect([inspectionsOptions(cli), etapesRoot(cli)]).toEqual([options, root]);
+  });
+
+  it.each([
+    ["allow_sudo", (sb: UserSandbox) => void (sb.cfg = { ...sb.cfg, allow_sudo: false })],
+    ["image", (sb: UserSandbox) => void (sb.cfg = { ...sb.cfg, image: "elpis/sandbox:autre" })],
+    ["exec_user", (sb: UserSandbox) => void (sb.cfg = { ...sb.cfg, exec_user: "2000:3000" })],
+    ["profil", (sb: UserSandbox) => void (sb.networkProfileId = "lan")],
+  ])("%s changé : options et droits de /work revérifiés au prochain ensureRunning", async (_nom, change) => {
+    const { sb, cli } = await bacVerifie();
+    const [options, root] = [inspectionsOptions(cli), etapesRoot(cli)];
+    change(sb);
+    await sb.ensureRunning().catch(() => undefined);
+    expect(inspectionsOptions(cli)).toBeGreaterThan(options);
+    expect(etapesRoot(cli)).toBeGreaterThan(root);
+  });
+
+  it("oublierVerifications : options, droits de /work et verdicts d'entrée oubliés", async () => {
+    const { sb, cli } = bacEnMarche("isolated");
+    await sb.exec(["id"]);
+    expect([sb.configVerified, sb.modesVerified]).toEqual([true, true]);
+    sb.oublierVerifications();
+    expect([sb.configVerified, sb.modesVerified, sb.configRetryAt]).toEqual([false, false, 0]);
+    const avant = cli.appels.filter((a) => a.includes(FORMAT_ENTREE)).length;
+    await sb.exec(["id"]);
+    expect(cli.appels.filter((a) => a.includes(FORMAT_ENTREE)).length).toBeGreaterThan(avant);
+  });
+});
+
+describe("arreterBacsPerimes : sudo refusé", () => {
+  function fauxPs(ps: string): void {
+    const bin = path.join(tmp, "bin");
+    mkdirSync(bin, { recursive: true });
+    const montages = ["vieux", "clair", "durci", "inconnu"]
+      .map((n) => `/elpis-sb-${n}|${path.join(tmp, "sb")}/${n}/work`)
+      .join("\n");
+    writeFileSync(path.join(tmp, "ps.out"), ps);
+    writeFileSync(path.join(tmp, "montages.out"), montages);
+    writeFileSync(path.join(tmp, "stops"), "");
+    writeFileSync(
+      path.join(bin, "docker"),
+      `#!/bin/sh
+cat() { while IFS= read -r l || [ -n "$l" ]; do printf '%s\\n' "$l"; done < "$1"; }
+case "$1" in
+  ps) cat "${path.join(tmp, "ps.out")}" ;;
+  inspect) cat "${path.join(tmp, "montages.out")}" ;;
+  stop) echo "$4" >> "${path.join(tmp, "stops")}" ;;
+esac
+`,
+    );
+    chmodSync(path.join(bin, "docker"), 0o755);
+    vi.stubEnv("PATH", bin);
+  }
+  const arretes = (): string[] =>
+    readFileSync(path.join(tmp, "stops"), "utf8").split("\n").filter(Boolean).sort();
+  const ps = `elpis-sb-vieux\t6\t1\nelpis-sb-clair\t${RUN_SPEC}\t0\nelpis-sb-durci\t${RUN_SPEC}\t1\nelpis-sb-inconnu\t${RUN_SPEC}\t\n`;
+
+  it("sudo refusé : les conteneurs non durcis sont arrêtés avec ceux d'une ancienne spec", async () => {
+    fauxPs(ps);
+    const r = await arreterBacsPerimes(path.join(tmp, "sb"), false);
+    expect(r.sort()).toEqual(["elpis-sb-clair", "elpis-sb-inconnu", "elpis-sb-vieux"]);
+    expect(arretes()).toEqual(r);
+  });
+
+  it("sudo permis : seule une ancienne spec est arrêtée", async () => {
+    fauxPs(ps);
+    expect(await arreterBacsPerimes(path.join(tmp, "sb"), true)).toEqual(["elpis-sb-vieux"]);
   });
 });

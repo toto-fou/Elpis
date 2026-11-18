@@ -110,6 +110,18 @@ describe.each(MOTEURS)("ports du contexte branchés (%s)", (moteur) => {
     }
   });
 
+  it("ligne « pas de root » : seulement quand sudo est refusé ou le profil filtré, réglage relu à chaque appel", async () => {
+    const SANS_ROOT = "No root in this container";
+    ecrireConfig({ executors: { allow_sudo: true } });
+    expect(await networkStatusLine("inconnu")).not.toContain(SANS_ROOT);
+    ecrireConfig({ executors: { allow_sudo: false } });
+    expect(await networkStatusLine("inconnu")).toContain(SANS_ROOT);
+    ecrireConfig({ executors: { allow_sudo: "oui" } });
+    expect(await networkStatusLine("inconnu")).toContain(SANS_ROOT);
+    ecrireConfig({});
+    expect(await networkStatusLine("inconnu")).not.toContain(SANS_ROOT);
+  });
+
   it("mémoire AX : sites du texte, signal, rendu contextuel et ciblé", async () => {
     ecrireConfig(V.config_ax);
     expect(V.textes.map((x) => detectSitesFromText(x))).toEqual(V.detection);

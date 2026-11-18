@@ -8,6 +8,12 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: `sudo` can be turned off for the whole instance.** New setting `executors.allow_sudo`
+  (Admin console › Sandbox › Limits › Advanced › *Sudo*, allowed by default). Turned off, every
+  sandbox runs hardened: no root in the container, read-only system folders, `/tmp` in memory;
+  `pip install` and `npm install -g` keep working (they install under `/work`), and the assistant
+  is told that it has no root. `exec_user` can be root only while `sudo` is allowed, and must be a
+  numeric `uid:gid`. After a change, the console lists the containers to recreate.
 - **Sandbox: an allowlist profile runs in a hardened container.** Read-only root filesystem,
   seven capabilities instead of ten (`FSETID`, `AUDIT_WRITE` and `NET_BIND_SERVICE` dropped),
   `/tmp` (executable, half of the sandbox memory), `/var/tmp` and the image's home folder in

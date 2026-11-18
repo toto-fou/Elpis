@@ -1273,7 +1273,7 @@
     [
       "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
       "  \u2022 Network: OPEN via profile 'lan' (mode: bridge) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
-      "  \u2022 Network: OPEN via profile 'web' (mode: allowlist_ip) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: OPEN via profile 'web' (mode: allowlist_ip) \u2014 a refused connection means that destination is outside the profile, not a tool bug.\n  \u2022 No root in this container: sudo is disabled and system folders are read-only. Install with pip (user site), `npm install -g` (kept under /work) or a virtual environment; for a system package, tell the user to ask their administrator.",
       "  \u2022 Network: OPEN via profile 'lan' (mode: bridge) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
       "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
       "  \u2022 Network: NONE this session (profile '5') \u2014 every outbound connection fails (expected, not a bug).",
@@ -1299,7 +1299,7 @@
     [
       "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
       "  \u2022 Network: NONE this session (profile 'lan') \u2014 every outbound connection fails (expected, not a bug).",
-      "  \u2022 Network: OPEN via profile 'web' (mode: allowlist_ip) \u2014 a refused connection means that destination is outside the profile, not a tool bug.",
+      "  \u2022 Network: OPEN via profile 'web' (mode: allowlist_ip) \u2014 a refused connection means that destination is outside the profile, not a tool bug.\n  \u2022 No root in this container: sudo is disabled and system folders are read-only. Install with pip (user site), `npm install -g` (kept under /work) or a virtual environment; for a system package, tell the user to ask their administrator.",
       "  \u2022 Network: NONE this session (profile 'lan') \u2014 every outbound connection fails (expected, not a bug).",
       "  \u2022 Network: NONE this session (profile 'isolated') \u2014 every outbound connection fails (expected, not a bug).",
       "  \u2022 Network: NONE this session (profile '5') \u2014 every outbound connection fails (expected, not a bug).",

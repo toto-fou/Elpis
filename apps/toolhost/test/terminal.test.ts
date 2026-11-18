@@ -15,7 +15,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { appelDocker, PATH_COMPTE } from "@elpis/bac";
+import { appelDocker, PATH_COMPTE, resetUserSandboxCache } from "@elpis/bac";
 import { HttpError } from "@elpis/commun";
 import { surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
@@ -115,6 +115,8 @@ describe("terminal de l'hôte (vrai PTY, faux docker)", () => {
     dossier = realpathSync(mkdtempSync(path.join(tmpdir(), "elpis-terminal-")));
     docker = creerFauxDockerTerminal(path.join(dossier, "docker"));
     vi.stubEnv("PATH", `${docker.bin}${path.delimiter}${process.env["PATH"] ?? ""}`);
+    // Bacs des autres groupes oubliés : leur client docker vise un faux binaire déjà retiré.
+    resetUserSandboxCache();
     writeFileSync(path.join(dossier, "config.json"), "{}");
     restaurer = surchargerConfig({
       SANDBOX_DIR: path.join(dossier, "sb"),
@@ -259,6 +261,36 @@ describe("terminal de l'hôte (vrai PTY, faux docker)", () => {
       const r = await frapper();
       expect([r.status, await r.json()]).toEqual([503, A_RELANCER]);
       expect(h.composition.terminaux.taille).toBe(0);
+    });
+
+    describe("sudo refusé (executors.allow_sudo faux)", () => {
+      const ecrireSudo = (valeur: unknown): void =>
+        writeFileSync(
+          path.join(dossier, "config.json"),
+          JSON.stringify({ executors: { allow_sudo: valeur } }),
+        );
+      afterEach(() => writeFileSync(path.join(dossier, "config.json"), "{}"));
+
+      it.each([false, "oui"])(
+        "réglage %j : sans no-new-privileges, refus ; avec, accepté",
+        async (valeur) => {
+          ecrireSudo(valeur);
+          docker.poserGarde('false\nnull\n["no-new-privileges:false"]');
+          const refus = await frapper();
+          expect([refus.status, await refus.json()]).toEqual([503, A_RELANCER]);
+          expect(h.composition.terminaux.taille).toBe(0);
+          docker.poserGarde('false\nnull\n["no-new-privileges:true"]');
+          const ok = await frapper();
+          expect([ok.status, await ok.json()]).toEqual([200, { ok: true }]);
+        },
+      );
+
+      it("sudo permis : conteneur sans no-new-privileges accepté", async () => {
+        ecrireSudo(true);
+        docker.poserGarde('false\nnull\n["no-new-privileges:false"]');
+        const r = await frapper();
+        expect([r.status, await r.json()]).toEqual([200, { ok: true }]);
+      });
     });
 
     it("inspection en échec : autre message, 503", async () => {
@@ -458,6 +490,8 @@ describe("terminal : registre, éviction, nettoyage, quota (PTY factices)", () =
     dossier = realpathSync(mkdtempSync(path.join(tmpdir(), "elpis-terminal-faux-")));
     docker = creerFauxDockerTerminal(path.join(dossier, "docker"));
     vi.stubEnv("PATH", `${docker.bin}${path.delimiter}${process.env["PATH"] ?? ""}`);
+    // Bacs des autres groupes oubliés : leur client docker vise un faux binaire déjà retiré.
+    resetUserSandboxCache();
     writeFileSync(path.join(dossier, "config.json"), "{}");
     restaurer = surchargerConfig({
       SANDBOX_DIR: path.join(dossier, "sb"),
@@ -678,6 +712,43 @@ describe("terminal : registre, éviction, nettoyage, quota (PTY factices)", () =
     }
   });
 
+  it("ouverture : conteneur du compte remis à jour d'abord ; durcissement attendu exigé à l'entrée ; échec de remise à jour → 503, rien de lancé", async () => {
+    const faux = lanceurFactice();
+    const vus: [number, string][] = [];
+    let durci = true;
+    let panne = false;
+    const h = await hoteTest(configTest(), {
+      base: t.base,
+      lanceurPty: faux.lanceur,
+      reconcilierPty: async (uid, nom) => {
+        vus.push([uid, nom]);
+        if (panne) throw new Error("recréation impossible");
+        return durci;
+      },
+    });
+    try {
+      const r = h.composition.terminaux;
+      docker.poserGarde('false\nnull\n["no-new-privileges:false"]');
+      await expect(r.obtenir(60, "a")).rejects.toMatchObject({ statusCode: 503 });
+      expect(faux.crees).toHaveLength(0);
+      docker.poserGarde('false\nnull\n["no-new-privileges:true"]');
+      await r.obtenir(60, "a");
+      expect(faux.crees).toHaveLength(1);
+      durci = false;
+      docker.poserGarde('false\nnull\n["no-new-privileges:false"]');
+      await r.obtenir(60, "b");
+      expect(faux.crees).toHaveLength(2);
+      panne = true;
+      await expect(r.obtenir(60, "c")).rejects.toMatchObject({ statusCode: 503 });
+      expect(faux.crees).toHaveLength(2);
+      expect(vus.length).toBe(4);
+      expect(new Set(vus.map(([uid]) => uid))).toEqual(new Set([60]));
+    } finally {
+      docker.poserGarde(null);
+      await h.fermer();
+    }
+  });
+
   it("quota (SSE) : sondé toutes les 33 trames, dépassement → avis, PTY tué, [EOF] ; plafond lu dans les réglages du compte", async () => {
     let mesure = 0;
     const faux = lanceurFactice();
@@ -714,6 +785,7 @@ describe("base de l'hôte (baseHote) pour les sessions", () => {
     dossier = realpathSync(mkdtempSync(path.join(tmpdir(), "elpis-terminal-base-")));
     const docker = creerFauxDockerTerminal(path.join(dossier, "docker"));
     vi.stubEnv("PATH", `${docker.bin}${path.delimiter}${process.env["PATH"] ?? ""}`);
+    resetUserSandboxCache();
     writeFileSync(path.join(dossier, "config.json"), "{}");
     restaurer = surchargerConfig({
       SANDBOX_DIR: path.join(dossier, "sb"),

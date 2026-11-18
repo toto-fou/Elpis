@@ -338,6 +338,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
         exec_user: cfg.exec_user || "10001:10001",
         runtime: cfg.runtime || "",
         extra_run_args: cfg.extra_run_args || [],
+        allow_sudo: cfg.allow_sudo !== false,
         jobs: { ...JOBS_PAR_DEFAUT, ...cfg.jobs },
         disk: { ...DISQUE_PAR_DEFAUT, ...cfg.disk },
       };

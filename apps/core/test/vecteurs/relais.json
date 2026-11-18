@@ -3091,7 +3091,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3164,7 +3165,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3237,7 +3239,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3310,7 +3313,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3383,7 +3387,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3471,7 +3476,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3554,7 +3560,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3652,7 +3659,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3729,7 +3737,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3807,7 +3816,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -3930,7 +3940,8 @@
               "10.0.0.1"
             ]
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4027,7 +4038,8 @@
             ],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4125,7 +4137,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4269,7 +4282,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4352,7 +4366,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4425,7 +4440,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4498,7 +4514,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4591,7 +4608,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4678,7 +4696,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4763,7 +4782,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4846,7 +4866,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -4936,7 +4957,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -5021,7 +5043,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -5104,7 +5127,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [
@@ -5197,7 +5221,8 @@
             "ports": [],
             "dns": []
           }
-        ]
+        ],
+        "allow_sudo": true
       },
       "profils": [
         [

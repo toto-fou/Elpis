@@ -17,7 +17,14 @@ import path from "node:path";
 
 import { signerSession } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
-import { configuredImage, DEFAUTS_DISQUE, DOMAIN_RE, netcfgHash, profilReseauDepuis } from "@elpis/bac";
+import {
+  configuredImage,
+  DEFAUTS_DISQUE,
+  DOMAIN_RE,
+  netcfgHash,
+  profilReseauDepuis,
+  RUN_SPEC,
+} from "@elpis/bac";
 import { pyJsonDumps, pyJsonLoads } from "@elpis/commun";
 import { DEFAUTS_SEUILS_DISQUE } from "@elpis/contracts";
 import { surchargerConfig } from "@elpis/config";
@@ -30,7 +37,13 @@ import { avecVerrou } from "@elpis/verrous";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { configAssainie, delaisDocker, profilsAssainis } from "../../src/administration/executeurs";
+import {
+  conteneursPerimes,
+  configAssainie,
+  delaisDocker,
+  profilsAssainis,
+  vueExecuteurs,
+} from "../../src/administration/executeurs";
 import { DEFAUTS_JOBS } from "../../src/jobs/reglages";
 import { remplacerBase } from "../../src/base";
 import { composer } from "../../src/composition";
@@ -53,7 +66,7 @@ function avecSectionJobs(
     ...attendu,
     corps: attendu.corps.replace(
       '},"image":',
-      `,"jobs":${JSON.stringify(DEFAUTS_JOBS)},"disk":${JSON.stringify(DEFAUTS_DISQUE)}},"image":`,
+      `,"allow_sudo":true,"jobs":${JSON.stringify(DEFAUTS_JOBS)},"disk":${JSON.stringify(DEFAUTS_DISQUE)}},"image":`,
     ),
   };
 }
@@ -224,7 +237,7 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
         if (contenu === null) {
           if (existsSync(p)) unlinkSync(p);
         } else if (contenu.startsWith("hex:")) writeFileSync(p, Buffer.from(contenu.slice(4), "hex"));
-        else writeFileSync(p, contenu, "utf8");
+        else writeFileSync(p, contenu.replaceAll("{spec}", RUN_SPEC), "utf8");
       }
     } else if (methode === "MTIME") {
       const dates = Object.entries(corps as Record<string, number>);
@@ -463,5 +476,75 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     const liste = await appel(1, "GET", "/api/admin/sandbox/containers");
     expect([liste.statusCode, liste.json()]).toEqual([502, { detail: "docker ps timeout" }]);
     expect(performance.now() - debut).toBeLessThan(4_000);
+  });
+
+  it("allow_sudo : booléen seulement (400 sinon), root refusé quand sudo l'est, valeur enregistrée rendue", async () => {
+    for (const valeur of ["false", 0, null, []]) {
+      const r = await appel(1, "POST", "/api/admin/executors", { executors: { allow_sudo: valeur } });
+      expect([r.statusCode, r.json()], JSON.stringify(valeur)).toEqual([
+        400,
+        { detail: "allow_sudo doit valoir true ou false" },
+      ]);
+    }
+    const root = await appel(1, "POST", "/api/admin/executors", {
+      executors: { allow_sudo: false, exec_user: "0:0" },
+    });
+    expect([root.statusCode, root.json()]).toEqual([
+      400,
+      { detail: "exec_user root refusé : sudo n'est pas permis dans les sandboxes" },
+    ]);
+    const ok = await appel(1, "POST", "/api/admin/executors", { executors: { allow_sudo: false } });
+    expect(ok.statusCode).toBe(200);
+    expect((ok.json() as { config: Dict }).config["allow_sudo"]).toBe(false);
+    const lu = await appel(1, "GET", "/api/admin/executors");
+    expect(((lu.json() as { config: Dict }).config as Dict)["allow_sudo"]).toBe(false);
+    expect(JSON.parse(readFileSync(path.join(d, "config.json"), "utf-8")).executors.allow_sudo).toBe(false);
+  });
+
+  it("vue des exécuteurs : allow_sudo vrai seulement pour true, un autre type est rendu faux", () => {
+    const vue = (executors: Dict): unknown => (vueExecuteurs({ executors })["config"] as Dict)["allow_sudo"];
+    expect(
+      [{}, { allow_sudo: true }, { allow_sudo: false }, { allow_sudo: "true" }, { allow_sudo: 1 }].map(vue),
+    ).toEqual([true, true, false, false, false]);
+  });
+
+  describe("conteneurs périmés selon allow_sudo", () => {
+    const profils: Dict[] = [
+      { id: "isolated", name: "Isolé", mode: "none" },
+      { id: "web", name: "Web", mode: "allowlist_ip", ips: ["192.0.2.0/24"] },
+    ];
+    const hashWeb = (): string => netcfgHash(profilReseauDepuis(profils[1] as Dict));
+    const perimes = async (sudo: boolean, lignes: string[]): Promise<string[]> => {
+      preparer("DOCKER", { "ps-netcfg.out": `${lignes.join("\n")}\n` });
+      const r = await conteneursPerimes(
+        profils,
+        async (uid) => ({ profil: uid === 2 ? "web" : "isolated" }),
+        (reglages) => String(reglages["profil"]),
+        sudo,
+      );
+      return r.map((c) => String(c["container"]));
+    };
+
+    it("sudo permis : à jour s'il est non durci (profil sans filtre) ; périmé s'il est durci ou d'une autre version", async () => {
+      expect(
+        await perimes(true, [
+          `elpis-sb-a\t1\ta\t\t${RUN_SPEC}\t0`,
+          `elpis-sb-b\t2\tb\t${hashWeb()}\t${RUN_SPEC}\t1`,
+          `elpis-sb-c\t1\tc\t\t${RUN_SPEC}\t1`,
+          `elpis-sb-d\t1\td\t\t1\t0`,
+          `elpis-sb-e\t1\te\t\t${RUN_SPEC}\t`,
+        ]),
+      ).toEqual(["elpis-sb-c", "elpis-sb-d", "elpis-sb-e"]);
+    });
+
+    it("sudo refusé : tout conteneur non durci est périmé, un durci à jour ne l'est pas", async () => {
+      expect(
+        await perimes(false, [
+          `elpis-sb-a\t1\ta\t\t${RUN_SPEC}\t0`,
+          `elpis-sb-b\t2\tb\t${hashWeb()}\t${RUN_SPEC}\t1`,
+          `elpis-sb-c\t1\tc\t\t${RUN_SPEC}\t1`,
+        ]),
+      ).toEqual(["elpis-sb-a"]);
+    });
   });
 });

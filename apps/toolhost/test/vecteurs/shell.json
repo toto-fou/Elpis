@@ -2062,6 +2062,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -2168,6 +2169,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0",
@@ -2282,6 +2284,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -2442,6 +2445,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -2589,6 +2593,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -2683,6 +2688,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -2792,6 +2798,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -2901,6 +2908,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3010,6 +3018,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3120,6 +3129,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3228,6 +3238,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3330,6 +3341,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3434,6 +3446,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3540,6 +3553,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3650,6 +3664,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3749,6 +3764,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3859,6 +3875,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -3981,6 +3998,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -4087,6 +4105,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "GIT_TERMINAL_PROMPT": "0"
@@ -4187,6 +4206,7 @@
             "LC_ALL": "C.UTF-8",
             "TZ": "UTC",
             "PYTHONUSERBASE": "/work/.python-user",
+            "NPM_CONFIG_PREFIX": "/work/.npm-global",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
             "PIP_BREAK_SYSTEM_PACKAGES": "1",
             "X": "y"

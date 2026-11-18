@@ -50,6 +50,7 @@ import {
   FORMAT_ENTREE,
   optionsRacineDurcie,
   PATH_COMPTE,
+  PREFIXE_NPM,
   PATH_SYSTEME,
   profilFiltre,
   RUN_SPEC,
@@ -255,6 +256,8 @@ export class UserSandbox implements BacPourAgent {
   recreationReportee = "";
   /** Dernière lecture des options du conteneur impossible : ni recréé ni tenu pour vérifié (relu plus tard). */
   private inspectionDouteuse = false;
+  /** Réglages pour lesquels le conteneur a été vérifié (`attente`) : changés, il est revérifié. */
+  private verifiePour = "";
   private agentClient: AgentBac | null = null;
   private readonly entreesVerifiees = new Set<string>();
   readonly cli: CliDocker;
@@ -456,6 +459,7 @@ export class UserSandbox implements BacPourAgent {
 
   private async reconcileConfig(st: EtatBac, signal?: AbortSignal): Promise<EtatBac> {
     this.configVerified = true;
+    this.verifiePour = this.attente();
     try {
       if (!(await this.stale(signal))) {
         if (this.inspectionDouteuse) {
@@ -553,6 +557,7 @@ export class UserSandbox implements BacPourAgent {
 
   /** `ensure_running` : en marche, créé ou redémarré ; création sérialisée par compte (verrou de cycle de vie). */
   async ensureRunning(signal?: AbortSignal): Promise<EtatBac> {
+    if (this.configVerified && this.verifiePour !== this.attente()) this.oublierVerifications();
     const cache = getReadinessCache();
     if (this.mountVerified && this.configVerified && cache.confirmedRunning(this.containerName))
       return etat({ exists: true, running: true, container_name: this.containerName });
@@ -634,9 +639,9 @@ export class UserSandbox implements BacPourAgent {
     return this.status(signal);
   }
 
-  /** Conteneur durci (ni sudo ni racine modifiable) : toujours pour un profil filtré. */
+  /** Conteneur durci (ni sudo ni racine modifiable) : quand sudo est refusé, et toujours pour un profil filtré. */
   durci(profil: ProfilReseau): boolean {
-    return profilFiltre(profil);
+    return !this.cfg.allow_sudo || profilFiltre(profil);
   }
 
   /** Utilisateur des entrées du compte : `exec_user`, jamais root dans un conteneur durci. */
@@ -645,11 +650,20 @@ export class UserSandbox implements BacPourAgent {
     return this.durci(this.networkProfile) ? utilisateurDurci(u) : u;
   }
 
-  /** Vérifications du conteneur oubliées (profil ou réglages changés) : options relues et entrées revérifiées au prochain usage. */
+  /** Vérifications du conteneur oubliées (profil ou réglages changés) : options relues, droits de /work et entrées revérifiés au prochain usage. */
   oublierVerifications(): void {
     this.configVerified = false;
     this.configRetryAt = 0;
+    this.modesVerified = false;
     this.entreesVerifiees.clear();
+  }
+
+  /** Ce qui décide des options et des entrées du conteneur : durcissement, réseau, image, utilisateur. */
+  private attente(): string {
+    const profil = this.networkProfile;
+    return [this.durci(profil) ? "1" : "0", netcfgHash(profil), this.cfg.image, this.utilisateurExec()].join(
+      "|",
+    );
   }
 
   /** `_build_run_args` : argv de `docker run`, pur (les domaines sont résolus par l'appelant). */
@@ -929,7 +943,7 @@ export class UserSandbox implements BacPourAgent {
     const cle = execUser ?? "";
     if (this.entreesVerifiees.has(cle)) return;
     const [rc, out] = await this.appel(["inspect", "--format", FORMAT_ENTREE, this.containerName], 5, signal);
-    if (rc !== 0 || !entreePermise(decoderRemplace(out), execUser)) {
+    if (rc !== 0 || !entreePermise(decoderRemplace(out), execUser, this.durci(this.networkProfile))) {
       journalDe("sandbox").warn(
         `[sandbox] ${this.containerName} : entrée refusée (${rc !== 0 ? "inspection impossible" : "conteneur d'avant la mise à jour, options de sécurité surchargées, ou utilisateur root ou non numérique dans un conteneur durci"})`,
       );
@@ -966,6 +980,8 @@ export class UserSandbox implements BacPourAgent {
         execUser,
         "-e",
         `PATH=${PATH_COMPTE}`,
+        "-e",
+        `NPM_CONFIG_PREFIX=${PREFIXE_NPM}`,
         this.containerName,
         "python3",
         "-I",

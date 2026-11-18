@@ -341,6 +341,27 @@ describe.skipIf(!PYTHON)("socket piégé, faux agent, relance", () => {
     expect(reveils).toBe(0);
   });
 
+  it("requête active : conteneur remis à jour avant chacune, agent déjà en marche compris ; passive : jamais ; remise à jour en échec → container_down", async () => {
+    let remises = 0;
+    const remettre = bac.ensureRunning.bind(bac);
+    bac.ensureRunning = async () => {
+      remises++;
+      return remettre();
+    };
+    const c = new AgentClient(bac);
+    await c.write("f", Buffer.from("1"));
+    const apres = remises;
+    expect(apres).toBeGreaterThanOrEqual(1);
+    expect((await c.read("f")).data.toString()).toBe("1");
+    expect(remises).toBe(apres + 1);
+    await c.stat(["f"], { passive: true });
+    expect(remises).toBe(apres + 1);
+    bac.ensureRunning = async () => {
+      throw new Error("recréation impossible");
+    };
+    expect((await refus(c.read("f"))).code).toBe("container_down");
+  });
+
   it("agent qui ne démarre pas : échec mémorisé, pas de second essai de 10 s", async () => {
     reglagesAgent.demarrageS = 0.3;
     bac.startAgent = async () => {

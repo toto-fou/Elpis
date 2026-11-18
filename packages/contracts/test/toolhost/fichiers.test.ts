@@ -6,6 +6,8 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 
 import { oublierOccupations } from "@elpis/bac";
+import { creerFauxDocker } from "@elpis/bac/test";
+import type { FauxDocker } from "@elpis/bac/test";
 import { ecrireZip } from "@elpis/commun";
 import { invalidateConfigCache, surchargerConfig } from "@elpis/config";
 import { AgentClient } from "@elpis/fichiers";
@@ -28,6 +30,7 @@ let tmp = "";
 let nettoyer: () => void = () => undefined;
 let restaurer: () => void = () => undefined;
 let bac: BacTest;
+let docker: FauxDocker;
 let agent: AgentClient;
 let h: HoteTest;
 let W = "";
@@ -84,6 +87,8 @@ function tarGz(fichiers: Record<string, string>): Buffer {
 describe.skipIf(!PYTHON)("contrats REST : fichiers du bac (hôte d'outils réel, agent Python)", () => {
   beforeAll(async () => {
     [tmp, nettoyer] = dossierTemporaire("elpis-ct-fichiers-");
+    // Faux docker : le bac du registre (instantané avant un import) ne lance aucun vrai conteneur sur ce dossier.
+    docker = creerFauxDocker(path.join(tmp, "docker"));
     bac = new BacTest(tmp, "hugo");
     W = bac.sandboxPath;
     await bac.startAgent(false);
@@ -97,6 +102,8 @@ describe.skipIf(!PYTHON)("contrats REST : fichiers du bac (hôte d'outils réel,
   });
 
   beforeEach(async () => {
+    vi.stubEnv("PATH", `${docker.bin}:${process.env["PATH"] ?? ""}`);
+    vi.stubEnv("FAUX_DOCKER", docker.etat);
     vi.stubEnv("APP_SANDBOX_DIR", path.join(tmp, "sb"));
     vi.stubEnv("APP_FILE_HISTORY_DIR", path.join(tmp, "fh"));
     vi.stubEnv("ELPIS_PYTHON", PYTHON_DEPOT);

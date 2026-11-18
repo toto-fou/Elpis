@@ -117,7 +117,7 @@
       {
         "version.out": "27.1.1\n",
         "image-inspect.rc": "1",
-        "ps-netcfg.out": "elpis-sb-bob\t3\tbob\tdeadbeef0000\nelpis-sb-carol\t4\tcarol\t\nelpis-sb-JeanDupont\t5\tJean.Dupont\t\nmal\tform\u00e9e\nelpis-sb-x\tabc\tx\tl\nelpis-sb-fantome\t99\t\tl\nelpis-sb-web\t3\tbob\t9907c7d34b2a\n"
+        "ps-netcfg.out": "elpis-sb-bob\t3\tbob\tdeadbeef0000\t{spec}\t0\nelpis-sb-carol\t4\tcarol\t\t{spec}\t0\nelpis-sb-JeanDupont\t5\tJean.Dupont\t\t{spec}\t0\nmal\tform\u00e9e\nelpis-sb-x\tabc\tx\tl\t{spec}\t0\nelpis-sb-fantome\t99\t\tl\t{spec}\t0\nelpis-sb-web\t3\tbob\t9907c7d34b2a\t{spec}\t1\n"
       }
     ],
     [
@@ -1834,7 +1834,7 @@
     },
     {
       "statut": 400,
-      "corps": "{\"detail\":\"exec_user doit \u00eatre au format UID:GID (ex. 10001:10001 ; 0:0 = root)\"}"
+      "corps": "{\"detail\":\"exec_user doit \u00eatre au format UID:GID (ex. 10001:10001)\"}"
     },
     {
       "statut": 400,
@@ -1882,7 +1882,7 @@
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"],\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[\"Le profil 'isolated' est le repli de s\u00e9curit\u00e9 : son mode est forc\u00e9 \u00e0 \u00ab Tout bloquer \u00bb.\",\"Profil 'web' : 0.0.0.0/0 autorise TOUT internet \u2014 autant utiliser le mode Ouvert (bridge).\",\"Profil 'web' : 169.254.10.0/24 recouvre 169.254.0.0/16 (m\u00e9tadonn\u00e9es cloud, ex. 169.254.169.254).\"],\"stale_containers\":[{\"user_id\":3,\"username\":\"bob\",\"container\":\"elpis-sb-bob\",\"profile_id\":\"web\"},{\"user_id\":99,\"username\":null,\"container\":\"elpis-sb-fantome\",\"profile_id\":\"isolated\"}]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"],\"allow_sudo\":true,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[\"Le profil 'isolated' est le repli de s\u00e9curit\u00e9 : son mode est forc\u00e9 \u00e0 \u00ab Tout bloquer \u00bb.\",\"Profil 'web' : 0.0.0.0/0 autorise TOUT internet \u2014 autant utiliser le mode Ouvert (bridge).\",\"Profil 'web' : 169.254.10.0/24 recouvre 169.254.0.0/16 (m\u00e9tadonn\u00e9es cloud, ex. 169.254.169.254).\"],\"stale_containers\":[{\"user_id\":3,\"username\":\"bob\",\"container\":\"elpis-sb-bob\",\"profile_id\":\"web\"},{\"user_id\":99,\"username\":null,\"container\":\"elpis-sb-fantome\",\"profile_id\":\"isolated\"}]}"
     },
     {
       "statut": 200,
@@ -1890,7 +1890,7 @@
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[],\"network_profiles\":[],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[],\"stale_containers\":[]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"10001:10001\",\"runtime\":\"\",\"extra_run_args\":[],\"allow_sudo\":true,\"network_profiles\":[],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[],\"stale_containers\":[]}"
     },
     {
       "statut": 200,
@@ -1907,11 +1907,11 @@
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"--init\",\"0\"],\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":512,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"\",\"extra_run_args\":[\"--init\",\"0\"],\"allow_sudo\":true,\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"1.0\",\"extra_run_args\":[\"2.0\",\"1e+16\",\"True\"],\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":2048,\"cpu_quota_pct\":100,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":false,\"idle_kill_hours\":24,\"exec_user\":\"0:0\",\"runtime\":\"1.0\",\"extra_run_args\":[\"2.0\",\"1e+16\",\"True\"],\"allow_sudo\":true,\"network_profiles\":[]},\"warnings\":[],\"stale_containers\":[]}"
     },
     null,
     {
@@ -2140,10 +2140,10 @@
     "image inspect registre.lan:5000/outils/bac:2",
     "version --format {{.Server.Version}}",
     "version --format {{.Server.Version}}",
-    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
-    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
-    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
-    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}\t{{.Label \"elpis.spec\"}}\t{{.Label \"elpis.durci\"}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}\t{{.Label \"elpis.spec\"}}\t{{.Label \"elpis.durci\"}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}\t{{.Label \"elpis.spec\"}}\t{{.Label \"elpis.durci\"}}",
+    "ps --filter label=elpis.user_id --format {{.Names}}\t{{.Label \"elpis.user_id\"}}\t{{.Label \"elpis.username\"}}\t{{.Label \"elpis.netcfg\"}}\t{{.Label \"elpis.spec\"}}\t{{.Label \"elpis.durci\"}}",
     "ps -a --filter label=elpis.user_id --format {\"id\":\"{{.ID}}\",\"name\":\"{{.Names}}\",\"image\":\"{{.Image}}\",\"state\":\"{{.State}}\",\"status\":\"{{.Status}}\",\"created\":\"{{.CreatedAt}}\"}",
     "inspect --format {{index .Config.Labels \"elpis.user_id\"}}|{{index .Config.Labels \"elpis.username\"}} elpis-sb-bob",
     "inspect --format {{index .Config.Labels \"elpis.user_id\"}}|{{index .Config.Labels \"elpis.username\"}} elpis-sb-anon",

@@ -8893,6 +8893,48 @@
           "a+b=c"
         ],
         "valeur": "abc"
+      },
+      {
+        "entree": [
+          "guest"
+        ],
+        "valeur": "guest"
+      },
+      {
+        "entree": [
+          "GUEST"
+        ],
+        "valeur": "GUEST"
+      },
+      {
+        "entree": [
+          "_snapshots"
+        ],
+        "valeur": "_snapshots.compte"
+      },
+      {
+        "entree": [
+          "_Snapshots"
+        ],
+        "valeur": "_Snapshots.compte"
+      },
+      {
+        "entree": [
+          "_snap.shots"
+        ],
+        "valeur": "_snapshots.compte"
+      },
+      {
+        "entree": [
+          "guests"
+        ],
+        "valeur": "guests"
+      },
+      {
+        "entree": [
+          "user_5"
+        ],
+        "valeur": "user_5"
       }
     ],
     "chemin_pur": [

@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 /** packages/navigateur/test/relais.test.ts — relais des secrets du navigateur du bac : substitution seulement dans la fenêtre et vers l'origine du secret, purge des réponses, Basic et Digest résolus par le relais, TLS terminé avec l'autorité de l'instance pour les seules origines d'un secret, tunnel intact ailleurs, refus du juge et du jeton ; juge des destinations d'un bac. */
 import { X509Certificate } from "node:crypto";
-import { mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer as createServerHttps } from "node:https";
@@ -647,6 +656,44 @@ describe("relais des secrets (socket unix réel)", () => {
     expect(() => ouvrirSocketATous(lien)).toThrow(/not a socket/u);
     expect(statSync(hote).mode & 0o777).toBe(0o600);
     expect(statSync(path.join(dossier, "relais.sock")).mode & 0o777).toBe(0o666);
+  });
+
+  it("dossier du socket : un descripteur gardé ouvert pendant l'écoute, un seul après réouverture", async () => {
+    const ouverts = (): number =>
+      readdirSync("/proc/self/fd").filter((n) => {
+        try {
+          return readlinkSync(path.join("/proc/self/fd", n)) === dossier;
+        } catch {
+          return false;
+        }
+      }).length;
+    expect(ouverts()).toBe(1);
+    await relais.rouvrir();
+    expect(ouverts()).toBe(1);
+  });
+
+  it("dossier du socket refermé avec le serveur : aucun descripteur laissé", async () => {
+    const sous = path.join(dossier, "autre");
+    mkdirSync(sous);
+    const autre = new RelaisNavigateur({
+      socket: path.join(sous, "r.sock"),
+      jeton: JETON,
+      juger: juge,
+      autorite: ac,
+      caAmont: [acAmont.certPem],
+    });
+    const compte = (): number =>
+      readdirSync("/proc/self/fd").filter((n) => {
+        try {
+          return readlinkSync(path.join("/proc/self/fd", n)) === sous;
+        } catch {
+          return false;
+        }
+      }).length;
+    await autre.ouvrir();
+    expect(compte()).toBe(1);
+    await autre.fermer();
+    expect(compte()).toBe(0);
   });
 
   it("socket retiré par le bac : détecté, rouvert avec les liaisons", async () => {

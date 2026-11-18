@@ -100,6 +100,22 @@ describe.each(MOTEURS)("comptes (%s)", (moteur) => {
     await expect(validerNomUtilisateur(t.base, "zed\n")).rejects.toThrow(ErreurNomUtilisateur);
   });
 
+  it.each(["guest", "GUEST", "Guest", "user_1", "user_42", "USER_007"])(
+    "nom réservé %j refusé, même sous une autre casse",
+    async (nom) => {
+      const e = await validerNomUtilisateur(t.base, nom).catch((x: unknown) => x);
+      expect(e).toBeInstanceOf(ErreurNomUtilisateur);
+      expect((e as Error).message).toBe("username réservé : choisissez un autre nom.");
+    },
+  );
+
+  it.each(["guests", "guest1", "user_", "user_a", "user_1a", "user1", "snapshots", "my_guest"])(
+    "nom voisin d'un nom réservé %j accepté",
+    async (nom) => {
+      await expect(validerNomUtilisateur(t.base, nom)).resolves.toBeUndefined();
+    },
+  );
+
   it("get_user_settings (vecteurs) et avertissement sur JSON corrompu", async () => {
     const avis: string[] = [];
     for (const c of V.reglages.lectures) {

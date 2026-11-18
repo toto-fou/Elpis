@@ -8,6 +8,11 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Accounts: reserved names refused.** An account can no longer be created as `_snapshots`,
+  `guest` or `user_<n>`: these names met an internal folder of the sandboxes or a fallback name.
+  An existing account named `_snapshots` gets its own sandbox folder, `_snapshots.compte`.
+- **Browser relay: socket folder kept open while listening**, so that closing the relay removes
+  its own socket and nothing else.
 - **Sandbox: swap, core dumps and container log bounded.** A sandbox no longer swaps beyond its
   memory limit (`--memory-swap` equal to `--memory`), writes no core dump (`--ulimit core=0:0`)
   and keeps at most two 1 MB files of container log (`json-file`); its background command writes to

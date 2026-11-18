@@ -11,7 +11,7 @@
   "dependencies": {
     "@elpis/commun": "0.1.4",
     "@fastify/multipart": "10.1.8",
-    "@fastify/websocket": "11.3.3",
+    "@fastify/websocket": "11.3.7",
     "fastify": "5.12.8",
     "undici": "8.12.4",
     "ws": "8.22.1"

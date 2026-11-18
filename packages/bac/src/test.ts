@@ -46,6 +46,12 @@ case "$1" in
     echo "f00dcafe"; exit 0 ;;
   rm)
     for a; do case "$a" in -*) ;; rm) ;; *) rm -f "$d/$a.run" ;; esac; done; exit 0 ;;
+  network)
+    case "$2" in
+      inspect) [ -f "$d/reseau" ] && { echo "bridge|false|false|br-elpis-sb"; exit 0; }; echo "Error: No such network" >&2; exit 1 ;;
+      create) : > "$d/reseau"; exit 0 ;;
+    esac
+    exit 0 ;;
   stats) echo '{"cpu":"0.50%","mem":"12MiB / 2GiB","mem_pct":"0.59%","pids":"4"}'; exit 0 ;;
   logs) echo "journal du conteneur"; exit 0 ;;
   exec)

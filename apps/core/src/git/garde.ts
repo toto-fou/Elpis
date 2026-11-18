@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/git/garde.ts — garde SSRF des appels git (`check_remote_url` de git/ssrf.py) : adresses validées réutilisées pour la connexion, boucle et lien locaux refusés même pour un hôte enregistré, hôte non résolu refusé. */
+/** apps/core/src/git/garde.ts — garde SSRF des appels git (`check_remote_url` de git/ssrf.py) : adresses validées réutilisées pour la connexion, boucle, lien local et réseaux des conteneurs de la machine (les bacs) refusés même pour un hôte enregistré, hôte non résolu refusé. */
 import { lookup } from "node:dns/promises";
 
 import { adresseIpOuNul, hostname, port, texteIp, urlsplit } from "@elpis/commun";
 import type { AdresseIp } from "@elpis/commun";
-import { adresseCritique, blockRemoteUrlReason } from "@elpis/securite";
-import type { Resolveur } from "@elpis/securite";
+import { adresseCritique, blockRemoteUrlReason, hostAddresses, surLaMachine } from "@elpis/securite";
+import type { HoteMachine, Resolveur } from "@elpis/securite";
 
 let interdite: (ip: AdresseIp) => boolean = adresseCritique;
+
+/** Relevé de la machine dont les réseaux de conteneurs sont refusés (réglable par les tests). */
+export const reglagesGardeGit: { machine: () => Promise<HoteMachine> } = { machine: hostAddresses };
 
 /** Adresses refusées même pour un hôte enregistré ; `null` rétablit `adresseCritique` (réservé aux tests). */
 export function brancherAdressesInterdites(politique: ((ip: AdresseIp) => boolean) | null): void {
@@ -34,9 +37,11 @@ export interface VerdictGit {
 
 const NON_RESOLU: VerdictGit = { motif: "unresolvable_host", adresses: null };
 
-/** `block_remote_url_reason` puis boucle et lien local refusés pour tout hôte ; une seule résolution, retenue ; aucune adresse lisible : `unresolvable_host` (`check_remote_url`). */
+/** `block_remote_url_reason` puis boucle, lien local et réseaux des conteneurs refusés pour tout hôte ; une seule résolution, retenue ; aucune adresse lisible : `unresolvable_host` (`check_remote_url`). */
 export async function gardeGit(url: string, options: OptionsGardeGit): Promise<VerdictGit> {
   const resoudre: Resolveur = options.resoudre ?? ((h) => resoudreSysteme(h));
+  const machine = await reglagesGardeGit.machine();
+  const refusee = (ip: AdresseIp): boolean => interdite(ip) || surLaMachine(ip, machine).conteneurs;
   const vues: { adresses: string[] | null } = { adresses: null };
   const motif = await blockRemoteUrlReason(url, {
     allowSchemes: options.allowSchemes,
@@ -48,7 +53,7 @@ export async function gardeGit(url: string, options: OptionsGardeGit): Promise<V
   const p = urlsplit(url);
   const litterale = adresseIpOuNul((hostname(p) ?? "").toLowerCase());
   if (litterale !== null)
-    return { motif: interdite(litterale) ? `blocked_ip (${texteIp(litterale)})` : null, adresses: null };
+    return { motif: refusee(litterale) ? `blocked_ip (${texteIp(litterale)})` : null, adresses: null };
   if (vues.adresses === null) {
     try {
       vues.adresses = await resoudre((hostname(p) ?? "").toLowerCase(), port(p) || null);
@@ -60,7 +65,7 @@ export async function gardeGit(url: string, options: OptionsGardeGit): Promise<V
   for (const brute of vues.adresses) {
     const ip = adresseIpOuNul(brute);
     if (ip === null) continue;
-    if (interdite(ip)) return { motif: `resolves_to_blocked (${texteIp(ip)})`, adresses: null };
+    if (refusee(ip)) return { motif: `resolves_to_blocked (${texteIp(ip)})`, adresses: null };
     if (!adresses.includes(brute)) adresses.push(brute);
   }
   return adresses.length ? { motif: null, adresses } : NON_RESOLU;

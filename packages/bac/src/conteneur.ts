@@ -70,6 +70,7 @@ import {
   SCRIPT_NAVIGATEUR,
 } from "./navigateur";
 import { configBacDepuis, netcfgHash, profilParId } from "./profils";
+import { argvCreationReseau, DNS_DE_GARDE, FORMAT_RESEAU, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
 import { MODES_MARKER, PERMS_MARKER_LEGACY } from "./travail";
 
@@ -90,6 +91,8 @@ export { RUN_SPEC };
 /** Refus d'entrer dans un conteneur qui garderait la main sur son filtre réseau ; le détail va au journal. */
 const BAC_A_RELANCER =
   "La sandbox doit être relancée. Si le problème persiste, demandez à votre administrateur.";
+/** Démarrage impossible du fait de l'installation (script, réseau, démon) ; le détail va au journal. */
+const DEMARRAGE_IMPOSSIBLE = "La sandbox ne peut pas démarrer. Demandez à votre administrateur.";
 const FORMAT_STATUT = "{{.Id}}|{{.Name}}|{{.State.Running}}|{{.Config.Image}}|{{.State.StartedAt}}";
 const FORMAT_STATS =
   '{"cpu":"{{.CPUPerc}}","mem":"{{.MemUsage}}","mem_pct":"{{.MemPerc}}",' + '"pids":"{{.PIDs}}"}';
@@ -419,7 +422,7 @@ export class UserSandbox implements BacPourAgent {
       return empreinteDemarrage();
     } catch (e) {
       journalDe("sandbox").warn(`[sandbox] script de démarrage illisible : ${(e as Error).message}`);
-      throw new ExecError("La sandbox ne peut pas démarrer. Demandez à votre administrateur.");
+      throw new ExecError(DEMARRAGE_IMPOSSIBLE);
     }
   }
 
@@ -691,7 +694,8 @@ export class UserSandbox implements BacPourAgent {
       label("entry", this.empreinteEntree()),
     );
     if (profil.mode === "none") args.push("--network", "none");
-    else if (profil.mode === "allowlist_ip") {
+    else args.push("--network", RESEAU_BACS);
+    if (profil.mode === "allowlist_ip") {
       args.push("--cap-add", "NET_ADMIN", "-e", "ELPIS_NET_MODE=allowlist");
       const r = resolus ?? {};
       const permis: string[] = profil.ips.map((x) => x as string);
@@ -707,7 +711,7 @@ export class UserSandbox implements BacPourAgent {
       if (profil.dns.length > 0) {
         args.push("-e", `ELPIS_DNS=${profil.dns.join(" ")}`);
         for (const ip of profil.dns) args.push("--dns", ip);
-      }
+      } else args.push("--dns", DNS_DE_GARDE);
     }
     const navigateur = montagesNavigateur();
     if (navigateur !== null) args.push(...navigateur, "--label", label("browser", empreinteNavigateur()));
@@ -727,6 +731,32 @@ export class UserSandbox implements BacPourAgent {
       );
     if (st.status !== "loaded")
       throw new ExecError(`Image '${this.cfg.image}' indisponible. ${st.error || st.progress_msg}`);
+  }
+
+  /** Réseau des bacs présent (créé au besoin, course entre processus tolérée) et relu après toute création ; refus s'il n'est pas exactement celui d'Elpis (pont, sans IPv6, sans trafic entre conteneurs). */
+  private async ensureReseau(signal?: AbortSignal): Promise<void> {
+    const lire = async (): Promise<string | null> => {
+      const [rc, out] = await this.appel(
+        ["network", "inspect", RESEAU_BACS, "--format", FORMAT_RESEAU],
+        10,
+        signal,
+      );
+      return rc === 0 ? stripPy(decoderRemplace(out)) : null;
+    };
+    let vu = await lire();
+    let erreur = "";
+    if (vu === null) {
+      const [, , err] = await this.appel(argvCreationReseau(), 20, signal);
+      erreur = stripPy(decoderRemplace(err));
+      vu = await lire();
+    }
+    if (vu === RESEAU_CONFORME) return;
+    const motif =
+      vu === null
+        ? `création refusée : ${prefixePy(erreur, 300)}`
+        : `il existe en ${vu} au lieu de ${RESEAU_CONFORME} (docker network rm ${RESEAU_BACS} une fois les bacs arrêtés : il sera recréé)`;
+    journalDe("sandbox").warn(`[sandbox] réseau Docker ${RESEAU_BACS} inutilisable : ${motif}`);
+    throw new ExecError("Le réseau de la sandbox est indisponible. Demandez à votre administrateur.");
   }
 
   /** `_create` : idempotent face à une création concurrente ; journaux du conteneur rendus si l'entrypoint plante. */
@@ -763,6 +793,7 @@ export class UserSandbox implements BacPourAgent {
         );
       }
     }
+    if (profil.mode !== "none") await this.ensureReseau(signal);
     const [rc, , err] = await this.appel(this.buildRunArgs(profil, resolus), 60, signal);
     if (rc !== 0) {
       const texte = stripPy(decoderRemplace(err));
@@ -775,7 +806,10 @@ export class UserSandbox implements BacPourAgent {
           return;
         }
       }
-      throw new ExecError(`docker run a échoué : ${prefixePy(texte, 400)}`);
+      journalDe("sandbox").warn(
+        `[sandbox] ${this.containerName} : docker run a échoué : ${prefixePy(texte, 400)}`,
+      );
+      throw new ExecError(DEMARRAGE_IMPOSSIBLE);
     }
     if (reglagesBac.attenteCreationMs > 0) await attendre(reglagesBac.attenteCreationMs, signal);
     const [rcEtat, outEtat] = await this.appel(

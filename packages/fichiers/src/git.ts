@@ -16,9 +16,9 @@ import {
   texteIp,
   urlsplit,
 } from "@elpis/commun";
-import type { Dict } from "@elpis/commun";
-import { adresseCritique, blockRemoteUrlReason } from "@elpis/securite";
-import type { Resolveur, SousAgentHote } from "@elpis/securite";
+import type { AdresseIp, Dict } from "@elpis/commun";
+import { adresseCritique, blockRemoteUrlReason, hostAddresses, surLaMachine } from "@elpis/securite";
+import type { HoteMachine, Resolveur, SousAgentHote } from "@elpis/securite";
 
 import { AgentError } from "./agent";
 import type { AgentClient, ResultatGitAgent } from "./agent";
@@ -115,13 +115,16 @@ async function resoudreSysteme(hote: string): Promise<string[]> {
   return (await lookup(hote, { all: true, order: "verbatim" })).map((r) => r.address);
 }
 
-/** Garde anti-SSRF d'un dépôt (`critical_only` : LAN permis, boucle et métadonnées non, connecteurs permis), puis boucle et lien local refusés pour TOUT hôte ; adresses retenues pour la connexion. */
+/** Garde anti-SSRF d'un dépôt (`critical_only` : LAN permis, boucle et métadonnées non, connecteurs permis), puis boucle, lien local et réseaux des conteneurs de la machine (les bacs) refusés pour TOUT hôte, IPv4 encapsulée comprise ; adresses retenues pour la connexion. */
 export async function gardeDepot(
   url: string,
   compte: CompteRappel,
   source: SourceGit,
   resoudre: Resolveur = (h) => resoudreSysteme(h),
+  machine: () => Promise<HoteMachine> = hostAddresses,
 ): Promise<VerdictDepot> {
+  const h = await machine();
+  const refusee = (ip: AdresseIp): boolean => adresseCritique(ip) || surLaMachine(ip, h).conteneurs;
   let vues: string[] | null = null;
   const motif = await blockRemoteUrlReason(url, {
     allowSchemes: REMOTE_SCHEMES,
@@ -134,7 +137,7 @@ export async function gardeDepot(
   const hote = lowerPy(hostname(p) ?? "");
   const litterale = adresseIpOuNul(hote);
   if (litterale !== null)
-    return adresseCritique(litterale)
+    return refusee(litterale)
       ? { motif: `blocked_ip (${texteIp(litterale)})`, adresses: null }
       : { motif: null, adresses: null };
   if (vues === null) {
@@ -146,8 +149,7 @@ export async function gardeDepot(
   }
   for (const brute of vues) {
     const ip = adresseIpOuNul(brute);
-    if (ip !== null && adresseCritique(ip))
-      return { motif: `resolves_to_blocked (${texteIp(ip)})`, adresses: null };
+    if (ip !== null && refusee(ip)) return { motif: `resolves_to_blocked (${texteIp(ip)})`, adresses: null };
   }
   return { motif: null, adresses: vues };
 }

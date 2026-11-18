@@ -85,6 +85,7 @@ export {
   sourcesNavigateur,
 } from "./navigateur";
 export { entreePermise, FORMAT_ENTREE, PATH_COMPTE } from "./durcissement";
+export { FORMAT_RESEAU, PONT_BACS, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
 export {
   messageSuppression,
   mettreBacDeCote,

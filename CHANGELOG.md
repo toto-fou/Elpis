@@ -8,6 +8,18 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: dedicated Docker network, no traffic between sandboxes.** Open and allowlist
+  sandboxes are attached to the `elpis-sandbox` network (bridge `br-elpis-sb`, traffic between
+  containers disabled), created on demand: on Docker's default bridge, a sandbox could reach the
+  ports of the other accounts' sandboxes. The host still reaches a sandbox (server preview). An
+  allowlist sandbox without resolvers receives a placeholder resolver, so that Docker's internal
+  DNS relays nothing. The Git relay and the server's Git API calls refuse the networks of the
+  machine's containers, the sandboxes among them, IPv4-mapped IPv6 included: a Git server running
+  in a container of the same machine is reached through a port published on the machine, not
+  through the container's address. The network is created without IPv6, even when the daemon
+  enables it by default. If the network exists with other settings, sandboxes on these profiles do
+  not start and the server journal says why. When a sandbox fails to start, its container logs go
+  to the server journal only. `elpis.spec` 9.
 - **Sandbox: startup script from the installation, allowlist closed by default.** Every sandbox
   now starts with `sandbox-agent/demarrage.sh`, mounted read-only from the installation (no image
   to rebuild; a third-party image needs `/bin/sh`, `setpriv` and, for allowlist profiles,

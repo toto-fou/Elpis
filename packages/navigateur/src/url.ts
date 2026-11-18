@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/navigateur/src/url.ts — destinations du navigateur, jugées par le relais du bac : profil réseau du bac, puis politique du navigateur (jamais la machine d'Elpis, ses réseaux de conteneurs, la boucle locale ni le lien-local ; liste blanche du réseau local). */
 import { lookup } from "node:dns/promises";
-import { readFile } from "node:fs/promises";
-import { networkInterfaces } from "node:os";
 import { domainToASCII } from "node:url";
 
 import {
@@ -25,7 +23,8 @@ import {
 } from "@elpis/commun";
 import type { AdresseIp, Reseau } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
-import type { Resolveur } from "@elpis/securite";
+import { hostAddresses } from "@elpis/securite";
+import type { HoteMachine, Resolveur } from "@elpis/securite";
 
 // Réseaux « locaux » : joignables, sauf liste blanche qui ne les nomme pas.
 const RESEAUX_LOCAUX: readonly Reseau[] = [
@@ -37,14 +36,11 @@ const RESEAUX_LOCAUX: readonly Reseau[] = [
 ]
   .map((n) => reseauPy(n))
   .filter((r): r is Reseau => r !== null);
-const INTERFACES_CONTENEURS = /^(docker|br-|veth|virbr|cni|flannel|podman|lxc|lxd|incus|vnet|kube)/u;
 const RESERVEE = "address reserved to the host or its local network";
 
-/** Adresses de l'hôte et sous-réseaux de ses interfaces de conteneurs (ponts Docker…). */
-export interface HoteNavigateur {
-  adresses: readonly AdresseIp[];
-  reseaux: readonly Reseau[];
-}
+/** Adresses de l'hôte et sous-réseaux de ses interfaces de conteneurs (relevé de `@elpis/securite`). */
+export type HoteNavigateur = HoteMachine;
+export { hostAddresses };
 
 export interface OptionsGardeNavigateur {
   /** Liste blanche du réseau local ; `null`/absente : `browser.url_allowlist`, relue à chaud. */
@@ -70,62 +66,6 @@ const memeIp = (a: AdresseIp, b: AdresseIp): boolean => a.version === b.version 
 /** Résolveur du système : le nom IDNA (comme `socket.getaddrinfo` sur un nom Unicode), adresses dans l'ordre du système. */
 async function resoudreSysteme(nom: string): Promise<string[]> {
   return (await lookup(domainToASCII(nom) || nom, { all: true, order: "verbatim" })).map((r) => r.address);
-}
-
-async function lire(chemin: string): Promise<string> {
-  try {
-    return await readFile(chemin, "utf-8");
-  } catch {
-    return "";
-  }
-}
-
-function interfaces(): ReturnType<typeof networkInterfaces> {
-  try {
-    return networkInterfaces();
-  } catch {
-    return {};
-  }
-}
-
-/** IPv4 d'un champ hexadécimal de /proc/net/route (ordre des octets de la machine, petit-boutiste). */
-function ipv4Proc(hex: string): string {
-  const n = Number.parseInt(hex, 16);
-  return [n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, n >>> 24].join(".");
-}
-
-/** `host_addresses` ; os.networkInterfaces() complété par /proc (libuv omet les interfaces sans porteuse, psutil non : pont Docker sans conteneur). */
-export async function hostAddresses(): Promise<HoteNavigateur> {
-  const adresses: AdresseIp[] = [];
-  const reseaux: Reseau[] = [];
-  const ajouter = (texte: string, nom: string, prefixe: string | null): void => {
-    const ip = ipNav(texte);
-    if (ip === null) return;
-    adresses.push(ip);
-    const r = INTERFACES_CONTENEURS.test(nom) && prefixe ? reseauPy(`${texteIp(ip)}/${prefixe}`) : null;
-    if (r !== null) reseaux.push(r);
-  };
-  for (const [nom, liste] of Object.entries(interfaces()))
-    for (const a of liste ?? []) ajouter(a.address, nom, a.cidr?.split("/")[1] ?? null);
-  for (const ligne of (await lire("/proc/net/if_inet6")).split("\n")) {
-    const [hex, , plen, , , nom] = ligne.trim().split(/\s+/u);
-    if (hex?.length === 32 && plen && nom)
-      ajouter(hex.match(/.{4}/gu)?.join(":") ?? "", nom, String(Number.parseInt(plen, 16)));
-  }
-  let derniere = "";
-  for (const ligne of (await lire("/proc/net/fib_trie")).split("\n")) {
-    const feuille = /^\s*\|-- (\S+)$/u.exec(ligne);
-    if (feuille) derniere = feuille[1] ?? "";
-    else if (/^\s*\/32 host LOCAL$/u.test(ligne) && derniere) ajouter(derniere, "", null);
-  }
-  for (const ligne of (await lire("/proc/net/route")).split("\n").slice(1)) {
-    const [nom, dest, passerelle, , , , , masque] = ligne.trim().split(/\s+/u);
-    if (!nom || !dest || !masque || masque === "00000000" || passerelle !== "00000000") continue;
-    if (!INTERFACES_CONTENEURS.test(nom)) continue;
-    const r = reseauPy(`${ipv4Proc(dest)}/${ipv4Proc(masque)}`);
-    if (r !== null) reseaux.push(r);
-  }
-  return { adresses, reseaux };
 }
 
 /** `_liste_blanche` : texte séparé par blancs ou virgules, ou itérable ; réseaux, suffixes (`*.x`, `.x`) et noms exacts. */

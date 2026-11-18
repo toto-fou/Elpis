@@ -3,7 +3,7 @@
 import type { ProfilReseau } from "./profils";
 
 /** Version des options de `docker run` qui touchent à la sécurité (étiquette `elpis.spec`) ; la changer recrée les conteneurs. */
-export const RUN_SPEC = "8";
+export const RUN_SPEC = "9";
 
 /** PATH des étapes root (démarrage, entretien de l'hôte) : dossiers du système seuls, jamais ceux de `/work`. */
 export const PATH_SYSTEME = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";

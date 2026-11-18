@@ -15,7 +15,7 @@ import {
   SCRIPT_NAVIGATEUR,
   UserSandbox,
 } from "../src/index";
-import { ENTREE_ROOT } from "../src/durcissement";
+import { ENTREE_ROOT, RUN_SPEC } from "../src/durcissement";
 import { empreinteDemarrage } from "../src/montages";
 import { dossierTemporaire, FauxCli } from "./aides";
 
@@ -124,9 +124,9 @@ describe("conteneur du bac", () => {
       new FauxCli([
         {
           motif: ["inspect", "~elpis.browser"],
-          out: `|8|elpis/sandbox:1.8.0||${empreinteDemarrage()}|${nav}\n`,
+          out: `|${RUN_SPEC}|elpis/sandbox:1.8.0||${empreinteDemarrage()}|${nav}\n`,
         },
-        { motif: ["inspect"], out: `|8|elpis/sandbox:1.8.0||${empreinteDemarrage()}\n` },
+        { motif: ["inspect"], out: `|${RUN_SPEC}|elpis/sandbox:1.8.0||${empreinteDemarrage()}\n` },
       ]);
     const sb = (nav: string): UserSandbox =>
       new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {

@@ -262,12 +262,11 @@ describe("/api/sandbox/me", () => {
     );
   });
 
-  it("POST : échec de démarrage → erreur, journaux du conteneur, nettoyage des conteneurs arrêtés", async () => {
+  it("POST : échec de démarrage → erreur sobre, sans les journaux du conteneur, nettoyage des conteneurs arrêtés", async () => {
     docker.poser("run-ko");
     const r = await requete("POST", "/api/sandbox/me", { network_profile_id: "isolated" });
     expect(r.json().bootstrap.container).toEqual({
-      error: "docker run a échoué : docker: Error response from daemon: boom.",
-      logs: "journal du conteneur",
+      error: "La sandbox ne peut pas démarrer. Demandez à votre administrateur.",
     });
     expect(docker.appels().filter((a) => a.startsWith("ps -a"))).toEqual([
       "ps -a --filter label=elpis.user_id=7 --filter status=exited --filter status=dead --filter status=created --format {{.ID}}",

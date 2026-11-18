@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/git/garde.test.ts — garde SSRF des appels git : boucle et lien local refusés même pour un hôte enregistré, LAN permis s'il est enregistré ou en `critical_only`, une seule résolution retenue, hôte non résolu refusé. */
-import { adresseIpOuNul } from "@elpis/commun";
+import { adresseIpOuNul, reseauPy } from "@elpis/commun";
+import type { AdresseIp, Reseau } from "@elpis/commun";
 import { describe, expect, it } from "vitest";
 
-import { gardeGit } from "../../src/git/garde";
+import { gardeGit, reglagesGardeGit } from "../../src/git/garde";
 import { adresseCritique } from "@elpis/securite";
 
 const resolveur =
@@ -122,6 +123,35 @@ describe("gardeGit", () => {
     expect((await gardeGit("http://127.0.0.1:3000/api/v1", { ...lan, criticalOnly: true })).motif).toBe(
       "blocked_ip (127.0.0.1)",
     );
+  });
+
+  it("réseaux des conteneurs de la machine (les bacs) refusés même pour un hôte enregistré, IPv4 encapsulée comprise ; adresses de la machine permises", async () => {
+    const avant = reglagesGardeGit.machine;
+    reglagesGardeGit.machine = async () => ({
+      adresses: [adresseIpOuNul("10.20.0.5") as AdresseIp],
+      reseaux: [reseauPy("172.18.0.0/16") as Reseau],
+    });
+    try {
+      const garde = (url: string, hote: string, adresses: string[] = []) =>
+        gardeGit(url, {
+          allowSchemes: ["https"],
+          allowHosts: [hote],
+          criticalOnly: true,
+          resoudre: resolveur(adresses),
+        });
+      expect((await garde("http://172.18.0.3:3000/api/v1", "172.18.0.3:3000")).motif).toBe(
+        "blocked_ip (172.18.0.3)",
+      );
+      expect((await garde("http://[::ffff:172.18.0.3]/api/v1", "::ffff:172.18.0.3")).motif).toMatch(
+        /^blocked_ip /,
+      );
+      expect((await garde("http://forge.lan/api/v1", "forge.lan", ["172.18.0.9"])).motif).toBe(
+        "resolves_to_blocked (172.18.0.9)",
+      );
+      expect((await garde("http://10.20.0.5:3000/api/v1", "10.20.0.5:3000")).motif).toBeNull();
+    } finally {
+      reglagesGardeGit.machine = avant;
+    }
   });
 
   it("adresses critiques", () => {

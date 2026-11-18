@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough, Readable } from "node:stream";
 
+import { RESEAU_CONFORME } from "../src/reseau";
 import type { CliDocker, OptionsAppel, ProcessusDocker, ReponseDocker } from "../src/index";
 
 export interface Regle {
@@ -41,6 +42,12 @@ export class FauxCli implements CliDocker {
 
   repondre(args: readonly string[]): ReponseDocker {
     const joint = args.join(" ");
+    if (
+      args[0] === "network" &&
+      args[1] === "inspect" &&
+      !this.regles.some((r) => r.motif.includes("network"))
+    )
+      return [0, Buffer.from(`${RESEAU_CONFORME}\n`), Buffer.alloc(0)];
     if (joint.includes("HostConfig.Privileged")) {
       const regle = this.regles.find((r) => r.motif.some((m) => m.includes("HostConfig.Privileged")));
       if (regle === undefined) return this.entree;

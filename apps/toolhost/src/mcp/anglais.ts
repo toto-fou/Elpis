@@ -30,7 +30,14 @@ const CODES_AGENT: Readonly<Record<string, string>> = {
 /** Messages français du bac et du relais Git (forme exacte), leur version anglaise. */
 const MESSAGES: readonly (readonly [RegExp, string | ((...m: string[]) => string)])[] = [
   [/^Container (\S+) n'a pas pu démarrer$/mu, "container $1 could not start"],
-  [/^docker run a échoué : /mu, "docker run failed: "],
+  [
+    /^La sandbox ne peut pas démarrer\. Demandez à votre administrateur\.$/mu,
+    "the sandbox cannot start; the administrator must check the installation.",
+  ],
+  [
+    /^Le réseau de la sandbox est indisponible\. Demandez à votre administrateur\.$/mu,
+    "the sandbox network is unavailable; the administrator must check it.",
+  ],
   [/^Dossier de l'agent (.*?) : /mu, "sandbox agent folder $1: "],
   [/^Dossier du relais Git (.*?) : /mu, "Git relay folder $1: "],
   [/^Image '([^']*)' indisponible\. /mu, "image '$1' unavailable. "],

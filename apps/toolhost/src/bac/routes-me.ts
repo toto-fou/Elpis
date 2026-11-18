@@ -333,10 +333,7 @@ async function mePost(requete: FastifyRequest, reponse: FastifyReply, log: Journ
       log.warn(`[sandbox] bootstrap échec user_id=${uid}: ${texteErreur(e)}`);
       const journaux =
         (e instanceof ExecError ? e.containerLogs : null) || (await journauxConteneur(username, log));
-      if (journaux) {
-        conteneur["logs"] = journaux;
-        log.warn(`[sandbox] container logs (last) :\n${suffixePy(journaux, 1000)}`);
-      }
+      if (journaux) log.warn(`[sandbox] container logs (last) :\n${suffixePy(journaux, 1000)}`);
       try {
         const n = estDelai(e) ? 0 : await nettoyerConteneursArretes(uid, log);
         if (n) log.info(`[sandbox] ${n} container(s) zombie(s) nettoyé(s)`);

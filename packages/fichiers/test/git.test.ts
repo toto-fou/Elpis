@@ -8,7 +8,9 @@ import type { AddressInfo } from "node:net";
 import { connect } from "node:net";
 import path from "node:path";
 
-import type { Dict } from "@elpis/commun";
+import { adresseIpOuNul, reseauPy } from "@elpis/commun";
+import type { AdresseIp, Dict, Reseau } from "@elpis/commun";
+import type { HoteMachine } from "@elpis/securite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentClient } from "../src/agent";
@@ -283,6 +285,26 @@ describe.skipIf(!PYTHON)("réseau par le relais", () => {
       (await gardeDepot("https://h.example/x.git", BOB, sansConnecteur, async () => ["169.254.169.254"]))
         .motif,
     ).toBe("resolves_to_blocked (169.254.169.254)");
+  });
+
+  it("garde : réseaux des conteneurs de la machine refusés, IPv4 encapsulée comprise ; ses autres adresses permises", async () => {
+    const lue = (t: string): AdresseIp => adresseIpOuNul(t) as AdresseIp;
+    const net = (t: string): Reseau => reseauPy(t) as Reseau;
+    const machine = async (): Promise<HoteMachine> => ({
+      adresses: [lue("10.20.0.5"), lue("172.18.0.1")],
+      reseaux: [net("172.18.0.0/16"), net("172.17.0.0/16")],
+    });
+    const motif = async (url: string, adresses: string[] = []): Promise<string | null> =>
+      (await gardeDepot(url, BOB, sansConnecteur, async () => adresses, machine)).motif;
+    expect(await motif("http://172.18.0.3:8080/x.git")).toMatch(/^blocked_ip /);
+    expect(await motif("http://[::ffff:172.18.0.3]:8080/x.git")).toMatch(/^blocked_ip /);
+    expect(await motif("http://[::ffff:ac12:3]:8080/x.git")).toMatch(/^blocked_ip /);
+    expect(await motif("http://172.18.0.1:3000/o/r.git")).toMatch(/^blocked_ip /);
+    expect(await motif("http://git.lan/o/r.git", ["::ffff:172.17.0.5"])).toMatch(/^resolves_to_blocked /);
+    expect(await motif("http://10.20.0.5:3000/o/r.git")).toBeNull();
+    expect(await motif("http://git.lan/o/r.git", ["10.20.0.5"])).toBeNull();
+    expect(await motif("http://git.lan/o/r.git", ["192.168.1.50"])).toBeNull();
+    expect(await motif("http://192.168.1.50/o/r.git")).toBeNull();
   });
 
   it("le relais tient au ticket ; révoqué en fin d'opération ; socket 0666", async () => {

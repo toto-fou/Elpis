@@ -138,8 +138,8 @@ describe("constantes", () => {
     expect("privdrop" in bac).toBe(false);
   });
 
-  it("version des options de lancement : 8", () => {
-    expect(RUN_SPEC).toBe("8");
+  it("version des options de lancement : 9", () => {
+    expect(RUN_SPEC).toBe("9");
   });
 });
 
@@ -156,7 +156,7 @@ describe("docker run", () => {
       expect(argv[i + 3]).toBe("HOME=/work");
       expect(argv.filter((a) => a.startsWith("PATH="))).toEqual([`PATH=${SYSTEME}`]);
       expect(argv.find((a) => a.startsWith("PATH="))).not.toContain("/work");
-      expect(argv).toContain("elpis.spec=8");
+      expect(argv).toContain(`elpis.spec=${RUN_SPEC}`);
     },
   );
 
@@ -609,7 +609,7 @@ esac
     const { journal } = fauxDocker({
       ps:
         `elpis-sb-vieux1\t6\nelpis-sb-vieux2\t\nelpis-sb-vieux3\t5\nelpis-sb-vieux4\t6\n` +
-        `elpis-sb-vieux5\t6\nelpis-sb-neuf\t8\nelpis-sb-autre\t6\n`,
+        `elpis-sb-vieux5\t6\nelpis-sb-neuf\t${RUN_SPEC}\nelpis-sb-autre\t6\n`,
       montages: ["vieux1", "vieux2", "vieux3", "vieux4", "vieux5", "neuf"]
         .map((n) => `/elpis-sb-${n}|${bacs()}/${n}/work`)
         .concat([`/elpis-sb-autre|/srv/autre/bacs/a/work`])

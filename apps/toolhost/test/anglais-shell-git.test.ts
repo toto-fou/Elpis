@@ -14,7 +14,14 @@ describe("textes du bac, de l'agent et du relais en anglais (harnais B-13)", () 
   it("messages connus du bac et du relais traduits, le reste inchangé", () => {
     for (const [fr, en] of [
       ["Container elpis-sb-a n'a pas pu démarrer", "container elpis-sb-a could not start"],
-      ["docker run a échoué : boom", "docker run failed: boom"],
+      [
+        "La sandbox ne peut pas démarrer. Demandez à votre administrateur.",
+        "the sandbox cannot start; the administrator must check the installation.",
+      ],
+      [
+        "Le réseau de la sandbox est indisponible. Demandez à votre administrateur.",
+        "the sandbox network is unavailable; the administrator must check it.",
+      ],
       ["Agent non démarré dans elpis-sb-a : sortie", "sandbox agent not started in elpis-sb-a: sortie"],
       ["Container a crashé au démarrage (état=exited).", "container crashed at startup (state=exited)."],
       [

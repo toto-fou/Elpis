@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { createUser, creerJeton, dependancesParDefaut } from "@elpis/auth";
-import { privdrop, resetImageLoadState, resetUserSandboxCache } from "@elpis/bac";
+import { resetImageLoadState, resetUserSandboxCache } from "@elpis/bac";
 import { invalidateConfigCache, surchargerConfig } from "@elpis/config";
 import { composer as composerCore, creerApp, Journal } from "@elpis/core";
 import { initialiserBase } from "@elpis/db";
@@ -142,7 +142,6 @@ describe.skipIf(!ACTIF)(
         for (const nom of COMPTES) supprimerConteneur(nom);
         brancherRappelProfil(null);
         resetUserSandboxCache();
-        privdrop.oublierSondes();
         resetImageLoadState();
         oublierConfigurationAudit();
         restaurer();

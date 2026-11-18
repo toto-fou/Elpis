@@ -4,7 +4,7 @@ import { Journal } from "@elpis/http";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { RAPPEL_ABSENT } from "../src/fichiers/commun";
-import { boucleBalayage } from "../src/fichiers/entretien";
+import { arreterPerimesAuDemarrage, boucleBalayage } from "../src/fichiers/entretien";
 import { quotaMb } from "../src/fichiers/quota";
 import {
   arreterFilsCalcul,
@@ -106,5 +106,21 @@ describe("balayage des envois abandonnés", () => {
     arret2.abort();
     await boucle2;
     expect(lignes.join("\n")).toContain("balayage des tmp d'upload échoué : docker absent");
+  });
+});
+
+describe("arrêt des bacs à relancer au démarrage", () => {
+  it("noms journalisés ; rien à dire : silence ; échec avalé", async () => {
+    const lignes: string[] = [];
+    const journal = new Journal({ niveau: "debug", sortie: (l) => lignes.push(l) });
+    await arreterPerimesAuDemarrage(journal, async () => ["elpis-sb-a", "elpis-sb-b"]);
+    expect(lignes.join("\n")).toContain("2 bac(s) à relancer arrêté(s) : elpis-sb-a, elpis-sb-b");
+    lignes.length = 0;
+    await arreterPerimesAuDemarrage(journal, async () => []);
+    expect(lignes).toEqual([]);
+    await expect(
+      arreterPerimesAuDemarrage(journal, () => Promise.reject(new Error("docker absent"))),
+    ).resolves.toBeUndefined();
+    expect(lignes.join("\n")).toContain("arrêt des bacs à relancer échoué : docker absent");
   });
 });

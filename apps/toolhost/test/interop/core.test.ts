@@ -227,7 +227,9 @@ describe("core TS → hôte TS", () => {
       "isolated",
       true,
     ]);
-    expect(docker.appels().some((a) => a.startsWith("run -d --init --name elpis-sb-alice"))).toBe(true);
+    expect(
+      docker.appels().some((a) => a.startsWith("run -d --init --no-healthcheck --name elpis-sb-alice")),
+    ).toBe(true);
   }, 30_000);
 
   it.skipIf(!PYTHON)(

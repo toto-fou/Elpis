@@ -15,7 +15,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { appelDocker, privdrop } from "@elpis/bac";
+import { appelDocker, PATH_COMPTE } from "@elpis/bac";
 import { HttpError } from "@elpis/commun";
 import { surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
@@ -26,13 +26,7 @@ import WebSocket from "ws";
 
 import { fermerBaseHote, ouvrirBaseHote } from "../src/base-hote";
 import { CycleDeVie } from "../src/cycle";
-import {
-  construireCommandePty,
-  PTY_EXEC_USER,
-  PTY_PRIVDROP_WRAP,
-  Terminal,
-  Terminaux,
-} from "../src/terminal/pty";
+import { construireCommandePty, PTY_EXEC_USER, Terminal, Terminaux } from "../src/terminal/pty";
 import { installerUsageTerminal } from "../src/terminal/quota";
 import { SessionsTerminal } from "../src/terminal/sessions";
 import { boucleWs, reglagesWs, tamponner } from "../src/terminal/ws";
@@ -144,7 +138,6 @@ describe("terminal de l'hôte (vrai PTY, faux docker)", () => {
     await t?.fermer();
     restaurer();
     vi.unstubAllEnvs();
-    privdrop.oublierSondes();
     if (dossier) rmSync(dossier, { recursive: true, force: true });
   });
 
@@ -191,13 +184,15 @@ describe("terminal de l'hôte (vrai PTY, faux docker)", () => {
     expect(h.composition.terminaux.taille).toBe(0);
   });
 
-  it("WebSocket : accueil, argv du PTY (historique puis root + setpriv), écho, taille, ping ; reconnexion et fin du shell", async () => {
-    privdrop.oublierSondes();
+  it("WebSocket : accueil, argv du PTY (sous l'UID du compte, jamais root ni setpriv), écho, taille, ping ; reconnexion et fin du shell", async () => {
     const a = await connecter(port, "/ws/terminal");
     await attendre(() => a.sortie().includes("$ "));
     expect(await accueil(a)).toEqual({ type: "hello", fresh_shell: true });
     expect(docker.argvPty()[0]).toEqual(construireCommandePty("elpis-sb-hugo").slice(1));
     expect(docker.argvPty()[0]?.slice(2, 4)).toEqual(["--user", PTY_EXEC_USER]);
+    expect(docker.argvPty()[0]).toContain(`PATH=${PATH_COMPTE}`);
+    expect(docker.argvPty()[0]).not.toContain("setpriv");
+    expect(docker.argvPty()[0]).not.toContain("0:0");
     a.ws.send(JSON.stringify({ op: "resize", rows: 33, cols: 101 }));
     a.ws.send(Buffer.from("echo bon$((1+1))jour; stty size\r"));
     await attendre(() => a.sortie().includes("bon2jour") && a.sortie().includes("33 101"));
@@ -211,17 +206,67 @@ describe("terminal de l'hôte (vrai PTY, faux docker)", () => {
     b.ws.send(Buffer.from("exit\r"));
     expect(await b.fin).toBe(1000);
     expect(b.textes.at(-1)).toEqual({ type: "exit" });
+  });
 
-    docker.poser("privdrop-ok");
-    privdrop.oublierSondes();
-    const c = await connecter(port, "/ws/terminal");
-    expect(await accueil(c)).toEqual({ type: "hello", fresh_shell: true });
-    const argv = docker.argvPty().find((x) => x[3] === "0:0");
-    expect(argv).toEqual(construireCommandePty("elpis-sb-hugo").slice(1));
-    expect(argv?.slice(19, 24)).toEqual(["/bin/sh", "-c", PTY_PRIVDROP_WRAP, "--", "10001"]);
-    c.ws.close();
-    await c.fin;
-    docker.poser("privdrop-ok", false);
+  describe("garde de l'entrée directe (réseau modifiable sans no-new-privileges)", () => {
+    const A_RELANCER = {
+      detail: {
+        error: "container_not_ready",
+        message:
+          "La sandbox doit être relancée avant d'ouvrir un terminal. Relancez-la depuis vos paramètres.",
+      },
+    };
+    const SANS_REPONSE = {
+      detail: {
+        error: "container_not_ready",
+        message: "La sandbox ne répond pas pour l'instant. Réessayez dans un instant.",
+      },
+    };
+    const frapper = (): Promise<Response> =>
+      fetch(`http://127.0.0.1:${port}/api/terminal/input`, {
+        method: "POST",
+        headers: { ...entetes(), "content-type": "application/json" },
+        body: JSON.stringify({ data: "ls\r" }),
+      });
+
+    afterEach(() => {
+      docker.poserGarde(null);
+      docker.poser("garde-ko", false);
+    });
+
+    it.each([
+      'false\n["CHOWN"]\n["no-new-privileges:false"]',
+      "false\nnull\nnull",
+      'false\n["NET_ADMIN","CHOWN"]\n["no-new-privileges:true"]',
+      'false\n["NET_ADMIN"]\n["seccomp=x","no-new-privileges"]',
+      'false\n["CAP_NET_ADMIN"]\n["no-new-privileges=true"]',
+    ])("accepte : %j", async (reponse) => {
+      docker.poserGarde(reponse);
+      const r = await frapper();
+      expect([r.status, await r.json()]).toEqual([200, { ok: true }]);
+    });
+
+    it.each([
+      'false\n["NET_ADMIN"]\n["no-new-privileges:false"]',
+      'false\n["NET_ADMIN"]\nnull',
+      'false\n["ALL"]\n["seccomp=x"]',
+      'true\nnull\n["no-new-privileges:true","no-new-privileges:false"]',
+      'false\n["NET_ADMIN"]\n["no-new-privileges:true","no-new-privileges:false"]',
+      "illisible",
+      "",
+    ])("refuse (conteneur à relancer) : %j", async (reponse) => {
+      docker.poserGarde(reponse);
+      const r = await frapper();
+      expect([r.status, await r.json()]).toEqual([503, A_RELANCER]);
+      expect(h.composition.terminaux.taille).toBe(0);
+    });
+
+    it("inspection en échec : autre message, 503", async () => {
+      docker.poser("garde-ko");
+      const r = await frapper();
+      expect([r.status, await r.json()]).toEqual([503, SANS_REPONSE]);
+      expect(h.composition.terminaux.taille).toBe(0);
+    });
   });
 
   it("SSE : sortie en base64, frappe par POST, [EOF] dès /api/terminal/kill — et pas de blocage ensuite (sous-processus, /health, nouveau shell)", async () => {

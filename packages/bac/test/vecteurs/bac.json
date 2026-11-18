@@ -41,7 +41,7 @@
     "--tmpfs",
     "/tmp"
   ],
-  "run_spec": "6",
+  "run_spec": "7",
   "default_image": "elpis/sandbox:1.8.0",
   "run_args": [
     {
@@ -58,6 +58,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-alice",
         "--label",
@@ -99,6 +100,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -121,7 +124,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -145,6 +148,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-JeanDupont",
         "--label",
@@ -186,6 +190,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -208,7 +214,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -277,6 +283,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-bob",
         "--label",
@@ -318,6 +325,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -340,7 +349,7 @@
         "--label",
         "elpis.netcfg=c6e3b2679567",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "elpis/sandbox:1.8.0",
@@ -407,6 +416,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-carol",
         "--label",
@@ -414,7 +424,7 @@
         "--label",
         "elpis.username=carol",
         "--security-opt",
-        "no-new-privileges:false",
+        "no-new-privileges:true",
         "--cap-drop",
         "ALL",
         "--cap-add",
@@ -448,6 +458,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -470,7 +482,7 @@
         "--label",
         "elpis.netcfg=cc3ca5743576",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--cap-add",
@@ -549,6 +561,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-dave",
         "--label",
@@ -556,7 +569,7 @@
         "--label",
         "elpis.username=dave",
         "--security-opt",
-        "no-new-privileges:false",
+        "no-new-privileges:true",
         "--cap-drop",
         "ALL",
         "--cap-add",
@@ -590,6 +603,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -612,7 +627,7 @@
         "--label",
         "elpis.netcfg=c9b70535cd34",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--cap-add",
@@ -695,6 +710,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-dave",
         "--label",
@@ -702,7 +718,7 @@
         "--label",
         "elpis.username=dave",
         "--security-opt",
-        "no-new-privileges:false",
+        "no-new-privileges:true",
         "--cap-drop",
         "ALL",
         "--cap-add",
@@ -736,6 +752,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -758,7 +776,7 @@
         "--label",
         "elpis.netcfg=c9b70535cd34",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--cap-add",
@@ -837,6 +855,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-eve",
         "--label",
@@ -878,6 +897,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -900,7 +921,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -939,6 +960,7 @@
         "--runtime",
         "runsc",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-frank",
         "--label",
@@ -980,6 +1002,8 @@
         "--pids-limit",
         "64",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1002,7 +1026,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -1033,6 +1057,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-guest",
         "--label",
@@ -1074,6 +1099,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1096,7 +1123,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -1125,6 +1152,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-t",
         "--label",
@@ -1166,6 +1194,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1188,7 +1218,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -1216,6 +1246,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-x",
         "--label",
@@ -1257,6 +1288,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1279,7 +1312,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -1307,6 +1340,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-y",
         "--label",
@@ -1348,6 +1382,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1370,7 +1406,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -1398,6 +1434,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-z",
         "--label",
@@ -1439,6 +1476,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1461,7 +1500,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -1488,6 +1527,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-w",
         "--label",
@@ -1529,6 +1569,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1551,7 +1593,7 @@
         "--label",
         "elpis.netcfg=c6e3b2679567",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "registre.lan:5000/elpis/sandbox:9",
@@ -1575,6 +1617,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-v",
         "--label",
@@ -1616,6 +1659,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1638,7 +1683,7 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--network",
@@ -1673,6 +1718,7 @@
         "run",
         "-d",
         "--init",
+        "--no-healthcheck",
         "--name",
         "elpis-sb-u",
         "--label",
@@ -1680,7 +1726,7 @@
         "--label",
         "elpis.username=u",
         "--security-opt",
-        "no-new-privileges:false",
+        "no-new-privileges:true",
         "--cap-drop",
         "ALL",
         "--cap-add",
@@ -1714,6 +1760,8 @@
         "--pids-limit",
         "512",
         "-e",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "-e",
         "HOME=/work",
         "-e",
         "LANG=C.UTF-8",
@@ -1736,7 +1784,7 @@
         "--label",
         "elpis.netcfg=d9496c312c57",
         "--label",
-        "elpis.spec=6",
+        "elpis.spec=7",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--cap-add",
@@ -1941,551 +1989,6 @@
         "{racine}/sandbox_images/registre-5000-a-b-c.tar",
         "{racine}/deploy/docker/sandbox/registre-5000-a-b-c.tar.gz",
         "{racine}/deploy/docker/sandbox/registre-5000-a-b-c.tar"
-      ]
-    }
-  ],
-  "privdrop": [
-    {
-      "exec_user": "10001:10001",
-      "argv": [
-        "setpriv",
-        "--reuid=10001",
-        "--regid=10001",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--"
-      ],
-      "sonde": [
-        "exec",
-        "--user",
-        "0:0",
-        "c",
-        "setpriv",
-        "--reuid=10001",
-        "--regid=10001",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--",
-        "true"
-      ],
-      "resolu": [
-        [
-          "10001:10001",
-          []
-        ],
-        [
-          "0:0",
-          [
-            "setpriv",
-            "--reuid=10001",
-            "--regid=10001",
-            "--init-groups",
-            "--bounding-set=-net_admin",
-            "--"
-          ]
-        ],
-        [
-          "10001:10001",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "0:0",
-      "argv": [
-        "setpriv",
-        "--reuid=0",
-        "--regid=0",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--"
-      ],
-      "sonde": [
-        "exec",
-        "--user",
-        "0:0",
-        "c",
-        "setpriv",
-        "--reuid=0",
-        "--regid=0",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--",
-        "true"
-      ],
-      "resolu": [
-        [
-          "0:0",
-          []
-        ],
-        [
-          "0:0",
-          [
-            "setpriv",
-            "--reuid=0",
-            "--regid=0",
-            "--init-groups",
-            "--bounding-set=-net_admin",
-            "--"
-          ]
-        ],
-        [
-          "0:0",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "root:root",
-      "argv": [
-        "setpriv",
-        "--reuid=root",
-        "--regid=root",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--"
-      ],
-      "sonde": [
-        "exec",
-        "--user",
-        "0:0",
-        "c",
-        "setpriv",
-        "--reuid=root",
-        "--regid=root",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--",
-        "true"
-      ],
-      "resolu": [
-        [
-          "root:root",
-          []
-        ],
-        [
-          "0:0",
-          [
-            "setpriv",
-            "--reuid=root",
-            "--regid=root",
-            "--init-groups",
-            "--bounding-set=-net_admin",
-            "--"
-          ]
-        ],
-        [
-          "root:root",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "u.ser-1:g_2",
-      "argv": [
-        "setpriv",
-        "--reuid=u.ser-1",
-        "--regid=g_2",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--"
-      ],
-      "sonde": [
-        "exec",
-        "--user",
-        "0:0",
-        "c",
-        "setpriv",
-        "--reuid=u.ser-1",
-        "--regid=g_2",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--",
-        "true"
-      ],
-      "resolu": [
-        [
-          "u.ser-1:g_2",
-          []
-        ],
-        [
-          "0:0",
-          [
-            "setpriv",
-            "--reuid=u.ser-1",
-            "--regid=g_2",
-            "--init-groups",
-            "--bounding-set=-net_admin",
-            "--"
-          ]
-        ],
-        [
-          "u.ser-1:g_2",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "1:2\n",
-      "argv": [
-        "setpriv",
-        "--reuid=1",
-        "--regid=2\n",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--"
-      ],
-      "sonde": [
-        "exec",
-        "--user",
-        "0:0",
-        "c",
-        "setpriv",
-        "--reuid=1",
-        "--regid=2\n",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--",
-        "true"
-      ],
-      "resolu": [
-        [
-          "1:2\n",
-          []
-        ],
-        [
-          "0:0",
-          [
-            "setpriv",
-            "--reuid=1",
-            "--regid=2\n",
-            "--init-groups",
-            "--bounding-set=-net_admin",
-            "--"
-          ]
-        ],
-        [
-          "1:2\n",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "1:2\n\n",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "1:2\n\n",
-          []
-        ],
-        [
-          "1:2\n\n",
-          []
-        ],
-        [
-          "1:2\n\n",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": ":1",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          ":1",
-          []
-        ],
-        [
-          ":1",
-          []
-        ],
-        [
-          ":1",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "1:",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "1:",
-          []
-        ],
-        [
-          "1:",
-          []
-        ],
-        [
-          "1:",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "1",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "1",
-          []
-        ],
-        [
-          "1",
-          []
-        ],
-        [
-          "1",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "1:2:3",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "1:2:3",
-          []
-        ],
-        [
-          "1:2:3",
-          []
-        ],
-        [
-          "1:2:3",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "",
-          []
-        ],
-        [
-          "",
-          []
-        ],
-        [
-          "",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": " 1:2",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          " 1:2",
-          []
-        ],
-        [
-          " 1:2",
-          []
-        ],
-        [
-          " 1:2",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "1:2 ",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "1:2 ",
-          []
-        ],
-        [
-          "1:2 ",
-          []
-        ],
-        [
-          "1:2 ",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "a b:c",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "a b:c",
-          []
-        ],
-        [
-          "a b:c",
-          []
-        ],
-        [
-          "a b:c",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "\u00e9:1",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "\u00e9:1",
-          []
-        ],
-        [
-          "\u00e9:1",
-          []
-        ],
-        [
-          "\u00e9:1",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "_x:_y",
-      "argv": [
-        "setpriv",
-        "--reuid=_x",
-        "--regid=_y",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--"
-      ],
-      "sonde": [
-        "exec",
-        "--user",
-        "0:0",
-        "c",
-        "setpriv",
-        "--reuid=_x",
-        "--regid=_y",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--",
-        "true"
-      ],
-      "resolu": [
-        [
-          "_x:_y",
-          []
-        ],
-        [
-          "0:0",
-          [
-            "setpriv",
-            "--reuid=_x",
-            "--regid=_y",
-            "--init-groups",
-            "--bounding-set=-net_admin",
-            "--"
-          ]
-        ],
-        [
-          "_x:_y",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "-1:2",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "-1:2",
-          []
-        ],
-        [
-          "-1:2",
-          []
-        ],
-        [
-          "-1:2",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "1:.2",
-      "argv": null,
-      "sonde": null,
-      "resolu": [
-        [
-          "1:.2",
-          []
-        ],
-        [
-          "1:.2",
-          []
-        ],
-        [
-          "1:.2",
-          []
-        ]
-      ]
-    },
-    {
-      "exec_user": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:y",
-      "argv": [
-        "setpriv",
-        "--reuid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "--regid=y",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--"
-      ],
-      "sonde": [
-        "exec",
-        "--user",
-        "0:0",
-        "c",
-        "setpriv",
-        "--reuid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "--regid=y",
-        "--init-groups",
-        "--bounding-set=-net_admin",
-        "--",
-        "true"
-      ],
-      "resolu": [
-        [
-          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:y",
-          []
-        ],
-        [
-          "0:0",
-          [
-            "setpriv",
-            "--reuid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-            "--regid=y",
-            "--init-groups",
-            "--bounding-set=-net_admin",
-            "--"
-          ]
-        ],
-        [
-          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:y",
-          []
-        ]
       ]
     }
   ],
@@ -2850,6 +2353,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -2887,7 +2396,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -2905,6 +2413,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -2945,7 +2459,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -2963,6 +2476,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -3002,7 +2521,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3020,6 +2538,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -3059,7 +2583,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3077,6 +2600,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -3116,7 +2645,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3134,6 +2662,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -3173,7 +2707,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3191,6 +2724,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~Networks"
@@ -3221,7 +2760,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3239,6 +2777,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~Networks"
@@ -3269,7 +2813,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3287,6 +2830,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~Networks"
@@ -3317,7 +2866,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3335,6 +2883,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "version"
@@ -3366,7 +2920,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3384,6 +2937,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "version"
@@ -3416,7 +2975,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3434,6 +2992,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "version"
@@ -3466,7 +3030,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3484,6 +3047,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "stats"
@@ -3519,7 +3088,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3537,6 +3105,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "stats"
@@ -3567,7 +3141,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3585,6 +3158,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "stats"
@@ -3615,7 +3194,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3623,7 +3201,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6' rc=0",
+      "nom": "config '6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3635,10 +3213,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -3663,7 +3247,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3671,7 +3254,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0' rc=0",
+      "nom": "config '6907f24f152c|7|elpis/sandbox:1.8.0' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3683,10 +3266,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0\n"
         }
       ],
       "processus": null,
@@ -3711,7 +3300,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3719,7 +3307,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0|autre' rc=0",
+      "nom": "config '6907f24f152c|7|elpis/sandbox:1.8.0|autre' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3731,10 +3319,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|autre\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|autre\n"
         }
       ],
       "processus": null,
@@ -3759,7 +3353,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3767,7 +3360,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.8.0|<no value>' rc=0",
+      "nom": "config '6907f24f152c|7|elpis/sandbox:1.8.0|<no value>' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3779,10 +3372,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|<no value>\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|<no value>\n"
         }
       ],
       "processus": null,
@@ -3807,7 +3406,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3815,7 +3413,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|elpis/sandbox:1.6.0' rc=0",
+      "nom": "config '6907f24f152c|7|elpis/sandbox:1.6.0' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3827,10 +3425,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|elpis/sandbox:1.6.0\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.6.0\n"
         }
       ],
       "processus": null,
@@ -3855,7 +3459,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3863,7 +3466,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|6|' rc=0",
+      "nom": "config '6907f24f152c|7|' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3875,10 +3478,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|6|\n"
+          "out": "6907f24f152c|7|\n"
         }
       ],
       "processus": null,
@@ -3903,7 +3512,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3921,6 +3529,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~elpis.netcfg"
@@ -3951,7 +3565,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -3969,6 +3582,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~elpis.netcfg"
@@ -3999,7 +3618,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4017,6 +3635,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~elpis.netcfg"
@@ -4047,7 +3671,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4067,10 +3690,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "<no value>|6\n"
+          "out": "<no value>|7\n"
         }
       ],
       "processus": null,
@@ -4095,7 +3724,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4115,10 +3743,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "|6\n"
+          "out": "|7\n"
         }
       ],
       "processus": null,
@@ -4143,7 +3777,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4161,6 +3794,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~elpis.netcfg"
@@ -4191,7 +3830,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4211,10 +3849,16 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "autre|6\n"
+          "out": "autre|7\n"
         }
       ],
       "processus": null,
@@ -4239,7 +3883,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4304,9 +3947,15 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\n[\"NET_ADMIN\"]\n[\"no-new-privileges:true\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
-          "out": "<no value>|6"
+          "out": "<no value>|7"
         }
       ],
       "processus": null,
@@ -4331,7 +3980,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4339,7 +3987,7 @@
       }
     },
     {
-      "nom": "config web 'c9b70535cd34|6|elpis/sandbox:1.8.0|120fce89f7f6'",
+      "nom": "config web 'c9b70535cd34|7|elpis/sandbox:1.8.0|120fce89f7f6'",
       "methode": "_config_matches",
       "executors": {
         "network_profiles": [
@@ -4396,9 +4044,15 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\n[\"NET_ADMIN\"]\n[\"no-new-privileges:true\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
-          "out": "c9b70535cd34|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "c9b70535cd34|7|elpis/sandbox:1.8.0|120fce89f7f6"
         }
       ],
       "processus": null,
@@ -4423,7 +4077,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4488,9 +4141,15 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\n[\"NET_ADMIN\"]\n[\"no-new-privileges:true\"]\n"
+        },
+        {
+          "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6"
+          "out": "6907f24f152c|7"
         }
       ],
       "processus": null,
@@ -4515,7 +4174,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4523,7 +4181,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 137|false 6907f24f152c|6|elpis",
+      "nom": "red\u00e9marrage 137|false 6907f24f152c|7|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4537,6 +4195,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~ExitCode"
@@ -4547,7 +4211,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -4621,7 +4285,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4629,7 +4292,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 143|false 6907f24f152c|6|elpis",
+      "nom": "red\u00e9marrage 143|false 6907f24f152c|7|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4643,6 +4306,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~ExitCode"
@@ -4653,7 +4322,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -4727,7 +4396,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -4735,7 +4403,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 137|true 6907f24f152c|6|elpis",
+      "nom": "red\u00e9marrage 137|true 6907f24f152c|7|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4749,6 +4417,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~ExitCode"
@@ -4759,7 +4433,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -4816,6 +4490,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -4857,6 +4532,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -4879,7 +4556,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -4925,7 +4602,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -4933,7 +4609,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 0|false 6907f24f152c|6|elpis",
+      "nom": "red\u00e9marrage 0|false 6907f24f152c|7|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4949,6 +4625,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "0|false"
@@ -4957,7 +4639,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -5031,7 +4713,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -5039,7 +4720,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 1|false 6907f24f152c|6|elpis",
+      "nom": "red\u00e9marrage 1|false 6907f24f152c|7|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5053,6 +4734,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~ExitCode"
@@ -5063,7 +4750,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -5120,6 +4807,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -5161,6 +4849,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -5183,7 +4873,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -5229,7 +4919,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -5237,7 +4926,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage abc 6907f24f152c|6|elpis",
+      "nom": "red\u00e9marrage abc 6907f24f152c|7|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5253,6 +4942,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "abc"
@@ -5261,7 +4956,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -5318,6 +5013,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -5359,6 +5055,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -5381,7 +5079,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -5427,7 +5125,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -5449,6 +5146,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~ExitCode"
@@ -5529,6 +5232,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -5570,6 +5274,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -5592,7 +5298,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -5638,7 +5344,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -5646,7 +5351,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage  6907f24f152c|6|elpis",
+      "nom": "red\u00e9marrage  6907f24f152c|7|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5662,6 +5367,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": ""
@@ -5670,7 +5381,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6"
         },
         {
           "motif": [
@@ -5727,6 +5438,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -5768,6 +5480,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -5790,7 +5504,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -5836,7 +5550,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -5860,6 +5573,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "0|false"
@@ -5868,7 +5587,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -5944,6 +5663,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -5985,6 +5705,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -6007,7 +5729,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -6053,7 +5775,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -6075,6 +5796,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~ExitCode"
@@ -6137,6 +5864,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -6178,6 +5906,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -6200,7 +5930,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -6246,7 +5976,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -6268,6 +5997,12 @@
       "chargement": "not_found",
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "~ExitCode"
@@ -6356,7 +6091,6 @@
         "droits": false,
         "reportee": "image elpis/sandbox:1.8.0 absente : le conteneur de la sandbox date d'une version pr\u00e9c\u00e9dente et ne peut pas encore \u00eatre recr\u00e9\u00e9 (fichiers, \u00e9diteur et git indisponibles). Construisez l'image (./install.sh --sandbox build) ou chargez son archive (deploy/docker/sandbox/load_image.sh), puis relancez.",
         "reessai": true,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -6374,6 +6108,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -6432,6 +6172,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -6473,6 +6214,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -6495,7 +6238,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -6521,9 +6264,20 @@
           10
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -6554,7 +6308,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -6572,6 +6325,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -6631,6 +6390,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -6672,6 +6432,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -6694,7 +6456,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -6721,9 +6483,20 @@
           10
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -6754,7 +6527,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -6772,6 +6544,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -6823,6 +6601,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -6864,6 +6643,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -6886,7 +6667,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -6911,7 +6692,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -6929,6 +6709,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -6985,6 +6771,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -7026,6 +6813,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -7048,7 +6837,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -7087,7 +6876,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -7105,6 +6893,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -7161,6 +6955,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -7202,6 +6997,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -7224,7 +7021,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -7263,7 +7060,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -7281,6 +7077,12 @@
       "chargement": "loaded",
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -7351,6 +7153,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -7392,6 +7195,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -7414,7 +7219,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -7440,9 +7245,20 @@
           10
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -7473,7 +7289,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -7491,6 +7306,12 @@
       "chargement": "loading",
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -7558,7 +7379,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -7578,6 +7398,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -7643,7 +7469,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -7663,6 +7488,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -7728,7 +7559,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -7748,6 +7578,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -7763,7 +7599,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -7791,9 +7627,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -7824,7 +7671,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -7842,6 +7688,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -7866,7 +7718,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -7937,9 +7789,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -7970,7 +7833,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -7988,6 +7850,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -8012,7 +7880,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -8095,9 +7963,20 @@
           10
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -8128,7 +8007,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -8148,6 +8026,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -8163,7 +8047,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -8199,9 +8083,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -8232,7 +8127,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -8254,6 +8148,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -8269,7 +8169,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -8297,9 +8197,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -8330,7 +8241,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "0:0",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -8399,6 +8309,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\n[\"NET_ADMIN\"]\n[\"no-new-privileges:true\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -8455,6 +8371,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -8462,7 +8379,7 @@
           "--label",
           "elpis.username=alice",
           "--security-opt",
-          "no-new-privileges:false",
+          "no-new-privileges:true",
           "--cap-drop",
           "ALL",
           "--cap-add",
@@ -8496,6 +8413,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -8518,7 +8437,7 @@
           "--label",
           "elpis.netcfg=c9b70535cd34",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--cap-add",
@@ -8556,9 +8475,20 @@
           10
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -8589,7 +8519,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -8606,7 +8535,14 @@
       "args": {},
       "chargement": null,
       "marqueur_avant": null,
-      "regles": [],
+      "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        }
+      ],
       "processus": null,
       "appels": [
         [
@@ -8629,7 +8565,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -8646,7 +8581,14 @@
       "args": {},
       "chargement": null,
       "marqueur_avant": null,
-      "regles": [],
+      "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        }
+      ],
       "processus": null,
       "appels": [
         [
@@ -8668,7 +8610,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -8686,6 +8627,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -8750,6 +8697,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -8791,6 +8739,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -8813,7 +8763,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -8839,9 +8789,20 @@
           10
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -8872,7 +8833,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -8892,6 +8852,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -8907,7 +8873,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -8935,9 +8901,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -8951,6 +8928,10 @@
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "pkill",
           "-KILL",
@@ -8962,6 +8943,10 @@
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "find",
           "/work",
@@ -8990,7 +8975,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9012,6 +8996,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -9027,7 +9017,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": null,
@@ -9055,9 +9045,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -9071,6 +9072,10 @@
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "find",
           "/work",
@@ -9099,7 +9104,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "0:0",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9119,6 +9123,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -9134,7 +9144,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         },
         {
           "motif": [
@@ -9169,9 +9179,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -9185,6 +9206,10 @@
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "pkill",
           "-KILL",
@@ -9196,6 +9221,10 @@
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "find",
           "/work",
@@ -9220,7 +9249,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9238,6 +9266,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -9290,6 +9324,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -9331,6 +9366,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -9353,7 +9390,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -9378,7 +9415,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,
@@ -9398,39 +9434,28 @@
       "regles": [
         {
           "motif": [
-            "setpriv"
+            "~HostConfig.Privileged"
           ],
-          "rc": 0
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
         }
       ],
       "processus": null,
       "appels": [
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ],
         [
           "exec",
           "-d",
           "--user",
-          "0:0",
+          "10001:10001",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "python3",
           "-I",
           "-S",
@@ -9454,7 +9479,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9462,7 +9486,7 @@
       }
     },
     {
-      "nom": "agent remplac\u00e9, sans privdrop",
+      "nom": "agent remplac\u00e9",
       "methode": "start_agent",
       "executors": {},
       "profil": null,
@@ -9476,17 +9500,28 @@
       "regles": [
         {
           "motif": [
-            "setpriv"
+            "~HostConfig.Privileged"
           ],
-          "rc": 127
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
         }
       ],
       "processus": null,
       "appels": [
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
-          "--user",
+          "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "pkill",
           "-KILL",
@@ -9496,23 +9531,11 @@
         ],
         [
           "exec",
-          "--user",
-          "0:0",
-          "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
-        ],
-        [
-          "exec",
           "-d",
           "--user",
           "10001:10001",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "elpis-sb-alice",
           "python3",
           "-I",
@@ -9537,7 +9560,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": false,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9557,6 +9579,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "-d"
           ],
           "rc": 1,
@@ -9566,31 +9594,20 @@
       "processus": null,
       "appels": [
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ],
         [
           "exec",
           "-d",
           "--user",
-          "0:0",
+          "10001:10001",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "python3",
           "-I",
           "-S",
@@ -9616,7 +9633,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9635,14 +9651,30 @@
       "args": {},
       "chargement": null,
       "marqueur_avant": null,
-      "regles": [],
+      "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        }
+      ],
       "processus": null,
       "appels": [
+        [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
         [
           "exec",
           "-d",
           "--user",
           "a b:c",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "elpis-sb-alice",
           "python3",
           "-I",
@@ -9667,7 +9699,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9692,6 +9723,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -9707,13 +9744,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
-        },
-        {
-          "motif": [
-            "true"
-          ],
-          "rc": 0
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -9745,9 +9776,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -9758,18 +9800,11 @@
           600
         ],
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ]
       ],
       "lances": [
@@ -9777,9 +9812,11 @@
           "/usr/bin/docker",
           "exec",
           "--user",
-          "0:0",
+          "10001:10001",
           "--workdir",
           "/work",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "-e",
           "GIT_CONFIG_COUNT=1",
           "-e",
@@ -9787,12 +9824,6 @@
           "-e",
           "GIT_CONFIG_VALUE_0=*",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "sh",
           "-c",
           "umask 0022; t=\"$1\"; shift; exec timeout -k 5 \"$t\" \"$@\"",
@@ -9822,7 +9853,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -9830,7 +9860,7 @@
       }
     },
     {
-      "nom": "exec sans privdrop",
+      "nom": "exec, dossier et d\u00e9lai du compte",
       "methode": "exec",
       "executors": {},
       "profil": null,
@@ -9849,6 +9879,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -9864,13 +9900,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
-        },
-        {
-          "motif": [
-            "true"
-          ],
-          "rc": 1
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -9902,9 +9932,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -9915,18 +9956,11 @@
           600
         ],
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ]
       ],
       "lances": [
@@ -9937,6 +9971,8 @@
           "10001:10001",
           "--workdir",
           "/work/src",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "-e",
           "GIT_CONFIG_COUNT=1",
           "-e",
@@ -9973,7 +10009,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": false,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -10002,6 +10037,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -10017,13 +10058,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
-        },
-        {
-          "motif": [
-            "true"
-          ],
-          "rc": 0
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10055,9 +10090,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -10068,18 +10114,11 @@
           600
         ],
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ]
       ],
       "lances": [
@@ -10087,7 +10126,7 @@
           "/usr/bin/docker",
           "exec",
           "--user",
-          "0:0",
+          "10001:10001",
           "--workdir",
           "/work",
           "-i",
@@ -10096,18 +10135,14 @@
           "-e",
           "A=1=x",
           "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "GIT_CONFIG_COUNT=1",
           "-e",
           "GIT_CONFIG_KEY_0=safe.directory",
           "-e",
           "GIT_CONFIG_VALUE_0=*",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "sh",
           "-c",
           "umask 0022; t=\"$1\"; shift; exec timeout -k 5 \"$t\" \"$@\"",
@@ -10139,7 +10174,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -10167,6 +10201,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -10182,7 +10222,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10214,9 +10254,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -10227,18 +10278,11 @@
           600
         ],
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ]
       ],
       "lances": [
@@ -10246,18 +10290,14 @@
           "/usr/bin/docker",
           "exec",
           "--user",
-          "0:0",
+          "10001:10001",
           "--workdir",
           "/work",
           "-e",
           "GIT_CONFIG_COUNT=0",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "sh",
           "-c",
           "umask 0022; t=\"$1\"; shift; exec timeout -k 5 \"$t\" \"$@\"",
@@ -10287,7 +10327,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -10313,6 +10352,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -10328,7 +10373,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10360,9 +10405,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -10373,18 +10429,11 @@
           600
         ],
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ]
       ],
       "lances": [
@@ -10392,9 +10441,11 @@
           "/usr/bin/docker",
           "exec",
           "--user",
-          "0:0",
+          "10001:10001",
           "--workdir",
           "/work",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "-e",
           "GIT_CONFIG_COUNT=1",
           "-e",
@@ -10402,12 +10453,6 @@
           "-e",
           "GIT_CONFIG_VALUE_0=*",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "sh",
           "-c",
           "umask 0022; t=\"$1\"; shift; exec timeout -k 5 \"$t\" \"$@\"",
@@ -10437,7 +10482,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -10461,6 +10505,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -10476,7 +10526,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10508,9 +10558,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -10521,18 +10582,11 @@
           600
         ],
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ]
       ],
       "lances": [
@@ -10540,9 +10594,11 @@
           "/usr/bin/docker",
           "exec",
           "--user",
-          "0:0",
+          "10001:10001",
           "--workdir",
           "/work",
+          "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           "-e",
           "GIT_CONFIG_COUNT=1",
           "-e",
@@ -10550,12 +10606,6 @@
           "-e",
           "GIT_CONFIG_VALUE_0=*",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=10001",
-          "--regid=10001",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "sh",
           "-c",
           "umask 0022; t=\"$1\"; shift; exec timeout -k 5 \"$t\" \"$@\"",
@@ -10584,7 +10634,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": "10001:10001",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -10610,6 +10659,12 @@
       "regles": [
         {
           "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
+        {
+          "motif": [
             "container",
             "inspect"
           ],
@@ -10625,7 +10680,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|6|elpis/sandbox:1.8.0|120fce89f7f6\n"
+          "out": "6907f24f152c|7|elpis/sandbox:1.8.0|120fce89f7f6\n"
         }
       ],
       "processus": [
@@ -10657,9 +10712,20 @@
           5
         ],
         [
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
+          "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-w",
+          "/",
           "elpis-sb-alice",
           "sh",
           "-c",
@@ -10670,18 +10736,11 @@
           600
         ],
         [
-          "exec",
-          "--user",
-          "0:0",
+          "inspect",
+          "--format",
+          "{{json .HostConfig.Privileged}}\n{{json .HostConfig.CapAdd}}\n{{json .HostConfig.SecurityOpt}}",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=0",
-          "--regid=0",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
-          "true",
-          10
+          5
         ]
       ],
       "lances": [
@@ -10693,18 +10752,14 @@
           "--workdir",
           "/work",
           "-e",
+          "PATH=/work/.python-user/bin:/work/.local/bin:/work/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "GIT_CONFIG_COUNT=1",
           "-e",
           "GIT_CONFIG_KEY_0=safe.directory",
           "-e",
           "GIT_CONFIG_VALUE_0=*",
           "elpis-sb-alice",
-          "setpriv",
-          "--reuid=0",
-          "--regid=0",
-          "--init-groups",
-          "--bounding-set=-net_admin",
-          "--",
           "sh",
           "-c",
           "umask 0022; t=\"$1\"; shift; exec timeout -k 5 \"$t\" \"$@\"",
@@ -10733,7 +10788,6 @@
         "droits": true,
         "reportee": "",
         "reessai": false,
-        "privdrop": true,
         "marqueur": "0:0",
         "dossier_agent": null,
         "dossier_relais": false,
@@ -10755,6 +10809,12 @@
       "chargement": null,
       "marqueur_avant": null,
       "regles": [
+        {
+          "motif": [
+            "~HostConfig.Privileged"
+          ],
+          "out": "false\nnull\n[\"no-new-privileges:false\"]\n"
+        },
         {
           "motif": [
             "container",
@@ -10811,6 +10871,7 @@
           "run",
           "-d",
           "--init",
+          "--no-healthcheck",
           "--name",
           "elpis-sb-alice",
           "--label",
@@ -10852,6 +10913,8 @@
           "--pids-limit",
           "512",
           "-e",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "-e",
           "HOME=/work",
           "-e",
           "LANG=C.UTF-8",
@@ -10874,7 +10937,7 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=6",
+          "elpis.spec=7",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--network",
@@ -10899,7 +10962,6 @@
         "droits": false,
         "reportee": "",
         "reessai": false,
-        "privdrop": null,
         "marqueur": null,
         "dossier_agent": "0o777",
         "dossier_relais": true,

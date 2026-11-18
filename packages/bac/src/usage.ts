@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { rstripPy, strPy } from "@elpis/commun";
 import { config, pyPath, realpathPy } from "@elpis/config";
 
-import { appelDocker, decoderRemplace, labelFilter, which } from "./docker";
+import { appelDocker, decoderRemplace, labelFilter, labelTpl, which } from "./docker";
+import { ENTREE_ROOT, FORMAT_ENTREE, lireEntree, RUN_SPEC } from "./durcissement";
 
 const USAGE_TTL_S = 30;
 /** Au-delà de ce remplissage, un chemin qui fait respecter le quota recalcule au lieu de croire le cache. */
@@ -151,7 +152,8 @@ export async function balayerPartsOrphelines(
   if (which("docker") === null) return 0;
   let noms: string[];
   try {
-    const ps = await appelDocker(["ps", ...labelFilter("user_id"), "--format", "{{.Names}}"], 15_000);
+    const filtres = [...labelFilter("user_id"), ...labelFilter("spec", RUN_SPEC)];
+    const ps = await appelDocker(["ps", ...filtres, "--format", "{{.Names}}"], 15_000);
     if (ps.delaiDepasse) return 0;
     noms = decoderRemplace(ps.sortie).split(/\s+/u).filter(Boolean);
   } catch {
@@ -164,7 +166,7 @@ export async function balayerPartsOrphelines(
     try {
       const r = await appelDocker(
         [
-          ...["exec", "-u", "0:0", nom, "find", "/work", "-xdev", "-type", "f"],
+          ...["exec", ...ENTREE_ROOT, nom, "find", "/work", "-xdev", "-type", "f"],
           ...["-name", `*${UPLOAD_TMP_SUFFIX}`, "-mmin", `+${minutes}`, "-print", "-delete"],
         ],
         120_000,
@@ -178,4 +180,28 @@ export async function balayerPartsOrphelines(
     }
   }
   return retires;
+}
+
+/** Conteneurs en marche de CETTE instance lancés avec d'anciennes options et qui gardent la main sur leur filtre réseau : arrêtés (recréés à leur prochain usage) ; rend leurs noms. */
+export async function arreterBacsPerimes(
+  racineBacs: string = strPy(config.SANDBOX_DIR || ""),
+): Promise<string[]> {
+  if (which("docker") === null) return [];
+  const gabarit = `{{.Names}}\t${labelTpl("spec", true)}`;
+  const ps = await appelDocker(["ps", ...labelFilter("user_id"), "--format", gabarit], 15_000);
+  if (ps.delaiDepasse || ps.code !== 0) return [];
+  const anciens = decoderRemplace(ps.sortie)
+    .split("\n")
+    .map((ligne) => ligne.split("\t"))
+    .filter(([nom = "", spec = ""]) => nom !== "" && spec.trim() !== RUN_SPEC)
+    .map(([nom = ""]) => nom);
+  const arretes: string[] = [];
+  for (const nom of await conteneursDeLInstance(anciens, racineBacs)) {
+    const r = await appelDocker(["inspect", "--format", FORMAT_ENTREE, nom], 10_000);
+    const e = r.code === 0 ? lireEntree(decoderRemplace(r.sortie)) : null;
+    if (e !== null && (!e.reseau || e.sansGain)) continue;
+    const arret = await appelDocker(["stop", "-t", "5", nom], 30_000);
+    if (arret.code === 0) arretes.push(nom);
+  }
+  return arretes;
 }

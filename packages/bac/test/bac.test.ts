@@ -29,7 +29,6 @@ import {
   imageStateDict,
   ipConteneurApercu,
   previewContainerIp,
-  privdrop,
   profilRetenu,
   ReadinessCache,
   reglagesChargement,
@@ -69,7 +68,6 @@ afterEach(() => {
   restaurer();
   nettoyer();
   resetUserSandboxCache();
-  privdrop.oublierSondes();
 });
 
 describe("ReadinessCache (test_readiness_cache.py)", () => {
@@ -627,21 +625,5 @@ describe("compte courant, statistiques, IP d'aperçu", () => {
     expect(await previewContainerIp(6, "zoe")).toBeNull();
     expect(await ipConteneurApercu.ip(6, "zoe")).toBeNull();
     expect(ipConteneurApercu.oublier(6)).toBeUndefined();
-  });
-});
-
-describe("privdrop sur un vrai bac (test_privdrop_net_admin.py)", () => {
-  it("arrêt et destruction oublient le verdict du conteneur", async () => {
-    const sb = new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
-      cli: new FauxCli(),
-    });
-    privdrop.remember(sb.containerName, "10001:10001", true);
-    privdrop.remember("elpis-sb-autre", "10001:10001", true);
-    await sb.stop();
-    expect(privdrop.cached(sb.containerName, "10001:10001")).toBeNull();
-    expect(privdrop.cached("elpis-sb-autre", "10001:10001")).toBe(true);
-    privdrop.remember(sb.containerName, "10001:10001", true);
-    await sb.destroy();
-    expect(privdrop.cached(sb.containerName, "10001:10001")).toBeNull();
   });
 });

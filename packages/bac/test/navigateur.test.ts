@@ -9,12 +9,13 @@ import {
   empreinteNavigateur,
   MONTAGES_NAVIGATEUR,
   montagesNavigateur,
-  privdrop,
+  PATH_COMPTE,
   reglagesNavigateurBac,
   sandboxAdminConfigDepuis,
   SCRIPT_NAVIGATEUR,
   UserSandbox,
 } from "../src/index";
+import { ENTREE_ROOT } from "../src/durcissement";
 import { dossierTemporaire, FauxCli } from "./aides";
 
 const [tmp, nettoyer] = dossierTemporaire("bac-nav-");
@@ -115,8 +116,8 @@ describe("conteneur du bac", () => {
   it("étiquette absente ou ancienne : recréation ; à jour, ou navigateur non installé (étiquette non lue) : conteneur gardé", async () => {
     const cli = (nav: string): FauxCli =>
       new FauxCli([
-        { motif: ["inspect", "~elpis.browser"], out: `|6|elpis/sandbox:1.8.0||${nav}\n` },
-        { motif: ["inspect"], out: "|6|elpis/sandbox:1.8.0|\n" },
+        { motif: ["inspect", "~elpis.browser"], out: `|7|elpis/sandbox:1.8.0||${nav}\n` },
+        { motif: ["inspect"], out: "|7|elpis/sandbox:1.8.0|\n" },
       ]);
     const sb = (nav: string): UserSandbox =>
       new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
@@ -141,7 +142,6 @@ describe("conteneur du bac", () => {
     const sb = new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
       cli,
     });
-    privdrop.remember(sb.containerName, "10001:10001", true);
     let fichier = "";
     let contenu = "";
     cli.suspendre = (args) => {
@@ -155,12 +155,14 @@ describe("conteneur du bac", () => {
     const args = cli.appels.at(-1) as string[];
     expect(args.slice(0, 3)).toEqual(["exec", "-d", "--user"]);
     expect(args.join(" ")).toContain("10001");
+    expect(args.slice(3, 8)).toEqual(["10001:10001", "-e", `PATH=${PATH_COMPTE}`, "--env-file", fichier]);
     expect(args).toContain(SCRIPT_NAVIGATEUR);
     expect(args.join(" ")).not.toContain("tok-123");
     expect(contenu).toBe("BROWSER_SERVICE_TOKEN=tok-123\nBROWSER_IDLE_EXIT_S=900\n");
     expect(path.dirname(fichier)).toBe(path.join(tmp, "a"));
     expect(existsSync(fichier)).toBe(false);
     await sb.stopNavigateur();
+    expect((cli.appels.at(-1) as string[]).slice(0, 8)).toEqual(["exec", ...ENTREE_ROOT, sb.containerName]);
     expect((cli.appels.at(-1) as string[]).join(" ")).toContain(
       `pkill -TERM -f ${MONTAGES_NAVIGATEUR.bundle}`,
     );

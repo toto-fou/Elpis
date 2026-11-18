@@ -4,7 +4,6 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { privdrop } from "@elpis/bac";
 import { pyJsonLoads } from "@elpis/commun";
 import type { HttpError } from "@elpis/commun";
 import { surchargerConfig } from "@elpis/config";
@@ -19,7 +18,6 @@ import {
   MAX_SESSIONS_PER_USER,
   PTY_EXEC_USER,
   PTY_IDLE_TIMEOUT_S,
-  PTY_PRIVDROP_WRAP,
   Terminal,
   Terminaux,
   TERM_BOOTSTRAP,
@@ -42,7 +40,7 @@ import { creerFauxDockerTerminal, FausseSocket, FauxPty, lanceurFactice } from "
 
 interface Vecteurs {
   constantes: Record<string, unknown>;
-  commandes: { conteneur: string; verdict: boolean | null; argv: string[] }[];
+  commandes: { conteneur: string; argv: string[] }[];
   sids: { sid: string; valide: boolean }[];
   noms: { noms: unknown[]; attendu: string }[];
   creation: { corps: unknown; nom: string }[];
@@ -64,7 +62,6 @@ describe("vecteurs du terminal (Python)", () => {
       MAX_SESSIONS_PER_USER,
       TERM_BOOTSTRAP,
       PTY_EXEC_USER,
-      PTY_PRIVDROP_WRAP,
       PTY_IDLE_TIMEOUT_SEC: PTY_IDLE_TIMEOUT_S,
       SESSION_DB_RETENTION_SEC: SESSION_DB_RETENTION_S,
       WS_INPUT_RATE_CAPACITY,
@@ -76,14 +73,8 @@ describe("vecteurs du terminal (Python)", () => {
     expect(jsonCompact({ type: "hello", fresh_shell: true })).toBe(V.json_controle);
   });
 
-  it.each(V.commandes)("argv du PTY : $conteneur, sonde $verdict", ({ conteneur, verdict, argv }) => {
-    privdrop.forget(conteneur);
-    if (verdict !== null) privdrop.remember(conteneur, PTY_EXEC_USER, verdict);
-    try {
-      expect(construireCommandePty(conteneur)).toEqual(argv);
-    } finally {
-      privdrop.forget(conteneur);
-    }
+  it.each(V.commandes)("argv du PTY : $conteneur", ({ conteneur, argv }) => {
+    expect(construireCommandePty(conteneur)).toEqual(argv);
   });
 
   it("identifiants de session", () => {

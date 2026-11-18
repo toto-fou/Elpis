@@ -3,13 +3,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import {
-  definirFabriqueAgent,
-  privdrop,
-  reglagesBac,
-  resetImageLoadState,
-  resetUserSandboxCache,
-} from "@elpis/bac";
+import { definirFabriqueAgent, reglagesBac, resetImageLoadState, resetUserSandboxCache } from "@elpis/bac";
 import type { AgentBac, ArchiveAgent } from "@elpis/bac";
 import { creerFauxDocker } from "@elpis/bac/test";
 import type { FauxDocker } from "@elpis/bac/test";
@@ -108,7 +102,6 @@ describe("contrats REST : cycle de vie du bac et instantanés (hôte d'outils r�
     resetUserSandboxCache();
     resetImageLoadState();
     oublierCachesMe();
-    privdrop.oublierSondes();
     oublierConfigurationAudit();
     restaurer();
     vi.unstubAllEnvs();

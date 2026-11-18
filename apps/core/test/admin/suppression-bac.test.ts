@@ -130,9 +130,11 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
           .filter((a) => /^(exec|rm) /u.test(a)),
       ).toEqual([
         "rm -fv elpis-sb-pbacfaux",
-        expect.stringMatching(/^exec -u 0:0 elpis-sb-pbacfaux sh -c chown /u),
-        "exec -u 0:0 elpis-sb-pbacfaux pkill -KILL -U 10001",
-        "exec -u 0:0 elpis-sb-pbacfaux find /work -xdev -mindepth 1 -delete",
+        expect.stringContaining(
+          "exec -u 0:0 -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w / elpis-sb-pbacfaux sh -c chown ",
+        ),
+        "exec -u 0:0 -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w / elpis-sb-pbacfaux pkill -KILL -U 10001",
+        "exec -u 0:0 -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w / elpis-sb-pbacfaux find /work -xdev -mindepth 1 -delete",
         "rm -fv elpis-sb-pbacfaux",
       ]);
     });

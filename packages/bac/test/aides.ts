@@ -36,8 +36,16 @@ export class FauxCli implements CliDocker {
     this.regles = regles.map((r) => ({ ...r }));
   }
 
+  /** Réponse de l'inspection de l'entrée (`FORMAT_ENTREE`) quand aucune règle ne la donne : conteneur ordinaire. */
+  entree: ReponseDocker = [0, Buffer.from('false\nnull\n["no-new-privileges:false"]\n'), Buffer.alloc(0)];
+
   repondre(args: readonly string[]): ReponseDocker {
     const joint = args.join(" ");
+    if (joint.includes("HostConfig.Privileged")) {
+      const regle = this.regles.find((r) => r.motif.some((m) => m.includes("HostConfig.Privileged")));
+      if (regle === undefined) return this.entree;
+      return [regle.rc ?? 0, Buffer.from(regle.out ?? ""), Buffer.from(regle.err ?? "")];
+    }
     for (const r of this.regles) {
       if (r.fois === 0) continue;
       if (r.motif.every((m) => (m.startsWith("~") ? joint.includes(m.slice(1)) : args.includes(m)))) {

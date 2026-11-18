@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/bac/test/vecteurs.test.ts — vecteurs du vrai Python (migration-kit/vecteurs/bac.py) : `docker run`, privdrop, capture bornée, et scénarios de cycle de vie rejoués sur le même faux docker (appels, résultats, état). */
+/** packages/bac/test/vecteurs.test.ts — vecteurs du vrai Python (migration-kit/vecteurs/bac.py) : `docker run`, capture bornée, et scénarios de cycle de vie rejoués sur le même faux docker (appels, résultats, état). */
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -17,7 +17,6 @@ import {
   ExecError,
   mib,
   netcfgHash,
-  privdrop,
   profilReseauDepuis,
   reglagesBac,
   reglagesMontages,
@@ -92,12 +91,6 @@ const V = JSON.parse(
   netcfg: { profil: Record<string, unknown>; hash: string }[];
   images: { valeur: unknown; image: string }[];
   archives: { image: string; chemins: string[] }[];
-  privdrop: {
-    exec_user: string;
-    argv: string[] | null;
-    sonde: string[] | null;
-    resolu: [string, string[]][];
-  }[];
   mib: ({ texte: string; mib: number | null } | { texte: string; erreur: string; message: string })[];
   captures: { cap: number; morceaux: string[]; valeur: string; omis: number }[];
   profil_reglages: { reglages: unknown; profil: string }[];
@@ -161,20 +154,6 @@ describe("empreintes, images, archives, profil des réglages", () => {
   });
   it("resolve_network_profile_id", () => {
     for (const c of V.profil_reglages) expect(resolveNetworkProfileIdReglages(c.reglages)).toBe(c.profil);
-  });
-});
-
-describe("privdrop", () => {
-  it.each(V.privdrop.map((c) => [JSON.stringify(c.exec_user), c] as const))("%s", (_n, c) => {
-    privdrop.oublierSondes();
-    expect(privdrop.privdropArgv(c.exec_user)).toEqual(c.argv);
-    expect(privdrop.probeArgv("c", c.exec_user)).toEqual(c.sonde);
-    const avant = privdrop.resolve("c", c.exec_user);
-    privdrop.remember("c", c.exec_user, true);
-    const oui = privdrop.resolve("c", c.exec_user);
-    privdrop.remember("c", c.exec_user, false);
-    expect([avant, oui, privdrop.resolve("c", c.exec_user)]).toEqual(c.resolu);
-    privdrop.oublierSondes();
   });
 });
 
@@ -276,7 +255,6 @@ describe("scénarios de cycle de vie (faux docker)", () => {
       archive: () => Promise.reject(new Error("inutile")),
       extract: () => Promise.reject(new Error("inutile")),
     }));
-    privdrop.oublierSondes();
     try {
       const regles = JSON.parse(JSON.stringify(sc.regles).replaceAll("{racine}", racine)) as Regle[];
       const cli = new FauxCli(regles);
@@ -329,7 +307,6 @@ describe("scénarios de cycle de vie (faux docker)", () => {
         droits: sb.modesVerified,
         reportee: sb.recreationReportee,
         reessai: sb.configRetryAt > 0,
-        privdrop: privdrop.cached(sb.containerName, sb.cfg.exec_user || "10001:10001"),
         marqueur: existsSync(marqueur) ? readFileSync(marqueur, "utf-8") : null,
         dossier_agent: existsSync(dossierAgent) ? oct(statSync(dossierAgent).mode) : null,
         dossier_relais: existsSync(path.join(racine, ".elpis-relay")),

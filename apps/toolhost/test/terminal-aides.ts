@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/terminal-aides.ts — terminal en test : faux `docker` (inspect, sonde, `exec -it` qui ouvre un vrai `sh`), faux PTY et fausse socket pour rejouer la boucle WebSocket. */
+/** apps/toolhost/test/terminal-aides.ts — terminal en test : faux `docker` (inspect de l'état et de la garde, `exec -it` qui ouvre un vrai `sh`), faux PTY et fausse socket pour rejouer la boucle WebSocket. */
 import { EventEmitter } from "node:events";
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -15,7 +15,9 @@ export interface FauxDockerTerminal {
   appels(): string[];
   /** argv reçus par les `docker exec -it` (un par PTY lancé). */
   argvPty(): string[][];
-  poser(drapeau: "arrete" | "privdrop-ok" | "lent", actif?: boolean): void;
+  poser(drapeau: "arrete" | "garde-ko" | "lent", actif?: boolean): void;
+  /** Réponse de l'inspection de la garde (trois lignes JSON : Privileged, CapAdd, SecurityOpt) ; `null` : conteneur sans capacité ajoutée. */
+  poserGarde(reponse: string | null): void;
 }
 
 /** Faux `docker` : l'état est écrit en dur dans le script, l'enfant du PTY ne recevant qu'un environnement minimal. */
@@ -28,13 +30,17 @@ export function creerFauxDockerTerminal(dossier: string): FauxDockerTerminal {
 d='${etat}'
 printf '%s\\n' "$*" >> "$d/appels.log"
 case "$1" in
-  inspect) [ -f "$d/lent" ] && sleep 1; if [ -f "$d/arrete" ]; then echo false; else echo true; fi; exit 0 ;;
+  inspect)
+    case "$*" in *HostConfig.Privileged*)
+      [ -f "$d/garde-ko" ] && exit 1
+      if [ -f "$d/garde" ]; then cat "$d/garde"; else printf 'false\\nnull\\n["seccomp=unconfined"]\\n'; fi; exit 0 ;; esac
+    [ -f "$d/lent" ] && sleep 1; if [ -f "$d/arrete" ]; then echo false; else echo true; fi; exit 0 ;;
   exec)
     if [ "$2" = "-it" ]; then
       printf '%s\\0' "$@" > "$d/pty-$$.argv"
       PS1='$ ' exec /bin/sh
     fi
-    [ -f "$d/privdrop-ok" ] && exit 0; exit 1 ;;
+    exit 1 ;;
   version) echo "27.3.1"; exit 0 ;;
 esac
 exit 0
@@ -57,6 +63,11 @@ exit 0
       const f = path.join(etat, drapeau);
       if (actif) writeFileSync(f, "");
       else if (existsSync(f)) rmSync(f);
+    },
+    poserGarde(reponse) {
+      const f = path.join(etat, "garde");
+      if (reponse === null) rmSync(f, { force: true });
+      else writeFileSync(f, reponse + "\n");
     },
   };
 }

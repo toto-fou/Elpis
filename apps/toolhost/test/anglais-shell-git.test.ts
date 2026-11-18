@@ -17,6 +17,10 @@ describe("textes du bac, de l'agent et du relais en anglais (harnais B-13)", () 
       ["docker run a échoué : boom", "docker run failed: boom"],
       ["Agent non démarré dans elpis-sb-a : sortie", "sandbox agent not started in elpis-sb-a: sortie"],
       ["Container a crashé au démarrage (état=exited).", "container crashed at startup (state=exited)."],
+      [
+        "La sandbox doit être relancée. Si le problème persiste, demandez à votre administrateur.",
+        "the sandbox must be restarted; if the problem persists, the administrator must check it.",
+      ],
       ["Remote « origin » introuvable", "remote 'origin' not found"],
       [
         "Dépôt refusé (anti-SSRF) : blocked_ip (127.0.0.1)",

@@ -6,7 +6,6 @@ import path from "node:path";
 import {
   definirFabriqueAgent,
   erreurAgent,
-  privdrop,
   reglagesBac,
   resetImageLoadState,
   resetUserSandboxCache,
@@ -109,7 +108,6 @@ afterEach(async () => {
   resetUserSandboxCache();
   resetImageLoadState();
   oublierCachesMe();
-  privdrop.oublierSondes();
   oublierConfigurationAudit();
   restaurer();
   vi.unstubAllEnvs();

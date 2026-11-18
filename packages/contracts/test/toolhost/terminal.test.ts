@@ -4,7 +4,6 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { privdrop } from "@elpis/bac";
 import { surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
@@ -51,7 +50,6 @@ describe("contrats REST : terminal du bac (hôte d'outils réel, faux docker)", 
     await t?.fermer();
     restaurer();
     vi.unstubAllEnvs();
-    privdrop.oublierSondes();
     if (dossier) rmSync(dossier, { recursive: true, force: true });
   });
 

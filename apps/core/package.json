@@ -37,6 +37,8 @@
     "better-sqlite3": "13.1.1",
     "fastify": "5.12.8",
     "jpeg-js": "0.4.4",
+    "ldapts": "9.3.1",
+    "openid-client": "6.9.0",
     "pngjs": "7.0.0",
     "undici": "8.12.4",
     "ws": "8.22.1",

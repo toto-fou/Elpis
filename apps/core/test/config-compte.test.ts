@@ -54,12 +54,18 @@ const PY = pyJsonLoads(TEXTE) as {
 };
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
 
+/** Écarts voulus : les clés héritées `uid` et `user` ne sont plus une identité, seul `user_id` compte. */
+const SESSIONS_SANS_USER_ID = new Set([11, 12, 13]);
+
 describe("uid de session (vecteurs)", () => {
-  it("clés `user_id`, `uid`, `user` et `int()` de Python ; portes de validité appelées avec le même uid", () => {
+  it("clé `user_id` et `int()` de Python ; `uid` et `user` hérités refusés ; portes de validité appelées avec le même uid", () => {
     for (const [i, s] of V.sessions.entries()) {
       const uid = uidDeSession((cle) => s[cle]);
-      expect(uid ?? null, `session ${i}`).toBe(V.uids[i]?.uid);
-      expect(uid === null || uid === undefined ? [] : [uid], `session ${i}`).toEqual(V.uids[i]?.controle);
+      const refuse = SESSIONS_SANS_USER_ID.has(i);
+      expect(uid ?? null, `session ${i}`).toBe(refuse ? null : V.uids[i]?.uid);
+      expect(uid === null || uid === undefined ? [] : [uid], `session ${i}`).toEqual(
+        refuse ? [] : V.uids[i]?.controle,
+      );
     }
   });
 });
@@ -207,10 +213,11 @@ describe("`_session_uid_any` sur une vraie session", () => {
   const requete = (donnees: Record<string, unknown>, method = "GET"): FastifyRequest =>
     ({ session: new Session(donnees), method, url: "/api/config" }) as unknown as FastifyRequest;
 
-  it("session valide, `uid` hérité, portes de validité, mot de passe à changer sur une écriture seulement", async () => {
+  it("session valide, `uid` hérité refusé, portes de validité, mot de passe à changer sur une écriture seulement", async () => {
     const maintenant = Date.now() / 1000;
     expect(await sessionUidAny(requete({ user_id: uid, _login_ts: maintenant }), auth)).toBe(uid);
-    expect(await sessionUidAny(requete({ uid: String(uid), _login_ts: maintenant }), auth)).toBe(uid);
+    expect(await sessionUidAny(requete({ uid: String(uid), _login_ts: maintenant }), auth)).toBeNull();
+    expect(await sessionUidAny(requete({ user: uid, _login_ts: maintenant }), auth)).toBeNull();
     expect(await sessionUidAny(requete({ user_id: uid }), auth)).toBeNull();
     expect(
       await sessionUidAny(requete({ user_id: uid, _login_ts: maintenant - 10 * 86400 }), auth),

@@ -9,6 +9,7 @@ import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { entetesFlux, installerEntetesSecurite } from "@elpis/http";
+import { poserIdentite } from "./aides-session";
 
 let t: BaseDeTest;
 let app: FastifyInstance;
@@ -38,8 +39,7 @@ beforeEach(async () => {
   installerEntetesSecurite(app);
   const g = creerGardes(dep);
   app.post("/connexion", async (req) => {
-    req.session.set("user_id", 1);
-    req.session.set("_login_ts", horloge);
+    poserIdentite(req.session, { user_id: 1, _login_ts: horloge });
     return { ok: true };
   });
   app.get("/flux", { onRequest: g.session }, async (_req, rep) => {

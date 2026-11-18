@@ -17,7 +17,6 @@ declare module "fastify" {
     session: Session;
     sessionInitialeVide: boolean;
     utilisateur?: { id: number; username: string | null };
-    identiteToolhost?: { userId: number; username: string };
   }
 }
 
@@ -84,13 +83,8 @@ function chemin(requete: FastifyRequest): string {
   }
 }
 
-/** `require_user_id` : identité du toolhost d'abord, puis session valide ; 403 si le mot de passe doit changer. */
+/** `require_user_id` : session valide ; 403 si le mot de passe doit changer. */
 export async function exigerUtilisateur(requete: FastifyRequest, dep: DependancesAuth): Promise<number> {
-  const th = requete.identiteToolhost;
-  if (th) {
-    requete.utilisateur = { id: th.userId, username: th.username };
-    return th.userId;
-  }
   const brut = requete.session.get("user_id");
   if (!veritePy(brut)) throw new HttpError(401, "not logged in");
   let uid: number;

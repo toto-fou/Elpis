@@ -25,6 +25,7 @@ import { creerRelais, familleJetonApercu } from "../../src/relais/index";
 import type { OptionsRelais, Relais } from "../../src/relais/index";
 import { oublierHotes } from "../../src/relais/hotes";
 import type { Famille } from "../../src/routes";
+import { poserIdentite } from "../aides-session";
 
 export const JETON = "jeton-de-service-de-test";
 export const lignes: string[] = [];
@@ -263,9 +264,7 @@ export async function monterBanc(
         acces: "public",
         traiter: (requete) => {
           const uid = Number((requete.params as { uid: string }).uid);
-          requete.session.set("user_id", uid);
-          requete.session.set("_login_ts", horloge);
-          requete.session.set("_sid", `sid-${uid}`);
+          poserIdentite(requete.session, { user_id: uid, _login_ts: horloge, _sid: `sid-${uid}` });
           return { ok: true };
         },
       },

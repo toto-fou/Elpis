@@ -6,38 +6,50 @@ import { estTableAbsente } from "@elpis/db";
 import { lire, sousObjet } from "./dict";
 import { compteSuspendu } from "./etat-compte";
 
+const CLES_RESERVEES: ReadonlySet<string> = new Set(["uid", "user", "user_id", "_sid", "_auth", "_login_ts"]);
+
+/** Porte d'écriture de l'identité : exportée ici, absente de l'index du paquet, réservée à ouverture.ts. */
+export const ECRIRE_IDENTITE: unique symbol = Symbol("ecrireIdentite");
+
 export class Session {
-  private donnees: Record<string, unknown>;
+  #donnees: Record<string, unknown>;
   lue = false;
   modifiee = false;
 
   constructor(donnees: Record<string, unknown> = {}) {
-    this.donnees = { ...donnees };
+    this.#donnees = { ...donnees };
   }
 
   get(cle: string): unknown {
     this.lue = true;
-    return this.donnees[cle];
+    return this.#donnees[cle];
   }
 
   set(cle: string, valeur: unknown): void {
+    if (CLES_RESERVEES.has(cle)) throw new Error(`session key "${cle}" is reserved to ouvrirSession`);
     this.lue = true;
     this.modifiee = true;
-    this.donnees[cle] = valeur;
+    this.#donnees[cle] = valeur;
+  }
+
+  [ECRIRE_IDENTITE](cle: string, valeur: unknown): void {
+    this.lue = true;
+    this.modifiee = true;
+    this.#donnees[cle] = valeur;
   }
 
   vider(): void {
     this.lue = true;
     this.modifiee = true;
-    this.donnees = {};
+    this.#donnees = {};
   }
 
   get vide(): boolean {
-    return Object.keys(this.donnees).length === 0;
+    return Object.keys(this.#donnees).length === 0;
   }
 
   contenu(): Record<string, unknown> {
-    return { ...this.donnees };
+    return { ...this.#donnees };
   }
 }
 

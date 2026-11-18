@@ -40,7 +40,7 @@ export async function etablirConnexion(
       userAgent: e.userAgent,
       success: false,
       reason: "account_suspended",
-      method: e.methode,
+      loginMethod: e.methode,
     });
     throw new ConnexionRefusee();
   }
@@ -63,6 +63,6 @@ export async function etablirConnexion(
     ip: e.ip,
     userAgent: e.userAgent,
     success: true,
-    method: e.methode,
+    loginMethod: e.methode,
   });
 }

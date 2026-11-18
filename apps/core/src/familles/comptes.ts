@@ -27,6 +27,7 @@ import {
   leverMinSession,
   ligneUtilisateur,
   rehacherSiAncien,
+  renouvelerSession,
   resetUserPassword,
   revoquerSid,
   revoquerTousAcces,
@@ -470,7 +471,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           await resetUserPassword(base, uid, motDePasse);
           const t = maintenant(dep);
           await leverMinSession(base, uid, t);
-          req.session.set("_login_ts", t);
+          renouvelerSession(req.session, t);
           await revoquerTousAcces(dep.auth, uid);
           await base.run("UPDATE users SET must_change_pwd=0 WHERE id=?", [uid]);
           auditerRequete(req, "auth.password.change", {});

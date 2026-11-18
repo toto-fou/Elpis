@@ -24,6 +24,7 @@ import {
 } from "../../src/observabilite/journal-acces";
 import type { DefinitionRoute } from "../../src/routes";
 import { appTest } from "../aides";
+import { poserIdentite } from "../aides-session";
 
 type Kw = Record<string, unknown>;
 
@@ -142,7 +143,7 @@ function routes(service: "main" | "admin"): DefinitionRoute[] {
     ...(service === "admin" ? [r("GET", "/api/admin/stats", async () => ({}))] : []),
     r("GET", "/api/me-lite", async () => ({})),
     r("POST", "/api/login-lite", async (req) => {
-      req.session.set("user_id", 7);
+      poserIdentite(req.session, { user_id: 7 });
       return {};
     }),
     r("POST", "/api/logout-lite", async (req) => {

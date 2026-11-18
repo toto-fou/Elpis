@@ -10,6 +10,7 @@ import {
   getGroup,
   getUserGroups,
   getUser,
+  compteSuspendu,
   getUsernameById,
   getUserSettings,
   leverMinSession,
@@ -56,6 +57,7 @@ import type { PortBac } from "../admin/bac";
 import { purgerCompteSurHotes } from "../admin/pilote-bac";
 import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } from "../admin/comptes";
 import { validerMotDePasse } from "../comptes/aides";
+import { reactiver, suspendre } from "../comptes/etat";
 import { deleteUserFull } from "../comptes/suppression";
 import type { Journal } from "../journal";
 import {
@@ -79,6 +81,8 @@ export interface DependancesAdminComptes {
   readonly journal: Journal;
   /** `publish_event({"type": "session_revoked", "uid": …})` : flux du compte coupés dans tous les process. */
   readonly revoquer: (uid: number | null) => Promise<unknown>;
+  /** Suspension propagée aux process (flux, terminaux, exécutions) ; absente : une simple révocation. */
+  readonly publierSuspension?: (uid: number) => Promise<unknown>;
   readonly bac?: PortBac;
 }
 
@@ -163,6 +167,48 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (erreur) reponse["sandbox_error"] = erreur;
     if (echecsHotes.length) reponse["hosts_purge_errors"] = echecsHotes;
     return reponse;
+  }
+
+  /** Compte visé par une suspension : jamais l'opérateur, jamais le dernier administrateur actif. */
+  async function cibleDeSuspension(req: FastifyRequest, avecGardeAdmin: boolean): Promise<number> {
+    const operateur = utilisateur(req);
+    const cible = cheminEntier(req, "target_id");
+    if (cible === operateur) throw new HttpError(400, "Vous ne pouvez pas suspendre votre propre compte.");
+    const ligne = await ligneUtilisateur(base, cible);
+    if (!ligne) throw new HttpError(404, "Utilisateur introuvable");
+    if (avecGardeAdmin && Number(ligne.is_admin) === 1 && !compteSuspendu(ligne)) {
+      const autres = await base.valeurs<[number]>(
+        "SELECT COUNT(*) FROM users WHERE is_admin=1 AND id<>? AND (suspended_at IS NULL OR suspended_at=0)",
+        [cible],
+      );
+      if (Number(autres[0]?.[0] ?? 0) === 0)
+        throw new HttpError(409, "Impossible de suspendre le dernier administrateur actif.");
+    }
+    return cible;
+  }
+
+  async function suspendreCompte(req: FastifyRequest): Promise<Dict> {
+    const cible = await cibleDeSuspension(req, true);
+    await suspendre(
+      {
+        base,
+        maintenant,
+        publierSuspension: dep.publierSuspension ?? ((uid) => dep.revoquer(uid)),
+        bac: dep.bac,
+        journal: dep.journal,
+      },
+      cible,
+      "admin",
+    );
+    auditer(req, "admin.user.suspend", { target_user_id: cible, by: utilisateur(req) });
+    return { ok: true };
+  }
+
+  async function reactiverCompte(req: FastifyRequest): Promise<Dict> {
+    const cible = await cibleDeSuspension(req, false);
+    await reactiver({ base }, cible);
+    auditer(req, "admin.user.unsuspend", { target_user_id: cible, by: utilisateur(req) });
+    return { ok: true };
   }
 
   async function creerCompte(req: FastifyRequest): Promise<Dict> {
@@ -562,6 +608,8 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       route("DELETE", "/api/admin/users/:target_id", supprimerCompte),
       route("POST", "/api/admin/users/new", creerCompte),
       route("POST", "/api/admin/users/:target_id/role", changerRole),
+      route("POST", "/api/admin/users/:target_id/suspend", suspendreCompte),
+      route("POST", "/api/admin/users/:target_id/unsuspend", reactiverCompte),
       route("POST", "/api/admin/reset-password", reinitialiserMotDePasse),
       route("GET", "/api/admin/users-with-groups", comptesEtGroupes),
       route("PUT", "/api/admin/users/:target_id/desktop-targets", machinesDuCompte),

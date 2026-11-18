@@ -1,16 +1,26 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/ouverture.ts — suites communes d'une connexion réussie, quelle que soit la méthode. */
-import { ouvrirSession } from "@elpis/auth";
+import { compteSuspendu, ligneUtilisateur, ouvrirSession } from "@elpis/auth";
 import type { MethodeConnexion, Session } from "@elpis/auth";
+import { HttpError } from "@elpis/commun";
+import type { Executeur } from "@elpis/db";
 import { auditLogin } from "@elpis/securite";
 
+/** Refus d'ouvrir la session d'un compte suspendu : le même 401 qu'un mauvais mot de passe. */
+export class ConnexionRefusee extends HttpError {
+  constructor() {
+    super(401, "invalid credentials");
+  }
+}
+
 export interface EffetsConnexion {
+  readonly base: Executeur;
   readonly maintenant: () => number;
   readonly demarrerHistoriqueFichiers?: (uid: number) => Promise<void>;
   readonly logMetric?: (nom: string, valeur: number, etiquettes: Record<string, unknown>) => void;
 }
 
-/** Ouvre la session puis enchaîne historique de fichiers, métrique et audit ; seule voie d'ouverture d'une session. */
+/** Refuse un compte suspendu (audit, `ConnexionRefusee`), sinon ouvre la session puis enchaîne dernière connexion, historique de fichiers, métrique et audit ; seule voie d'ouverture d'une session. */
 export async function etablirConnexion(
   dep: EffetsConnexion,
   e: {
@@ -22,7 +32,25 @@ export async function etablirConnexion(
     userAgent: string | null;
   },
 ): Promise<void> {
-  ouvrirSession(e.session, { uid: e.uid, methode: e.methode, maintenant: dep.maintenant() });
+  if (compteSuspendu(await ligneUtilisateur(dep.base, e.uid))) {
+    auditLogin({
+      userId: e.uid,
+      username: e.username,
+      ip: e.ip,
+      userAgent: e.userAgent,
+      success: false,
+      reason: "account_suspended",
+      method: e.methode,
+    });
+    throw new ConnexionRefusee();
+  }
+  const t = dep.maintenant();
+  ouvrirSession(e.session, { uid: e.uid, methode: e.methode, maintenant: t });
+  try {
+    await dep.base.run("UPDATE users SET last_login_at=? WHERE id=?", [t, e.uid]);
+  } catch {
+    // la dernière connexion ne bloque pas la connexion
+  }
   try {
     await dep.demarrerHistoriqueFichiers?.(e.uid);
   } catch {

@@ -162,6 +162,7 @@ describe("registre des migrations", () => {
       "0029_vault_mcp",
       "0030_git_account_scope",
       "0031_remove_remote_code",
+      "0032_etat_des_comptes",
     ]);
     expect(registreMigrations(["0027_essai"]).at(-1)).toBe("0027_essai");
     expect(() => registreMigrations(["0001_avant"])).toThrow(/mal numérotée/u);

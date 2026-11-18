@@ -3,7 +3,7 @@
 import { AsyncResource } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 
-import { getUsernameById, getUserSettings, ligneUtilisateur } from "@elpis/auth";
+import { compteSuspendu, getUsernameById, getUserSettings, ligneUtilisateur } from "@elpis/auth";
 import {
   CancelledError,
   cleHashPy,
@@ -480,6 +480,15 @@ export class Planificateur {
   async lancerRun(routine: Dict, o: Lancement): Promise<number | null> {
     const uid = intPy(routine["owner_user_id"]);
     const rid = intPy(routine["id"]);
+    if (compteSuspendu(await ligneUtilisateur(this.base, uid))) {
+      try {
+        await insertSkippedRun(this.base, rid, uid, { trigger: o.trigger, reason: "compte suspendu" });
+      } catch {
+        // journal au mieux
+      }
+      log.info(`[ROUTINES] SKIP routine=${rid} user=${uid} (compte suspendu)`);
+      return null;
+    }
     const runId = await admitAndInsertRun(this.base, rid, uid, {
       trigger: o.trigger,
       cap: REGLAGES.perUserCap,
@@ -532,6 +541,17 @@ export class Planificateur {
     if (entree !== undefined && entree.enregistre && !entree.termine)
       entree.controleur.abort(new CancelledError("User cancelled"));
     return true;
+  }
+
+  /** Coupe sur-le-champ les runs en vol du compte (suspension) ; nombre de runs coupés. */
+  arreterCompte(uid: number): number {
+    let n = 0;
+    for (const r of this.runs.values()) {
+      if (r.uid !== uid || r.termine) continue;
+      r.controleur.abort(new CancelledError("compte suspendu"));
+      n += 1;
+    }
+    return n;
   }
 
   private annule(uid: number, cle: string): boolean {

@@ -102,6 +102,8 @@ export const ACTIONS_PROPRES_AU_TS: ReadonlySet<string> = new Set([
   "admin.user.create",
   "admin.user.delete",
   "admin.user.role",
+  "admin.user.suspend",
+  "admin.user.unsuspend",
   "admin.user.password_reset",
   "admin.user.groups",
   "admin.group.create",

@@ -9,6 +9,7 @@ export const MIGRATIONS_TS: readonly string[] = [
   "0029_vault_mcp",
   "0030_git_account_scope",
   "0031_remove_remote_code",
+  "0032_etat_des_comptes",
 ];
 
 /** Notes d'une migration pour le journal du démarrage (jamais de secret). */

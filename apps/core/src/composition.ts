@@ -42,7 +42,7 @@ import { brancherBoucle } from "./boucle/branchements";
 import { brancherContexte } from "./contexte/branchements";
 import { brancherExecutions } from "./executions/branchements";
 import { brancherTour } from "./tour/branchements";
-import { isGenerationActive } from "./tour/etat";
+import { arreterToursDuCompte, isGenerationActive } from "./tour/etat";
 import { famillesParDefaut } from "./familles";
 import { creerFamilleAdminAgents } from "./familles/admin-agents";
 import { creerFamilleAdminExecuteurs } from "./familles/admin-executeurs";
@@ -139,7 +139,7 @@ import type { Relais } from "./relais";
 import { ouvrirSessionHistorique } from "./relais/services";
 import { brancherIndexationRag } from "./rag/service";
 import { installerMeneur, Meneur, meneur } from "./routines/meneur";
-import { installerPlanificateur, Planificateur } from "./routines/planificateur";
+import { installerPlanificateur, Planificateur, planificateurDuProcess } from "./routines/planificateur";
 import type { Famille, Gardes } from "./routes";
 import { brancherCoffreMcpDuCore } from "./secrets/mcp";
 import { installerComptesSkills } from "./skills/ports";
@@ -264,6 +264,8 @@ function brancherBus(
     surOuvertureFlux,
     redemarrage: SOURCE_REDEMARRAGE,
     fermerTerminaux: (uid) => relais?.fermerTerminauxDuCompte(uid) ?? 0,
+    arreterExecutions: (uid) =>
+      arreterToursDuCompte(uid) + (planificateurDuProcess()?.arreterCompte(uid) ?? 0),
     rafraichirModeles,
   });
 }
@@ -503,6 +505,7 @@ export async function composer(
         auth,
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
+        publierSuspension: (uid) => evenements.suspendre(uid),
         bac: piloteBac(),
       }),
       creerFamilleAdminSecurite({

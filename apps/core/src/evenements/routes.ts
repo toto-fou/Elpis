@@ -10,7 +10,7 @@ import type { DefinitionRoute, Famille } from "../routes";
 import { servirCanal } from "./canal";
 import type { CanalInterne } from "./canal";
 import type { EmpreinteDemarrage } from "./redemarrage";
-import { applySessionRevocation } from "./revocation";
+import { applyAccountSuspension, applySessionRevocation } from "./revocation";
 import type { CiblesRevocation } from "./revocation";
 import { servirFluxSse } from "./sse";
 import type { Message, SystemEvents, VerifierSession } from "./systeme";
@@ -49,7 +49,11 @@ export function identiteDeSession(dep: DependancesAuth): ResoudreIdentite {
 }
 
 /** Événements de contrôle appliqués par main, jamais poussés aux navigateurs (`CONTROL_TYPES`). */
-export const TYPES_CONTROLE: ReadonlySet<string> = new Set(["session_revoked", "model_cache_refresh"]);
+export const TYPES_CONTROLE: ReadonlySet<string> = new Set([
+  "session_revoked",
+  "account_suspended",
+  "model_cache_refresh",
+]);
 
 /** Ce que l'admin peut publier dans main : le contrôle, la bannière de redémarrage et ses notifications, rien d'autre. */
 export const TYPES_ADMIN: ReadonlySet<string> = new Set([...TYPES_CONTROLE, "restart", "notification"]);
@@ -148,6 +152,7 @@ function routesMain(ctx: ContexteRoutes, main: ContexteMain): DefinitionRoute[] 
           throw new HttpError(400, `Type d'événement refusé sur ce canal : ${type}`);
         const message = corps as Message;
         if (type === "session_revoked") await applySessionRevocation(message, main.cibles);
+        else if (type === "account_suspended") await applyAccountSuspension(message, main.cibles);
         else if (type === "model_cache_refresh") main.rafraichirModeles?.();
         else if (type === "notification") {
           const notification = notificationDeLAdmin(message);

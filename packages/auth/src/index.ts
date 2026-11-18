@@ -35,10 +35,11 @@ export {
   purgerRevocations,
   revoquerSid,
 } from "./revocations";
+export { compteSuspendu } from "./etat-compte";
 export { ouvrirSession } from "./ouverture";
 export type { MethodeConnexion } from "./ouverture";
 export { fluxEncoreValide, Session, validerSession } from "./session";
-export type { DependancesSession, LigneUtilisateur } from "./session";
+export type { DependancesSession, EtatMinSession, LigneUtilisateur } from "./session";
 export {
   creerJeton,
   ErreurJeton,

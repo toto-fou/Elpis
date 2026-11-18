@@ -773,7 +773,7 @@
       "table",
       "users",
       "users",
-      "CREATE TABLE \"users\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"username\" TEXT UNIQUE NOT NULL,\n  \"pass_salt\" TEXT NOT NULL,\n  \"pass_hash\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"is_admin\" INTEGER DEFAULT 0,\n  \"avatar\" TEXT,\n  \"settings_json\" TEXT,\n  \"must_change_pwd\" INTEGER DEFAULT 0,\n  \"session_min_ts\" REAL DEFAULT 0\n)"
+      "CREATE TABLE \"users\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"username\" TEXT UNIQUE NOT NULL,\n  \"pass_salt\" TEXT NOT NULL,\n  \"pass_hash\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"is_admin\" INTEGER DEFAULT 0,\n  \"avatar\" TEXT,\n  \"settings_json\" TEXT,\n  \"must_change_pwd\" INTEGER DEFAULT 0,\n  \"session_min_ts\" REAL DEFAULT 0,\n  \"suspended_at\" REAL DEFAULT 0,\n  \"suspended_by\" TEXT,\n  \"last_login_at\" REAL DEFAULT 0\n)"
     ],
     [
       "table",

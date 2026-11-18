@@ -39,6 +39,10 @@ describe("contrats REST : comptes de la console (core réel)", () => {
     expect(
       await core.appeler("POST", "/api/admin/users/3/role", { cookie, corps: { role: "moderator" } }),
     ).toEqual({ ok: true, role: "moderator" });
+    expect(await core.appeler("POST", "/api/admin/users/2/suspend", { cookie })).toEqual({ ok: true });
+    expect(await core.appeler("POST", "/api/admin/users/2/unsuspend", { cookie })).toEqual({ ok: true });
+    await core.appeler("POST", "/api/admin/users/99/suspend", { cookie });
+    await core.appeler("POST", "/api/admin/users/99/unsuspend", { cookie });
     await core.appeler("POST", "/api/admin/users/1/role", { cookie, corps: { role: "user" } });
     await core.appeler("POST", "/api/admin/users/99/role", { cookie, corps: { role: "user" } });
     expect(

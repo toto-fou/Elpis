@@ -26,6 +26,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
+import { compteSuspendu, ligneUtilisateur } from "@elpis/auth";
 import { egauxEnTempsConstant } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -192,6 +193,7 @@ export function creerFamilleWebhooks(dep: DependancesWebhooks): Famille {
     const r = await getRoutineInternal(base, id);
     const secret = r ? await getRoutineWebhookSecret(base, id) : null;
     if (!r || !veritePy(r["enabled"]) || !veritePy(r["webhook_enabled"]) || !secret) return ok(rep);
+    if (compteSuspendu(await ligneUtilisateur(base, intPy(r["owner_user_id"])))) return ok(rep);
     const ip = hoteClient(req);
     const [authentifie, nature] = authentifier(req, secret, brut);
     if (!authentifie) {

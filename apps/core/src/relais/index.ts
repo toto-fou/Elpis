@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/relais/index.ts — famille du relais vers l'hôte d'outils : routes HTTP et WebSocket des préfixes relayés, registre des terminaux, arrêt. */
-import { dependancesParDefaut, estInterSite, revaliderFlux } from "@elpis/auth";
+import { compteSuspendu, dependancesParDefaut, estInterSite, revaliderFlux } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import type { FastifyInstance, FastifyRequest, HTTPMethods } from "fastify";
@@ -103,6 +103,14 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
     suivre(c.fin);
   };
 
+  /** Compte d'un jeton d'aperçu : présent et non suspendu (le jeton ne vérifie que sa signature). */
+  async function apercuAutorise(uid: number): Promise<boolean> {
+    const ligne = await base().get<{ suspended_at: unknown }>("SELECT suspended_at FROM users WHERE id=?", [
+      uid,
+    ]);
+    return ligne !== undefined && !compteSuspendu(ligne);
+  }
+
   /** `_session_valide` : session du navigateur toujours valide ? Erreur passagère → oui. */
   async function sessionValide(uid: number, loginTs: unknown, sid: unknown): Promise<boolean> {
     try {
@@ -130,6 +138,7 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
     if (!isRelayedPath(cheminDecode(requete))) throw new HttpError(404);
     const { uid, apercu } = uidDeLaRequete(requete);
     if (uid === null) return refuser(reponse, apercu ? 403 : 401, apercu ? APERCU_EXPIRE : "not logged in");
+    if (apercu && !(await apercuAutorise(uid))) return refuser(reponse, 403, APERCU_EXPIRE);
     const hote = await sandboxHostFor(uid);
     if (hote === null) return refuser(reponse, 503, AUCUN_HOTE);
     if (!hote.token) return refuser(reponse, 503, SANS_JETON);
@@ -140,6 +149,7 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
   async function preparerWs(requete: FastifyRequest): Promise<PreparationWs | null> {
     const { uid, apercu } = uidDeLaRequete(requete);
     if (uid === null || !isRelayedPath(cheminDecode(requete))) return null;
+    if (apercu && !(await apercuAutorise(uid))) return null;
     const hote = await sandboxHostFor(uid);
     if (hote === null || !hote.token || estInterSite(requete.headers, requete.host)) return null;
     const { chemin, requete: query } = decouperCible(requete.originalUrl);

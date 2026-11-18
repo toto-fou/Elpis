@@ -32,7 +32,7 @@ export async function appelerHote(
   });
   try {
     const r = await client.request(methode, `${hote.url}${chemin}`, {
-      headers: await entetesRelais(hote, uid, username),
+      headers: await entetesRelais(hote, uid, username, { tolererSuspension: true }),
       ...(options.json === undefined ? {} : { json: options.json }),
     });
     if (r.isSuccess) return r.json();

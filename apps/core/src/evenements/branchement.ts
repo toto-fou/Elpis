@@ -11,7 +11,7 @@ import type { AppelInterne } from "./canal";
 import { SuiviJournalStaff } from "./journal-staff";
 import { EmpreinteDemarrage } from "./redemarrage";
 import type { SourceRedemarrage } from "./redemarrage";
-import { applySessionRevocation } from "./revocation";
+import { applyAccountSuspension, applySessionRevocation } from "./revocation";
 import type { BilanRevocation, CiblesRevocation } from "./revocation";
 import { familleEvenements, identiteDeSession } from "./routes";
 import { SystemEvents } from "./systeme";
@@ -46,6 +46,7 @@ export interface OptionsMain extends OptionsCommunes {
   readonly mode: "main";
   readonly redemarrage: SourceRedemarrage;
   readonly fermerTerminaux?: CiblesRevocation["fermerTerminaux"];
+  readonly arreterExecutions?: CiblesRevocation["arreterExecutions"];
   readonly rafraichirModeles?: () => void;
   readonly capaciteCanal?: number;
   readonly pingCanalMs?: number;
@@ -77,6 +78,8 @@ export interface Evenements {
   readonly versMain: AppelInterne | undefined;
   /** Révocation : flux de ce process fermés ; depuis l'admin, main est prévenu par un appel interne. */
   revoquer(uid: number | null): Promise<BilanRevocation | null>;
+  /** Suspension : comme la révocation, plus les exécutions du compte coupées dans main (appel interne depuis l'admin). */
+  suspendre(uid: number): Promise<BilanRevocation | null>;
   /** Diffusion à tous les process : ici, et vers main quand on est l'admin (bannière de redémarrage…). */
   diffuserPartout(message: Message): Promise<boolean>;
 }
@@ -108,9 +111,13 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
   if (cycle.signalArret.aborted) evacuer();
   else cycle.signalArret.addEventListener("abort", evacuer, { once: true });
 
-  const cibles = (fermerTerminaux?: CiblesRevocation["fermerTerminaux"]): CiblesRevocation => ({
+  const cibles = (
+    fermerTerminaux?: CiblesRevocation["fermerTerminaux"],
+    arreterExecutions?: CiblesRevocation["arreterExecutions"],
+  ): CiblesRevocation => ({
     systemEvents,
     fermerTerminaux,
+    arreterExecutions,
     journal,
   });
   const commun = {
@@ -128,7 +135,7 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     systemEvents.surDiffusion((_message, donnees) => canal.publier(donnees));
     const empreinte = new EmpreinteDemarrage(options.redemarrage, canal.generation);
     cycle.auDemarrage("empreinte de démarrage", () => empreinte.enregistrer(), { modes: ["main"] });
-    const ciblesMain = cibles(options.fermerTerminaux);
+    const ciblesMain = cibles(options.fermerTerminaux, options.arreterExecutions);
     return {
       mode: "main",
       systemEvents,
@@ -148,6 +155,7 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
       abonnement: undefined,
       versMain: undefined,
       revoquer: (uid) => applySessionRevocation({ type: "session_revoked", uid }, ciblesMain),
+      suspendre: (uid) => applyAccountSuspension({ type: "account_suspended", uid }, ciblesMain),
       diffuserPartout: (message) => {
         systemEvents.broadcast(message);
         return Promise.resolve(true);
@@ -194,6 +202,12 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     versMain,
     revoquer: async (uid) => {
       const evenement: Message = { type: "session_revoked", uid, ts: Date.now() / 1000 };
+      const bilan = await applySessionRevocation(evenement, ciblesAdmin);
+      await publierVersMain(evenement, versMain);
+      return bilan;
+    },
+    suspendre: async (uid) => {
+      const evenement: Message = { type: "account_suspended", uid, ts: Date.now() / 1000 };
       const bilan = await applySessionRevocation(evenement, ciblesAdmin);
       await publierVersMain(evenement, versMain);
       return bilan;

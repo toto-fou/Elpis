@@ -47,6 +47,8 @@ export const schemaCompteConsole = z.object({
   is_admin: entier,
   created_at: horodatage,
   avatar: z.string().nullable(),
+  suspended_at: horodatage,
+  suspended_by: z.string().nullable(),
   group_names: z.string(),
   group_ids: z.array(entier),
   sandbox_quota_mb: entier,

@@ -59,7 +59,7 @@ import {
   validerMotDePasse,
 } from "../comptes/aides";
 import { DebitConnexion } from "../comptes/debit-connexion";
-import { etablirConnexion } from "../comptes/ouverture";
+import { ConnexionRefusee, etablirConnexion } from "../comptes/ouverture";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
@@ -378,16 +378,22 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             if (essai.delaiMs > 0) await attendre(essai.delaiMs);
             throw new HttpError(401, "invalid credentials");
           }
-          debitConnexion.reussite(essai, maintenant(dep));
           const ligne = await ligneUtilisateur(base, uid);
-          await etablirConnexion(
-            {
-              maintenant: () => maintenant(dep),
-              demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
-              logMetric: dep.logMetric,
-            },
-            { session: req.session, uid, username, methode: "password", ip, userAgent: ua },
-          );
+          try {
+            await etablirConnexion(
+              {
+                base,
+                maintenant: () => maintenant(dep),
+                demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
+                logMetric: dep.logMetric,
+              },
+              { session: req.session, uid, username, methode: "password", ip, userAgent: ua },
+            );
+          } catch (e) {
+            if (e instanceof ConnexionRefusee && essai.delaiMs > 0) await attendre(essai.delaiMs);
+            throw e;
+          }
+          debitConnexion.reussite(essai, maintenant(dep));
           return {
             ok: true,
             is_admin: ligne ? [1, 2].includes(Number(ligne.is_admin)) : false,

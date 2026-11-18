@@ -110,7 +110,7 @@ export async function exigerUtilisateur(requete: FastifyRequest, dep: Dependance
   return uid;
 }
 
-/** `stream_session_still_valid` sur la base : compte supprimé = flux coupé, panne transitoire = flux gardé. */
+/** `stream_session_still_valid` sur la base : compte supprimé ou suspendu = flux coupé, panne transitoire = flux gardé. */
 export function revaliderFlux(
   dep: DependancesAuth,
   uid: number,
@@ -122,11 +122,11 @@ export function revaliderFlux(
     revoquee: (s) => estRevoquee(dep.base, s),
     maintenant: () => maintenant(dep),
     sessionMinTs: async (id) => {
-      const r = await dep.base.get<{ m: number | null }>(
-        "SELECT session_min_ts AS m FROM users WHERE id = ?",
+      const r = await dep.base.get<{ m: number | null; s: number | null }>(
+        "SELECT session_min_ts AS m, suspended_at AS s FROM users WHERE id = ?",
         [id],
       );
-      return r === undefined ? undefined : (r.m ?? null);
+      return r === undefined ? undefined : { min: r.m ?? null, suspended_at: r.s };
     },
   });
 }

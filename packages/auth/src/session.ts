@@ -4,6 +4,7 @@ import { floatPy, intPy, veritePy } from "@elpis/commun";
 import { estTableAbsente } from "@elpis/db";
 
 import { lire, sousObjet } from "./dict";
+import { compteSuspendu } from "./etat-compte";
 
 export class Session {
   private donnees: Record<string, unknown>;
@@ -46,7 +47,14 @@ export interface LigneUtilisateur {
   is_admin?: number;
   must_change_pwd?: number;
   session_min_ts?: number | null;
+  suspended_at?: number | null;
   [colonne: string]: unknown;
+}
+
+/** Ce que la revalidation d'un flux lit du compte : plancher de session et suspension. */
+export interface EtatMinSession {
+  min: number | null;
+  suspended_at?: number | null;
 }
 
 export interface DependancesSession {
@@ -88,7 +96,7 @@ export async function validerSession(
   let ligne: LigneUtilisateur | null | undefined;
   try {
     ligne = await dep.utilisateur(uid);
-    if (!ligne) return refus();
+    if (!ligne || compteSuspendu(ligne)) return refus();
     const minCompte = floatPy(veritePy(ligne.session_min_ts) ? ligne.session_min_ts : 0.0);
     if (minCompte > 0 && loginTs < minCompte) return refus();
   } catch {
@@ -126,7 +134,7 @@ export async function fluxEncoreValide(
   loginTs: unknown,
   sid: unknown,
   dep: Omit<DependancesSession, "utilisateur"> & {
-    sessionMinTs(uid: number): Promise<number | null | undefined>;
+    sessionMinTs(uid: number): Promise<EtatMinSession | number | null | undefined>;
   },
 ): Promise<boolean> {
   if (!veritePy(loginTs)) return false;
@@ -142,8 +150,10 @@ export async function fluxEncoreValide(
   if (dep.maintenant() - login > maxAge) return false;
   if (minGlobal > 0 && login < minGlobal) return false;
   const compteRefuse = await refusSaufPanne(async () => {
-    const min = await dep.sessionMinTs(uid);
-    if (min === undefined) return true;
+    const etat = await dep.sessionMinTs(uid);
+    if (etat === undefined) return true;
+    if (typeof etat === "object" && etat !== null && compteSuspendu(etat)) return true;
+    const min = typeof etat === "object" && etat !== null ? etat.min : etat;
     const m = floatPy(veritePy(min) ? min : 0.0);
     return m > 0 && login < m;
   });

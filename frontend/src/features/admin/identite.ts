@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › Connexion d'entreprise : lecture et écritures des réglages `auth`, formulaire d'un fournisseur (LDAP, OIDC), secret, activation. */
-import { schemaReglagesAuth } from "@elpis/contracts";
-import type { FournisseurAuth, ReglagesAuthConsole } from "@elpis/contracts";
+import { schemaReglagesAuth, schemaReponseEssaiFournisseur } from "@elpis/contracts";
+import type { FournisseurAuth, ReglagesAuthConsole, ReponseEssaiFournisseur } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { gardeFocus as creerGardeFocus, piegerTab } from "../../utils/focus";
@@ -307,7 +307,11 @@ export function creerIdentite(b: BaseAdmin) {
   const authAjoutOuvert = ref(false);
   const authDrawer: Ref<HTMLElement | null> = ref(null);
   const gardeFocus = creerGardeFocus();
+  const authEssai: Ref<ReponseEssaiFournisseur | null> = ref(null);
+  const authEssaiEnCours = ref(false);
+  const authEssaiErreur = ref("");
   let sequence = 0;
+  let sequenceEssai = 0;
 
   const bornes = computed(() => authEtat.value?.bounds ?? null);
   const authReglagesModifies = computed(
@@ -400,10 +404,19 @@ export function creerIdentite(b: BaseAdmin) {
     }
   }
 
+  /** Oublie le résultat du test (et la réponse d'un test encore en vol). */
+  function effacerEssai(): void {
+    sequenceEssai += 1;
+    authEssai.value = null;
+    authEssaiErreur.value = "";
+    authEssaiEnCours.value = false;
+  }
+
   function ouvrirTiroir(f: FormFournisseur): void {
     if (!authTiroir.value) gardeFocus.remember();
     authTiroirErreur.value = "";
     authTiroir.value = f;
+    effacerEssai();
     void ctx.nextTick().then(() => {
       const el = authDrawer.value;
       (el?.querySelector<HTMLElement>("input, select, textarea") ?? el)?.focus();
@@ -418,6 +431,7 @@ export function creerIdentite(b: BaseAdmin) {
     if (f) ouvrirTiroir(formDe(f));
   }
   function authFermer(): void {
+    effacerEssai();
     const ouvert = authTiroir.value !== null;
     authTiroir.value = null;
     authTiroirErreur.value = "";
@@ -426,6 +440,8 @@ export function creerIdentite(b: BaseAdmin) {
   function authTouche(ev: KeyboardEvent): void {
     piegerTab(ev, authDrawer.value);
   }
+
+  watch(authTiroir, effacerEssai, { deep: true });
 
   watch(e.adminTab, (page) => {
     if (page !== "enterprise-login") {
@@ -567,6 +583,46 @@ export function creerIdentite(b: BaseAdmin) {
     }
   }
 
+  /** Teste les réglages du formulaire tels quels (enregistrés ou non), sans le secret ; le résultat s'efface à la moindre modification. */
+  async function authTester(): Promise<void> {
+    const f = authTiroir.value;
+    const etat = authEtat.value;
+    if (!f || !etat || authEssaiEnCours.value) return;
+    const corps = corpsFournisseur({ ...f, nouveau: false }, etat.bounds.ldap_urls_max);
+    if (typeof corps === "string") {
+      authEssaiErreur.value = corps;
+      authEssai.value = null;
+      return;
+    }
+    corps["id"] = f.id.trim();
+    corps["type"] = f.type;
+    const moi = ++sequenceEssai;
+    authEssai.value = null;
+    authEssaiErreur.value = "";
+    authEssaiEnCours.value = true;
+    let essai: ReponseEssaiFournisseur | null = null;
+    let erreur = "";
+    try {
+      const res = await fetchAuth(`${BASE}/providers/test`, {
+        method: "POST",
+        headers: ENTETES_JSON,
+        body: JSON.stringify(corps),
+      });
+      if (!res) erreur = "Erreur réseau.";
+      else if (!res.ok) erreur = detailErreur(await corpsJson(res), "Demande refusée par le serveur.");
+      else {
+        essai = await lireSchema(res, schemaReponseEssaiFournisseur);
+        if (!essai) erreur = "Réponse du serveur inattendue.";
+      }
+    } catch {
+      erreur = "Erreur réseau.";
+    }
+    if (moi !== sequenceEssai) return;
+    authEssaiEnCours.value = false;
+    authEssai.value = essai;
+    authEssaiErreur.value = erreur;
+  }
+
   async function authBasculer(activer: boolean): Promise<boolean> {
     const f = authTiroir.value;
     const p = authFournisseur.value;
@@ -653,6 +709,10 @@ export function creerIdentite(b: BaseAdmin) {
     authActifs,
     authAdresses,
     authRaisonActiver,
+    authEssai,
+    authEssaiEnCours,
+    authEssaiErreur,
+    authTester,
     loadEnterpriseAuth,
     authEnregistrerReglages,
     authNouveau,

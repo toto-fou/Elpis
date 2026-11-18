@@ -40,12 +40,14 @@ function monter(
   opts: {
     typed?: boolean;
     confirme?: boolean;
+    propage?: boolean;
     refus?: Record<string, { statut: number; detail: string }>;
   } = {},
 ) {
   const appels: { url: string; methode: string; corps: unknown }[] = [];
   const mots: string[] = [];
   const toasts: string[] = [];
+  const genres: (string | undefined)[] = [];
   const confirmations: string[] = [];
   const fetchFaux = (url: string, init?: RequestInit): Promise<Response> => {
     appels.push({
@@ -55,6 +57,8 @@ function monter(
     });
     const refus = Object.entries(opts.refus ?? {}).find(([suffixe]) => url.endsWith(suffixe))?.[1];
     if (refus) return Promise.resolve(json({ detail: refus.detail }, refus.statut));
+    if (url.endsWith("/suspend") && opts.propage !== undefined)
+      return Promise.resolve(json({ ok: true, propagated: opts.propage }));
     return Promise.resolve(
       json({ ok: true, users: [], groups: [], network_profiles: [], desktop_targets: [] }),
     );
@@ -64,8 +68,9 @@ function monter(
     isAdminView: ref(true),
   };
   const ctx: CtxAdmin = {
-    showToast: (message: string) => {
+    showToast: (message: string, type?: string) => {
       toasts.push(message);
+      genres.push(type);
     },
     fetchAuth: (url, options) => fetchFaux(url, options),
     openConfirm: (titre: string) => {
@@ -92,7 +97,7 @@ function monter(
     compte(3, "bob", { llm_effective_engine_keys: ["a", "b"] }),
     compte(4, "carole", { group_ids: [10, 11], group_names: "dev, design" }),
   ];
-  return { A, appels, mots, refs, toasts, confirmations };
+  return { A, appels, mots, refs, toasts, genres, confirmations };
 }
 
 function montePage(A: ReturnType<typeof monter>["A"]): HTMLElement {
@@ -260,6 +265,23 @@ describe("désactivation d'un compte", () => {
     expect(envoi.map((a) => a.url)).toEqual(["/api/admin/users/3/suspend"]);
     expect(appels.some((a) => a.url === "/api/admin/users-with-groups")).toBe(true);
     expect(toasts).toEqual(["bob : compte désactivé"]);
+  });
+
+  it("propagation confirmée : message de succès", async () => {
+    const { A, toasts, genres } = monter({ confirme: true, propage: true });
+    await A.changerDesactivation(compte(3, "bob"), true);
+    expect(toasts).toEqual(["bob : compte désactivé"]);
+    expect(genres).toEqual([undefined]);
+  });
+
+  it("propagation non reçue : avertissement sur les tâches en cours", async () => {
+    const { A, appels, toasts, genres } = monter({ confirme: true, propage: false });
+    await A.changerDesactivation(compte(3, "bob"), true);
+    expect(toasts).toEqual([
+      "bob : compte désactivé ; ses tâches en cours s'arrêteront à leur prochaine étape.",
+    ]);
+    expect(genres).toEqual(["warning"]);
+    expect(appels.some((a) => a.url === "/api/admin/users-with-groups")).toBe(true);
   });
 
   it("réactivation après confirmation simple", async () => {

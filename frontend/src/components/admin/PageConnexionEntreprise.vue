@@ -167,10 +167,6 @@ function etat(p: { enabled: boolean; active: boolean }): { libelle: string; aler
           <i class="ph ph-identification-card adm-card__icon" aria-hidden="true"></i>
           <div>
             <h3 class="adm-card__title">Fournisseurs</h3>
-            <p class="adm-card__hint">
-              Le test de connexion n'est pas encore disponible : aucun fournisseur ne peut être activé pour
-              l'instant.
-            </p>
           </div>
           <div class="adm-card__actions">
             <button

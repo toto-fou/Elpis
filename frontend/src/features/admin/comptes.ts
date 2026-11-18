@@ -6,6 +6,7 @@ import {
   schemaReponseComptesConsole,
   schemaReponseGroupesConsole,
   schemaReponseMachinesCompte,
+  schemaReponseSuspension,
 } from "@elpis/contracts";
 import type { CompteConsole, schemaMoteurChoisissable } from "@elpis/contracts";
 import type { Ref } from "vue";
@@ -731,7 +732,15 @@ export function creerComptes(b: BaseAdmin) {
     const action = desactiver ? "suspend" : "unsuspend";
     const r = await fetchAuth(`/api/admin/users/${u.id}/${action}`, { method: "POST" }, true);
     if (r?.ok) {
-      showToast(`${u.username} : ${desactiver ? "compte désactivé" : "compte réactivé"}`);
+      const propage = desactiver
+        ? ((await lireSchema(r, schemaReponseSuspension))?.propagated ?? true)
+        : true;
+      if (propage) showToast(`${u.username} : ${desactiver ? "compte désactivé" : "compte réactivé"}`);
+      else
+        showToast(
+          `${u.username} : compte désactivé ; ses tâches en cours s'arrêteront à leur prochaine étape.`,
+          "warning",
+        );
       await loadUsers();
     } else showToast(detailErreur(await corpsJson(r)) || "Mise à jour du compte impossible.", "error");
   }

@@ -5,11 +5,21 @@ import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { PRESETS_LDAP } from "../../features/admin/identite";
+import EtapesEssai from "./EtapesEssai.vue";
 
 const adm = domaineAdmin();
 const f = computed(() => adm.authTiroir);
 const bornes = computed(() => adm.authEtat?.bounds ?? null);
 const general = computed(() => adm.authFige(""));
+const synthese = computed(() => {
+  const r = adm.authEssai;
+  if (!r) return "";
+  if (!r.ok || r.steps.length === 0 || r.steps.some((x) => x.level === "fail"))
+    return "Un contrôle a échoué.";
+  return r.steps.every((x) => x.level === "ok")
+    ? "Les contrôles réseau et de certificat passent."
+    : "Les contrôles passent, avec des avertissements à lire.";
+});
 const titre = computed(() => {
   const x = f.value;
   if (!x) return "";
@@ -566,6 +576,39 @@ const titre = computed(() => {
             </details>
 
             <p v-if="adm.authTiroirErreur" class="adm-field__warn" role="alert">{{ adm.authTiroirErreur }}</p>
+
+            <section class="space-y-2" aria-labelledby="ent-essai-h" data-essai-fournisseur>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 id="ent-essai-h" class="adm-field__label">Test de connexion</h3>
+                <button
+                  id="ent-tester"
+                  type="button"
+                  class="adm-btn adm-tool adm-btn--sm ml-auto"
+                  :disabled="adm.authEssaiEnCours"
+                  title="Vérifie les réglages affichés, enregistrés ou non."
+                  @click="adm.authTester()"
+                >
+                  <i
+                    class="ph"
+                    :class="adm.authEssaiEnCours ? 'ph-spinner-gap animate-spin' : 'ph-pulse'"
+                    aria-hidden="true"
+                  ></i>
+                  {{ adm.authEssaiEnCours ? "Test en cours…" : "Tester" }}
+                </button>
+              </div>
+              <div aria-live="polite" class="space-y-2">
+                <p v-if="adm.authEssaiErreur" id="ent-essai-erreur" class="adm-field__warn">
+                  {{ adm.authEssaiErreur }}
+                </p>
+                <template v-if="adm.authEssai">
+                  <p id="ent-essai-synthese" class="text-xs font-medium text-slate-800">{{ synthese }}</p>
+                  <EtapesEssai :steps="adm.authEssai.steps" :annoncer="false" />
+                  <p v-if="!adm.authEssai.complete" id="ent-essai-incomplet" class="adm-card__hint">
+                    Ce test ne couvre pas encore la connexion elle-même : l'activation reste indisponible.
+                  </p>
+                </template>
+              </div>
+            </section>
 
             <section v-if="!f.nouveau" class="adm-card adm-zone" aria-labelledby="ent-zone-h">
               <header class="adm-card__head">

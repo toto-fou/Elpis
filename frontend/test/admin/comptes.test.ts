@@ -13,7 +13,7 @@ import type { DomaineAdmin } from "../../src/features/admin/domaine";
 import type { CtxAdmin, RefsAdmin } from "../../src/features/admin/types";
 import { GestionnaireSession } from "../../src/features/auth/session";
 import { ClientHttp } from "../../src/platform/http/client";
-import { json } from "../aides";
+import { json, vider } from "../aides";
 
 let app: App | null = null;
 afterEach(() => {
@@ -36,15 +36,25 @@ const compte = (id: number, nom: string, extra: Partial<CompteConsole> = {}): Co
     ...extra,
   }) as unknown as CompteConsole;
 
-function monter(opts: { typed?: boolean } = {}) {
+function monter(
+  opts: {
+    typed?: boolean;
+    confirme?: boolean;
+    refus?: Record<string, { statut: number; detail: string }>;
+  } = {},
+) {
   const appels: { url: string; methode: string; corps: unknown }[] = [];
   const mots: string[] = [];
+  const toasts: string[] = [];
+  const confirmations: string[] = [];
   const fetchFaux = (url: string, init?: RequestInit): Promise<Response> => {
     appels.push({
       url,
       methode: init?.method ?? "GET",
       corps: init?.body ? JSON.parse(String(init.body)) : null,
     });
+    const refus = Object.entries(opts.refus ?? {}).find(([suffixe]) => url.endsWith(suffixe))?.[1];
+    if (refus) return Promise.resolve(json({ detail: refus.detail }, refus.statut));
     return Promise.resolve(
       json({ ok: true, users: [], groups: [], network_profiles: [], desktop_targets: [] }),
     );
@@ -54,9 +64,14 @@ function monter(opts: { typed?: boolean } = {}) {
     isAdminView: ref(true),
   };
   const ctx: CtxAdmin = {
-    showToast: () => undefined,
+    showToast: (message: string) => {
+      toasts.push(message);
+    },
     fetchAuth: (url, options) => fetchFaux(url, options),
-    openConfirm: () => Promise.resolve(false),
+    openConfirm: (titre: string) => {
+      confirmations.push(titre);
+      return Promise.resolve(opts.confirme ?? false);
+    },
     openChoice: () => Promise.resolve("save"),
     ...(opts.typed === false
       ? {}
@@ -77,7 +92,18 @@ function monter(opts: { typed?: boolean } = {}) {
     compte(3, "bob", { llm_effective_engine_keys: ["a", "b"] }),
     compte(4, "carole", { group_ids: [10, 11], group_names: "dev, design" }),
   ];
-  return { A, appels, mots, refs };
+  return { A, appels, mots, refs, toasts, confirmations };
+}
+
+function montePage(A: ReturnType<typeof monter>["A"]): HTMLElement {
+  A.adminTab.value = "accounts";
+  const domaine = proxyRefs({ ...A, user: { id: 1, username: "root" } }) as unknown as DomaineAdmin;
+  const hote = document.createElement("div");
+  document.body.appendChild(hote);
+  app = createApp({ render: () => h(PageComptes) });
+  app.provide(CLE_ADMIN, domaine);
+  app.mount(hote);
+  return hote;
 }
 
 const noms = (A: ReturnType<typeof monter>["A"]) => A.filteredSortedUsers.value.map((u) => u.username);
@@ -207,5 +233,89 @@ describe("tableau", () => {
     hote.querySelector<HTMLElement>('[data-tri="username"]')?.click();
     await nextTick();
     expect(hote.querySelector("th[aria-sort='ascending']")?.textContent).toContain("Compte");
+  });
+});
+
+describe("désactivation d'un compte", () => {
+  const desactive = (id: number, par: string): CompteConsole =>
+    compte(id, id === 3 ? "bob" : "carole", { suspended_at: 1_700_000_000, suspended_by: par });
+
+  it("l'infobulle nomme l'administrateur seulement quand c'est lui qui a désactivé", () => {
+    const { A } = monter();
+    expect(A.titreDesactivation(desactive(3, "admin"))).toContain("par un administrateur");
+    expect(A.titreDesactivation(desactive(3, "cli"))).not.toContain("par un administrateur");
+  });
+
+  it("sans confirmation, aucun appel au serveur", async () => {
+    const { A, appels, confirmations } = monter();
+    await A.changerDesactivation(compte(3, "bob"), true);
+    expect(confirmations).toEqual(["Désactiver bob ?"]);
+    expect(appels.filter((a) => a.url.includes("/suspend"))).toEqual([]);
+  });
+
+  it("après confirmation : désactivation puis rechargement de la liste", async () => {
+    const { A, appels, toasts } = monter({ confirme: true });
+    await A.changerDesactivation(compte(3, "bob"), true);
+    const envoi = appels.filter((a) => a.methode === "POST");
+    expect(envoi.map((a) => a.url)).toEqual(["/api/admin/users/3/suspend"]);
+    expect(appels.some((a) => a.url === "/api/admin/users-with-groups")).toBe(true);
+    expect(toasts).toEqual(["bob : compte désactivé"]);
+  });
+
+  it("réactivation après confirmation simple", async () => {
+    const { A, appels, confirmations } = monter({ confirme: true });
+    await A.changerDesactivation(desactive(3, "admin"), false);
+    expect(confirmations).toEqual(["Réactiver bob ?"]);
+    expect(appels.filter((a) => a.methode === "POST").map((a) => a.url)).toEqual([
+      "/api/admin/users/3/unsuspend",
+    ]);
+  });
+
+  it("un refus du serveur (409) affiche son message", async () => {
+    const detail = "Impossible de suspendre le dernier administrateur actif.";
+    const { A, toasts } = monter({
+      confirme: true,
+      refus: { "/suspend": { statut: 409, detail } },
+    });
+    await A.changerDesactivation(compte(1, "root", { is_admin: 1 }), true);
+    expect(toasts).toEqual([detail]);
+  });
+
+  it("pastille « Désactivé » seulement sur un compte désactivé", async () => {
+    const { A } = monter();
+    A.usersList.value = A.usersList.value.map((u) => (u.id === 3 ? desactive(3, "admin") : u));
+    const hote = montePage(A);
+    await vider();
+    const pastilles = hote.querySelectorAll("[data-compte-desactive]");
+    expect(pastilles).toHaveLength(1);
+    expect(pastilles[0]?.textContent).toContain("Désactivé");
+    expect(pastilles[0]?.getAttribute("title")).toContain("par un administrateur");
+  });
+
+  it("le bouton change selon l'état du compte, et aucun sur son propre compte", async () => {
+    const { A } = monter();
+    A.usersList.value = A.usersList.value.map((u) => (u.id === 3 ? desactive(3, "admin") : u));
+    const hote = montePage(A);
+    A.toggleUserEdit(compte(1, "root", { is_admin: 1 }));
+    await vider();
+    expect(hote.querySelector("[data-desactivation]")).toBeNull();
+    A.toggleUserEdit(compte(4, "carole"));
+    await vider();
+    expect(hote.querySelector("[data-desactiver]")).not.toBeNull();
+    expect(hote.querySelector("[data-reactiver]")).toBeNull();
+    A.toggleUserEdit(compte(3, "bob"));
+    await vider();
+    expect(hote.querySelector("[data-reactiver]")).not.toBeNull();
+    expect(hote.querySelector("[data-desactiver]")).toBeNull();
+  });
+
+  it("le clic ne part qu'après confirmation", async () => {
+    const { A, appels } = monter({ confirme: false });
+    const hote = montePage(A);
+    A.toggleUserEdit(compte(4, "carole"));
+    await vider();
+    hote.querySelector<HTMLElement>("[data-desactiver]")?.click();
+    await vider();
+    expect(appels.filter((a) => a.url.includes("/suspend"))).toEqual([]);
   });
 });

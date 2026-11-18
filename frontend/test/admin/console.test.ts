@@ -1241,6 +1241,8 @@ describe("setupAdmin", () => {
       is_admin: 1,
       created_at: 1,
       avatar: null,
+      suspended_at: 0,
+      suspended_by: null,
       group_names: "",
       group_ids: [],
       sandbox_quota_mb: 0,

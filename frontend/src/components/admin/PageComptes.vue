@@ -186,6 +186,13 @@ function ajouterAuGroupe(ev: Event): void {
                           >
                         </div>
                         <div class="adm-users__muted font-mono">#{{ u.id }}</div>
+                        <span
+                          v-if="u.suspended_at"
+                          class="adm-pill adm-pill--warn"
+                          data-compte-desactive
+                          :title="adm.titreDesactivation(u)"
+                          >Désactivé</span
+                        >
                       </div>
                     </div>
                   </td>
@@ -329,6 +336,27 @@ function ajouterAuGroupe(ev: Event): void {
                                 <span class="truncate">{{ g.name }}</span>
                               </label>
                             </div>
+                          </div>
+                          <div v-if="u.id !== adm.user.id" class="adm-field" data-desactivation>
+                            <span class="adm-field__label">Désactivation</span>
+                            <button
+                              v-if="!u.suspended_at"
+                              type="button"
+                              class="adm-btn adm-btn--danger self-start"
+                              data-desactiver
+                              @click="adm.changerDesactivation(u, true)"
+                            >
+                              <i class="ph ph-prohibit" aria-hidden="true"></i> Désactiver
+                            </button>
+                            <button
+                              v-else
+                              type="button"
+                              class="adm-btn self-start"
+                              data-reactiver
+                              @click="adm.changerDesactivation(u, false)"
+                            >
+                              <i class="ph ph-power" aria-hidden="true"></i> Réactiver
+                            </button>
                           </div>
                         </fieldset>
 

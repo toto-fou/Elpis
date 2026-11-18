@@ -75,6 +75,7 @@ import {
   MONTAGES_NAVIGATEUR,
   SCRIPT_NAVIGATEUR,
 } from "./navigateur";
+import { verifierMontages } from "./options-run";
 import { configBacDepuis, netcfgHash, profilParId } from "./profils";
 import { argvCreationReseau, DNS_DE_GARDE, FORMAT_RESEAU, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
@@ -848,7 +849,12 @@ export class UserSandbox implements BacPourAgent {
       }
     }
     if (profil.mode !== "none") await this.ensureReseau(signal);
-    const [rc, , err] = await this.appel(this.buildRunArgs(profil, resolus), 60, signal);
+    const lancement = await verifierMontages(this.buildRunArgs(profil, resolus));
+    for (const r of lancement.refus)
+      journalDe("sandbox").warn(
+        `[sandbox] ${this.containerName} : montage d'executors.extra_run_args écarté : ${r}`,
+      );
+    const [rc, , err] = await this.appel(lancement.args, 60, signal);
     if (rc !== 0) {
       const texte = stripPy(decoderRemplace(err));
       if (lowerPy(texte).includes("already in use")) {

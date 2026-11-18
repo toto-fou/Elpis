@@ -30,6 +30,8 @@ import {
 import type { Dict } from "@elpis/commun";
 import { configView } from "@elpis/config";
 
+import { argsRunPermis } from "./options-run";
+
 /** Règles de la console (POST /api/admin/executors) ; `[a-zA-Z]` : l'IGNORECASE ASCII de Python. */
 export const PROFILE_ID_RE = /^[a-z0-9_-]+$/u;
 export const DOMAIN_RE =
@@ -189,6 +191,16 @@ export function profilReseauDepuis(d: Dict, avertir: Avertir = signalerUneFois):
   };
 }
 
+/** Options `docker run` de l'administrateur : celles hors de la liste permise sont retirées et signalées (config.json édité à la main). */
+function optionsPermises(brut: unknown, avertir: Avertir): string[] {
+  const args = iterExige(ouPy(brut, []))
+    .map(strPy)
+    .filter((x) => stripPy(x) !== "");
+  const { gardes, refus } = argsRunPermis(args);
+  for (const r of refus) avertir(`executors.extra_run_args : ${r} ignoré`);
+  return gardes;
+}
+
 /** `uid:gid` numérique des commandes du compte ; toute autre forme, ou root quand sudo est refusé, revient à l'utilisateur de l'image avec un avertissement. */
 export const EXEC_USER_RE = /^[0-9]{1,7}:[0-9]{1,7}$/u;
 const EXEC_USER_DEFAUT = "10001:10001";
@@ -250,9 +262,7 @@ export function configBacDepuis(brut: unknown, avertir: Avertir = signalerUneFoi
     idle_kill_hours: intPy(getPy(d, "idle_kill_hours", 24)),
     network_profiles: profils,
     runtime: texteNet(getPy(d, "runtime")),
-    extra_run_args: iterExige(ouPy(getPy(d, "extra_run_args"), []))
-      .map(strPy)
-      .filter((x) => stripPy(x) !== ""),
+    extra_run_args: optionsPermises(getPy(d, "extra_run_args"), avertir),
     allow_sudo: sudo,
   };
 }

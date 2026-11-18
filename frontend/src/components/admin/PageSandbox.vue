@@ -395,17 +395,20 @@ const adm = domaineAdmin();
               <div>
                 <label
                   class="adm-row__label"
-                  title="Un par ligne, passés tels quels. Au redémarrage."
+                  title="Un par ligne, parmi les options permises (mémoire partagée, limites, hôtes, GPU, variables, montages en lecture seule sur /mnt/nom). Au redémarrage."
                   for="sb-extra-args"
                   >Flags <code class="font-mono">docker run</code></label
                 >
-                <span class="sr-only">Un par ligne, passés tels quels. Au redémarrage.</span>
+                <span class="sr-only"
+                  >Un par ligne, parmi les options permises (mémoire partagée, limites, hôtes, GPU, variables,
+                  montages en lecture seule sur /mnt/nom). Au redémarrage.</span
+                >
               </div>
               <textarea
                 id="sb-extra-args"
                 v-model="adm.execExtraArgsText"
                 rows="3"
-                placeholder="--cap-add=NET_ADMIN&#10;--shm-size=2g"
+                placeholder="--shm-size=2g&#10;--ulimit=nofile=4096:8192"
                 class="set-textarea font-mono text-xs"
               ></textarea>
             </div>

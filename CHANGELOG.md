@@ -8,6 +8,19 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: extra `docker run` options limited to an allowed list.** `executors.extra_run_args`
+  now takes only options that neither undo the isolation nor override what Elpis sets: shared
+  memory, ulimits (open files, stack, locked memory), extra hosts, DNS, GPU, CPU set and shares,
+  hostname, storage size, variables (not those the sandbox sets or that its root steps read:
+  `PATH`, `HOME`, `LD_*`, `ELPIS_*`, iptables and glibc variables), labels outside `elpis.*`, and
+  read-only bind mounts of an existing host folder onto `/mnt/<name>`, outside system folders,
+  `/home`, `/var`, `/opt`, `/tmp`, the container daemon and Elpis's own data, whose path holds
+  safe characters only and whose parent folders belong to root; the folder is checked on disk,
+  with a time limit, when the console saves and each time a sandbox is created, and a mount that
+  fails is left out with a warning in the server journal; Docker receives the checked form.
+  Anything else is refused by the console and ignored, with a warning, when read from
+  `config.json`; a refused argument is named without its value. The startup script's root step
+  runs with a clean environment. `elpis.spec` 12.
 - **Sandbox: `sudo` can be turned off for the whole instance.** New setting `executors.allow_sudo`
   (Admin console › Sandbox › Limits › Advanced › *Sudo*, allowed by default). Turned off, every
   sandbox runs hardened: no root in the container, read-only system folders, `/tmp` in memory;

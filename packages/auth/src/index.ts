@@ -35,6 +35,8 @@ export {
   purgerRevocations,
   revoquerSid,
 } from "./revocations";
+export { ouvrirSession } from "./ouverture";
+export type { MethodeConnexion } from "./ouverture";
 export { fluxEncoreValide, Session, validerSession } from "./session";
 export type { DependancesSession, LigneUtilisateur } from "./session";
 export {

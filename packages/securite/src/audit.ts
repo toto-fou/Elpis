@@ -652,6 +652,8 @@ export function auditLogin(e: {
   userAgent?: string | null;
   success?: boolean;
   reason?: string | null;
+  /** Méthode d'une connexion réussie (`password`, `ldap:<id>`, `oidc:<id>`). */
+  method?: string | null;
   /** Empreinte du compte saisi quand il n'existe pas (voir `empreinteIdentifiant`). */
   identifierHash?: string | null;
 }): void {
@@ -665,6 +667,7 @@ export function auditLogin(e: {
         .slice(0, 200)
         .join(""),
       reason: e.reason ?? null,
+      ...(e.method ? { method: e.method } : {}),
       ...(e.identifierHash ? { identifier_hash: e.identifierHash } : {}),
     },
   });

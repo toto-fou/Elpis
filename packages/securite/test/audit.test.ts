@@ -204,6 +204,16 @@ describe("écriture v1 (appels des vecteurs Python : mêmes événements, nouvea
     });
   });
 
+  it("connexion réussie : la méthode figure aux détails, absente quand elle n'est pas donnée", () => {
+    const audit = join(dossier, "audit");
+    configureAudit({ auditDir: audit, hmacKeyPath: join(dossier, "absente") });
+    auditLogin({ userId: 1, username: "a", success: true, method: "password" });
+    auditLogin({ userId: 1, username: "a", success: true });
+    const [avec, sans] = lignesEcrites(audit).recs;
+    expect(avec).toMatchObject({ action: "auth.login", details: { method: "password", reason: null } });
+    expect((sans as { details: Dict }).details).not.toHaveProperty("method");
+  });
+
   it("connexion refusée à un compte inconnu : empreinte du nom saisi seulement, absente sinon", () => {
     const audit = join(dossier, "audit");
     configureAudit({ auditDir: audit, hmacKeyPath: join(dossier, "absente") });

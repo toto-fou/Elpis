@@ -200,7 +200,7 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
       { ok: true, is_admin: true, must_change_password: false },
     ]);
     expect(recentes(2).map((l) => [l["action"], l["details"]])).toEqual([
-      ["auth.login", { user_agent: "lightMyRequest", reason: null }],
+      ["auth.login", { user_agent: "lightMyRequest", reason: null, method: "password" }],
       ["auth.bootstrap", { mode: "local", target_user_id: 1, must_change: false }],
     ]);
     const me = await app.inject({ method: "GET", url: "/api/me-lite", headers: { cookie: cookie(r) } });

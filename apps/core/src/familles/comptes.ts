@@ -59,6 +59,7 @@ import {
   validerMotDePasse,
 } from "../comptes/aides";
 import { DebitConnexion } from "../comptes/debit-connexion";
+import { etablirConnexion } from "../comptes/ouverture";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
@@ -379,17 +380,14 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           }
           debitConnexion.reussite(essai, maintenant(dep));
           const ligne = await ligneUtilisateur(base, uid);
-          const t = maintenant(dep);
-          req.session.vider();
-          req.session.set("uid", uid);
-          req.session.set("user", uid);
-          req.session.set("user_id", uid);
-          req.session.set("_login_ts", t);
-          req.session.set("_sid", tokenUrlsafe(18));
-          const id = uid;
-          await sansEchec(() => dep.demarrerHistoriqueFichiers?.(id));
-          dep.logMetric?.("user_login", 1, { user: username });
-          auditLogin({ userId: uid, username, ip, userAgent: ua, success: true });
+          await etablirConnexion(
+            {
+              maintenant: () => maintenant(dep),
+              demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
+              logMetric: dep.logMetric,
+            },
+            { session: req.session, uid, username, methode: "password", ip, userAgent: ua },
+          );
           return {
             ok: true,
             is_admin: ligne ? [1, 2].includes(Number(ligne.is_admin)) : false,

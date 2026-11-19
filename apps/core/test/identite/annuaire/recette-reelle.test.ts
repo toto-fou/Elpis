@@ -48,6 +48,8 @@ interface AnnuaireReel {
   /** Groupe d'administrateurs dont `membre` fait partie et pas `autre_membre` (rôles par l'annuaire). */
   readonly groupe_admins?: string;
   readonly autre_membre?: Compte;
+  /** Membre d'un groupe lui-même membre du groupe requis (appartenance imbriquée). */
+  readonly membre_imbrique?: Compte;
   readonly expire?: Compte;
   readonly desactive?: Compte;
 }
@@ -243,6 +245,17 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
       expect(secretFaux).toMatchObject({ ok: false, complete: false });
       expect(secretFaux.steps.find((e) => e.id === "service_bind")?.level).toBe("fail");
     });
+
+    it.skipIf(a.membre_imbrique === undefined)(
+      "membre d'un groupe imbriqué dans le groupe requis : admis (appartenance suivie en chaîne)",
+      async () => {
+        const f = await fournisseur(a);
+        expect(await auth(f, a.membre_imbrique ?? a.membre)).toMatchObject({
+          type: "ok",
+          appartenance: "oui",
+        });
+      },
+    );
 
     it.skipIf(a.desactive === undefined)("compte désactivé dans l'annuaire : aucune session", async () => {
       const f = await fournisseur(a);

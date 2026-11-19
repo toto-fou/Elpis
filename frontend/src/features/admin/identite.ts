@@ -80,6 +80,32 @@ export function lignesRevendications(c: NonNullable<ResultatEssaiBlanc["claims"]
   ];
 }
 
+const NOMS_ROLES = { user: "utilisateur", moderator: "modérateur", admin: "administrateur" } as const;
+
+/** Phrases de l'essai sur le rôle et les groupes Elpis que la personne d'essai obtiendrait ; rien si aucune option n'agit. */
+export function lignesDroits(d: ResultatEssaiBlanc["rights"]): string[] {
+  if (!d || (!d.roles_enabled && !d.groups_enabled)) return [];
+  const l: string[] = [];
+  if (!d.readable) l.push("Groupes non lisibles : aucun rôle ni groupe ne serait modifié.");
+  else {
+    if (d.roles_enabled && d.role !== null) l.push(`Rôle obtenu : ${NOMS_ROLES[d.role]}.`);
+    if (d.groups_enabled)
+      l.push(`Groupes Elpis : ${d.groups.length ? d.groups.map((g) => g.name).join(", ") : "aucun"}.`);
+  }
+  if (d.admin_ignored)
+    l.push(
+      "Les groupes administrateurs sont ignorés tant qu'une vérification en deux étapes n'est pas exigée.",
+    );
+  const n = d.missing_group_ids.length;
+  if (n > 0)
+    l.push(
+      n === 1
+        ? "1 groupe Elpis de la correspondance n'existe plus."
+        : `${n} groupes Elpis de la correspondance n'existent plus.`,
+    );
+  return l;
+}
+
 export type TypeFournisseur = "ldap" | "oidc";
 export type ModeLocal = "all" | "admins";
 
@@ -89,6 +115,15 @@ export interface PresetLdap {
   filtre: string;
   attrs: { id: string; username: string; email: string; name: string };
   groupes: string;
+}
+
+export const GROUPES_ROLE_MAX = 20;
+export const CORRESPONDANCES_MAX = 50;
+export const MOT_CONFIRMATION_ADMIN = "administrateur";
+
+export interface Correspondance {
+  external: string;
+  group_id: number;
 }
 
 export const PRESETS_LDAP: readonly PresetLdap[] = [
@@ -132,6 +167,16 @@ export interface FormFournisseur {
   ca_pem: string;
   required_groups: string[];
   groupe_saisi: string;
+  droits_actifs: boolean;
+  roles_enabled: boolean;
+  admin_groups: string[];
+  moderator_groups: string[];
+  admin_saisi: string;
+  moderator_saisi: string;
+  map_enabled: boolean;
+  map: Correspondance[];
+  map_externe: string;
+  map_groupe: number;
   freshness_days: string;
   secret: string;
   test_user: string;
@@ -180,6 +225,16 @@ function formVide(type: TypeFournisseur): FormFournisseur {
     ca_pem: "",
     required_groups: [],
     groupe_saisi: "",
+    droits_actifs: false,
+    roles_enabled: false,
+    admin_groups: [],
+    moderator_groups: [],
+    admin_saisi: "",
+    moderator_saisi: "",
+    map_enabled: false,
+    map: [],
+    map_externe: "",
+    map_groupe: 0,
     freshness_days: "",
     secret: "",
     test_user: "",
@@ -215,6 +270,17 @@ function formVide(type: TypeFournisseur): FormFournisseur {
   };
 }
 
+/** Vrai quand une option de rôles ou de groupes est allumée ou renseignée. */
+function droitsPresents(f: FormFournisseur): boolean {
+  return (
+    f.roles_enabled ||
+    f.admin_groups.length > 0 ||
+    f.moderator_groups.length > 0 ||
+    f.map_enabled ||
+    f.map.length > 0
+  );
+}
+
 /** Formulaire rempli des réglages d'un fournisseur lu (jamais de secret). */
 function formDe(f: FournisseurAuth): FormFournisseur {
   const base: FormFournisseur = {
@@ -225,8 +291,14 @@ function formDe(f: FournisseurAuth): FormFournisseur {
     preset: f.preset,
     ca_pem: f.ca_pem,
     required_groups: [...f.required_groups],
+    roles_enabled: f.roles.enabled,
+    admin_groups: [...f.roles.admin_groups],
+    moderator_groups: [...f.roles.moderator_groups],
+    map_enabled: f.group_map.enabled,
+    map: f.group_map.map.map((c) => ({ ...c })),
     freshness_days: chiffre(f.freshness_days),
   };
+  base.droits_actifs = droitsPresents(base);
   if (f.type === "ldap")
     return {
       ...base,
@@ -303,6 +375,14 @@ export function corpsFournisseur(f: FormFournisseur, urlsMax: number): Record<st
   if (f.nouveau) {
     corps["id"] = f.id.trim();
     corps["type"] = f.type;
+  }
+  if (f.droits_actifs || droitsPresents(f)) {
+    corps["roles"] = {
+      enabled: f.roles_enabled,
+      admin_groups: f.admin_groups,
+      moderator_groups: f.moderator_groups,
+    };
+    corps["group_map"] = { enabled: f.map_enabled, map: f.map.map((c) => ({ ...c })) };
   }
   const texte = (cle: string, v: string): void => {
     if (v.trim() !== "") corps[cle] = v.trim();
@@ -411,6 +491,31 @@ export function creerIdentite(b: BaseAdmin) {
       JSON.stringify(corpsFournisseur({ ...f, nouveau: false }, max)) !==
       JSON.stringify(corpsFournisseur(formDe(p), max))
     );
+  });
+  /** Groupes administrateurs saisis alors que ce SSO n'exige ni niveau ni méthode d'authentification. */
+  const authAdminSansSecondFacteur = computed(() => {
+    const f = authTiroir.value;
+    return (
+      !!f &&
+      f.type === "oidc" &&
+      f.admin_groups.length > 0 &&
+      f.required_acr.trim() === "" &&
+      f.required_amr.trim() === ""
+    );
+  });
+  /** Enregistrer est indisponible : le serveur refuse des groupes administrateurs actifs sans second facteur exigé. */
+  const authRolesBloque = computed(
+    () => authAdminSansSecondFacteur.value && !!authTiroir.value?.roles_enabled,
+  );
+  /** Vrai quand la liste des groupes administrateurs, active, est nouvelle ou modifiée par rapport à l'état enregistré. */
+  const authAdminAConfirmer = computed(() => {
+    const f = authTiroir.value;
+    if (!f || !f.roles_enabled || f.admin_groups.length === 0) return false;
+    const p = authFournisseur.value;
+    if (!p || !p.roles.enabled) return true;
+    const a = [...p.roles.admin_groups].sort();
+    const b = [...f.admin_groups].sort();
+    return a.length !== b.length || a.some((x, i) => x !== b[i]);
   });
   const authActifs = computed(() => (authEtat.value?.providers ?? []).filter((p) => p.active));
   const authAdressePublique = computed(() => authEtat.value?.public_url ?? "");
@@ -583,6 +688,40 @@ export function creerIdentite(b: BaseAdmin) {
     authTiroir.value?.required_groups.splice(i, 1);
   }
 
+  function authAjouterGroupeRole(liste: "admin" | "moderator"): void {
+    const f = authTiroir.value;
+    if (!f) return;
+    const cle = liste === "admin" ? "admin_groups" : "moderator_groups";
+    const saisie = liste === "admin" ? "admin_saisi" : "moderator_saisi";
+    const g = f[saisie].trim();
+    if (g === "") return;
+    if (f[cle].length >= GROUPES_ROLE_MAX) {
+      authTiroirErreur.value = `${GROUPES_ROLE_MAX} groupes au plus.`;
+      return;
+    }
+    if (!f[cle].includes(g)) f[cle].push(g);
+    f[saisie] = "";
+  }
+  function authRetirerGroupeRole(liste: "admin" | "moderator", i: number): void {
+    authTiroir.value?.[liste === "admin" ? "admin_groups" : "moderator_groups"].splice(i, 1);
+  }
+  function authAjouterCorrespondance(): void {
+    const f = authTiroir.value;
+    const externe = f?.map_externe.trim() ?? "";
+    if (!f || externe === "" || f.map_groupe < 1) return;
+    if (f.map.length >= CORRESPONDANCES_MAX) {
+      authTiroirErreur.value = `${CORRESPONDANCES_MAX} correspondances au plus.`;
+      return;
+    }
+    if (!f.map.some((c) => c.external === externe && c.group_id === f.map_groupe))
+      f.map.push({ external: externe, group_id: f.map_groupe });
+    f.map_externe = "";
+    f.map_groupe = 0;
+  }
+  function authRetirerCorrespondance(i: number): void {
+    authTiroir.value?.map.splice(i, 1);
+  }
+
   /** Raison pour laquelle un champ ne se modifie pas (texte vide : modifiable). */
   function authFige(champ: string): string {
     const p = authFournisseur.value;
@@ -637,15 +776,30 @@ export function creerIdentite(b: BaseAdmin) {
     const etat = authEtat.value;
     if (!f || !etat || authBusy.value) return false;
     authTiroirErreur.value = "";
+    const fige = !!authFournisseur.value?.enabled;
+    if (!fige && authRolesBloque.value) return false;
+    const confirmer = !fige && authAdminAConfirmer.value;
+    if (
+      confirmer &&
+      !(await confirmerParMot(
+        ctx,
+        "Donner le rôle d'administrateur",
+        "Les membres de ces groupes de l'annuaire deviendront administrateurs d'Elpis et pourront faire exécuter des commandes sur le serveur. Tapez « administrateur » pour confirmer.",
+        MOT_CONFIRMATION_ADMIN,
+        "Confirmer",
+      ))
+    )
+      return false;
+    if (authBusy.value) return false;
     authBusy.value = true;
     try {
-      const enCours = authFournisseur.value;
-      if (!enCours?.enabled) {
+      if (!fige) {
         const corps = corpsFournisseur(f, etat.bounds.ldap_urls_max);
         if (typeof corps === "string") {
           authTiroirErreur.value = corps;
           return false;
         }
+        if (confirmer) corps["confirm_admin_mapping"] = true;
         const { r, erreur } = f.nouveau
           ? await appeler("POST", "/providers", corps)
           : await appeler("PUT", `/providers/${encodeURIComponent(f.id)}`, corps);
@@ -899,6 +1053,13 @@ export function creerIdentite(b: BaseAdmin) {
     authDrawer,
     authFournisseur,
     authActifs,
+    authAdminSansSecondFacteur,
+    authRolesBloque,
+    authAdminAConfirmer,
+    authAjouterGroupeRole,
+    authRetirerGroupeRole,
+    authAjouterCorrespondance,
+    authRetirerCorrespondance,
     authAdresses,
     authRaisonActiver,
     authEssai,

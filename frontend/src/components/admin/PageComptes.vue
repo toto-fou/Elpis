@@ -353,7 +353,18 @@ function ajouterAuGroupe(ev: Event): void {
                       <div class="adm-user-edit__grid">
                         <fieldset class="adm-user-edit__col">
                           <legend class="adm-user-edit__legend">Compte</legend>
-                          <label class="adm-field">
+                          <div v-if="u.role_managed" class="adm-field" data-role-gere>
+                            <span class="adm-field__label">Rôle</span>
+                            <div class="adm-field__row text-sm">
+                              <span>{{ adm.admRoleLabel(u) }}</span>
+                              <span
+                                class="adm-pill"
+                                title="Le rôle de ce compte est donné par un groupe de votre annuaire."
+                                >géré par l'annuaire</span
+                              >
+                            </div>
+                          </div>
+                          <label v-else class="adm-field">
                             <span class="adm-field__label">Rôle</span>
                             <select
                               v-model="adm.userEdit.role"

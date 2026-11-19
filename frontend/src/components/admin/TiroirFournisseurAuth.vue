@@ -8,10 +8,12 @@ import { heureCourte } from "../../features/admin/horodatage";
 import {
   ALGOS_JETON,
   PRESETS_LDAP,
+  lignesDroits,
   lignesRevendications,
   phraseDecision,
 } from "../../features/admin/identite";
 import EtapesEssai from "./EtapesEssai.vue";
+import SectionDroitsFournisseur from "./SectionDroitsFournisseur.vue";
 
 const adm = domaineAdmin();
 const f = computed(() => adm.authTiroir);
@@ -325,6 +327,8 @@ const titre = computed(() => {
                 >Collez ici l'autorité de votre organisation si son certificat n'est pas reconnu.</span
               >
             </label>
+
+            <SectionDroitsFournisseur />
 
             <details class="adm-details adm-details--rows">
               <summary>Avancé</summary>
@@ -716,6 +720,13 @@ const titre = computed(() => {
                       <dd class="min-w-0 break-words font-mono">{{ valeur }}</dd>
                     </div>
                   </dl>
+                  <ul
+                    v-if="lignesDroits(adm.authTrial.rights).length"
+                    class="text-xs space-y-0.5"
+                    data-droits-essai
+                  >
+                    <li v-for="l in lignesDroits(adm.authTrial.rights)" :key="l">{{ l }}</li>
+                  </ul>
                   <ul v-if="adm.authTrial.warnings.length" class="text-xs text-amber-700 space-y-0.5">
                     <li v-for="(w, i) in adm.authTrial.warnings" :key="i" data-avertissement-essai>
                       {{ w }}
@@ -883,7 +894,12 @@ const titre = computed(() => {
               id="ent-enregistrer-fournisseur"
               type="button"
               class="adm-btn adm-btn--primary"
-              :disabled="adm.authBusy"
+              :disabled="adm.authBusy || adm.authRolesBloque"
+              :title="
+                adm.authRolesBloque
+                  ? 'Exigez d\'abord une vérification en deux étapes pour ce fournisseur.'
+                  : undefined
+              "
               @click="adm.authEnregistrer()"
             >
               {{ f.nouveau ? "Ajouter" : "Enregistrer" }}

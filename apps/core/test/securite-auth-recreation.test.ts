@@ -2,10 +2,11 @@
 /** apps/core/test/securite-auth-recreation.test.ts — un identifiant de fournisseur recréé n'hérite ni des comptes liés, ni de l'état, ni du secret d'avant ; le secret ne s'écrit que pour un fournisseur présent. */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { ancreIdentite } from "../src/identite/ancre";
 import { validerFournisseur } from "../src/identite/reglages";
 import { MOTEURS, ouvrirBanc, URL_PUBLIQUE } from "./identite/banc";
 import type { Banc } from "./identite/banc";
-import { ldapValide } from "./identite/aides";
+import { ldapValide, oidcValide } from "./identite/aides";
 
 describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
   let b: Banc;
@@ -34,6 +35,74 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
     expect(b.lireConfig()["auth"]).toEqual({ public_url: URL_PUBLIQUE, providers: [] });
     expect(await lignes("SELECT 1 FROM auth_provider_state WHERE provider_id='annuaire'")).toHaveLength(1);
     await b.t.base.run("DELETE FROM user_identities WHERE provider_id='annuaire'");
+  });
+
+  it("identités restantes de la même ancre (fichier perdu puis refait à l'identique) : création permise, identités et comptes gardés, compteur d'échecs remis à zéro", async () => {
+    b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
+    const f = validerFournisseur(ldapValide({ required_groups: ["elpis"] }));
+    const ancre = ancreIdentite(f);
+    expect(ancre).toBe("ldap:cn=users,dc=exemple,dc=lan#entryuuid");
+    await b.t.base.run(
+      "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?,?,?,?,?,?)",
+      [b.alice, "annuaire", "s-alice", ancre, "auto", 1],
+    );
+    await b.t.base.run(
+      "INSERT INTO auth_failures(provider_id, subject, count, window_start, last_at) VALUES(?,?,?,?,?)",
+      ["annuaire", "s-alice", 3, 1, 1],
+    );
+    const r = await b.appeler(
+      "POST",
+      "/api/admin/auth/providers",
+      ldapValide({ required_groups: ["elpis"] }),
+    );
+    expect(r.statusCode, r.body).toBe(200);
+    expect(await lignes("SELECT user_id FROM user_identities WHERE provider_id='annuaire'")).toEqual([
+      [b.alice],
+    ]);
+    expect(await lignes("SELECT 1 FROM auth_failures WHERE provider_id='annuaire'")).toHaveLength(0);
+    await b.t.base.run("DELETE FROM user_identities WHERE provider_id='annuaire'");
+  });
+
+  it.each([
+    ["autre base d'utilisateurs", { user_base_dn: "ou=autre,dc=exemple,dc=lan" }],
+    [
+      "autre attribut d'identifiant",
+      { attrs: { id: "ipaUniqueID", username: "uid", email: "mail", name: "cn" } },
+    ],
+  ])(
+    "identités restantes d'une autre ancre (%s) : création refusée (409), rien n'est touché",
+    async (_n, ecart) => {
+      b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
+      const ancienne = ancreIdentite(validerFournisseur(ldapValide({ required_groups: ["elpis"] })));
+      await b.t.base.run(
+        "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?,?,?,?,?,?)",
+        [b.alice, "annuaire", "s-alice", ancienne, "auto", 1],
+      );
+      const r = await b.appeler(
+        "POST",
+        "/api/admin/auth/providers",
+        ldapValide({ required_groups: ["elpis"], ...ecart }),
+      );
+      expect(r.statusCode).toBe(409);
+      expect(b.lireConfig()["auth"]).toEqual({ public_url: URL_PUBLIQUE, providers: [] });
+      expect(await lignes("SELECT 1 FROM user_identities WHERE provider_id='annuaire'")).toHaveLength(1);
+      await b.t.base.run("DELETE FROM user_identities WHERE provider_id='annuaire'");
+    },
+  );
+
+  it("identités restantes d'un fournisseur OIDC : création refusée (409), aucune ancre ne les couvre", async () => {
+    b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
+    await b.t.base.run(
+      "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?,?,?,?,?,?)",
+      [b.alice, "sso", "s-alice", "https://idp.exemple.lan/realms/elpis", "auto", 1],
+    );
+    const r = await b.appeler(
+      "POST",
+      "/api/admin/auth/providers",
+      oidcValide({ required_groups: ["elpis"] }),
+    );
+    expect(r.statusCode).toBe(409);
+    await b.t.base.run("DELETE FROM user_identities WHERE provider_id='sso'");
   });
 
   it("sans identité : état et secret d'avant disparaissent à la création", async () => {

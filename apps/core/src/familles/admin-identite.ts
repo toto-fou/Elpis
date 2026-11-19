@@ -11,6 +11,7 @@ import { corpsJson } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
+import { ancreIdentite } from "../identite/ancre";
 import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
 import { lancerTest } from "../identite/essai";
 import type { OptionsEssai } from "../identite/essai";
@@ -78,6 +79,16 @@ function sectionAEcrire(cfg: Dict): { section: Dict; providers: unknown[] } {
   if (!Array.isArray(section["providers"])) poserCle(section, "providers", []);
   poserCle(cfg, "auth", section);
   return { section, providers: section["providers"] as unknown[] };
+}
+
+/** Vrai si toutes les identités restantes de l'identifiant portent l'ancre que donnent les réglages du nouveau fournisseur (aucune : vrai). */
+async function identitesDeMemeAncre(x: Executeur, f: Fournisseur): Promise<boolean> {
+  const ancres = await x.valeurs<[string]>(
+    "SELECT DISTINCT issuer FROM user_identities WHERE provider_id=?",
+    [f.id],
+  );
+  const ancre = ancreIdentite(f);
+  return ancres.every(([a]) => ancre !== null && a === ancre);
 }
 
 function positionDuFournisseur(providers: readonly unknown[], id: string): number {
@@ -209,10 +220,11 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         throw new HttpError(400, `${FOURNISSEURS_MAX} fournisseurs au plus.`);
       if (positionDuFournisseur(providers, f.id) >= 0)
         throw new HttpError(409, "Cet identifiant est déjà pris.");
-      if ((await nombreIdentites(x, f.id)) > 0)
+      if (!(await identitesDeMemeAncre(x, f)))
         throw new HttpError(409, "Cet identifiant est encore lié à des comptes : choisissez-en un autre.");
       await supprimerSecretFournisseur(base, f.id, acteur(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [f.id]);
+      await x.run("DELETE FROM auth_failures WHERE provider_id=?", [f.id]);
       providers.push(f);
     });
     auditer(req, "admin.auth.provider.create", {

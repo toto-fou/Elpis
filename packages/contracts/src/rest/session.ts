@@ -15,6 +15,8 @@ export const schemaMoiConnecte = z.object({
   is_admin: z.boolean(),
   role: schemaRole,
   avatar: z.string().nullable(),
+  /** Vrai quand le mot de passe est géré par l'organisation (compte sans mot de passe local). */
+  password_managed: z.boolean().optional(),
 });
 export const schemaMoiMotDePasseAChanger = z.object({
   logged_in: z.literal(false),

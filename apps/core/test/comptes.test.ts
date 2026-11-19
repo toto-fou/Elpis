@@ -212,6 +212,7 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
       is_admin: true,
       role: "admin",
       avatar: null,
+      password_managed: false,
     });
   });
 
@@ -691,6 +692,7 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
       is_admin: true,
       role: "moderator",
       avatar: null,
+      password_managed: false,
     });
     const check = await app.inject({ method: "GET", url: "/api/auth/check", headers: { cookie: suite } });
     expect([check.statusCode, check.body]).toEqual([204, ""]);

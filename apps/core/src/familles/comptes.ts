@@ -39,7 +39,7 @@ import {
   validerSession,
   verifyUser,
 } from "@elpis/auth";
-import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
+import type { DependancesAuth, DependancesJetons, MethodeConnexion, Reseau } from "@elpis/auth";
 import { decoderUtf8Py, HttpError, intPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
@@ -65,8 +65,13 @@ import {
   validerMotDePasse,
 } from "../comptes/aides";
 import { DebitConnexion } from "../comptes/debit-connexion";
+import type { PortBac } from "../admin/bac";
 import { ConnexionRefusee, etablirConnexion } from "../comptes/ouverture";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
+import { connecterParAnnuaire } from "../comptes/voie-annuaire";
+import { fabriqueLdapts } from "../identite/annuaire/client";
+import type { FabriqueConnexion } from "../identite/annuaire/client";
+import { annuairesActifs, PorteAnnuaire } from "../identite/annuaire/connexion";
 import { lireReglagesAuth } from "../identite/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
@@ -98,12 +103,20 @@ export interface DependancesComptes {
   readonly libellesCategories?: () => Readonly<Record<string, string>>;
   /** Process servi (`APP_MODE`) : la console n'écrit que l'apparence. */
   readonly mode: ModeApp;
+  /** Connexion par l'annuaire : fabrique des connexions (LDAPS vérifié par défaut) et ports de la suspension d'un compte sorti de son groupe. */
+  readonly annuaire?: {
+    readonly fabrique?: FabriqueConnexion;
+    readonly publierSuspension?: (uid: number) => Promise<boolean>;
+    readonly bac?: PortBac;
+  };
 }
 
 const SANS_CACHE = { "cache-control": "no-cache" };
 const ROLES: Readonly<Record<number, string>> = { 0: "user", 1: "admin", 2: "moderator" };
 /** Corps de `login-lite` : identifiant et mot de passe, lus avant toute session (Python sans limite). */
 const CORPS_CONNEXION_MAX = 64 * 1024;
+/** Aucune réponse de refus avant ce délai depuis l'arrivée quand un annuaire est actif (la voie suivie ne se lit pas au temps de réponse). */
+const PLANCHER_REFUS_MS = 500;
 const REFUS_DEBIT_CONNEXION = "Trop de tentatives de connexion : réessayez dans quelques minutes.";
 const REFUS_AVATAR_ASSISTANT =
   "L'avatar de l'assistant est le logo de l'application, réglé par l'administrateur dans la console.";
@@ -267,6 +280,26 @@ async function enregistrerAvatar(
 export function creerFamilleComptes(dep: DependancesComptes): Famille {
   const base = dep.auth.base;
   const debitConnexion = new DebitConnexion();
+  const porte = new PorteAnnuaire();
+  const cookieSecure = (): boolean => dep.auth.attributsCookie().https_only === true;
+  const voieAnnuaire = {
+    annuaire: {
+      base,
+      fabrique: dep.annuaire?.fabrique ?? fabriqueLdapts(),
+      maintenant: () => maintenant(dep),
+      cookieSecure,
+      journal: dep.journal,
+      porte,
+    },
+    provisionnement: {
+      base,
+      acces: dep.auth,
+      maintenant: () => maintenant(dep),
+      publierSuspension: dep.annuaire?.publierSuspension ?? (async () => false),
+      bac: dep.annuaire?.bac,
+      journal: dep.journal,
+    },
+  };
   return {
     nom: "comptes",
     routes: [
@@ -298,6 +331,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             is_admin: [1, 2].includes(Number(ligne.is_admin)),
             role: ROLES[Number(ligne.is_admin)] ?? "user",
             avatar: ligne.avatar ?? null,
+            password_managed: !aMotDePasseLocal(ligne),
           };
         },
       },
@@ -335,56 +369,85 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const ip = adresseClient(req, dep);
           const ua = entete(req, "user-agent") ?? null;
           const arrivee = maintenant(dep);
-          const attente = debitConnexion.attenteS(username, ip, arrivee);
+          const depart = performance.now();
+          const actifs = await annuairesActifs(voieAnnuaire.annuaire);
+          const nomLimiteur = actifs.length > 0 ? username.normalize("NFKC").toLowerCase() : username;
+          const attente = debitConnexion.attenteS(nomLimiteur, ip, arrivee);
           if (attente > 0)
             throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
-          const essai = debitConnexion.prendre(username, ip, arrivee);
+          const essai = debitConnexion.prendre(nomLimiteur, ip, arrivee);
+          const plancher = async (): Promise<void> => {
+            if (actifs.length > 0)
+              await attendre(Math.max(0, PLANCHER_REFUS_MS - (performance.now() - depart)));
+            if (essai.delaiMs > 0) await attendre(essai.delaiMs);
+          };
           let uid: number | null;
-          let verifieParMotDePasse: number | null;
+          let verifieParMotDePasse: number | null = null;
+          let methode: MethodeConnexion = "password";
+          let nomDuCompte = username;
+          let indisponible = false;
           try {
-            const compte =
-              lireReglagesAuth().local.mode === "admins" ? await getUser(base, username) : undefined;
-            const refuseParMode = compte !== undefined && Number(compte.is_admin) !== 1;
-            if (refuseParMode) {
-              if (secret.isWellFormed()) await completerCoutRefus(secret, null);
-              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
-            }
-            uid = refuseParMode ? null : await verifyUser(base, username, secret);
-            verifieParMotDePasse = uid;
-            if (uid === null && !refuseParMode) {
-              uid = await sousVerrouAmorcage(async () => {
-                const comptes = await getAllUsers(base);
-                const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
-                const mode = amorcage ? await modeAmorcage(req, motDePasse, dep) : null;
-                if (amorcage && mode) {
-                  const cree = await createUser(base, username, secret, {
-                    isAdmin: 1,
-                    mustChangePwd: mode === "file" ? 1 : 0,
-                  });
-                  await rm(join(dep.racine, "user_db", ".bootstrap_admin"), { force: true });
-                  auditEvent({
-                    userId: cree,
-                    username,
-                    action: "auth.bootstrap",
-                    ip,
-                    details: { mode, target_user_id: cree, must_change: mode === "file" },
-                  });
-                  return cree;
-                }
-                const raison = amorcage
-                  ? "bootstrap_locked"
-                  : comptes.length === 0 && username.toLowerCase() !== "admin"
-                    ? "bootstrap_denied"
-                    : "bad_password";
-                await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison });
-                return null;
+            const local = actifs.length > 0 ? await getUser(base, username) : undefined;
+            if (actifs.length > 0 && (local === undefined || !aMotDePasseLocal(local))) {
+              const issue = await connecterParAnnuaire(voieAnnuaire, {
+                identifiant: username,
+                motDePasse: secret,
+                actifs,
+                maintenant: maintenant(dep),
+                client: { ip, userAgent: ua },
               });
+              uid = issue.type === "ok" ? issue.uid : null;
+              if (issue.type === "ok") {
+                methode = issue.methode;
+                nomDuCompte = issue.username;
+              }
+              indisponible = issue.type === "indisponible";
+            } else {
+              const compte =
+                lireReglagesAuth().local.mode === "admins" ? await getUser(base, username) : undefined;
+              const refuseParMode = compte !== undefined && Number(compte.is_admin) !== 1;
+              if (refuseParMode) {
+                if (secret.isWellFormed()) await completerCoutRefus(secret, null);
+                await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
+              }
+              uid = refuseParMode ? null : await verifyUser(base, username, secret);
+              verifieParMotDePasse = uid;
+              if (uid === null && !refuseParMode) {
+                uid = await sousVerrouAmorcage(async () => {
+                  const comptes = await getAllUsers(base);
+                  const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
+                  const mode = amorcage ? await modeAmorcage(req, motDePasse, dep) : null;
+                  if (amorcage && mode) {
+                    const cree = await createUser(base, username, secret, {
+                      isAdmin: 1,
+                      mustChangePwd: mode === "file" ? 1 : 0,
+                    });
+                    await rm(join(dep.racine, "user_db", ".bootstrap_admin"), { force: true });
+                    auditEvent({
+                      userId: cree,
+                      username,
+                      action: "auth.bootstrap",
+                      ip,
+                      details: { mode, target_user_id: cree, must_change: mode === "file" },
+                    });
+                    return cree;
+                  }
+                  const raison = amorcage
+                    ? "bootstrap_locked"
+                    : comptes.length === 0 && username.toLowerCase() !== "admin"
+                      ? "bootstrap_denied"
+                      : "bad_password";
+                  await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison });
+                  return null;
+                });
+              }
             }
           } catch (e) {
             debitConnexion.annulation(essai, maintenant(dep));
             throw e;
           }
-          if (uid !== null && lireReglagesAuth().local.mode === "admins") {
+          if (indisponible) debitConnexion.annulation(essai, maintenant(dep));
+          if (uid !== null && methode === "password" && lireReglagesAuth().local.mode === "admins") {
             const verifie = await ligneUtilisateur(base, uid);
             if (Number(verifie?.is_admin) !== 1) {
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
@@ -394,7 +457,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           if (uid === null) {
             if (essai.epuise)
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "rate_limited" });
-            if (essai.delaiMs > 0) await attendre(essai.delaiMs);
+            await plancher();
             throw new HttpError(401, "invalid credentials");
           }
           const ligne = await ligneUtilisateur(base, uid);
@@ -407,10 +470,10 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
                 demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
                 logMetric: dep.logMetric,
               },
-              { session: req.session, uid, username, methode: "password", ip, userAgent: ua },
+              { session: req.session, uid, username: nomDuCompte, methode, ip, userAgent: ua },
             );
           } catch (e) {
-            if (e instanceof ConnexionRefusee && essai.delaiMs > 0) await attendre(essai.delaiMs);
+            if (e instanceof ConnexionRefusee) await plancher();
             throw e;
           }
           if (verifieParMotDePasse !== null) {

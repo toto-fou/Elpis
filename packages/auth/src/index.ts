@@ -60,6 +60,7 @@ export type { DependancesJetons, Jeton, JetonResolu, Politique, TypeJeton } from
 export { dependancesParDefaut } from "./defaut";
 export {
   aMotDePasseLocal,
+  createExternalUser,
   createUser,
   ErreurNomUtilisateur,
   ErreurSansMotDePasseLocal,

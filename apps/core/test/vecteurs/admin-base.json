@@ -1996,6 +1996,10 @@
           "source": 0,
           "dropped_columns": []
         },
+        "auth_failures": {
+          "source": 0,
+          "dropped_columns": []
+        },
         "user_identities": {
           "source": 0,
           "dropped_columns": []
@@ -2400,6 +2404,15 @@
           "sample_ok": true
         },
         "auth_provider_state": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "auth_failures": {
           "source": 0,
           "copied": 0,
           "orphans": 0,
@@ -2862,6 +2875,7 @@
         ]
       },
       "_tables": [
+        "auth_failures",
         "auth_provider_state",
         "ax_credentials",
         "ax_nodes",
@@ -2949,7 +2963,7 @@
     },
     "non_vide": {
       "erreur": "TransferError",
-      "message": "cible non vide (51 tables) : le transfert exige une base vierge"
+      "message": "cible non vide (52 tables) : le transfert exige une base vierge"
     },
     "identiques": {
       "erreur": "TransferError",
@@ -2958,7 +2972,7 @@
     "partielle_check": {
       "ok": true,
       "target": "sqlite:<d>/cible.db",
-      "tables": 52,
+      "tables": 53,
       "empty": true,
       "partial": true
     },
@@ -3351,6 +3365,15 @@
           "sample_ok": true
         },
         "auth_provider_state": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "auth_failures": {
           "source": 0,
           "copied": 0,
           "orphans": 0,
@@ -3766,6 +3789,7 @@
         ]
       },
       "_tables": [
+        "auth_failures",
         "auth_provider_state",
         "ax_credentials",
         "ax_nodes",

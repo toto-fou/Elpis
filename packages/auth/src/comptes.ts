@@ -89,10 +89,11 @@ export async function createUser(
   base: Base,
   username: string,
   password: string,
-  options: { isAdmin?: number; mustChangePwd?: number; maintenant?: number } = {},
+  options: { isAdmin?: number; mustChangePwd?: number; maintenant?: number; sansMotDePasse?: boolean } = {},
 ): Promise<number> {
   const sel = tokenHex(16);
-  const empreinte = await hashPassword(password, sel);
+  const empreinte =
+    options.sansMotDePasse === true ? MARQUEUR_SANS_MOT_DE_PASSE : await hashPassword(password, sel);
   return base.ecriture(async (x) => {
     await validerNomUtilisateur(x, username);
     return x.insertId(
@@ -108,6 +109,15 @@ export async function createUser(
       ],
     );
   });
+}
+
+/** Compte sans mot de passe local (marqueur `!`, sel hexadécimal aléatoire, rôle utilisateur), créé comme `createUser` ; dans une écriture en cours, il en devient un point de sauvegarde. */
+export function createExternalUser(
+  base: Base,
+  username: string,
+  options: { maintenant?: number } = {},
+): Promise<number> {
+  return createUser(base, username, "", { ...options, sansMotDePasse: true });
 }
 
 /** Tout refus coûte un hachage courant, que le nom existe ou non ; un texte non encodable n'est comparé à rien. */

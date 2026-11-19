@@ -2,7 +2,7 @@
 /** apps/core/src/comptes/etat.ts — suspension et réactivation d'un compte : état et coupure des sessions posés en une écriture, puis flux, terminaux, exécutions et bac coupés. */
 import { getUsernameById, getUserSettings, revoquerTousAcces } from "@elpis/auth";
 import type { DependancesJetons } from "@elpis/auth";
-import type { Base } from "@elpis/db";
+import type { Base, Executeur } from "@elpis/db";
 
 import { travailBac } from "../admin/bac";
 import type { PortBac } from "../admin/bac";
@@ -34,20 +34,31 @@ export interface BilanSuspension {
   readonly oauth: number;
 }
 
-/** Pose la suspension et la coupure des sessions en UNE écriture (refusée si elle retire le dernier administrateur local actif, sans écraser une suspension déjà posée), puis révoque jetons et accès OAuth et coupe flux, exécutions et bac. */
+/** Pose la suspension et la coupure des sessions dans l'écriture de l'appelant (refusée si elle retire le dernier administrateur local actif, sans écraser une suspension déjà posée) ; vrai si l'état a changé. */
+export async function poserSuspension(x: Executeur, uid: number, par: string, t: number): Promise<boolean> {
+  await exigerAdminLocal(x, { sauf: uid });
+  return (
+    (
+      await x.run(
+        "UPDATE users SET suspended_at=?, suspended_by=?, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
+        [t, par, t, t, uid],
+      )
+    ).changes > 0
+  );
+}
+
+/** Pose la suspension en UNE écriture, puis coupe les accès ; `change` dit si l'état a changé. */
 export async function suspendre(dep: DependancesEtat, uid: number, par: string): Promise<BilanSuspension> {
   const t = dep.maintenant();
-  const change = await dep.base.ecriture(async (x) => {
-    await exigerAdminLocal(x, { sauf: uid });
-    return (
-      (
-        await x.run(
-          "UPDATE users SET suspended_at=?, suspended_by=?, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
-          [t, par, t, t, uid],
-        )
-      ).changes > 0
-    );
-  });
+  const change = await dep.base.ecriture((x) => poserSuspension(x, uid, par, t));
+  return { change, ...(await couperAcces(dep, uid)) };
+}
+
+/** Révoque jetons d'API et accès OAuth du compte puis coupe flux, exécutions et bac (appels réseau : jamais dans une transaction). */
+export async function couperAcces(
+  dep: DependancesEtat,
+  uid: number,
+): Promise<Omit<BilanSuspension, "change">> {
   const { tokens, oauth } = await revoquerAcces(dep, uid);
   let propage = false;
   try {
@@ -56,7 +67,7 @@ export async function suspendre(dep: DependancesEtat, uid: number, par: string):
     dep.journal.error({ err: e }, "[admin] publication account_suspended échouée");
   }
   const bacArrete = await detruireBac(dep, uid);
-  return { change, propage, bacArrete, tokens, oauth };
+  return { propage, bacArrete, tokens, oauth };
 }
 
 /** Jetons d'API et accès OAuth du compte révoqués (au mieux : une panne est journalisée, l'état suspendu les refuse déjà). */
@@ -85,18 +96,22 @@ async function detruireBac(dep: DependancesEtat, uid: number): Promise<boolean> 
   }
 }
 
-/** Remet l'état à zéro et remonte `session_min_ts` à l'instant de la réactivation (une session datée pendant la suspension ne revit pas) ; vrai si le compte était suspendu. */
-export async function reactiver(
-  dep: Pick<DependancesEtat, "base"> & { readonly maintenant?: () => number },
-  uid: number,
-): Promise<boolean> {
-  const t = dep.maintenant?.() ?? Date.now() / 1000;
+/** Remet l'état à zéro dans l'écriture de l'appelant et remonte `session_min_ts` à `t` (une session datée pendant la suspension ne revit pas) ; vrai si le compte était suspendu. */
+export async function poserReactivation(x: Executeur, uid: number, t: number): Promise<boolean> {
   return (
     (
-      await dep.base.run(
+      await x.run(
         "UPDATE users SET suspended_at=0, suspended_by=NULL, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND suspended_at IS NOT NULL AND suspended_at<>0",
         [t, t, uid],
       )
     ).changes > 0
   );
+}
+
+/** Réactive le compte ; vrai s'il était suspendu. */
+export async function reactiver(
+  dep: Pick<DependancesEtat, "base"> & { readonly maintenant?: () => number },
+  uid: number,
+): Promise<boolean> {
+  return poserReactivation(dep.base, uid, dep.maintenant?.() ?? Date.now() / 1000);
 }

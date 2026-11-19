@@ -9,6 +9,12 @@
     ],
     [
       "index",
+      "idx_auth_failures_entry",
+      "auth_failures",
+      "CREATE UNIQUE INDEX \"idx_auth_failures_entry\" ON \"auth_failures\" (\"provider_id\", \"subject\")"
+    ],
+    [
+      "index",
       "idx_ax_nodes_parent",
       "ax_nodes",
       "CREATE INDEX \"idx_ax_nodes_parent\" ON \"ax_nodes\" (\"parent_id\")"
@@ -432,6 +438,12 @@
       "idx_vault_secrets_owner_name",
       "vault_secrets",
       "CREATE UNIQUE INDEX \"idx_vault_secrets_owner_name\" ON \"vault_secrets\" ((COALESCE(user_id, 0)), \"name\")"
+    ],
+    [
+      "table",
+      "auth_failures",
+      "auth_failures",
+      "CREATE TABLE \"auth_failures\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"provider_id\" TEXT NOT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"count\" INTEGER NOT NULL DEFAULT 0,\n  \"window_start\" REAL NOT NULL DEFAULT 0,\n  \"last_at\" REAL NOT NULL DEFAULT 0\n)"
     ],
     [
       "table",

@@ -62,6 +62,7 @@ import {
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
 import { creerFamilleAdminIdentite } from "./familles/admin-identite";
+import type { FabriqueConnexion } from "./identite/annuaire/client";
 import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
@@ -162,6 +163,8 @@ export interface Composition {
 export interface OptionsComposition {
   /** Cycle de vie du process : arrêt des flux, empreinte de main et abonnement de l'admin au démarrage, fermeture du relais ; absent, un cycle jamais démarré. */
   readonly cycle?: CycleDeVie;
+  /** Connexions à l'annuaire (LDAPS vérifié par défaut) ; les essais y glissent une fabrique factice. */
+  readonly fabriqueAnnuaire?: FabriqueConnexion;
 }
 
 /** Réglages lus au démarrage et vue courante de config.json : le « Redémarrage nécessaire » de main. */
@@ -476,7 +479,14 @@ export async function composer(
     gardes: creerGardes(auth),
     familles: [
       ...famillesParDefaut(mode),
-      creerFamilleComptes(comptes),
+      creerFamilleComptes({
+        ...comptes,
+        annuaire: {
+          ...(options.fabriqueAnnuaire === undefined ? {} : { fabrique: options.fabriqueAnnuaire }),
+          publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
+          bac: piloteBac(),
+        },
+      }),
       creerFamilleJetons(comptes),
       creerFamilleOAuth({ auth, oauth }),
       pont.famille,

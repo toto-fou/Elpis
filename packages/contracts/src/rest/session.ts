@@ -49,7 +49,13 @@ export const schemaCorpsChangementMotDePasse = z.object({
 });
 export type CorpsChangementMotDePasse = z.infer<typeof schemaCorpsChangementMotDePasse>;
 
-export const schemaCompteLite = z.object({ id: entier, username: z.string(), groups: z.string() });
+export const schemaCompteLite = z.object({
+  id: entier,
+  username: z.string(),
+  groups: z.string(),
+  ext_username: z.string().nullable().default(null),
+  provider_label: z.string().nullable().default(null),
+});
 export const schemaGroupe = z.object({ id: entier, name: z.string(), description: z.string().nullable() });
 export const schemaReponseComptesLite = z.object({
   users: z.array(schemaCompteLite),

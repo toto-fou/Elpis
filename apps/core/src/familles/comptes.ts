@@ -637,7 +637,11 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const uid = utilisateur(req);
           const moi = await ligneUtilisateur(base, uid);
           const admin = Number(moi?.is_admin) === 1;
-          return { users: await getUsersLite(base, uid, !admin), my_groups: await getUserGroups(base, uid) };
+          const libelles = new Map(lireReglagesAuth().providers.map((f) => [f.id, f.label]));
+          return {
+            users: await getUsersLite(base, uid, !admin, (id) => libelles.get(id) ?? null),
+            my_groups: await getUserGroups(base, uid),
+          };
         },
       },
       {

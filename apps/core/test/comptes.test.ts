@@ -35,6 +35,7 @@ import {
 import { composer } from "../src/composition";
 import { appTest, effacementUnifie, journalMuet, lignesAuditRecentes, lignesJournal } from "./aides";
 import { REFUS_AVATAR_ASSISTANT } from "./ecart-avatar-assistant";
+import { configDeTest, ldapValide } from "./identite/aides";
 
 type Dict = Record<string, unknown>;
 const V = JSON.parse(readFileSync(new URL("./vecteurs/comptes.json", import.meta.url), "utf-8")) as {
@@ -517,6 +518,54 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     const vu = await voir(bob);
     expect(vu.users.map((u) => u.username)).toEqual(["admin"]);
     expect(vu.my_groups.map((x) => x.name)).toEqual(["dev"]);
+  });
+
+  it("liste « lite » : identifiant d'annuaire et libellé du fournisseur pour un compte rattaché, aucun autre champ d'identité, 401 sans session", async () => {
+    const cfg = configDeTest();
+    try {
+      cfg.ecrire({ auth: { providers: [ldapValide({ id: "ipa", label: "Annuaire IPA" })] } });
+      await login("admin", "a", "127.0.0.1");
+      const admin = cookie(await login("admin", "a"));
+      for (const nom of ["bob", "carol", "dave"]) {
+        await t.base.run(
+          "INSERT INTO users(username, pass_salt, pass_hash, created_at, is_admin) SELECT ?, pass_salt, pass_hash, 0, 0 FROM users WHERE id=1",
+          [nom],
+        );
+      }
+      const lier = (uid: number, fournisseur: string, ext: string) =>
+        t.base.run(
+          "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, ext_email, ext_name, linked_by, linked_at) VALUES (?,?,?,?,?,?,?,?,?)",
+          [
+            uid,
+            fournisseur,
+            `cle-${ext}`,
+            "https://emetteur.invalide",
+            ext,
+            `${ext}@exemple.lan`,
+            "Nom Secret",
+            "admin",
+            1,
+          ],
+        );
+      await lier(2, "ipa", "bob.martin");
+      await lier(3, "disparu", "carol.durand");
+      const bob = cookie(await login("bob", "a"));
+      const voir = async (c: string): Promise<Record<string, unknown>[]> =>
+        (await app.inject({ method: "GET", url: "/api/users/lite", headers: { cookie: c } })).json<{
+          users: Record<string, unknown>[];
+        }>().users;
+      const vue = await voir(admin);
+      expect(vue).toEqual([
+        { id: 2, username: "bob", groups: "", ext_username: "bob.martin", provider_label: "Annuaire IPA" },
+        { id: 3, username: "carol", groups: "", ext_username: "carol.durand", provider_label: null },
+        { id: 4, username: "dave", groups: "", ext_username: null, provider_label: null },
+      ]);
+      expect(JSON.stringify(vue)).not.toMatch(/emetteur|cle-bob|Nom Secret|exemple\.lan/u);
+      expect((await voir(bob)).map((u) => u["username"])).toEqual(["admin", "carol", "dave"]);
+      expect((await app.inject({ method: "GET", url: "/api/users/lite" })).statusCode).toBe(401);
+    } finally {
+      cfg.fermer();
+    }
   });
 
   it("avatars : signature exigée, ancien fichier remplacé, servi, supprimé ; noms dangereux refusés", async () => {

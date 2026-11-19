@@ -101,6 +101,13 @@ const adm = domaineAdmin();
                 {{ u.username.substring(0, 2).toUpperCase() }}
               </div>
               <span class="text-sm font-medium text-slate-700">{{ u.username }}</span>
+              <span
+                v-if="u.ext_username"
+                class="text-xs text-slate-400 truncate"
+                data-testid="identite-annuaire"
+                >{{ u.ext_username
+                }}<template v-if="u.provider_label"> · {{ u.provider_label }}</template></span
+              >
             </label>
           </template>
         </div>

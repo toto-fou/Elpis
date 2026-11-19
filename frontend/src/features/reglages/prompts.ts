@@ -31,6 +31,8 @@ export interface CompteLite {
   id: number;
   username: string;
   groups: string;
+  ext_username: string | null;
+  provider_label: string | null;
 }
 export interface GroupeLite {
   id: number;

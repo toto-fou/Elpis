@@ -38,6 +38,19 @@ export type CompteLite = {
   id: number;
   username: string;
   groups: string;
+  /** Identifiant d'annuaire du compte rattaché, `null` pour un compte local. */
+  ext_username: string | null;
+  /** Libellé du fournisseur du compte rattaché, `null` pour un compte local ou un fournisseur disparu. */
+  provider_label: string | null;
+};
+
+/** Ligne brute de la requête : le fournisseur n'est rendu que par son libellé. */
+type LigneLite = {
+  id: number;
+  username: string;
+  groups: string | null;
+  ext_username: string | null;
+  provider_id: string | null;
 };
 
 export type Groupe = {
@@ -223,34 +236,45 @@ export async function mergeUserSettings(
   });
 }
 
-/** `get_users_lite` : sans groupes ou hors restriction, tous les autres comptes ; sinon ceux d'au moins un groupe commun. */
+/** `get_users_lite` : sans groupes ou hors restriction, tous les autres comptes ; sinon ceux d'au moins un groupe commun ; `libelle` donne le libellé d'un fournisseur (absent : `null`). */
 export async function getUsersLite(
   x: Executeur,
   exclu: number,
   respecterGroupes = true,
+  libelle: (fournisseurId: string) => string | null = () => null,
 ): Promise<CompteLite[]> {
+  const IDENT = `MAX(ui.ext_username) as ext_username, MAX(ui.provider_id) as provider_id`;
+  const lite = (r: LigneLite): CompteLite => ({
+    id: Number(r.id),
+    username: r.username,
+    groups: r.groups || "",
+    ext_username: r.ext_username ?? null,
+    provider_label: r.provider_id == null ? null : libelle(String(r.provider_id)),
+  });
   const tous = async (): Promise<CompteLite[]> =>
     (
-      await x.all<CompteLite>(
-        `SELECT u.id, u.username, ${groupConcat("g.name", x.dialecte, ", ")} as "groups" FROM users u ` +
+      await x.all<LigneLite>(
+        `SELECT u.id, u.username, ${groupConcat("g.name", x.dialecte, ", ")} as "groups", ${IDENT} FROM users u ` +
           `LEFT JOIN user_groups ug ON u.id = ug.user_id LEFT JOIN "groups" g ON ug.group_id = g.id ` +
+          `LEFT JOIN user_identities ui ON ui.user_id = u.id ` +
           `WHERE u.id != ? GROUP BY u.id ORDER BY u.username ASC`,
         [exclu],
       )
-    ).map((r) => ({ id: Number(r.id), username: r.username, groups: r.groups || "" }));
+    ).map(lite);
   if (!respecterGroupes) return tous();
   const miens = (await x.valeurs<[number]>("SELECT group_id FROM user_groups WHERE user_id=?", [exclu])).map(
     ([g]) => g,
   );
   if (!miens.length) return tous();
-  const lignes = await x.all<CompteLite>(
-    `SELECT u.id, u.username, ${groupConcat("g2.name", x.dialecte, ",", true)} as "groups" FROM users u ` +
+  const lignes = await x.all<LigneLite>(
+    `SELECT u.id, u.username, ${groupConcat("g2.name", x.dialecte, ",", true)} as "groups", ${IDENT} FROM users u ` +
       `JOIN user_groups ug ON u.id = ug.user_id AND ug.group_id IN (${miens.map(() => "?").join(",")}) ` +
       `LEFT JOIN user_groups ug2 ON u.id = ug2.user_id LEFT JOIN "groups" g2 ON ug2.group_id = g2.id ` +
+      `LEFT JOIN user_identities ui ON ui.user_id = u.id ` +
       `WHERE u.id != ? GROUP BY u.id ORDER BY u.username ASC`,
     [...miens, exclu],
   );
-  return lignes.map((r) => ({ id: Number(r.id), username: r.username, groups: r.groups || "" }));
+  return lignes.map(lite);
 }
 
 export async function getUserGroups(x: Executeur, uid: number): Promise<Groupe[]> {

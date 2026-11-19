@@ -907,6 +907,22 @@ doctor_coffre() {
     done < <(vault_core vault doctor 2>&1)
 }
 
+# Connexion d'entreprise vue par le core (lecture seule, sans réseau) : une ligne « niveau<TAB>texte » par contrôle ; rien si le core ou config.json manque.
+doctor_connexion() {
+    local niveau texte
+    if [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
+        info "connexion d'entreprise : non vérifiée (core non construit ou config.json absent)"; return 0
+    fi
+    while IFS=$'\t' read -r niveau texte; do
+        case "$niveau" in
+            ok) ok "$texte" ;;
+            warn) warn "$texte"; bad=$((bad+1)) ;;
+            info) info "$texte" ;;
+            *) [ -n "$niveau$texte" ] && { warn "connexion d'entreprise : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
+        esac
+    done < <(vault_core auth doctor 2>&1)
+}
+
 # Pilotes cités par les règles rsyslog d'Elpis, lignes commentées exclues (gtls : rsyslog-gnutls, omrelp : rsyslog-relp) : rsyslogd -N1 ne signale pas leur absence.
 doctor_paquets_rsyslog() {
     local texte p paquet
@@ -1075,6 +1091,7 @@ cmd_doctor() {
     fi
     doctor_journaux
     doctor_coffre
+    doctor_connexion
     sonde_du_core
     echo
     cmd_status
@@ -1165,9 +1182,9 @@ cmd_secret() {
 # Connexion d'entreprise : état et coupure de secours des fournisseurs d'identité (config.json relu à chaud, rien à redémarrer).
 cmd_auth() {
     case "${1:-}" in
-        status|off) [ $# -eq 1 ] || die "Usage : ./elpis auth status | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
-        reactivate) [ $# -eq 2 ] || die "Usage : ./elpis auth status | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
-        *) die "Usage : ./elpis auth status | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
+        status|doctor|off) [ $# -eq 1 ] || die "Usage : ./elpis auth status | ./elpis auth doctor | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
+        reactivate) [ $# -eq 2 ] || die "Usage : ./elpis auth status | ./elpis auth doctor | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
+        *) die "Usage : ./elpis auth status | ./elpis auth doctor | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
     esac
     charger_env
     charger_instance

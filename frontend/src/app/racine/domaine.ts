@@ -41,6 +41,18 @@ export interface DomaineConnexion {
   newPasswordForce: string;
   login(): unknown;
   submitForcePasswordChange(): unknown;
+  /** Méthodes de connexion externes proposées ; absent ou vide : l'écran de connexion reste celui du formulaire local. */
+  loginMethods?: readonly { id: string; label: string }[];
+  ssoBusy?: boolean;
+  ssoError?: string;
+  authRetour?: { message: string; reference: string | null } | null;
+  preuveUsername?: string | null;
+  preuveMotDePasse?: string;
+  preuveBusy?: boolean;
+  preuveError?: string;
+  startSso?(id: string): unknown;
+  envoyerPreuve?(): unknown;
+  annulerPreuve?(): unknown;
 }
 
 export const CLE_CHROME: InjectionKey<DomaineChrome> = Symbol("elpis:racine:chrome");

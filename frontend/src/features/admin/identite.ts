@@ -1,9 +1,23 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › Connexion d'entreprise : lecture et écritures des réglages `auth`, formulaire d'un fournisseur (LDAP, OIDC), secret, activation. */
-import { schemaReglagesAuth, schemaReponseEssaiFournisseur } from "@elpis/contracts";
-import type { FournisseurAuth, ReglagesAuthConsole, ReponseEssaiFournisseur } from "@elpis/contracts";
+import {
+  schemaHoteNonCanonique,
+  schemaReglagesAuth,
+  schemaReponseDernierEssai,
+  schemaReponseEssaiFournisseur,
+  schemaReponseLancementEssai,
+} from "@elpis/contracts";
+import type {
+  FournisseurAuth,
+  ReglagesAuthConsole,
+  ReponseEssaiFournisseur,
+  ReponseLancementEssai,
+  ResultatEssaiBlanc,
+} from "@elpis/contracts";
 import type { Ref } from "vue";
 
+import { maintenantServeurS } from "../../platform/horloge";
+import { adresseHttps } from "../auth/sso";
 import { gardeFocus as creerGardeFocus, piegerTab } from "../../utils/focus";
 import { copierTexte } from "../../utils/dom";
 import { corpsJson, detailErreur, lireSchema } from "../../utils/lecture-json";
@@ -14,6 +28,57 @@ import { suivreChargement } from "./suivi-chargement";
 const ENTETES_JSON = { "Content-Type": "application/json" };
 const NOM_CHARGEUR = "loadEnterpriseAuth";
 const BASE = "/api/admin/auth";
+
+export const ALGOS_JETON = [
+  "RS256",
+  "RS384",
+  "RS512",
+  "PS256",
+  "PS384",
+  "PS512",
+  "ES256",
+  "ES384",
+  "ES512",
+  "EdDSA",
+] as const;
+
+const DUREE_ATTENTE_ESSAI_MS = 300000;
+const PAS_ATTENTE_ESSAI_MS = 2000;
+
+const RAISONS_REFUS: Record<string, string> = {
+  denied: "refus du fournisseur",
+  expired: "le parcours a pris trop de temps",
+  not_in_group: "la personne n'est dans aucun groupe requis",
+  groups_unknown: "les groupes de la personne ne se lisent pas",
+  conflict: "un compte existe déjà pour cet identifiant",
+  suspended: "le compte est suspendu",
+  mfa_required: "la vérification en deux étapes exigée n'est pas satisfaite",
+  unavailable: "le fournisseur ne répond pas",
+  failed: "le parcours n'a pas abouti",
+};
+
+/** Décision de l'essai en une phrase ; la raison vient d'une liste fermée, jamais du fournisseur. */
+export function phraseDecision(d: ResultatEssaiBlanc["decision"]): string {
+  const nom = d.username ?? "";
+  if (d.outcome === "login") return `Cette personne se connecterait au compte ${nom}.`;
+  if (d.outcome === "create") return `Un compte ${nom} serait créé.`;
+  const raison = (d.reason !== null ? RAISONS_REFUS[d.reason] : undefined) ?? "cause non précisée";
+  return d.outcome === "refuse" ? `Connexion refusée : ${raison}.` : `L'essai a échoué : ${raison}.`;
+}
+
+/** Revendications reçues en liste compacte (libellé, valeur). */
+export function lignesRevendications(c: NonNullable<ResultatEssaiBlanc["claims"]>): [string, string][] {
+  return [
+    ["Émetteur", c.iss],
+    ["Identifiant stable", c.subject],
+    ["Identifiant", c.identifier],
+    ["Nom", c.name],
+    ["E-mail", c.email === "" ? "" : `${c.email} (${c.email_verified ? "vérifié" : "non vérifié"})`],
+    ["acr", c.acr ?? ""],
+    ["amr", c.amr.join(", ")],
+    ["Groupes", c.groups === null ? "groupes non lisibles" : c.groups.join(", ")],
+  ];
+}
 
 export type TypeFournisseur = "ldap" | "oidc";
 export type ModeLocal = "all" | "admins";
@@ -85,6 +150,7 @@ export interface FormFournisseur {
   issuer: string;
   client_id: string;
   client_auth: string;
+  id_token_alg: string;
   scopes: string;
   subject_claim: string;
   username_claim: string;
@@ -132,6 +198,7 @@ function formVide(type: TypeFournisseur): FormFournisseur {
     issuer: "",
     client_id: "",
     client_auth: "",
+    id_token_alg: "RS256",
     scopes: "",
     subject_claim: "",
     username_claim: "",
@@ -181,6 +248,7 @@ function formDe(f: FournisseurAuth): FormFournisseur {
     issuer: f.issuer,
     client_id: f.client_id,
     client_auth: f.client_auth,
+    id_token_alg: f.id_token_alg,
     scopes: f.scopes.join(" "),
     subject_claim: f.subject_claim,
     username_claim: f.username_claim,
@@ -269,6 +337,7 @@ export function corpsFournisseur(f: FormFournisseur, urlsMax: number): Record<st
     texte("issuer", f.issuer);
     texte("client_id", f.client_id);
     texte("client_auth", f.client_auth);
+    texte("id_token_alg", f.id_token_alg);
     for (const k of ["subject_claim", "username_claim", "email_claim", "name_claim", "groups_claim"] as const)
       texte(k, f[k]);
     if (mots(f.scopes).length > 0) corps["scopes"] = mots(f.scopes);
@@ -312,8 +381,15 @@ export function creerIdentite(b: BaseAdmin) {
   const authEssai: Ref<ReponseEssaiFournisseur | null> = ref(null);
   const authEssaiEnCours = ref(false);
   const authEssaiErreur = ref("");
+  const authTrial: Ref<ResultatEssaiBlanc | null> = ref(null);
+  const authTrialEtapes: Ref<ReponseLancementEssai["steps"]> = ref([]);
+  const authTrialEnCours = ref(false);
+  const authTrialAttente = ref(false);
+  const authTrialErreur = ref("");
   let sequence = 0;
   let sequenceEssai = 0;
+  let sequenceTrial = 0;
+  let minuteurTrial: ReturnType<typeof setTimeout> | null = null;
 
   const bornes = computed(() => authEtat.value?.bounds ?? null);
   const authReglagesModifies = computed(
@@ -425,8 +501,21 @@ export function creerIdentite(b: BaseAdmin) {
     authEssaiEnCours.value = false;
   }
 
+  /** Arrête l'attente d'un essai de connexion et oublie son résultat. */
+  function effacerTrial(): void {
+    sequenceTrial += 1;
+    if (minuteurTrial !== null) clearTimeout(minuteurTrial);
+    minuteurTrial = null;
+    authTrial.value = null;
+    authTrialEtapes.value = [];
+    authTrialErreur.value = "";
+    authTrialEnCours.value = false;
+    authTrialAttente.value = false;
+  }
+
   function ouvrirTiroir(f: FormFournisseur): void {
     if (!authTiroir.value) gardeFocus.remember();
+    effacerTrial();
     authTiroirErreur.value = "";
     authTiroir.value = f;
     effacerEssai();
@@ -445,6 +534,7 @@ export function creerIdentite(b: BaseAdmin) {
   }
   function authFermer(): void {
     effacerEssai();
+    effacerTrial();
     const ouvert = authTiroir.value !== null;
     authTiroir.value = null;
     authTiroirErreur.value = "";
@@ -458,6 +548,7 @@ export function creerIdentite(b: BaseAdmin) {
 
   watch(e.adminTab, (page) => {
     if (page !== "enterprise-login") {
+      effacerTrial();
       authTiroir.value = null;
       authAjoutOuvert.value = false;
     }
@@ -513,7 +604,8 @@ export function creerIdentite(b: BaseAdmin) {
     if (etat.prerequisites.local_admins < 1) return "Un administrateur avec mot de passe local est requis.";
     if (p.required_groups.length === 0) return "Indiquez d'abord au moins un groupe requis.";
     if (!p.has_secret) return "Enregistrez d'abord le secret.";
-    if (!p.tested) return "Testez d'abord ce fournisseur.";
+    if (!p.tested)
+      return p.type === "oidc" ? "Lancez d'abord un essai de connexion." : "Testez d'abord ce fournisseur.";
     return "";
   });
 
@@ -641,6 +733,87 @@ export function creerIdentite(b: BaseAdmin) {
     if (essai?.complete) await loadEnterpriseAuth();
   }
 
+  /** Interroge le dernier résultat toutes les 2 s, 5 minutes au plus, jusqu'à un résultat postérieur au lancement. */
+  function attendreTrial(id: string, depuis: number, precedent: number): void {
+    const jeton = ++sequenceTrial;
+    const fin = Date.now() + DUREE_ATTENTE_ESSAI_MS;
+    authTrialAttente.value = true;
+    const tour = async (): Promise<void> => {
+      minuteurTrial = null;
+      let resultat: ResultatEssaiBlanc | null;
+      try {
+        const res = await fetchAuth(`${BASE}/providers/${encodeURIComponent(id)}/trial`);
+        resultat = (await lireSchema(res, schemaReponseDernierEssai))?.result ?? null;
+      } catch {
+        resultat = null;
+      }
+      if (jeton !== sequenceTrial) return;
+      if (resultat !== null && resultat.at >= depuis - 2 && resultat.at > precedent) {
+        authTrial.value = resultat;
+        authTrialAttente.value = false;
+        await loadEnterpriseAuth();
+        return;
+      }
+      if (Date.now() >= fin) {
+        authTrialAttente.value = false;
+        authTrialErreur.value = "L'essai n'a pas abouti à temps. Relancez-le.";
+        return;
+      }
+      minuteurTrial = setTimeout(() => void tour(), PAS_ATTENTE_ESSAI_MS);
+    };
+    minuteurTrial = setTimeout(() => void tour(), PAS_ATTENTE_ESSAI_MS);
+  }
+
+  /** Lance l'essai de connexion : étapes puis, si elles passent, adresse ouverte dans un nouvel onglet. */
+  async function authEssayerConnexion(): Promise<void> {
+    const f = authTiroir.value;
+    if (!f || f.nouveau || f.type !== "oidc" || authTrialEnCours.value) return;
+    const id = f.id;
+    const precedent = authTrial.value?.at ?? 0;
+    effacerTrial();
+    const depuis = maintenantServeurS();
+    const jeton = sequenceTrial;
+    authTrialEnCours.value = true;
+    try {
+      const res = await fetchAuth(`${BASE}/providers/${encodeURIComponent(id)}/trial`, {
+        method: "POST",
+        headers: ENTETES_JSON,
+        body: "{}",
+      });
+      if (jeton !== sequenceTrial) return;
+      if (!res) {
+        authTrialErreur.value = "Erreur réseau.";
+        return;
+      }
+      if (!res.ok) {
+        const corps = await corpsJson(res);
+        const h = res.status === 409 ? schemaHoteNonCanonique.safeParse(corps) : null;
+        authTrialErreur.value = h?.success
+          ? `Ouvrez la console depuis ${h.data.canonical} pour lancer l'essai.`
+          : detailErreur(corps, "Demande refusée par le serveur.");
+        return;
+      }
+      const r = await lireSchema(res, schemaReponseLancementEssai);
+      if (jeton !== sequenceTrial) return;
+      if (!r) {
+        authTrialErreur.value = "Réponse du serveur inattendue.";
+        return;
+      }
+      authTrialEtapes.value = r.steps;
+      const url = r.ok ? adresseHttps(r.url) : null;
+      if (url === null) {
+        if (r.ok) authTrialErreur.value = "Réponse du serveur inattendue.";
+        return;
+      }
+      window.open(url, "_blank", "noopener");
+      attendreTrial(id, depuis, precedent);
+    } catch {
+      if (jeton === sequenceTrial) authTrialErreur.value = "Erreur réseau.";
+    } finally {
+      if (jeton === sequenceTrial) authTrialEnCours.value = false;
+    }
+  }
+
   async function authBasculer(activer: boolean): Promise<boolean> {
     const f = authTiroir.value;
     const p = authFournisseur.value;
@@ -732,6 +905,12 @@ export function creerIdentite(b: BaseAdmin) {
     authEssaiEnCours,
     authEssaiErreur,
     authTester,
+    authTrial,
+    authTrialEtapes,
+    authTrialEnCours,
+    authTrialAttente,
+    authTrialErreur,
+    authEssayerConnexion,
     loadEnterpriseAuth,
     authEnregistrerReglages,
     authNouveau,

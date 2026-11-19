@@ -10,6 +10,7 @@ export interface Compte {
   readonly is_admin: boolean;
   readonly role: Role;
   readonly avatar: string | null;
+  readonly password_managed?: boolean;
 }
 
 /** Fin de session : `deconnexion` est volontaire, `expiration` subie (401, SSE, cookie échu), `mot_de_passe` un 403 de changement forcé. */

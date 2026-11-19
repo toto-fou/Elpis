@@ -235,7 +235,7 @@ describe("Connexion d'entreprise : bouton Tester", () => {
     expect(el<HTMLButtonElement>("ent-activer")?.disabled).toBe(true);
   });
 
-  it("un SSO : aucun utilisateur d'essai ni secret envoyés, phrase d'incomplétude gardée", async () => {
+  it("un SSO : aucun utilisateur d'essai ni secret envoyés, synthèse d'essai de connexion à lancer", async () => {
     const OIDC = {
       ...COMMUN,
       type: "oidc" as const,
@@ -269,7 +269,9 @@ describe("Connexion d'entreprise : bouton Tester", () => {
     expect(corps).not.toHaveProperty("secret");
     expect(corps).not.toHaveProperty("test_user");
     expect(JSON.stringify(corps)).not.toContain("secret-sso");
-    expect(el("ent-essai-incomplet")).not.toBeNull();
+    expect(el("ent-essai-synthese")?.textContent).toBe(
+      "Lancez un essai de connexion pour pouvoir activer ce fournisseur.",
+    );
   });
 
   it("un test raté reste affiché avec « Un contrôle a échoué. »", async () => {

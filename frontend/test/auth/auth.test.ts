@@ -355,3 +355,14 @@ describe("configuration publique : logo de l'application", () => {
       expect(await charger(autre), String(autre)).toBe("static/elpis-256.png");
   });
 });
+
+describe("password_managed", () => {
+  it("est relayé sur le compte quand le serveur le rend, absent sinon", async () => {
+    const a = monter(reponses({ "/api/me-lite": () => json({ ...MOI_A, password_managed: true }) }));
+    await a.auth.checkAuth();
+    expect(a.refs.user.value?.password_managed).toBe(true);
+    const b = monter(reponses({ "/api/me-lite": () => json(MOI_A) }));
+    await b.auth.checkAuth();
+    expect(b.refs.user.value).not.toHaveProperty("password_managed");
+  });
+});

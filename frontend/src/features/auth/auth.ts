@@ -9,6 +9,8 @@ import type { ClientHttp } from "../../platform/http/client";
 import { adresseLogo } from "../communs/logo";
 import type { HttpLegacy, Toast } from "../../platform/http/legacy";
 import type { Compte, GestionnaireSession } from "./session";
+import { setupSso } from "./sso";
+import type { EnvSso } from "./sso";
 
 export type UtilisateurAffiche = Compte;
 
@@ -55,6 +57,7 @@ export interface DependancesAuth {
   readonly session: GestionnaireSession;
   readonly http: ClientHttp;
   readonly fenetre?: FenetreElpis;
+  readonly envSso?: EnvSso;
 }
 
 /** Globals posés par `index.html`/`admin.html` et relus ici. */
@@ -79,6 +82,8 @@ const schemaConfigPublique = z.looseObject({
   main_url: z.unknown().optional(),
   app_mode: z.unknown().optional(),
   features: objet.nullish(),
+  login_methods: z.unknown().optional(),
+  auth_origin: z.unknown().optional(),
 });
 function ou(v: unknown, defaut: unknown): unknown {
   return v ? v : defaut;
@@ -126,6 +131,24 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     btn_color: "#0f172a",
   });
 
+  const sso = setupSso(
+    http,
+    {
+      rechargerConfig: () => loadPublicConfig(),
+      apresConnexion: async () => {
+        await checkAuth();
+        showToast("Bienvenue");
+        const u = user.value;
+        if (u && !fen().__ADMIN_ONLY_MODE__ && u.is_admin && !modeSepare()) {
+          isAdminView.value = true;
+          lancer(ctx.loadUsers);
+        }
+      },
+    },
+    dep.envSso,
+  );
+  void sso.lireRetour();
+
   const modeSepare = (): boolean => {
     const mode = fen().__APP_MODE__ || "";
     return mode === "main" || mode === "admin" || !!ctx.adminAppUrl?.value;
@@ -146,6 +169,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
         scene: ou(w.scene, null),
       };
     }
+    sso.appliquerConfig(data);
     if (data.login_page) loginConfig.value = { ...loginConfig.value, ...data.login_page };
     if (data.app_info && ctx.appInfo) {
       const a = data.app_info;
@@ -198,6 +222,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
         is_admin: data.is_admin,
         role: data.role,
         avatar: data.avatar,
+        ...(data.password_managed === undefined ? {} : { password_managed: data.password_managed }),
       };
       session.ouvrir(compte);
       user.value = compte;
@@ -450,6 +475,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     checkAuth,
     login,
     loginConfig,
+    ...sso,
     submitForcePasswordChange,
     createUserAdmin,
     changeUserRole,

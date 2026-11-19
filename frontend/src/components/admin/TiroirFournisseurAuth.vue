@@ -5,7 +5,12 @@ import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { heureCourte } from "../../features/admin/horodatage";
-import { PRESETS_LDAP } from "../../features/admin/identite";
+import {
+  ALGOS_JETON,
+  PRESETS_LDAP,
+  lignesRevendications,
+  phraseDecision,
+} from "../../features/admin/identite";
 import EtapesEssai from "./EtapesEssai.vue";
 
 const adm = domaineAdmin();
@@ -18,6 +23,10 @@ const synthese = computed(() => {
   if (!r.ok || r.steps.length === 0 || r.steps.some((x) => x.level === "fail"))
     return "Un contrôle a échoué.";
   if (r.complete) return "Test complet : vous pouvez activer ce fournisseur.";
+  if (f.value?.type === "oidc")
+    return adm.authFournisseur?.tested
+      ? "Les contrôles passent. Ce fournisseur peut être activé."
+      : "Lancez un essai de connexion pour pouvoir activer ce fournisseur.";
   return r.steps.every((x) => x.level === "ok")
     ? "Les contrôles réseau et de certificat passent."
     : "Les contrôles passent, avec des avertissements à lire.";
@@ -434,6 +443,18 @@ const titre = computed(() => {
                     </select>
                   </label>
                   <label class="adm-field">
+                    <span class="adm-field__label">Algorithme de signature du jeton</span>
+                    <select
+                      v-model="f.id_token_alg"
+                      class="set-select w-full"
+                      data-id-token-alg
+                      :disabled="!!general"
+                      :title="general"
+                    >
+                      <option v-for="alg in ALGOS_JETON" :key="alg" :value="alg">{{ alg }}</option>
+                    </select>
+                  </label>
+                  <label class="adm-field">
                     <span class="adm-field__label">Portées</span>
                     <input
                       v-model="f.scopes"
@@ -513,6 +534,13 @@ const titre = computed(() => {
                       :title="general || 'Séparées par des espaces ; vide : aucune exigence.'"
                     />
                   </label>
+                  <p
+                    v-if="f.required_acr.trim() === '' && f.required_amr.trim() === ''"
+                    class="adm-card__hint"
+                    data-aide-second-facteur
+                  >
+                    Sans ce réglage, aucune vérification en deux étapes n'est garantie par Elpis.
+                  </p>
                   <div class="grid grid-cols-3 gap-3">
                     <label class="adm-field">
                       <span class="adm-field__label">Âge max. (s)</span>
@@ -627,13 +655,72 @@ const titre = computed(() => {
                   >
                     Enregistrez ces réglages pour pouvoir activer.
                   </p>
-                  <p
-                    v-if="!adm.authEssai.complete && f.type !== 'ldap'"
-                    id="ent-essai-incomplet"
-                    class="adm-card__hint"
-                  >
-                    Ce test ne couvre pas encore la connexion elle-même : l'activation reste indisponible.
+                </template>
+              </div>
+            </section>
+
+            <section
+              v-if="!f.nouveau && f.type === 'oidc'"
+              class="space-y-2"
+              aria-labelledby="ent-trial-h"
+              data-essai-connexion
+            >
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 id="ent-trial-h" class="adm-field__label">Essai de connexion</h3>
+                <button
+                  id="ent-trial"
+                  type="button"
+                  class="adm-btn adm-tool adm-btn--sm ml-auto"
+                  :disabled="adm.authTrialEnCours || adm.authTrialAttente"
+                  title="Ouvre le service de votre organisation dans un nouvel onglet : rien n'est enregistré."
+                  @click="adm.authEssayerConnexion()"
+                >
+                  <i
+                    class="ph"
+                    :class="
+                      adm.authTrialEnCours || adm.authTrialAttente
+                        ? 'ph-spinner-gap animate-spin'
+                        : 'ph-sign-in'
+                    "
+                    aria-hidden="true"
+                  ></i>
+                  {{
+                    adm.authTrialEnCours
+                      ? "Lancement…"
+                      : adm.authTrialAttente
+                        ? "En attente de la connexion…"
+                        : "Essayer la connexion"
+                  }}
+                </button>
+              </div>
+              <div aria-live="polite" class="space-y-2">
+                <p v-if="adm.authTrialErreur" id="ent-trial-erreur" class="adm-field__warn">
+                  {{ adm.authTrialErreur }}
+                </p>
+                <EtapesEssai
+                  v-if="adm.authTrialEtapes.some((x) => x.level !== 'ok')"
+                  :steps="adm.authTrialEtapes"
+                  :annoncer="false"
+                />
+                <template v-if="adm.authTrial">
+                  <p id="ent-trial-decision" class="text-xs font-medium text-slate-800">
+                    {{ phraseDecision(adm.authTrial.decision) }}
                   </p>
+                  <dl v-if="adm.authTrial.claims" class="text-xs space-y-0.5" data-revendications>
+                    <div
+                      v-for="[nom, valeur] in lignesRevendications(adm.authTrial.claims)"
+                      :key="nom"
+                      class="flex gap-2"
+                    >
+                      <dt class="shrink-0 text-slate-500">{{ nom }}</dt>
+                      <dd class="min-w-0 break-words font-mono">{{ valeur }}</dd>
+                    </div>
+                  </dl>
+                  <ul v-if="adm.authTrial.warnings.length" class="text-xs text-amber-700 space-y-0.5">
+                    <li v-for="(w, i) in adm.authTrial.warnings" :key="i" data-avertissement-essai>
+                      {{ w }}
+                    </li>
+                  </ul>
                 </template>
               </div>
             </section>

@@ -197,6 +197,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | http-errors | 2.0.1 | MIT |
 | inherits | 2.0.4 | ISC |
 | ipaddr.js | 2.5.0 | MIT |
+| jose | 6.2.18 | MIT |
 | jpeg-js | 0.4.4 | BSD-3-Clause AND Apache-2.0 |
 | json-schema-ref-resolver | 3.0.0 | MIT |
 | json-schema-traverse | 1.0.0 | MIT |

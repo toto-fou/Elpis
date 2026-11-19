@@ -152,6 +152,12 @@ function listeTextes(v: unknown, nom: string, max: number, longueur: number): st
   return sortie;
 }
 
+function listeSansDoublon(v: unknown, nom: string, max: number, longueur: number): string[] {
+  const sortie = listeTextes(v, nom, max, longueur);
+  if (Array.isArray(v) && sortie.length !== v.length) return refus(nom, "valeurs en double");
+  return sortie;
+}
+
 function objet(v: unknown, nom: string, permises: readonly string[]): Record<string, unknown> {
   if (!estDict(v)) return refus(nom, "objet attendu");
   for (const cle of Object.keys(v)) if (!permises.includes(cle)) refus(`${nom}.${cle}`, "champ inconnu");
@@ -258,12 +264,17 @@ function nomRevendication(v: unknown, nom: string): string {
 
 function correspondances(v: unknown): CorrespondanceGroupe[] {
   if (!Array.isArray(v) || v.length > 50) return refus("group_map.map", "50 correspondances au plus");
+  const vues = new Set<string>();
   return v.map((x) => {
     const o = objet(x, "group_map.map", ["external", "group_id"]);
-    return {
+    const c = {
       external: texte(o["external"], "group_map.map.external", 1, 512),
       group_id: entier(o["group_id"], "group_map.map.group_id", 1, 2 ** 31),
     };
+    const cle = JSON.stringify([c.external, c.group_id]);
+    if (vues.has(cle)) return refus("group_map.map", "correspondance en double");
+    vues.add(cle);
+    return c;
   });
 }
 
@@ -327,8 +338,8 @@ function communs(o: Record<string, unknown>): FournisseurCommun {
     required_groups: listeTextes(o["required_groups"], "required_groups", 20, 512),
     roles: {
       enabled: booleen(roles["enabled"], "roles.enabled"),
-      admin_groups: listeTextes(roles["admin_groups"], "roles.admin_groups", 20, 512),
-      moderator_groups: listeTextes(roles["moderator_groups"], "roles.moderator_groups", 20, 512),
+      admin_groups: listeSansDoublon(roles["admin_groups"], "roles.admin_groups", 20, 512),
+      moderator_groups: listeSansDoublon(roles["moderator_groups"], "roles.moderator_groups", 20, 512),
     },
     group_map: {
       enabled: booleen(carte["enabled"], "group_map.enabled"),

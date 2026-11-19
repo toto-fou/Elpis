@@ -35,6 +35,8 @@ export interface RetourVerifie {
   readonly appartenance: Appartenance;
   /** Revendications du jeton d'identité d'où viennent le profil, `acr`, `amr` et groupes (liste blanche pour l'essai à blanc). */
   readonly vue: VueRevendications;
+  /** Groupes du jeton en entier (la vue en garde 50) ; `null` quand ils ne se lisent pas. */
+  readonly groupesComplets: readonly string[] | null;
   readonly idToken: string | null;
   readonly idpSid: string | null;
   /** `sub` du jeton d'identité, rangé avec la session pour la déconnexion par canal arrière. */
@@ -167,6 +169,7 @@ export async function verifierRetour(
       groupes: groupes === null ? null : groupes.slice(0, 50),
       sujetEstIdentifiant: identifiant !== "" && identifiant === sujet,
     },
+    groupesComplets: groupes,
     sub: claims.sub,
     idToken: jetons.id_token ?? null,
     idpSid: typeof sid === "string" && sid !== "" && sid.length <= SID_MAX && sid.isWellFormed() ? sid : null,

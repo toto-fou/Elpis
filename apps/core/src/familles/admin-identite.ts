@@ -12,6 +12,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
+import { exigerConfirmationAdmin } from "../identite/droits";
 import { etatBalayage, viderObservations } from "../identite/annuaire/balayage";
 import { memeDn } from "../identite/annuaire/dn";
 import {
@@ -262,11 +263,16 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   async function modifier(req: FastifyRequest): Promise<unknown> {
     const id = idDuChemin(req);
-    const corps = corpsJson(req);
+    const recu = corpsJson(req);
+    const { confirm_admin_mapping: confirmation, ...reste } = estDict(recu) ? recu : ({} as Dict);
+    const corps = estDict(recu) ? reste : recu;
+    if (confirmation !== undefined && typeof confirmation !== "boolean")
+      throw new HttpError(400, "Champ « confirm_admin_mapping » : vrai ou faux attendu.");
     const [avant, apres] = await ecrire<[Fournisseur, Fournisseur]>(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
       const { f: actuel, i } = fournisseurDuFichier(providers, id);
       const nouveau = validerModification(corps, actuel);
+      exigerConfirmationAdmin(actuel, nouveau, confirmation === true);
       const publique = reglagesAuthDepuis(cfg["auth"]).public_url;
       if (
         actuel.enabled &&

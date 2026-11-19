@@ -4,10 +4,13 @@ import type { Base } from "@elpis/db";
 
 import type { Journal } from "../../journal";
 import { ancreIdentite } from "../ancre";
+import { droitsActifs } from "../correspondance";
+import type { Lecture } from "../correspondance";
 import { fournisseursActifs, secretFournisseur } from "../fournisseurs";
 import type { Appartenance, ProfilIdentite } from "../provisionnement";
 import type { FournisseurLdap } from "../reglages";
 import { appartient, groupeExiste } from "./appartenance";
+import { lireDroitsAnnuaire } from "./droits-annuaire";
 import { MOT_DE_PASSE_MAX_OCTETS } from "./client";
 import type { ConnexionAnnuaire, EntreeAnnuaire, FabriqueConnexion } from "./client";
 import { compterEssai, oublierEssais } from "./echecs";
@@ -32,6 +35,8 @@ export type ResultatAnnuaire =
       readonly fournisseur: FournisseurLdap;
       readonly profil: ProfilIdentite;
       readonly appartenance: Appartenance;
+      /** Appartenance aux groupes des rôles et de la correspondance, lue par le compte de service après la liaison ; `null` si aucune option n'agit. */
+      readonly droits: Lecture | null;
     }
   | { readonly type: "refus"; readonly raison: RaisonRefusAnnuaire; readonly fournisseurId: string | null }
   | { readonly type: "absent" }
@@ -214,6 +219,7 @@ async function interroger(
     if (await compterEssai(dep.base, f, sujet, dep.maintenant())) return refus("throttled", f.id);
     if (!(await lierUtilisateur(dep, f, url, trouve.dn, motDePasse))) return refus("bad_password", f.id);
     await oublierEssais(dep.base, f, sujet);
+    const droits = droitsActifs(f) ? await lireDroitsAnnuaire(service, f, trouve) : null;
     return {
       type: "ok",
       fournisseur: f,
@@ -225,6 +231,7 @@ async function interroger(
         extName: externe.nom,
       },
       appartenance: membre,
+      droits,
     };
   } finally {
     await service.fermer();

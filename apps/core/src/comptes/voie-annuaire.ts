@@ -5,6 +5,7 @@ import type { MethodeConnexion } from "@elpis/auth";
 import { auditLogin, cleAuditCourante, empreinteIdentifiant } from "@elpis/securite";
 
 import { authentifierParAnnuaire } from "../identite/annuaire/connexion";
+import { appliquerDroits } from "../identite/droits";
 import type { DependancesAnnuaire } from "../identite/annuaire/connexion";
 import { resoudreIdentite } from "../identite/provisionnement";
 import type { DependancesProvisionnement } from "../identite/provisionnement";
@@ -105,6 +106,13 @@ export async function connecterParAnnuaire(
     return { type: "refus" };
   }
   if (res.type === "preuve") return { type: "refus" };
+  await appliquerDroits(dep.provisionnement, {
+    fournisseur: r.fournisseur,
+    uid: res.uid,
+    lecture: r.droits,
+    mode: "connexion",
+    ip: client.ip,
+  });
   const ligne = await ligneUtilisateur(dep.provisionnement.base, res.uid);
   return { type: "ok", uid: res.uid, username: String(ligne?.username ?? ""), methode };
 }

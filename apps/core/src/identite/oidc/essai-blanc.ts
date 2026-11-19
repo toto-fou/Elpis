@@ -3,6 +3,8 @@
 import { getAllUsers, nomCanonique } from "@elpis/auth";
 import type { Executeur } from "@elpis/db";
 
+import { apercuDroits, lectureOidc } from "../correspondance";
+import type { ApercuDroits } from "../correspondance";
 import { nomDerive } from "../nom";
 import type { FournisseurOidc } from "../reglages";
 import type { RetourVerifie } from "./echange";
@@ -33,6 +35,8 @@ export interface ResultatEssaiBlanc {
     /** Code de refus ou cause (liste fermée), jamais un message du fournisseur. */
     readonly reason: string | null;
   };
+  /** Rôle et groupes Elpis qui seraient donnés (rien n'est écrit) ; `null` quand le parcours n'a pas abouti. */
+  readonly rights: ApercuDroits | null;
   readonly warnings: string[];
 }
 
@@ -97,6 +101,7 @@ export async function resultatEssaiBlanc(
       groups: r.vue.groupes,
     },
     decision,
+    rights: await apercuDroits(x, f, lectureOidc(f, r.groupesComplets)),
     warnings,
   };
 }
@@ -112,6 +117,7 @@ export function resultatEssaiEchoue(refus: RefusOidc, maintenant: number): Resul
       username: null,
       reason: refus.cause_ === RAISON_REGLAGES_CHANGES ? RAISON_REGLAGES_CHANGES : refus.code,
     },
+    rights: null,
     warnings: [],
   };
 }

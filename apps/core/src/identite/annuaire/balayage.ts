@@ -18,6 +18,7 @@ import { secretFournisseur } from "../fournisseurs";
 import type { FournisseurLdap } from "../reglages";
 import type { EntreeAnnuaire, FabriqueConnexion } from "./client";
 import { appartenance, ouvrirService } from "./connexion";
+import { synchroniserDroitsBalayage } from "./droits-balayage";
 import { attributsUtilisateur, cleStable, etatEntree } from "./entree";
 import { ErreurAnnuaire } from "./erreur";
 import { filtreEgal, filtrePresence } from "./filtre";
@@ -676,6 +677,7 @@ async function passe(
           const garde = o !== undefined && at - o.at >= 0 && at - o.at < OBSERVATION_MIN_S;
           return { user_id: idDe(d), reason: d.raison, at: garde ? o.at : at };
         });
+  await synchroniserDroitsBalayage(dep, f, a.presents, secret);
   const etat = await termine({
     at,
     seen: a.vus,

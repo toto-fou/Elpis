@@ -60,6 +60,7 @@ import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } f
 import { validerMotDePasse } from "../comptes/aides";
 import { reactiver, suspendre } from "../comptes/etat";
 import { deleteUserFull } from "../comptes/suppression";
+import { fournisseursAuRoleGere } from "../identite/droits";
 import { exigerAdminLocal } from "../identite/etat";
 import type { Journal } from "../journal";
 import {
@@ -252,6 +253,12 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (!avant) throw new HttpError(404, "Utilisateur non trouvé");
     if (cible === uid && niveau !== 1)
       throw new HttpError(400, "Impossible de retirer vos propres droits admin");
+    const rattache = await base.get<{ provider_id: string }>(
+      "SELECT provider_id FROM user_identities WHERE user_id=?",
+      [cible],
+    );
+    if (rattache !== undefined && fournisseursAuRoleGere().has(String(rattache.provider_id)))
+      throw new HttpError(409, "Le rôle de ce compte est géré par votre annuaire.");
     await base.ecriture(async (x) => {
       if (niveau !== 1) await exigerAdminLocal(x, { sauf: cible });
       await x.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
@@ -310,6 +317,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       dns: [...p.dns],
     }));
     const comptes = await getAllUsersWithGroups(base);
+    const rolesGeres = fournisseursAuRoleGere();
     const identites = new Map(
       (
         await base.all<{
@@ -343,6 +351,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
           }
         : null;
       u["has_local_password"] = !sansMotDePasse.has(id);
+      u["role_managed"] = identite !== undefined && rolesGeres.has(identite.provider_id);
     }
     await describeUsers(base, comptes);
     return reponseJsonPy(rep, {

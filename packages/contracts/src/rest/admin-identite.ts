@@ -112,7 +112,7 @@ export const schemaCorpsReglagesAuth = z.object({
 
 /** Création : `type`, `id`, `label` et les champs sans valeur par défaut ; le fournisseur est toujours créé éteint. */
 export const schemaCorpsCreationFournisseur = z.record(z.string(), z.unknown());
-/** Modification : les champs à changer (les objets imbriqués sont fusionnés clé à clé, les listes remplacées) ; `id`, `type` et `enabled` ne se modifient pas. */
+/** Modification : les champs à changer (les objets imbriqués sont fusionnés clé à clé, les listes remplacées) ; `id`, `type` et `enabled` ne se modifient pas ; `confirm_admin_mapping: true` (booléen, jamais enregistré) confirme qu'un groupe d'annuaire donne le rôle d'administrateur. */
 export const schemaCorpsMajFournisseur = z.record(z.string(), z.unknown());
 /** Secret du fournisseur : texte vide pour le supprimer. */
 export const schemaCorpsSecretFournisseur = z.object({ secret: z.string() });

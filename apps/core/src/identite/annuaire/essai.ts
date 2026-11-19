@@ -7,6 +7,7 @@ import { nomDerive } from "../nom";
 import { BORNES_AUTH, hotePortLdaps } from "../reglages";
 import type { FournisseurLdap } from "../reglages";
 import { appartient, groupeExiste } from "./appartenance";
+import { verdictDroitsUtilisateur, verdictGroupesDroits } from "./droits-annuaire";
 import { MOT_DE_PASSE_MAX_OCTETS } from "./client";
 import type { ConnexionAnnuaire, EntreeAnnuaire, FabriqueConnexion } from "./client";
 import { chercherUtilisateur, cleStable, etatEntree, profilExterne, tempsGeneralise } from "./entree";
@@ -362,7 +363,11 @@ export async function etapesAnnuaire(
             detail: "La base des utilisateurs n'existe pas ou n'est pas lisible par le compte de service.",
           },
     );
-    if (suite && (await jouer("groups", "Groupes requis", () => verifierGroupes(connexion, f)))) {
+    if (
+      suite &&
+      (await jouer("groups", "Groupes requis", () => verifierGroupes(connexion, f))) &&
+      (await jouer("role_groups", "Groupes des rôles", () => verdictGroupesDroits(connexion, f)))
+    ) {
       let complet = false;
       const identifiant = d.utilisateur;
       if (identifiant === undefined || identifiant === null || identifiant === "")
@@ -385,10 +390,14 @@ export async function etapesAnnuaire(
           const lu = await jouer("test_user_groups", "Groupes de l'utilisateur d'essai", () =>
             verifierAppartenance(connexion, f, trouvee),
           );
-          if (lu)
+          if (lu) {
+            await jouer("test_user_rights", "Droits de l'utilisateur d'essai", () =>
+              verdictDroitsUtilisateur(connexion, f, trouvee),
+            );
             await jouer("test_user_profile", "Profil de l'utilisateur d'essai", () =>
               Promise.resolve(verifierProfil(trouvee, f)),
             );
+          }
         }
         complet = true;
       }

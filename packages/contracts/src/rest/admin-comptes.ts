@@ -67,6 +67,8 @@ export const schemaCompteConsole = z.object({
   identity: schemaIdentiteCompte.nullable().default(null),
   /** Faux pour un compte sans mot de passe local (il se connecte par son fournisseur). */
   has_local_password: z.boolean().default(true),
+  /** Vrai quand le rôle vient du fournisseur de ce compte : il ne se change pas à la main. */
+  role_managed: z.boolean().default(false),
   llm_engine_keys: z.array(z.string()).nullable(),
   llm_can_manage_models: z.boolean().nullable(),
   llm_effective_engine_keys: z.array(z.string()).nullable(),

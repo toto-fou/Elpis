@@ -301,6 +301,42 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
       essai.delaiGlobalMs = undefined;
     });
 
+    it("groupes des rôles et de la correspondance : ils existent, et l'utilisateur d'essai montre le rôle et les groupes Elpis obtenus", async () => {
+      await avecSecretRange(fournisseur());
+      annuaire.ajouter("luc", {}, [GROUPE, GROUPE_2]);
+      const regles = {
+        roles: { enabled: true, admin_groups: [GROUPE_2], moderator_groups: [] },
+        group_map: { enabled: true, map: [{ external: GROUPE_2, group_id: 7 }] },
+      };
+      const r = await tester({ ...reglages(regles), test_user: "luc" });
+      expect(ids(r).slice(7)).toEqual([
+        "groups",
+        "role_groups",
+        "test_user",
+        "test_user_groups",
+        "test_user_rights",
+        "test_user_profile",
+      ]);
+      expect(etape(r, "role_groups")).toMatchObject({ level: "ok" });
+      expect(etape(r, "test_user_rights")).toMatchObject({ level: "ok" });
+      expect(etape(r, "test_user_rights")?.detail).toBe(
+        "Rôle obtenu : administrateur. Groupes Elpis (identifiants) : 7.",
+      );
+      expect(r.complete).toBe(true);
+      const simple = await tester({ ...reglages(regles), test_user: "jean" });
+      expect(etape(simple, "test_user_rights")?.detail).toBe(
+        "Rôle obtenu : utilisateur. Groupes Elpis (identifiants) : aucun.",
+      );
+      const absent = "cn=absent,cn=groups,dc=exemple,dc=lan";
+      const manque = await tester({
+        ...reglages({ ...regles, roles: { enabled: true, admin_groups: [absent], moderator_groups: [] } }),
+        test_user: "luc",
+      });
+      expect(etape(manque, "role_groups")).toMatchObject({ level: "fail" });
+      expect(etape(manque, "role_groups")?.detail).toContain(absent);
+      expect(manque.complete).toBe(false);
+    });
+
     it("test complet : toutes les étapes, empreinte enregistrée, jamais de liaison d'utilisateur, activation acceptée", async () => {
       const f = fournisseur();
       await avecSecretRange(f);

@@ -6,6 +6,8 @@ import type { Base } from "@elpis/db";
 
 import { ConnexionRefusee, etablirConnexion } from "../../comptes/ouverture";
 import type { EffetsConnexion } from "../../comptes/ouverture";
+import { lectureOidc } from "../correspondance";
+import { appliquerDroits } from "../droits";
 import { resoudreIdentite } from "../provisionnement";
 import type {
   Appartenance,
@@ -82,6 +84,13 @@ export async function connecterParOidc(
       appartenance: e.retour.appartenance,
     };
   if (res.type !== "compte") throw refusDeResolution(res);
+  await appliquerDroits(dep.provisionnement, {
+    fournisseur: f,
+    uid: res.uid,
+    lecture: lectureOidc(f, e.retour.groupesComplets),
+    mode: "connexion",
+    ip: e.ip,
+  });
   const ligne = await ligneUtilisateur(dep.base, res.uid);
   try {
     await etablirConnexion(

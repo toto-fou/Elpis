@@ -43,6 +43,22 @@ export const schemaResultatEssaiBlanc = z.object({
     /** Code de refus ou cause (liste fermée), jamais un message du fournisseur. */
     reason: z.string().nullable(),
   }),
+  /** Rôle et groupes Elpis qu'obtiendrait ce compte (rien n'est écrit) ; `null` quand le parcours n'a pas abouti. */
+  rights: z
+    .object({
+      roles_enabled: z.boolean(),
+      groups_enabled: z.boolean(),
+      /** Faux : une appartenance est illisible, aucun droit ne serait modifié. */
+      readable: z.boolean(),
+      role: z.enum(["user", "moderator", "admin"]).nullable(),
+      groups: z.array(z.object({ id: z.number(), name: z.string() })),
+      /** Groupes Elpis de la correspondance qui n'existent plus (ignorés). */
+      missing_group_ids: z.array(z.number()),
+      /** Groupes d'administrateurs ignorés : le fournisseur n'exige ni `acr` ni `amr`. */
+      admin_ignored: z.boolean(),
+    })
+    .nullable()
+    .default(null),
   warnings: z.array(z.string()),
 });
 export type ResultatEssaiBlanc = z.infer<typeof schemaResultatEssaiBlanc>;

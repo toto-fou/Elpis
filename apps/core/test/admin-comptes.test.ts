@@ -240,7 +240,7 @@ describe.each(MOTEURS)("console : comptes, groupes, clients OAuth (%s)", (moteur
         res.corps = r.body
           .replaceAll(bac, "{bac}")
           .replaceAll(',"suspended_at":0.0,"suspended_by":null', "")
-          .replaceAll(',"identity":null,"has_local_password":true', "");
+          .replaceAll(',"identity":null,"has_local_password":true,"role_managed":false', "");
         res.entetes = vusEntetes;
       }
       const lignes = lignesAudit();

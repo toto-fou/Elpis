@@ -36,11 +36,12 @@ import {
   enregistrerSecret,
   enregistrerTestReussi,
   hmacCoffre,
+  contexteSecretTeste,
 } from "../src/identite/fournisseurs";
 import { validerFournisseur } from "../src/identite/reglages";
 import type { FournisseurLdap } from "../src/identite/reglages";
 import { appTest, journalMuet, lignesAuditRecentes, lignesJournal } from "./aides";
-import { cleCoffreDeTest, configDeTest, ldapValide } from "./identite/aides";
+import { CA_PEM, cleCoffreDeTest, configDeTest, ldapValide } from "./identite/aides";
 import type { ConfigDeTest } from "./identite/aides";
 import { MOTEURS, URL_PUBLIQUE } from "./identite/banc";
 import { creerAutorite, creerFeuille, effacer, OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
@@ -328,7 +329,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
       expect(idEtat).toBe("annuaire");
       expect(JSON.parse(rangee)).toEqual({
         h: empreinteFournisseur(f, URL_PUBLIQUE),
-        s: hmacCoffre("elpis.auth.tested-secret.v1", MDP_SERVICE),
+        s: hmacCoffre(contexteSecretTeste("annuaire"), MDP_SERVICE),
       });
       expect(rangee).not.toContain(MDP_SERVICE);
       const ev = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.test" })[0];
@@ -517,6 +518,58 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
         });
         expect(annuaire.liaisons.filter(([, mdp]) => mdp === MDP_SERVICE)).toEqual([]);
         expect(r.complete).toBe(false);
+      });
+
+      it("secret enregistré et autorité de certification différente, retirée ou ajoutée : « ressaisissez », aucune connexion", async () => {
+        await avecSecretRange(fournisseur());
+        for (const ca_pem of [CA_PEM, ""]) {
+          const r = await tester({ ...reglages({ ca_pem }), test_user: "jean" });
+          expect(r.complete).toBe(false);
+        }
+        cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [fournisseur({ ca_pem: "" })] } });
+        const ajoutee = await tester({ ...reglages(), test_user: "jean" });
+        expect(etape(ajoutee, "service_bind")?.detail).toContain("ressaisissez");
+        expect(annuaire.ouvertures).toBe(0);
+        expect(annuaire.liaisons).toEqual([]);
+        expect(await etat()).toEqual([]);
+      });
+
+      it("secret enregistré et même autorité : il sert", async () => {
+        await avecSecretRange(fournisseur());
+        await tester({ ...reglages(), test_user: "jean" });
+        expect(annuaire.liaisons).toEqual([[DN_SERVICE, MDP_SERVICE]]);
+      });
+
+      it("10 échecs de liaison pour toute l'instance, quels que soient les DN : le onzième test est refusé ; un succès ne remet pas ce budget à zéro", async () => {
+        const ecrit = (i: number): string =>
+          [
+            `uid=a${i},cn=users,dc=exemple,dc=lan`,
+            `UID=a${i} , cn=users,dc=exemple,dc=lan`,
+            `uid=\\61${i},cn=users,dc=exemple,dc=lan`,
+            `0.9.2342.19200300.100.1.1=a${i},cn=users,dc=exemple,dc=lan`,
+            `cn=users+uid=a${i},dc=exemple,dc=lan`,
+          ][i % 5] as string;
+        for (let i = 0; i < 9; i++)
+          await tester({ ...reglages({ bind_dn: ecrit(i) }), test_user: "jean", secret: "faux" });
+        await tester({ ...reglages(), test_user: "jean", secret: MDP_SERVICE });
+        await tester({ ...reglages({ bind_dn: ecrit(9) }), test_user: "jean", secret: "faux" });
+        const ouvertures = annuaire.ouvertures;
+        const refuse = await tester({
+          ...reglages({ bind_dn: ecrit(10) }),
+          test_user: "jean",
+          secret: "faux",
+        });
+        expect(etape(refuse, "service_bind")?.detail).toContain("Trop d'échecs");
+        const bon = await tester({ ...reglages(), test_user: "jean", secret: MDP_SERVICE });
+        expect(etape(bon, "service_bind")?.detail).toContain("Trop d'échecs");
+        expect(annuaire.ouvertures).toBe(ouvertures);
+      });
+
+      it("le budget de l'instance se vide avec la fenêtre", async () => {
+        const t0 = 1_800_000_000;
+        for (let i = 0; i < 10; i++) await noterEchecLiaisonDeTest(t.base, `uid=u${i},dc=x`, t0);
+        expect(await liaisonDeTestRefusee(t.base, "uid=neuf,dc=x", t0 + 899)).toBe(true);
+        expect(await liaisonDeTestRefusee(t.base, "uid=neuf,dc=x", t0 + 900)).toBe(false);
       });
 
       it("5 échecs de liaison pour un même DN : le sixième test est refusé sans contacter l'annuaire ; un autre DN n'est pas touché", async () => {

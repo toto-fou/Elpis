@@ -12,7 +12,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
-import { etatBalayage } from "../identite/annuaire/balayage";
+import { etatBalayage, viderObservations } from "../identite/annuaire/balayage";
 import { memeDn } from "../identite/annuaire/dn";
 import {
   liaisonDeTestRefusee,
@@ -50,7 +50,7 @@ import {
   validerModification,
   validerReglagesGeneraux,
 } from "../identite/reglages";
-import type { Fournisseur, FournisseurLdap } from "../identite/reglages";
+import type { Fournisseur, FournisseurLdap, FournisseurOidc } from "../identite/reglages";
 import type { OptionsSortant } from "../identite/sortant";
 import { diffConfig } from "../journal-securite/diff-config";
 import type { Journal } from "../journal";
@@ -281,6 +281,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       if (champsFigesChanges(actuel, nouveau).length > 0 || revendicationIdentifiantChangee(actuel, nouveau))
         await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
       await x.run("DELETE FROM auth_flows WHERE provider_id=? AND trial_admin IS NOT NULL", [id]);
+      await viderObservations(x, id);
       providers[i] = nouveau;
       return [actuel, nouveau];
     });
@@ -356,6 +357,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       const e = await etatFournisseur(x, f, publique, true);
       if (!e.has_secret) throw new HttpError(409, "Le secret du fournisseur est absent.");
       if (!e.tested) throw new HttpError(409, "Un test réussi sur les réglages courants est requis.");
+      await viderObservations(x, id);
       providers[i] = { ...f, enabled: true };
     });
     auditer(req, "admin.auth.provider.enable", { provider_id: id });
@@ -370,6 +372,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       if (i < 0) throw new HttpError(404, "Fournisseur introuvable.");
       providers[i] = { ...(providers[i] as Dict), enabled: false };
       await effacerEtatOidc(x, id);
+      await viderObservations(x, id);
       return couperSessionsDesFournisseurs(x, [id], maintenant());
     });
     for (const uid of comptes)
@@ -384,11 +387,20 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   let testsEnCours = 0;
 
-  /** Secret enregistré d'un annuaire pour un test : seulement si le test vise le DN de liaison et les adresses du fournisseur ENREGISTRÉ, et que le coffre l'y autorise. */
+  /** Secret enregistré d'un annuaire pour un test : seulement si le test vise le DN de liaison, les adresses et l'autorité de certification du fournisseur ENREGISTRÉ, et que le coffre l'y autorise. */
   async function secretDuFournisseurEnregistre(f: FournisseurLdap): Promise<string | null> {
     const enregistre = lireReglagesAuth().providers.find((p) => p.id === f.id);
     if (enregistre === undefined || enregistre.type !== "ldap") return null;
-    if (!memeDn(enregistre.bind_dn, f.bind_dn)) return null;
+    if (!memeDn(enregistre.bind_dn, f.bind_dn) || enregistre.ca_pem !== f.ca_pem) return null;
+    const permis = new Set(hotesDuFournisseur(enregistre));
+    if (!hotesDuFournisseur(f).every((h) => permis.has(h))) return null;
+    return secretFournisseur(base, f);
+  }
+
+  /** Secret enregistré d'un SSO pour un test : seulement sous les adresses et l'autorité de certification du fournisseur ENREGISTRÉ. */
+  async function secretOidcEnregistre(f: FournisseurOidc): Promise<string | null> {
+    const enregistre = lireReglagesAuth().providers.find((p) => p.id === f.id);
+    if (enregistre === undefined || enregistre.type !== "oidc" || enregistre.ca_pem !== f.ca_pem) return null;
     const permis = new Set(hotesDuFournisseur(enregistre));
     if (!hotesDuFournisseur(f).every((h) => permis.has(h))) return null;
     return secretFournisseur(base, f);
@@ -447,7 +459,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
               employe = { origine, valeur };
             },
           },
-          oidc: { secretEnregistre: (f) => secretFournisseur(base, f) },
+          oidc: { secretEnregistre: secretOidcEnregistre },
         },
       );
     } catch (e) {

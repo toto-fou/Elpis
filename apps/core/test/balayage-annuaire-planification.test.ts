@@ -8,6 +8,9 @@ import { dependancesParDefaut } from "@elpis/auth";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CycleDeVie } from "../src/cycle";
+import { ancreIdentite } from "../src/identite/ancre";
+import type { FournisseurLdap } from "../src/identite/reglages";
+import { createExternalUser } from "@elpis/auth";
 import { etatBalayage } from "../src/identite/annuaire/balayage";
 import type { DependancesBalayage } from "../src/identite/annuaire/balayage";
 import {
@@ -16,7 +19,7 @@ import {
   PREMIERE_PASSE_MS,
 } from "../src/ops/balayage-annuaire";
 import { journalMuet } from "./aides";
-import { AnnuaireFactice } from "./identite/annuaire/annuaire-factice";
+import { AnnuaireFactice, GROUPE, UUID } from "./identite/annuaire/annuaire-factice";
 import { ouvrirBancAnnuaire } from "./identite/annuaire/banc-annuaire";
 import type { BancAnnuaire } from "./identite/annuaire/banc-annuaire";
 import { MOTEURS } from "./identite/banc";
@@ -75,6 +78,46 @@ describe.each(MOTEURS)("balayage planifié (%s)", (moteur) => {
     cycle.annoncerArret();
     await cycle.executerArrets();
     expect(delais.slice(0, 3)).toEqual([120_000, 900_000, 900_000]);
+  });
+
+  it("une passe qui note une nouvelle observation en programme une autre 3 minutes plus tard, une seule à la fois", async () => {
+    annuaire.ajouter({ uid: "luc", cle: UUID(2), mdp: "x", groupes: [GROUPE] });
+    const jean = annuaire.ajouter({ uid: "jean", cle: UUID(1), mdp: "x", groupes: [GROUPE] });
+    for (const p of [jean, annuaire.personnes[0]]) {
+      const id = await createExternalUser(b.t.base, String(p?.uid), { maintenant: b.horloge - 1000 });
+      await b.t.base.run(
+        "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?)",
+        [
+          id,
+          String(b.fournisseurs[0]?.id),
+          String(p?.cle),
+          ancreIdentite(b.fournisseurs[0] as FournisseurLdap),
+          "auto",
+          1,
+          5,
+        ],
+      );
+    }
+    jean.groupes = [];
+    const cycle = new CycleDeVie(journalMuet);
+    const delais: number[] = [];
+    let fini: () => void = () => undefined;
+    const assez = new Promise<void>((ok) => (fini = ok));
+    const dormir = vi.fn(async (ms: number) => {
+      delais.push(ms);
+      b.horloge += ms / 1000;
+      if (delais.length >= 4) fini();
+    });
+    brancherBalayageAnnuaire("main", cycle, dep(), { dormir });
+    await cycle.demarrer("main");
+    await assez;
+    cycle.annoncerArret();
+    await cycle.executerArrets();
+    expect(delais.slice(0, 4)).toEqual([120_000, 180_000, 720_000, 900_000]);
+    const l = await b.t.base.get<{ suspended_at: number }>(
+      "SELECT suspended_at FROM users WHERE username='jean'",
+    );
+    expect(Number(l?.suspended_at)).toBeGreaterThan(0);
   });
 
   it("admin : rien n'est planifié", async () => {

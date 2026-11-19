@@ -316,7 +316,7 @@ export async function etapesAnnuaire(
   if (await d.limiteur.refuse(f.bind_dn)) {
     poser("service_bind", "Compte de service", {
       level: "fail",
-      detail: "Trop d'échecs de liaison pour ce compte de service : réessayez dans quelques minutes.",
+      detail: "Trop d'échecs de liaison lors des tests : réessayez dans quelques minutes.",
     });
     return false;
   }

@@ -6,6 +6,7 @@ import { estDict } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
 import { cleCoffre } from "@elpis/securite";
+import type { CleCoffre } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
@@ -64,13 +65,20 @@ export function empreinteFournisseur(f: Fournisseur, publicUrl: string): string 
 
 const CONTEXTE_SECRET_TESTE = "elpis.auth.tested-secret.v1";
 
-/** HMAC-SHA256 d'une valeur, clé dérivée de la clé du coffre pour ce contexte ; `null` sans clé de coffre. */
-export function hmacCoffre(contexte: string, valeur: string): string | null {
-  const c = cleCoffre();
-  if (c === null) return null;
+/** HMAC-SHA256 d'une valeur sous une clé du coffre donnée, clé dérivée pour ce contexte. */
+export function hmacAvecCle(c: CleCoffre, contexte: string, valeur: string): string {
   const cle = createHmac("sha256", c.cle).update(contexte, "utf8").digest();
   return createHmac("sha256", cle).update(valeur, "utf8").digest("hex");
 }
+
+/** HMAC-SHA256 d'une valeur, clé dérivée de la clé du coffre pour ce contexte ; `null` sans clé de coffre. */
+export function hmacCoffre(contexte: string, valeur: string): string | null {
+  const c = cleCoffre();
+  return c === null ? null : hmacAvecCle(c, contexte, valeur);
+}
+
+/** Contexte du HMAC du secret testé : propre au fournisseur, deux fournisseurs au même secret n'ont pas la même valeur. */
+export const contexteSecretTeste = (id: string): string => `${CONTEXTE_SECRET_TESTE}:${id}`;
 
 /** Pose l'empreinte du test réussi (le seul appelant de production est le test du fournisseur) et le HMAC du secret employé (`undefined` : le secret enregistré aujourd'hui). */
 export async function enregistrerTestReussi(
@@ -83,7 +91,7 @@ export async function enregistrerTestReussi(
   const employe = secret === undefined ? await secretFournisseur(x, f) : secret;
   const valeur = JSON.stringify({
     h: empreinteFournisseur(f, publicUrl),
-    s: employe === null ? null : hmacCoffre(CONTEXTE_SECRET_TESTE, employe),
+    s: employe === null ? null : hmacCoffre(contexteSecretTeste(f.id), employe),
   });
   await x.run(
     "INSERT INTO auth_provider_state(provider_id, tested_hash, tested_at) VALUES(?,?,?) " +
@@ -118,7 +126,7 @@ export async function testReussiCourant(
   if (test === null || test.h !== empreinteFournisseur(f, publicUrl)) return false;
   const stocke = secretEnregistre === undefined ? await secretFournisseur(x, f) : secretEnregistre;
   if (stocke === null) return true;
-  const attendu = hmacCoffre(CONTEXTE_SECRET_TESTE, stocke);
+  const attendu = hmacCoffre(contexteSecretTeste(f.id), stocke);
   return attendu !== null && test.s === attendu;
 }
 

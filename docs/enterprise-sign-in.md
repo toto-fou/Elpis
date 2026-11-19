@@ -304,7 +304,11 @@ linked identity by its stable key. A person who left, whose entry is disabled, o
 required group is suspended (shown as **Désactivé** in **Comptes**): sessions closed, personal API tokens and
 OAuth grants refused at once and deleted after 7 days of suspension. A person who comes back is reactivated at
 the next check or sign-in, if the directory suspended them; an account you suspended yourself stays so. A
-departure is acted on only after two successive checks report it.
+departure is acted on only after a second check reports it, at least two minutes and at most two intervals
+after the first. At the first sighting, access that does not go through a session (API tokens, OAuth grants,
+routines, webhooks) is refused at once, and nothing is suspended or deleted; if the person turns out to be
+there at the next check, that access works again by itself. The second check follows about three minutes
+later, and the person is suspended then.
 
 - **Mass-departure guard.** If at least 3 departures are found and they exceed 20 % of the linked accounts of
   that directory, or if all of them are, nothing is suspended: the console shows "N comptes ne sont plus dans
@@ -313,6 +317,8 @@ departure is acted on only after two successive checks report it.
 - **An unreadable answer is never a departure.** A directory that is unreachable, a missing required group, a
   refused service account: the pass is shown **Abandonnée** (Abandoned) with its reason, and nothing is
   changed. `./elpis doctor` also warns about a stale or abandoned pass.
+  If a required group was emptied on purpose, the check keeps being abandoned (reason
+  `membership_unreadable`): switch the provider off, or disable the accounts in the console.
 - **Vérifier maintenant** (Check now) runs a pass at once. The line **Dernière vérification de l'annuaire**
   reports the accounts seen, suspended, reactivated and unreadable.
 

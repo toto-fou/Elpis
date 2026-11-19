@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/annuaire/balayage.ts — balayage d'un annuaire : chaque identité relue par sa clé stable, départ suspendu, retour réactivé, vérification rafraîchie ; une panne ou une réponse illisible n'est jamais un départ. */
+import { createHash } from "node:crypto";
 import { lstatSync, mkdirSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 
-import { compteSuspendu, revoquerTousAcces } from "@elpis/auth";
+import { compteSuspendu } from "@elpis/auth";
 import { config } from "@elpis/config";
-import type { Base } from "@elpis/db";
+import type { Base, Executeur } from "@elpis/db";
 import { auditEvent } from "@elpis/securite";
 import { VerrouFichier } from "@elpis/verrous";
 
@@ -24,6 +25,10 @@ import { groupeAMembreVisible, groupeExiste } from "./appartenance";
 
 export const LOT_RECHERCHES = 50;
 export const DELAI_PASSE_MS = 300_000;
+/** Intervalle des passes planifiées, en millisecondes. */
+export const INTERVALLE_DEFAUT_MS = 900_000;
+/** Âge minimal d'une première observation avant qu'une passe aboutie puisse suspendre, en secondes. */
+export const OBSERVATION_MIN_S = 120;
 export const SEUIL_MASSE_MIN = 3;
 const MASSE_PART = 5;
 /** Durée d'une suspension d'annuaire sans interruption après laquelle les jetons d'API et accès OAuth du compte sont supprimés, en secondes. */
@@ -53,10 +58,12 @@ export interface DepartRetenu {
   readonly reason: RaisonDepart;
 }
 
-/** Départ vu par une passe aboutie, en attente d'une seconde observation. */
+/** Départ vu par une passe aboutie, daté, en attente d'une seconde observation. */
 export interface DepartObserve {
   readonly user_id: number;
   readonly reason: RaisonDepart;
+  /** Instant de la première observation, en secondes. */
+  readonly at: number;
 }
 
 /** État de la dernière passe d'un annuaire, tel que rangé et rendu à la console. */
@@ -75,10 +82,18 @@ export interface EtatBalayage {
   /** Comptes retenus (200 au plus, par identifiant croissant) ; la confirmation porte sur cette liste. */
   readonly held: readonly DepartRetenu[];
   readonly held_total: number;
-  /** Départs vus par la dernière passe aboutie, suspendus si la suivante les voit encore. */
+  /** Empreinte (SHA-256 hexadécimal tronqué à 32 caractères) de l'ensemble complet et trié des comptes retenus, vide s'il n'y en a pas. */
+  readonly held_hash: string;
+  /** Départs vus par une passe aboutie, suspendus si une passe aboutie les revoit entre 2 minutes et deux intervalles plus tard. */
   readonly observed: readonly DepartObserve[];
   /** Instant de la dernière passe aboutie (secondes), `null` s'il n'y en a pas. */
   readonly ok_at: number | null;
+}
+
+/** Confirmation d'un administrateur : les comptes vus et l'empreinte de l'ensemble vu. */
+export interface ConfirmationBalayage {
+  readonly user_ids: readonly number[];
+  readonly held_hash: string;
 }
 
 export interface DependancesBalayage {
@@ -170,7 +185,11 @@ function lireObserves(v: unknown): DepartObserve[] {
   for (const x of v as Record<string, unknown>[])
     if (x !== null && typeof x === "object" && entierPositif(x["user_id"]))
       if (typeof x["reason"] === "string" && RAISONS_DEPART.includes(x["reason"]))
-        r.push({ user_id: x["user_id"], reason: x["reason"] as RaisonDepart });
+        r.push({
+          user_id: x["user_id"],
+          reason: x["reason"] as RaisonDepart,
+          at: typeof x["at"] === "number" && Number.isFinite(x["at"]) ? x["at"] : 0,
+        });
   return r;
 }
 
@@ -193,6 +212,7 @@ function lireEtat(brut: unknown, at: unknown): EtatBalayage | null {
       pending: o["pending"] as number,
       held,
       held_total: typeof o["held_total"] === "number" ? (o["held_total"] as number) : held.length,
+      held_hash: typeof o["held_hash"] === "string" ? o["held_hash"] : "",
       observed: lireObserves(o["observed"]),
       ok_at: typeof ok === "number" && Number.isFinite(ok) ? ok : a === null ? Number(at) : null,
     };
@@ -211,6 +231,25 @@ export async function etatBalayage(
     [fournisseurId],
   );
   return l === undefined ? null : lireEtat(l.sweep_result, l.sweep_at);
+}
+
+/** Départs observés d'un fournisseur oubliés (éteint, modifié ou réactivé) : la prochaine passe les revoit comme des premières observations. */
+export async function viderObservations(x: Executeur, fournisseurId: string): Promise<void> {
+  const l = await x.get<{ sweep_result: unknown }>(
+    "SELECT sweep_result FROM auth_provider_state WHERE provider_id=?",
+    [fournisseurId],
+  );
+  if (typeof l?.sweep_result !== "string") return;
+  try {
+    const o = JSON.parse(l.sweep_result) as Record<string, unknown>;
+    if (!Array.isArray(o["observed"]) || o["observed"].length === 0) return;
+    await x.run("UPDATE auth_provider_state SET sweep_result=? WHERE provider_id=?", [
+      JSON.stringify({ ...o, observed: [] }),
+      fournisseurId,
+    ]);
+  } catch {
+    return;
+  }
 }
 
 async function ranger(base: Base, id: string, e: EtatBalayage): Promise<void> {
@@ -434,7 +473,7 @@ async function suspendreDeparts(
   return { n, echoues };
 }
 
-/** Jetons d'API et accès OAuth supprimés pour les comptes suspendus par cet annuaire depuis plus de 7 jours et toujours partis. */
+/** Jetons d'API et accès OAuth supprimés pour les comptes suspendus par cet annuaire depuis plus de 7 jours et toujours partis, l'état de suspension étant relu dans l'écriture. */
 async function revoquerAnciens(
   dep: DependancesBalayage,
   f: FournisseurLdap,
@@ -443,25 +482,40 @@ async function revoquerAnciens(
 ): Promise<void> {
   const origine = `directory:${f.id}`;
   for (const { ligne } of departs) {
-    const depuis = Number(ligne.suspended_at);
-    if (
-      ligne.suspended_by !== origine ||
-      !compteSuspendu(ligne) ||
-      !(depuis <= at - DUREE_AVANT_REVOCATION_S)
-    )
-      continue;
     try {
-      const r = await revoquerTousAcces(dep.etat.acces, Number(ligne.user_id));
-      if (r.tokens + r.oauth > 0)
+      const jetons = await dep.base.ecriture(async (x) => {
+        const u = await x.get<{ suspended_at: unknown; suspended_by: string | null }>(
+          "SELECT suspended_at, suspended_by FROM users WHERE id=?",
+          [ligne.user_id],
+        );
+        if (u === undefined || u.suspended_by !== origine || !compteSuspendu(u)) return null;
+        if (!(Number(u.suspended_at) <= at - DUREE_AVANT_REVOCATION_S)) return null;
+        return (await x.run("DELETE FROM tool_tokens WHERE user_id=?", [ligne.user_id])).changes;
+      });
+      if (jetons === null) continue;
+      const oauth = (await dep.etat.acces.revoquerOauth?.(Number(ligne.user_id))) ?? 0;
+      if (jetons + oauth > 0)
         auditer("auth.account.access_revoke", ligne, f, {
           origin: origine,
-          tokens_revoked: r.tokens,
-          oauth_revoked: r.oauth,
+          tokens_revoked: jetons,
+          oauth_revoked: oauth,
         });
     } catch (e) {
       dep.journal.warn({ err: e }, `annuaire ${f.id} : révocation des accès d'un compte sorti non posée`);
     }
   }
+}
+
+/** Accès non interactifs refusés tout de suite aux comptes partis non suspendus (réversible : la passe qui revoit l'entrée rend la vérification). */
+async function fermerAccesNonInteractifs(
+  dep: DependancesBalayage,
+  departs: Analyse["departs"],
+): Promise<void> {
+  if (departs.length === 0) return;
+  await dep.base.ecriture(async (x) => {
+    for (const { ligne } of departs)
+      await x.run("UPDATE user_identities SET checked_at=0 WHERE id=?", [ligne.id]);
+  });
 }
 
 function signaler(
@@ -474,7 +528,10 @@ function signaler(
   if (!alerte || (avant?.aborted === e.aborted && avant?.pending === e.pending)) return;
   dep.journal.warn(
     e.aborted !== null
-      ? `annuaire ${f.id} : passe abandonnée (${e.aborted}), rien n'a été modifié`
+      ? `annuaire ${f.id} : passe abandonnée (${e.aborted}), rien n'a été modifié` +
+          (e.aborted === "membership_unreadable"
+            ? " ; si un groupe requis a été vidé volontairement, la vérification reste abandonnée : éteindre le fournisseur ou désactiver les comptes dans la console"
+            : "")
       : `annuaire ${f.id} : ${e.pending} suspensions retenues par le garde-fou, confirmation de l'administrateur attendue`,
   );
   auditEvent({
@@ -494,6 +551,16 @@ async function identitesDe(dep: DependancesBalayage, f: FournisseurLdap): Promis
   );
 }
 
+/** Empreinte de l'ensemble complet des comptes retenus (identifiant et raison, trié) ; vide pour un ensemble vide. */
+export function empreinteRetenus(departs: readonly { user_id: number; reason: RaisonDepart }[]): string {
+  if (departs.length === 0) return "";
+  const lignes = departs
+    .map((d) => `${d.user_id}:${d.reason}`)
+    .sort()
+    .join("\n");
+  return createHash("sha256").update(lignes, "utf8").digest("hex").slice(0, 32);
+}
+
 const lignesRetenues = (departs: Analyse["departs"]): DepartRetenu[] =>
   departs
     .map(({ ligne, raison }) => ({
@@ -504,27 +571,50 @@ const lignesRetenues = (departs: Analyse["departs"]): DepartRetenu[] =>
     .sort((x, y) => x.user_id - y.user_id)
     .slice(0, RETENUS_MAX);
 
-/** La confirmation porte sur des comptes vus dans la liste rangée et encore partis ; sans troncature, sur exactement l'ensemble des partis. */
+/** La confirmation porte sur des comptes vus dans la liste rangée et encore partis, et sur l'ensemble complet que l'administrateur a vu : l'empreinte des partis d'aujourd'hui doit être la sienne. */
 function confirmationAcceptee(
-  confirmes: readonly number[],
+  confirmation: ConfirmationBalayage,
   avant: EtatBalayage | null,
-  partis: ReadonlySet<number>,
+  departs: Analyse["departs"],
 ): boolean {
   const vus = new Set(avant?.held.map((h) => h.user_id));
-  const tronque = (avant?.held_total ?? 0) > (avant?.held.length ?? 0);
-  if (confirmes.length === 0 || !confirmes.every((id) => vus.has(id) && partis.has(id))) return false;
-  return tronque || confirmes.length === partis.size;
+  const partis = new Set(departs.map((d) => Number(d.ligne.user_id)));
+  const empreinte = empreinteRetenus(
+    departs.map((d) => ({ user_id: Number(d.ligne.user_id), reason: d.raison })),
+  );
+  return (
+    confirmation.user_ids.length > 0 &&
+    confirmation.held_hash !== "" &&
+    confirmation.held_hash === empreinte &&
+    confirmation.user_ids.every((id) => vus.has(id) && partis.has(id))
+  );
+}
+
+/** Première observation mûre : vue au moins 2 minutes et au plus deux intervalles plus tôt. */
+function observationMure(o: DepartObserve | undefined, at: number, intervalleMs: number): boolean {
+  return o !== undefined && at - o.at >= OBSERVATION_MIN_S && at - o.at <= (2 * intervalleMs) / 1000;
 }
 
 async function passe(
   dep: DependancesBalayage,
   f: FournisseurLdap,
-  confirmes: readonly number[] | undefined,
+  confirmer: ConfirmationBalayage | undefined,
+  intervalleMs: number,
 ): Promise<IssueBalayage> {
   const at = dep.maintenant();
   const avant = await etatBalayage(dep.base, f.id);
   const reprise = { observed: avant?.observed ?? [], ok_at: avant?.ok_at ?? null };
-  const vide = { at, seen: 0, suspended: 0, reactivated: 0, unknown: 0, pending: 0, held: [], held_total: 0 };
+  const vide = {
+    at,
+    seen: 0,
+    suspended: 0,
+    reactivated: 0,
+    unknown: 0,
+    pending: 0,
+    held: [],
+    held_total: 0,
+    held_hash: avant?.held_hash ?? "",
+  };
   const termine = async (e: EtatBalayage): Promise<EtatBalayage> => {
     await ranger(dep.base, f.id, e);
     signaler(dep, f, avant, e);
@@ -548,12 +638,11 @@ async function passe(
   const ancre = ancreIdentite(f);
   const denominateur = identites.filter((l) => l.issuer === ancre && !compteSuspendu(l)).length;
   const departs = a.departs.filter(({ ligne }) => !compteSuspendu(ligne));
-  const partis = new Set(departs.map((d) => Number(d.ligne.user_id)));
-  const confirmation = confirmes !== undefined && confirmationAcceptee(confirmes, avant, partis);
+  const confirmee = confirmer !== undefined && confirmationAcceptee(confirmer, avant, departs);
   const retenus =
     departs.length > 0 &&
-    (confirmes !== undefined
-      ? !confirmation
+    (confirmer !== undefined
+      ? !confirmee
       : a.presents.length === 0 || departsEnMasse(departs.length, denominateur));
   const maj = a.presents.map((l) => l.id);
   if (maj.length > 0)
@@ -561,19 +650,32 @@ async function passe(
       for (const id of maj) await x.run("UPDATE user_identities SET checked_at=? WHERE id=?", [at, id]);
     });
   const reactives = await reactiver(dep, f, a.actifs);
-  const dejaVus = new Set(avant?.observed.map((o) => o.user_id));
+  const anciennes = new Map((avant?.observed ?? []).map((o) => [o.user_id, o]));
+  const idDe = (d: Analyse["departs"][number]): number => Number(d.ligne.user_id);
   const aSuspendre = retenus
     ? []
-    : departs.filter((d) => {
-        const id = Number(d.ligne.user_id);
-        return confirmation ? (confirmes ?? []).includes(id) : dejaVus.has(id);
-      });
+    : departs.filter((d) =>
+        confirmee
+          ? (confirmer?.user_ids ?? []).includes(idDe(d))
+          : observationMure(anciennes.get(idDe(d)), at, intervalleMs),
+      );
   const { n: suspendus, echoues } = await suspendreDeparts(dep, f, aSuspendre);
+  const suspendusIds = new Set(aSuspendre.map(idDe));
+  const restants = departs.filter((d) => !suspendusIds.has(idDe(d)) || echoues.includes(d));
   if (!retenus) await revoquerAnciens(dep, f, a.departs, at);
-  const suspendusIds = new Set(aSuspendre.map((d) => Number(d.ligne.user_id)));
-  const restants = departs.filter((d) => !suspendusIds.has(Number(d.ligne.user_id)) || echoues.includes(d));
-  const attente = retenus || confirmation ? restants : [];
-  const observes = retenus || confirmation ? [] : restants;
+  await fermerAccesNonInteractifs(dep, restants);
+  const attente = retenus || confirmee ? restants : [];
+  const enAttente = (o: DepartObserve): boolean => restants.some((d) => idDe(d) === o.user_id);
+  const observes: DepartObserve[] =
+    retenus || confirmee
+      ? confirmer !== undefined && !confirmee
+        ? (avant?.observed ?? []).filter(enAttente)
+        : []
+      : restants.map((d) => {
+          const o = anciennes.get(idDe(d));
+          const garde = o !== undefined && at - o.at >= 0 && at - o.at < OBSERVATION_MIN_S;
+          return { user_id: idDe(d), reason: d.raison, at: garde ? o.at : at };
+        });
   const etat = await termine({
     at,
     seen: a.vus,
@@ -584,14 +686,11 @@ async function passe(
     pending: attente.length,
     held: lignesRetenues(attente),
     held_total: attente.length,
-    observed: observes
-      .map((d) => ({ user_id: Number(d.ligne.user_id), reason: d.raison }))
-      .sort((x, y) => x.user_id - y.user_id),
+    held_hash: empreinteRetenus(attente.map((d) => ({ user_id: idDe(d), reason: d.raison }))),
+    observed: observes.sort((x, y) => x.user_id - y.user_id),
     ok_at: at,
   });
-  return confirmes !== undefined && !confirmation
-    ? { type: "decompte_change", etat }
-    : { type: "bilan", etat };
+  return confirmer !== undefined && !confirmee ? { type: "decompte_change", etat } : { type: "bilan", etat };
 }
 
 /** Prise du verrou bornée dans le temps : une prise qui ne rend pas la main est relâchée si elle aboutit plus tard. */
@@ -614,11 +713,11 @@ async function prendre(verrou: VerrouFichier, delaiMs: number): Promise<"pris" |
   }
 }
 
-/** Une passe sur cet annuaire sous son verrou inter-processus ; `confirmer` liste les comptes que l'administrateur a vus : seuls ceux qui sont encore partis sont suspendus, et rien si l'ensemble des partis a changé. */
+/** Une passe sur cet annuaire sous son verrou inter-processus ; `confirmer` porte les comptes que l'administrateur a vus et l'empreinte de l'ensemble vu : seuls ceux qui sont encore partis sont suspendus, et rien si l'ensemble des partis a changé. */
 export async function balayerAnnuaire(
   dep: DependancesBalayage,
   f: FournisseurLdap,
-  options: { readonly confirmer?: readonly number[] } = {},
+  options: { readonly confirmer?: ConfirmationBalayage; readonly intervalleMs?: number } = {},
 ): Promise<IssueBalayage> {
   let chemin: string;
   try {
@@ -635,7 +734,7 @@ export async function balayerAnnuaire(
     return { type: "verrou_indisponible" };
   }
   try {
-    return await passe(dep, f, options.confirmer);
+    return await passe(dep, f, options.confirmer, options.intervalleMs ?? INTERVALLE_DEFAUT_MS);
   } finally {
     await verrou.rendre();
   }

@@ -718,6 +718,9 @@ restarted, then delete the fallback:
 rm user_db/.vault.key
 ```
 
+`rekey` also renews the test fingerprints of the enterprise sign-in providers whose registered secret is
+unchanged: enterprise sign-in providers stay active after a key change.
+
 ### Updating: connector and image engine keys
 
 From the version that adds migration `0028_vault_llm_images`, the API keys of the LLM connectors

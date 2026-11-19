@@ -6,7 +6,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer } from "../admin/aides";
 import { balayerAnnuaire, RETENUS_MAX } from "../identite/annuaire/balayage";
-import type { DependancesBalayage, EtatBalayage } from "../identite/annuaire/balayage";
+import type { ConfirmationBalayage, DependancesBalayage, EtatBalayage } from "../identite/annuaire/balayage";
 import { annuairesActifs } from "../identite/annuaire/connexion";
 import type { FournisseurLdap } from "../identite/reglages";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
@@ -48,25 +48,34 @@ export function creerFamilleAdminIdentiteBalayage(dep: DependancesBalayage): Fam
     return r.etat;
   }
 
-  /** Identifiants confirmés : la liste vue par l'administrateur, entiers positifs distincts, 200 au plus. */
-  function comptesConfirmes(req: FastifyRequest): number[] {
+  /** Confirmation : la liste vue par l'administrateur (entiers positifs distincts, 200 au plus) et l'empreinte de l'ensemble vu. */
+  function comptesConfirmes(req: FastifyRequest): ConfirmationBalayage {
     const corps = corpsJson(req);
     const liste = estDict(corps) ? corps["user_ids"] : undefined;
+    const empreinte = estDict(corps) ? corps["held_hash"] : undefined;
     const valide =
+      typeof empreinte === "string" &&
+      empreinte !== "" &&
+      empreinte.length <= 64 &&
       Array.isArray(liste) &&
       liste.length >= 1 &&
       liste.length <= RETENUS_MAX &&
       liste.every((v) => Number.isInteger(v) && (v as number) >= 1) &&
       new Set(liste).size === liste.length &&
-      Object.keys(corps as object).length === 1;
-    if (!valide) throw new HttpError(400, "Champ « user_ids » : liste d'identifiants distincts attendue.");
-    return liste as number[];
+      Object.keys(corps as object).length === 2;
+    if (!valide)
+      throw new HttpError(
+        400,
+        "Champs « user_ids » et « held_hash » : liste d'identifiants distincts et empreinte attendues.",
+      );
+    return { user_ids: liste as number[], held_hash: empreinte as string };
   }
 
   async function confirmer(req: FastifyRequest, rep: FastifyReply): Promise<EtatBalayage> {
     const f = await annuaire(idDuChemin(req));
-    const ids = comptesConfirmes(req);
-    const r = await balayerAnnuaire(dep, f, { confirmer: ids });
+    const confirmation = comptesConfirmes(req);
+    const ids = confirmation.user_ids;
+    const r = await balayerAnnuaire(dep, f, { confirmer: confirmation });
     if (r.type === "occupe") throw new HttpError(409, "Une passe est déjà en cours pour cet annuaire.");
     if (r.type === "verrou_indisponible")
       throw new HttpError(503, "La vérification est indisponible : demandez à votre administrateur.");

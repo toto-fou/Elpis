@@ -32,6 +32,7 @@ import {
   departsEnMasse,
   DUREE_AVANT_REVOCATION_S,
   etatBalayage,
+  viderObservations,
 } from "../src/identite/annuaire/balayage";
 import type { DependancesBalayage, IssueBalayage } from "../src/identite/annuaire/balayage";
 import { ErreurAnnuaire } from "../src/identite/annuaire/erreur";
@@ -84,8 +85,20 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
       journal: journalMuet,
     },
   });
-  const passe = async (confirmer?: number[]): Promise<IssueBalayage> =>
-    balayerAnnuaire(dep(), f(), confirmer === undefined ? {} : { confirmer });
+  /** Passe ; avec `confirmer`, l'empreinte envoyée est celle de l'état rangé (ce que la console a lu), sauf `empreinte` donnée. */
+  const passe = async (confirmer?: number[], empreinte?: string): Promise<IssueBalayage> =>
+    balayerAnnuaire(
+      dep(),
+      f(),
+      confirmer === undefined
+        ? {}
+        : {
+            confirmer: {
+              user_ids: confirmer,
+              held_hash: empreinte ?? (await etatBalayage(b.t.base, "annuaire"))?.held_hash ?? "",
+            },
+          },
+    );
   const bilan = async (confirmer?: number[]) => {
     const r = await passe(confirmer);
     if (r.type !== "bilan") throw new Error(`pas de bilan : ${r.type}`);
@@ -608,7 +621,7 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
       expect(await utilisable()).toBe(true);
       expect(await bilan()).toMatchObject({ suspended: 0, observed: [{ user_id: jean.uid }] });
       expect(await suspendu(jean)).toBeNull();
-      expect(await utilisable()).toBe(true);
+      expect(await utilisable()).toBe(false);
       b.horloge += 600;
       expect(await bilan()).toMatchObject({ suspended: 1 });
       expect(await suspendu(jean)).toBe("directory:annuaire");
@@ -725,6 +738,149 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
         remplace: null,
       });
       expect(publiees).toEqual([]);
+    });
+  });
+
+  describe("une observation a un âge, et ce qui est réversible se ferme tout de suite", () => {
+    beforeEach(() => ouvrir());
+
+    it("deux passes à moins de 2 minutes : rien n'est suspendu et la date de la première observation est gardée ; au-delà : suspendu", async () => {
+      const jean = await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const t0 = b.horloge;
+      await bilan();
+      b.horloge = t0 + 119;
+      expect(await bilan()).toMatchObject({ suspended: 0, observed: [{ user_id: jean.uid, at: t0 }] });
+      expect(await suspendu(jean)).toBeNull();
+      b.horloge = t0 + 120;
+      expect(await bilan()).toMatchObject({ suspended: 1, observed: [] });
+      expect(await suspendu(jean)).toBe("directory:annuaire");
+    });
+
+    it("observation plus vieille que deux intervalles : une première observation de nouveau, rien de suspendu", async () => {
+      const jean = await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const t0 = b.horloge;
+      await bilan();
+      b.horloge = t0 + 1801;
+      const e = await bilan();
+      expect(e).toMatchObject({ suspended: 0, observed: [{ user_id: jean.uid, at: t0 + 1801 }] });
+      expect(await suspendu(jean)).toBeNull();
+      b.horloge = t0 + 1801 + 300;
+      expect(await bilan()).toMatchObject({ suspended: 1 });
+    });
+
+    it("une passe abandonnée n'efface pas la date de l'observation", async () => {
+      await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const t0 = b.horloge;
+      await bilan();
+      annuaire.injoignable = true;
+      b.horloge += 300;
+      expect(await bilan()).toMatchObject({ aborted: "directory_unreachable", observed: [{ at: t0 }] });
+    });
+
+    it("une confirmation refusée garde les observations en cours", async () => {
+      const jean = await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const t0 = b.horloge;
+      await bilan();
+      b.horloge += 30;
+      const r = await passe([jean.uid], "0".repeat(32));
+      expect(r).toMatchObject({
+        type: "decompte_change",
+        etat: { observed: [{ user_id: jean.uid, at: t0 }] },
+      });
+      expect(await suspendu(jean)).toBeNull();
+    });
+
+    it("viderObservations : la liste est oubliée, le reste de l'état est gardé", async () => {
+      await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const e = await bilan();
+      await b.t.base.ecriture((x) => viderObservations(x, "annuaire"));
+      expect(await etatBalayage(b.t.base, "annuaire")).toEqual({ ...e, observed: [] });
+    });
+
+    it("première observation : les accès non interactifs sont refusés tout de suite, sans rien supprimer ; l'entrée revue les rend à la passe suivante", async () => {
+      const jean = await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const depAcces = {
+        ...dependancesParDefaut(b.t.base),
+        maintenant: () => b.horloge,
+        fraicheursFournisseurs: async () => new Map([["annuaire", 14]]),
+      };
+      await b.t.base.run("UPDATE user_identities SET checked_at=? WHERE user_id=?", [b.horloge, jean.uid]);
+      const [jeton] = await creerJeton(depAcces, jean.uid, "tools", "t", ["fs"], 5);
+      const utilisable = async (): Promise<boolean> =>
+        (await resoudreJeton(depAcces, jeton as string, ["tools"], false)) !== null;
+      expect(await utilisable()).toBe(true);
+      await bilan();
+      expect(await vu(jean)).toBe(0);
+      expect(await utilisable()).toBe(false);
+      expect(await suspendu(jean)).toBeNull();
+      expect(await b.t.base.valeurs("SELECT id FROM tool_tokens WHERE user_id=?", [jean.uid])).toHaveLength(
+        1,
+      );
+      expect(Number((await ligneUtilisateur(b.t.base, jean.uid))?.session_min_ts ?? 0)).toBe(0);
+      jean.p.groupes = [GROUPE];
+      b.horloge += 600;
+      await bilan();
+      expect(await vu(jean)).toBe(b.horloge);
+      expect(await utilisable()).toBe(true);
+    });
+
+    it("compte retenu par le garde-fou de masse : accès non interactifs refusés tout de suite, comptes présents intacts", async () => {
+      const cs: Compte[] = [];
+      for (let i = 1; i <= 9; i++) cs.push(await rattacher(`u${i}`, i, i <= 3 ? { groupes: [] } : {}));
+      const e = await bilan();
+      expect(e).toMatchObject({ pending: 3, suspended: 0 });
+      for (const c of cs.slice(0, 3)) expect(await vu(c)).toBe(0);
+      for (const c of cs.slice(3)) expect(await vu(c)).toBe(b.horloge);
+    });
+
+    it("panne ou droits perdus : rien n'est fermé", async () => {
+      const jean = await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      annuaire.injoignable = true;
+      await bilan();
+      expect(await vu(jean)).toBe(5);
+    });
+
+    it("suppression des jetons après 7 jours : l'état de suspension est relu dans l'écriture, un compte réactivé pendant la passe ne perd rien", async () => {
+      const jean = await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const depAcces = { ...dependancesParDefaut(b.t.base), maintenant: () => b.horloge };
+      await creerJeton(depAcces, jean.uid, "tools", "t", ["fs"], 5);
+      await deuxPasses();
+      b.horloge += DUREE_AVANT_REVOCATION_S + 10;
+      const original = annuaire.fabrique;
+      let leve = false;
+      await balayerAnnuaire(
+        {
+          ...dep(),
+          fabrique: async (fo, url) => {
+            const c = await original(fo, url);
+            return {
+              ...c,
+              chercher: async (base, o) => {
+                if (!leve) {
+                  leve = true;
+                  await b.t.base.run("UPDATE users SET suspended_at=0, suspended_by=NULL WHERE id=?", [
+                    jean.uid,
+                  ]);
+                }
+                return c.chercher(base, o);
+              },
+            };
+          },
+        },
+        f(),
+      );
+      expect(leve).toBe(true);
+      expect(await b.t.base.valeurs("SELECT id FROM tool_tokens WHERE user_id=?", [jean.uid])).toHaveLength(
+        1,
+      );
     });
   });
 
@@ -995,7 +1151,8 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
         pending: 0,
         held: [],
         held_total: 0,
-        observed: [{ user_id: jean.uid, reason: "not_in_group" }],
+        held_hash: "",
+        observed: [{ user_id: jean.uid, reason: "not_in_group", at: b.horloge }],
         ok_at: b.horloge,
       });
       b.horloge += 600;
@@ -1013,6 +1170,27 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
       });
       expect(g.json().providers[0].sweep).toEqual(await etatBalayage(b.t.base, "annuaire"));
       expect(schemaEtatBalayage.safeParse(g.json().providers[0].sweep).success).toBe(true);
+    });
+
+    it("éteindre, modifier ou réactiver le fournisseur oublie les observations", async () => {
+      await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      const observees = async (): Promise<number> =>
+        (await etatBalayage(b.t.base, "annuaire"))?.observed.length ?? 0;
+      await appeler("/api/admin/auth/providers/annuaire/sweep");
+      expect(await observees()).toBe(1);
+      const modif = await app.inject({
+        method: "PUT",
+        url: "/api/admin/auth/providers/annuaire",
+        headers: { "x-uid": String(chef) },
+        payload: { label: "Autre libellé" },
+      });
+      expect(modif.statusCode).toBe(200);
+      expect(await observees()).toBe(0);
+      await appeler("/api/admin/auth/providers/annuaire/sweep");
+      expect(await observees()).toBe(1);
+      expect((await appeler("/api/admin/auth/providers/annuaire/disable")).statusCode).toBe(200);
+      expect(await observees()).toBe(0);
     });
 
     it("GET avant toute passe : sweep nul", async () => {
@@ -1052,47 +1230,91 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
       expect(vu).toMatchObject({ suspended: 0, pending: 3, held_total: 3 });
       expect(vu.held.map((h: { user_id: number }) => h.user_id)).toEqual(cs.slice(0, 3).map((c) => c.uid));
       const ids = vu.held.map((h: { user_id: number }) => h.user_id);
-      const r = await appeler(CONFIRM, { user_ids: ids });
+      expect(vu.held_hash).toMatch(/^[0-9a-f]{32}$/u);
+      const r = await appeler(CONFIRM, { user_ids: ids, held_hash: vu.held_hash });
       expect(r.statusCode).toBe(200);
-      expect(r.json()).toMatchObject({ suspended: 3, pending: 0, held: [] });
+      expect(r.json()).toMatchObject({ suspended: 3, pending: 0, held: [], held_hash: "" });
       for (const c of cs.slice(0, 3)) expect(await suspendu(c)).toBe("directory:annuaire");
       expect(lignesAuditRecentes({ actionPrefix: "admin.auth.sweep.confirm" })[0]?.["details"]).toMatchObject(
         { provider_id: "annuaire", confirmed: 3, confirmed_user_ids: ids },
       );
     });
 
-    it("confirm : liste qui n'est pas celle des partis (en plus, en moins, jamais vue) : 409 avec le nouvel état, rien de suspendu", async () => {
+    it("confirm : compte jamais vu, ensemble changé ou empreinte fausse : 409 avec le nouvel état, rien de suspendu", async () => {
       const cs = await peuple9();
-      await appeler("/api/admin/auth/providers/annuaire/sweep");
+      const vu = (await appeler("/api/admin/auth/providers/annuaire/sweep")).json();
       const ids = cs.slice(0, 3).map((c) => c.uid);
-      const jamaisVu = await appeler(CONFIRM, { user_ids: [...ids.slice(0, 2), (cs[5] as Compte).uid] });
+      const jamaisVu = await appeler(CONFIRM, {
+        user_ids: [...ids.slice(0, 2), (cs[5] as Compte).uid],
+        held_hash: vu.held_hash,
+      });
       expect(jamaisVu.statusCode).toBe(409);
-      expect((await appeler(CONFIRM, { user_ids: ids.slice(0, 2) })).statusCode).toBe(409);
+      const fausse = await appeler(CONFIRM, { user_ids: ids, held_hash: "0".repeat(32) });
+      expect(fausse.statusCode).toBe(409);
       cs[3]?.p.groupes.splice(0, 1);
-      const change = await appeler(CONFIRM, { user_ids: ids });
+      const change = await appeler(CONFIRM, { user_ids: ids, held_hash: vu.held_hash });
       expect(change.statusCode).toBe(409);
       expect(change.json().detail.sweep).toMatchObject({ pending: 4, suspended: 0 });
+      expect(change.json().detail.sweep.held_hash).not.toBe(vu.held_hash);
       for (const c of cs) expect(await suspendu(c)).toBeNull();
+    });
+
+    it("confirm : une partie seulement de l'ensemble vu : seuls ces comptes sont suspendus, les autres restent retenus", async () => {
+      const cs = await peuple9();
+      const vu = (await appeler("/api/admin/auth/providers/annuaire/sweep")).json();
+      const ids = cs.slice(0, 2).map((c) => c.uid);
+      const r = await appeler(CONFIRM, { user_ids: ids, held_hash: vu.held_hash });
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toMatchObject({ suspended: 2, pending: 1, held_total: 1 });
+      expect(await suspendu(cs[0] as Compte)).toBe("directory:annuaire");
+      expect(await suspendu(cs[2] as Compte)).toBeNull();
+    });
+
+    it("confirm : ensemble de plus de 200 comptes, même règle : empreinte de l'ensemble complet, comptes confirmés pris dans la liste rendue", async () => {
+      const comptes: Compte[] = [];
+      for (let i = 1; i <= 205; i++) comptes.push(await rattacher(`u${i}`, i, { groupes: [] }));
+      annuaire.ajouter({ uid: "present", cle: UUID(999), mdp: "x", groupes: [GROUPE] });
+      const vu = (await appeler("/api/admin/auth/providers/annuaire/sweep")).json();
+      expect(vu.held).toHaveLength(200);
+      const ids = vu.held.slice(0, 2).map((h: { user_id: number }) => h.user_id);
+      const horsListe = comptes.at(-1)?.uid as number;
+      expect((await appeler(CONFIRM, { user_ids: [horsListe], held_hash: vu.held_hash })).statusCode).toBe(
+        409,
+      );
+      comptes[204]?.p.groupes.splice(0, 1, GROUPE);
+      const change = await appeler(CONFIRM, { user_ids: ids, held_hash: vu.held_hash });
+      expect(change.statusCode).toBe(409);
+      expect(change.json().detail.sweep.held_hash).not.toBe(vu.held_hash);
+      for (const c of comptes) expect(await suspendu(c)).toBeNull();
+      const neuf = change.json().detail.sweep;
+      const ok = await appeler(CONFIRM, { user_ids: ids, held_hash: neuf.held_hash });
+      expect(ok.statusCode).toBe(200);
+      expect(ok.json()).toMatchObject({ suspended: 2, pending: 202 });
     });
 
     it("confirm sans rien en attente ou corps invalide : 409 / 400", async () => {
       const jean = await rattacher("jean", 1);
       await appeler("/api/admin/auth/providers/annuaire/sweep");
-      expect((await appeler(CONFIRM, { user_ids: [jean.uid] })).statusCode).toBe(409);
-      expect((await appeler(CONFIRM, { pending: 1 })).statusCode).toBe(400);
-      expect((await appeler(CONFIRM, { user_ids: [] })).statusCode).toBe(400);
-      expect((await appeler(CONFIRM, { user_ids: [1, 1] })).statusCode).toBe(400);
-      expect((await appeler(CONFIRM, { user_ids: ["3"] })).statusCode).toBe(400);
-      expect((await appeler(CONFIRM, { user_ids: [0] })).statusCode).toBe(400);
-      expect((await appeler(CONFIRM, { user_ids: [1], pending: 1 })).statusCode).toBe(400);
+      const h = "a".repeat(32);
+      expect((await appeler(CONFIRM, { user_ids: [jean.uid], held_hash: h })).statusCode).toBe(409);
+      expect((await appeler(CONFIRM, { user_ids: [jean.uid] })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { user_ids: [jean.uid], held_hash: "" })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { user_ids: [jean.uid], held_hash: 5 })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { pending: 1, held_hash: h })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { user_ids: [], held_hash: h })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { user_ids: [1, 1], held_hash: h })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { user_ids: ["3"], held_hash: h })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { user_ids: [0], held_hash: h })).statusCode).toBe(400);
+      expect((await appeler(CONFIRM, { user_ids: [1], held_hash: h, pending: 1 })).statusCode).toBe(400);
       expect((await appeler(CONFIRM, {})).statusCode).toBe(400);
     });
 
     it("confirm : passe abandonnée entre-temps (canari) : 409, rien de suspendu", async () => {
       const cs = await peuple9();
-      await appeler("/api/admin/auth/providers/annuaire/sweep");
+      const vu = (await appeler("/api/admin/auth/providers/annuaire/sweep")).json();
       annuaire.groupesExistants.clear();
-      expect((await appeler(CONFIRM, { user_ids: cs.slice(0, 3).map((c) => c.uid) })).statusCode).toBe(409);
+      const corps = { user_ids: cs.slice(0, 3).map((c) => c.uid), held_hash: vu.held_hash };
+      expect((await appeler(CONFIRM, corps)).statusCode).toBe(409);
       for (const c of cs) expect(await suspendu(c)).toBeNull();
     });
 
@@ -1106,7 +1328,10 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
     });
 
     it("le contrat de confirmation et celui de l'état acceptent les corps de la route", () => {
-      expect(schemaCorpsConfirmationBalayage.safeParse({ user_ids: [1, 2] }).success).toBe(true);
+      expect(schemaCorpsConfirmationBalayage.safeParse({ user_ids: [1, 2], held_hash: "ab" }).success).toBe(
+        true,
+      );
+      expect(schemaCorpsConfirmationBalayage.safeParse({ user_ids: [1, 2] }).success).toBe(false);
       expect(schemaCorpsConfirmationBalayage.safeParse({ pending: 3 }).success).toBe(false);
       expect(
         schemaEtatBalayage.safeParse({

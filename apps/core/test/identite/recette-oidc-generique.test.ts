@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { testerFournisseur } from "../../src/identite/essai";
 import { secretFournisseur } from "../../src/identite/fournisseurs";
+import { lignesJournal } from "../aides";
 import { ouvrirBancRecette, traverserFournisseur } from "./recette-outils";
 import type { BancRecette, Compte } from "./recette-outils";
 
@@ -66,6 +67,14 @@ describe.skipIf(RECETTE === null)("recette sur de vrais fournisseurs OpenID Conn
       return { statut: retour.statusCode, lieu: String(retour.headers["location"]), session };
     }
 
+    /** Causes des refus SSO écrites au journal serveur depuis le début du fichier (diagnostic d'un échec). */
+    const causesDeRefus = (): string =>
+      lignesJournal
+        .map((l) => String(l))
+        .filter((l) => l.includes("refusée"))
+        .slice(-3)
+        .join(" | ");
+
     beforeAll(async () => {
       b = await ouvrirBancRecette(recette.public_url, ca);
       await installer();
@@ -87,7 +96,7 @@ describe.skipIf(RECETTE === null)("recette sur de vrais fournisseurs OpenID Conn
 
     it("un membre du groupe requis se connecte : compte créé, puis le même compte à la connexion suivante", async () => {
       const r = await connecter(f.membre);
-      expect(r.statut, r.lieu).toBe(200);
+      expect(r.statut, `${r.lieu} ${causesDeRefus()}`).toBe(200);
       expect((await b.moi(r.session)).username).toBe(f.membre.login.replaceAll(".", "-"));
       const encore = await connecter(f.membre);
       expect(encore.statut, encore.lieu).toBe(200);

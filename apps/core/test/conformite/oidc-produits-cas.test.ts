@@ -236,7 +236,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
         expect(await departRefuse(x)).toBeGreaterThanOrEqual(400);
       });
 
-      it("Auth0 : nom de revendication en adresse https:// (espace de noms exigé pour les revendications personnalisées) refusé par les réglages, refusé par choix (plus strict que la norme)", () => {
+      it("Auth0 : nom de revendication en adresse https:// (espace de noms exigé pour les revendications personnalisées) refusé par les réglages (limite du produit : seuls les noms simples sont admis)", () => {
         expect(() =>
           validerFournisseur(oidcValide({ groups_claim: "https://elpis.exemple.lan/roles" })),
         ).toThrow();
@@ -312,7 +312,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
 
     describe("Zitadel", () => {
       const z = profil("zitadel");
-      it("Zitadel : rôles natifs en objet (`urn:zitadel:iam:org:project:roles`) : non lus, appartenance inconnue, refusé par choix (plus strict que la norme)", async () => {
+      it("Zitadel : rôles natifs en objet (`urn:zitadel:iam:org:project:roles`) : non lus, appartenance inconnue (limite du produit : un objet n'est pas lu comme liste de groupes)", async () => {
         const x = await ouvrirProfil(moteur, z, {
           extra: { groups_claim: "urn:zitadel:iam:org:project:roles" },
         });

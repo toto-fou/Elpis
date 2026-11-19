@@ -2,8 +2,9 @@
 /** apps/core/test/conformite/profils-oidc.ts — profils de produits d'identité joués par le fournisseur factice : chemins, document de découverte, forme des jetons et réglages Elpis de chaque produit, avec les adresses publiques lues. */
 import type { OidcFactice, OptionsFactice, Utilisateur } from "../identite/oidc-factice";
 
-export type Verdict = "fonctionne" | "reglage" | "non";
-export type Sourcage = "document public" | "documentation" | "non sourcé";
+export type Verdict = "fonctionne" | "reglage" | "non" | "non confirmé";
+export type Sourcage =
+  "document public" | "documentation" | "documentation, à vérifier sur un AD FS réel" | "non sourcé";
 
 export interface ProfilProduit {
   readonly cle: string;
@@ -23,6 +24,11 @@ export interface ProfilProduit {
   readonly horsOrigine?: boolean;
   /** Corps rendu par UserInfo pour cette personne (défaut : le seul `sub`, comme un produit qui ne rend rien d'autre). */
   readonly userinfo?: (u: Utilisateur) => Record<string, unknown>;
+  /** Forme du jeton de déconnexion par canal arrière du produit : revendications absentes, paramètres de l'en-tête (défaut : le jeton complet du factice). */
+  readonly jetonDeconnexion?: {
+    readonly sans?: readonly string[];
+    readonly entete?: Record<string, unknown>;
+  };
   /** Code de refus attendu quand le document est ramené sur l'origine (défaut : la connexion réussit). */
   readonly apresOrigine?: string;
 }
@@ -39,6 +45,12 @@ const NOMS = (nom: string): Record<string, unknown> => ({
   email: `${nom}@exemple.lan`,
   email_verified: true,
 });
+
+const SERVIS = new Map<string, readonly string[]>();
+const servir = (sub: string, groupes: readonly string[]): readonly string[] => {
+  SERVIS.set(sub, groupes);
+  return groupes;
+};
 
 const BASE_SECRET = "secret-client-de-test";
 const TENANT = "72f988bf-86f1-41af-91ab-2d7cd011db47";
@@ -113,6 +125,7 @@ export const PROFILS: readonly ProfilProduit[] = [
       code_challenge_methods_supported: ["plain", "S256"],
     }),
     reglages: { groups_claim: "groups", client_auth: "basic" },
+    jetonDeconnexion: { sans: ["exp"] },
     groupeRequis: "/elpis",
     utilisateur: (nom, groupes = ["/elpis"]) => ({
       sub: uuid(nom),
@@ -211,10 +224,10 @@ export const PROFILS: readonly ProfilProduit[] = [
     sources: [
       "https://learn.microsoft.com/en-us/windows-server/identity/ad-fs/development/ad-fs-openid-connect-oauth-concepts",
     ],
-    sourcage: "documentation",
+    sourcage: "documentation, à vérifier sur un AD FS réel",
     verdict: "reglage",
     resume:
-      "fonctionne avec ce réglage : `groups_claim` = `group`, `username_claim` = `upn` ; une personne à un seul groupe est lue (revendication rendue en chaîne) quand cette chaîne est un groupe réglé",
+      "fonctionne avec ce réglage : portée `allatclaims` (et autorisation côté AD FS), `groups_claim` = `group`, `username_claim` = `upn` ; une personne à un seul groupe est lue (revendication rendue en chaîne) quand cette chaîne est un groupe réglé",
     idp: {
       racine: "/adfs",
       alg: "RS256",
@@ -256,7 +269,12 @@ export const PROFILS: readonly ProfilProduit[] = [
       ],
       subject_types_supported: ["pairwise"],
     }),
-    reglages: { groups_claim: "group", username_claim: "upn", client_auth: "basic" },
+    reglages: {
+      groups_claim: "group",
+      username_claim: "upn",
+      client_auth: "basic",
+      scopes: ["openid", "profile", "email", "allatclaims"],
+    },
     groupeRequis: "elpis",
     utilisateur: (nom, groupes = ["elpis", "Domain Users"]) => ({
       sub: Buffer.from(`adfs-${nom}`).toString("base64"),
@@ -502,6 +520,7 @@ export const PROFILS: readonly ProfilProduit[] = [
       ],
     }),
     reglages: { groups_claim: "groups" },
+    jetonDeconnexion: { sans: ["exp"] },
     groupeRequis: "elpis",
     utilisateur: (nom, groupes = ["elpis", "authentik Admins"]) => ({
       sub: hex64(nom),
@@ -558,7 +577,8 @@ export const PROFILS: readonly ProfilProduit[] = [
     sources: ["https://gitlab.com/.well-known/openid-configuration"],
     sourcage: "document public",
     verdict: "fonctionne",
-    resume: "fonctionne ; `groups` rend les chemins complets des groupes",
+    resume:
+      "fonctionne ; `groups` (chemins complets des groupes) est rendu par UserInfo seulement, `groups_direct` par le jeton",
     idp: {
       racine: "",
       alg: "RS256",
@@ -598,17 +618,25 @@ export const PROFILS: readonly ProfilProduit[] = [
     }),
     reglages: { groups_claim: "groups" },
     groupeRequis: "elpis",
-    utilisateur: (nom, groupes = ["elpis", "elpis/equipe"]) => ({
-      sub: String(1000 + nom.length),
-      claims: {
-        ...NOMS(nom),
-        nickname: nom,
-        sub_legacy: hex64(nom),
-        groups_direct: groupes,
-        groups: groupes,
-        auth_time: Math.floor(Date.now() / 1000),
-      },
+    userinfo: (u) => ({
+      sub: u.sub,
+      ...NOMS(String(u.claims?.["nickname"] ?? "alice")),
+      groups: SERVIS.get(u.sub),
     }),
+    utilisateur: (nom, groupes = ["elpis", "elpis/equipe"]) => {
+      const sub = String(1000 + nom.length);
+      servir(sub, groupes);
+      return {
+        sub,
+        claims: {
+          ...NOMS(nom),
+          nickname: nom,
+          sub_legacy: hex64(nom),
+          groups_direct: groupes,
+          auth_time: Math.floor(Date.now() / 1000),
+        },
+      };
+    },
   },
   {
     cle: "dex",
@@ -711,9 +739,9 @@ export const PROFILS: readonly ProfilProduit[] = [
     nom: "Authelia",
     sources: ["https://www.authelia.com/integration/openid-connect/introduction/"],
     sourcage: "documentation",
-    verdict: "fonctionne",
+    verdict: "reglage",
     resume:
-      "fonctionne ; PAR et paramètre `iss` de la réponse (RFC 9207) joués ; aucune déconnexion annoncée",
+      "fonctionne avec ce réglage : portée `groups` ajoutée, groupes et profil rendus par UserInfo seulement ; PAR et paramètre `iss` de la réponse (RFC 9207) joués ; aucune déconnexion annoncée",
     idp: {
       racine: "",
       alg: "RS256",
@@ -742,12 +770,18 @@ export const PROFILS: readonly ProfilProduit[] = [
       ],
       code_challenge_methods_supported: ["S256"],
     }),
-    reglages: { groups_claim: "groups" },
+    reglages: { groups_claim: "groups", scopes: ["openid", "profile", "email", "groups"] },
     groupeRequis: "elpis",
-    utilisateur: (nom, groupes = ["elpis", "admins"]) => ({
-      sub: uuid(nom),
-      claims: { ...NOMS(nom), groups: groupes, auth_time: Math.floor(Date.now() / 1000), amr: ["pwd"] },
+    userinfo: (u) => ({
+      sub: u.sub,
+      ...NOMS(String(u.claims?.["nom"] ?? "alice")),
+      groups: SERVIS.get(u.sub),
     }),
+    utilisateur: (nom, groupes = ["elpis", "admins"]) => {
+      const sub = uuid(nom);
+      servir(sub, groupes);
+      return { sub, claims: { nom, auth_time: Math.floor(Date.now() / 1000), amr: ["pwd"] } };
+    },
   },
   {
     cle: "ping",
@@ -756,7 +790,7 @@ export const PROFILS: readonly ProfilProduit[] = [
       "https://docs.pingidentity.com/pingfederate/latest/administrators_reference_guide/pf_openid_connect_discovery_endpoint.html (introuvable)",
     ],
     sourcage: "non sourcé",
-    verdict: "fonctionne",
+    verdict: "non confirmé",
     resume:
       "non confirmé par un document : forme standard jouée avec les chemins usuels de PingFederate ; fonctionne tant que les points d'accès restent sur l'origine de l'émetteur",
     idp: {
@@ -814,6 +848,7 @@ export const PROFILS: readonly ProfilProduit[] = [
       code_challenge_methods_supported: ["S256"],
     }),
     reglages: { groups_claim: "groups" },
+    jetonDeconnexion: { sans: ["exp"] },
     groupeRequis: "elpis",
     utilisateur: (nom, groupes = ["elpis"]) => ({
       sub: uuid(nom),
@@ -860,6 +895,7 @@ export const PROFILS: readonly ProfilProduit[] = [
       code_challenge_methods_supported: ["S256"],
     }),
     reglages: { groups_claim: "groups", id_token_alg: "PS256" },
+    jetonDeconnexion: { entete: { typ: "logout+jwt" } },
     groupeRequis: "elpis",
     utilisateur: (nom, groupes = ["elpis"]) => ({
       sub: uuid(nom),
@@ -878,9 +914,9 @@ export const PROFILS: readonly ProfilProduit[] = [
     nom: "Kanidm",
     sources: ["https://kanidm.github.io/kanidm/stable/integrations/oauth2.html"],
     sourcage: "documentation",
-    verdict: "fonctionne",
+    verdict: "reglage",
     resume:
-      "fonctionne ; jeton ES256, authentification du client par l'en-tête Basic, groupes sous forme de noms complets (SPN) et d'UUID",
+      "fonctionne avec ce réglage : portée `groups` demandée ; jeton ES256, authentification du client par l'en-tête Basic, groupes sous forme de noms complets (SPN) et d'UUID",
     idp: {
       racine: "/oauth2/openid/elpis",
       alg: "ES256",
@@ -899,7 +935,12 @@ export const PROFILS: readonly ProfilProduit[] = [
       token_endpoint_auth_methods_supported: ["client_secret_basic"],
       code_challenge_methods_supported: ["S256"],
     }),
-    reglages: { groups_claim: "groups", client_auth: "basic", id_token_alg: "ES256" },
+    reglages: {
+      groups_claim: "groups",
+      client_auth: "basic",
+      id_token_alg: "ES256",
+      scopes: ["openid", "profile", "email", "groups"],
+    },
     groupeRequis: "elpis@idm.exemple.lan",
     utilisateur: (nom, groupes = ["elpis@idm.exemple.lan"]) => ({
       sub: uuid(nom),
@@ -996,7 +1037,7 @@ export const PROFILS: readonly ProfilProduit[] = [
     nom: "ForgeRock / PingAM",
     sources: ["https://backstage.forgerock.com/docs/am/7.5/oidc1-guide/index.html (redirigé, non lu)"],
     sourcage: "non sourcé",
-    verdict: "fonctionne",
+    verdict: "non confirmé",
     resume:
       "non confirmé par un document : forme standard jouée avec l'émetteur sous `/am/oauth2` ; fonctionne tant que les points d'accès restent sur l'origine",
     idp: {
@@ -1026,7 +1067,7 @@ export const PROFILS: readonly ProfilProduit[] = [
     nom: "IBM Security Verify",
     sources: [],
     sourcage: "non sourcé",
-    verdict: "fonctionne",
+    verdict: "non confirmé",
     resume:
       "non confirmé par un document : aucune source lue ; forme standard jouée avec un émetteur sous chemin",
     idp: {
@@ -1055,7 +1096,7 @@ export const PROFILS: readonly ProfilProduit[] = [
       "https://shibboleth.atlassian.net/wiki/spaces/IDPPLUGINS/pages/1376878976/OIDC+OP (chemins non lus)",
     ],
     sourcage: "non sourcé",
-    verdict: "fonctionne",
+    verdict: "non confirmé",
     resume:
       "non confirmé par un document : le greffon annonce le code, PKCE et les trois déconnexions ; forme standard jouée",
     idp: {

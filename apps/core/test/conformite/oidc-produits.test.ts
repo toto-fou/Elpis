@@ -82,7 +82,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       });
 
       if (annonce(p, "backchannel_logout_supported"))
-        it(`${p.nom} (Back-Channel Logout 1.0 §2.6) : jeton de déconnexion du produit avec \`sid\` seul, puis \`sub\` seul, ferme la session`, async () => {
+        it(`${p.nom} (Back-Channel Logout 1.0 §2.6) : jeton de déconnexion à la forme du produit (profil : sans \`exp\`, ou \`typ\` \`logout+jwt\`) avec \`sid\` seul, puis \`sub\` seul, ferme la session`, async () => {
           const x = await ouvrirProfil(moteur, p, {
             extra: { logout: { rp_initiated: false, backchannel: true } },
           });
@@ -99,16 +99,20 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
                 payload: new URLSearchParams({ logout_token: jeton }).toString(),
               })
             ).statusCode;
+          const forme = {
+            ...(p.jetonDeconnexion?.sans === undefined ? {} : { sans: [...p.jetonDeconnexion.sans] }),
+            ...(p.jetonDeconnexion?.entete === undefined ? {} : { entete: p.jetonDeconnexion.entete }),
+          };
           const u = p.utilisateur("alice");
           const sid = u.claims?.["sid"];
           if (typeof sid === "string") {
             const a = (await x.connecter(u)).session;
             expect(await vivante(a)).toBe(true);
-            expect(await poster(await x.idp.jetonDeconnexion({ sid }))).toBe(200);
+            expect(await poster(await x.idp.jetonDeconnexion({ sid }, forme))).toBe(200);
             expect(await vivante(a)).toBe(false);
           }
           const c = (await x.connecter(u)).session;
-          expect(await poster(await x.idp.jetonDeconnexion({ sub: u.sub }))).toBe(200);
+          expect(await poster(await x.idp.jetonDeconnexion({ sub: u.sub }, forme))).toBe(200);
           expect(await vivante(c)).toBe(false);
         });
     });

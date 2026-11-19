@@ -25,13 +25,25 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
     const r = await b.connecter(ELPIS(sub));
     expect(r.retour.statusCode, r.retour.body).toBe(200);
   };
-  const refuse = async (p: PiegesJeton, sub = "sub-x"): Promise<void> => {
+  const refuse = async (p: PiegesJeton, sub = "sub-x", cause?: string): Promise<void> => {
     b.idp.pieges = p;
     const r = await b.connecter(ELPIS(sub));
     expect(codeRefus(r.retour)).toBe("failed");
+    if (cause !== undefined) expect(causeDuDernierRefus()).toBe(cause);
     expect(await b.utilisateurs()).toEqual(["chef"]);
   };
   const t = maintenant;
+  /** Retour joué avec un jeton fabriqué à partir du vrai nonce du départ. */
+  const retourAvecNonce = async (
+    fabriquer: (nonce: string) => Promise<string>,
+    sub = "sub-x",
+  ): Promise<Awaited<ReturnType<BancOidc["retourner"]>>> => {
+    const d = await b.demarrer();
+    const nonce = new URL(d.url ?? "").searchParams.get("nonce") ?? "";
+    b.idp.pieges = { jetonBrut: await fabriquer(nonce) };
+    const { retour } = b.idp.autoriser(d.url ?? "", ELPIS(sub));
+    return b.retourner(retour, { cookie: d.cookie });
+  };
 
   describe("OIDC Core §3.1.3.7 point 1 : jeton chiffré", () => {
     it("point 1 : un jeton d'identité chiffré (JWE compact à cinq segments) est refusé, aucun mécanisme de déchiffrement n'étant enregistré", async () => {
@@ -51,13 +63,23 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
   describe("point 2 : émetteur", () => {
     it("point 2 : `iss` identique à l'émetteur configuré accepté", async () => accepte({}));
     it("point 2 : `iss` avec une barre finale en plus refusé (comparaison exacte)", async () =>
-      refuse({ claims: { iss: `${b.idp.issuer}/` } }));
+      refuse({ claims: { iss: `${b.idp.issuer}/` } }, "sub-x", "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED"));
     it("point 2 : `iss` dont l'hôte change de casse refusé (comparaison exacte)", async () =>
-      refuse({ claims: { iss: b.idp.issuer.replace("elpis-test.invalid", "ELPIS-TEST.invalid") } }));
-    it("point 2 : `iss` absent refusé", async () => refuse({ sans: ["iss"] }));
-    it("point 2 : `iss` en liste refusé", async () => refuse({ claims: { iss: [b.idp.issuer] } }));
+      refuse(
+        { claims: { iss: b.idp.issuer.replace("elpis-test.invalid", "ELPIS-TEST.invalid") } },
+        "sub-x",
+        "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED",
+      ));
+    it("point 2 : `iss` absent refusé", async () =>
+      refuse({ sans: ["iss"] }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+    it("point 2 : `iss` en liste refusé", async () =>
+      refuse({ claims: { iss: [b.idp.issuer] } }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
     it("point 2 : `iss` d'un autre chemin du même hôte refusé", async () =>
-      refuse({ claims: { iss: `${b.idp.origine}/realms/autre` } }));
+      refuse(
+        { claims: { iss: `${b.idp.origine}/realms/autre` } },
+        "sub-x",
+        "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED",
+      ));
   });
 
   describe("points 3, 4 et 5 : public et partie autorisée", () => {
@@ -71,84 +93,105 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
       await accepte({ claims: { aud: "elpis", azp: "elpis" } }, "sub-z");
     });
     it("points 4 et 5 : `aud` à plusieurs éléments sans `azp` refusé", async () =>
-      refuse({ claims: { aud: ["elpis", "api-ressource"] } }));
+      refuse(
+        { claims: { aud: ["elpis", "api-ressource"] } },
+        "sub-x",
+        "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED",
+      ));
     it("point 5 : `aud` à plusieurs éléments avec `azp` d'un autre client refusé", async () =>
-      refuse({ claims: { aud: ["elpis", "autre"], azp: "autre" } }));
+      refuse(
+        { claims: { aud: ["elpis", "autre"], azp: "autre" } },
+        "sub-x",
+        "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED",
+      ));
     it("point 3 : `aud` liste sans le client refusé", async () =>
-      refuse({ claims: { aud: ["autre", "api"] } }));
-    it("point 3 : `aud` d'un autre client refusé", async () => refuse({ claims: { aud: "autre" } }));
+      refuse({ claims: { aud: ["autre", "api"] } }, "sub-x", "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED"));
+    it("point 3 : `aud` d'un autre client refusé", async () =>
+      refuse({ claims: { aud: "autre" } }, "sub-x", "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED"));
     it("point 3 : `aud` de casse différente refusé (comparaison exacte)", async () =>
-      refuse({ claims: { aud: "ELPIS" } }));
-    it("point 3 : `aud` absent refusé", async () => refuse({ sans: ["aud"] }));
-    it("point 3 : `aud` non texte refusé", async () => refuse({ claims: { aud: 5 } }));
+      refuse({ claims: { aud: "ELPIS" } }, "sub-x", "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED"));
+    it("point 3 : `aud` absent refusé", async () =>
+      refuse({ sans: ["aud"] }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+    it("point 3 : `aud` non texte refusé", async () =>
+      refuse({ claims: { aud: 5 } }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
     it("point 5 : `azp` égal au client avec `aud` simple accepté", async () =>
       accepte({ claims: { azp: "elpis" } }));
     it("point 5 : `azp` d'un autre client avec `aud` simple refusé, refusé par choix (plus strict que la norme)", async () =>
-      refuse({ claims: { azp: "autre" } }));
+      refuse({ claims: { azp: "autre" } }, "sub-x", "azp_mismatch"));
   });
 
   describe("points 6, 7 et 8 : signature et algorithme", () => {
     it("point 7 : signature juste accepte", async () => accepte({}));
     it("point 6 : signature fausse refusée même reçue directement du point de jetons (TLS ne dispense pas de la signature)", async () =>
-      refuse({ signerAvecAutreCle: true }));
-    it("point 7 / RFC 8725 §3.2 : `alg` none refusé", async () => refuse({ alg: "none" }));
-    it("point 8 : HS256 signé avec le secret du client refusé (aucun algorithme à clé partagée)", async () =>
-      refuse({ alg: "HS256" }));
-    it("point 8 : HS512 signé avec le secret du client refusé", async () => refuse({ alg: "HS512" }));
+      refuse({ signerAvecAutreCle: true }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+    it("point 7 / RFC 8725 §3.2 : `alg` none refusé", async () =>
+      refuse({ alg: "none" }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+    it("point 8 : HS256 signé avec le secret du client refusé (plus strict que la norme : aucun algorithme à clé partagée)", async () =>
+      refuse({ alg: "HS256" }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+    it("point 8 : HS512 signé avec le secret du client refusé (plus strict que la norme)", async () =>
+      refuse({ alg: "HS512" }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
     it("RFC 8725 §3.1 : confusion d'algorithme : HS256 signé avec la clé publique du fournisseur comme secret refusé", async () => {
       const jwk = JSON.stringify(b.idp.jwkPublic);
-      const jeton = await new SignJWT({
-        iss: b.idp.issuer,
-        sub: "sub-x",
-        aud: "elpis",
-        iat: t(),
-        exp: t() + 300,
-        nonce: "x",
-      })
-        .setProtectedHeader({ alg: "HS256", kid: b.idp.jwkPublic.kid ?? "" })
-        .sign(new TextEncoder().encode(jwk));
-      await refuse({ jetonBrut: jeton });
+      const r = await retourAvecNonce((nonce) =>
+        new SignJWT({ iss: b.idp.issuer, sub: "sub-x", aud: "elpis", iat: t(), exp: t() + 300, nonce })
+          .setProtectedHeader({ alg: "HS256", kid: b.idp.jwkPublic.kid ?? "" })
+          .sign(new TextEncoder().encode(jwk)),
+      );
+      expect(codeRefus(r)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("lib:OAUTH_INVALID_RESPONSE");
+      expect(await b.utilisateurs()).toEqual(["chef"]);
     });
     it("point 7 / RFC 8725 §3.1 : algorithme du jeton (ES256) différent de l'algorithme réglé (RS256) refusé", async () => {
       await b.reglages({ id_token_alg: "RS256" });
-      await refuse({});
+      await refuse({}, "sub-x", "lib:OAUTH_INVALID_RESPONSE");
     });
   });
 
   describe("point 9 : expiration", () => {
     it("point 9 : `exp` dans le futur accepté", async () => accepte({ claims: { exp: t() + 3600 } }));
     it("point 9 : `exp` dépassé au-delà de la tolérance refusé", async () =>
-      refuse({ claims: { exp: t() - 3600 } }));
-    it("point 9 : `exp` absent refusé", async () => refuse({ sans: ["exp"] }));
-    it("point 9 : `exp` en chaîne refusé", async () => refuse({ claims: { exp: String(t() + 300) } }));
+      refuse({ claims: { exp: t() - 3600 } }, "sub-x", "lib:OAUTH_JWT_TIMESTAMP_CHECK_FAILED"));
+    it("point 9 : `exp` absent refusé", async () =>
+      refuse({ sans: ["exp"] }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+    it("point 9 : `exp` en chaîne refusé", async () =>
+      refuse({ claims: { exp: String(t() + 300) } }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
     it("point 9 / RFC 7519 §4.1.4 : `exp` fractionnaire accepté (NumericDate)", async () =>
       accepte({ claims: { exp: t() + 300.5 } }));
-    it("RFC 7519 §4.1.5 : `nbf` dans le futur refusé", async () => refuse({ claims: { nbf: t() + 3600 } }));
+    it("RFC 7519 §4.1.5 : `nbf` dans le futur refusé", async () =>
+      refuse({ claims: { nbf: t() + 3600 } }, "sub-x", "lib:OAUTH_JWT_TIMESTAMP_CHECK_FAILED"));
     it("RFC 7519 §4.1.5 : `nbf` passé accepté", async () => accepte({ claims: { nbf: t() - 60 } }));
   });
 
   describe("point 10 : date d'émission", () => {
-    it("point 10 : `iat` absent refusé", async () => refuse({ sans: ["iat"] }));
+    it("point 10 : `iat` absent refusé", async () =>
+      refuse({ sans: ["iat"] }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
     it("point 10 : `iat` dans le futur au-delà de la tolérance refusé", async () =>
-      refuse({ claims: { iat: t() + 3600 } }));
-    it("point 10 : `iat` en chaîne refusé", async () => refuse({ claims: { iat: String(t()) } }));
+      refuse({ claims: { iat: t() + 3600 } }, "sub-x", "iat_in_future"));
+    it("point 10 : `iat` en chaîne refusé", async () =>
+      refuse({ claims: { iat: String(t()) } }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
     it("point 10 : `iat` ancien mais `exp` dans le futur accepté (le rejet des jetons trop vieux est facultatif dans la norme)", async () =>
       accepte({ claims: { iat: t() - 86_400 } }));
   });
 
   describe("point 11 : nonce", () => {
-    it("point 11 : `nonce` absent refusé", async () => refuse({ sans: ["nonce"] }));
-    it("point 11 : `nonce` faux refusé", async () => refuse({ claims: { nonce: "autre" } }));
-    it("point 11 : `nonce` en liste refusé", async () => refuse({ claims: { nonce: [b.idp.clientId] } }));
-    it("point 11 : `nonce` vide refusé", async () => refuse({ claims: { nonce: "" } }));
+    it("point 11 : `nonce` absent refusé", async () =>
+      refuse({ sans: ["nonce"] }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+    it("point 11 : `nonce` faux refusé", async () =>
+      refuse({ claims: { nonce: "autre" } }, "sub-x", "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED"));
+    it("point 11 : `nonce` en liste refusé", async () =>
+      refuse({ claims: { nonce: [b.idp.clientId] } }, "sub-x", "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED"));
+    it("point 11 : `nonce` vide refusé", async () =>
+      refuse({ claims: { nonce: "" } }, "sub-x", "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED"));
     it("OIDC Core §15.5.2 : un jeton déjà utilisé pour un autre flux (nonce d'un autre départ) refusé", async () => {
       const a = await b.demarrer();
       const { retour: r1 } = b.idp.autoriser(a.url ?? "", ELPIS("sub-a"));
       const premier = await b.retourner(r1, { cookie: a.cookie });
       expect(premier.statusCode).toBe(200);
-      b.idp.pieges = { claims: { nonce: "nonce-du-premier-flux" } };
+      const nonceDuPremier = new URL(a.url ?? "").searchParams.get("nonce") ?? "";
+      b.idp.pieges = { claims: { nonce: nonceDuPremier } };
       const c = await b.connecter(ELPIS("sub-b"));
       expect(codeRefus(c.retour)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED");
     });
   });
 
@@ -214,11 +257,18 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
       await refuse({ jetonBrut: `${seg("{}")}.${seg("{}")}.${seg("x")}.${seg("y")}` });
     });
     it("RFC 7515 §5.2 : signature vide refusée", async () => {
-      const bon = await b.idp.fabriquerJeton(
-        { utilisateur: ELPIS("sub-x"), nonce: "n", challenge: "", redirectUri: "", clientId: "elpis" },
-        {},
+      const fabrique = (nonce: string): Promise<string> =>
+        b.idp.fabriquerJeton(
+          { utilisateur: ELPIS("sub-x"), nonce, challenge: "", redirectUri: "", clientId: "elpis" },
+          {},
+        );
+      const vide = await retourAvecNonce(
+        async (n) => `${(await fabrique(n)).split(".").slice(0, 2).join(".")}.`,
       );
-      await refuse({ jetonBrut: `${bon.split(".").slice(0, 2).join(".")}.` });
+      expect(codeRefus(vide)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("lib:OAUTH_INVALID_RESPONSE");
+      expect(await b.utilisateurs()).toEqual(["chef"]);
+      expect((await retourAvecNonce(fabrique, "sub-y")).statusCode).toBe(200);
     });
     it("RFC 7515 §5 : témoin : le même jeton signé à la main, sans `crit`, est accepté (la signature manuelle des cas suivants est valide)", async () =>
       accepte({ signatureManuelle: true }));
@@ -289,7 +339,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
       repondre({ expires_in: "3599" });
       expect((await b.connecter(ELPIS("sub-x"))).retour.statusCode).toBe(200);
     });
-    it("OIDC Core §3.1.3.8 : `at_hash` présent dans le jeton d'identité accepté", async () =>
+    it("OIDC Core §3.1.3.8 : `at_hash` présent dans le jeton d'identité accepté même faux (`at_hash` n'est pas vérifié, ce que la norme permet)", async () =>
       accepte({ claims: { at_hash: "x".repeat(22) } }));
     it("OIDC Core §2 : `sid` présent accepté et rangé, absent accepté", async () => {
       await accepte({ claims: { sid: "sid-1" } });

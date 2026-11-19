@@ -134,6 +134,8 @@ export class OidcFactice {
   userinfo: ((u: Utilisateur) => Record<string, unknown> | null) | null = null;
   /** Remplace la réponse du point de jetons (statut, entêtes, corps) ; `null` : réponse normale. */
   reponseJetons: (() => { statut: number; entetes?: Record<string, string>; corps?: string }) | null = null;
+  /** En-têtes ajoutés à la réponse normale du point de jetons (`content-type` remplaçable). */
+  entetesJetons: Record<string, string> = {};
   /** Document de découverte : champs remplacés ou retirés (`undefined`). */
   decouverte: Record<string, unknown>;
   /** Nombre de lectures du jeu de clés. */
@@ -434,7 +436,7 @@ export class OidcFactice {
       ...this.extraJetons,
     };
     for (const [k, v] of Object.entries(this.extraJetons)) if (v === undefined) delete corpsJetons[k];
-    this.json(r, 200, corpsJetons);
+    this.json(r, 200, corpsJetons, this.entetesJetons);
   }
 
   /** Jeton d'identité honnête pour ce code, modifié par les pièges. */

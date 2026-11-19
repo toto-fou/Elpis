@@ -108,6 +108,10 @@ export async function verifierRetour(
   if (e.requete.length > REQUETE_MAX) throw new RefusOidc("failed", "query_too_long");
   const url = adresseDeRetour(e.publicUrl, f.id, e.requete);
   const erreur = url.searchParams.get("error");
+  const iss = url.searchParams.getAll("iss");
+  const annonce = ouverte.metadonnees["authorization_response_iss_parameter_supported"] === true;
+  if (iss.length > 1 || (iss.length === 1 ? iss[0] !== f.issuer : annonce))
+    throw new RefusOidc("failed", "iss_mismatch");
   if (erreur !== null)
     throw new RefusOidc("denied", `provider_error:${ERREUR_FOURNISSEUR.test(erreur) ? erreur : "autre"}`);
   if (url.searchParams.get("state") !== e.state) throw new RefusOidc("failed", "state_mismatch");

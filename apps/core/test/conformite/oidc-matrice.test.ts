@@ -245,7 +245,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("interopérabilité OIDC tran
     expect((await x.connecter(ELPIS("alice"))).retour.statusCode).toBe(200);
   });
 
-  it("fournisseur factice : le banc ouvert par défaut n'a aucune option de profil (comportement inchangé)", async () => {
+  it("fournisseur factice : le banc ouvert par défaut garde l'émetteur et les chemins `/realms/elpis`", async () => {
     const o: OptionsFactice = {};
     const x = await ouvrirBancOidc(moteur, { idp: o });
     try {

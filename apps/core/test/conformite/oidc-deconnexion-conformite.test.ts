@@ -50,11 +50,18 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
   const refuse = async (
     p: PiegesJeton,
     u: { sid?: string; sub?: string } = { sid: "idp-sid" },
+    raison?: string,
   ): Promise<void> => {
     const cookie = await ouverte();
     const r = await poster(await b.idp.jetonDeconnexion(u, p));
     expect(r.statusCode, r.body).toBe(400);
     expect(await vivante(cookie)).toBe(true);
+    if (raison !== undefined)
+      expect(
+        lignesAuditRecentes({ actionPrefix: "auth.oidc.backchannel_logout.denied" })[0]?.["details"],
+      ).toMatchObject({
+        reason: raison,
+      });
   };
 
   describe("Back-Channel Logout §2.4 : jeton de déconnexion", () => {
@@ -62,13 +69,29 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
       accepte({ claims: { exp: maintenant() + 120 } }, { sid: "idp-sid", sub: "sub-x" }));
     it("§2.4 : `sid` seul accepté", async () => accepte({}, { sid: "idp-sid" }));
     it("§2.4 : `sub` seul accepté", async () => accepte({}, { sub: "sub-x" }));
-    it("§2.4 : ni `sid` ni `sub` refusé", async () => refuse({}, {}));
+    it("§2.4 : ni `sid` ni `sub` refusé", async () => refuse({}, {}, "no_subject"));
     it("§2.4 : `aud` en liste d'un seul élément égal au client accepté ; avec un public de plus refusé (aucun autre public de confiance)", async () => {
       await accepte({ claims: { aud: ["elpis"] } });
       await refuse({ claims: { aud: ["elpis", "autre-rp"] } });
     });
     it("§2.4 : `aud` en liste sans le client refusé", async () => refuse({ claims: { aud: ["autre-rp"] } }));
-    it("§2.4 : `exp` absent refusé (REQUIRED)", async () => refuse({ sans: ["exp"], claims: {} }));
+    it("§2.4 : `exp` absent toléré (plus tolérant que la norme : borné par `iat` et par l'usage unique du `jti`)", async () => {
+      await accepte({ sans: ["exp"] });
+      await refuse(
+        { sans: ["exp"], claims: { iat: maintenant() - 3600 } },
+        { sid: "idp-sid" },
+        "iat_invalid",
+      );
+      const a = await ouverte();
+      const jeton = await b.idp.jetonDeconnexion({ sid: "idp-sid" }, { sans: ["exp"] });
+      expect((await poster(jeton)).statusCode).toBe(200);
+      expect(await vivante(a)).toBe(false);
+      const c = await ouverte();
+      expect((await poster(jeton)).statusCode).toBe(200);
+      expect(await vivante(c)).toBe(true);
+    });
+    it("§2.4 : `exp` présent d'un autre type que nombre refusé, pour une raison propre", async () =>
+      refuse({ claims: { exp: "demain" } }, { sid: "idp-sid" }, "bad_exp"));
     it("§2.4 : `events` avec le membre de déconnexion et d'autres événements : accepté", async () =>
       accepte({
         claims: {
@@ -97,7 +120,8 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
     it("§2.6 (3) : HS256 refusé", async () => refuse({ alg: "HS256" }));
     it("§2.6 (4) : `iss` faux refusé", async () => refuse({ claims: { iss: "https://autre.exemple.lan" } }));
     it("§2.6 (4) : `aud` faux refusé", async () => refuse({ claims: { aud: "autre-rp" } }));
-    it("§2.6 (4) : `exp` dépassé refusé", async () => refuse({ claims: { exp: maintenant() - 600 } }));
+    it("§2.6 (4) : `exp` dépassé refusé", async () =>
+      refuse({ claims: { exp: maintenant() - 600 } }, { sid: "idp-sid" }, "expired"));
     it("§2.6 (4) : `iat` absent refusé", async () => refuse({ sans: ["iat"] }));
     it("§2.6 (4) : `iat` dans le futur refusé", async () => refuse({ claims: { iat: maintenant() + 3600 } }));
     it("§2.6 (4) : `iat` vieux de plus de dix minutes refusé", async () =>
@@ -131,7 +155,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
       expect(r.statusCode).toBe(200);
       expect(await vivante(a)).toBe(false);
     });
-    it("§2.5 : corps JSON ou `multipart` refusé (400)", async () => {
+    it("§2.5 : corps JSON refusé (400)", async () => {
       const jeton = await b.idp.jetonDeconnexion({ sid: "idp-sid" });
       expect(
         (await poster(jeton, { type: "application/json", corps: JSON.stringify({ logout_token: jeton }) }))
@@ -153,7 +177,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
       ).toBe(400);
       expect((await poster("", { corps: "logout_token=" })).statusCode).toBe(400);
     });
-    it("§2.8 : succès : 200 sans corps ni jeton relayé ; échec : 400 ; `Cache-Control: no-store` dans les deux cas", async () => {
+    it("§2.8 : succès : 200 sans corps ni jeton relayé ; jeton invalide : 400 ; `Cache-Control: no-store` dans les deux cas (le produit répond aussi 429 à une adresse saturée de refus et 500 sur une erreur interne pour que le fournisseur réessaie : écarts voulus à la norme, qui dit 400)", async () => {
       await ouverte();
       const bon = await poster(await b.idp.jetonDeconnexion({ sid: "idp-sid" }));
       expect(bon.statusCode).toBe(200);
@@ -176,9 +200,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
       expect(r.statusCode).toBeGreaterThanOrEqual(400);
       expect(await vivante(a)).toBe(true);
     });
-    it("§2.6 : un refus est audité avec une raison fermée, jamais avec le jeton", async () => {
+    it("§2.6 : un refus est audité avec sa raison, jamais avec le jeton", async () => {
       const jeton = await b.idp.jetonDeconnexion({ sid: "idp-sid" }, { alg: "none" });
       await poster(jeton);
+      expect(
+        lignesAuditRecentes({ actionPrefix: "auth.oidc.backchannel_logout.denied" })[0]?.["details"],
+      ).toMatchObject({
+        reason: "bad_alg",
+      });
       expect(JSON.stringify(lignesAuditRecentes({ limit: 50 }))).not.toContain(jeton.split(".")[1] ?? "x");
     });
   });

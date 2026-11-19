@@ -45,6 +45,7 @@ function raisonJose(e: unknown): string {
   if (code === "ERR_JWT_CLAIM_VALIDATION_FAILED") {
     if (claim === "iss") return "bad_issuer";
     if (claim === "aud") return "bad_audience";
+    if (claim === "exp") return "bad_exp";
     return claim === "nbf" ? "not_yet_valid" : "bad_claim";
   }
   return "invalid";
@@ -81,7 +82,6 @@ export async function verifierJetonDeconnexion(
       audience: f.client_id,
       clockTolerance: f.clock_skew_sec,
       currentDate: new Date(t * 1000),
-      requiredClaims: ["exp"],
     });
     payload = verifie.payload as Record<string, unknown>;
     const aud = payload["aud"];

@@ -28,8 +28,9 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("clés de signature et UserIn
     const r = await b.connecter(ELPIS(sub));
     expect(r.retour.statusCode, r.retour.body).toBe(200);
   };
-  const ko = async (sub = "sub-x"): Promise<void> => {
+  const ko = async (sub = "sub-x", cause?: string): Promise<void> => {
     expect(codeRefus((await b.connecter(ELPIS(sub))).retour)).toBe("failed");
+    if (cause !== undefined) expect(causeDuDernierRefus()).toBe(cause);
     expect(await b.utilisateurs()).toEqual(["chef"]);
   };
 
@@ -53,11 +54,11 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("clés de signature et UserIn
       const autre = await b.idp.genererCle("ES256", "autre-1");
       b.idp.jeuDeCles = { keys: [autre.jwk, b.idp.jwkPublic] };
       b.idp.pieges = { sansKid: true };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_KEY_SELECTION_FAILED");
     });
     it("§4.5 : `kid` de l'en-tête absent du jeu de clés : refusé", async () => {
       b.idp.pieges = { kid: "inconnue" };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_KEY_SELECTION_FAILED");
     });
     it("§4.2 : clé de chiffrement (`use: enc`) mêlée au jeu, d'un autre `kid` : ignorée, jeton accepté", async () => {
       const enc = await b.idp.genererCle("ES256", "enc-1");
@@ -66,7 +67,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("clés de signature et UserIn
     });
     it("§4.2 : clé de signature publiée avec `use: enc` seulement : refusée", async () => {
       b.idp.jeuDeCles = { keys: [{ ...b.idp.jwkPublic, use: "enc" }] };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_KEY_SELECTION_FAILED");
     });
     it("§4.2 : clé sans paramètre `use` ni `alg` : acceptée", async () => {
       const { use: _u, alg: _a, ...nue } = b.idp.jwkPublic;
@@ -75,29 +76,29 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("clés de signature et UserIn
     });
     it("§4.3 : clé dont `key_ops` n'inclut pas `verify` : refusée", async () => {
       b.idp.jeuDeCles = { keys: [{ ...b.idp.jwkPublic, key_ops: ["sign"] }] };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_KEY_SELECTION_FAILED");
     });
     it("§4.4 : clé dont `alg` diffère de celui de l'en-tête : refusée", async () => {
       b.idp.jeuDeCles = { keys: [{ ...b.idp.jwkPublic, alg: "ES384" }] };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_KEY_SELECTION_FAILED");
     });
     it("§4.1 : clé d'un autre type (`kty` RSA pour un jeton ES256) : refusée", async () => {
       const rsa = await b.idp.genererCle("RS256", b.idp.jwkPublic.kid ?? "k");
       b.idp.jeuDeCles = { keys: [{ ...rsa.jwk, alg: undefined }] };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_KEY_SELECTION_FAILED");
     });
     it("RFC 7518 §3.4 : courbe de la clé (P-384) différente de celle de l'algorithme (ES256) : refusée", async () => {
       const p384 = await b.idp.genererCle("ES384", b.idp.jwkPublic.kid ?? "k");
       b.idp.jeuDeCles = { keys: [{ ...p384.jwk, alg: undefined }] };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_KEY_SELECTION_FAILED");
     });
     it("§5 : élément du jeu de clés qui n'est pas un objet : jeu entier refusé (jeu mal formé), jamais de jeton accepté", async () => {
       b.idp.jeuDeCles = { keys: [null, "texte", 5, [1], b.idp.jwkPublic] };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_INVALID_RESPONSE");
     });
-    it("§5 : clé publiée avec sa partie privée (`d`) ignorée sans effet : jeton accepté avec la partie publique", async () => {
+    it("§5 : jeu de clés contenant une clé avec sa partie privée (`d`) : refusé (comportement sûr)", async () => {
       b.idp.jeuDeCles = { keys: [{ ...b.idp.jwkPublic, d: "Zm9v" }] };
-      await ok().catch(() => undefined);
+      await ko("sub-x", "lib:ClientError");
     });
     it.each([
       ["`keys` n'est pas une liste", { keys: "x" }],
@@ -171,7 +172,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("clés de signature et UserIn
       const jwk = { ...(await exportJWK(faible.publicKey)), kid: "faible", use: "sig", alg: "RS256" };
       b.idp.jeuDeCles = { keys: [jwk] };
       b.idp.pieges = { kid: "faible", cleDeSignature: faible.privateKey, signatureManuelle: true };
-      await ko();
+      await ko("sub-x", "lib:OAUTH_UNSUPPORTED_OPERATION");
     });
     it("§3.3 : clé RSA de 4096 bits acceptée", async () => {
       await ouvrir({ idp: { alg: "RS256", modulusLength: 4096 } });
@@ -180,7 +181,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("clés de signature et UserIn
   });
 
   describe("rotation des clés", () => {
-    it("RFC 7517 : clé tournée entre deux connexions : la nouvelle est relue (cache des clés de moins d'une minute : refus transitoire, pas d'accès)", async () => {
+    it("RFC 7517 : clé tournée entre deux connexions : refus transitoire tant que le cache des clés a moins d'une minute, aucun accès", async () => {
       await ok("sub-a");
       await b.idp.rotation();
       expect(codeRefus((await b.connecter(ELPIS("sub-b"))).retour)).toBe("failed");
@@ -246,7 +247,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("clés de signature et UserIn
         expect(["failed", "unavailable"]).toContain(codeRefus((await connecterSansGroupes()).retour));
       }
     });
-    it("§5.3.2 : réponse signée (`application/jwt`) : non prise en charge, refus propre sans connexion", async () => {
+    it("§5.3.2 : réponse `application/jwt` (corps non JSON) : refus propre sans connexion ; la réponse signée n'est pas prise en charge", async () => {
       b.idp.surcharges.set(b.idp.chemins.userinfo, () => ({
         statut: 200,
         entetes: { "content-type": "application/jwt" },

@@ -240,6 +240,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("requête d'autorisation et r
             .rep,
         ),
       ).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("iss_mismatch");
       expect(b.idp.traces.some((t) => t.chemin === b.idp.chemins.token)).toBe(false);
     });
     it("§2.4 : `iss` faux annoncé par le produit : refusé avant tout appel au point de jetons (attaque par confusion de fournisseur)", async () => {
@@ -249,11 +250,42 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("requête d'autorisation et r
           (await parcours(b, ELPIS("sub-x"), (u) => u.searchParams.set("iss", `${b.idp.issuer}/`))).rep,
         ),
       ).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("iss_mismatch");
       expect(b.idp.traces.some((t) => t.chemin === b.idp.chemins.token)).toBe(false);
     });
     it("§2.4 : `iss` absent alors que le produit l'annonce : refusé", async () => {
       annonce(true);
       expect(codeRefus((await parcours(b, ELPIS("sub-x"))).rep)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("iss_mismatch");
+    });
+    it("§2.4 : réponse d'erreur dont `iss` est faux : `iss` contrôlé avant `error`, refus `failed` (cause `iss_mismatch`), erreur non attribuée au fournisseur", async () => {
+      annonce(true);
+      const { rep } = await parcours(b, ELPIS("sub-x"), (u) => {
+        u.searchParams.delete("code");
+        u.searchParams.set("error", "access_denied");
+        u.searchParams.set("iss", "https://mix-up.exemple.lan");
+      });
+      expect(codeRefus(rep)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("iss_mismatch");
+    });
+    it("§2.4 : réponse d'erreur sans `iss` alors que le produit l'annonce : `failed` (cause `iss_mismatch`)", async () => {
+      annonce(true);
+      const { rep } = await parcours(b, ELPIS("sub-x"), (u) => {
+        u.searchParams.delete("code");
+        u.searchParams.set("error", "access_denied");
+      });
+      expect(codeRefus(rep)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("iss_mismatch");
+    });
+    it("§2.4 : réponse d'erreur au bon `iss` : refus `denied` du fournisseur", async () => {
+      annonce(true);
+      const { rep } = await parcours(b, ELPIS("sub-x"), (u) => {
+        u.searchParams.delete("code");
+        u.searchParams.set("error", "access_denied");
+        u.searchParams.set("iss", b.idp.issuer);
+      });
+      expect(codeRefus(rep)).toBe("denied");
+      expect(causeDuDernierRefus()).toBe("provider_error:access_denied");
     });
     it("§2.4 : `iss` absent, produit qui ne l'annonce pas : accepté", async () => {
       annonce(undefined);
@@ -271,6 +303,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("requête d'autorisation et r
           ).rep,
         ),
       ).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("iss_mismatch");
     });
     it("§3 : `authorization_response_iss_parameter_supported` non booléen ignoré sans refuser la découverte", async () => {
       b.idp.decouverte = { authorization_response_iss_parameter_supported: "oui" };
@@ -354,11 +387,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("requête d'autorisation et r
       expect(await b.utilisateurs()).toEqual(["chef"]);
       expect(r.retour.body).toBe("");
     });
-    it("§5.1 : réponse JSON valide servie en `text/plain` (usage de quelques produits) : refusée, refusé par choix (plus strict que la norme)", async () => {
-      repondre(200, JSON.stringify({ access_token: "a", token_type: "Bearer", id_token: "x" }), {
-        "content-type": "text/plain",
-      });
-      expect(codeRefus((await b.connecter(ELPIS("sub-x"))).retour)).toBe("failed");
+    it("§5.1 : réponse valide (vrai jeton, bon nonce) servie en `text/plain` : acceptée (tolérance, RFC 6749 §5.1 lie le serveur)", async () => {
+      b.idp.entetesJetons = { "content-type": "text/plain" };
+      expect((await b.connecter(ELPIS("sub-x"))).retour.statusCode).toBe(200);
+      expect(await b.utilisateurs()).toHaveLength(2);
     });
   });
 });

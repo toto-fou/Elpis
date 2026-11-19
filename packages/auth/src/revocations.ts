@@ -30,18 +30,12 @@ export async function estRevoquee(x: Executeur, sid: string): Promise<boolean> {
   return (await x.get("SELECT 1 AS un FROM revoked_sessions WHERE sid=?", [sid128(sid)])) !== undefined;
 }
 
-/** Supprime les révocations dont la session a expiré (échéance + marge) et, sans échéance connue, celles plus vieilles que `maxAgeS`. */
-export async function purgerRevocations(
-  x: Executeur,
-  maxAgeS: number,
-  maintenant: number,
-  margeS = 0,
-): Promise<number> {
+/** Supprime les révocations dont la session a expiré (échéance + marge) ; une ligne sans échéance connue n'est jamais purgée. */
+export async function purgerRevocations(x: Executeur, maintenant: number, margeS = 0): Promise<number> {
   return (
-    await x.run(
-      "DELETE FROM revoked_sessions WHERE (expires_at > 0 AND expires_at < ?) OR (COALESCE(expires_at, 0) <= 0 AND revoked_at < ?)",
-      [maintenant - Math.max(0, margeS), maintenant - Math.max(0, maxAgeS)],
-    )
+    await x.run("DELETE FROM revoked_sessions WHERE expires_at > 0 AND expires_at < ?", [
+      maintenant - Math.max(0, margeS),
+    ])
   ).changes;
 }
 

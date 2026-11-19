@@ -36,13 +36,15 @@ describe.each(MOTEURS)("purge des révocations (%s)", (moteur) => {
     await t.fermer();
   });
 
-  it("garde une ligne récente et retire une ligne périmée (durée de vie + marge)", async () => {
-    await revoquerSid(t.base, "recente", null, MAINTENANT - MAX_AGE);
-    await revoquerSid(t.base, "limite", null, MAINTENANT - MAX_AGE - MARGE_PURGE_REVOCATIONS_S);
-    await revoquerSid(t.base, "perimee", null, MAINTENANT - MAX_AGE - MARGE_PURGE_REVOCATIONS_S - 1);
+  it("garde une ligne récente ou sans échéance et retire une ligne périmée (échéance + marge)", async () => {
+    await revoquerSid(t.base, "recente", null, MAINTENANT - MAX_AGE, MAINTENANT);
+    await revoquerSid(t.base, "limite", null, 1, MAINTENANT - MARGE_PURGE_REVOCATIONS_S);
+    await revoquerSid(t.base, "perimee", null, 1, MAINTENANT - MARGE_PURGE_REVOCATIONS_S - 1);
+    await revoquerSid(t.base, "ancienne", null, 1);
     expect(await purgerUnePasse(auth(), journalMuet)).toBe(1);
     expect(await estRevoquee(t.base, "recente")).toBe(true);
     expect(await estRevoquee(t.base, "limite")).toBe(true);
+    expect(await estRevoquee(t.base, "ancienne")).toBe(true);
     expect(await estRevoquee(t.base, "perimee")).toBe(false);
   });
 
@@ -76,7 +78,7 @@ describe.each(MOTEURS)("purge des révocations (%s)", (moteur) => {
   });
 
   it("main : purge au démarrage puis à chaque période, arrêt propre au signal d'arrêt ; admin : rien", async () => {
-    await revoquerSid(t.base, "perimee", null, 1);
+    await revoquerSid(t.base, "perimee", null, 1, 1);
     const cycle = new CycleDeVie(journalMuet);
     let finir: () => void = () => undefined;
     const deuxPassages = new Promise<void>((ok) => (finir = ok));

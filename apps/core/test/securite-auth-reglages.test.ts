@@ -259,7 +259,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       await appeler(admin, "PUT", url, chef, { secret: MOT_DE_PASSE_SERVICE });
     });
 
-    it("les routes ordinaires du coffre ne voient pas, ne créent pas, ne changent pas, ne suppriment pas `auth-*`", async () => {
+    it("les routes ordinaires du coffre ne voient pas, ne changent pas, ne suppriment pas le secret d'instance `auth-*` ; un secret personnel peut porter ce nom", async () => {
       const ligne = await t.base.get<{ id: number }>(
         "SELECT id FROM vault_secrets WHERE name='auth-annuaire'",
       );
@@ -279,10 +279,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
           kind: "token",
           value: "v",
         });
-        expect([cree.statusCode, cree.json<{ code: string }>().code], nom).toEqual([
-          422,
-          "secret_name_invalid",
-        ]);
+        expect(cree.statusCode, nom).toBe(200);
       }
       const perso = await appeler(principal, "POST", "/api/secrets", alice, {
         name: "perso",
@@ -291,12 +288,14 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       });
       const idPerso = perso.json<{ secret: { id: number } }>().secret.id;
       const renomme = await appeler(principal, "PUT", `/api/secrets/${idPerso}`, alice, {
-        name: "auth-annuaire",
+        name: "auth-perso",
       });
-      expect([renomme.statusCode, renomme.json<{ code: string }>().code]).toEqual([
-        422,
-        "secret_name_invalid",
-      ]);
+      expect(renomme.statusCode).toBe(200);
+      expect(
+        await t.base.valeurs(
+          "SELECT COUNT(*) FROM vault_secrets WHERE name='auth-annuaire' AND user_id IS NULL",
+        ),
+      ).toEqual([[1]]);
       for (const url of [`/api/secrets/${id}`]) {
         expect((await appeler(principal, "PUT", url, alice, { value: "autre" })).statusCode).toBe(404);
         expect((await appeler(principal, "DELETE", url, alice)).statusCode).toBe(404);

@@ -6,10 +6,13 @@ import path from "node:path";
 
 import { ErreurPython } from "@elpis/commun";
 import { config, pyJoin, realpathPy } from "@elpis/config";
+import { initialiserBase, prendreVerrouSchema } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import Database from "better-sqlite3";
 
+import { MIGRATIONS_DU_CORE } from "../base";
 import type { Journal } from "../journal";
+import { portsMigrationsDuCore } from "../secrets/reprise";
 import { estErreurOs, texteErreurPy } from "./erreurs-os";
 import {
   AGENT_RUN_DIR,
@@ -105,6 +108,24 @@ export async function restaurerBase(source: string, dbPath: string): Promise<voi
   }
 }
 
+/** Schéma et migrations réappliqués sous le verrou de schéma sur la base restaurée (sauvegarde d'une version antérieure), avant toute requête ; un échec est rendu en texte. */
+async function remettreAJour(base: Base, journal?: Journal): Promise<string | null> {
+  const verrou = await prendreVerrouSchema();
+  try {
+    const rapport = await initialiserBase(base, {
+      migrations: MIGRATIONS_DU_CORE,
+      ports: portsMigrationsDuCore(),
+    });
+    return rapport.echec ? `${rapport.echec.name}: ${rapport.echec.message}` : null;
+  } catch (e) {
+    const texte = e instanceof Error ? e.message : String(e);
+    journal?.error(`restauration : mise à jour du schéma impossible (${texte})`);
+    return texte;
+  } finally {
+    await verrou?.rendre();
+  }
+}
+
 /** Membres du périmètre relus (CRC) avant toute écriture : une archive abîmée est refusée entière, base vivante comprise. */
 const PREFIXES: Readonly<Record<Portee, readonly string[]>> = {
   full: [
@@ -196,6 +217,8 @@ export async function restoreFromZip(
             await restaurerBase(extrait, d.dbPath);
             restored.push(entree);
             dbReplaced = true;
+            const echec = await remettreAJour(base, journal);
+            if (echec) errors.push(`${entree}: mise à jour du schéma impossible (${echec})`);
           } catch (e) {
             if (
               !(e instanceof Database.SqliteError) &&

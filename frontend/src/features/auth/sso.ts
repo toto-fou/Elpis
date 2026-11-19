@@ -236,6 +236,12 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
     }
   }
 
+  /** Une fois la configuration publique connue : sans méthode externe, les paramètres de retour sont ignorés et retirés de l'URL. */
+  async function traiterRetour(): Promise<void> {
+    if (loginMethods.value.length === 0) nettoyerUrl();
+    else await lireRetour();
+  }
+
   function annulerPreuve(): void {
     preuveUsername.value = null;
     preuveMotDePasse.value = "";
@@ -292,6 +298,7 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
     appliquerConfig,
     startSso,
     lireRetour,
+    traiterRetour,
     annulerPreuve,
     envoyerPreuve,
   };

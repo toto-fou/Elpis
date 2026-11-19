@@ -201,10 +201,6 @@ export function estSecretAuth(l: Pick<LigneSecret, "user_id" | "name">): boolean
   return l.user_id === null && nomReserveAuth(l.name);
 }
 
-function nomReserve(): ErreurSecret {
-  return new ErreurSecret(422, "secret_name_invalid", "Names starting with 'auth-' are reserved.");
-}
-
 function nomPris(nom: string): ErreurSecret {
   return new ErreurSecret(
     409,
@@ -328,7 +324,6 @@ export async function creerSecret(
   if (!estGenre(d.kind)) throw new ErreurSecret(422, "secret_request_invalid", "Invalid secret kind.");
   const genre = d.kind;
   const nom = validerNom(d.name);
-  if (p !== null && nomReserveAuth(nom)) throw nomReserve();
   const portee = normaliserPortee(genre, d.scope, { proprietaire: p, nom });
   const identifiant = validerIdentifiant(d.username);
   const valeur = validerValeur(d.value);
@@ -402,7 +397,6 @@ export async function modifierSecret(
   acteur: Acteur,
 ): Promise<Secret> {
   const nom = m.name === undefined ? null : validerNom(m.name);
-  if (nom !== null && nomReserveAuth(nom) && p !== null) throw nomReserve();
   const identifiant = m.username === undefined ? undefined : validerIdentifiant(m.username);
   const valeur = m.value === undefined || m.value === "" ? null : validerValeur(m.value);
   const meta = m.meta === undefined ? null : validerMeta(m.meta);

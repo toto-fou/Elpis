@@ -2,10 +2,16 @@
 <!-- frontend/src/components/admin/PageComptes.vue — pages Comptes et Groupes. -->
 <script setup lang="ts">
 import type { CompteConsole } from "@elpis/contracts";
+import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 
 const adm = domaineAdmin();
+
+/** Colonne « Connexion » : seulement si un fournisseur est configuré ou si un compte porte une identité externe. */
+const colonneConnexion = computed(
+  () => (adm.authEtat?.providers.length ?? 0) > 0 || adm.usersList.some((u) => u.identity),
+);
 
 const COLONNES = [
   { champ: "username", label: "Compte", titre: "" },
@@ -163,7 +169,12 @@ function ajouterAuGroupe(ev: Event): void {
                     ></i>
                   </button>
                 </th>
-                <th scope="col" class="px-3 py-2.5" title="Mot de passe local ou fournisseur d'entreprise">
+                <th
+                  v-if="colonneConnexion"
+                  scope="col"
+                  class="px-3 py-2.5"
+                  title="Mot de passe local ou fournisseur d'entreprise"
+                >
                   Connexion
                 </th>
                 <th scope="col" class="px-5 py-2.5"><span class="sr-only">Actions</span></th>
@@ -279,7 +290,7 @@ function ajouterAuGroupe(ev: Event): void {
                   <td class="px-3 py-2.5" data-desktop :title="adm.admDesktopTitle(u)">
                     <span class="adm-pill">{{ adm.admDesktopLabel(u) }}</span>
                   </td>
-                  <td class="px-3 py-2.5" data-connexion>
+                  <td v-if="colonneConnexion" class="px-3 py-2.5" data-connexion>
                     <span v-if="!u.identity" class="text-xs text-slate-600">{{
                       connexion(u).fournisseur
                     }}</span>
@@ -341,7 +352,7 @@ function ajouterAuGroupe(ev: Event): void {
                   </td>
                 </tr>
                 <tr v-if="adm.userEdit && adm.userEditOpen(u)" :id="'user-edit-' + u.id">
-                  <td colspan="10" class="p-0">
+                  <td :colspan="colonneConnexion ? 10 : 9" class="p-0">
                     <form
                       class="adm-user-edit"
                       role="group"

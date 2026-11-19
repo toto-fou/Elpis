@@ -11,7 +11,7 @@ import { setupAdmin } from "../../src/features/admin/console";
 import { REDEMARRAGE_MANUEL } from "../../src/features/admin/securite";
 import type { CtxAdmin, RefsAdmin } from "../../src/features/admin/types";
 import { ClientHttp } from "../../src/platform/http/client";
-import { json, texte } from "../aides";
+import { json } from "../aides";
 
 const CLES_ANCIENNE_SURFACE = [
   "admLlmConnectors",
@@ -165,7 +165,6 @@ const CLES_ANCIENNE_SURFACE = [
   "securityBusy",
   "loadSecurityOverview",
   "revokeAllSessions",
-  "clearUserRevocation",
   "httpsStatus",
   "httpsBusy",
   "httpsRedirectUrl",
@@ -1119,18 +1118,6 @@ describe("setupAdmin", () => {
     await A.toggleHttps();
     expect(toasts).toEqual([REDEMARRAGE_MANUEL, REDEMARRAGE_MANUEL]);
     expect(A.httpsRedirectUrl.value).toBe("");
-  });
-
-  it("levée de révocation refusée (409) : le message du serveur est affiché", async () => {
-    const { A, toasts } = monter(() => json({ detail: "Levée possible à partir du 19/11/2026 23:10." }, 409));
-    await A.clearUserRevocation(7, "bob");
-    expect(toasts).toEqual(["Levée possible à partir du 19/11/2026 23:10."]);
-  });
-
-  it("levée de révocation en erreur sans corps lisible : le repli « Échec » est affiché", async () => {
-    const { A, toasts } = monter(() => texte("pas du JSON", 500));
-    await A.clearUserRevocation(7, "bob");
-    expect(toasts).toEqual(["Échec"]);
   });
 
   it("habillages personnels : défauts remplis, interrupteur et plafond envoyés par le patch de config", async () => {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/ops/purge-revocations.ts — purge périodique dans main de `revoked_sessions` (une ligne plus vieille qu'une session ne sert plus) et des rattachements préparés périmés. */
-import { dureeMaxSession, purgerRevocations } from "@elpis/auth";
+/** apps/core/src/ops/purge-revocations.ts — purge périodique dans main de `revoked_sessions` (une ligne dont la session a expiré ne sert plus) et des rattachements préparés périmés. */
+import { purgerRevocations } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import { dormirMs } from "@elpis/commun";
 
@@ -18,16 +18,11 @@ export interface OptionsPurgeRevocations {
   readonly dormir?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
-/** Une passe : supprime les révocations plus vieilles que la durée de vie d'une session plus la marge, puis les flux et sessions de connexion externe périmés ; une erreur est journalisée, jamais relancée. */
+/** Une passe : supprime les révocations dont l'échéance est dépassée de la marge, puis les flux et sessions de connexion externe périmés ; une erreur est journalisée, jamais relancée. */
 export async function purgerUnePasse(dep: DependancesAuth, journal: Journal): Promise<number> {
   try {
     const maintenant = dep.maintenant ? dep.maintenant() : Date.now() / 1000;
-    const n = await purgerRevocations(
-      dep.base,
-      dureeMaxSession(dep.config()) + MARGE_PURGE_REVOCATIONS_S,
-      maintenant,
-      MARGE_PURGE_REVOCATIONS_S,
-    );
+    const n = await purgerRevocations(dep.base, maintenant, MARGE_PURGE_REVOCATIONS_S);
     if (n > 0) journal.info(`${n} révocation(s) de session périmée(s) purgée(s)`);
     await purgerRattachementsPerimes(dep.base, maintenant);
     const flux = await purgerFluxPerimes(dep.base, maintenant);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/secrets/cle.ts — clé du coffre vue des commandes d'exploitation : secrets comptés par clé (`kid`), rechiffrement des secrets d'une ancienne clé vers la clé courante ; les secrets de webhook des routines, chiffrés sur place par la même clé, suivent. */
-import { aadWebhookRoutine } from "@elpis/db";
+import { aadWebhookRoutine, estTableAbsente } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
 import { chiffrerSecret, dechiffrerSecret, kidDe } from "@elpis/securite";
 import type { CleCoffre } from "@elpis/securite";
@@ -85,9 +85,15 @@ async function recalculerEmpreintesDeTest(
   ancienne: CleCoffre,
   courante: CleCoffre,
 ): Promise<void> {
-  const lignes = await base.all<{ provider_id: string; tested_hash: string | null }>(
-    "SELECT provider_id, tested_hash FROM auth_provider_state WHERE tested_hash IS NOT NULL",
-  );
+  let lignes: { provider_id: string; tested_hash: string | null }[];
+  try {
+    lignes = await base.all<{ provider_id: string; tested_hash: string | null }>(
+      "SELECT provider_id, tested_hash FROM auth_provider_state WHERE tested_hash IS NOT NULL",
+    );
+  } catch (e) {
+    if (estTableAbsente(e) || (e instanceof Error && /does not exist/iu.test(e.message))) return;
+    throw e;
+  }
   for (const l of lignes) {
     let test: { h?: unknown; s?: unknown };
     try {

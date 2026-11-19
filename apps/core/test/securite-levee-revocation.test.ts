@@ -89,14 +89,12 @@ describe.each(MOTEURS)("levée de révocation (%s)", (moteur) => {
     expect(j.de("admin.security.sessions.clear_user_revocation")).toHaveLength(0);
   });
 
-  it("coupure plus vieille que la durée de vie d'une session : 200 audité, la route n'écrit rien", async () => {
+  it("coupure plus vieille que la durée de vie d'une session : 200, la route n'écrit rien et n'audite rien", async () => {
     await leverMinSession(t.base, uid, maintenant - MAX_AGE - 1);
     const r = await app.inject({ method: "POST", url: URL(uid) });
     expect(r.statusCode).toBe(200);
     expect(await minCompte()).toBe(maintenant - MAX_AGE - 1);
-    expect(j.derniere("admin.security.sessions.clear_user_revocation").details).toEqual({
-      target_user_id: uid,
-    });
+    expect(j.de("admin.security.sessions.clear_user_revocation")).toHaveLength(0);
     expect(j.de("admin.security.sessions.clear_user_revocation.denied")).toHaveLength(0);
   });
 
@@ -130,12 +128,10 @@ describe.each(MOTEURS)("levée de révocation (%s)", (moteur) => {
     expect(await minCompte()).toBe(maintenant - 1 - MAX_AGE);
   });
 
-  it("compte sans coupure : comportement actuel (200, audit de succès)", async () => {
+  it("compte sans coupure : 200 sans audit", async () => {
     const r = await app.inject({ method: "POST", url: URL(uid) });
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({ ok: true, user_id: uid });
-    expect(j.derniere("admin.security.sessions.clear_user_revocation").details).toEqual({
-      target_user_id: uid,
-    });
+    expect(j.de("admin.security.sessions.clear_user_revocation")).toHaveLength(0);
   });
 });

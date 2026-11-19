@@ -3,6 +3,7 @@
 
 import { HttpError, intPy, stripPy, veritePy } from "@elpis/commun";
 import type { AttributsCookie } from "@elpis/config";
+import { estTableAbsente } from "@elpis/db";
 import type { Executeur } from "@elpis/db";
 import { egauxEnTempsConstant, jetonInterne } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -66,10 +67,15 @@ export async function ligneUtilisateur(x: Executeur, uid: number): Promise<Ligne
 
 /** Compte de la session avec le fournisseur de son identité externe (`ident_*`), en une requête : sert la cohérence entre la méthode de connexion et l'état du compte. */
 export async function ligneSession(x: Executeur, uid: number): Promise<LigneUtilisateur | undefined> {
-  return x.get<LigneUtilisateur>(
-    `SELECT u.*, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`,
-    [uid],
-  );
+  try {
+    return await x.get<LigneUtilisateur>(
+      `SELECT u.*, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`,
+      [uid],
+    );
+  } catch (e) {
+    if (!estTableAbsente(e)) throw e;
+    return ligneUtilisateur(x, uid);
+  }
 }
 
 /** Suspension et identité externe d'un compte en une requête (`ident_*` absents pour un compte local) ; `undefined` si le compte manque. */

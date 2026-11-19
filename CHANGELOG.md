@@ -23,6 +23,10 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Sessions.** The lifetime of a session is fixed when it opens. A per-account revocation can no longer
+  be lifted by hand: it ends by itself once every earlier session has expired, and the person can sign
+  in again at once. A chat turn in progress stops when its session is no longer valid. The security log
+  records the sign-in method.
 - **One version for the whole product.** `npm run bump -- X.Y.Z` writes it everywhere (workspace
   packages and their `@elpis/*` pins, lockfiles, `pyproject.toml`, browser service, RAG extractor,
   desktop agent, interface defaults) and turns *Unreleased* into the new section of this file;

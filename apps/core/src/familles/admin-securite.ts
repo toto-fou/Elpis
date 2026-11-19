@@ -199,7 +199,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       dep.journal.error({ err: e }, "clear-user-revocation failed");
       throw new HttpError(500, "Échec du reset");
     }
-    auditer(req, "admin.security.sessions.clear_user_revocation", { target_user_id: cible });
     return { ok: true, user_id: cible };
   }
 

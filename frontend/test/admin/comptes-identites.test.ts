@@ -53,6 +53,19 @@ describe("page Comptes : identités", () => {
     expect(tous("thead th").some((th) => th.textContent?.trim() === "Connexion")).toBe(true);
   });
 
+  it("sans fournisseur ni identité, le tableau est celui d'avant : pas de colonne Connexion, bouton Désactiver gardé", async () => {
+    const m = monter(etat([]), {
+      page: "accounts",
+      utilisateurs: [compteConsole(1, "root", { is_admin: 1 }), compteConsole(3, "bob")],
+    });
+    await m.A.loadEnterpriseAuth();
+    await m.A.loadUsers();
+    await vider();
+    expect(tous("thead th").some((th) => th.textContent?.trim() === "Connexion")).toBe(false);
+    expect(tous("[data-connexion]")).toHaveLength(0);
+    expect(tous("tbody tr").some((tr) => tr.textContent?.includes("bob"))).toBe(true);
+  });
+
   it("la réinitialisation du mot de passe est masquée sans mot de passe local", async () => {
     await ouvrir();
     expect(ligne("alice")?.querySelector('[aria-label^="Réinitialiser"]')).toBeNull();

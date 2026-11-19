@@ -457,12 +457,12 @@ describe("déconnexion côté fournisseur", () => {
 });
 
 describe("intégration dans setupAuth", () => {
-  function monter(fetch: (u: string) => Promise<Response>) {
+  function monter(fetch: (u: string) => Promise<Response>, recherche = "") {
     const session = new GestionnaireSession();
     const env: EnvSso = {
       origine: () => "https://e.test",
       chemin: () => "/",
-      recherche: () => "",
+      recherche: () => recherche,
       naviguer: vi.fn(),
       remplacerUrl: vi.fn(),
     };
@@ -491,6 +491,20 @@ describe("intégration dans setupAuth", () => {
     expect(auth.loginMethods.value).toEqual([]);
   });
 
+  it("sans méthode externe, /?auth_link=1 et /?auth_error=denied&ref=abcdefgh ne déclenchent ni message ni requête de preuve", async () => {
+    for (const recherche of ["?auth_link=1", "?auth_error=denied&ref=abcdefgh"]) {
+      const appels: string[] = [];
+      const auth = monter((u) => {
+        appels.push(u);
+        return Promise.resolve(json({}));
+      }, recherche);
+      await auth.loadPublicConfig();
+      await vider();
+      expect(appels).toEqual(["/api/public-config"]);
+      expect(auth.authRetour.value).toBeNull();
+    }
+  });
+
   it("la configuration publique alimente les méthodes et l'origine ; une forme invalide est ignorée", async () => {
     const auth = monter(() =>
       Promise.resolve(
@@ -503,5 +517,30 @@ describe("intégration dans setupAuth", () => {
     const mauvais = monter(() => Promise.resolve(json({ login_methods: "oups", auth_origin: 3 })));
     await mauvais.loadPublicConfig();
     expect(mauvais.loginMethods.value).toEqual([]);
+  });
+});
+
+describe("retour sans méthode externe annoncée", () => {
+  function sansMethode(recherche: string) {
+    const b = banc({}, recherche);
+    b.sso.appliquerConfig({});
+    return b;
+  }
+
+  it("auth_error, ref et auth_link sont ignorés et retirés de l'URL : aucun message, aucune requête", async () => {
+    for (const recherche of ["?auth_error=denied&ref=abcdefgh", "?auth_link=1"]) {
+      const b = sansMethode(recherche);
+      await b.sso.traiterRetour();
+      expect(b.sso.authRetour.value).toBeNull();
+      expect(b.sso.preuveUsername.value).toBeNull();
+      expect(b.appels).toEqual([]);
+      expect(b.remplacerUrl).toHaveBeenCalledWith("/");
+    }
+  });
+
+  it("avec une méthode annoncée, le retour est lu comme avant", async () => {
+    const b = banc({}, "?auth_error=denied&ref=abcdefgh");
+    await b.sso.traiterRetour();
+    expect(b.sso.authRetour.value?.reference).toBe("abcdefgh");
   });
 });

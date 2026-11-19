@@ -36,16 +36,13 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
     expect(await estRevoquee(t.base, "abd")).toBe(false);
   });
 
-  it("purge les révocations plus vieilles que max_age", async () => {
-    for (const [sid, ts] of [
-      ["a", 100],
-      ["b", 900],
-      ["c", 1000],
-    ] as const)
-      await revoquerSid(t.base, sid, null, ts);
-    expect(await purgerRevocations(t.base, 100, 1000)).toBe(1);
+  it("purge les révocations dont l'échéance est passée, jamais celles sans échéance", async () => {
+    await revoquerSid(t.base, "a", null, 100, 500);
+    await revoquerSid(t.base, "b", null, 100, 1500);
+    await revoquerSid(t.base, "c", null, 100);
+    expect(await purgerRevocations(t.base, 1000)).toBe(1);
     expect(await estRevoquee(t.base, "a")).toBe(false);
-    expect(await purgerRevocations(t.base, -5, 1000)).toBe(1);
+    expect(await estRevoquee(t.base, "b")).toBe(true);
     expect(await estRevoquee(t.base, "c")).toBe(true);
   });
 
@@ -89,16 +86,14 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
     await revoquerSid(t.base, "expiree", null, 100, 900);
     await revoquerSid(t.base, "sans-echeance", null, 100);
     await revoquerSid(t.base, "sans-echeance-recente", null, 990);
-    expect(await purgerRevocations(t.base, 1_000_000, 1000, 50)).toBe(1);
+    expect(await purgerRevocations(t.base, 1000, 50)).toBe(1);
     expect(await estRevoquee(t.base, "expiree")).toBe(false);
     expect(await estRevoquee(t.base, "vivante")).toBe(true);
     expect(await estRevoquee(t.base, "sans-echeance")).toBe(true);
-    expect(await purgerRevocations(t.base, 100, 1000, 50)).toBe(1);
-    expect(await estRevoquee(t.base, "sans-echeance")).toBe(false);
     expect(await estRevoquee(t.base, "sans-echeance-recente")).toBe(true);
-    expect(await estRevoquee(t.base, "vivante")).toBe(true);
-    expect(await purgerRevocations(t.base, 100, 5051, 50)).toBe(2);
+    expect(await purgerRevocations(t.base, 5051, 50)).toBe(1);
     expect(await estRevoquee(t.base, "vivante")).toBe(false);
+    expect(await estRevoquee(t.base, "sans-echeance")).toBe(true);
   });
 
   it("durée de vie d'une session lue dans la configuration, 86400 par défaut", () => {

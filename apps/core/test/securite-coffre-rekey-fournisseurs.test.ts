@@ -72,4 +72,15 @@ describe.each(MOTEURS)("changement de clé du coffre et fournisseurs (%s)", (mot
     expect(na).not.toBe(nb);
     expect(nc).not.toBe(undefined);
   });
+
+  it("une base pas encore migrée (table des états absente) : le changement de clé réussit", async () => {
+    poserCle();
+    const ancienne = cleCoffre();
+    if (ancienne === null) throw new Error("clé absente");
+    await t.base.exec("DROP TABLE auth_provider_state");
+    poserCle();
+    const courante = cleCoffre();
+    if (courante === null) throw new Error("clé absente");
+    expect(await rechiffrerCoffre(t.base, ancienne, courante)).toMatchObject({ echecs: 0, restants: 0 });
+  });
 });

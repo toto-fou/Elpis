@@ -74,15 +74,14 @@ describe.each(MOTEURS)("noms réservés (%s)", (moteur) => {
   });
   afterEach(async () => t.fermer());
 
-  it("un compte ne crée ni ne renomme vers `auth-*` ; l'instance (code interne) le peut, rotation et suppression par les routes refusées", async () => {
+  it("un compte garde le droit de nommer un secret `auth-*` ; celui de l'instance reste hors des routes : rotation et suppression refusées", async () => {
     const uid = await createUser(t.base, "alice", "mdp-alice-1");
     const compte = { value: "v", kind: "token" };
-    expect(await code(creerSecret(t.base, uid, { name: "auth-annuaire", ...compte }, ACTEUR))).toBe(
-      "422 secret_name_invalid",
-    );
+    const propre = await creerSecret(t.base, uid, { name: "auth-annuaire", ...compte }, ACTEUR);
+    expect(propre.name).toBe("auth-annuaire");
     const perso = await creerSecret(t.base, uid, { name: "perso", ...compte }, ACTEUR);
-    expect(await code(modifierSecret(t.base, uid, perso.id, { name: "auth-perso" }, ACTEUR))).toBe(
-      "422 secret_name_invalid",
+    expect((await modifierSecret(t.base, uid, perso.id, { name: "auth-perso" }, ACTEUR)).name).toBe(
+      "auth-perso",
     );
     const s = await creerSecret(
       t.base,

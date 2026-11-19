@@ -191,31 +191,11 @@ export function creerSecurite(b: BaseAdmin) {
     }
   }
 
-  async function clearUserRevocation(userId: number, username?: string): Promise<void> {
-    securityBusy.value = true;
-    try {
-      const res = await fetchAuth("/api/admin/security/sessions/clear-user-revocation/" + userId, {
-        method: "POST",
-      });
-      if (res?.ok) {
-        showToast("Révocation levée pour " + (username || "uid=" + userId), "success");
-        await loadSecurityOverview();
-      } else {
-        showToast(detailErreur(await corpsJson(res)) || "Échec", "error");
-      }
-    } catch {
-      showToast("Erreur réseau", "error");
-    } finally {
-      securityBusy.value = false;
-    }
-  }
-
   return {
     securityOverview,
     securityBusy,
     loadSecurityOverview,
     revokeAllSessions,
-    clearUserRevocation,
     httpsStatus,
     httpsBusy,
     httpsRedirectUrl,

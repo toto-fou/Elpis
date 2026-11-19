@@ -141,7 +141,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     },
     env,
   );
-  void sso.lireRetour();
+  let retourTraite = false;
 
   const modeSepare = (): boolean => {
     const mode = fen().__APP_MODE__ || "";
@@ -164,6 +164,10 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
       };
     }
     sso.appliquerConfig(data);
+    if (!retourTraite) {
+      retourTraite = true;
+      void sso.traiterRetour();
+    }
     if (data.login_page) loginConfig.value = { ...loginConfig.value, ...data.login_page };
     if (data.app_info && ctx.appInfo) {
       const a = data.app_info;

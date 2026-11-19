@@ -675,7 +675,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       const c = (
         await b.main.inject({ method: "GET", url: "/api/public-config", headers: { host: HOTE_PUBLIC } })
       ).json();
-      expect(c.login_methods).toEqual([]);
+      expect(c).not.toHaveProperty("login_methods");
       expect(c).not.toHaveProperty("auth_origin");
     });
 

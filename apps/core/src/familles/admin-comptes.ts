@@ -60,6 +60,7 @@ import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } f
 import { validerMotDePasse } from "../comptes/aides";
 import { reactiver, suspendre } from "../comptes/etat";
 import { deleteUserFull } from "../comptes/suppression";
+import { estPlusHaut, roleDuNiveau } from "../identite/correspondance";
 import { fournisseursAuRoleGere } from "../identite/droits";
 import { exigerAdminLocal } from "../identite/etat";
 import type { Journal } from "../journal";
@@ -257,8 +258,12 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       "SELECT provider_id FROM user_identities WHERE user_id=?",
       [cible],
     );
-    if (rattache !== undefined && fournisseursAuRoleGere().has(String(rattache.provider_id)))
-      throw new HttpError(409, "Le rôle de ce compte est géré par votre annuaire.");
+    const gere = rattache !== undefined && fournisseursAuRoleGere().has(String(rattache.provider_id));
+    if (gere && estPlusHaut(roleDuNiveau(niveau), roleDuNiveau(Number(avant.is_admin))))
+      throw new HttpError(
+        409,
+        "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+      );
     await base.ecriture(async (x) => {
       if (niveau !== 1) await exigerAdminLocal(x, { sauf: cible });
       await x.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
@@ -268,6 +273,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       target_user_id: cible,
       before: nomDuRole(Number(avant.is_admin)),
       after: nomDuRole(niveau),
+      ...(gere ? { role_managed: true } : {}),
     });
     return reponseJsonPy(rep, { ok: true, role });
   }

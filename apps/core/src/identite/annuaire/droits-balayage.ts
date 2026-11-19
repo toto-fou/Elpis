@@ -7,7 +7,8 @@ import type { FournisseurLdap } from "../reglages";
 import type { DependancesBalayage } from "./balayage";
 import type { EntreeAnnuaire } from "./client";
 import { ouvrirService } from "./connexion";
-import { lireDroitsAnnuaire } from "./droits-annuaire";
+import { groupesSansMembreVisible, lireDroitsAnnuaire } from "./droits-annuaire";
+import type { CacheGroupes } from "./droits-annuaire";
 import { attributsUtilisateur, cleStable } from "./entree";
 import { ErreurAnnuaire } from "./erreur";
 import { filtreEgal } from "./filtre";
@@ -62,22 +63,46 @@ export async function synchroniserDroitsBalayage(
   let service: Awaited<ReturnType<typeof ouvrirService>> | null = null;
   try {
     service = await ouvrirService(dep, f, secret);
-    for (const l of identites) {
-      if (l.issuer !== ancre) continue;
+    const privilegies = new Set(
+      (await dep.base.valeurs<[unknown]>("SELECT id FROM users WHERE is_admin IN (1, 2)")).map(([i]) =>
+        Number(i),
+      ),
+    );
+    const ordre = identites
+      .filter((l) => l.issuer === ancre)
+      .sort(
+        (x, y) => Number(privilegies.has(Number(y.user_id))) - Number(privilegies.has(Number(x.user_id))),
+      );
+    const cache: CacheGroupes = new Map();
+    let relus = 0;
+    for (const l of ordre) {
       if (performance.now() > fin) {
-        dep.journal.warn(`annuaire ${f.id} : rôles et groupes non relus en entier, délai dépassé`);
+        dep.journal.warn(
+          `annuaire ${f.id} : rôles et groupes non relus en entier, délai dépassé, ${ordre.length - relus} compte(s) non relu(s)`,
+        );
         break;
       }
-      const entree = await entreeDeLaCle(service.cnx, f, l.subject);
-      if (entree === null) continue;
-      const lecture = await lireDroitsAnnuaire(service.cnx, f, entree);
-      const r = await appliquerDroits(
-        { ...dep, revoquer: (uid) => dep.etat.publierSuspension(uid) },
-        { fournisseur: f, uid: Number(l.user_id), lecture, mode: "passe" },
-      );
-      if (r.role !== null) bilan.roles++;
-      if (r.retires.length > 0) bilan.groupes++;
+      relus++;
+      try {
+        const entree = await entreeDeLaCle(service.cnx, f, l.subject);
+        if (entree === null) continue;
+        const lecture = await lireDroitsAnnuaire(service.cnx, f, entree, cache);
+        const r = await appliquerDroits(
+          { ...dep, revoquer: (uid) => dep.etat.publierSuspension(uid) },
+          { fournisseur: f, uid: Number(l.user_id), lecture, mode: "passe" },
+        );
+        if (r.role !== null) bilan.roles++;
+        if (r.retires.length > 0) bilan.groupes++;
+      } catch (e) {
+        if (!(e instanceof ErreurAnnuaire)) throw e;
+        dep.journal.warn(`annuaire ${f.id} : appartenance d'un compte illisible, compte laissé tel quel`);
+        if (e.nature === "injoignable") break;
+      }
     }
+    for (const g of await groupesSansMembreVisible(cache))
+      dep.journal.warn(
+        `annuaire ${f.id} : aucun membre visible dans un groupe de rôles ou de correspondance, rôles et groupes non modifiés (${g.replace(/[\p{Cc}\p{Cf}]/gu, "")})`,
+      );
   } catch (e) {
     dep.journal.warn({ err: e }, `annuaire ${f.id} : synchronisation des rôles et groupes interrompue`);
   } finally {

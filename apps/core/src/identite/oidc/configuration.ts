@@ -77,6 +77,11 @@ export class FabriqueConfigurations {
     return c !== undefined && c.empreinte === empreinteFournisseur(f, publicUrl) ? c.metadonnees : null;
   }
 
+  /** Clés de signature déjà gardées en mémoire (mêmes réglages), même anciennes, sans aucun appel ; `null` si rien n'est gardé. */
+  clesEnMemoire(f: FournisseurOidc, publicUrl: string): JWK[] | null {
+    return this.clesGardees(f, publicUrl)?.jwks.keys ?? null;
+  }
+
   /** Clés de signature du fournisseur, dans le cache de la connexion : relues si le cache a plus de cinq minutes, ou, une fois par minute au plus, si la clé `kid` y manque. */
   async clesDeSignature(f: FournisseurOidc, publicUrl: string, kid: string | undefined): Promise<JWK[]> {
     const client = this.client(f);

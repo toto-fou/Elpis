@@ -20,6 +20,7 @@ import {
 import { HttpError } from "@elpis/commun";
 import { configureAudit, oublierConfigurationAudit } from "@elpis/securite";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
+import { schemaReponseRattachement } from "@elpis/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { composer } from "../src/composition";
@@ -410,6 +411,42 @@ describe.each(MOTEURS)("rattachement des comptes locaux (%s)", (moteur) => {
       expect(resultats(await lier([{ user_id: sam, subject: UUID(4) }], [sam]))).toEqual(["linked"]);
       expect(Number((await compte("sam"))?.["is_admin"])).toBe(1);
       expect((await compte("sam"))?.["pass_hash"]).toBe("!");
+    });
+
+    it("rôles gérés par le fournisseur : la réponse annonce `role_will_be_managed` pour un administrateur ou un modérateur, pas pour un utilisateur", async () => {
+      await b.fermer();
+      await admin.close();
+      await main.close();
+      oublierConfigurationAudit();
+      await ouvrir([{ roles: { enabled: true, admin_groups: [], moderator_groups: ["cn=m,dc=x"] } }]);
+      const sam = await createUser(b.t.base, "sam", "mdp-sam-123", { isAdmin: 1 });
+      const mo = await createUser(b.t.base, "paul", "mdp-paul-12", { isAdmin: 2 });
+      const simple = await createUser(b.t.base, "jean", "mdp-jean-12");
+      annuaire.ajouter({ uid: "sam", cle: UUID(4), mdp: MDP, groupes: [GROUPE] });
+      const r = await lier(
+        [
+          { user_id: sam, subject: UUID(4) },
+          { user_id: mo, subject: UUID(2) },
+          { user_id: simple, subject: UUID(1) },
+        ],
+        [sam, mo],
+      );
+      const liste = (
+        r.json() as { results: { user_id: number; result: string; role_will_be_managed?: boolean }[] }
+      ).results;
+      expect(liste.map((x) => [x.result, x.role_will_be_managed])).toEqual([
+        ["linked", true],
+        ["linked", true],
+        ["linked", undefined],
+      ]);
+      expect(schemaReponseRattachement.safeParse(r.json()).success).toBe(true);
+    });
+
+    it("rôles non gérés : aucune annonce", async () => {
+      const sam = await createUser(b.t.base, "sam", "mdp-sam-123", { isAdmin: 1 });
+      annuaire.ajouter({ uid: "sam", cle: UUID(4), mdp: MDP, groupes: [GROUPE] });
+      const r = await lier([{ user_id: sam, subject: UUID(4) }], [sam]);
+      expect(JSON.stringify(r.json())).not.toContain("role_will_be_managed");
     });
 
     it("le dernier administrateur à mot de passe local ne se rattache pas, même confirmé", async () => {

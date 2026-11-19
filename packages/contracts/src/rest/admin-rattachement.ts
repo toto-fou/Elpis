@@ -75,6 +75,7 @@ export const schemaReponseRattachement = z.object({
       revoked_tokens: entier.optional(),
       revoked_oauth: entier.optional(),
       kept: z.literal(true).optional(),
+      role_will_be_managed: z.literal(true).optional(),
     }),
   ),
   kept_tokens: z.boolean().default(false),

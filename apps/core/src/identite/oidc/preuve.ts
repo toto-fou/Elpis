@@ -8,7 +8,9 @@ import { chiffrerSecret, dechiffrerSecret } from "@elpis/securite";
 
 import { etablirConnexion } from "../../comptes/ouverture";
 import type { EffetsConnexion } from "../../comptes/ouverture";
-import type { Appartenance, ProfilIdentite } from "../provisionnement";
+import { lectureOidc } from "../correspondance";
+import { appliquerDroits } from "../droits";
+import type { Appartenance, DependancesProvisionnement, ProfilIdentite } from "../provisionnement";
 import type { FournisseurOidc } from "../reglages";
 import { dureeDeSession } from "./connexion";
 import { DUREE_FLUX_S, empreinte, empreinteAdresses, noterSessionExterne } from "./flux";
@@ -25,6 +27,8 @@ export interface FluxPreuve {
   /** Identifiant de session du fournisseur et jeton d'identité du retour vérifié ; `null` s'ils manquent. */
   readonly idpSid: string | null;
   readonly idToken: string | null;
+  /** Groupes du jeton que le fournisseur lit ; `null` s'ils étaient illisibles. */
+  readonly groupes: readonly string[] | null;
   readonly cible: CibleFlux;
   readonly oauthNext: string | null;
 }
@@ -52,6 +56,7 @@ function profilDe(
   sub: string;
   idpSid: string | null;
   idToken: string | null;
+  groupes: string[] | null;
 } | null {
   if (json === null) return null;
   let v: unknown;
@@ -62,7 +67,8 @@ function profilDe(
   }
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
-  const { subject, issuer, extUsername, extEmail, extName, appartenance, sub, idpSid, idTokenEnc } = o;
+  const { subject, issuer, extUsername, extEmail, extName, appartenance, sub, idpSid, idTokenEnc, groupes } =
+    o;
   if (!texte(subject) || !texte(issuer) || !texte(extUsername) || !texte(extEmail) || !texte(extName))
     return null;
   if (appartenance !== "oui" && appartenance !== "non" && appartenance !== "inconnu") return null;
@@ -87,6 +93,7 @@ function profilDe(
     sub: texte(sub) ? sub : subject,
     idpSid: texte(idpSid) ? idpSid : null,
     idToken,
+    groupes: Array.isArray(groupes) && groupes.every(texte) ? (groupes as string[]) : null,
   };
 }
 
@@ -102,6 +109,7 @@ export async function ouvrirFluxPreuve(
     readonly sub: string;
     readonly idpSid: string | null;
     readonly idToken: string | null;
+    readonly groupes: readonly string[] | null;
     readonly cible: CibleFlux;
     readonly oauthNext: string | null;
     readonly adresse: string;
@@ -140,6 +148,7 @@ export async function ouvrirFluxPreuve(
           sub: e.sub,
           idpSid: e.idpSid,
           idTokenEnc,
+          groupes: e.groupes,
         }),
         maintenant,
         maintenant + DUREE_FLUX_S,
@@ -171,10 +180,11 @@ export async function lireFluxPreuve(
   };
 }
 
-/** Session `oidc:<id>` du compte dont la preuve vient d'aboutir, et ligne de session du fournisseur avec le `sid` et le jeton d'identité du retour vérifié (une session SSO complète). */
+/** Droits appliqués en baisse seulement (la montée attend la connexion suivante), puis session `oidc:<id>` du compte dont la preuve vient d'aboutir, et ligne de session du fournisseur avec le `sid` et le jeton d'identité du retour vérifié (une session SSO complète). */
 export async function ouvrirSessionApresPreuve(
   dep: {
     readonly base: Base;
+    readonly provisionnement: DependancesProvisionnement;
     readonly effets: Omit<EffetsConnexion, "dureeMax">;
     readonly dureeGlobale: () => number;
   },
@@ -185,12 +195,20 @@ export async function ouvrirSessionApresPreuve(
     readonly sub: string;
     readonly idpSid: string | null;
     readonly idToken: string | null;
+    readonly groupes: readonly string[] | null;
     readonly session: Session;
     readonly maintenant: number;
     readonly ip: string;
     readonly userAgent: string | null;
   },
 ): Promise<void> {
+  await appliquerDroits(dep.provisionnement, {
+    fournisseur: e.fournisseur,
+    uid: e.uid,
+    lecture: lectureOidc(e.fournisseur, e.groupes),
+    mode: "passe",
+    ip: e.ip,
+  });
   await etablirConnexion(
     { ...dep.effets, dureeMax: () => dureeDeSession(e.fournisseur, dep.dureeGlobale()) },
     {

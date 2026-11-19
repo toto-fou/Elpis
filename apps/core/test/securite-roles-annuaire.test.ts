@@ -27,6 +27,7 @@ import type { DependancesBalayage } from "../src/identite/annuaire/balayage";
 import type { FabriqueConnexion } from "../src/identite/annuaire/client";
 import { ErreurAnnuaire } from "../src/identite/annuaire/erreur";
 import { decider, lectureOidc } from "../src/identite/correspondance";
+import { appliquerDroits } from "../src/identite/droits";
 import {
   empreinteFournisseur,
   enregistrerTestReussi,
@@ -74,15 +75,19 @@ describe.each(MOTEURS)("rôles et groupes par l'annuaire LDAP (%s)", (moteur) =>
   let gAutre: number;
   let publiees: number[];
   const enPanne = new Set<string>();
+  let decalage = 0;
+  let epuiseApresLaPremiere = false;
 
   const fabrique: FabriqueConnexion = async (f, url) => {
     const c = await annuaire.fabrique(f, url);
     return {
       ...c,
-      chercher: (base, o) =>
-        enPanne.has(base)
+      chercher: (base, o) => {
+        if (epuiseApresLaPremiere && base === G_ADMIN && o.filtre === "(objectClass=*)") decalage = 1e9;
+        return enPanne.has(base)
           ? Promise.reject(new ErreurAnnuaire("protocole", { code: 50 }))
-          : c.chercher(base, o),
+          : c.chercher(base, o);
+      },
     };
   };
   const monter = async (): Promise<void> => {
@@ -199,6 +204,12 @@ describe.each(MOTEURS)("rôles et groupes par l'annuaire LDAP (%s)", (moteur) =>
     courant = b.fournisseurs[0] as FournisseurLdap;
     gEquipe = await createGroup(b.t.base, "Equipe");
     gAutre = await createGroup(b.t.base, "Autre");
+    annuaire.ajouter({
+      uid: "temoin",
+      cle: UUID(99),
+      mdp: MDP,
+      groupes: [GROUPE, G_ADMIN, G_MOD, G_EQUIPE, G_HOMONYME],
+    });
     audit = mkdtempSync(join(tmpdir(), "elpis-audit-roles-"));
     racine = mkdtempSync(join(tmpdir(), "elpis-racine-roles-"));
     verrous = mkdtempSync(join(tmpdir(), "elpis-verrous-roles-"));
@@ -288,7 +299,7 @@ describe.each(MOTEURS)("rôles et groupes par l'annuaire LDAP (%s)", (moteur) =>
       personne("jean", 1, [G_MOD]);
       const avant = await connecte("jean");
       expect(await niveau("jean")).toBe(NIVEAU.moderator);
-      annuaire.personnes[0]?.groupes.push(G_ADMIN);
+      annuaire.personnes.find((x) => x.uid === "jean")?.groupes.push(G_ADMIN);
       await connecte("jean");
       expect(await niveau("jean")).toBe(NIVEAU.admin);
       expect((await moi(avant))["logged_in"]).toBe(true);
@@ -487,6 +498,138 @@ describe.each(MOTEURS)("rôles et groupes par l'annuaire LDAP (%s)", (moteur) =>
       expect(publiees).toEqual([]);
     });
 
+    describe("appartenance masquée ou groupe vidé : jamais un « non »", () => {
+      const prepare = async (): Promise<number> => {
+        await regler({ ...roles(), ...carte() });
+        const jean = await rattacher("jean", 1);
+        await poserRole(jean, NIVEAU.admin);
+        await poserGroupe(jean, gEquipe);
+        return jean;
+      };
+
+      it("membres invisibles du compte de service : ni la passe ni la connexion ne changent rien", async () => {
+        const jean = await prepare();
+        for (const p of annuaire.personnes) if (p.uid === "temoin") p.groupes = [GROUPE];
+        await passe();
+        expect(await niveau("jean")).toBe(NIVEAU.admin);
+        expect(await groupesDe("jean")).toEqual([gEquipe]);
+        expect((await connexion("jean")).statusCode).toBe(200);
+        expect(await niveau("jean")).toBe(NIVEAU.admin);
+        expect(await groupesDe("jean")).toEqual([gEquipe]);
+        expect(publiees).toEqual([]);
+        expect(audits("auth.role.sync")).toEqual([]);
+        expect(audits("auth.groups.sync")).toEqual([]);
+        expect(jean).toBeGreaterThan(0);
+      });
+
+      it("une ligne au journal par passe et par groupe sans membre visible", async () => {
+        await prepare();
+        await rattacher("luc", 2);
+        for (const p of annuaire.personnes) if (p.uid === "temoin") p.groupes = [GROUPE, G_MOD, G_EQUIPE];
+        lignesJournal.length = 0;
+        await passe();
+        const lignes = lignesJournal.filter((l) => l.includes("aucun membre visible"));
+        expect(lignes).toHaveLength(1);
+        expect(lignes[0]).toContain(G_ADMIN);
+      });
+
+      it("groupe réellement vidé : aucun changement non plus (documenté) ; un seul groupe lu par passe", async () => {
+        await prepare();
+        await rattacher("luc", 2);
+        for (const p of annuaire.personnes) if (p.uid === "temoin") p.groupes = [GROUPE];
+        annuaire.recherches.length = 0;
+        await passe();
+        expect(await niveau("jean")).toBe(NIVEAU.admin);
+        expect(annuaire.recherches.filter((r) => r === `${G_ADMIN} (objectClass=*)`)).toHaveLength(1);
+      });
+
+      it("un groupe lu avec des membres visibles redevient un « non » : la rétrogradation a lieu", async () => {
+        const jean = await prepare();
+        await passe();
+        expect(await niveau("jean")).toBe(NIVEAU.user);
+        expect(await groupesDe("jean")).toEqual([]);
+        expect(jean).toBeGreaterThan(0);
+      });
+
+      it("le test de l'annuaire signale un groupe sans membre visible", async () => {
+        await regler(roles());
+        for (const p of annuaire.personnes) if (p.uid === "temoin") p.groupes = [GROUPE, G_MOD];
+        const f = courant;
+        const { verdictGroupesDroits } = await import("../src/identite/annuaire/droits-annuaire");
+        const cnx = await annuaire.fabrique(f, f.urls[0] ?? "");
+        const v = await verdictGroupesDroits(cnx, f);
+        expect(v?.level).toBe("warn");
+        expect(v?.detail).toContain(
+          "Aucun membre visible dans ce groupe : les rôles ne seront pas modifiés.",
+        );
+        await cnx.fermer();
+      });
+    });
+
+    describe("ordre et robustesse de la passe", () => {
+      it("les comptes à privilège passent d'abord, même en fin de liste ; délai épuisé : une ligne dit combien restent", async () => {
+        await regler({ ...roles(), ...carte() });
+        await rattacher("simple1", 1);
+        await rattacher("simple2", 2);
+        const chef = await rattacher("chef2", 3);
+        await poserRole(chef, NIVEAU.admin);
+        const reel = performance.now.bind(performance);
+        const espion = vi.spyOn(performance, "now").mockImplementation(() => reel() + decalage);
+        epuiseApresLaPremiere = true;
+        lignesJournal.length = 0;
+        try {
+          await passe();
+        } finally {
+          epuiseApresLaPremiere = false;
+          decalage = 0;
+          espion.mockRestore();
+        }
+        expect(await niveau("chef2")).toBe(NIVEAU.user);
+        expect(lignesJournal.some((l) => /non relu/u.test(l))).toBe(true);
+      });
+
+      it("une erreur d'annuaire sur un compte laisse ce compte tel quel et la passe continue", async () => {
+        await regler({ ...roles(), ...carte() });
+        const p = personne("casse", 1);
+        const casse = await createExternalUser(b.t.base, "casse", { maintenant: b.horloge - 1000 });
+        await b.t.base.run(
+          "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?)",
+          [casse, courant.id, p.cle, ancreIdentite(courant), "auto", b.horloge - 1000, 5],
+        );
+        await poserRole(casse, NIVEAU.admin);
+        const suivant = await rattacher("suivant", 2);
+        await poserRole(suivant, NIVEAU.admin);
+        annuaire.clesEnErreur.add(p.cle);
+        await passe();
+        expect(await niveau("casse")).toBe(NIVEAU.admin);
+        expect(await niveau("suivant")).toBe(NIVEAU.user);
+      });
+    });
+
+    it("une rétrogradation arrête les exécutions du compte (suspension publiée de préférence à la seule révocation)", async () => {
+      await regler(roles());
+      const uid = await createUser(b.t.base, "jean", "mdp-jean-1", { isAdmin: 1 });
+      const appels: string[] = [];
+      const d = {
+        base: b.t.base,
+        maintenant: () => b.horloge,
+        journal: journalMuet,
+        revoquer: async () => void appels.push("revoquer"),
+        publierSuspension: async () => void appels.push("suspension"),
+      };
+      const r = await appliquerDroits(d, {
+        fournisseur: courant,
+        uid,
+        lecture: new Map([
+          [G_ADMIN, "non"],
+          [G_MOD, "non"],
+        ]),
+        mode: "connexion",
+      });
+      expect(r.role).toEqual({ de: "admin", vers: "user" });
+      expect(appels).toEqual(["suspension"]);
+    });
+
     it("passe abandonnée (canari) : aucune rétrogradation", async () => {
       await regler({ ...roles(), ...carte() });
       const jean = await rattacher("jean", 1);
@@ -644,10 +787,30 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
       expect(vue["alice"]?.["role_managed"]).toBe(false);
       const refus = await role(gere, "moderator");
       expect(refus.statusCode).toBe(409);
-      expect(refus.json()).toEqual({ detail: "Le rôle de ce compte est géré par votre annuaire." });
+      expect(refus.json()).toEqual({
+        detail: "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+      });
       expect(Number((await ligneUtilisateur(b.t.base, gere))?.is_admin)).toBe(0);
       expect((await role(libre, "moderator")).statusCode).toBe(200);
       expect((await role(b.alice, "moderator")).statusCode).toBe(200);
+    });
+  });
+
+  describe("rôle géré : la baisse reste possible", () => {
+    it("la console peut rétrograder un rôle donné par l'annuaire, jamais le monter ; l'audit le dit", async () => {
+      ecrireFournisseur({ roles: { enabled: true, admin_groups: [], moderator_groups: ["cn=mod"] } });
+      const gere = await createUser(b.t.base, "gere", "mdp-gere-1", { isAdmin: 2 });
+      await rattacherA(gere, "annuaire");
+      const refus = await role(gere, "admin");
+      expect(refus.statusCode).toBe(409);
+      expect(refus.json()).toEqual({
+        detail: "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+      });
+      expect(Number((await ligneUtilisateur(b.t.base, gere))?.is_admin)).toBe(2);
+      expect((await role(gere, "moderator")).statusCode).toBe(200);
+      expect((await role(gere, "user")).statusCode).toBe(200);
+      expect(Number((await ligneUtilisateur(b.t.base, gere))?.is_admin)).toBe(0);
+      expect((await role(gere, "moderator")).statusCode).toBe(409);
     });
   });
 
@@ -695,8 +858,90 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
       }
     });
 
+    it("création : même confirmation et même exigence de second facteur que la modification", async () => {
+      const cree = (type: "ldap" | "oidc", extra: Record<string, unknown>) =>
+        b.appeler(
+          "POST",
+          "/api/admin/auth/providers",
+          type === "ldap" ? ldapValide({ id: "neuf", ...extra }) : oidcValide({ id: "neuf", ...extra }),
+        );
+      const avant = sansEtatEcrit();
+      expect((await cree("ldap", admins)).statusCode).toBe(409);
+      expect((await cree("ldap", { ...admins, confirm_admin_mapping: false })).statusCode).toBe(409);
+      expect((await cree("oidc", { ...admins, confirm_admin_mapping: true })).statusCode).toBe(409);
+      expect(sansEtatEcrit()).toEqual(avant);
+      const ok = await cree("ldap", { ...admins, confirm_admin_mapping: true });
+      expect(ok.statusCode, ok.body).toBe(200);
+      const f = (b.lireConfig()["auth"] as { providers: Record<string, unknown>[] }).providers.find(
+        (p) => p["id"] === "neuf",
+      );
+      expect(f?.["roles"]).toEqual(admins.roles);
+      expect(f).not.toHaveProperty("confirm_admin_mapping");
+    });
+
+    it("le sens de la correspondance change : confirmation redemandée ; le libellé seul non", async () => {
+      ecrireFournisseur({});
+      expect((await modifier("annuaire", { ...admins, confirm_admin_mapping: true })).statusCode).toBe(200);
+      const avant = sansEtatEcrit();
+      const chaine = await modifier("annuaire", { groups: { mode: "chain" } });
+      expect(chaine.statusCode).toBe(409);
+      expect(sansEtatEcrit()).toEqual(avant);
+      expect(
+        (await modifier("annuaire", { groups: { mode: "chain" }, confirm_admin_mapping: true })).statusCode,
+      ).toBe(200);
+      expect((await modifier("annuaire", { label: "Autre libellé" })).statusCode).toBe(200);
+      expect((await modifier("annuaire", { roles: { ...admins.roles, enabled: false } })).statusCode).toBe(
+        200,
+      );
+      const rallume = await modifier("annuaire", { roles: admins.roles });
+      expect(rallume.statusCode, "rôles rallumés").toBe(409);
+    });
+
+    it("SSO : la revendication des groupes, acr et amr font aussi le sens ; un amr à un seul facteur ne suffit pas", async () => {
+      ecrireFournisseur({ required_acr: ["mfa"] }, "oidc");
+      expect((await modifier("sso", { ...admins, confirm_admin_mapping: true })).statusCode).toBe(200);
+      for (const change of [
+        { groups_claim: "roles" },
+        { required_acr: ["mfa", "hw"] },
+        { required_amr: ["otp"] },
+      ]) {
+        expect((await modifier("sso", change)).statusCode, JSON.stringify(change)).toBe(409);
+        expect((await modifier("sso", { ...change, confirm_admin_mapping: true })).statusCode).toBe(200);
+      }
+      ecrireFournisseur({}, "oidc");
+      for (const amr of [["pwd"], ["pwd", "PIN", "kba"]]) {
+        const r = await modifier("sso", { ...admins, required_amr: amr, confirm_admin_mapping: true });
+        expect(r.statusCode, amr.join()).toBe(409);
+        expect(r.json<{ detail: string }>().detail).toContain("second facteur");
+      }
+      expect(
+        (await modifier("sso", { ...admins, required_amr: ["pwd", "otp"], confirm_admin_mapping: true }))
+          .statusCode,
+      ).toBe(200);
+    });
+
+    it("une correspondance de groupes vers un groupe Elpis inexistant est refusée ; un groupe déjà cité reste enregistrable", async () => {
+      ecrireFournisseur({});
+      const g = await createGroup(b.t.base, "Equipe");
+      const carte = (id: number) => ({
+        group_map: { enabled: true, map: [{ external: "cn=x", group_id: id }] },
+      });
+      const refus = await modifier("annuaire", carte(g + 500));
+      expect(refus.statusCode).toBe(400);
+      expect((await modifier("annuaire", carte(g))).statusCode).toBe(200);
+      await b.t.base.run('DELETE FROM "groups" WHERE id=?', [g]);
+      expect((await modifier("annuaire", { label: "Autre" })).statusCode).toBe(200);
+      const cree = await b.appeler("POST", "/api/admin/auth/providers", {
+        ...ldapValide({ id: "neuf" }),
+        ...carte(g + 500),
+      });
+      expect(cree.statusCode).toBe(400);
+    });
+
     it("valeur vide ou en double refusée par le validateur", async () => {
       ecrireFournisseur({});
+      const gEquipe = await createGroup(b.t.base, "Equipe");
+      const gAutre = await createGroup(b.t.base, "Autre");
       expect(
         (await modifier("annuaire", { roles: { enabled: false, admin_groups: [""], moderator_groups: [] } }))
           .statusCode,
@@ -731,8 +976,8 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
             group_map: {
               enabled: true,
               map: [
-                { external: "g", group_id: 1 },
-                { external: "g", group_id: 2 },
+                { external: "g", group_id: gEquipe },
+                { external: "g", group_id: gAutre },
               ],
             },
           })

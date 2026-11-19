@@ -30,9 +30,15 @@ export function estPlusHaut(a: RoleElpis, b: RoleElpis): boolean {
   return RANG[a] > RANG[b];
 }
 
-/** Les groupes d'administrateurs ne comptent en SSO que si le fournisseur impose un second facteur (`acr` ou `amr`) ; un annuaire est confirmé à l'enregistrement. */
+const METHODES_A_UN_FACTEUR: ReadonlySet<string> = new Set(["pwd", "pin", "kba", "geo"]);
+
+/** Les groupes d'administrateurs ne comptent en SSO que si le fournisseur impose un `acr` ou un `amr` qui prouve plus qu'un seul facteur ; un annuaire est confirmé à l'enregistrement. */
 export function adminAdmis(f: Fournisseur): boolean {
-  return f.type === "ldap" || f.required_acr.length > 0 || f.required_amr.length > 0;
+  return (
+    f.type === "ldap" ||
+    f.required_acr.length > 0 ||
+    f.required_amr.some((m) => !METHODES_A_UN_FACTEUR.has(m.trim().toLowerCase()))
+  );
 }
 
 function groupesDeRoles(f: Fournisseur): { admin: readonly string[]; moderateur: readonly string[] } {
@@ -77,6 +83,13 @@ export function lectureOidc(f: Fournisseur, groupes: readonly string[] | null): 
       groupes === null ? "inconnu" : groupes.includes(g) ? "oui" : "non",
     ]),
   );
+}
+
+/** Seuls les groupes du jeton que le fournisseur lit sont gardés ; `null` reste `null` (groupes illisibles). */
+export function groupesUtiles(f: Fournisseur, groupes: readonly string[] | null): string[] | null {
+  if (groupes === null) return null;
+  const lus = new Set(groupesALire(f));
+  return groupes.filter((g) => lus.has(g));
 }
 
 /** Décision d'après la lecture ; `null` si l'appartenance à un seul groupe à lire est inconnue ou absente de la lecture : rien ne doit alors être modifié. */

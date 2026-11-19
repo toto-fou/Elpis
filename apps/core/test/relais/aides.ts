@@ -204,7 +204,7 @@ export interface Banc {
   dep: DependancesAuth;
   config: Record<string, unknown>;
   manifeste(hotes: Record<string, unknown>, placement?: Record<string, unknown>): void;
-  connecter(uid: number): Promise<string>;
+  connecter(uid: number, sid?: string): Promise<string>;
   fermer(): Promise<void>;
 }
 
@@ -264,7 +264,8 @@ export async function monterBanc(
         acces: "public",
         traiter: (requete) => {
           const uid = Number((requete.params as { uid: string }).uid);
-          poserIdentite(requete.session, { user_id: uid, _login_ts: horloge, _sid: `sid-${uid}` });
+          const sid = (requete.query as { sid?: string }).sid ?? `sid-${uid}`;
+          poserIdentite(requete.session, { user_id: uid, _login_ts: horloge, _sid: sid });
           return { ok: true };
         },
       },
@@ -297,8 +298,10 @@ export async function monterBanc(
       process.env["APP_MCP_MANIFEST"] = chemin;
       oublierHotes();
     },
-    async connecter(uid) {
-      const r = await fetch(`${url}/test/connexion/${uid}`, { method: "POST" });
+    async connecter(uid, sid) {
+      const r = await fetch(`${url}/test/connexion/${uid}${sid === undefined ? "" : `?sid=${sid}`}`, {
+        method: "POST",
+      });
       return (r.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
     },
     async fermer() {

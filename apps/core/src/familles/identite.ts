@@ -22,6 +22,7 @@ import { ConnexionRefusee } from "../comptes/ouverture";
 import type { PortBac } from "../admin/bac";
 import { ligneUtilisateur } from "@elpis/auth";
 import { decouperHotePort } from "../interface/urls-publiques";
+import { groupesUtiles } from "../identite/correspondance";
 import { empreinteFournisseur, fournisseursActifs, enregistrerTestReussi } from "../identite/fournisseurs";
 import type { Journal } from "../journal";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
@@ -304,6 +305,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
             sub: verifie.sub,
             idpSid: verifie.idpSid,
             idToken: verifie.idToken,
+            groupes: groupesUtiles(f, verifie.groupesComplets),
             cible: flux.cible,
             oauthNext: flux.oauthNext,
             adresse: ip,
@@ -344,13 +346,14 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     void rep.headers(SANS_CACHE);
     const t = maintenant();
     const cle = cleAdresse(ipDuClient(req, dep.mandataires));
+    const saturee = refusParAdresse.saturee(cle, t);
     const refuser = (raison: string, statut = 400): FastifyReply => {
+      const reel = saturee ? "rate_limited" : raison;
       refusParAdresse.noter(cle, t);
-      refusAgreges.noter(raison);
-      auditerRefus(req, "auth.oidc.backchannel_logout.denied", { provider_id: f.id, reason: raison });
-      return rep.code(statut).send();
+      refusAgreges.noter(reel);
+      auditerRefus(req, "auth.oidc.backchannel_logout.denied", { provider_id: f.id, reason: reel });
+      return rep.code(saturee ? 429 : statut).send();
     };
-    if (refusParAdresse.saturee(cle, t)) return refuser("rate_limited", 429);
     if (!/^application\/x-www-form-urlencoded\s*(;|$)/iu.test(entete(req, "content-type") ?? ""))
       return refuser("content_type");
     const champs = new URLSearchParams(corpsLu(req).toString("utf8"));
@@ -364,6 +367,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         lireReglagesAuth().public_url,
         jetons[0] ?? "",
         t,
+        saturee,
       );
     } catch (e) {
       return refuser(e instanceof RefusOidc ? e.cause_ : "invalid");
@@ -469,6 +473,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         sub: flux.sub,
         idpSid: flux.idpSid,
         idToken: flux.idToken,
+        groupes: flux.groupes,
         session: req.session,
         maintenant: t,
         ip,

@@ -453,6 +453,22 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
       expect(await vivante(a)).toBe(false);
     });
 
+    it("une adresse saturée de refus n'empêche pas un jeton valide : 200, la session meurt, aucune lecture sortante de plus", async () => {
+      const a = await connecter("sub-jean", "idp-1");
+      const lues = b.idp.lecturesCles;
+      const codes: number[] = [];
+      for (let i = 0; i < 25; i++) codes.push((await poster("x", { adresse: "198.51.100.20" })).statusCode);
+      expect(codes.slice(20).every((c) => c === 429)).toBe(true);
+      expect(b.idp.lecturesCles).toBe(lues);
+      const r = await poster(await b.idp.jetonDeconnexion({ sid: "idp-1" }), { adresse: "198.51.100.20" });
+      expect(r.statusCode, r.body).toBe(200);
+      expect(r.body).toBe("");
+      expect(await vivante(a)).toBe(false);
+      expect(b.idp.lecturesCles).toBe(lues);
+      const invalide = await b.idp.jetonDeconnexion({ sid: "idp-1" }, { signerAvecAutreCle: true });
+      expect((await poster(invalide, { adresse: "198.51.100.20" })).statusCode).toBe(429);
+    });
+
     it("50 refus : pas une ligne de journal par refus (agrégation par raison et par minute)", async () => {
       lignesJournal.length = 0;
       for (let i = 0; i < 50; i++) await poster("x", { adresse: "198.51.100.9" });

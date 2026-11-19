@@ -66,6 +66,8 @@ export interface ResultatLien {
   readonly revoked_tokens?: number;
   readonly revoked_oauth?: number;
   readonly kept?: true;
+  /** Le compte est administrateur ou modérateur et le fournisseur gère les rôles : son rôle sera recalculé à sa prochaine connexion. */
+  readonly role_will_be_managed?: true;
 }
 
 const INDISPONIBLE = "L'annuaire ne répond pas : réessayez dans un instant.";
@@ -368,13 +370,20 @@ export async function rattacherComptes(
         : await revoquerOauthRattachement({ acces: dep.acces, journal: dep.journal }, lien.user_id);
       const jetons =
         issue.tokens === null || oauth === null ? ("kept" as const) : { tokens: issue.tokens, oauth };
+      const nom = await dep.base.get<{ username: string; is_admin: unknown }>(
+        "SELECT username, is_admin FROM users WHERE id=?",
+        [lien.user_id],
+      );
+      const gere =
+        f.roles.enabled && [1, 2].includes(Number(nom?.is_admin))
+          ? { role_will_be_managed: true as const }
+          : {};
       fin(
         "linked",
-        jetons === "kept" ? { kept: true } : { revoked_tokens: jetons.tokens, revoked_oauth: jetons.oauth },
+        jetons === "kept"
+          ? { kept: true, ...gere }
+          : { revoked_tokens: jetons.tokens, revoked_oauth: jetons.oauth, ...gere },
       );
-      const nom = await dep.base.get<{ username: string }>("SELECT username FROM users WHERE id=?", [
-        lien.user_id,
-      ]);
       auditerRattachement(
         {
           uid: lien.user_id,

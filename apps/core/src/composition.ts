@@ -287,7 +287,7 @@ function brancherBus(
     mode,
     surOuvertureFlux,
     redemarrage: SOURCE_REDEMARRAGE,
-    fermerTerminaux: (uid) => relais?.fermerTerminauxDuCompte(uid) ?? 0,
+    fermerTerminaux: (uid, sid) => relais?.fermerTerminauxDuCompte(uid, sid) ?? 0,
     arreterExecutions: (uid) => arreterExecutionsDuCompte(uid),
     rafraichirModeles,
   });

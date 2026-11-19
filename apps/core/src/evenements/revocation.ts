@@ -7,8 +7,8 @@ import type { Message, SystemEvents } from "./systeme";
 
 export interface CiblesRevocation {
   readonly systemEvents: SystemEvents;
-  /** Terminaux du compte (`null` : tous) ; rend leur nombre, -1 pour « tous ». */
-  readonly fermerTerminaux?: (uid: number | null) => number | Promise<number>;
+  /** Terminaux du compte (`null` : tous ; avec `sid`, ceux de cette session) ; rend leur nombre, -1 pour « tous ». */
+  readonly fermerTerminaux?: (uid: number | null, sid?: string) => number | Promise<number>;
   /** Exécutions en cours du compte (tours de chat, runs de routine) ; rend leur nombre coupé. */
   readonly arreterExecutions?: (uid: number) => number | Promise<number>;
   readonly journal?: Journal;
@@ -37,7 +37,13 @@ export async function applySessionRevocation(
   const sid = payload["sid"];
   if (uid !== null && typeof sid === "string" && sid !== "") {
     const fermes = cibles.systemEvents.disconnectSession(uid, sid, expire);
-    return { uid, systeme: fermes, terminaux: 0 };
+    let terminaux = 0;
+    try {
+      terminaux = (await cibles.fermerTerminaux?.(uid, sid)) ?? 0;
+    } catch (e) {
+      cibles.journal?.error({ err: e }, "[session_revoked] fermeture des terminaux de la session échouée");
+    }
+    return { uid, systeme: fermes, terminaux };
   }
   const systeme = cibles.systemEvents.disconnectUser(uid, expire);
   let terminaux = 0;

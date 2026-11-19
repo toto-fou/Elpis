@@ -50,13 +50,14 @@ function raisonJose(e: unknown): string {
   return "invalid";
 }
 
-/** Jeton de déconnexion vérifié : signature avec l'algorithme et les clés réglés du fournisseur, émetteur, public, validité, événement, absence de `nonce`, `sid` ou `sub` présent. */
+/** Jeton de déconnexion vérifié (avec `sansReseau`, sur les seules clés déjà gardées en mémoire) : signature avec l'algorithme et les clés réglés du fournisseur, émetteur, public, validité, événement, absence de `nonce`, `sid` ou `sub` présent. */
 export async function verifierJetonDeconnexion(
   fabrique: FabriqueConfigurations,
   f: FournisseurOidc,
   publicUrl: string,
   jeton: string,
   t: number,
+  sansReseau = false,
 ): Promise<JetonDeconnexion> {
   const refus = (raison: string): RefusOidc => new RefusOidc("failed", raison);
   if (jeton === "" || jeton.length > CORPS_DECONNEXION_MAX) throw refus("malformed");
@@ -68,7 +69,10 @@ export async function verifierJetonDeconnexion(
   }
   if (entete.alg !== f.id_token_alg) throw refus("bad_alg");
   const kid = typeof entete.kid === "string" ? entete.kid : undefined;
-  const cles: JWK[] = await fabrique.clesDeSignature(f, publicUrl, kid);
+  const cles: JWK[] | null = sansReseau
+    ? fabrique.clesEnMemoire(f, publicUrl)
+    : await fabrique.clesDeSignature(f, publicUrl, kid);
+  if (cles === null) throw refus("no_key");
   let payload: Record<string, unknown>;
   try {
     const verifie = await jwtVerify(jeton, createLocalJWKSet({ keys: cles as never }), {

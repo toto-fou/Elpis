@@ -4,7 +4,7 @@ import type { Appartenance } from "../provisionnement";
 import { decider, droitsActifs, groupesALire, rolesActifs } from "../correspondance";
 import type { Lecture, RoleElpis } from "../correspondance";
 import type { FournisseurLdap } from "../reglages";
-import { appartient, groupeExiste } from "./appartenance";
+import { appartient, groupeAMembreVisible, groupeExiste } from "./appartenance";
 import type { ConnexionAnnuaire, EntreeAnnuaire } from "./client";
 import { ErreurAnnuaire } from "./erreur";
 
@@ -14,17 +14,53 @@ const LIBELLE_ROLE: Readonly<Record<RoleElpis, string>> = {
   admin: "administrateur",
 };
 
-/** Appartenance de l'entrée à chaque groupe à lire : une erreur d'annuaire, ou un « non » sur un groupe introuvable, vaut « inconnu » (jamais un retrait). */
+/** État d'un groupe pour le compte de service ; seul « visible » (au moins un membre visible) permet de conclure à un « non ». */
+export type EtatGroupe = "visible" | "sans_membre" | "absent" | "illisible";
+
+/** Par groupe, l'état lu une seule fois par connexion de service (une recherche par groupe et par passe, pas par compte). */
+export type CacheGroupes = Map<string, Promise<EtatGroupe>>;
+
+function etatDuGroupe(
+  cnx: ConnexionAnnuaire,
+  f: FournisseurLdap,
+  g: string,
+  cache: CacheGroupes,
+): Promise<EtatGroupe> {
+  let r = cache.get(g);
+  if (r === undefined) {
+    r = (async (): Promise<EtatGroupe> => {
+      try {
+        if (!(await groupeExiste(cnx, g))) return "absent";
+        return (await groupeAMembreVisible(cnx, f, g)) ? "visible" : "sans_membre";
+      } catch (e) {
+        if (!(e instanceof ErreurAnnuaire)) throw e;
+        return "illisible";
+      }
+    })();
+    cache.set(g, r);
+  }
+  return r;
+}
+
+/** Groupes de rôles ou de correspondance dont le compte de service ne voit aucun membre, d'après le cache d'une passe. */
+export async function groupesSansMembreVisible(cache: CacheGroupes): Promise<string[]> {
+  const r: string[] = [];
+  for (const [g, etat] of cache) if ((await etat) === "sans_membre") r.push(g);
+  return r;
+}
+
+/** Appartenance de l'entrée à chaque groupe à lire : une erreur d'annuaire, un groupe introuvable ou sans membre visible ne valent jamais « non » mais « inconnu ». */
 export async function lireDroitsAnnuaire(
   cnx: ConnexionAnnuaire,
   f: FournisseurLdap,
   entree: EntreeAnnuaire,
+  cache: CacheGroupes = new Map(),
 ): Promise<Lecture> {
   const lecture = new Map<string, Appartenance>();
   for (const g of groupesALire(f)) {
     try {
       if (await appartient(cnx, f, entree, g)) lecture.set(g, "oui");
-      else lecture.set(g, (await groupeExiste(cnx, g)) ? "non" : "inconnu");
+      else lecture.set(g, (await etatDuGroupe(cnx, f, g, cache)) === "visible" ? "non" : "inconnu");
     } catch (e) {
       if (!(e instanceof ErreurAnnuaire)) throw e;
       lecture.set(g, "inconnu");
@@ -50,6 +86,13 @@ export async function verdictGroupesDroits(
     return {
       level: "fail",
       detail: `Groupe de rôles ou de correspondance introuvable : ${absents.join(" ; ")}.`,
+    };
+  const masques: string[] = [];
+  for (const g of lus) if (!(await groupeAMembreVisible(cnx, f, g))) masques.push(propre(g));
+  if (masques.length > 0)
+    return {
+      level: "warn",
+      detail: `Aucun membre visible dans ce groupe : les rôles ne seront pas modifiés. ${masques.join(" ; ")}.`,
     };
   const admin = rolesActifs(f) && f.roles.admin_groups.length > 0;
   return {

@@ -27,6 +27,8 @@ export interface DependancesDroits {
   readonly journal: Journal;
   /** Flux ouverts du compte coupés dans tous les process. */
   readonly revoquer?: (uid: number) => Promise<unknown>;
+  /** Flux coupés et exécutions du compte arrêtées (préféré à `revoquer` pour une rétrogradation). */
+  readonly publierSuspension?: (uid: number) => Promise<unknown>;
 }
 
 export interface BilanDroits {
@@ -48,18 +50,28 @@ export function fournisseursAuRoleGere(): ReadonlySet<string> {
 
 const donneAdmin = (f: Fournisseur): boolean => f.roles.enabled && f.roles.admin_groups.length > 0;
 
-/** 409 si l'enregistrement donne le rôle d'administrateur sans second facteur exigé (SSO) ou, quand la correspondance d'administrateurs est nouvelle ou changée, sans confirmation explicite. */
-export function exigerConfirmationAdmin(actuel: Fournisseur, nouveau: Fournisseur, confirme: boolean): void {
+const trier = (l: readonly string[]): string[] => [...l].sort();
+
+/** Ce qui fait le sens d'une correspondance d'administrateurs : les groupes et la façon de les lire. */
+function sensAdmin(f: Fournisseur): string {
+  const lecture =
+    f.type === "ldap" ? [f.groups.mode] : [f.groups_claim, trier(f.required_acr), trier(f.required_amr)];
+  return JSON.stringify([trier(f.roles.admin_groups), lecture]);
+}
+
+/** 409 si l'enregistrement donne le rôle d'administrateur sans second facteur exigé (SSO) ou, quand le sens de la correspondance d'administrateurs est nouveau ou changé, sans confirmation explicite. */
+export function exigerConfirmationAdmin(
+  actuel: Fournisseur | null,
+  nouveau: Fournisseur,
+  confirme: boolean,
+): void {
   if (!donneAdmin(nouveau)) return;
   if (!adminAdmis(nouveau))
     throw new HttpError(
       409,
       "Un groupe d'administrateurs exige que ce fournisseur impose un second facteur.",
     );
-  const identique =
-    donneAdmin(actuel) &&
-    actuel.roles.admin_groups.length === nouveau.roles.admin_groups.length &&
-    actuel.roles.admin_groups.every((g) => nouveau.roles.admin_groups.includes(g));
+  const identique = actuel !== null && donneAdmin(actuel) && sensAdmin(actuel) === sensAdmin(nouveau);
   if (!identique && !confirme)
     throw new HttpError(409, "Confirmez que les membres de ces groupes deviennent administrateurs.");
 }
@@ -169,7 +181,7 @@ export async function appliquerDroits(
     });
   if (bilan.role !== null && !estPlusHaut(bilan.role.vers, bilan.role.de)) {
     try {
-      await dep.revoquer?.(e.uid);
+      await (dep.publierSuspension ?? dep.revoquer)?.(e.uid);
     } catch (err) {
       dep.journal.warn({ err }, `fournisseur ${f.id} : coupure des flux d'un compte rétrogradé non publiée`);
     }

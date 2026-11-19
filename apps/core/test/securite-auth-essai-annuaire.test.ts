@@ -142,8 +142,16 @@ class AnnuaireEssai {
         .filter((u) => u.attrs["primarygroupid"]?.[0] === principal[1])
         .map((u) => ({ dn: u.dn, attrs: {} }));
     const membre = /^\(\|\(member=(.*)\)\(uniqueMember=.*\)\)$/u.exec(o.filtre);
-    if (membre !== null)
+    if (membre !== null) {
+      if (membre[1] === "*") return (this.membres[base]?.length ?? 0) > 0 ? [{ dn: base, attrs: {} }] : [];
       return this.membres[base]?.includes(membre[1] ?? "") ? [{ dn: base, attrs: {} }] : [];
+    }
+    const deGroupe = /^\(memberOf=(.*)\)$/u.exec(o.filtre);
+    if (deGroupe !== null)
+      return (this.membres[deGroupe[1] ?? ""] ?? [])
+        .filter((dn) => base === BASE || dn === base)
+        .slice(0, 1)
+        .map((dn) => ({ dn, attrs: {} }));
     const uid = /\(uid=([^)]*)\)/u.exec(o.filtre);
     if (uid === null || base !== BASE) return [];
     return this.utilisateurs

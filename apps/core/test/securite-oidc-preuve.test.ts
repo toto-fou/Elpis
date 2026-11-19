@@ -12,6 +12,7 @@ import {
   adresseNeuve,
   cookies,
   ELPIS,
+  GROUPE,
   HOTE_PUBLIC,
   ouvrirBancOidc,
   URL_PUBLIQUE,
@@ -411,6 +412,66 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
       expect(u.searchParams.has("id_token_hint")).toBe(true);
       expect(u.searchParams.get("client_id")).toBe("elpis");
       expect(await b.t.base.valeurs("SELECT COUNT(*) FROM auth_ext_sessions")).toEqual([[0]]);
+    });
+  });
+
+  describe("rôles donnés par le SSO : la preuve n'applique les droits qu'en baisse", () => {
+    const MODS = { roles: { enabled: true, admin_groups: [], moderator_groups: ["mods"] } };
+    const niveau = async (): Promise<number> =>
+      Number(
+        (await b.t.base.get<{ is_admin: number }>("SELECT is_admin FROM users WHERE id=?", [jean]))?.is_admin,
+      );
+    const vivante = async (session: string): Promise<boolean> =>
+      (await b.main.inject({ method: "GET", url: "/api/me-lite", headers: { cookie: session } })).json<{
+        logged_in?: boolean;
+      }>().logged_in === true;
+
+    it("un compte administrateur qui n'est plus dans le groupe est rétrogradé avant l'ouverture de la session", async () => {
+      await b.t.base.ecriture(async (x) => {
+        await x.run("DELETE FROM auth_prelinks");
+      });
+      await b.t.base.run("UPDATE users SET is_admin=1 WHERE id=?", [jean]);
+      await preparer(jean, "jean.dupont", { admin: true });
+      await b.reglages(MODS);
+      const { cookie } = await retourDeJean();
+      const r = await prouver({ password: "mdp-local-1" }, cookie);
+      expect(r.statusCode, r.body).toBe(200);
+      expect(await niveau()).toBe(0);
+      expect(await vivante(cookies(r, cookie))).toBe(true);
+      expect(
+        lignesAuditRecentes({ actionPrefix: "auth.role.sync" }).find(
+          (e) => e["action"] === "auth.role.sync",
+        )?.["details"],
+      ).toMatchObject({ provider_id: "sso", from: "admin", to: "user" });
+    });
+
+    it("membre du groupe des modérateurs : aucune montée par la preuve ; elle vient à la connexion suivante", async () => {
+      await b.reglages(MODS);
+      const { cookie } = await retourDeJean("jean.dupont", { groups: [GROUPE, "mods"] });
+      const r = await prouver({ password: "mdp-local-1" }, cookie);
+      expect(r.statusCode, r.body).toBe(200);
+      expect(await niveau()).toBe(0);
+      expect(
+        lignesAuditRecentes({ actionPrefix: "auth.role.sync" }).filter(
+          (e) => e["action"] === "auth.role.sync",
+        ),
+      ).toEqual([]);
+      await b.connecter(ELPIS("sub-jd", { preferred_username: "jean.dupont", groups: [GROUPE, "mods"] }));
+      expect(await niveau()).toBe(2);
+    });
+
+    it("groupes illisibles dans le jeton : rien ne bouge", async () => {
+      await b.t.base.run("DELETE FROM auth_prelinks");
+      await b.t.base.run("UPDATE users SET is_admin=2 WHERE id=?", [jean]);
+      await preparer(jean, "jean.dupont", { admin: true });
+      await b.reglages(MODS);
+      const { cookie } = await retourDeJean();
+      await b.t.base.run(
+        "UPDATE auth_flows SET profile_json=REPLACE(profile_json, '\"groupes\"', '\"autre\"') WHERE stage='proof'",
+      );
+      const r = await prouver({ password: "mdp-local-1" }, cookie);
+      expect(r.statusCode, r.body).toBe(200);
+      expect(await niveau()).toBe(2);
     });
   });
 

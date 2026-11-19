@@ -237,10 +237,42 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
     return vue(base);
   }
 
+  /** 400 si une correspondance nouvelle vise un groupe Elpis qui n'existe pas. */
+  async function exigerGroupesElpis(
+    x: Executeur,
+    nouveau: Fournisseur,
+    actuel: Fournisseur | null,
+  ): Promise<void> {
+    const connus = new Set(actuel?.group_map.map.map((m) => m.group_id));
+    const ids = [...new Set(nouveau.group_map.map.map((m) => m.group_id))].filter((i) => !connus.has(i));
+    if (ids.length === 0) return;
+    const presents = new Set(
+      (
+        await x.valeurs<[unknown]>(
+          `SELECT id FROM "groups" WHERE id IN (${ids.map(() => "?").join(",")})`,
+          ids,
+        )
+      ).map(([g]) => Number(g)),
+    );
+    if (ids.some((i) => !presents.has(i)))
+      throw new HttpError(400, "Champ « group_map.map.group_id » : ce groupe n'existe pas.");
+  }
+
+  function sansConfirmation(req: FastifyRequest): { corps: unknown; confirme: boolean } {
+    const recu = corpsJson(req);
+    const { confirm_admin_mapping: confirmation, ...reste } = estDict(recu) ? recu : ({} as Dict);
+    if (confirmation !== undefined && typeof confirmation !== "boolean")
+      throw new HttpError(400, "Champ « confirm_admin_mapping » : vrai ou faux attendu.");
+    return { corps: estDict(recu) ? reste : recu, confirme: confirmation === true };
+  }
+
   async function creer(req: FastifyRequest): Promise<unknown> {
-    const f = validerCreation(corpsJson(req));
+    const { corps, confirme } = sansConfirmation(req);
+    const f = validerCreation(corps);
     await ecrire(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
+      exigerConfirmationAdmin(null, f, confirme);
+      await exigerGroupesElpis(x, f, null);
       if (providers.length >= FOURNISSEURS_MAX)
         throw new HttpError(400, `${FOURNISSEURS_MAX} fournisseurs au plus.`);
       if (positionDuFournisseur(providers, f.id) >= 0)
@@ -263,16 +295,13 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   async function modifier(req: FastifyRequest): Promise<unknown> {
     const id = idDuChemin(req);
-    const recu = corpsJson(req);
-    const { confirm_admin_mapping: confirmation, ...reste } = estDict(recu) ? recu : ({} as Dict);
-    const corps = estDict(recu) ? reste : recu;
-    if (confirmation !== undefined && typeof confirmation !== "boolean")
-      throw new HttpError(400, "Champ « confirm_admin_mapping » : vrai ou faux attendu.");
+    const { corps, confirme } = sansConfirmation(req);
     const [avant, apres] = await ecrire<[Fournisseur, Fournisseur]>(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
       const { f: actuel, i } = fournisseurDuFichier(providers, id);
       const nouveau = validerModification(corps, actuel);
-      exigerConfirmationAdmin(actuel, nouveau, confirmation === true);
+      exigerConfirmationAdmin(actuel, nouveau, confirme);
+      await exigerGroupesElpis(x, nouveau, actuel);
       const publique = reglagesAuthDepuis(cfg["auth"]).public_url;
       if (
         actuel.enabled &&

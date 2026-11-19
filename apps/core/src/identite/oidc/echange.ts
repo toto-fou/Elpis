@@ -73,6 +73,12 @@ function causeDe(e: unknown): string {
   return `lib:${typeof code === "string" && /^[A-Z0-9_]{1,64}$/u.test(code) ? code : ((e as Error | null)?.name ?? "inconnu")}`;
 }
 
+/** Vrai quand le point de jetons refuse l'authentification du client (`invalid_client`, ou 401 avec défi). */
+function authentificationClientRefusee(e: unknown): boolean {
+  if (e instanceof ResponseBodyError) return e.error === "invalid_client";
+  return (e as { code?: unknown } | null)?.code === "OAUTH_WWW_AUTHENTICATE_CHALLENGE";
+}
+
 function refusDe(e: unknown): RefusOidc {
   if (e instanceof RefusOidc) return e;
   return new RefusOidc(chaineDansCause(e) === null ? "failed" : "unavailable", causeDe(e));
@@ -116,6 +122,8 @@ export async function verifierRetour(
       ...(f.max_age_sec > 0 ? { maxAge: f.max_age_sec } : {}),
     });
   } catch (err) {
+    if (chaineDansCause(err) === null && authentificationClientRefusee(err))
+      throw new RefusOidc("failed", "client_auth_rejected");
     throw refusDe(err);
   }
   const claims = jetons.claims();
@@ -123,6 +131,8 @@ export async function verifierRetour(
   if (typeof claims.iat !== "number" || claims.iat > e.maintenant + f.clock_skew_sec)
     throw new RefusOidc("failed", "iat_in_future");
   if (claims.azp !== undefined && claims.azp !== f.client_id) throw new RefusOidc("failed", "azp_mismatch");
+  if (Array.isArray(claims.aud) && claims.aud.some((a) => a !== f.client_id))
+    throw new RefusOidc("failed", "aud_untrusted");
   const sujet = sujetDe(claims, f);
   if (sujet === null) throw new RefusOidc("failed", "subject_invalid");
   if (!secondFacteurSatisfait(claims, f)) throw new RefusOidc("mfa_required", "acr_amr");

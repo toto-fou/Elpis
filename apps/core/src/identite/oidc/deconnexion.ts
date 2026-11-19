@@ -84,6 +84,8 @@ export async function verifierJetonDeconnexion(
       requiredClaims: ["exp"],
     });
     payload = verifie.payload as Record<string, unknown>;
+    const aud = payload["aud"];
+    if (Array.isArray(aud) && aud.some((x) => x !== f.client_id)) throw refus("bad_audience");
   } catch (e) {
     throw refus(raisonJose(e));
   }

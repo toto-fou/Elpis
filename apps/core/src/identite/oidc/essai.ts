@@ -7,6 +7,7 @@ import type { EtapeEssai } from "../etapes";
 import { hotePortHttps } from "../reglages";
 import type { FournisseurOidc } from "../reglages";
 import { classerErreur } from "../sortant";
+import { USERINFO_HORS_ORIGINE } from "./metadonnees";
 
 const ALGOS_REFUSES = /^(none|HS(256|384|512))$/u;
 const FAMILLE: Readonly<Record<string, string>> = { RS: "RSA", PS: "RSA", ES: "EC", Ed: "OKP" };
@@ -114,6 +115,18 @@ function etapePkce(m: ServerMetadata, cible: string): EtapeEssai | null {
       );
 }
 
+function etapeUserinfo(m: ServerMetadata, cible: string): EtapeEssai | null {
+  return m[USERINFO_HORS_ORIGINE] === true
+    ? etape(
+        "userinfo",
+        "Point d'information",
+        "warn",
+        "Le point d'information du fournisseur est sur une autre origine : il n'est pas utilisé. L'identifiant et les groupes doivent figurer dans le jeton d'identité.",
+        cible,
+      )
+    : null;
+}
+
 function etapeAuthentification(f: FournisseurOidc, m: ServerMetadata, cible: string): EtapeEssai {
   const methode = f.client_auth === "basic" ? "client_secret_basic" : "client_secret_post";
   const annonces = m.token_endpoint_auth_methods_supported;
@@ -157,6 +170,8 @@ export async function etapesOidc(
   etapes.push(await etapeCles(f, m, c, cible));
   const pkce = etapePkce(m, cible);
   if (pkce !== null) etapes.push(pkce);
+  const info = etapeUserinfo(m, cible);
+  if (info !== null) etapes.push(info);
   etapes.push(etapeAuthentification(f, m, cible));
   etapes.push(
     (await c.secretEnregistre(f)) === null

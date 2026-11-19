@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/conformite/oidc-produits-cas.test.ts — interopérabilité OIDC : les particularités de chaque produit (émetteur et chemins, forme des groupes, sujet, authentification du client, PAR, paramètre `iss`) qui fondent le verdict du produit. */
+import { createServer } from "node:net";
+import type { Server } from "node:net";
 import { URL } from "node:url";
 
 import { validerFournisseur } from "../../src/identite/reglages";
@@ -89,7 +91,6 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       const e = profil("entra");
       it("Entra : émetteur en gabarit `{tenantid}` (point d'entrée `common`) refusé : l'émetteur annoncé n'est pas celui du réglage", async () => {
         const x = await ouvrirProfil(moteur, e, {
-          surOrigine: true,
           idp: { racine: "/common/v2.0" },
           decouverte: { issuer: "https://login.microsoftonline.com/{tenantid}/v2.0" },
         });
@@ -97,7 +98,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       });
 
       it("Entra : dépassement de groupes (`_claim_names` + `_claim_sources`) : appartenance inconnue, aucune connexion", async () => {
-        const x = await ouvrirProfil(moteur, e, { surOrigine: true });
+        const x = await ouvrirProfil(moteur, e);
         const u = e.utilisateur("alice");
         const trop = {
           ...u,
@@ -112,7 +113,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       });
 
       it("Entra : `hasgroups` sans liste de groupes : appartenance inconnue", async () => {
-        const x = await ouvrirProfil(moteur, e, { surOrigine: true });
+        const x = await ouvrirProfil(moteur, e);
         const u = e.utilisateur("alice");
         expect(
           codeRefus(
@@ -121,8 +122,31 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
         ).toBe("groups_unknown");
       });
 
+      it("Entra : groupes (identifiants d'objet) dans le jeton d'identité : connexion ; le point d'information hors origine n'est jamais contacté, groupes absents du jeton : groups_unknown", async () => {
+        let touches = 0;
+        const ecouteur: Server = createServer((s) => {
+          touches += 1;
+          s.destroy();
+        });
+        await new Promise<void>((ok) => ecouteur.listen(0, "127.0.0.1", () => ok()));
+        const port = (ecouteur.address() as { port: number }).port;
+        try {
+          const x = await ouvrirProfil(moteur, e, {
+            decouverte: { userinfo_endpoint: `https://elpis-test.invalid:${port}/oidc/userinfo` },
+          });
+          const u = e.utilisateur("alice");
+          expect(Array.isArray(u.claims?.["groups"])).toBe(true);
+          expect((await x.connecter(u)).retour.statusCode).toBe(200);
+          const sans = { ...u, claims: { ...u.claims, groups: undefined } };
+          expect(codeRefus((await x.connecter(sans)).retour)).toBe("groups_unknown");
+          expect(touches).toBe(0);
+        } finally {
+          await new Promise<void>((ok) => ecouteur.close(() => ok()));
+        }
+      });
+
       it("Entra : `aud` est l'identifiant (GUID) de l'application, `sub` pairwise de 43 caractères, `tid` ignoré : parcours", async () => {
-        const x = await ouvrirProfil(moteur, e, { surOrigine: true });
+        const x = await ouvrirProfil(moteur, e);
         const u = e.utilisateur("alice");
         expect(u.sub).toHaveLength(43);
         expect((await x.connecter(u)).retour.statusCode).toBe(200);
@@ -131,10 +155,40 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
 
     describe("AD FS", () => {
       const a = profil("adfs");
-      it("AD FS : une personne dans un seul groupe voit la revendication rendue en chaîne : refusé (groups_unknown), refusé par choix (plus strict que la norme)", async () => {
+      it("AD FS : une personne dans un seul groupe voit la revendication rendue en chaîne : lue comme un groupe quand la chaîne est exactement le groupe requis", async () => {
         const x = await ouvrirProfil(moteur, a);
-        const { retour } = await x.connecter(a.utilisateur("alice", ["elpis"]));
-        expect(codeRefus(retour)).toBe("groups_unknown");
+        const u = a.utilisateur("alice");
+        const { retour } = await x.connecter({ ...u, claims: { ...u.claims, group: "elpis" } });
+        expect(retour.statusCode, retour.body).toBe(200);
+      });
+
+      it("AD FS : chaîne unique non réglée, groupes collés (`;`, `,`, espaces) ou objet : groups_unknown, jamais découpés ni rognés", async () => {
+        const x = await ouvrirProfil(moteur, a);
+        const u = a.utilisateur("alice");
+        for (const group of [
+          "autre",
+          "",
+          "elpis;Domain Users",
+          "elpis, Domain Users",
+          "elpis,Domain Users",
+          " elpis",
+          "elpis ",
+          { elpis: true },
+        ])
+          expect(
+            codeRefus((await x.connecter({ ...u, claims: { ...u.claims, group } })).retour),
+            JSON.stringify(group),
+          ).toBe("groups_unknown");
+      });
+
+      it("AD FS : chaîne égale à un groupe de rôle mais pas au groupe requis : not_in_group", async () => {
+        const x = await ouvrirProfil(moteur, a, {
+          extra: { roles: { enabled: true, admin_groups: [], moderator_groups: ["moderateurs"] } },
+        });
+        const u = a.utilisateur("alice");
+        expect(
+          codeRefus((await x.connecter({ ...u, claims: { ...u.claims, group: "moderateurs" } })).retour),
+        ).toBe("not_in_group");
       });
 
       it("AD FS : plusieurs groupes (tableau) lus, `upn` pour l'identifiant, points d'accès avec barre finale", async () => {
@@ -333,7 +387,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
           extra: { client_auth: "post" },
         });
         expect(codeRefus((await x.connecter(p.utilisateur("alice"))).retour)).toBe("failed");
-        expect(causeDuDernierRefus()).toContain("invalid_client");
+        expect(causeDuDernierRefus()).toBe("client_auth_rejected");
       });
     });
 

@@ -307,18 +307,30 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("requête d'autorisation et r
         );
         const r = await b.connecter(ELPIS("sub-x"));
         expect(codeRefus(r.retour)).toBe("failed");
-        expect(causeDuDernierRefus()).toBe(`token_endpoint:${erreur}`);
+        expect(causeDuDernierRefus()).toBe(
+          erreur === "invalid_client" ? "client_auth_rejected" : `token_endpoint:${erreur}`,
+        );
         expect(JSON.stringify(lignesAuditRecentes({ limit: 100 })) + lignesJournal.join("\n")).not.toContain(
           "SECRET-DU-FOURNISSEUR",
         );
       },
     );
-    it("§5.2 : 401 `invalid_client` avec `WWW-Authenticate: Basic` : refus `failed`", async () => {
+    it("§5.2 : 401 `invalid_client` avec `WWW-Authenticate: Basic` : refus `failed`, cause `client_auth_rejected`", async () => {
       repondre(401, JSON.stringify({ error: "invalid_client" }), {
         "content-type": "application/json",
         "www-authenticate": 'Basic realm="x"',
       });
       expect(codeRefus((await b.connecter(ELPIS("sub-x"))).retour)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("client_auth_rejected");
+    });
+    it("§2.3.1 : 401 avec défi `WWW-Authenticate` sans corps : cause `client_auth_rejected`, aucune session, rien du secret ni du corps journalisé", async () => {
+      repondre(401, "CORPS-DU-FOURNISSEUR", { "content-type": "text/plain", "www-authenticate": "Basic" });
+      expect(codeRefus((await b.connecter(ELPIS("sub-x"))).retour)).toBe("failed");
+      expect(causeDuDernierRefus()).toBe("client_auth_rejected");
+      const tout = JSON.stringify(lignesAuditRecentes({ limit: 100 })) + lignesJournal.join("\n");
+      expect(tout).not.toContain("CORPS-DU-FOURNISSEUR");
+      expect(tout).not.toContain("secret-client-de-test");
+      expect(await b.utilisateurs()).toEqual(["chef"]);
     });
     it("§5.2 : erreur dont le nom sort de l'alphabet fermé : cause `autre`", async () => {
       repondre(400, JSON.stringify({ error: "Erreur Du Produit!" }));

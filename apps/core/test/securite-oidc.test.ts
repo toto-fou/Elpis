@@ -289,9 +289,33 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       await refuse(ELPIS("s"), "groups_unknown");
     });
     it("revendication d'un autre type : `groups_unknown`", async () => {
-      await refuse(ELPIS("s", { groups: "elpis" }), "groups_unknown");
+      await refuse(ELPIS("s", { groups: "autre" }), "groups_unknown");
+      await refuse(ELPIS("s", { groups: "elpis;autre" }), "groups_unknown");
+      await refuse(ELPIS("s", { groups: "" }), "groups_unknown");
       await refuse(ELPIS("s", { groups: [1, 2] }), "groups_unknown");
       await refuse(ELPIS("s", { groups: { elpis: true } }), "groups_unknown");
+    });
+    it("chaîne unique égale au groupe requis : connexion ; égale à un groupe de rôle seulement : `not_in_group`", async () => {
+      await b.reglages({ roles: { enabled: true, admin_groups: [], moderator_groups: ["mods"] } });
+      await refuse(ELPIS("s", { groups: "mods" }), "not_in_group");
+      expect((await b.connecter(ELPIS("sub-un", { groups: "elpis" }))).retour.statusCode).toBe(200);
+    });
+    it("rôles d'après une chaîne : l'administrateur n'est admis qu'avec un second facteur exigé, comme avec une liste", async () => {
+      const niveau = async (nom: string): Promise<number> =>
+        Number(
+          (await b.t.base.get<{ is_admin: number }>("SELECT is_admin FROM users WHERE username=?", [nom]))
+            ?.is_admin,
+        );
+      await b.reglages({
+        required_groups: ["elpis", "admins"],
+        roles: { enabled: true, admin_groups: ["admins"], moderator_groups: ["mods"] },
+      });
+      expect((await b.connecter(ELPIS("sub-sans", { groups: "admins" }))).retour.statusCode).toBe(200);
+      expect(await niveau("sub-sans")).toBe(0);
+      await b.reglages({ required_amr: ["otp"] });
+      b.idp.pieges = { claims: { amr: ["pwd", "otp"] } };
+      expect((await b.connecter(ELPIS("sub-avec", { groups: "admins" }))).retour.statusCode).toBe(200);
+      expect(await niveau("sub-avec")).toBe(1);
     });
     it("groupes en dépassement (`_claim_names`, `hasgroups`) : `groups_unknown` même avec une liste présente", async () => {
       await refuse(
@@ -699,12 +723,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
 
   describe("points d'accès, tailles, redirections, proxy", () => {
     it("point de jetons, clés, informations ou poussée sur une autre origine : le départ échoue, aucun secret ne part", async () => {
-      for (const champ of [
-        "token_endpoint",
-        "jwks_uri",
-        "userinfo_endpoint",
-        "pushed_authorization_request_endpoint",
-      ]) {
+      for (const champ of ["token_endpoint", "jwks_uri", "pushed_authorization_request_endpoint"]) {
         b.idp.decouverte = { [champ]: "https://autre.exemple.lan/x" };
         await b.reglages({ label: `x-${champ}`.slice(0, 20) });
         const r = await b.demarrer();
@@ -742,6 +761,27 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       b.idp.traces.length = 0;
       expect(refus(await b.retourner(retour, { cookie: d.cookie })).code).toBe("unavailable");
       expect(b.idp.traces.map((t) => t.chemin)).toEqual(["/realms/elpis/token"]);
+    });
+
+    it("point d'information sur une autre origine : ignoré, jamais contacté, le parcours reste celui du jeton d'identité", async () => {
+      let touches = 0;
+      const ecouteur: Server = createServer((s) => {
+        touches += 1;
+        s.destroy();
+      });
+      await new Promise<void>((ok) => ecouteur.listen(0, "127.0.0.1", () => ok()));
+      const port = (ecouteur.address() as { port: number }).port;
+      try {
+        b.idp.decouverte = { userinfo_endpoint: `https://autre.exemple.lan:${port}/userinfo` };
+        await b.reglages({ label: "hors-origine" });
+        expect((await b.connecter(ELPIS("sub-ho"))).retour.statusCode).toBe(200);
+        b.idp.pieges = { sans: ["groups"] };
+        expect(refus((await b.connecter(ELPIS("sub-ho2"))).retour).code).toBe("groups_unknown");
+        expect(touches).toBe(0);
+        expect(b.idp.traces.some((t) => t.chemin.endsWith("/userinfo"))).toBe(false);
+      } finally {
+        await new Promise<void>((ok) => ecouteur.close(() => ok()));
+      }
     });
 
     it("`HTTPS_PROXY` piégé dans l'environnement : jamais contacté, le parcours réussit", async () => {

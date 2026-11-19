@@ -137,10 +137,9 @@ export const PROFILS: readonly ProfilProduit[] = [
       "https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference",
     ],
     sourcage: "document public",
-    verdict: "non",
+    verdict: "reglage",
     resume:
-      "ne fonctionne pas : le point UserInfo est sur graph.microsoft.com, hors de l'origine de l'émetteur",
-    horsOrigine: true,
+      "fonctionne avec ce réglage : le point UserInfo (graph.microsoft.com) est hors de l'origine de l'émetteur donc ignoré, l'identifiant et les groupes (identifiants d'objet) doivent figurer dans le jeton d'identité",
     idp: {
       racine: `/${TENANT}/v2.0`,
       alg: "RS256",
@@ -153,8 +152,8 @@ export const PROFILS: readonly ProfilProduit[] = [
         logout: `/${TENANT}/oauth2/v2.0/logout`,
       },
     },
-    decouverte: (idp, surOrigine = false) => ({
-      userinfo_endpoint: surOrigine ? undefined : "https://graph.microsoft.com/oidc/userinfo",
+    decouverte: (idp) => ({
+      userinfo_endpoint: "https://graph.microsoft.com/oidc/userinfo",
       backchannel_logout_supported: undefined,
       frontchannel_logout_supported: true,
       http_logout_supported: true,
@@ -215,7 +214,7 @@ export const PROFILS: readonly ProfilProduit[] = [
     sourcage: "documentation",
     verdict: "reglage",
     resume:
-      "fonctionne avec ce réglage : `groups_claim` = `group`, `username_claim` = `upn` ; une personne à un seul groupe est refusée (revendication rendue en chaîne)",
+      "fonctionne avec ce réglage : `groups_claim` = `group`, `username_claim` = `upn` ; une personne à un seul groupe est lue (revendication rendue en chaîne) quand cette chaîne est un groupe réglé",
     idp: {
       racine: "/adfs",
       alg: "RS256",

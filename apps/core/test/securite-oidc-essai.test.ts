@@ -117,6 +117,22 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur OIDC", () => {
     idp.decouverte = {};
   });
 
+  it("point d'information sur une autre origine : étape `userinfo` en avertissement, adresse non rappelée ; sur l'origine : aucune étape", async () => {
+    expect(await tester()).toMatchObject({
+      par: expect.not.objectContaining({ userinfo: expect.anything() }),
+    });
+    idp.decouverte = { userinfo_endpoint: "https://autre.exemple.lan/secret-userinfo" };
+    const r = await tester();
+    expect(r.par["userinfo"]).toBe("warn");
+    expect(r.ok).toBe(true);
+    const detail = r.steps.find((e) => e.id === "userinfo")?.detail ?? "";
+    expect(detail).toBe(
+      "Le point d'information du fournisseur est sur une autre origine : il n'est pas utilisé. L'identifiant et les groupes doivent figurer dans le jeton d'identité.",
+    );
+    expect(JSON.stringify(r)).not.toContain("autre.exemple.lan");
+    idp.decouverte = {};
+  });
+
   it("seules les clés que la bibliothèque acceptera sont comptées : RSA de moins de 2048 bits, Ed448 pour EdDSA, mauvais usage ou courbe écartés", async () => {
     const jwk = (
       type: "rsa" | "ed448" | "ed25519" | "ec",

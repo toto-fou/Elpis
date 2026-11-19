@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { oauthNextAdmis } from "../../src/identite/oidc/depart";
-import { lireMetadonnees } from "../../src/identite/oidc/metadonnees";
+import { lireMetadonnees, USERINFO_HORS_ORIGINE } from "../../src/identite/oidc/metadonnees";
 import { pageRetour } from "../../src/identite/oidc/page";
 import {
   appartenanceDe,
@@ -48,12 +48,25 @@ describe("revendications", () => {
   it("groupes : liste de chaînes, sinon inconnus ; appartenance oui, non ou inconnu", () => {
     expect(groupesDe({ groups: ["a", "elpis"] }, f())).toEqual(["a", "elpis"]);
     expect(groupesDe({ groups: [] }, f())).toEqual([]);
-    for (const groups of [undefined, "elpis", [1], {}, null]) expect(groupesDe({ groups }, f())).toBeNull();
+    for (const groups of [undefined, "autre", "", "elpis;x", " elpis", [1], {}, null])
+      expect(groupesDe({ groups }, f())).toBeNull();
     expect(groupesDe({ groups: ["elpis"], hasgroups: true }, f())).toBeNull();
     expect(groupesDe({ groups: ["elpis"], _claim_names: { groups: "s" } }, f())).toBeNull();
     expect(appartenanceDe(["elpis"], f())).toBe("oui");
     expect(appartenanceDe([], f())).toBe("non");
     expect(appartenanceDe(null, f())).toBe("inconnu");
+  });
+
+  it("groupes : une chaîne égale à une valeur réglée (requis, rôles, correspondances) est la liste d'un élément, sans découpage ni rognage", () => {
+    const g = f({
+      roles: { enabled: true, admin_groups: ["adm"], moderator_groups: ["mod"] },
+      group_map: { enabled: true, map: [{ external: "equipe a;b", group_id: 3 }] },
+    });
+    for (const v of ["elpis", "adm", "mod", "equipe a;b"])
+      expect(groupesDe({ groups: v }, g), v).toEqual([v]);
+    for (const v of ["", "elpis;adm", "elpis,adm", "ELPIS", "elpis ", "equipe a", "equipe a; b"])
+      expect(groupesDe({ groups: v }, g), v).toBeNull();
+    expect(groupesDe({ groups: "elpis", hasgroups: true }, g)).toBeNull();
   });
 
   it("`acr` et `amr` : seules les valeurs réglées passent", () => {
@@ -120,13 +133,24 @@ describe("document de découverte", () => {
       doc({ authorization_endpoint: "http://login.exemple.lan/auth" }),
       doc({ token_endpoint: "https://autre.exemple.lan/token" }),
       doc({ jwks_uri: "https://user:mdp@idp.exemple.lan/certs" }),
-      doc({ userinfo_endpoint: "https://autre.exemple.lan/u" }),
+      doc({ userinfo_endpoint: "http://idp.exemple.lan/u" }),
+      doc({ userinfo_endpoint: 5 }),
       doc({ pushed_authorization_request_endpoint: "https://autre.exemple.lan/par" }),
       [],
       null,
       "texte",
     ];
     for (const d of refus) expect(lireMetadonnees(d, ISS).ok, JSON.stringify(d)).toBe(false);
+  });
+
+  it("point d'information hors de l'origine : non retenu et signalé, sans refuser le document ; sur l'origine : retenu", () => {
+    const hors = lireMetadonnees(doc({ userinfo_endpoint: "https://autre.exemple.lan/u" }), ISS);
+    expect(hors.ok && hors.metadonnees.userinfo_endpoint).toBeUndefined();
+    expect(hors.ok && hors.metadonnees[USERINFO_HORS_ORIGINE]).toBe(true);
+    expect(JSON.stringify(hors)).not.toContain("autre.exemple.lan");
+    const sur = lireMetadonnees(doc({ userinfo_endpoint: `${ISS}/userinfo` }), ISS);
+    expect(sur.ok && sur.metadonnees.userinfo_endpoint).toBe(`${ISS}/userinfo`);
+    expect(sur.ok && sur.metadonnees[USERINFO_HORS_ORIGINE]).toBeUndefined();
   });
 
   it("l'émetteur n'est jamais lu depuis le prototype", () => {

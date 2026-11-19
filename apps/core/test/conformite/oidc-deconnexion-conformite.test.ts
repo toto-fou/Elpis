@@ -63,8 +63,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
     it("§2.4 : `sid` seul accepté", async () => accepte({}, { sid: "idp-sid" }));
     it("§2.4 : `sub` seul accepté", async () => accepte({}, { sub: "sub-x" }));
     it("§2.4 : ni `sid` ni `sub` refusé", async () => refuse({}, {}));
-    it("§2.4 : `aud` en liste contenant le client accepté", async () =>
-      accepte({ claims: { aud: ["elpis", "autre-rp"] } }));
+    it("§2.4 : `aud` en liste d'un seul élément égal au client accepté ; avec un public de plus refusé (aucun autre public de confiance)", async () => {
+      await accepte({ claims: { aud: ["elpis"] } });
+      await refuse({ claims: { aud: ["elpis", "autre-rp"] } });
+    });
     it("§2.4 : `aud` en liste sans le client refusé", async () => refuse({ claims: { aud: ["autre-rp"] } }));
     it("§2.4 : `exp` absent refusé (REQUIRED)", async () => refuse({ sans: ["exp"], claims: {} }));
     it("§2.4 : `events` avec le membre de déconnexion et d'autres événements : accepté", async () =>

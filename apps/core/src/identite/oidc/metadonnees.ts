@@ -4,7 +4,10 @@ import type { ServerMetadata } from "openid-client";
 
 /** Points visités par le serveur, exigés sur la même origine que l'émetteur (le point d'autorisation, visité par le navigateur, doit seulement être en https). */
 const POINTS_SERVEUR = ["token_endpoint", "jwks_uri"] as const;
-const POINTS_SERVEUR_FACULTATIFS = ["userinfo_endpoint", "pushed_authorization_request_endpoint"] as const;
+const POINTS_SERVEUR_FACULTATIFS = ["pushed_authorization_request_endpoint"] as const;
+
+/** Clé interne des métadonnées retenues : le point d'information annoncé est hors origine, donc ignoré. */
+export const USERINFO_HORS_ORIGINE = "elpis_userinfo_hors_origine";
 
 export type VerdictMetadonnees =
   | { readonly ok: true; readonly metadonnees: ServerMetadata }
@@ -53,6 +56,13 @@ export function lireMetadonnees(doc: unknown, issuer: string): VerdictMetadonnee
         `Le champ ${nom} n'est pas sur la même origine que l'émetteur : le fournisseur est mal configuré.`,
       );
     m[nom] = v;
+  }
+  const info = lire("userinfo_endpoint");
+  if (info !== undefined) {
+    const u = adresseHttps(info);
+    if (u === null) return echec("Le champ userinfo_endpoint n'est pas une adresse https.");
+    if (u.origin === origine) m["userinfo_endpoint"] = info;
+    else m[USERINFO_HORS_ORIGINE] = true;
   }
   const fin = adresseHttps(lire("end_session_endpoint"));
   if (fin !== null && fin.origin === origine && fin.hash === "")

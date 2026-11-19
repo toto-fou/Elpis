@@ -89,6 +89,21 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("interopérabilité OIDC tran
       expect(Buffer.from((t?.autorisation ?? "").slice(6), "base64").toString("utf8")).toBe("elpis:a+b%3Ac");
     });
 
+    it("RFC 6749 §2.3.1 : identifiant client à tiret : la bibliothèque encode aussi le `-` (`%2D`) dans le Basic, tel quel dans le corps en `post`", async () => {
+      const id = "elpis-web-2";
+      const b = await ouvrirBanc(moteur, { idp: { clientId: id, authClient: "basic" } });
+      expect((await b.connecter(ELPIS("alice"))).retour.statusCode).toBe(200);
+      const tb = b.idp.traces.find((r) => r.chemin === b.idp.chemins.token);
+      expect(Buffer.from((tb?.autorisation ?? "").slice(6), "base64").toString("utf8")).toBe(
+        "elpis%2Dweb%2D2:secret%2Dclient%2Dde%2Dtest",
+      );
+      const p = await ouvrirBanc(moteur, { idp: { clientId: id, authClient: "post" } });
+      expect((await p.connecter(ELPIS("alice"))).retour.statusCode).toBe(200);
+      const tp = p.idp.traces.find((r) => r.chemin === p.idp.chemins.token);
+      expect(tp?.autorisation).toBeNull();
+      expect(tp?.corps.get("client_id")).toBe(id);
+    });
+
     it("RFC 6749 §3.2.1 : le mode `post` n'envoie aucun en-tête Authorization et met l'identifiant et le secret dans le corps", async () => {
       const x = await ouvrirBanc(moteur, { idp: { authClient: "post" } });
       await x.connecter(ELPIS("alice"));

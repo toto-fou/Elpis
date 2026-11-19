@@ -8,7 +8,7 @@ import type { BancOidc } from "../identite/banc-oidc";
 import { MOTEURS } from "../identite/banc";
 import type { PiegesJeton } from "../identite/oidc-factice";
 import { OPENSSL_DISPONIBLE } from "../identite/pki-openssl";
-import { codeRefus, maintenant } from "./aides-oidc";
+import { causeDuDernierRefus, codeRefus, maintenant } from "./aides-oidc";
 
 describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'identité (%s)", (moteur) => {
   let b: BancOidc;
@@ -64,8 +64,12 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
     it("point 3 : `aud` chaîne égale au client accepté", async () => accepte({ claims: { aud: "elpis" } }));
     it("point 3 : `aud` liste d'un seul élément égal au client accepté", async () =>
       accepte({ claims: { aud: ["elpis"] } }));
-    it("point 3 : `aud` liste dont le client est l'un des éléments, avec `azp` égal au client, acceptée", async () =>
-      accepte({ claims: { aud: ["elpis", "api-ressource"], azp: "elpis" } }));
+    it("Core §3.1.3.7 (3) : un public supplémentaire, même avec `azp` égal au client, est refusé (cause `aud_untrusted`) ; `aud` à un seul élément ou chaîne égal au client accepté", async () => {
+      await refuse({ claims: { aud: ["elpis", "api-ressource"], azp: "elpis" } });
+      expect(causeDuDernierRefus()).toBe("aud_untrusted");
+      await accepte({ claims: { aud: ["elpis"], azp: "elpis" } }, "sub-y");
+      await accepte({ claims: { aud: "elpis", azp: "elpis" } }, "sub-z");
+    });
     it("points 4 et 5 : `aud` à plusieurs éléments sans `azp` refusé", async () =>
       refuse({ claims: { aud: ["elpis", "api-ressource"] } }));
     it("point 5 : `aud` à plusieurs éléments avec `azp` d'un autre client refusé", async () =>

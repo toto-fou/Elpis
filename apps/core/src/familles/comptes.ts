@@ -72,7 +72,7 @@ import { connecterParAnnuaire } from "../comptes/voie-annuaire";
 import { fabriqueLdapts } from "../identite/annuaire/client";
 import type { FabriqueConnexion } from "../identite/annuaire/client";
 import { annuairesActifs, PorteAnnuaire } from "../identite/annuaire/connexion";
-import { cleIdentifiant } from "../identite/cle-identifiant";
+import { cleComparee, cleIdentifiant } from "../identite/cle-identifiant";
 import { lireReglagesAuth } from "../identite/reglages";
 import type { FournisseurLdap } from "../identite/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
@@ -132,13 +132,11 @@ function annuaireEnvisage(): boolean {
   return lireReglagesAuth().providers.some((f) => f.type === "ldap" && f.enabled);
 }
 
-/** Un compte local de ce nom (casse ignorée) se connecte par mot de passe : l'annuaire ne reçoit jamais ce mot de passe. */
-async function aCompteLocalAMotDePasse(base: Base, cle: string): Promise<boolean> {
-  const lignes = await base.all<Record<string, unknown>>(
-    "SELECT pass_hash FROM users WHERE lower(username)=?",
-    [cle],
-  );
-  return lignes.some((l) => aMotDePasseLocal(l));
+/** Prédicat « un compte local à mot de passe local porte ce nom » (forme comparée en JavaScript) : l'annuaire ne reçoit jamais ce mot de passe ; une seule lecture par tentative. */
+async function predicatCompteLocal(base: Base): Promise<(nom: string) => boolean> {
+  const lignes = await base.all<Record<string, unknown>>("SELECT username, pass_hash FROM users");
+  const noms = new Set(lignes.filter((l) => aMotDePasseLocal(l)).map((l) => cleComparee(String(l.username))));
+  return (nom) => noms.has(cleComparee(nom));
 }
 
 function maintenant(dep: DependancesComptes): number {
@@ -393,13 +391,27 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const depart = performance.now();
           const envisage = annuaireEnvisage();
           const cle = envisage ? cleIdentifiant(username) : null;
-          let nomLimiteur = envisage ? (cle ?? username.normalize("NFKC").toLowerCase()) : username;
+          const nomNormalise = cle ?? username.normalize("NFKC").toLowerCase();
+          let actifs: FournisseurLdap[] = [];
+          let lus = false;
+          if (envisage) {
+            const attNormalise = debitConnexion.attenteS(nomNormalise, ip, arrivee);
+            const attBrut = debitConnexion.attenteS(username, ip, arrivee);
+            const attMin = Math.min(attNormalise, attBrut);
+            if (attMin > 0)
+              throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attMin)) });
+            // Une seule clé épuisée ne dit pas laquelle s'applique : les annuaires actifs sont lus avant tout jeton.
+            if (attNormalise > 0 || attBrut > 0) {
+              actifs = await annuairesActifs(voieAnnuaire.annuaire);
+              lus = true;
+            }
+          }
+          let nomLimiteur = envisage && (!lus || actifs.length > 0) ? nomNormalise : username;
           const attente = debitConnexion.attenteS(nomLimiteur, ip, arrivee);
           if (attente > 0)
             throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
           let essai = debitConnexion.prendre(nomLimiteur, ip, arrivee);
-          let actifs: FournisseurLdap[] = [];
-          if (envisage) {
+          if (envisage && !lus) {
             try {
               actifs = await annuairesActifs(voieAnnuaire.annuaire);
             } catch (e) {
@@ -430,8 +442,8 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           let payerCout = false;
           try {
             const refuse = actifs.length > 0 && cle === null;
-            const parAnnuaire =
-              actifs.length > 0 && cle !== null && !(await aCompteLocalAMotDePasse(base, cle));
+            const compteLocal = actifs.length > 0 && cle !== null ? await predicatCompteLocal(base) : null;
+            const parAnnuaire = compteLocal !== null && cle !== null && !compteLocal(cle);
             if (refuse) {
               uid = null;
               payerCout = true;
@@ -445,6 +457,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
                   actifs,
                   maintenant: maintenant(dep),
                   client: { ip, userAgent: ua },
+                  compteLocal: compteLocal ?? undefined,
                 });
                 uid = issue.type === "ok" ? issue.uid : null;
                 if (issue.type === "ok") {

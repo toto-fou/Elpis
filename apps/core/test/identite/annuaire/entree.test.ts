@@ -40,6 +40,7 @@ describe("chercherUtilisateur", () => {
       "cn",
       "nsAccountLock",
       "krbPasswordExpiration",
+      "krbLastPwdChange",
     ]);
   });
 
@@ -151,11 +152,25 @@ describe("etatEntree", () => {
     );
   });
 
-  it("FreeIPA : échéance du mot de passe absente (politique sans expiration) : pas d'expiration connue, l'entrée n'est pas expirée", () => {
-    expect(etat(ipa, {})).toBe("active");
-    expect(etat(ipa, { nsaccountlock: ["FALSE"] })).toBe("active");
+  it("FreeIPA : politique sans expiration (dernier changement lisible, échéance absente) : l'entrée n'est pas expirée", () => {
+    const dernier = { krblastpwdchange: ["20250101000000Z"] };
+    expect(etat(ipa, dernier)).toBe("active");
+    expect(etat(ipa, { ...dernier, nsaccountlock: ["FALSE"] })).toBe("active");
+    expect(etat(ipa, { ...dernier, nsaccountlock: ["TRUE"] })).toBe("desactivee");
+    expect(etat(ipa, { ...dernier, nsaccountlock: ["peut-être"] })).toBe("inconnu");
+  });
+
+  it.each([
+    ["expiration et dernier changement absents", {}],
+    ["dernier changement absent, verrou lisible", { nsaccountlock: ["FALSE"] }],
+    ["dernier changement illisible", { krblastpwdchange: ["hier"] }],
+    ["dernier changement double", { krblastpwdchange: ["20250101000000Z", "20250101000000Z"] }],
+  ])("FreeIPA : %s : « inconnu » (échec fermé)", (_nom, attrs) => {
+    expect(etat(ipa, attrs)).toBe("inconnu");
+  });
+
+  it("FreeIPA : le verrou prime même quand l'expiration n'est pas lisible", () => {
     expect(etat(ipa, { nsaccountlock: ["TRUE"] })).toBe("desactivee");
-    expect(etat(ipa, { nsaccountlock: ["peut-être"] })).toBe("inconnu");
   });
 
   it("FreeIPA : désactivé par l'administrateur de l'annuaire", () => {

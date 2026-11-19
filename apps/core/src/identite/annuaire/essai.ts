@@ -2,6 +2,7 @@
 /** apps/core/src/identite/annuaire/essai.ts — étapes du test d'un annuaire (liaison de service, base, groupes, utilisateur d'essai cherché sans jamais être lié, horloge) rendues en phrases fixes, jamais un message du serveur. */
 import { etape, PHRASES_SORTANT } from "../etapes";
 import type { EtapeEssai } from "../etapes";
+import { cleIdentifiant } from "../cle-identifiant";
 import { nomDerive } from "../nom";
 import { BORNES_AUTH, hotePortLdaps } from "../reglages";
 import type { FournisseurLdap } from "../reglages";
@@ -214,10 +215,16 @@ async function verifierEntree(
   const etat = etatEntree(trouve, f, maintenantMs);
   if (etat === "inconnu") {
     const attributs = presetDe(f.preset)?.attributsEtat.join(", ") ?? "";
+    const sansDate =
+      presetDe(f.preset)?.famille === "freeipa" &&
+      (trouve.attrs["krbpasswordexpiration"] ?? []).length === 0 &&
+      (trouve.attrs["krblastpwdchange"] ?? []).length === 0;
     return {
       verdict: {
         level: "fail",
-        detail: `L'état du compte n'est pas lisible : le compte de service doit pouvoir lire ${attributs}.`,
+        detail: sansDate
+          ? "L'expiration du mot de passe n'est pas lisible pour cet utilisateur : le compte de service doit pouvoir lire krbPasswordExpiration et krbLastPwdChange."
+          : `L'état du compte n'est pas lisible : le compte de service doit pouvoir lire ${attributs}.`,
       },
       entree: null,
     };
@@ -229,16 +236,12 @@ async function verifierEntree(
     verrouillee: "verrouillé",
     expiree: "mot de passe expiré",
   };
-  const sansExpiration =
-    etat === "active" &&
-    presetDe(f.preset)?.famille === "freeipa" &&
-    (trouve.attrs["krbpasswordexpiration"] ?? []).length === 0;
+  const admis =
+    cleIdentifiant(identifiant) !== null && cleIdentifiant(profilExterne(trouve, f).identifiant) !== null;
   return {
     verdict: {
-      level: etat === "active" && !sansExpiration ? "ok" : "warn",
-      detail: sansExpiration
-        ? `${detail} Compte ${libelle[etat]}. L'expiration du mot de passe n'est pas lisible pour cet utilisateur : un mot de passe expiré ne serait pas refusé.`
-        : `${detail} Compte ${libelle[etat]}.`,
+      level: etat === "active" && admis ? "ok" : "warn",
+      detail: `${detail} Compte ${libelle[etat]}.${admis ? "" : " Cet identifiant contient des caractères qu'Elpis n'accepte pas à la connexion."}`,
     },
     entree: trouve,
   };

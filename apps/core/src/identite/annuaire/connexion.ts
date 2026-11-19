@@ -23,7 +23,8 @@ export type RaisonRefusAnnuaire =
   | "password_expired"
   | "state_unknown"
   | "not_in_group"
-  | "groups_unknown";
+  | "groups_unknown"
+  | "local_account";
 
 export type ResultatAnnuaire =
   | {
@@ -71,6 +72,8 @@ export interface DependancesAnnuaire {
   readonly porte: PorteAnnuaire;
   /** Échéance globale d'une authentification, en millisecondes (20 s par défaut). */
   readonly echeanceMs?: number;
+  /** Vrai si un compte local à mot de passe local porte ce nom (comparaison de casse et de forme faite par l'appelant) : l'annuaire ne reçoit alors aucun mot de passe. */
+  readonly compteLocal?: (nom: string) => boolean;
 }
 
 /** Annuaires LDAP actifs (tous leurs invariants de lecture tiennent), dans l'ordre de la configuration. */
@@ -197,6 +200,10 @@ async function interroger(
     }
     if (trouve === "absent") return "absent";
     if (trouve === "ambigu") return refus("ambiguous", f.id);
+    // L'entrée trouvée est jugée, non la saisie : l'annuaire peut faire correspondre des écritures que la clé ne prévoit pas.
+    const externe = profilExterne(trouve, f);
+    if (dep.compteLocal?.(externe.identifiant) === true || dep.compteLocal?.(identifiant) === true)
+      return refus("local_account", f.id);
     const sujet = cleStable(trouve, f);
     // L'état de l'entrée est jugé avant la liaison : aucun mot de passe n'est envoyé pour une entrée qui ne peut pas se connecter.
     const etat = etatEntree(trouve, f, dep.maintenant() * 1000);
@@ -207,7 +214,6 @@ async function interroger(
     if (await compterEssai(dep.base, f, sujet, dep.maintenant())) return refus("throttled", f.id);
     if (!(await lierUtilisateur(dep, f, url, trouve.dn, motDePasse))) return refus("bad_password", f.id);
     await oublierEssais(dep.base, f, sujet);
-    const externe = profilExterne(trouve, f);
     return {
       type: "ok",
       fournisseur: f,
@@ -262,11 +268,33 @@ export async function authentifierParAnnuaire(
   actifs?: readonly FournisseurLdap[],
 ): Promise<ResultatAnnuaire> {
   if (!motDePasseAdmis(motDePasse)) return refus("bad_password", null);
-  // La porte est prise d'abord, sans attente : elle borne tout le travail, lecture des annuaires actifs comprise.
-  const r = await dep.porte.avec(() =>
-    avecEcheance(dep, (d) => travailler(d, identifiant, motDePasse, actifs)),
-  );
-  return r.admis ? r.valeur : { type: "indisponible" };
+  const total = dep.echeanceMs ?? ECHEANCE_AUTHENTIFICATION_MS;
+  const fin = Date.now() + total;
+  let abandonne = false;
+  let minuteur: NodeJS.Timeout | undefined;
+  // L'échéance court dès l'arrivée : l'attente à la porte en fait partie ; une fois la place prise, le temps qui reste borne le travail.
+  const echeance = new Promise<ResultatAnnuaire>((fini) => {
+    minuteur = setTimeout(() => {
+      abandonne = true;
+      dep.journal.warn("annuaire : échéance de l'authentification dépassée");
+      fini({ type: "indisponible" });
+    }, total);
+  });
+  const fait = dep.porte
+    .avec(() => {
+      if (abandonne) return Promise.resolve<ResultatAnnuaire>({ type: "indisponible" });
+      clearTimeout(minuteur);
+      return avecEcheance({ ...dep, echeanceMs: Math.max(1, fin - Date.now()) }, (d) =>
+        travailler(d, identifiant, motDePasse, actifs),
+      );
+    })
+    .then((r): ResultatAnnuaire => (r.admis ? r.valeur : { type: "indisponible" }));
+  fait.catch(() => undefined);
+  try {
+    return await Promise.race([fait, echeance]);
+  } finally {
+    clearTimeout(minuteur);
+  }
 }
 
 async function travailler(

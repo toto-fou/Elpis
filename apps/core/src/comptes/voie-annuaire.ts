@@ -63,10 +63,16 @@ export async function connecterParAnnuaire(
     actifs: readonly FournisseurLdap[];
     maintenant: number;
     client: Client;
+    compteLocal?: (nom: string) => boolean;
   },
 ): Promise<IssueAnnuaire> {
   const { identifiant, client } = e;
-  const r = await authentifierParAnnuaire(dep.annuaire, identifiant, e.motDePasse, e.actifs);
+  const r = await authentifierParAnnuaire(
+    { ...dep.annuaire, compteLocal: e.compteLocal },
+    identifiant,
+    e.motDePasse,
+    e.actifs,
+  );
   if (r.type === "indisponible") {
     auditerRefus(client, { raison: "directory_unavailable", fournisseurId: null, identifiant });
     return r;

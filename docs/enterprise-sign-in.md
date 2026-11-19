@@ -135,22 +135,24 @@ How a sign-in goes: the service account looks the typed login up with the **Filt
 once) under **Base des comptes**; the entry must be active, the person must belong to a required group; only
 then is the typed password sent to the directory, on a separate connection, as a bind of the person's own
 entry. A typed login that matches a local account with a local password is a local sign-in and never reaches
-the directory.
+the directory; a directory entry whose login is the name of such an account is refused as well.
+Logins must be plain text, without combining marks or invisible characters: the trial warns when the test
+user's login contains some, and Elpis refuses such a login at sign-in.
 
-| Field (setting)                        | FreeIPA                                                  | Active Directory                                                          | OpenLDAP                                         | 389 Directory Server                                |
-| -------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------- |
-| **Préréglage** (`preset`)              | FreeIPA                                                  | Active Directory                                                          | OpenLDAP                                         | OpenLDAP                                            |
-| **Adresses** (`urls`)                  | `ldaps://ipa.example.lan`                                | `ldaps://dc1.example.lan`                                                 | `ldaps://ldap.example.lan`                       | `ldaps://ds.example.lan`                            |
-| **Compte de service** (`bind_dn`)      | `uid=elpis,cn=sysaccounts,cn=etc,dc=example,dc=lan`      | `cn=svc-elpis,cn=Users,dc=example,dc=lan`                                 | `cn=elpis,ou=services,dc=example,dc=lan`         | `cn=elpis,ou=services,dc=example,dc=lan`            |
-| **Base des comptes** (`user_base_dn`)  | `cn=users,cn=accounts,dc=example,dc=lan`                 | `cn=Users,dc=example,dc=lan`                                              | `ou=people,dc=example,dc=lan`                    | `ou=people,dc=example,dc=lan`                       |
-| **Filtre** (`user_filter`)             | `(&(objectClass=person)(uid={username}))`                | `(&(objectCategory=person)(objectClass=user)(sAMAccountName={username}))` | `(&(objectClass=inetOrgPerson)(uid={username}))` | `(&(objectClass=inetOrgPerson)(uid={username}))`    |
-| **Attribut identifiant** (`attrs.id`)  | `ipaUniqueID`                                            | `objectGUID`                                                              | `entryUUID`                                      | `nsUniqueId`                                        |
-| **Attribut nom** (`attrs.username`)    | `uid`                                                    | `sAMAccountName`                                                          | `uid`                                            | `uid`                                               |
-| **Attribut e-mail** (`attrs.email`)    | `mail`                                                   | `mail`                                                                    | `mail`                                           | `mail`                                              |
-| **Attribut affiché** (`attrs.name`)    | `displayName`                                            | `displayName`                                                             | `cn`                                             | `cn`                                                |
-| **Appartenance** (`groups.mode`)       | `memberOf`                                               | **Chaîne (Active Directory)** (`chain`)                                   | `member`                                         | `memberOf` (MemberOf plugin enabled), else `member` |
-| **Groupes requis** (`required_groups`) | `cn=elpis-users,cn=groups,cn=accounts,dc=example,dc=lan` | `cn=elpis-users,ou=groups,dc=example,dc=lan`                              | `cn=elpis-users,ou=groups,dc=example,dc=lan`     | `cn=elpis-users,ou=groups,dc=example,dc=lan`        |
-| State read by Elpis                    | `nsAccountLock`, `krbPasswordExpiration`                 | `userAccountControl`, `msDS-User-Account-Control-Computed`                | none                                             | none                                                |
+| Field (setting)                        | FreeIPA                                                      | Active Directory                                                          | OpenLDAP                                         | 389 Directory Server                                |
+| -------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------- |
+| **Préréglage** (`preset`)              | FreeIPA                                                      | Active Directory                                                          | OpenLDAP                                         | OpenLDAP                                            |
+| **Adresses** (`urls`)                  | `ldaps://ipa.example.lan`                                    | `ldaps://dc1.example.lan`                                                 | `ldaps://ldap.example.lan`                       | `ldaps://ds.example.lan`                            |
+| **Compte de service** (`bind_dn`)      | `uid=elpis,cn=sysaccounts,cn=etc,dc=example,dc=lan`          | `cn=svc-elpis,cn=Users,dc=example,dc=lan`                                 | `cn=elpis,ou=services,dc=example,dc=lan`         | `cn=elpis,ou=services,dc=example,dc=lan`            |
+| **Base des comptes** (`user_base_dn`)  | `cn=users,cn=accounts,dc=example,dc=lan`                     | `cn=Users,dc=example,dc=lan`                                              | `ou=people,dc=example,dc=lan`                    | `ou=people,dc=example,dc=lan`                       |
+| **Filtre** (`user_filter`)             | `(&(objectClass=person)(uid={username}))`                    | `(&(objectCategory=person)(objectClass=user)(sAMAccountName={username}))` | `(&(objectClass=inetOrgPerson)(uid={username}))` | `(&(objectClass=inetOrgPerson)(uid={username}))`    |
+| **Attribut identifiant** (`attrs.id`)  | `ipaUniqueID`                                                | `objectGUID`                                                              | `entryUUID`                                      | `nsUniqueId`                                        |
+| **Attribut nom** (`attrs.username`)    | `uid`                                                        | `sAMAccountName`                                                          | `uid`                                            | `uid`                                               |
+| **Attribut e-mail** (`attrs.email`)    | `mail`                                                       | `mail`                                                                    | `mail`                                           | `mail`                                              |
+| **Attribut affiché** (`attrs.name`)    | `displayName`                                                | `displayName`                                                             | `cn`                                             | `cn`                                                |
+| **Appartenance** (`groups.mode`)       | `memberOf`                                                   | **Chaîne (Active Directory)** (`chain`)                                   | `member`                                         | `memberOf` (MemberOf plugin enabled), else `member` |
+| **Groupes requis** (`required_groups`) | `cn=elpis-users,cn=groups,cn=accounts,dc=example,dc=lan`     | `cn=elpis-users,ou=groups,dc=example,dc=lan`                              | `cn=elpis-users,ou=groups,dc=example,dc=lan`     | `cn=elpis-users,ou=groups,dc=example,dc=lan`        |
+| State read by Elpis                    | `nsAccountLock`, `krbPasswordExpiration`, `krbLastPwdChange` | `userAccountControl`, `msDS-User-Account-Control-Computed`                | none                                             | none                                                |
 
 The distinguished names above are examples. **Groupes requis** always takes the **full DN** of the group.
 Several groups may be listed: one is enough.
@@ -161,8 +163,8 @@ Several groups may be listed: one is enough.
 - **Groups.** `member` reads the `member` / `uniqueMember` attributes of the group entry: direct members
   only. `memberOf` reads the `memberOf` attribute of the person, so nested groups count only if the directory
   computes them there. `chain` uses the Active Directory transitive rule, so nested groups count.
-- **FreeIPA.** If the test says the password expiration is not readable, give the service account read access
-  to `krbPasswordExpiration` and `nsAccountLock`: otherwise an expired password is not refused by Elpis itself.
+- **FreeIPA.** Give the service account read access to `krbPasswordExpiration`, `krbLastPwdChange` and
+  `nsAccountLock`: without them the entry state is unknown and the sign-in is refused.
 - **Active Directory.** Type the `sAMAccountName`, not the UPN. A required group must not be the primary group
   of its members (such as Domain Users): primary membership is not visible in `memberOf` and the test rejects
   it.

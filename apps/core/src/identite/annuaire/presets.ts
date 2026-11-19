@@ -24,7 +24,7 @@ export const PRESETS: Readonly<Record<IdPreset, PresetAnnuaire>> = {
     attrs: { id: "ipaUniqueID", username: "uid", email: "mail", name: "cn" },
     mode: "memberof",
     famille: "freeipa",
-    attributsEtat: ["nsAccountLock", "krbPasswordExpiration"],
+    attributsEtat: ["nsAccountLock", "krbPasswordExpiration", "krbLastPwdChange"],
   },
   "active-directory": {
     id: "active-directory",

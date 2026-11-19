@@ -41,8 +41,8 @@ describe.each(MOTEURS)("compteur d'essais par entrée (%s)", (moteur) => {
     expect(await compterEssai(autre, f, "cle", 11)).toBe(false);
     expect(await compterEssai(t.base, f, "cle", 12)).toBe(false);
     expect(await compterEssai(autre, f, "cle", 13)).toBe(true);
-    expect(await t.base.valeurs("SELECT count FROM auth_failures")).toEqual([[4]]);
-    expect(await niveau()).toBeCloseTo(3.91, 6);
+    expect(await t.base.valeurs("SELECT count FROM auth_failures")).toEqual([[3]]);
+    expect(await niveau()).toBeCloseTo(2.91, 6);
   });
 
   it("essais simultanés depuis deux connexions : aucun n'est perdu", async () => {
@@ -73,11 +73,28 @@ describe.each(MOTEURS)("compteur d'essais par entrée (%s)", (moteur) => {
     expect(passes).toBeGreaterThanOrEqual(3);
   });
 
-  it("l'essai refusé ne fait pas croître le niveau au-delà de max + 1 : le blocage retombe après une fenêtre", async () => {
+  it("l'essai refusé n'ajoute rien : le niveau reste sous max et le blocage retombe après une fenêtre", async () => {
     for (let s = 0; s < 1000; s++) await compterEssai(t.base, f, "cle", s * 0.01);
-    expect(await niveau()).toBeLessThanOrEqual(4);
+    expect(await niveau()).toBeLessThanOrEqual(3);
     expect(await compterEssai(t.base, f, "cle", 10 + 100)).toBe(false);
   });
+
+  it.each([
+    [1, 86400],
+    [1, 900],
+    [4, 900],
+  ])(
+    "(%i essai, %i s) : après l'arrêt d'une attaque, un essai passe au plus tard après fenêtre / max",
+    async (max, fenetre) => {
+      const g = validerFournisseur(
+        ldapValide({ max_failures: max, failure_window_sec: fenetre }),
+      ) as FournisseurLdap;
+      for (let i = 0; i < max; i++) expect(await compterEssai(t.base, g, "cle", 1000)).toBe(false);
+      expect(await compterEssai(t.base, g, "cle", 1000)).toBe(true);
+      expect(await compterEssai(t.base, g, "cle", 1000 + fenetre / max - 1)).toBe(true);
+      expect(await compterEssai(t.base, g, "cle", 1000 + fenetre / max + 1)).toBe(false);
+    },
+  );
 
   it("chaque entrée a son compteur ; la réussite remet à zéro celui de l'entrée seule", async () => {
     await compterEssai(t.base, f, "a", 10);

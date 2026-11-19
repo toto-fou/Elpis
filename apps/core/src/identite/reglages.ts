@@ -7,7 +7,7 @@ import { liveConfigValue } from "@elpis/config";
 
 export const FOURNISSEURS_MAX = 5;
 export const CA_PEM_MAX = 64 * 1024;
-const REGEX_ID = /^[a-z0-9][a-z0-9-]{0,30}$/u;
+export const REGEX_ID = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const CONTROLE = /\p{Cc}/u;
 const REGEX_ATTRIBUT = /^[A-Za-z][A-Za-z0-9.;-]{0,63}$/u;
 const REGEX_REVENDICATION = /^[A-Za-z0-9_.:-]{1,64}$/u;

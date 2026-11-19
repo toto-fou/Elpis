@@ -99,11 +99,16 @@ export function tempsGeneralise(texte: string): number | null {
 function etatFreeipa(entree: EntreeAnnuaire, maintenant: number): EtatEntree {
   const verrou = uneChaine(entree, "nsAccountLock");
   const expiration = uneChaine(entree, "krbPasswordExpiration");
+  const dernier = uneChaine(entree, "krbLastPwdChange");
   const verrouille = verrou !== "invalide" && verrou.v?.toLowerCase() === "true";
   if (verrouille) return "desactivee";
   const verrouOk = verrou !== "invalide" && (verrou.v === null || verrou.v.toLowerCase() === "false");
   if (!verrouOk || expiration === "invalide") return "inconnu";
-  if (expiration.v === null) return "active";
+  if (expiration.v === null) {
+    // Sans échéance lisible, « sans expiration » ne se distingue de « illisible » que par la date du dernier changement, posée dès qu'un mot de passe existe.
+    if (dernier === "invalide" || dernier.v === null || tempsGeneralise(dernier.v) === null) return "inconnu";
+    return "active";
+  }
   const fin = tempsGeneralise(expiration.v);
   if (fin === null) return "inconnu";
   return fin <= maintenant ? "expiree" : "active";
@@ -125,7 +130,7 @@ function etatAd(entree: EntreeAnnuaire): EtatEntree {
   return (calcule & UAC_MOT_DE_PASSE_EXPIRE) !== 0 ? "expiree" : "active";
 }
 
-/** État de l'entrée selon le préréglage enregistré ; un attribut d'état illisible rend `"inconnu"`, jamais `"active"`. `maintenant` en millisecondes. */
+/** État de l'entrée selon le préréglage enregistré ; un attribut d'état illisible (FreeIPA : ni échéance ni date de dernier changement du mot de passe) rend `"inconnu"`, jamais `"active"`. `maintenant` en millisecondes. */
 export function etatEntree(
   entree: EntreeAnnuaire,
   fournisseur: FournisseurLdap,

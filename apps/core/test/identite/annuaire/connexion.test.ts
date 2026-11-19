@@ -8,6 +8,7 @@ import {
   AUTHENTIFICATIONS_EN_ATTENTE_MAX,
   AUTHENTIFICATIONS_EN_COURS_MAX,
 } from "../../../src/identite/annuaire/connexion";
+import { cleComparee } from "../../../src/identite/cle-identifiant";
 import { supprimerSecretFournisseur } from "../../../src/identite/fournisseurs";
 import { ErreurAnnuaire } from "../../../src/identite/annuaire/erreur";
 import { MOTEURS } from "../banc";
@@ -50,6 +51,32 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
     expect(annuaire.traces.map((t) => t.liaisons)).toEqual([[DN_SERVICE], [`uid=jean,${BASE}`]]);
     expect(annuaire.traces.every((t) => t.ferme)).toBe(true);
     expect(await echecs()).toEqual([]);
+  });
+
+  describe("aucun mot de passe vers l'annuaire pour un nom de compte local à mot de passe", () => {
+    const nomLocal = (nom: string) => (x: string) => cleComparee(x) === nom;
+    const avecLocal = (nom: string, id: string) =>
+      authentifierParAnnuaire({ ...b.dep(), compteLocal: nomLocal(nom) }, id, MDP);
+
+    it.each([
+      ["caractère sans effet dans la saisie (U+FFFC)", "jean", "jea\uFFFCn", "jean"],
+      ["entrée d'identifiant `Jean` trouvée par une saisie différente", "Jean", "jea\uFFFCn", "jean"],
+      ["`ß` replié en `ss` par l'annuaire", "gauss", "gauß", "gauss"],
+    ])("%s : refus local_account, aucune liaison, aucun essai compté", async (_n, uid, saisie, local) => {
+      annuaire.personnes = [];
+      annuaire.ajouter({ uid, cle: UUID(1), mdp: MDP, groupes: [GROUPE] });
+      expect(await avecLocal(local, saisie)).toEqual({
+        type: "refus",
+        raison: "local_account",
+        fournisseurId: "annuaire",
+      });
+      expect(annuaire.liaisonsUtilisateur).toEqual([]);
+      expect(await echecs()).toEqual([]);
+    });
+
+    it("sans homonyme local, la même saisie se connecte", async () => {
+      expect(await avecLocal("autre", "jea\uFFFCn")).toMatchObject({ type: "ok" });
+    });
   });
 
   it("la casse de l'identifiant tapé ne change pas l'entrée", async () => {
@@ -283,7 +310,7 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
       await sansLiaison();
     });
 
-    it("une entrée hors des groupes n'est ni devinable ni verrouillable : mille essais, aucune liaison ni compteur", async () => {
+    it("une entrée hors des groupes n'est ni devinable ni verrouillable : vingt essais, aucune liaison ni compteur", async () => {
       annuaire.personnes[0]!.groupes = [];
       for (let i = 0; i < 20; i++) await auth("jean", `faux-${i}`);
       await sansLiaison();
@@ -376,6 +403,20 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
     expect(annuaire.traces.every((t) => t.ferme)).toBe(true);
     annuaire.pause = null;
     expect(await authentifierParAnnuaire(dep, "jean", MDP)).toMatchObject({ type: "ok" });
+  });
+
+  it("l'échéance couvre l'attente à la porte : une requête en file rend « indisponible » à l'échéance, sans attendre une place", async () => {
+    annuaire.pause = new Promise(() => undefined);
+    const dep = { ...b.dep(), echeanceMs: 200 };
+    const enCours = Array.from({ length: AUTHENTIFICATIONS_EN_COURS_MAX }, () =>
+      authentifierParAnnuaire(dep, "jean", MDP),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    const debut = performance.now();
+    expect(await authentifierParAnnuaire(dep, "jean", MDP)).toEqual({ type: "indisponible" });
+    expect(performance.now() - debut).toBeLessThan(320);
+    await Promise.all(enCours);
+    expect(annuaire.traces.every((t) => t.ferme)).toBe(true);
   });
 
   it("au plus 8 authentifications en cours et 32 en attente ; au-delà : indisponible sans attendre", async () => {

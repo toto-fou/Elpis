@@ -193,6 +193,36 @@ describe.each(MOTEURS)("connexion par l'annuaire (%s)", (moteur) => {
     });
   });
 
+  describe("nom de compte local trouvé autrement que par la clé tapée", () => {
+    it("l'entrée trouvée porte le nom d'un compte local à mot de passe : refus local_account, aucune liaison, rien de compté", async () => {
+      await createUser(b.t.base, "jean", "mdp-local-1");
+      annuaire.ajouter({
+        uid: "jeanne",
+        cle: UUID(5),
+        mdp: MDP,
+        groupes: [GROUPE],
+        attrs: { uid: ["jean"] },
+      });
+      const r = await essai("jeanne", MDP);
+      expect(refuse(r)).toEqual(REFUS);
+      expect(annuaire.liaisonsUtilisateur).toEqual([]);
+      expect(await b.t.base.valeurs("SELECT count(*) FROM auth_failures")).toEqual([[0]]);
+      expect(audits("auth.login")[0]).toMatchObject({ details: { reason: "local_account" } });
+      expect(await utilisateurs()).toEqual([["chef"], ["jean"]]);
+    });
+
+    it.each([
+      ["caractère sans effet (U+FFFC) dans la saisie", "jea\uFFFCn", "jean"],
+      ["`ß` face à `ss`", "gauß", "gauss"],
+    ])("%s : l'annuaire n'est jamais appelé pour un homonyme local", async (_n, saisie, local) => {
+      await createUser(b.t.base, local, "mdp-local-1");
+      annuaire.ajouter({ uid: "gauss", cle: UUID(6), mdp: MDP, groupes: [GROUPE] });
+      expect(refuse(await essai(saisie, MDP))).toEqual(REFUS);
+      expect(annuaire.liaisonsUtilisateur).toEqual([]);
+      expect(await utilisateurs()).toEqual([["chef"], [local]]);
+    });
+  });
+
   describe("compte d'annuaire", () => {
     it("première connexion : compte créé, session `ldap:<id>`, mot de passe géré ailleurs ; seconde : même compte", async () => {
       const a = await essai("jean", MDP);
@@ -472,6 +502,32 @@ describe.each(MOTEURS)("connexion par l'annuaire (%s)", (moteur) => {
       await ouvrir([{}, {}]);
       expect(refuse(await essai("jean", "faux"))).toEqual(REFUS);
       expect(annuaire.traces.every((t) => t.url === "ldaps://ldap.exemple.lan")).toBe(true);
+    });
+  });
+
+  describe("annuaire allumé mais inactif : la route d'avant dès le premier contrôle", () => {
+    const rendreInactif = (): void =>
+      b.cfg.ecrire({
+        auth: {
+          public_url: "https://elpis.exemple.lan",
+          providers: [{ ...b.fournisseurs[0], user_filter: "(&(uid={username})(x=y))" }],
+        },
+      });
+
+    it("la clé normalisée épuisée ne donne pas de 429 : seule la clé brute compte", async () => {
+      for (let i = 0; i < PAR_NOM_ET_ADRESSE.capacite; i++) await essai("jean", "faux");
+      expect((await essai("jean", "faux")).statusCode).toBe(429);
+      rendreInactif();
+      expect((await essai("JEAN", "faux")).statusCode).toBe(401);
+    });
+
+    it("la clé brute épuisée donne le 429 de la route d'avant, même Retry-After", async () => {
+      rendreInactif();
+      for (let i = 0; i < PAR_NOM_ET_ADRESSE.capacite; i++) await essai("JEAN", "faux");
+      const r = await essai("JEAN", "faux");
+      expect(r.statusCode).toBe(429);
+      expect(Number(r.headers["retry-after"])).toBeGreaterThan(0);
+      expect(annuaire.traces).toEqual([]);
     });
   });
 

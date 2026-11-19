@@ -9,14 +9,14 @@ import { dnNormalise } from "./dn";
 
 const TOLERANCE = 1e-9;
 
-/** Compte l'essai dans un seau qui se vide en continu (`niveau = max(0, niveau − Δt × max / fenêtre) + 1`, niveau gardé dans `window_start`) ; vrai si `niveau > max` : l'annuaire n'est alors pas contacté. */
+/** Compte l'essai dans un seau qui se vide en continu (`niveau = max(0, niveau − Δt × max / fenêtre)`, niveau gardé dans `window_start`, plafonné à `max`) ; vrai, sans rien ajouter, si l'essai porterait le niveau au-delà de `max` : l'annuaire n'est alors pas contacté, et le blocage cesse au plus tard après `fenêtre / max`. */
 export async function compterEssai(
   base: Base,
   f: FournisseurLdap,
   sujet: string,
   maintenant: number,
 ): Promise<boolean> {
-  const niveau = await base.ecriture(async (x) => {
+  return base.ecriture(async (x) => {
     const l = await x.get<{ window_start: number; last_at: number }>(
       "SELECT window_start, last_at FROM auth_failures WHERE provider_id=? AND subject=?",
       [f.id, sujet],
@@ -26,7 +26,8 @@ export async function compterEssai(
       l === undefined
         ? 0
         : Math.max(0, Number(l.window_start) - Math.max(0, maintenant - Number(l.last_at)) * debit);
-    const apres = Math.min(avant + 1, f.max_failures + 1);
+    const refuse = avant + 1 > f.max_failures + TOLERANCE;
+    const apres = refuse ? Math.min(avant, f.max_failures) : avant + 1;
     const compte = Math.ceil(apres - TOLERANCE);
     if (l === undefined)
       await x.run(
@@ -38,9 +39,8 @@ export async function compterEssai(
         "UPDATE auth_failures SET count=?, window_start=?, last_at=? WHERE provider_id=? AND subject=?",
         [compte, apres, maintenant, f.id, sujet],
       );
-    return apres;
+    return refuse;
   });
-  return niveau > f.max_failures + TOLERANCE;
 }
 
 /** Compteur de l'entrée remis à zéro (liaison réussie). */

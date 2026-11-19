@@ -672,7 +672,17 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
         expect(r.complete).toBe(false);
       });
 
-      it("FreeIPA sans expiration lisible : avertissement clair, le test reste complet", async () => {
+      it("identifiant à caractère combinant : avertissement qui dit qu'Elpis ne l'accepte pas à la connexion, le test reste complet", async () => {
+        annuaire.ajouter("ax\u0301b");
+        const r = await tester({ ...reglages(), test_user: "ax\u0301b" });
+        expect(etape(r, "test_user")).toMatchObject({ level: "warn" });
+        expect(etape(r, "test_user")?.detail).toContain(
+          "Cet identifiant contient des caractères qu'Elpis n'accepte pas à la connexion.",
+        );
+        expect(r.complete).toBe(true);
+      });
+
+      it("FreeIPA sans expiration ni dernier changement lisibles : échec qui nomme les deux attributs", async () => {
         annuaire.ajouter("sans-etat", { nsaccountlock: ["false"] });
         const r = await tester({
           ...reglages({
@@ -681,10 +691,22 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
           }),
           test_user: "sans-etat",
         });
-        expect(etape(r, "test_user")).toMatchObject({ level: "warn" });
-        expect(etape(r, "test_user")?.detail).toContain(
-          "L'expiration du mot de passe n'est pas lisible pour cet utilisateur : un mot de passe expiré ne serait pas refusé.",
-        );
+        expect(etape(r, "test_user")).toMatchObject({ level: "fail" });
+        expect(etape(r, "test_user")?.detail).toContain("krbPasswordExpiration");
+        expect(etape(r, "test_user")?.detail).toContain("krbLastPwdChange");
+        expect(r.complete).toBe(false);
+      });
+
+      it("FreeIPA sans expiration mais avec dernier changement : politique sans expiration, test complet", async () => {
+        annuaire.ajouter("sans-fin", { nsaccountlock: ["false"], krblastpwdchange: ["20250101000000Z"] });
+        const r = await tester({
+          ...reglages({
+            preset: "freeipa",
+            attrs: { id: "entryUUID", username: "uid", email: "mail", name: "cn" },
+          }),
+          test_user: "sans-fin",
+        });
+        expect(etape(r, "test_user")).toMatchObject({ level: "ok" });
         expect(r.complete).toBe(true);
       });
 

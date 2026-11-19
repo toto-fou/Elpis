@@ -148,9 +148,7 @@ export class AnnuaireFactice {
     const uid = /^\(uid=(.*)\)$/u.exec(o.filtre);
     if (uid === null) return [];
     if (this.rechercheUtilisateurEnErreur !== null) throw this.rechercheUtilisateurEnErreur;
-    return this.personnes
-      .filter((p) => p.uid.toLowerCase() === (uid[1] ?? "").toLowerCase())
-      .map((p) => this.entree(p));
+    return this.personnes.filter((p) => replie(p.uid) === replie(uid[1] ?? "")).map((p) => this.entree(p));
   }
 
   private entree(p: Personne): EntreeAnnuaire {
@@ -182,5 +180,12 @@ export class AnnuaireFactice {
     return trouvees.map(({ e }) => e);
   }
 }
+
+/** Comparaison d'annuaire : casse repliée (`ß` = `ss`), caractères sans effet (U+00AD, U+FFFC) ignorés. */
+const replie = (v: string): string =>
+  v
+    .replace(/[\u00AD\uFFFC]/gu, "")
+    .toUpperCase()
+    .toLowerCase();
 
 export const UUID = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;

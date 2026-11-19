@@ -3,7 +3,7 @@
 import * as Vue from "vue";
 import { createApp, defineComponent, h, reactive, ref } from "vue";
 import type { App } from "vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import EtapesEssai from "../../src/components/admin/EtapesEssai.vue";
 import PageConnexionEntreprise from "../../src/components/admin/PageConnexionEntreprise.vue";
@@ -206,7 +206,7 @@ describe("EtapesEssai", () => {
 });
 
 describe("Connexion d'entreprise : bouton Tester", () => {
-  it("envoie les réglages du formulaire non enregistrés, sans secret ni état", async () => {
+  it("envoie les réglages du formulaire non enregistrés, le secret saisi seulement dans la clé secret", async () => {
     const m = monter(etat({ providers: [LDAP] }));
     m.reponses[TEST] = [json({ ok: true, complete: false, steps: [ETAPES[0]] })];
     await ouvrirTiroir(m);
@@ -220,21 +220,56 @@ describe("Connexion d'entreprise : bouton Tester", () => {
     expect(corps["type"]).toBe("ldap");
     expect(corps["id"]).toBe("ipa");
     expect(corps["urls"]).toEqual(["ldaps://ipa.example.lan"]);
-    expect(JSON.stringify(corps)).not.toContain("jamais-envoye");
-    expect(corps).not.toHaveProperty("secret");
+    expect(corps["secret"]).toBe("jamais-envoye");
+    expect(JSON.stringify({ ...corps, secret: undefined })).not.toContain("jamais-envoye");
   });
 
-  it("test réussi : synthèse verte et mention d'incomplétude tant que complete est faux", async () => {
+  it("test réussi : synthèse verte ; la phrase d'incomplétude ne concerne que le SSO", async () => {
     const m = monter(etat({ providers: [LDAP] }));
     m.reponses[TEST] = [json({ ok: true, complete: false, steps: [ETAPES[0]] })];
     await ouvrirTiroir(m);
     await clic("ent-tester");
     expect(el("ent-essai-synthese")?.textContent).toBe("Les contrôles réseau et de certificat passent.");
-    expect(el("ent-essai-incomplet")?.textContent).toContain(
-      "Ce test ne couvre pas encore la connexion elle-même : l'activation reste indisponible.",
-    );
+    expect(el("ent-essai-incomplet")).toBeNull();
     expect(document.querySelectorAll("[data-etape]")).toHaveLength(1);
     expect(el<HTMLButtonElement>("ent-activer")?.disabled).toBe(true);
+  });
+
+  it("un SSO : aucun utilisateur d'essai ni secret envoyés, phrase d'incomplétude gardée", async () => {
+    const OIDC = {
+      ...COMMUN,
+      type: "oidc" as const,
+      id: "sso",
+      label: "SSO",
+      issuer: "https://idp.example.lan",
+      client_id: "elpis",
+      client_auth: "basic",
+      scopes: ["openid"],
+      subject_claim: "sub",
+      username_claim: "preferred_username",
+      email_claim: "email",
+      name_claim: "name",
+      groups_claim: "groups",
+      required_acr: [],
+      required_amr: [],
+      max_age_sec: 0,
+      clock_skew_sec: 60,
+      session_max_age_sec: 0,
+      logout: { rp_initiated: false, backchannel: false },
+    };
+    const m = monter(etat({ providers: [OIDC] }));
+    m.reponses[TEST] = [json({ ok: true, complete: false, steps: [ETAPES[0]] })];
+    await m.A.loadEnterpriseAuth();
+    m.A.authModifier("sso");
+    await vider();
+    expect(el("ent-test-user")).toBeNull();
+    await saisir("ent-secret", "secret-sso");
+    await clic("ent-tester");
+    const corps = m.corps[TEST]?.[0] as Record<string, unknown>;
+    expect(corps).not.toHaveProperty("secret");
+    expect(corps).not.toHaveProperty("test_user");
+    expect(JSON.stringify(corps)).not.toContain("secret-sso");
+    expect(el("ent-essai-incomplet")).not.toBeNull();
   });
 
   it("un test raté reste affiché avec « Un contrôle a échoué. »", async () => {
@@ -266,6 +301,112 @@ describe("Connexion d'entreprise : bouton Tester", () => {
     await clic("ent-tester");
     expect(el("ent-essai-synthese")).not.toBeNull();
     expect(el("ent-essai-incomplet")).toBeNull();
+  });
+
+  it("l'utilisateur d'essai part dans test_user, avec sa phrase d'aide, sans être enregistré", async () => {
+    const m = monter(etat({ providers: [LDAP] }));
+    m.reponses[TEST] = [json({ ok: true, complete: false, steps: [ETAPES[0]] })];
+    await ouvrirTiroir(m);
+    expect(el("ent-test-user")?.closest("label")?.textContent).toContain(
+      "Un compte de l'annuaire qui doit pouvoir se connecter. Il est seulement cherché, son mot de passe n'est jamais demandé.",
+    );
+    await saisir("ent-test-user", " alice ");
+    await clic("ent-tester");
+    expect((m.corps[TEST]?.[0] as Record<string, unknown>)["test_user"]).toBe("alice");
+    await clic("ent-enregistrer-fournisseur");
+    const ecritures = m.appels.filter(
+      (a) => a.startsWith("PUT ") || a.startsWith("POST /api/admin/auth/providers"),
+    );
+    expect(ecritures.every((a) => a === TEST || a.startsWith("PUT "))).toBe(true);
+    for (const cle of Object.keys(m.corps))
+      if (cle !== TEST) expect(JSON.stringify(m.corps[cle])).not.toContain("alice");
+  });
+
+  it("rien saisi : ni secret ni test_user dans la requête", async () => {
+    const m = monter(etat({ providers: [LDAP] }));
+    m.reponses[TEST] = [json({ ok: true, complete: false, steps: [ETAPES[0]] })];
+    await ouvrirTiroir(m);
+    await clic("ent-tester");
+    const corps = m.corps[TEST]?.[0] as Record<string, unknown>;
+    expect(corps).not.toHaveProperty("secret");
+    expect(corps).not.toHaveProperty("test_user");
+  });
+
+  it("le secret saisi ne part que dans la requête de test, n'est ni affiché ni gardé, et disparaît avec le tiroir", async () => {
+    const SECRET = "S3cret-d-essai-unique";
+    const journal: string[] = [];
+    const espions = (["log", "info", "warn", "error", "debug"] as const).map((n) =>
+      vi
+        .spyOn(console, n)
+        .mockImplementation((...a: unknown[]) => void journal.push(a.map(String).join(" "))),
+    );
+    try {
+      const m = monter(etat({ providers: [LDAP] }));
+      m.reponses[TEST] = [json({ ok: true, complete: false, steps: [ETAPES[0]] })];
+      await ouvrirTiroir(m);
+      await saisir("ent-secret", SECRET);
+      await clic("ent-tester");
+      const corps = m.corps[TEST]?.[0] as Record<string, unknown>;
+      expect(corps["secret"]).toBe(SECRET);
+      for (const cle of Object.keys(m.corps))
+        if (cle !== TEST) expect(JSON.stringify(m.corps[cle])).not.toContain(SECRET);
+      expect(m.appels.some((a) => a.includes(SECRET))).toBe(false);
+      expect(JSON.stringify(m.A.authEssai.value)).not.toContain(SECRET);
+      expect(JSON.stringify(m.A.authEtat.value)).not.toContain(SECRET);
+      expect(document.body.textContent).not.toContain(SECRET);
+      expect(el<HTMLInputElement>("ent-secret")?.type).toBe("password");
+      m.A.authFermer();
+      await vider();
+      expect(m.A.authTiroir.value).toBeNull();
+      expect(JSON.stringify(m.A.authEssai.value)).not.toContain(SECRET);
+      m.A.authModifier("ipa");
+      await vider();
+      expect(el<HTMLInputElement>("ent-secret")?.value).toBe("");
+      expect(JSON.stringify(m.A.authTiroir.value)).not.toContain(SECRET);
+      expect(document.body.innerHTML).not.toContain(SECRET);
+      expect(window.location.href).not.toContain(SECRET);
+      expect(JSON.stringify({ ...window.localStorage })).not.toContain(SECRET);
+      expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(SECRET);
+      expect(journal.join("\n")).not.toContain(SECRET);
+    } finally {
+      espions.forEach((x) => x.mockRestore());
+    }
+  });
+
+  it("test complet : synthèse, rechargement de l'état et bouton Activer dégrisé", async () => {
+    const m = monter(etat({ providers: [LDAP] }));
+    m.reponses["GET /api/admin/auth"] = [
+      json(etat({ providers: [LDAP] })),
+      json(etat({ providers: [{ ...LDAP, tested: true }] })),
+    ];
+    m.reponses[TEST] = [json({ ok: true, complete: true, steps: [ETAPES[0]] })];
+    await ouvrirTiroir(m);
+    expect(el<HTMLButtonElement>("ent-activer")?.disabled).toBe(true);
+    await saisir("ent-test-user", "alice");
+    await clic("ent-tester");
+    expect(el("ent-essai-synthese")?.textContent).toBe("Test complet : vous pouvez activer ce fournisseur.");
+    expect(m.appels.filter((a) => a === "GET /api/admin/auth")).toHaveLength(2);
+    expect(el<HTMLButtonElement>("ent-activer")?.disabled).toBe(false);
+    expect(el("ent-essai-enregistrer")).toBeNull();
+  });
+
+  it("un test incomplet ne recharge pas l'état", async () => {
+    const m = monter(etat({ providers: [LDAP] }));
+    m.reponses[TEST] = [json({ ok: true, complete: false, steps: [ETAPES[0]] })];
+    await ouvrirTiroir(m);
+    await clic("ent-tester");
+    expect(m.appels.filter((a) => a === "GET /api/admin/auth")).toHaveLength(1);
+  });
+
+  it("test complet de réglages non enregistrés : « Enregistrez ces réglages pour pouvoir activer. »", async () => {
+    const m = monter(etat({ providers: [LDAP] }));
+    m.reponses[TEST] = [json({ ok: true, complete: true, steps: [ETAPES[0]] })];
+    await ouvrirTiroir(m);
+    await saisir("ent-label", "Annuaire modifié");
+    await clic("ent-tester");
+    expect(el("ent-essai-enregistrer")?.textContent?.trim()).toBe(
+      "Enregistrez ces réglages pour pouvoir activer.",
+    );
   });
 
   it("pendant le test : bouton grisé avec indicateur d'attente, un seul envoi", async () => {

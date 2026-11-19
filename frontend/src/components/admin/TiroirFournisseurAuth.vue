@@ -16,6 +16,7 @@ const synthese = computed(() => {
   if (!r) return "";
   if (!r.ok || r.steps.length === 0 || r.steps.some((x) => x.level === "fail"))
     return "Un contrôle a échoué.";
+  if (r.complete) return "Test complet : vous pouvez activer ce fournisseur.";
   return r.steps.every((x) => x.level === "ok")
     ? "Les contrôles réseau et de certificat passent."
     : "Les contrôles passent, avec des avertissements à lire.";
@@ -596,6 +597,21 @@ const titre = computed(() => {
                   {{ adm.authEssaiEnCours ? "Test en cours…" : "Tester" }}
                 </button>
               </div>
+              <label v-if="f.type === 'ldap'" class="adm-field">
+                <span class="adm-field__label">Utilisateur d'essai</span>
+                <input
+                  id="ent-test-user"
+                  v-model="f.test_user"
+                  class="set-input"
+                  maxlength="256"
+                  autocomplete="off"
+                  :disabled="adm.authEssaiEnCours"
+                />
+                <span class="adm-card__hint"
+                  >Un compte de l'annuaire qui doit pouvoir se connecter. Il est seulement cherché, son mot de
+                  passe n'est jamais demandé.</span
+                >
+              </label>
               <div aria-live="polite" class="space-y-2">
                 <p v-if="adm.authEssaiErreur" id="ent-essai-erreur" class="adm-field__warn">
                   {{ adm.authEssaiErreur }}
@@ -603,7 +619,18 @@ const titre = computed(() => {
                 <template v-if="adm.authEssai">
                   <p id="ent-essai-synthese" class="text-xs font-medium text-slate-800">{{ synthese }}</p>
                   <EtapesEssai :steps="adm.authEssai.steps" :annoncer="false" />
-                  <p v-if="!adm.authEssai.complete" id="ent-essai-incomplet" class="adm-card__hint">
+                  <p
+                    v-if="adm.authEssai.complete && adm.authFormModifie"
+                    id="ent-essai-enregistrer"
+                    class="adm-card__hint"
+                  >
+                    Enregistrez ces réglages pour pouvoir activer.
+                  </p>
+                  <p
+                    v-if="!adm.authEssai.complete && f.type !== 'ldap'"
+                    id="ent-essai-incomplet"
+                    class="adm-card__hint"
+                  >
                     Ce test ne couvre pas encore la connexion elle-même : l'activation reste indisponible.
                   </p>
                 </template>

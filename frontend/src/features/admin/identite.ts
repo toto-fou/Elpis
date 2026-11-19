@@ -69,6 +69,7 @@ export interface FormFournisseur {
   groupe_saisi: string;
   freshness_days: string;
   secret: string;
+  test_user: string;
   urls: string;
   bind_dn: string;
   user_base_dn: string;
@@ -115,6 +116,7 @@ function formVide(type: TypeFournisseur): FormFournisseur {
     groupe_saisi: "",
     freshness_days: "",
     secret: "",
+    test_user: "",
     urls: "",
     bind_dn: "",
     user_base_dn: "",
@@ -322,6 +324,17 @@ export function creerIdentite(b: BaseAdmin) {
   const authFournisseur = computed<FournisseurAuth | null>(() => {
     const f = authTiroir.value;
     return f && !f.nouveau ? (authEtat.value?.providers.find((p) => p.id === f.id) ?? null) : null;
+  });
+  const authFormModifie = computed(() => {
+    const f = authTiroir.value;
+    if (!f) return false;
+    const p = authFournisseur.value;
+    if (!p || f.secret !== "") return true;
+    const max = authEtat.value?.bounds.ldap_urls_max ?? 1;
+    return (
+      JSON.stringify(corpsFournisseur({ ...f, nouveau: false }, max)) !==
+      JSON.stringify(corpsFournisseur(formDe(p), max))
+    );
   });
   const authActifs = computed(() => (authEtat.value?.providers ?? []).filter((p) => p.active));
   const authAdressePublique = computed(() => authEtat.value?.public_url ?? "");
@@ -583,7 +596,7 @@ export function creerIdentite(b: BaseAdmin) {
     }
   }
 
-  /** Teste les réglages du formulaire tels quels (enregistrés ou non), sans le secret ; le résultat s'efface à la moindre modification. */
+  /** Teste les réglages du formulaire tels quels ; l'utilisateur d'essai et le secret saisi (annuaire) ne partent que dans cette requête ; le résultat s'efface à la moindre modification. */
   async function authTester(): Promise<void> {
     const f = authTiroir.value;
     const etat = authEtat.value;
@@ -596,6 +609,10 @@ export function creerIdentite(b: BaseAdmin) {
     }
     corps["id"] = f.id.trim();
     corps["type"] = f.type;
+    if (f.type === "ldap") {
+      if (f.test_user.trim() !== "") corps["test_user"] = f.test_user.trim();
+      if (f.secret !== "") corps["secret"] = f.secret;
+    }
     const moi = ++sequenceEssai;
     authEssai.value = null;
     authEssaiErreur.value = "";
@@ -621,6 +638,7 @@ export function creerIdentite(b: BaseAdmin) {
     authEssaiEnCours.value = false;
     authEssai.value = essai;
     authEssaiErreur.value = erreur;
+    if (essai?.complete) await loadEnterpriseAuth();
   }
 
   async function authBasculer(activer: boolean): Promise<boolean> {
@@ -700,6 +718,7 @@ export function creerIdentite(b: BaseAdmin) {
     authMode,
     authReglagesErreur,
     authReglagesModifies,
+    authFormModifie,
     authBusy,
     authTiroir,
     authTiroirErreur,

@@ -91,6 +91,27 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("adaptateur réel sur LDAPS local", () => {
     expect(q?.attributs).not.toContain("*");
   });
 
+  it("sansLimiteServeur : la limite n'est pas transmise, la réponse est tronquée ici, et « limite atteinte » du serveur lève une erreur au lieu d'un « absent »", async () => {
+    serveur.comportement.entrees = [
+      { dn: "uid=a,dc=x", attrs: { uid: ["a"] } },
+      { dn: "uid=b,dc=x", attrs: { uid: ["b"] } },
+      { dn: "uid=c,dc=x", attrs: { uid: ["c"] } },
+    ];
+    serveur.requetes.length = 0;
+    const cnx = await ouvrir();
+    await cnx.lier(DN, "mot-de-passe-service");
+    const deux = await cnx.chercher("cn=users,dc=exemple,dc=lan", { ...PARAMS, sansLimiteServeur: true });
+    expect(deux).toHaveLength(2);
+    expect(serveur.requetes.find((q) => q.type === "search")?.limite).toBe(0);
+    serveur.comportement.entrees = [];
+    serveur.comportement.codeRecherche = 4;
+    await expect(
+      cnx.chercher("cn=users,dc=exemple,dc=lan", { ...PARAMS, sansLimiteServeur: true }),
+    ).rejects.toMatchObject({ nature: "protocole", code: 4 });
+    serveur.comportement.codeRecherche = 0;
+    await cnx.fermer();
+  });
+
   it("un filtre d'identifiant hostile arrive échappé", async () => {
     serveur.comportement.entrees = [];
     serveur.requetes.length = 0;

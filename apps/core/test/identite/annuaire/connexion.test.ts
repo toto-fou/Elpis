@@ -349,8 +349,10 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
   it("mot de passe de service refusé : indisponible (pas un échec de l'utilisateur), rien n'est compté", async () => {
     annuaire.personnes[0]!.cle = UUID(1);
     const f = b.fournisseurs[0]!;
-    const { enregistrerSecret } = await import("../../../src/identite/fournisseurs");
+    const { enregistrerSecret, enregistrerTestReussi } = await import("../../../src/identite/fournisseurs");
     await enregistrerSecret(b.t.base, f, "mauvais", { userId: null, username: null, ip: null });
+    expect(await auth("jean")).toEqual({ type: "absent" });
+    await enregistrerTestReussi(b.t.base, f, "https://elpis.exemple.lan");
     expect(await auth("jean")).toEqual({ type: "indisponible" });
     expect(await echecs()).toEqual([]);
     expect(annuaire.liaisonsUtilisateur).toEqual([]);

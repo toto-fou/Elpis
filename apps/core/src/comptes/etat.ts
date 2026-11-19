@@ -32,34 +32,68 @@ export interface BilanSuspension {
   readonly tokens: number;
   /** Accès OAuth révoqués. */
   readonly oauth: number;
+  /** Origine `directory:*` ou `stale:*` remplacée par `admin`, `null` sinon. */
+  readonly remplace: string | null;
+}
+
+export interface OptionsCoupure {
+  /** Faux : jetons d'API et accès OAuth gardés (déjà refusés tant que le compte est suspendu) ; vrai par défaut. */
+  readonly revoquerAcces?: boolean;
+}
+
+const ORIGINE_ANNUAIRE = /^(directory|stale):/u;
+
+/** Pose la suspension (voir `poserSuspension`) ; `remplace` rend l'origine d'annuaire qu'une suspension d'administrateur a prise à sa place. */
+export async function poserSuspensionDetaillee(
+  x: Executeur,
+  uid: number,
+  par: string,
+  t: number,
+): Promise<{ change: boolean; remplace: string | null }> {
+  await exigerAdminLocal(x, { sauf: uid });
+  const pose = await x.run(
+    "UPDATE users SET suspended_at=?, suspended_by=?, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
+    [t, par, t, t, uid],
+  );
+  if (pose.changes > 0) return { change: true, remplace: null };
+  if (par !== "admin") return { change: false, remplace: null };
+  const l = await x.get<{ suspended_by: string | null }>("SELECT suspended_by FROM users WHERE id=?", [uid]);
+  const origine = String(l?.suspended_by ?? "");
+  if (!ORIGINE_ANNUAIRE.test(origine)) return { change: false, remplace: null };
+  const remplace = await x.run(
+    "UPDATE users SET suspended_by=? WHERE id=? AND suspended_by=? AND suspended_at IS NOT NULL AND suspended_at<>0",
+    [par, uid, origine],
+  );
+  return remplace.changes > 0 ? { change: true, remplace: origine } : { change: false, remplace: null };
 }
 
 /** Pose la suspension et la coupure des sessions dans l'écriture de l'appelant (refusée si elle retire le dernier administrateur local actif, sans écraser une suspension déjà posée) ; vrai si l'état a changé. */
 export async function poserSuspension(x: Executeur, uid: number, par: string, t: number): Promise<boolean> {
-  await exigerAdminLocal(x, { sauf: uid });
-  return (
-    (
-      await x.run(
-        "UPDATE users SET suspended_at=?, suspended_by=?, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
-        [t, par, t, t, uid],
-      )
-    ).changes > 0
-  );
+  return (await poserSuspensionDetaillee(x, uid, par, t)).change;
 }
 
-/** Pose la suspension en UNE écriture, puis coupe les accès ; `change` dit si l'état a changé. */
-export async function suspendre(dep: DependancesEtat, uid: number, par: string): Promise<BilanSuspension> {
+/** Pose la suspension en UNE écriture, puis coupe les accès seulement si l'état a changé ; la suspension d'un administrateur remplace l'origine d'annuaire. */
+export async function suspendre(
+  dep: DependancesEtat,
+  uid: number,
+  par: string,
+  options: OptionsCoupure = {},
+): Promise<BilanSuspension> {
   const t = dep.maintenant();
-  const change = await dep.base.ecriture((x) => poserSuspension(x, uid, par, t));
-  return { change, ...(await couperAcces(dep, uid)) };
+  const r = await dep.base.ecriture((x) => poserSuspensionDetaillee(x, uid, par, t));
+  if (!r.change)
+    return { change: false, propage: false, bacArrete: false, tokens: 0, oauth: 0, remplace: null };
+  return { change: true, remplace: r.remplace, ...(await couperAcces(dep, uid, options)) };
 }
 
-/** Révoque jetons d'API et accès OAuth du compte puis coupe flux, exécutions et bac (appels réseau : jamais dans une transaction). */
+/** Révoque jetons d'API et accès OAuth du compte (sauf `revoquerAcces: false`) puis coupe flux, exécutions et bac (appels réseau : jamais dans une transaction). */
 export async function couperAcces(
   dep: DependancesEtat,
   uid: number,
-): Promise<Omit<BilanSuspension, "change">> {
-  const { tokens, oauth } = await revoquerAcces(dep, uid);
+  options: OptionsCoupure = {},
+): Promise<Omit<BilanSuspension, "change" | "remplace">> {
+  const { tokens, oauth } =
+    options.revoquerAcces === false ? { tokens: 0, oauth: 0 } : await revoquerAcces(dep, uid);
   let propage = false;
   try {
     propage = (await dep.publierSuspension(uid)) !== false;

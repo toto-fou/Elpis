@@ -313,8 +313,8 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
       "admin",
       true,
     ]);
-    expect(publies).toEqual([alice, alice]);
-    expect(appels.map((a) => a[0])).toEqual([alice, alice]);
+    expect(publies).toEqual([alice]);
+    expect(appels.map((a) => a[0])).toEqual([alice]);
     expect(compteSuspendu(await ligneUtilisateur(t.base, bob))).toBe(false);
     const min = Number((await ligneUtilisateur(t.base, alice))?.session_min_ts);
     horloge += 50;

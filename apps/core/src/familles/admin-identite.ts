@@ -13,6 +13,12 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
 import { etatBalayage } from "../identite/annuaire/balayage";
+import { memeDn } from "../identite/annuaire/dn";
+import {
+  liaisonDeTestRefusee,
+  noterEchecLiaisonDeTest,
+  oublierEchecsLiaisonDeTest,
+} from "../identite/annuaire/echecs";
 import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
 import type { FabriqueConnexion } from "../identite/annuaire/client";
 import { fabriqueLdapts } from "../identite/annuaire/client";
@@ -27,6 +33,8 @@ import {
   etatFournisseur,
   champsFigesChanges,
   enregistrerTestReussi,
+  hmacCoffre,
+  hotesDuFournisseur,
   nombreIdentites,
   secretFournisseur,
   supprimerSecretFournisseur,
@@ -41,7 +49,7 @@ import {
   validerModification,
   validerReglagesGeneraux,
 } from "../identite/reglages";
-import type { Fournisseur } from "../identite/reglages";
+import type { Fournisseur, FournisseurLdap } from "../identite/reglages";
 import type { OptionsSortant } from "../identite/sortant";
 import { diffConfig } from "../journal-securite/diff-config";
 import type { Journal } from "../journal";
@@ -100,9 +108,9 @@ async function identitesDeMemeAncre(x: Executeur, f: Fournisseur): Promise<boole
   return ancres.every(([a]) => a === ancre);
 }
 
-/** Empreinte courte d'un identifiant pour l'audit : l'identifiant lui-même n'y figure jamais. */
-function empreinteIdentifiant(identifiant: string): string {
-  return createHash("sha256").update(identifiant, "utf8").digest("hex").slice(0, 16);
+/** Empreinte courte d'un identifiant pour l'audit : HMAC à clé dérivée du coffre, `null` sans clé ; l'identifiant n'y figure jamais. */
+function empreinteIdentifiant(identifiant: string): string | null {
+  return hmacCoffre("elpis.auth.test-user.v1", identifiant)?.slice(0, 16) ?? null;
 }
 
 function positionDuFournisseur(providers: readonly unknown[], id: string): number {
@@ -374,14 +382,24 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   let testsEnCours = 0;
 
+  /** Secret enregistré d'un annuaire pour un test : seulement si le test vise le DN de liaison et les adresses du fournisseur ENREGISTRÉ, et que le coffre l'y autorise. */
+  async function secretDuFournisseurEnregistre(f: FournisseurLdap): Promise<string | null> {
+    const enregistre = lireReglagesAuth().providers.find((p) => p.id === f.id);
+    if (enregistre === undefined || enregistre.type !== "ldap") return null;
+    if (!memeDn(enregistre.bind_dn, f.bind_dn)) return null;
+    const permis = new Set(hotesDuFournisseur(enregistre));
+    if (!hotesDuFournisseur(f).every((h) => permis.has(h))) return null;
+    return secretFournisseur(base, f);
+  }
+
   /** Réglages réellement testés : l'empreinte n'est posée que si le fournisseur existe encore, et jamais sur un fournisseur allumé dont les réglages diffèrent. */
-  async function retenirTest(teste: Fournisseur, publique: string): Promise<void> {
+  async function retenirTest(teste: Fournisseur, publique: string, secret: string | null): Promise<void> {
     await ecrire(async (x, cfg) => {
       const actuel = reglagesAuthDepuis(cfg["auth"]).providers.find((p) => p.id === teste.id);
       if (actuel === undefined) return;
       if (actuel.enabled && empreinteFournisseur(actuel, publique) !== empreinteFournisseur(teste, publique))
         return;
-      await enregistrerTestReussi(x, teste, publique, maintenant());
+      await enregistrerTestReussi(x, teste, publique, maintenant(), secret);
     }, false);
   }
 
@@ -401,6 +419,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
     const reglages = estDict(corps) ? reglagesTestes : corps;
     let publique: string;
     let lance: ReturnType<typeof lancerTest>;
+    let employe: { origine: "typed" | "stored"; valeur: string } | null = null;
     try {
       publique = lireReglagesAuth().public_url;
       lance = lancerTest(
@@ -414,9 +433,17 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
           ...dep.essai,
           annuaire: {
             fabrique: dep.fabriqueAnnuaire ?? ((s) => fabriqueLdapts(s)),
-            secretEnregistre: (f) => secretFournisseur(base, f),
+            secretEnregistre: secretDuFournisseurEnregistre,
             utilisateur,
             secret: secretSaisi,
+            limiteur: {
+              refuse: (dn) => liaisonDeTestRefusee(base, dn, maintenant()),
+              echec: (dn) => noterEchecLiaisonDeTest(base, dn, maintenant()),
+              succes: (dn) => oublierEchecsLiaisonDeTest(base, dn),
+            },
+            secretEmploye: (origine, valeur) => {
+              employe = { origine, valeur };
+            },
           },
           oidc: { secretEnregistre: (f) => secretFournisseur(base, f) },
         },
@@ -430,7 +457,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
     });
     const r = await lance.resultat;
     const teste = lance.fournisseurTeste();
-    if (r.complete && teste !== null) await retenirTest(teste, publique);
+    const secretUtilise = (employe as { origine: string; valeur: string } | null)?.valeur ?? null;
+    if (r.complete && teste !== null) await retenirTest(teste, publique, secretUtilise);
     const brut = estDict(corps) ? corps : {};
     const id = typeof brut["id"] === "string" && REGEX_ID_AUDIT.test(brut["id"]) ? brut["id"] : null;
     const type = brut["type"] === "ldap" || brut["type"] === "oidc" ? brut["type"] : null;
@@ -445,6 +473,11 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       complete: r.complete,
       failed_step: r.steps.find((e) => e.level === "fail")?.id ?? null,
       targets,
+      bind_dn:
+        typeof brut["bind_dn"] === "string"
+          ? brut["bind_dn"].replace(/[\p{Cc}\p{Cf}]/gu, "").slice(0, 256)
+          : null,
+      secret_origin: (employe as { origine: string } | null)?.origine ?? "none",
       test_user:
         typeof utilisateur === "string" && utilisateur !== "" ? empreinteIdentifiant(utilisateur) : null,
     });

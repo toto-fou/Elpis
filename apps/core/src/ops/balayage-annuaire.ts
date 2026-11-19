@@ -3,7 +3,7 @@
 import { dormirMs } from "@elpis/commun";
 
 import type { CycleDeVie } from "../cycle";
-import { balayerAnnuaire } from "../identite/annuaire/balayage";
+import { alerterSiPerime, balayerAnnuaire } from "../identite/annuaire/balayage";
 import type { DependancesBalayage } from "../identite/annuaire/balayage";
 import { annuairesActifs } from "../identite/annuaire/connexion";
 import type { ModeApp } from "../mode";
@@ -18,11 +18,17 @@ export interface OptionsBalayageAnnuaire {
 }
 
 /** Une passe sur chaque annuaire actif, l'un après l'autre ; une erreur est journalisée et n'arrête ni les suivants ni le cycle. */
-export async function balayerLesAnnuaires(dep: DependancesBalayage): Promise<void> {
+export async function balayerLesAnnuaires(
+  dep: DependancesBalayage,
+  intervalleMs: number = INTERVALLE_BALAYAGE_MS,
+): Promise<void> {
   try {
     for (const f of await annuairesActifs(dep)) {
       try {
-        await balayerAnnuaire(dep, f);
+        const issue = await balayerAnnuaire(dep, f);
+        if (issue.type === "occupe")
+          dep.journal.info(`annuaire ${f.id} : passe ignorée, une autre est en cours`);
+        await alerterSiPerime(dep, f, intervalleMs);
       } catch (e) {
         dep.journal.warn({ err: e }, `balayage de l'annuaire ${f.id} en échec`);
       }
@@ -52,8 +58,8 @@ export function brancherBalayageAnnuaire(
         } catch {
           return;
         }
-        await balayerLesAnnuaires(dep);
         attente = options.intervalleMs ?? INTERVALLE_BALAYAGE_MS;
+        await balayerLesAnnuaires(dep, attente);
       }
     },
     { modes: ["main"], arrierePlan: true },

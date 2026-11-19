@@ -4,13 +4,14 @@ import { AsyncResource } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 
 import {
-  accesPerime,
+  accesPerimeDe,
   compteSuspendu,
   getUsernameById,
   getUserSettings,
   ligneAcces,
   ligneUtilisateur,
 } from "@elpis/auth";
+import type { Fraicheurs } from "@elpis/auth";
 import {
   CancelledError,
   cleHashPy,
@@ -33,7 +34,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { config, configView } from "@elpis/config";
+import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
   clientBuiltinRef,
@@ -341,6 +342,8 @@ export interface DependancesPlanificateur {
   readonly runner?: (o: OptionsRun) => Promise<SortieRun>;
   /** `_llm_reachable` (substitué par les tests). */
   readonly llmJoignable?: () => Promise<boolean>;
+  /** Fraîcheurs des fournisseurs actifs ; sans elle, un compte externe est périmé. */
+  readonly fraicheurs?: () => Promise<Fraicheurs>;
 }
 
 export interface Lancement {
@@ -376,6 +379,7 @@ export class Planificateur {
   readonly bootId: string;
   private readonly runner: (o: OptionsRun) => Promise<SortieRun>;
   private readonly sonde: () => Promise<boolean>;
+  private readonly fraicheurs: () => Promise<Fraicheurs>;
   private readonly runs = new Map<number, RunActif>();
   private readonly annulations = new Map<string, number>();
   private dernierTick: number | null = null;
@@ -387,6 +391,7 @@ export class Planificateur {
     this.bootId = dep.bootId ?? BOOT_ID;
     this.runner = dep.runner ?? runChatMultiMcp;
     this.sonde = dep.llmJoignable ?? llmJoignable;
+    this.fraicheurs = dep.fraicheurs ?? (async () => new Map());
   }
 
   /** `scheduler_alive` : leader ET boucle qui a tické récemment (une boucle morte garde le verrou mais cesse de ticker). */
@@ -501,7 +506,10 @@ export class Planificateur {
     const uid = intPy(routine["owner_user_id"]);
     const rid = intPy(routine["id"]);
     const acces = await ligneAcces(this.base, uid);
-    if (o.trigger !== "manual" && accesPerime(acces, configView(), Date.now() / 1000)) {
+    if (
+      o.trigger !== "manual" &&
+      (await accesPerimeDe({ fraicheursFournisseurs: this.fraicheurs }, acces, Date.now() / 1000))
+    ) {
       await this.sauterPourPeremption(rid, uid, o.trigger);
       return null;
     }

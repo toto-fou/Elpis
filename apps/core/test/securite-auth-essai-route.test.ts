@@ -138,6 +138,8 @@ describe("test d'un fournisseur : route (SQLite)", () => {
       complete: false,
       failed_step: "tls",
       targets: [`serveur-muet.invalid:${portMuet}`],
+      bind_dn: expect.any(String),
+      secret_origin: "none",
       test_user: null,
     });
     expect(await t.base.valeurs("SELECT * FROM auth_provider_state")).toEqual([]);

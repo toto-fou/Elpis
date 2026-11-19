@@ -7,6 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import {
   accesPerime,
+  accesPerimeDe,
   creerJeton,
   createExternalUser,
   createUser,
@@ -15,19 +16,21 @@ import {
   exchangeCode,
   getClient,
   issueCode,
+  lireFraicheurs,
   refresh,
   registerClient,
   resoudreJeton,
   verifyAccessToken,
 } from "@elpis/auth";
 import type { ClientOAuth, DependancesOAuth } from "@elpis/auth";
-import { configView } from "@elpis/config";
 import { configureAudit, configurerCoffre, oublierConfigurationAudit } from "@elpis/securite";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { creerFamilleWebhooks } from "../src/familles/webhooks";
 import { ancreIdentite } from "../src/identite/ancre";
+import { lecteurFraicheurs } from "../src/identite/fraicheur";
+import { supprimerSecretFournisseur } from "../src/identite/fournisseurs";
 import { balayerAnnuaire } from "../src/identite/annuaire/balayage";
 import type { DependancesBalayage } from "../src/identite/annuaire/balayage";
 import { createRoutine, setRoutineWebhook } from "../src/routines/magasin";
@@ -47,22 +50,22 @@ configurerCoffre({
 });
 
 describe("accesPerime : fonction pure", () => {
-  const config = (p: Record<string, unknown>[]): unknown => ({ auth: { providers: p } });
+  const table = (...e: [string, number][]): Map<string, number> => new Map(e);
   const ligne = (id: unknown, vu: unknown): { ident_provider_id: unknown; ident_checked_at: unknown } => ({
     ident_provider_id: id,
     ident_checked_at: vu,
   });
   const T = 1_800_000_000;
-  const ldap = config([{ id: "a", enabled: true, freshness_days: 3 }]);
+  const ldap = table(["a", 3]);
 
-  it("compte local (sans identité) : jamais concerné, quelle que soit la configuration", () => {
+  it("compte local (sans identité) : jamais concerné, quelle que soit la table", () => {
     expect(accesPerime(ligne(null, null), ldap, T)).toBe(false);
-    expect(accesPerime(ligne(undefined, undefined), {}, T)).toBe(false);
-    expect(accesPerime(undefined, undefined, T)).toBe(false);
-    expect(accesPerime(null, null, T)).toBe(false);
+    expect(accesPerime(ligne(undefined, undefined), table(), T)).toBe(false);
+    expect(accesPerime(undefined, table(), T)).toBe(false);
+    expect(accesPerime(null, table(), T)).toBe(false);
   });
 
-  it("frais jusqu'à freshness_days inclus, périmé au-delà", () => {
+  it("frais jusqu'à la fraîcheur du fournisseur incluse, périmé au-delà", () => {
     expect(accesPerime(ligne("a", T - 3 * JOUR), ldap, T)).toBe(false);
     expect(accesPerime(ligne("a", T - 3 * JOUR - 1), ldap, T)).toBe(true);
   });
@@ -71,22 +74,32 @@ describe("accesPerime : fonction pure", () => {
     for (const vu of [0, null, undefined, "x", -5]) expect(accesPerime(ligne("a", vu), ldap, T)).toBe(true);
   });
 
-  it("fournisseur supprimé, éteint, absent de la configuration : périmé", () => {
-    expect(accesPerime(ligne("a", T), config([]), T)).toBe(true);
-    expect(accesPerime(ligne("a", T), config([{ id: "a", enabled: false, freshness_days: 3 }]), T)).toBe(
-      true,
-    );
-    expect(accesPerime(ligne("a", T), {}, T)).toBe(true);
-    expect(accesPerime(ligne("a", T), null, T)).toBe(true);
-    expect(accesPerime(ligne("a", T), config([{ id: "b", enabled: true }]), T)).toBe(true);
+  it("fournisseur absent de la table (supprimé, éteint, invalide, inactif, inconnu) : périmé tout de suite", () => {
+    expect(accesPerime(ligne("a", T), table(), T)).toBe(true);
+    expect(accesPerime(ligne("a", T), table(["b", 3]), T)).toBe(true);
+    expect(accesPerime(ligne(12, T), ldap, T)).toBe(true);
   });
 
-  it("durée absente ou illisible : 14 jours", () => {
-    for (const j of [undefined, "x", 0, -1]) {
-      const c = config([{ id: "a", enabled: true, freshness_days: j }]);
-      expect(accesPerime(ligne("a", T - 13 * JOUR), c, T)).toBe(false);
-      expect(accesPerime(ligne("a", T - 15 * JOUR), c, T)).toBe(true);
-    }
+  it("durée hors de 1 à 90 jours dans la table : périmé", () => {
+    for (const j of [0, -1, 91, 1e9, Number.NaN, Infinity])
+      expect(accesPerime(ligne("a", T), table(["a", j]), T)).toBe(true);
+    expect(accesPerime(ligne("a", T - 90 * JOUR), table(["a", 90]), T)).toBe(false);
+  });
+
+  it("sans dépendance de fraîcheur (ou en panne) : tout compte externe est périmé, un compte local jamais", async () => {
+    const ext = ligne("a", T);
+    expect(await accesPerimeDe({}, ext, T)).toBe(true);
+    expect(
+      await accesPerimeDe(
+        {
+          fraicheursFournisseurs: () => Promise.reject(new Error("panne")),
+        },
+        ext,
+        T,
+      ),
+    ).toBe(true);
+    expect(await accesPerimeDe({}, ligne(null, null), T)).toBe(false);
+    expect(await accesPerimeDe({ fraicheursFournisseurs: async () => ldap }, ext, T)).toBe(false);
   });
 });
 
@@ -98,10 +111,15 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
   let maintenant: number;
   let dep: ReturnType<typeof dependancesParDefaut>;
 
+  let tic = 0;
   const auth = () => ({
     ...dependancesParDefaut(b.t.base),
     maintenant: () => b.horloge,
-    config: () => configView(),
+    fraicheursFournisseurs: lecteurFraicheurs(
+      b.t.base,
+      () => true,
+      () => (tic += 5000),
+    ),
   });
   const externe = async (
     nom: string,
@@ -190,6 +208,38 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
       expect(await ok(jl as string)).toBe(true);
     });
 
+    it("fournisseur tenu pour inactif (secret supprimé, réglage invalide) : les jetons de ses comptes sont périmés tout de suite", async () => {
+      const uid = await externe("jean", 1, maintenant);
+      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 5);
+      expect(await ok(j as string)).toBe(true);
+      b.cfg.ecrire({
+        auth: {
+          public_url: "https://elpis.exemple.lan",
+          providers: [{ ...b.fournisseurs[0], freshness_days: 1e9 }],
+        },
+      });
+      expect(await ok(j as string)).toBe(false);
+      b.cfg.ecrire({ auth: { public_url: "https://elpis.exemple.lan", providers: [b.fournisseurs[0]] } });
+      expect(await ok(j as string)).toBe(true);
+      await supprimerSecretFournisseur(b.t.base, "annuaire", { userId: null, username: null, ip: null });
+      expect(await ok(j as string)).toBe(false);
+    });
+
+    it("la table des fraîcheurs est gardée une seconde par process", async () => {
+      let ms = 1000;
+      const lire = lecteurFraicheurs(
+        b.t.base,
+        () => true,
+        () => ms,
+      );
+      expect([...(await lire())]).toEqual([["annuaire", 14]]);
+      eteindre();
+      ms += 999;
+      expect([...(await lire())]).toEqual([["annuaire", 14]]);
+      ms += 2;
+      expect([...(await lire())]).toEqual([]);
+    });
+
     it("la vérification est faite sur la ligne déjà lue : la fraîcheur se perd avec le temps et revient avec une vérification", async () => {
       const uid = await externe("jean", 1, maintenant);
       const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
@@ -211,7 +261,8 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
       let n = 0;
       const od: DependancesOAuth = {
         base: b.t.base,
-        config: () => configView(),
+        config: () => ({}),
+        fraicheursFournisseurs: () => lireFraicheurs(dep),
         maintenant: () => b.horloge,
         jetonUrl: (k) => `U${String(++n).padStart(4, "0")}`.padEnd(Math.ceil((4 * k) / 3), "u"),
         jetonHex: (k) => `H${String(++n).padStart(4, "0")}`.padEnd(2 * k, "0"),
@@ -309,6 +360,7 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
         base: b.t.base,
         meneur: { tenu: true, essayer: async () => true, rendre: async () => undefined },
         llmJoignable: async () => true,
+        fraicheurs: () => lireFraicheurs(dep),
         runner: async (o) => {
           lancees.push(Number(o.userId ?? 0));
           return ["ok", [], {}];

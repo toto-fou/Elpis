@@ -6,7 +6,8 @@ import { tokenDigest, tokenUrlsafe } from "@elpis/securite";
 import { arrondiEntierPy, comparePointsDeCode, intPy, stripPy, strPy, veritePy } from "@elpis/commun";
 
 import { valeur } from "./dict";
-import { accesPerime, COLONNES_IDENTITE, compteSuspendu, JOINTURE_IDENTITE } from "./etat-compte";
+import { accesPerimeDe, COLONNES_IDENTITE, compteSuspendu, JOINTURE_IDENTITE } from "./etat-compte";
+import type { PorteFraicheur } from "./etat-compte";
 
 export const PREFIXES = { tools: "ept_", vision: "evt_" } as const;
 export type TypeJeton = keyof typeof PREFIXES;
@@ -54,7 +55,7 @@ export interface JetonResolu {
   expires_at: number | null;
 }
 
-export interface DependancesJetons {
+export interface DependancesJetons extends PorteFraicheur {
   base: Base;
   config(): unknown;
   maintenant?(): number;
@@ -302,7 +303,7 @@ export async function resoudreJeton(
     return null;
   }
   if (!r || String(r.kind) !== type || !veritePy(r.username) || compteSuspendu(r)) return null;
-  if (accesPerime(r, config, maintenant(dep))) return null;
+  if (await accesPerimeDe(dep, r, maintenant(dep))) return null;
   const l = ligne(r);
   if (l.expires_at !== null && l.expires_at <= maintenant(dep)) return null;
   let fams = l.families;

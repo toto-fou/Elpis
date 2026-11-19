@@ -5,7 +5,7 @@ import { corpsJson } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer } from "../admin/aides";
-import { balayerAnnuaire, etatBalayage } from "../identite/annuaire/balayage";
+import { balayerAnnuaire, RETENUS_MAX } from "../identite/annuaire/balayage";
 import type { DependancesBalayage, EtatBalayage } from "../identite/annuaire/balayage";
 import { annuairesActifs } from "../identite/annuaire/connexion";
 import type { FournisseurLdap } from "../identite/reglages";
@@ -34,6 +34,8 @@ export function creerFamilleAdminIdentiteBalayage(dep: DependancesBalayage): Fam
   async function passer(req: FastifyRequest, rep: FastifyReply): Promise<EtatBalayage> {
     const f = await annuaire(idDuChemin(req));
     const r = await balayerAnnuaire(dep, f);
+    if (r.type === "verrou_indisponible")
+      throw new HttpError(503, "La vérification est indisponible : demandez à votre administrateur.");
     if (r.type !== "bilan") throw new HttpError(409, "Une passe est déjà en cours pour cet annuaire.");
     auditer(req, "admin.auth.sweep", {
       provider_id: f.id,
@@ -46,26 +48,42 @@ export function creerFamilleAdminIdentiteBalayage(dep: DependancesBalayage): Fam
     return r.etat;
   }
 
+  /** Identifiants confirmés : la liste vue par l'administrateur, entiers positifs distincts, 200 au plus. */
+  function comptesConfirmes(req: FastifyRequest): number[] {
+    const corps = corpsJson(req);
+    const liste = estDict(corps) ? corps["user_ids"] : undefined;
+    const valide =
+      Array.isArray(liste) &&
+      liste.length >= 1 &&
+      liste.length <= RETENUS_MAX &&
+      liste.every((v) => Number.isInteger(v) && (v as number) >= 1) &&
+      new Set(liste).size === liste.length &&
+      Object.keys(corps as object).length === 1;
+    if (!valide) throw new HttpError(400, "Champ « user_ids » : liste d'identifiants distincts attendue.");
+    return liste as number[];
+  }
+
   async function confirmer(req: FastifyRequest, rep: FastifyReply): Promise<EtatBalayage> {
     const f = await annuaire(idDuChemin(req));
-    const corps = corpsJson(req);
-    const vu = estDict(corps) ? corps["pending"] : undefined;
-    if (!Number.isInteger(vu) || (vu as number) < 1 || Object.keys(corps as object).length !== 1)
-      throw new HttpError(400, "Champ « pending » : entier positif attendu.");
-    const stocke = await etatBalayage(dep.base, f.id);
-    if (stocke === null || stocke.pending !== vu)
-      throw new HttpError(409, "Le décompte a changé : relisez l'état avant de confirmer.");
-    const r = await balayerAnnuaire(dep, f, { confirmer: vu as number });
+    const ids = comptesConfirmes(req);
+    const r = await balayerAnnuaire(dep, f, { confirmer: ids });
     if (r.type === "occupe") throw new HttpError(409, "Une passe est déjà en cours pour cet annuaire.");
-    if (r.type === "decompte_change" || r.etat.aborted !== null)
-      throw new HttpError(409, "Le décompte a changé : relisez l'état avant de confirmer.");
+    if (r.type === "verrou_indisponible")
+      throw new HttpError(503, "La vérification est indisponible : demandez à votre administrateur.");
+    const etat = r.etat;
+    if (r.type === "decompte_change" || etat.aborted !== null)
+      throw new HttpError(409, {
+        message: "La liste a changé : relisez l'état avant de confirmer.",
+        sweep: etat,
+      });
     auditer(req, "admin.auth.sweep.confirm", {
       provider_id: f.id,
-      confirmed: vu,
-      suspended: r.etat.suspended,
+      confirmed_user_ids: ids,
+      confirmed: ids.length,
+      suspended: etat.suspended,
     });
     void rep.headers(SANS_CACHE);
-    return r.etat;
+    return etat;
   }
 
   return {

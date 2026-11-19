@@ -8,9 +8,10 @@ import {
   getUser,
   getUsernameById,
   installerAuth,
+  lireFraicheurs,
   mandatairesDuJournal,
 } from "@elpis/auth";
-import type { DependancesAuth, DependancesJetons, DependancesOAuth } from "@elpis/auth";
+import type { DependancesAuth, DependancesJetons, DependancesOAuth, Fraicheurs } from "@elpis/auth";
 import {
   bootRaw,
   config,
@@ -74,6 +75,7 @@ import type { OptionsSortant } from "./identite/sortant";
 import type { FabriqueConnexion } from "./identite/annuaire/client";
 import { fabriqueLdapts } from "./identite/annuaire/client";
 import type { DependancesBalayage } from "./identite/annuaire/balayage";
+import { lecteurFraicheurs } from "./identite/fraicheur";
 import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
@@ -336,9 +338,18 @@ function vueAdmin(
 }
 
 /** Planificateur des routines : dans main seul, leader unique entre process (verrou rendu dès l'annonce de l'arrêt), démarré au cycle, runs drainés à l'arrêt. */
-export function brancherPlanificateur(mode: ModeApp, base: Base, cycle: CycleDeVie): Planificateur {
+export function brancherPlanificateur(
+  mode: ModeApp,
+  base: Base,
+  cycle: CycleDeVie,
+  fraicheurs?: () => Promise<Fraicheurs>,
+): Planificateur {
   const meneur = new Meneur({ arret: cycle.signalArret });
-  const planificateur = new Planificateur({ base, meneur });
+  const planificateur = new Planificateur({
+    base,
+    meneur,
+    ...(fraicheurs === undefined ? {} : { fraicheurs }),
+  });
   if (mode !== "main") return planificateur;
   installerMeneur(meneur);
   installerPlanificateur(planificateur);
@@ -404,7 +415,9 @@ export async function composer(
   installerPortsSkills(base);
   installerPortsBureau(base);
   const jc = journal.child({ domaine: "comptes" });
+  const fraicheurs = lecteurFraicheurs(base, () => dep.attributsCookie().https_only === true);
   const auth: DependancesAuth & DependancesJetons = {
+    fraicheursFournisseurs: fraicheurs,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     informer: (message) => jc.info(message),
     signalerRefus: signalerRefusAuth,
@@ -422,7 +435,7 @@ export async function composer(
     demarrerHistoriqueFichiers: async (uid) => void (await ouvrirSessionHistorique(uid, { journal: jr })),
   };
   const cycle = options.cycle ?? new CycleDeVie(journal.child({ domaine: "cycle" }));
-  const planificateur = brancherPlanificateur(mode, base, cycle);
+  const planificateur = brancherPlanificateur(mode, base, cycle, async () => lireFraicheurs(auth));
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
   brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
@@ -483,6 +496,7 @@ export async function composer(
   const oauth: DependancesOAuth = {
     base,
     config: () => auth.config(),
+    fraicheursFournisseurs: async () => lireFraicheurs(auth),
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
   };

@@ -49,3 +49,23 @@ export async function groupeExiste(cnx: ConnexionAnnuaire, groupeDn: string): Pr
     throw e;
   }
 }
+
+/** Vrai si au moins un membre du groupe est visible par le chemin que le balayage emploie (mode du fournisseur) ; toute erreur est propagée. */
+export async function groupeAMembreVisible(
+  cnx: ConnexionAnnuaire,
+  fournisseur: FournisseurLdap,
+  groupeDn: string,
+): Promise<boolean> {
+  const groupe = dnValide(groupeDn);
+  const mode = fournisseur.groups.mode;
+  const [base, portee, filtre] =
+    mode === "member"
+      ? ([groupe, "base", "(|(member=*)(uniqueMember=*))"] as const)
+      : ([
+          fournisseur.user_base_dn,
+          "sub",
+          filtreEgal(mode === "chain" ? REGLE_CHAINE : "memberOf", groupe),
+        ] as const);
+  const trouvees = await cnx.chercher(base, { portee, filtre, attributs: SANS_ATTRIBUT, limite: 1 });
+  return trouvees.length > 0;
+}

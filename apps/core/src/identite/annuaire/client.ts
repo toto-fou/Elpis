@@ -22,6 +22,8 @@ export interface OptionsRecherche {
   readonly filtre: string;
   readonly attributs: readonly string[];
   readonly limite: number;
+  /** Ne transmet pas la limite au serveur : la réponse est tronquée ici, un « limite atteinte » du serveur est alors une erreur. */
+  readonly sansLimiteServeur?: boolean;
 }
 
 export interface ConnexionAnnuaire {
@@ -193,7 +195,7 @@ class ConnexionLdapts implements ConnexionAnnuaire {
         filter: FilterParser.parseString(o.filtre),
         attributes: attributs,
         explicitBufferAttributes: binaires,
-        sizeLimit: o.limite,
+        ...(o.sansLimiteServeur === true ? {} : { sizeLimit: o.limite }),
         timeLimit: this.delaiSec,
         derefAliases: "never",
       });

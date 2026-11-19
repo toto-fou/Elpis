@@ -29,9 +29,20 @@ export interface DemandeEssaiAnnuaire {
   readonly utilisateur: unknown;
   /** Secret saisi pour ce test seul, tel que reçu. */
   readonly secret: unknown;
+  /** Limite des échecs de liaison du compte de service, par DN visé. */
+  readonly limiteur: LimiteurLiaison;
+  /** Appelée avec le secret réellement employé (saisi ou enregistré), juste avant la liaison. */
+  readonly secretEmploye?: (origine: "typed" | "stored", valeur: string) => void;
   /** Secondes. */
   readonly maintenant: () => number;
   readonly signal: AbortSignal;
+}
+
+export interface LimiteurLiaison {
+  /** Vrai si ce DN a trop échoué récemment : aucune connexion n'est alors tentée. */
+  refuse(dn: string): Promise<boolean>;
+  echec(dn: string): Promise<void>;
+  succes(dn: string): Promise<void>;
 }
 
 type Verdict = { level: EtapeEssai["level"]; detail: string };
@@ -68,8 +79,9 @@ function identifiantValide(v: unknown): v is string {
   return typeof v === "string" && v.length <= IDENTIFIANT_MAX && v.isWellFormed() && !/\p{Cc}/u.test(v);
 }
 
+/** Valeur venue de l'annuaire sans caractère de contrôle (Cc) ni de format (Cf : marques de direction, largeur nulle). */
 function dnTexte(dn: string): string {
-  return dn.replace(/\p{Cc}/gu, "");
+  return dn.replace(/[\p{Cc}\p{Cf}]/gu, "");
 }
 
 async function existe(cnx: ConnexionAnnuaire, base: string): Promise<boolean> {
@@ -153,15 +165,16 @@ async function verifierAppartenance(
 
 function verifierProfil(entree: EntreeAnnuaire, f: FournisseurLdap): Verdict {
   const p = profilExterne(entree, f);
+  const identifiant = dnTexte(p.identifiant);
   const nom = nomDerive(p.identifiant);
   if (nom === null)
     return {
       level: "fail",
-      detail: `Aucun nom Elpis ne peut être dérivé de l'identifiant « ${p.identifiant} » (attribut ${f.attrs.username}) : il est vide, invalide ou réservé.`,
+      detail: `Aucun nom Elpis ne peut être dérivé de l'identifiant « ${identifiant} » (attribut ${f.attrs.username}) : il est vide, invalide ou réservé.`,
     };
   return {
     level: "ok",
-    detail: `Identifiant d'annuaire : ${p.identifiant}. Nom Elpis : ${nom}. Nom affiché : ${p.nom || "(aucun)"}. E-mail : ${p.email || "(aucun)"}.`,
+    detail: `Identifiant d'annuaire : ${identifiant}. Nom Elpis : ${dnTexte(nom)}. Nom affiché : ${dnTexte(p.nom) || "(aucun)"}. E-mail : ${dnTexte(p.email) || "(aucun)"}.`,
   };
 }
 
@@ -273,9 +286,11 @@ export async function etapesAnnuaire(
   const saisi = d.secret;
   let secret: string | null;
   let origine = "enregistré";
+  let provenance: "typed" | "stored" = "stored";
   if (saisi !== undefined && saisi !== null && saisi !== "") {
     secret = secretSaisiValide(saisi) ? saisi : null;
     origine = "saisi";
+    provenance = "typed";
     if (secret === null) {
       poser("service_bind", "Compte de service", {
         level: "fail",
@@ -289,12 +304,20 @@ export async function etapesAnnuaire(
       poser("service_bind", "Compte de service", {
         level: "fail",
         detail:
-          "Le secret du compte de service est absent ou ne couvre pas ces adresses : ressaisissez le secret.",
+          "Le secret du compte de service est absent ou ne couvre pas ces réglages : ressaisissez le secret.",
       });
       return false;
     }
   }
   d.signal.throwIfAborted();
+  if (await d.limiteur.refuse(f.bind_dn)) {
+    poser("service_bind", "Compte de service", {
+      level: "fail",
+      detail: "Trop d'échecs de liaison pour ce compte de service : réessayez dans quelques minutes.",
+    });
+    return false;
+  }
+  d.secretEmploye?.(provenance, secret);
   let cnx: ConnexionAnnuaire | null = null;
   const fermer = (): void => void cnx?.fermer();
   d.signal.addEventListener("abort", fermer, { once: true });
@@ -304,10 +327,12 @@ export async function etapesAnnuaire(
       if (d.signal.aborted) fermer();
       await cnx.lier(f.bind_dn, secret);
     } catch (e) {
+      if (e instanceof ErreurAnnuaire && e.nature === "identifiants") await d.limiteur.echec(f.bind_dn);
       d.signal.throwIfAborted();
       poser("service_bind", "Compte de service", { level: "fail", detail: phrase(e, true) });
       return false;
     }
+    await d.limiteur.succes(f.bind_dn);
     poser("service_bind", "Compte de service", {
       level: "ok",
       detail: `Liaison du compte de service acceptée (secret ${origine}).`,

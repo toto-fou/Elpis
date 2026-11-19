@@ -33,3 +33,9 @@ export function filtreEgal(attribut: string, valeur: string | Buffer): string {
   if (Buffer.isBuffer(valeur) && valeur.length === 0) throw new ErreurAnnuaire("configuration");
   return `(${attribut}=${echapperFiltre(valeur)})`;
 }
+
+/** Filtre de présence `(attribut=*)`. */
+export function filtrePresence(attribut: string): string {
+  if (!ATTRIBUT_FILTRE.test(attribut)) throw new ErreurAnnuaire("configuration");
+  return `(${attribut}=*)`;
+}

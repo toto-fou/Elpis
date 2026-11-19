@@ -30,6 +30,10 @@ export interface Trace {
 export class AnnuaireFactice {
   personnes: Personne[] = [];
   groupesLisibles = true;
+  /** Faux : le compte de service ne voit plus aucune entrée d'utilisateur (droits de lecture perdus : succès, aucune entrée). */
+  entreesLisibles = true;
+  /** Faux : le compte de service ne voit plus aucun membre de groupe (succès, aucune entrée). */
+  membresVisibles = true;
   injoignable = false;
   urlsInjoignables = new Set<string>();
   /** DN d'utilisateurs dont la liaison n'aboutit pas (délai dépassé). */
@@ -100,9 +104,26 @@ export class AnnuaireFactice {
     const membre = /^\(\|\(member=(.*)\)\(uniqueMember=.*\)\)$/u.exec(o.filtre);
     if (membre !== null) {
       if (!this.groupesLisibles) throw new ErreurAnnuaire("protocole", { code: 50 });
+      if (!this.membresVisibles) return [];
+      if (membre[1] === "*")
+        return this.personnes.some((x) => x.groupes.includes(base)) ? [{ dn: base, attrs: {} }] : [];
       const p = this.personnes.find((x) => this.dn(x) === membre[1]);
       return p?.groupes.includes(base) ? [{ dn: base, attrs: {} }] : [];
     }
+    const deGroupe = /^\(memberOf=(.*)\)$/u.exec(o.filtre);
+    if (deGroupe !== null) {
+      if (!this.groupesLisibles) throw new ErreurAnnuaire("protocole", { code: 50 });
+      if (!this.membresVisibles) return [];
+      const g = deGroupe[1] ?? "";
+      const trouves = this.personnes.filter(
+        (x) => x.groupes.includes(g) && (base === BASE || this.dn(x) === base),
+      );
+      return trouves.slice(0, 1).map((x) => this.entree(x));
+    }
+    if (/^\((entryUUID|ipaUniqueID|objectGUID)=\*\)$/iu.test(o.filtre))
+      return this.entreesLisibles && base === BASE
+        ? this.personnes.slice(0, 1).map((x) => this.entree(x))
+        : [];
     if (o.filtre === "(objectClass=*)") {
       if (!this.groupesExistants.has(base)) throw new ErreurAnnuaire("protocole", { code: 32 });
       return [{ dn: base, attrs: {} }];
@@ -147,6 +168,7 @@ export class AnnuaireFactice {
   }
 
   private parCle(attribut: string, valeur: string): EntreeAnnuaire[] {
+    if (!this.entreesLisibles) return [];
     const voulu = valeur.replace(/\\([0-9a-f]{2})/giu, "$1").toLowerCase();
     const trouvees = this.personnes
       .map((p) => ({ p, e: this.entree(p) }))

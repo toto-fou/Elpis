@@ -58,6 +58,8 @@ export interface ParametresAnnuaire {
   readonly utilisateur?: unknown;
   /** Secret saisi pour ce test seul, tel que reçu. */
   readonly secret?: unknown;
+  readonly limiteur: DemandeEssaiAnnuaire["limiteur"];
+  readonly secretEmploye?: DemandeEssaiAnnuaire["secretEmploye"];
 }
 
 export interface TestLance {
@@ -340,6 +342,8 @@ function etapesLdap(
     secretEnregistre: a.secretEnregistre,
     utilisateur: a.utilisateur,
     secret: a.secret,
+    limiteur: a.limiteur,
+    ...(a.secretEmploye === undefined ? {} : { secretEmploye: a.secretEmploye }),
     maintenant: () => maintenant() / 1000,
     signal,
   });

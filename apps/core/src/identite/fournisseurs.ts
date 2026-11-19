@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/fournisseurs.ts — fournisseurs d'identité : liste et actifs (invariants de lecture), secret au coffre, champs figés, empreinte du dernier test réussi. */
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import { estDict } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
+import { cleCoffre } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
@@ -61,27 +62,64 @@ export function empreinteFournisseur(f: Fournisseur, publicUrl: string): string 
     .digest("hex");
 }
 
-/** Pose l'empreinte du test réussi (le seul appelant de production est le test du fournisseur). */
+const CONTEXTE_SECRET_TESTE = "elpis.auth.tested-secret.v1";
+
+/** HMAC-SHA256 d'une valeur, clé dérivée de la clé du coffre pour ce contexte ; `null` sans clé de coffre. */
+export function hmacCoffre(contexte: string, valeur: string): string | null {
+  const c = cleCoffre();
+  if (c === null) return null;
+  const cle = createHmac("sha256", c.cle).update(contexte, "utf8").digest();
+  return createHmac("sha256", cle).update(valeur, "utf8").digest("hex");
+}
+
+/** Pose l'empreinte du test réussi (le seul appelant de production est le test du fournisseur) et le HMAC du secret employé (`undefined` : le secret enregistré aujourd'hui). */
 export async function enregistrerTestReussi(
   x: Executeur,
   f: Fournisseur,
   publicUrl: string,
   maintenant: number = Date.now() / 1000,
+  secret?: string | null,
 ): Promise<void> {
+  const employe = secret === undefined ? await secretFournisseur(x, f) : secret;
+  const valeur = JSON.stringify({
+    h: empreinteFournisseur(f, publicUrl),
+    s: employe === null ? null : hmacCoffre(CONTEXTE_SECRET_TESTE, employe),
+  });
   await x.run(
     "INSERT INTO auth_provider_state(provider_id, tested_hash, tested_at) VALUES(?,?,?) " +
       "ON CONFLICT(provider_id) DO UPDATE SET tested_hash=excluded.tested_hash, tested_at=excluded.tested_at",
-    [f.id, empreinteFournisseur(f, publicUrl), maintenant],
+    [f.id, valeur, maintenant],
   );
 }
 
-/** Vrai si l'empreinte actuelle du fournisseur est celle de son dernier test réussi. */
-export async function testReussiCourant(x: Executeur, f: Fournisseur, publicUrl: string): Promise<boolean> {
+function lireTest(brut: unknown): { h: string; s: string | null } | null {
+  if (typeof brut !== "string") return null;
+  try {
+    const o = JSON.parse(brut) as { h?: unknown; s?: unknown };
+    if (typeof o.h !== "string" || (o.s !== null && typeof o.s !== "string")) return null;
+    return { h: o.h, s: o.s };
+  } catch {
+    return null;
+  }
+}
+
+/** Vrai si l'empreinte actuelle du fournisseur est celle de son dernier test réussi ET que le secret enregistré est celui qu'a employé ce test (un secret absent est signalé à part). */
+export async function testReussiCourant(
+  x: Executeur,
+  f: Fournisseur,
+  publicUrl: string,
+  secretEnregistre?: string | null,
+): Promise<boolean> {
   const l = await x.get<{ tested_hash: string | null }>(
     "SELECT tested_hash FROM auth_provider_state WHERE provider_id=?",
     [f.id],
   );
-  return typeof l?.tested_hash === "string" && l.tested_hash === empreinteFournisseur(f, publicUrl);
+  const test = lireTest(l?.tested_hash);
+  if (test === null || test.h !== empreinteFournisseur(f, publicUrl)) return false;
+  const stocke = secretEnregistre === undefined ? await secretFournisseur(x, f) : secretEnregistre;
+  if (stocke === null) return true;
+  const attendu = hmacCoffre(CONTEXTE_SECRET_TESTE, stocke);
+  return attendu !== null && test.s === attendu;
 }
 
 /** Hôtes `hôte:port` du fournisseur, sous la forme de la portée de son secret. */
@@ -179,8 +217,9 @@ export async function etatFournisseur(
   publicUrl: string,
   cookieSecure: boolean,
 ): Promise<{ has_secret: boolean; tested: boolean; ecart: string | null }> {
-  const has_secret = (await secretFournisseur(x, f)) !== null;
-  const tested = await testReussiCourant(x, f, publicUrl);
+  const secret = await secretFournisseur(x, f);
+  const has_secret = secret !== null;
+  const tested = await testReussiCourant(x, f, publicUrl, secret);
   const ecart =
     publicUrl === ""
       ? "adresse publique absente ou invalide"

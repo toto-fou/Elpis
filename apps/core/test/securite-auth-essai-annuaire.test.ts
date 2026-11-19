@@ -25,8 +25,18 @@ import type {
   FabriqueConnexion,
   OptionsRecherche,
 } from "../src/identite/annuaire/client";
+import {
+  liaisonDeTestRefusee,
+  noterEchecLiaisonDeTest,
+  oublierEchecsLiaisonDeTest,
+} from "../src/identite/annuaire/echecs";
 import { ErreurAnnuaire } from "../src/identite/annuaire/erreur";
-import { empreinteFournisseur, enregistrerSecret, enregistrerTestReussi } from "../src/identite/fournisseurs";
+import {
+  empreinteFournisseur,
+  enregistrerSecret,
+  enregistrerTestReussi,
+  hmacCoffre,
+} from "../src/identite/fournisseurs";
 import { validerFournisseur } from "../src/identite/reglages";
 import type { FournisseurLdap } from "../src/identite/reglages";
 import { appTest, journalMuet, lignesAuditRecentes, lignesJournal } from "./aides";
@@ -282,6 +292,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
       essai.delaiGlobalMs = undefined;
       lignesJournal.length = 0;
       await t.base.run("DELETE FROM auth_provider_state");
+      await t.base.run("DELETE FROM auth_failures");
       await t.base.run("DELETE FROM vault_secrets");
       cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [fournisseur()] } });
     });
@@ -313,7 +324,13 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
       expect(annuaire.liaisons).toEqual([[DN_SERVICE, MDP_SERVICE]]);
       expect(annuaire.liaisonsUtilisateur).toEqual([]);
       expect(annuaire.fermetures).toBe(annuaire.ouvertures);
-      expect(await etat()).toEqual([["annuaire", empreinteFournisseur(f, URL_PUBLIQUE)]]);
+      const [[idEtat, rangee]] = (await etat()) as [[string, string]];
+      expect(idEtat).toBe("annuaire");
+      expect(JSON.parse(rangee)).toEqual({
+        h: empreinteFournisseur(f, URL_PUBLIQUE),
+        s: hmacCoffre("elpis.auth.tested-secret.v1", MDP_SERVICE),
+      });
+      expect(rangee).not.toContain(MDP_SERVICE);
       const ev = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.test" })[0];
       expect(ev?.["details"]).toEqual({
         provider_id: "annuaire",
@@ -322,8 +339,13 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
         complete: true,
         failed_step: null,
         targets: [`${NOM}:${port}`],
-        test_user: createHash("sha256").update("jean").digest("hex").slice(0, 16),
+        bind_dn: DN_SERVICE,
+        secret_origin: "stored",
+        test_user: hmacCoffre("elpis.auth.test-user.v1", "jean")?.slice(0, 16),
       });
+      expect((ev?.["details"] as Record<string, unknown>)["test_user"]).not.toBe(
+        createHash("sha256").update("jean").digest("hex").slice(0, 16),
+      );
       const activer = await appeler("POST", "/api/admin/auth/providers/annuaire/enable", {});
       expect(activer.statusCode, activer.body).toBe(200);
     });
@@ -365,8 +387,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
     });
 
     it("fournisseur inconnu de la configuration : rien n'est enregistré", async () => {
-      await avecSecretRange(fournisseur({ id: "autre" }));
-      const r = await tester({ ...reglages({ id: "autre" }), test_user: "jean" });
+      const r = await tester({ ...reglages({ id: "autre" }), test_user: "jean", secret: MDP_SERVICE });
       expect(r.complete).toBe(true);
       expect(await etat()).toEqual([]);
     });
@@ -458,6 +479,120 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
         const vide = await tester({ ...reglages(), test_user: "jean", secret: "" });
         expect(etape(vide, "service_bind")?.detail).toContain("ressaisissez");
         expect(annuaire.liaisons).toEqual([]);
+      });
+    });
+
+    describe("bouton Tester : pas d'oracle de liaison", () => {
+      const DN_VOISIN = "uid=autre,cn=users,dc=exemple,dc=lan";
+
+      it("secret enregistré et DN de liaison différent : refus « ressaisissez », aucune connexion à l'annuaire", async () => {
+        await avecSecretRange(fournisseur());
+        const r = await tester({ ...reglages({ bind_dn: DN_VOISIN }), test_user: "jean" });
+        expect(etape(r, "service_bind")).toMatchObject({ level: "fail" });
+        expect(etape(r, "service_bind")?.detail).toContain("ressaisissez");
+        expect(annuaire.ouvertures).toBe(0);
+        expect(annuaire.liaisons).toEqual([]);
+        expect(r.complete).toBe(false);
+        expect(await etat()).toEqual([]);
+      });
+
+      it("même DN écrit autrement (casse, blancs) : le secret enregistré sert, ce DN-là seul le reçoit", async () => {
+        await avecSecretRange(fournisseur());
+        const variante = "UID=svc , cn=users,DC=exemple, dc=lan";
+        await tester({ ...reglages({ bind_dn: variante }), test_user: "jean" });
+        expect(annuaire.liaisons).toEqual([[variante, MDP_SERVICE]]);
+      });
+
+      it("secret saisi : il sert pour n'importe quel DN, jamais le secret enregistré", async () => {
+        await avecSecretRange(fournisseur());
+        await tester({ ...reglages({ bind_dn: DN_VOISIN }), test_user: "jean", secret: "essai-1" });
+        expect(annuaire.liaisons).toEqual([[DN_VOISIN, "essai-1"]]);
+      });
+
+      it("adresses : le secret enregistré ne part jamais vers une adresse que le fournisseur enregistré n'a pas", async () => {
+        await avecSecretRange(fournisseur());
+        const r = await tester({
+          ...reglages({ urls: [`ldaps://${NOM}:${port}`, `ldaps://${NOM}:${port + 1}`] }),
+          test_user: "jean",
+        });
+        expect(annuaire.liaisons.filter(([, mdp]) => mdp === MDP_SERVICE)).toEqual([]);
+        expect(r.complete).toBe(false);
+      });
+
+      it("5 échecs de liaison pour un même DN : le sixième test est refusé sans contacter l'annuaire ; un autre DN n'est pas touché", async () => {
+        for (let i = 0; i < 5; i++) {
+          const r = await tester({ ...reglages(), test_user: "jean", secret: `faux-${i}` });
+          expect(etape(r, "service_bind")?.detail).toContain("refuse le compte de service");
+        }
+        const ouvertures = annuaire.ouvertures;
+        const refuse = await tester({ ...reglages(), test_user: "jean", secret: MDP_SERVICE });
+        expect(etape(refuse, "service_bind")).toMatchObject({ level: "fail" });
+        expect(etape(refuse, "service_bind")?.detail).toContain("Trop d'échecs");
+        expect(annuaire.ouvertures).toBe(ouvertures);
+        expect(refuse.complete).toBe(false);
+        await tester({ ...reglages({ bind_dn: DN_VOISIN }), test_user: "jean", secret: "faux" });
+        expect(annuaire.ouvertures).toBe(ouvertures + 1);
+      });
+
+      it("le compteur se vide avec le temps et une liaison réussie le remet à zéro", async () => {
+        const dn = "uid=temps,dc=x";
+        const t0 = 1_800_000_000;
+        for (let i = 0; i < 5; i++) await noterEchecLiaisonDeTest(t.base, dn, t0);
+        expect(await liaisonDeTestRefusee(t.base, dn, t0)).toBe(true);
+        expect(await liaisonDeTestRefusee(t.base, dn.toUpperCase(), t0)).toBe(true);
+        expect(await liaisonDeTestRefusee(t.base, dn, t0 + 899)).toBe(true);
+        expect(await liaisonDeTestRefusee(t.base, dn, t0 + 900)).toBe(false);
+        await noterEchecLiaisonDeTest(t.base, dn, t0 + 901);
+        expect(await liaisonDeTestRefusee(t.base, dn, t0 + 901)).toBe(false);
+        await oublierEchecsLiaisonDeTest(t.base, dn);
+        expect(await liaisonDeTestRefusee(t.base, dn, t0)).toBe(false);
+      });
+
+      it("audit : bind_dn et origine du secret (saisi, enregistré, aucun)", async () => {
+        const details = (): Record<string, unknown> =>
+          lignesAuditRecentes({ actionPrefix: "admin.auth.provider.test" })[0]?.["details"] as Record<
+            string,
+            unknown
+          >;
+        await tester({ ...reglages(), test_user: "jean", secret: MDP_SERVICE });
+        expect(details()).toMatchObject({ bind_dn: DN_SERVICE, secret_origin: "typed" });
+        await avecSecretRange(fournisseur());
+        await tester({ ...reglages(), test_user: "jean" });
+        expect(details()).toMatchObject({ bind_dn: DN_SERVICE, secret_origin: "stored" });
+        await t.base.run("DELETE FROM vault_secrets");
+        await tester({ ...reglages(), test_user: "jean" });
+        expect(details()).toMatchObject({ secret_origin: "none" });
+      });
+
+      it("sortie : marques de direction et largeur nulle retirées des valeurs venues de l'annuaire", async () => {
+        annuaire.utilisateurs = [];
+        annuaire.membres = {};
+        annuaire.ajouter("jean", { cn: ["Je\u200Ban\u202E Dupont"], mail: ["a\u2066@exemple.lan"] });
+        await avecSecretRange(fournisseur());
+        const r = await tester({ ...reglages(), test_user: "jean" });
+        const detail = [etape(r, "test_user")?.detail, etape(r, "test_user_profile")?.detail].join(" ");
+        expect(detail).toContain("Jean Dupont");
+        expect(detail).not.toMatch(/[\u200B\u202E\u2066]/u);
+      });
+
+      it("l'empreinte du test couvre le secret employé : saisi différent de l'enregistré, ou enregistré changé après le test, refusent l'activation", async () => {
+        await avecSecretRange(fournisseur());
+        await tester({ ...reglages(), test_user: "jean", secret: MDP_SERVICE });
+        annuaire.secretService = "autre-secret";
+        await appeler("PUT", "/api/admin/auth/providers/annuaire/secret", { secret: "autre-secret" });
+        const refus = await appeler("POST", "/api/admin/auth/providers/annuaire/enable", {});
+        expect(refus.statusCode).toBe(409);
+        const refait = await tester({ ...reglages(), test_user: "jean" });
+        expect(refait.complete).toBe(true);
+        expect((await appeler("POST", "/api/admin/auth/providers/annuaire/enable", {})).statusCode).toBe(200);
+      });
+
+      it("test avec un secret saisi différent du secret enregistré : le test réussit mais l'activation reste refusée", async () => {
+        await avecSecretRange(fournisseur());
+        annuaire.secretService = "saisi-different";
+        const r = await tester({ ...reglages(), test_user: "jean", secret: "saisi-different" });
+        expect(r.complete).toBe(true);
+        expect((await appeler("POST", "/api/admin/auth/providers/annuaire/enable", {})).statusCode).toBe(409);
       });
     });
 

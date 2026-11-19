@@ -203,6 +203,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
         sandbox_stopped: bilan.bacArrete,
         tokens_revoked: bilan.tokens,
         oauth_revoked: bilan.oauth,
+        ...(bilan.remplace === null ? {} : { replaced_origin: bilan.remplace }),
       });
     return { ok: true, propagated: bilan.propage, tokens_revoked: bilan.tokens, oauth_revoked: bilan.oauth };
   }

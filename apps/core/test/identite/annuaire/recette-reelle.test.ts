@@ -49,6 +49,11 @@ interface Recette {
   readonly annuaires: readonly AnnuaireReel[];
 }
 
+const SANS_LIMITE = {
+  refuse: () => Promise.resolve(false),
+  echec: () => Promise.resolve(),
+  succes: () => Promise.resolve(),
+};
 const CHEMIN = process.env["ELPIS_RECETTE_LDAP"] ?? "";
 const RECETTE: Recette | null = CHEMIN ? (JSON.parse(readFileSync(CHEMIN, "utf8")) as Recette) : null;
 const ACTEUR = { userId: null, username: null, ip: null };
@@ -193,6 +198,7 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
             secretEnregistre: () => Promise.resolve(null),
             utilisateur: a.membre.login,
             secret: a.secret,
+            limiteur: SANS_LIMITE,
           },
         },
       );
@@ -214,7 +220,11 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
       const f = await fournisseur(a);
       const { type: _type, ...reglages } = f;
       const contexte = { publicUrl: "https://elpis.exemple.lan", cookieSecure: true, adminsLocaux: 1 };
-      const annuaire = { fabrique: fabriqueLdapts, secretEnregistre: () => Promise.resolve(null) };
+      const annuaire = {
+        fabrique: fabriqueLdapts,
+        secretEnregistre: () => Promise.resolve(null),
+        limiteur: SANS_LIMITE,
+      };
       const sansUtilisateur = await testerFournisseur({ type: "ldap", ...reglages }, contexte, {
         annuaire: { ...annuaire, secret: a.secret },
       });

@@ -185,6 +185,8 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
       expect(await actifs(), urls.join()).toEqual([]);
       await enregistrerSecret(t.base, modifie, "nouveau", ACTEUR);
       expect(await secretFournisseur(t.base, modifie)).toBe("nouveau");
+      expect(await actifs(), `${urls.join()} : test à refaire avec le nouveau secret`).toEqual([]);
+      await enregistrerTestReussi(t.base, modifie, URL_PUBLIQUE);
       expect(await actifs()).toEqual([id]);
     }
   });

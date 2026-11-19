@@ -15,6 +15,7 @@ import {
   etat,
   monter,
   proposition,
+  retenus,
   saisir,
   sweep,
   tous,
@@ -65,6 +66,11 @@ describe("balayage de l'annuaire", () => {
       ["group_missing", "Un groupe requis est introuvable dans l'annuaire : aucun compte n'a été modifié."],
       ["secret_missing", "Le secret du compte de service est à ressaisir."],
       ["directory_unreachable", "Annuaire injoignable."],
+      [
+        "users_unreadable",
+        "Le compte de service ne peut plus lire les entrées des utilisateurs : aucun compte n'a été modifié.",
+      ],
+      ["membership_unreadable", "ne peut plus lire l'appartenance aux groupes requis"],
       ["raison_inconnue", "aucun compte n'a été modifié"],
     ];
     for (const [raison, phrase] of cas) {
@@ -95,28 +101,91 @@ describe("balayage de l'annuaire", () => {
   });
 
   it("des suspensions retenues proposent de désactiver, après saisie du nombre", async () => {
-    const m = await ouvrirPage(etat([{ ...LDAP, sweep: sweep({ pending: 3 }) }]));
+    const m = await ouvrirPage(
+      etat([{ ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3 }) }]),
+    );
     const t = el("[data-balayage-retenues]")?.textContent ?? "";
     expect(t).toContain("3 comptes ne sont plus dans l'annuaire ou dans un groupe requis.");
     expect(t).toContain("Par précaution, aucun n'a été désactivé.");
     expect(el("[data-balayage-confirmer]")?.textContent).toContain("Désactiver ces 3 comptes");
-    m.reponses["POST /api/admin/auth/providers/ipa/sweep/confirm"] = [json(sweep({ pending: 0 }))];
+    m.reponses["POST /api/admin/auth/providers/ipa/sweep/confirm"] = [json(sweep())];
     await clic("[data-balayage-confirmer]");
     expect(m.mots).toEqual(["3"]);
-    expect(m.corps["POST /api/admin/auth/providers/ipa/sweep/confirm"]).toEqual([{ pending: 3 }]);
+    expect(m.corps["POST /api/admin/auth/providers/ipa/sweep/confirm"]).toEqual([{ user_ids: [1, 2, 3] }]);
+  });
+
+  it("la liste des comptes retenus est montrée avec une raison en clair, et seuls ces comptes sont confirmés", async () => {
+    const held = [
+      { user_id: 5, username: "eve", reason: "entry_missing" },
+      { user_id: 9, username: "bob", reason: "entry_disabled" },
+      { user_id: 12, username: "zoe", reason: "not_in_group" },
+    ];
+    const m = await ouvrirPage(etat([{ ...LDAP, sweep: sweep({ pending: 3, held, held_total: 3 }) }]));
+    const l = tous("[data-balayage-compte]").map((x) => x.textContent?.replace(/\s+/g, " ").trim());
+    expect(l).toEqual([
+      "eve · entrée introuvable",
+      "bob · entrée désactivée",
+      "zoe · hors des groupes requis",
+    ]);
+    expect(el("[data-balayage-autres]")).toBeNull();
+    m.reponses["POST /api/admin/auth/providers/ipa/sweep/confirm"] = [json(sweep())];
+    await clic("[data-balayage-confirmer]");
+    expect(m.corps["POST /api/admin/auth/providers/ipa/sweep/confirm"]).toEqual([{ user_ids: [5, 9, 12] }]);
+  });
+
+  it("liste incomplète : « et N autres », phrase dédiée, confirmation indisponible", async () => {
+    const m = await ouvrirPage(
+      etat([{ ...LDAP, sweep: sweep({ pending: 250, held: retenus(200), held_total: 250 }) }]),
+    );
+    expect(tous("[data-balayage-compte]")).toHaveLength(200);
+    expect(el("[data-balayage-autres]")?.textContent).toContain("et 50 autres");
+    expect(el("[data-balayage-trop]")?.textContent).toContain(
+      "Trop de comptes pour une confirmation ici : vérifiez l'annuaire, puis relancez la vérification.",
+    );
+    expect(el("[data-balayage-confirmer]")).toBeNull();
+    await m.A.balayageConfirmer("ipa", m.A.authEtat.value!.providers[0]!.sweep!);
+    expect(m.appels.some((a) => a.includes("/sweep/confirm"))).toBe(false);
+    expect(m.mots).toEqual([]);
+  });
+
+  it("des départs observés une fois sont annoncés sans bouton", async () => {
+    await ouvrirPage(
+      etat([
+        {
+          ...LDAP,
+          sweep: sweep({
+            observed: [
+              { user_id: 4, reason: "entry_missing" },
+              { user_id: 6, reason: "not_in_group" },
+            ],
+          }),
+        },
+      ]),
+    );
+    expect(el("[data-balayage-observes]")?.textContent).toContain(
+      "2 comptes paraissent partis ; ils seront désactivés s'ils le sont encore à la prochaine vérification.",
+    );
+    expect(el("[data-balayage-confirmer]")).toBeNull();
   });
 
   it("un refus de la saisie n'envoie rien", async () => {
-    const m = await ouvrirPage(etat([{ ...LDAP, sweep: sweep({ pending: 3 }) }]), { accepter: false });
+    const m = await ouvrirPage(
+      etat([{ ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3 }) }]),
+      { accepter: false },
+    );
     await clic("[data-balayage-confirmer]");
     expect(m.mots).toEqual(["3"]);
     expect(m.appels.some((a) => a.includes("/sweep/confirm"))).toBe(false);
   });
 
   it("un 409 à la confirmation recharge l'état et dit que la situation a changé", async () => {
-    const m = await ouvrirPage(etat([{ ...LDAP, sweep: sweep({ pending: 3 }) }]));
+    const m = await ouvrirPage(
+      etat([{ ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3 }) }]),
+    );
     m.reponses["POST /api/admin/auth/providers/ipa/sweep/confirm"] = [json({ detail: "x" }, 409)];
-    m.reponses["GET /api/admin/auth"] = [json(etat([{ ...LDAP, sweep: sweep({ pending: 4 }) }]))];
+    m.reponses["GET /api/admin/auth"] = [
+      json(etat([{ ...LDAP, sweep: sweep({ pending: 4, held: retenus(4), held_total: 4 }) }])),
+    ];
     await clic("[data-balayage-confirmer]");
     expect(el("[data-balayage-message]")?.textContent).toContain(
       "La situation a changé, vérifiez à nouveau.",
@@ -219,11 +288,69 @@ describe("assistant de rattachement", () => {
     await attendre(450);
     b?.click();
     await vider();
-    expect(m.corps[LIEN]).toEqual([{ links: [{ user_id: 2, subject: "uid-1" }], confirm_admins: [] }]);
+    expect(m.corps[LIEN]).toEqual([
+      { links: [{ user_id: 2, subject: "uid-1" }], confirm_admins: [], keep_tokens: false },
+    ]);
     expect(tous("[data-ratt-ligne]")[0]?.textContent).toContain(
       "Cette entrée est déjà rattachée à un autre compte.",
     );
     expect(el("[data-ratt-resume]")?.textContent).toContain("Aucun compte n'a été rattaché.");
+  });
+
+  it("la case des jetons est décochée par défaut ; cochée, elle envoie keep_tokens", async () => {
+    const m = await ouvrirAssistant();
+    const garder = el<HTMLInputElement>("[data-ratt-garder-jetons]");
+    expect(garder?.checked).toBe(false);
+    expect(garder?.closest("label")?.textContent).toContain(
+      "Conserver les jetons d'API et les accès des applications de ces comptes",
+    );
+    garder?.click();
+    tous<HTMLInputElement>("[data-ratt-case]")[0]?.click();
+    await vider();
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    await attendre(450);
+    m.reponses[LIEN] = [json({ results: [{ user_id: 2, subject: "uid-1", result: "linked", kept: true }] })];
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    expect(m.corps[LIEN]).toEqual([
+      { links: [{ user_id: 2, subject: "uid-1" }], confirm_admins: [], keep_tokens: true },
+    ]);
+  });
+
+  it("le résultat dit les jetons et accès révoqués quand le serveur les rend", async () => {
+    const m = await ouvrirAssistant();
+    tous<HTMLInputElement>("[data-ratt-case]")[0]?.click();
+    await vider();
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    await attendre(450);
+    m.reponses[LIEN] = [
+      json({
+        results: [{ user_id: 2, subject: "uid-1", result: "linked", revoked_tokens: 2, revoked_oauth: 1 }],
+      }),
+    ];
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    expect(el("[data-ratt-resume]")?.textContent).toContain("1 compte rattaché.");
+    expect(el("[data-ratt-resume]")?.textContent).toContain(
+      "Révoqués : 2 jetons d'API, 1 accès d'application.",
+    );
+  });
+
+  it("une entrée qui ne peut pas se connecter est dite en clair", async () => {
+    const m = await ouvrirAssistant();
+    tous<HTMLInputElement>("[data-ratt-case]")[0]?.click();
+    await vider();
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    await attendre(450);
+    m.reponses[LIEN] = [json({ results: [{ user_id: 2, subject: "uid-1", result: "entry_not_loginable" }] })];
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    expect(tous("[data-ratt-ligne]")[0]?.textContent).toContain(
+      "Cette entrée ne peut pas se connecter avec les réglages de cet annuaire.",
+    );
   });
 
   it("une ligne rattachée quitte la liste au rechargement", async () => {
@@ -299,6 +426,7 @@ describe("rattachements préparés", () => {
     compteConsole(1, "root", { is_admin: 1 }),
     compteConsole(2, "alice"),
     compteConsole(3, "bob", { identity: { provider_id: "ipa", ext_username: "bob", linked_at: 1 } }),
+    compteConsole(4, "carole", { is_admin: 2 }),
   ];
 
   async function ouvrirSso(items: unknown[] = [ITEM]) {
@@ -324,7 +452,7 @@ describe("rattachements préparés", () => {
     expect(el("[data-prelink]")?.textContent).toContain("alice@sso");
     expect(el("[data-prelink]")?.textContent).toContain("Sans ancien mot de passe");
     const options = tous<HTMLOptionElement>("#ent-prelien-compte option").map((o) => o.textContent?.trim());
-    expect(options).toEqual(["—", "root (administrateur)", "alice"]);
+    expect(options).toEqual(["—", "root (administrateur)", "alice", "carole (modérateur)"]);
   });
 
   it("n'apparaît pas pour un annuaire LDAP", async () => {
@@ -366,6 +494,28 @@ describe("rattachements préparés", () => {
     expect(m.corps["POST " + PRE]).toEqual([
       { user_id: 1, expected: "root@sso", waiver: false, confirm_admin: true },
     ]);
+  });
+
+  it("modérateur : dispense désactivée, confirmation obligatoire, aide de la dispense affichée", async () => {
+    const m = await ouvrirSso([]);
+    expect(el("[data-prelink-dispense-aide]")?.textContent).toContain(
+      "À n'utiliser que si votre fournisseur ne laisse pas les personnes changer leur identifiant.",
+    );
+    await saisir("#ent-prelien-compte", "4");
+    await saisir("#ent-prelien-attendu", "carole@sso");
+    expect(el<HTMLInputElement>("#ent-prelien-dispense")?.disabled).toBe(true);
+    expect(el<HTMLButtonElement>("#ent-prelien-ajouter")?.disabled).toBe(true);
+    m.reponses["POST " + PRE] = [json(ITEM)];
+    await clic("#ent-prelien-admin");
+    await clic("#ent-prelien-ajouter");
+    expect(m.corps["POST " + PRE]).toEqual([
+      { user_id: 4, expected: "carole@sso", waiver: false, confirm_admin: true },
+    ]);
+  });
+
+  it("l'échéance affichée est celle du serveur", async () => {
+    await ouvrirSso([{ ...ITEM, waiver: true, expires_at: 1_700_000_000 + 72 * 3600 }]);
+    expect(el("[data-prelink]")?.textContent).toContain("Échéance :");
   });
 
   it("une erreur 400 ou 409 affiche le détail du serveur", async () => {

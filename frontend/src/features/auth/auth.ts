@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/auth/auth.ts — module de connexion des scripts historiques (`setupAuth`) : me-lite, connexion, déconnexion, comptes. */
-import { schemaOk, schemaReponseConnexion, schemaReponseMoi } from "@elpis/contracts";
+import { schemaReponseConnexion, schemaReponseDeconnexion, schemaReponseMoi } from "@elpis/contracts";
 import { ref } from "vue";
 import type { Ref } from "vue";
 import { z } from "zod";
 
 import type { ClientHttp } from "../../platform/http/client";
+import type { ApiResult } from "../../platform/http/resultat";
 import { adresseLogo } from "../communs/logo";
 import type { HttpLegacy, Toast } from "../../platform/http/legacy";
 import type { Compte, GestionnaireSession } from "./session";
-import { setupSso } from "./sso";
+import { adresseHttps, envNavigateur, setupSso } from "./sso";
 import type { EnvSso } from "./sso";
 
 export type UtilisateurAffiche = Compte;
@@ -131,21 +132,14 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     btn_color: "#0f172a",
   });
 
+  const env = dep.envSso ?? envNavigateur;
   const sso = setupSso(
     http,
     {
+      depuisConsole: () => !!fen().__ADMIN_ONLY_MODE__,
       rechargerConfig: () => loadPublicConfig(),
-      apresConnexion: async () => {
-        await checkAuth();
-        showToast("Bienvenue");
-        const u = user.value;
-        if (u && !fen().__ADMIN_ONLY_MODE__ && u.is_admin && !modeSepare()) {
-          isAdminView.value = true;
-          lancer(ctx.loadUsers);
-        }
-      },
     },
-    dep.envSso,
+    env,
   );
   void sso.lireRetour();
 
@@ -291,9 +285,14 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
           if (data.is_admin) lancer(ctx.loadUsers);
           else {
             showToast("Accès admin requis pour cette console.", "error");
-            await http.requete("/api/logout-lite", { method: "POST" }, { sans401: true });
+            const quitte = await http.requete(
+              "/api/logout-lite",
+              { method: "POST" },
+              { schema: schemaReponseDeconnexion.optional(), sans401: true },
+            );
             session.fermer("deconnexion");
             user.value = null;
+            quitterFournisseur(quitte);
           }
         } else if (data.is_admin && !modeSepare()) {
           isAdminView.value = true;
@@ -404,13 +403,25 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     }
   }
 
+  /** Après la déconnexion locale, va chez le fournisseur si le serveur rend une adresse https ; un échec de navigation ne défait rien. */
+  function quitterFournisseur(r: ApiResult<{ logout_url?: string } | undefined>): boolean {
+    const url = r.type === "ok" ? adresseHttps(r.valeur?.logout_url) : null;
+    if (url === null) return false;
+    try {
+      env.naviguer(url);
+    } catch {
+      return false;
+    }
+    return true;
+  }
+
   /** Départ volontaire : seul cas où la génération en cours est arrêtée côté serveur. */
   async function logout(): Promise<void> {
     essayer(() => ctx.rescueEditorBuffers?.());
     const r = await http.requete(
       "/api/logout-lite",
       { method: "POST" },
-      { schema: schemaOk.optional(), sans401: true },
+      { schema: schemaReponseDeconnexion.optional(), sans401: true },
     );
     if (r.type === "reseau") {
       showToast("Déconnexion impossible : serveur injoignable", "error");
@@ -452,6 +463,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     mustChangePassword.value = false;
     newPasswordForce.value = "";
     showToast("Déconnecté");
+    if (quitterFournisseur(r)) return;
     const f = fen();
     if (f.__ADMIN_ONLY_MODE__ && typeof f.__MAIN_APP_URL__ === "string" && f.__MAIN_APP_URL__) {
       const cible = f.__MAIN_APP_URL__;

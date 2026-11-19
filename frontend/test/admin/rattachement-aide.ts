@@ -82,6 +82,14 @@ export const OIDC = {
   logout: { rp_initiated: false, backchannel: false },
 };
 
+export function retenus(n: number, debut = 1) {
+  return Array.from({ length: n }, (_, i) => ({
+    user_id: debut + i,
+    username: "compte" + (debut + i),
+    reason: "entry_missing",
+  }));
+}
+
 export function sweep(over: Record<string, unknown> = {}) {
   return {
     at: Math.floor(Date.now() / 1000) - 600,
@@ -91,6 +99,10 @@ export function sweep(over: Record<string, unknown> = {}) {
     unknown: 3,
     aborted: null,
     pending: 0,
+    held: [],
+    held_total: 0,
+    observed: [],
+    ok_at: null,
     ...over,
   };
 }

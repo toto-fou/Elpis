@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/rattachement.ts — console › Connexion d'entreprise : balayage de l'annuaire, assistant de rattachement des comptes existants, rattachements préparés (SSO) et détachement d'un compte. */
 import {
+  schemaCorpsConfirmationBalayage,
   schemaReponseMigration,
   schemaReponseRattachement,
   schemaReponseRattachementsPrepares,
@@ -9,6 +10,7 @@ import {
 import type {
   CompteAMigrer,
   CompteConsole,
+  EtatBalayageConsole,
   PropositionAnnuaire,
   RattachementPrepare,
 } from "@elpis/contracts";
@@ -39,12 +41,50 @@ const RAISONS_ABANDON: Readonly<Record<string, string>> = {
   directory_unreachable: "Annuaire injoignable. Aucun compte n'a été modifié.",
   bind_failed: "Le compte de service est refusé par l'annuaire. Aucun compte n'a été modifié.",
   timeout: "L'annuaire n'a pas répondu à temps. Aucun compte n'a été modifié.",
+  users_unreadable:
+    "Le compte de service ne peut plus lire les entrées des utilisateurs : aucun compte n'a été modifié.",
+  membership_unreadable:
+    "Le compte de service ne peut plus lire l'appartenance aux groupes requis : aucun compte n'a été modifié.",
+  stale: "La dernière vérification aboutie est trop ancienne : relancez-la. Aucun compte n'a été modifié.",
 };
 const ABANDON_GENERIQUE = "La vérification n'a pas pu aller au bout : aucun compte n'a été modifié.";
 
 /** Phrase, sans jargon, d'une passe abandonnée : dit toujours que rien n'a été modifié. */
 export function phraseAbandon(raison: string): string {
   return RAISONS_ABANDON[raison] ?? ABANDON_GENERIQUE;
+}
+
+const RAISONS_RETENUE: Readonly<Record<string, string>> = {
+  entry_missing: "entrée introuvable",
+  entry_disabled: "entrée désactivée",
+  not_in_group: "hors des groupes requis",
+};
+
+/** Raison en clair d'une suspension retenue ; une raison inconnue reçoit une formule neutre. */
+export const phraseRetenue = (raison: string): string => RAISONS_RETENUE[raison] ?? "à vérifier";
+
+/** Phrase d'information sur les départs vus une seule fois. */
+export const phraseObserves = (n: number): string =>
+  n > 1
+    ? `${n} comptes paraissent partis ; ils seront désactivés s'ils le sont encore à la prochaine vérification.`
+    : "1 compte paraît parti ; il sera désactivé s'il l'est encore à la prochaine vérification.";
+
+/** Plafond de comptes listés et confirmés en une fois (celui du serveur). */
+const MAX_RETENUS = 200;
+
+export interface RetenuesAffichees {
+  comptes: EtatBalayageConsole["held"];
+  autres: number;
+  total: number;
+  complet: boolean;
+}
+
+/** Comptes retenus montrés à l'administrateur (200 au plus) ; la confirmation n'est permise que si la liste est complète. */
+export function retenuesAffichees(s: EtatBalayageConsole): RetenuesAffichees {
+  const comptes = s.held.slice(0, MAX_RETENUS);
+  const total = Math.max(s.pending, s.held_total, comptes.length);
+  const autres = total - comptes.length;
+  return { comptes, autres, total, complet: autres === 0 && comptes.length > 0 };
 }
 
 const PHRASES_LIEN: Readonly<Record<string, string>> = {
@@ -59,6 +99,7 @@ const PHRASES_LIEN: Readonly<Record<string, string>> = {
   entry_not_found: "Entrée introuvable dans l'annuaire.",
   entry_ambiguous: "Plusieurs entrées correspondent : choisissez-en une.",
   entry_not_active: "Cette entrée de l'annuaire n'est pas active.",
+  entry_not_loginable: "Cette entrée ne peut pas se connecter avec les réglages de cet annuaire.",
   not_in_group: "Cette entrée n'est dans aucun groupe requis.",
   groups_unknown: "Les groupes de cette entrée sont illisibles : réessayez.",
   directory_unavailable: "Annuaire injoignable, réessayez.",
@@ -120,6 +161,7 @@ export interface EtatAssistant {
   envoi: boolean;
   resume: string;
   arme: boolean;
+  garderJetons: boolean;
 }
 
 export interface FormPrelink {
@@ -193,22 +235,30 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     }
   }
 
-  async function balayageConfirmer(id: string, pending: number): Promise<void> {
-    if (balayageEnCours.value !== null || pending < 1) return;
+  async function balayageConfirmer(id: string, etatPasse: EtatBalayageConsole): Promise<void> {
+    const r = retenuesAffichees(etatPasse);
+    if (balayageEnCours.value !== null || !r.complet) return;
+    const corps = schemaCorpsConfirmationBalayage.safeParse({
+      user_ids: [...new Set(r.comptes.map((c) => c.user_id))],
+    });
+    if (!corps.success) return;
+    const n = corps.data.user_ids.length;
     const ok = await confirmerParMot(
       ctx,
       "Désactiver ces comptes",
-      `${pending} compte${pending > 1 ? "s" : ""} ne ${pending > 1 ? "sont" : "est"} plus dans l'annuaire ou dans un groupe requis. Ils seront désactivés et leurs sessions fermées. Tapez ${pending} pour confirmer.`,
-      String(pending),
-      pending > 1 ? `Désactiver ces ${pending} comptes` : "Désactiver ce compte",
+      `${n} compte${n > 1 ? "s" : ""} ne ${n > 1 ? "sont" : "est"} plus dans l'annuaire ou dans un groupe requis. Ils seront désactivés et leurs sessions fermées. Tapez ${n} pour confirmer.`,
+      String(n),
+      n > 1 ? `Désactiver ces ${n} comptes` : "Désactiver ce compte",
     );
     if (!ok) return;
     balayageEnCours.value = id;
     poser(id, "");
     try {
-      const { statut, donnees } = await envoyer("POST", `${BASE}/${encodeURIComponent(id)}/sweep/confirm`, {
-        pending,
-      });
+      const { statut, donnees } = await envoyer(
+        "POST",
+        `${BASE}/${encodeURIComponent(id)}/sweep/confirm`,
+        corps.data,
+      );
       if (statut === 409) poser(id, "La situation a changé, vérifiez à nouveau.");
       else if (statut < 200 || statut >= 300) poser(id, erreurServeur(statut, donnees));
       else showToast("Comptes désactivés", "success");
@@ -230,7 +280,7 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
       (l) =>
         l.coche &&
         entreeRattachable(l.proposition) &&
-        (l.compte.role !== "admin" || l.confirmeAdmin) &&
+        (l.compte.role === "user" || l.confirmeAdmin) &&
         !assistant.value?.envoi,
     ),
   );
@@ -279,6 +329,7 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
       envoi: false,
       resume: "",
       arme: false,
+      garderJetons: false,
     };
     void assistantCharger(0);
     void ctx.nextTick().then(() => assistantDrawer.value?.focus());
@@ -359,7 +410,7 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
       return;
     }
     if (Date.now() - armeLe < GARDE_CONFIRMATION_MS) return;
-    const admins = choix.filter((l) => l.compte.role === "admin").map((l) => l.compte.user_id);
+    const admins = choix.filter((l) => l.compte.role !== "user").map((l) => l.compte.user_id);
     a.envoi = true;
     a.erreur = "";
     a.resume = "";
@@ -369,6 +420,7 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
       {
         links: choix.map((l) => ({ user_id: l.compte.user_id, subject: l.proposition?.subject ?? "" })),
         confirm_admins: admins,
+        keep_tokens: a.garderJetons,
       },
     );
     a.envoi = false;
@@ -381,9 +433,14 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     }
     const phrases = new Map<number, string>();
     let rattaches = 0;
+    let jetons = 0;
+    let acces = 0;
     for (const r of lu.results) {
-      if (r.result === "linked") rattaches += 1;
-      else phrases.set(r.user_id, phraseLien(r.result));
+      if (r.result === "linked") {
+        rattaches += 1;
+        jetons += r.revoked_tokens ?? 0;
+        acces += r.revoked_oauth ?? 0;
+      } else phrases.set(r.user_id, phraseLien(r.result));
     }
     for (const l of a.lignes) {
       l.coche = false;
@@ -393,6 +450,8 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
       rattaches > 0
         ? `${rattaches} compte${rattaches > 1 ? "s" : ""} rattaché${rattaches > 1 ? "s" : ""}.`
         : "Aucun compte n'a été rattaché.";
+    if (jetons > 0 || acces > 0)
+      a.resume += ` Révoqués : ${jetons} jeton${jetons > 1 ? "s" : ""} d'API, ${acces} accès d'application.`;
     if (rattaches > 0) {
       void lien.loadUsers();
       void loadEnterpriseAuth();
@@ -416,7 +475,7 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
   const prelinkCompte = computed(
     () => e.usersList.value.find((u) => u.id === prelinkForm.value.user_id) ?? null,
   );
-  const prelinkAdmin = computed(() => prelinkCompte.value?.is_admin === 1);
+  const prelinkAdmin = computed(() => [1, 2].includes(Number(prelinkCompte.value?.is_admin)));
 
   const idPrelinks = computed<string | null>(() => {
     const f = authTiroir.value;
@@ -446,7 +505,7 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     void prelinksCharger();
   });
 
-  /** Un administrateur ne reçoit jamais la dispense : la case est décochée avec lui. */
+  /** Un administrateur ou un modérateur ne reçoit jamais la dispense : la case est décochée avec lui. */
   watch(
     () => prelinkForm.value.user_id,
     () => {

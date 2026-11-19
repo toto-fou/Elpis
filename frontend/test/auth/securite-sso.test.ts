@@ -21,6 +21,7 @@ function banc(
   recherche = "",
   origine = "https://elpis.example.test",
   chemin = "/",
+  console = false,
 ) {
   const appels: Appel[] = [];
   const naviguer = vi.fn();
@@ -40,7 +41,7 @@ function banc(
   });
   const crochets = {
     rechargerConfig: vi.fn(() => Promise.resolve()),
-    apresConnexion: vi.fn(() => Promise.resolve()),
+    depuisConsole: () => console,
   };
   const sso = setupSso(http, crochets, env);
   sso.appliquerConfig({
@@ -151,7 +152,7 @@ describe("départ du flux SSO", () => {
     const naviguer = vi.fn();
     const sso = setupSso(
       new ClientHttp(session, m.fetch),
-      { rechargerConfig: () => Promise.resolve(), apresConnexion: () => Promise.resolve() },
+      { rechargerConfig: () => Promise.resolve() },
       {
         origine: () => "https://e.test",
         chemin: () => "/",
@@ -226,6 +227,60 @@ describe("retour en erreur", () => {
   });
 });
 
+describe("SSO depuis la console d'administration", () => {
+  const CONFIG = {
+    login_methods: [{ id: "keycloak", label: "Keycloak" }],
+    auth_origin: "https://elpis.example.test",
+  };
+
+  it("même nom d'hôte sur un autre port : départ sur place avec target=console", async () => {
+    const b = banc(
+      { [DEPART]: () => json({ url: "https://idp.example.test/a" }) },
+      "",
+      "https://elpis.example.test:8002",
+      "/",
+      true,
+    );
+    b.sso.appliquerConfig(CONFIG);
+    await b.sso.startSso("keycloak");
+    expect(b.appels.map((a) => a.url)).toEqual(["/api/auth/oidc/keycloak/start"]);
+    expect(JSON.parse(String(b.appels[0]?.init?.body))).toEqual({ target: "console" });
+    expect(b.naviguer).toHaveBeenCalledWith("https://idp.example.test/a");
+  });
+
+  it("autre nom d'hôte : navigation vers le nom canonique, port, chemin et paramètres gardés, sans appel", async () => {
+    const b = banc({}, "?x=1", "https://autre.example.test:8002", "/admin", true);
+    b.sso.appliquerConfig(CONFIG);
+    await b.sso.startSso("keycloak");
+    expect(b.appels).toEqual([]);
+    expect(b.naviguer).toHaveBeenCalledWith("https://elpis.example.test:8002/admin?x=1");
+  });
+
+  it("page non https sur un autre hôte : aucune navigation", async () => {
+    const b = banc({}, "", "http://autre.example.test:8002", "/", true);
+    b.sso.appliquerConfig(CONFIG);
+    await b.sso.startSso("keycloak");
+    expect(b.naviguer).not.toHaveBeenCalled();
+    expect(b.sso.ssoError.value).not.toBe("");
+  });
+
+  it("l'application garde target=app ; la console n'envoie pas oauth_next", async () => {
+    const app = banc({ [DEPART]: () => json({ url: "https://idp.example.test/a" }) });
+    await app.sso.startSso("keycloak");
+    expect(JSON.parse(String(app.appels[0]?.init?.body))).toEqual({ target: "app" });
+    const q = "?oauth_next=" + encodeURIComponent("/oauth/authorize?client_id=x");
+    const cons = banc(
+      { [DEPART]: () => json({ url: "https://idp.example.test/a" }) },
+      q,
+      undefined,
+      "/",
+      true,
+    );
+    await cons.sso.startSso("keycloak");
+    expect(JSON.parse(String(cons.appels[0]?.init?.body))).toEqual({ target: "console" });
+  });
+});
+
 describe("preuve du titulaire", () => {
   const LIEN = "/api/auth/oidc/link-proof";
 
@@ -236,15 +291,12 @@ describe("preuve du titulaire", () => {
     expect(b.remplacerUrl).toHaveBeenCalledWith("/");
   });
 
-  it("pas de demande en attente, ou 404 : message d'expiration", async () => {
+  it("pas de demande en attente : message d'expiration", async () => {
     const attendu = "Cette demande a expiré. Reconnectez-vous par le service de votre organisation.";
     const a = banc({ ["GET " + LIEN]: () => json({ pending: false, username: null }) }, "?auth_link=1");
     await a.sso.lireRetour();
     expect(a.sso.preuveUsername.value).toBeNull();
     expect(a.sso.authRetour.value?.message).toBe(attendu);
-    const n = banc({ ["GET " + LIEN]: () => json({ detail: "x" }, 404) }, "?auth_link=1");
-    await n.sso.lireRetour();
-    expect(n.sso.authRetour.value?.message).toBe(attendu);
   });
 
   it("sans auth_link, aucun appel", async () => {
@@ -264,16 +316,38 @@ describe("preuve du titulaire", () => {
     return b;
   }
 
-  it("succès : le mot de passe ne part qu'à la route de preuve, est effacé, l'application est rechargée", async () => {
-    const b = await enPreuve(() => json({ ok: true }));
+  it("succès : le mot de passe ne part qu'à la route de preuve, est effacé, la page navigue vers la suite rendue", async () => {
+    const b = await enPreuve(() => json({ ok: true, next: "/?oauth_next=%2Foauth%2Fauthorize%3Fa%3D1" }));
     const posts = b.appels.filter((a) => a.init?.method === "POST");
     expect(posts.map((a) => a.url)).toEqual([LIEN]);
     expect(JSON.parse(String(posts[0]?.init?.body))).toEqual({ password: "secret-Elpis-1" });
     expect(b.appels.filter((a) => String(a.init?.body ?? "").includes("secret-Elpis-1"))).toHaveLength(1);
     expect(b.sso.preuveMotDePasse.value).toBe("");
     expect(b.sso.preuveUsername.value).toBeNull();
-    expect(b.crochets.apresConnexion).toHaveBeenCalledTimes(1);
+    expect(b.naviguer).toHaveBeenCalledWith("/?oauth_next=%2Foauth%2Fauthorize%3Fa%3D1");
     expect(b.sso.preuveBusy.value).toBe(false);
+  });
+
+  it("la suite rendue n'est suivie que si c'est un chemin local ou une adresse https, sinon l'accueil", async () => {
+    const cas: Array<[string, string]> = [
+      ["/", "/"],
+      ["https://console.example.test:8002/", "https://console.example.test:8002/"],
+      ["//evil.example.test/", "/"],
+      ["/\\evil.example.test/", "/"],
+      ["http://console.example.test/", "/"],
+      ["javascript:alert(1)", "/"],
+      ["evil", "/"],
+    ];
+    for (const [next, cible] of cas) {
+      const b = await enPreuve(() => json({ ok: true, next }));
+      expect(b.naviguer).toHaveBeenCalledWith(cible);
+    }
+  });
+
+  it("une réponse de succès sans suite est refusée sans navigation", async () => {
+    const b = await enPreuve(() => json({ ok: true }));
+    expect(b.naviguer).not.toHaveBeenCalled();
+    expect(b.sso.preuveMotDePasse.value).toBe("");
   });
 
   it("401 : mot de passe incorrect, champ vidé, la carte reste", async () => {
@@ -281,15 +355,16 @@ describe("preuve du titulaire", () => {
     expect(b.sso.preuveError.value).toBe("Mot de passe incorrect.");
     expect(b.sso.preuveMotDePasse.value).toBe("");
     expect(b.sso.preuveUsername.value).toBe("alice");
-    expect(b.crochets.apresConnexion).not.toHaveBeenCalled();
+    expect(b.naviguer).not.toHaveBeenCalled();
   });
 
-  it("404 : demande expirée, retour à l'écran de connexion ; 429 : message de débit", async () => {
-    const e = await enPreuve(() => json({ detail: "x" }, 404));
+  it("409 : demande plus valable, retour à l'écran de connexion ; 429 : message de débit", async () => {
+    const e = await enPreuve(() => json({ detail: "x" }, 409));
     expect(e.sso.preuveUsername.value).toBeNull();
     expect(e.sso.authRetour.value?.message).toBe(
-      "Cette demande a expiré. Reconnectez-vous par le service de votre organisation.",
+      "Cette demande n'est plus valable. Reconnectez-vous par le service de votre organisation ou demandez à votre administrateur.",
     );
+    expect(e.naviguer).not.toHaveBeenCalled();
     const t = await enPreuve(() => json({ detail: "x" }, 429));
     expect(t.sso.preuveError.value).toBe("Trop de tentatives, réessayez dans un instant.");
     expect(t.sso.preuveMotDePasse.value).toBe("");
@@ -303,6 +378,81 @@ describe("preuve du titulaire", () => {
     expect(b.sso.preuveMotDePasse.value).toBe("");
     b.sso.annulerPreuve();
     expect(b.sso.preuveUsername.value).toBeNull();
+  });
+});
+
+describe("déconnexion côté fournisseur", () => {
+  function monterSortie(logout: () => Response | Promise<Response>, admin = false) {
+    const session = new GestionnaireSession();
+    const naviguer = vi.fn();
+    const user = ref<UtilisateurAffiche | null>({
+      id: 1,
+      username: "alice",
+      role: "user",
+      is_admin: 0,
+    } as never);
+    const auth = setupAuth(
+      {
+        user,
+        isAdminView: ref(false),
+        messages: ref<unknown[]>([]),
+        currentChatId: ref<unknown>(null),
+        isStreaming: ref(false),
+      },
+      { showToast: () => undefined, fetchAuth: () => Promise.resolve(null) },
+      {
+        session,
+        http: new ClientHttp(session, (u) =>
+          u === "/api/logout-lite" ? Promise.resolve(logout()) : Promise.resolve(json({}, 404)),
+        ),
+        fenetre: { location: { href: "/" }, __ADMIN_ONLY_MODE__: admin },
+        envSso: {
+          origine: () => "https://e.test",
+          chemin: () => "/",
+          recherche: () => "",
+          naviguer,
+          remplacerUrl: vi.fn(),
+        },
+      },
+    );
+    return { auth, naviguer, user };
+  }
+
+  it("avec une adresse https : l'état local est vidé puis le navigateur y va", async () => {
+    const m = monterSortie(() => json({ ok: true, logout_url: "https://idp.example.test/logout" }));
+    await m.auth.logout();
+    expect(m.user.value).toBeNull();
+    expect(m.naviguer).toHaveBeenCalledWith("https://idp.example.test/logout");
+  });
+
+  it("sans adresse, ou adresse non https : aucune navigation, déconnexion locale faite", async () => {
+    for (const corps of [
+      { ok: true },
+      { ok: true, logout_url: "http://idp.example.test/x" },
+      { ok: true, logout_url: "//idp/x" },
+      { ok: true, logout_url: "javascript:alert(1)" },
+    ]) {
+      const m = monterSortie(() => json(corps));
+      await m.auth.logout();
+      expect(m.user.value).toBeNull();
+      expect(m.naviguer).not.toHaveBeenCalled();
+    }
+  });
+
+  it("une navigation qui échoue ne défait pas la déconnexion locale", async () => {
+    const m = monterSortie(() => json({ ok: true, logout_url: "https://idp.example.test/logout" }));
+    m.naviguer.mockImplementation(() => {
+      throw new Error("refusée");
+    });
+    await expect(m.auth.logout()).resolves.toBeUndefined();
+    expect(m.user.value).toBeNull();
+  });
+
+  it("serveur injoignable : on reste connecté et on ne navigue pas", async () => {
+    const m = monterSortie(() => Promise.reject(new TypeError("Failed to fetch")) as never);
+    await m.auth.logout();
+    expect(m.user.value).not.toBeNull();
+    expect(m.naviguer).not.toHaveBeenCalled();
   });
 });
 

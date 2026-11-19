@@ -87,7 +87,7 @@ const raison = (etat: string, dansGroupe: boolean | null): string => {
                   <div class="min-w-0 flex-1 space-y-1">
                     <div class="flex items-center gap-2 flex-wrap">
                       <span class="font-medium text-sm truncate">{{ l.compte.username }}</span>
-                      <span class="adm-pill" :class="{ 'adm-pill--warn': l.compte.role === 'admin' }">{{
+                      <span class="adm-pill" :class="{ 'adm-pill--warn': l.compte.role !== 'user' }">{{
                         ROLES[l.compte.role]
                       }}</span>
                       <span v-if="l.compte.suspended" class="adm-pill adm-pill--warn">Désactivé</span>
@@ -119,11 +119,14 @@ const raison = (etat: string, dansGroupe: boolean | null): string => {
                     <p v-else class="adm-card__hint" data-ratt-aucune>Aucune entrée de ce nom.</p>
 
                     <label
-                      v-if="l.coche && l.compte.role === 'admin'"
+                      v-if="l.coche && l.compte.role !== 'user'"
                       class="flex items-center gap-2 text-xs ent-ko"
                     >
                       <input v-model="l.confirmeAdmin" type="checkbox" data-ratt-admin />
-                      <span class="adm-row__label">Je confirme le rattachement de cet administrateur</span>
+                      <span class="adm-row__label"
+                        >Je confirme le rattachement de
+                        {{ l.compte.role === "admin" ? "cet administrateur" : "ce modérateur" }}</span
+                      >
                     </label>
 
                     <div>
@@ -242,6 +245,16 @@ const raison = (etat: string, dansGroupe: boolean | null): string => {
               Le mot de passe local de ces comptes sera retiré et leurs sessions fermées. Ils se connecteront
               avec leur identifiant d'annuaire.
             </p>
+            <label class="flex items-center gap-2 text-xs basis-full">
+              <input
+                v-model="a.garderJetons"
+                type="checkbox"
+                data-ratt-garder-jetons
+                :disabled="a.envoi"
+                @change="a.arme = false"
+              />
+              <span>Conserver les jetons d'API et les accès des applications de ces comptes</span>
+            </label>
             <button
               type="button"
               data-ratt-valider

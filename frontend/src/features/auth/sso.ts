@@ -5,8 +5,10 @@ import {
   schemaHoteNonCanonique,
   schemaMethodeConnexionSso,
   schemaReponseDepartOidc,
+  schemaReponsePreuveLien,
+  schemaReponsePreuveLienReussie,
 } from "@elpis/contracts";
-import type { CodeErreurConnexion, MethodeConnexionSso } from "@elpis/contracts";
+import type { CodeErreurConnexion, CorpsDepartOidc, MethodeConnexionSso } from "@elpis/contracts";
 import { ref } from "vue";
 import { z } from "zod";
 
@@ -35,6 +37,8 @@ const MESSAGE_AUTORISATION =
 const MESSAGE_ECHEC = "La connexion n'a pas abouti. Réessayez ou demandez à votre administrateur.";
 const MESSAGE_PREUVE_EXPIREE =
   "Cette demande a expiré. Reconnectez-vous par le service de votre organisation.";
+const MESSAGE_PREUVE_CADUQUE =
+  "Cette demande n'est plus valable. Reconnectez-vous par le service de votre organisation ou demandez à votre administrateur.";
 const MESSAGE_DEBIT = "Trop de tentatives, réessayez dans un instant.";
 const MESSAGE_INDISPONIBLE =
   "Le service de connexion de votre organisation ne répond pas. Réessayez plus tard ou demandez à votre administrateur.";
@@ -62,6 +66,13 @@ export function adresseHttps(valeur: unknown): string | null {
   }
 }
 
+/** Suite d'une connexion rendue par le serveur : chemin local (jamais `//` ni `\`) ou adresse https, sinon l'accueil. */
+export function suiteSure(valeur: unknown): string {
+  if (typeof valeur !== "string") return "/";
+  if (valeur.startsWith("/") && !valeur.startsWith("//") && !valeur.includes("\\")) return valeur;
+  return adresseHttps(valeur) ?? "/";
+}
+
 /** Origine https nue (sans chemin) venue du serveur, sinon `null`. */
 function origineHttps(valeur: unknown): string | null {
   const adresse = adresseHttps(valeur);
@@ -82,7 +93,6 @@ export function suiteOAuthValide(recherche: string): string {
 }
 
 const schemaMethodes = z.array(schemaMethodeConnexionSso);
-const schemaPreuve = z.object({ pending: z.boolean(), username: z.string().nullable() });
 const REFERENCE = /^[A-Za-z0-9_-]{8}$/u;
 const PARAMETRES_RETOUR = ["auth_error", "ref", "auth_link"];
 
@@ -101,8 +111,8 @@ export interface ErreurRetour {
 export interface CrochetsSso {
   /** Relit la configuration publique (méthode éteinte entre-temps). */
   rechargerConfig(): Promise<unknown>;
-  /** Recharge l'application comme après une connexion réussie. */
-  apresConnexion(): Promise<unknown>;
+  /** Vrai dans la console d'administration (départ du flux avec `target: "console"`). */
+  depuisConsole?(): boolean;
 }
 
 export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = envNavigateur) {
@@ -124,9 +134,10 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
   }
 
   async function demarrer(id: string): Promise<void> {
-    const corps: Record<string, string> = { target: "app" };
-    const suite = suiteOAuthValide(env.recherche());
-    if (suite !== "") corps["oauth_next"] = suite;
+    const enConsole = crochets.depuisConsole?.() === true;
+    const corps: CorpsDepartOidc = { target: enConsole ? "console" : "app" };
+    const suite = enConsole ? "" : suiteOAuthValide(env.recherche());
+    if (suite !== "") corps.oauth_next = suite;
     const r: ApiResult<{ url: string }> = await http.requete(
       `/api/auth/oidc/${encodeURIComponent(id)}/start`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) },
@@ -157,14 +168,22 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
     ssoBusy.value = false;
   }
 
+  /** Adresse courante (port, chemin, paramètres gardés) portée sur le nom d'hôte canonique. */
+  function urlSurHote(hote: string): string {
+    const u = new URL(env.origine() + env.chemin() + env.recherche());
+    u.hostname = hote;
+    return u.toString();
+  }
+
   /** Clic sur une méthode : hôte canonique d'abord, puis départ du flux ; un seul flux à la fois. */
   async function startSso(id: string): Promise<void> {
     if (ssoBusy.value) return;
     ssoBusy.value = true;
     ssoError.value = "";
     try {
-      if (authOrigin.value !== "" && env.origine() !== authOrigin.value) {
-        const cible = adresseHttps(authOrigin.value + env.chemin() + env.recherche());
+      const hoteCanonique = authOrigin.value === "" ? "" : new URL(authOrigin.value).hostname;
+      if (hoteCanonique !== "" && new URL(env.origine()).hostname !== hoteCanonique) {
+        const cible = adresseHttps(urlSurHote(hoteCanonique));
         if (cible === null) {
           ssoError.value = MESSAGE_ECHEC;
           ssoBusy.value = false;
@@ -205,10 +224,14 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
     }
     nettoyerUrl();
     if (!lien) return;
-    const r = await http.requete("/api/auth/oidc/link-proof", {}, { schema: schemaPreuve, sans401: true });
+    const r = await http.requete(
+      "/api/auth/oidc/link-proof",
+      {},
+      { schema: schemaReponsePreuveLien, sans401: true },
+    );
     if (r.type === "ok" && r.valeur.pending && r.valeur.username !== null)
       preuveUsername.value = r.valeur.username;
-    else if (r.type === "ok" || (r.type === "requete" && r.statut === 404)) {
+    else if (r.type === "ok") {
       authRetour.value = { message: MESSAGE_PREUVE_EXPIREE, reference: null };
     }
   }
@@ -224,7 +247,7 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
     if (preuveBusy.value || preuveMotDePasse.value === "") return;
     preuveBusy.value = true;
     preuveError.value = "";
-    let r: ApiResult<unknown>;
+    let r: ApiResult<{ ok: true; next: string }>;
     try {
       r = await http.requete(
         "/api/auth/oidc/link-proof",
@@ -233,7 +256,7 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ password: preuveMotDePasse.value }),
         },
-        { sans401: true },
+        { schema: schemaReponsePreuveLienReussie, sans401: true },
       );
     } finally {
       preuveMotDePasse.value = "";
@@ -241,11 +264,12 @@ export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = 
     try {
       if (r.type === "ok") {
         annulerPreuve();
-        await crochets.apresConnexion();
+        env.naviguer(suiteSure(r.valeur.next));
+        return;
       } else if (r.type === "requete" && r.statut === 401) preuveError.value = "Mot de passe incorrect.";
-      else if (r.type === "requete" && r.statut === 404) {
+      else if (r.type === "conflit") {
         annulerPreuve();
-        authRetour.value = { message: MESSAGE_PREUVE_EXPIREE, reference: null };
+        authRetour.value = { message: MESSAGE_PREUVE_CADUQUE, reference: null };
       } else if (r.type === "requete" && r.statut === 429) preuveError.value = MESSAGE_DEBIT;
       else if (r.type === "reseau")
         preuveError.value = "Serveur injoignable — vérifiez votre connexion réseau.";

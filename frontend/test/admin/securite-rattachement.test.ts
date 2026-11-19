@@ -54,8 +54,11 @@ describe("assistant de rattachement : pas de sélection en masse", () => {
     await ouvrir();
     const entete = el("[data-assistant-rattachement]");
     expect(cases()).toHaveLength(LIGNES.items.length);
-    expect(entete?.querySelectorAll("header input, footer input, thead input")).toHaveLength(0);
-    expect(entete?.querySelectorAll('input[type="checkbox"]')).toHaveLength(LIGNES.items.length);
+    const option = ":not([data-ratt-garder-jetons])";
+    expect(
+      entete?.querySelectorAll(`header input${option}, footer input${option}, thead input`),
+    ).toHaveLength(0);
+    expect(entete?.querySelectorAll(`input[type="checkbox"]${option}`)).toHaveLength(LIGNES.items.length);
     const texte = (entete?.textContent ?? "").toLowerCase();
     for (const mot of ["tout cocher", "tout sélectionner", "sélectionner tout", "tout rattacher"])
       expect(texte).not.toContain(mot);
@@ -104,20 +107,44 @@ describe("assistant de rattachement : pas de sélection en masse", () => {
 });
 
 describe("assistant de rattachement : confirmation d'un administrateur", () => {
-  it("la case de confirmation n'apparaît que pour un administrateur coché, une par administrateur", async () => {
+  it("la case de confirmation n'apparaît que pour un administrateur ou un modérateur coché, une par compte", async () => {
     await ouvrir();
     expect(tous("[data-ratt-admin]")).toHaveLength(0);
-    cases()[3]?.click();
     cases()[0]?.click();
     await vider();
     expect(tous("[data-ratt-admin]")).toHaveLength(0);
     cases()[2]?.click();
     await vider();
-    const admin = tous<HTMLInputElement>("[data-ratt-admin]");
+    let admin = tous<HTMLInputElement>("[data-ratt-admin]");
     expect(admin).toHaveLength(1);
     expect(admin[0]?.closest("label")?.textContent).toContain(
       "Je confirme le rattachement de cet administrateur",
     );
+    cases()[3]?.click();
+    await vider();
+    admin = tous<HTMLInputElement>("[data-ratt-admin]");
+    expect(admin).toHaveLength(2);
+    expect(admin[1]?.closest("label")?.textContent).toContain("Je confirme le rattachement de ce modérateur");
+  });
+
+  it("un modérateur coché mais non confirmé n'est ni compté ni envoyé", async () => {
+    const m = await ouvrir();
+    cases()[3]?.click();
+    await vider();
+    expect(el("[data-ratt-valider]")?.textContent?.trim()).toBe("Rattacher 0 compte");
+    expect(el<HTMLButtonElement>("[data-ratt-valider]")?.disabled).toBe(true);
+    el<HTMLInputElement>("[data-ratt-admin]")?.click();
+    await vider();
+    expect(el("[data-ratt-valider]")?.textContent?.trim()).toBe("Rattacher 1 compte");
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    await attendre(450);
+    m.reponses[LIEN] = [json({ results: [] })];
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    expect(m.corps[LIEN]).toEqual([
+      { links: [{ user_id: 4, subject: "uid-3" }], confirm_admins: [4], keep_tokens: false },
+    ]);
   });
 
   it("un administrateur coché mais non confirmé n'est ni compté ni envoyé", async () => {
@@ -132,17 +159,20 @@ describe("assistant de rattachement : confirmation d'un administrateur", () => {
     m.reponses[LIEN] = [json({ results: [{ user_id: 2, subject: "uid-1", result: "linked" }] })];
     el("[data-ratt-valider]")?.click();
     await vider();
-    expect(m.corps[LIEN]).toEqual([{ links: [{ user_id: 2, subject: "uid-1" }], confirm_admins: [] }]);
+    expect(m.corps[LIEN]).toEqual([
+      { links: [{ user_id: 2, subject: "uid-1" }], confirm_admins: [], keep_tokens: false },
+    ]);
   });
 
-  it("l'administrateur confirmé part dans confirm_admins, et lui seul", async () => {
+  it("seuls les comptes privilégiés confirmés partent dans confirm_admins", async () => {
     const m = await ouvrir();
+    cases()[0]?.click();
     cases()[2]?.click();
     cases()[3]?.click();
     await vider();
-    el<HTMLInputElement>("[data-ratt-admin]")?.click();
+    for (const c of tous<HTMLInputElement>("[data-ratt-admin]")) c.click();
     await vider();
-    expect(el("[data-ratt-valider]")?.textContent?.trim()).toBe("Rattacher 2 comptes");
+    expect(el("[data-ratt-valider]")?.textContent?.trim()).toBe("Rattacher 3 comptes");
     el("[data-ratt-valider]")?.click();
     await vider();
     await attendre(450);
@@ -152,10 +182,12 @@ describe("assistant de rattachement : confirmation d'un administrateur", () => {
     expect(m.corps[LIEN]).toEqual([
       {
         links: [
+          { user_id: 2, subject: "uid-1" },
           { user_id: 1, subject: "uid-r" },
           { user_id: 4, subject: "uid-3" },
         ],
-        confirm_admins: [1],
+        confirm_admins: [1, 4],
+        keep_tokens: false,
       },
     ]);
   });

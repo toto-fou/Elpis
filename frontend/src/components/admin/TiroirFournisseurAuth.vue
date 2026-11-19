@@ -771,7 +771,8 @@ const titre = computed(() => {
                 >
                   <option :value="0">—</option>
                   <option v-for="u in adm.prelinkComptes" :key="u.id" :value="u.id">
-                    {{ u.username }}{{ u.is_admin === 1 ? " (administrateur)" : "" }}
+                    {{ u.username
+                    }}{{ u.is_admin === 1 ? " (administrateur)" : u.is_admin === 2 ? " (modérateur)" : "" }}
                   </option>
                 </select>
               </label>
@@ -788,7 +789,9 @@ const titre = computed(() => {
               <label
                 class="flex items-center gap-2 text-xs"
                 :title="
-                  adm.prelinkAdmin ? 'Un administrateur doit toujours prouver son ancien mot de passe.' : ''
+                  adm.prelinkAdmin
+                    ? 'Un administrateur ou un modérateur doit toujours prouver son ancien mot de passe.'
+                    : ''
                 "
               >
                 <input
@@ -799,12 +802,17 @@ const titre = computed(() => {
                 />
                 <span>Identité vérifiée hors ligne : ne pas demander l'ancien mot de passe</span>
               </label>
+              <p class="adm-card__hint" data-prelink-dispense-aide>
+                À n'utiliser que si votre fournisseur ne laisse pas les personnes changer leur identifiant.
+              </p>
               <p v-if="adm.prelinkAdmin" class="adm-card__hint" data-prelink-dispense-admin>
-                Un administrateur doit toujours prouver son ancien mot de passe.
+                Un administrateur ou un modérateur doit toujours prouver son ancien mot de passe.
               </p>
               <label v-if="adm.prelinkAdmin" class="flex items-center gap-2 text-xs ent-ko">
                 <input id="ent-prelien-admin" v-model="adm.prelinkForm.confirm_admin" type="checkbox" />
-                <span class="adm-row__label">Je confirme le rattachement de cet administrateur</span>
+                <span class="adm-row__label"
+                  >Je confirme le rattachement de cet administrateur ou modérateur</span
+                >
               </label>
               <p v-if="adm.prelinksErreur" class="adm-field__warn" role="alert" data-prelinks-erreur>
                 {{ adm.prelinksErreur }}

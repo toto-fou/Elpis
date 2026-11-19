@@ -4,7 +4,13 @@
 import type { EtatBalayageConsole } from "@elpis/contracts";
 
 import { domaineAdmin } from "../../features/admin/domaine";
-import { dateRelative, phraseAbandon } from "../../features/admin/rattachement";
+import {
+  dateRelative,
+  phraseAbandon,
+  phraseObserves,
+  phraseRetenue,
+  retenuesAffichees,
+} from "../../features/admin/rattachement";
 import { heureLocale } from "../../features/admin/horodatage";
 import TiroirFournisseurAuth from "./TiroirFournisseurAuth.vue";
 import TiroirRattachement from "./TiroirRattachement.vue";
@@ -290,26 +296,47 @@ function etat(p: { enabled: boolean; active: boolean }): { libelle: string; aler
                 >{{ phraseAbandon(p.sweep.aborted) }}
               </p>
               <div
-                v-if="p.sweep && p.sweep.pending > 0"
+                v-if="p.sweep && retenuesAffichees(p.sweep).total > 0"
                 class="ent-alerte space-y-2"
                 role="alert"
                 data-balayage-retenues
               >
                 <p>
-                  {{ pluriel(p.sweep.pending, "compte") }}
-                  {{ p.sweep.pending > 1 ? "ne sont plus" : "n'est plus" }} dans l'annuaire ou dans un groupe
-                  requis. Par précaution, aucun n'a été désactivé.
+                  {{ pluriel(retenuesAffichees(p.sweep).total, "compte") }}
+                  {{ retenuesAffichees(p.sweep).total > 1 ? "ne sont plus" : "n'est plus" }} dans l'annuaire
+                  ou dans un groupe requis. Par précaution, aucun n'a été désactivé.
+                </p>
+                <ul class="text-xs space-y-0.5" data-balayage-liste>
+                  <li v-for="c in retenuesAffichees(p.sweep).comptes" :key="c.user_id" data-balayage-compte>
+                    <span class="font-medium">{{ c.username }}</span> · {{ phraseRetenue(c.reason) }}
+                  </li>
+                  <li v-if="retenuesAffichees(p.sweep).autres > 0" data-balayage-autres>
+                    et {{ retenuesAffichees(p.sweep).autres }} autres
+                  </li>
+                </ul>
+                <p v-if="!retenuesAffichees(p.sweep).complet" data-balayage-trop>
+                  Trop de comptes pour une confirmation ici : vérifiez l'annuaire, puis relancez la
+                  vérification.
                 </p>
                 <button
+                  v-else
                   type="button"
                   class="adm-btn adm-btn--danger adm-btn--sm"
                   data-balayage-confirmer
                   :disabled="adm.balayageEnCours !== null"
-                  @click="adm.balayageConfirmer(p.id, p.sweep.pending)"
+                  @click="adm.balayageConfirmer(p.id, p.sweep)"
                 >
-                  Désactiver {{ p.sweep.pending > 1 ? "ces " + p.sweep.pending + " comptes" : "ce compte" }}
+                  Désactiver
+                  {{
+                    retenuesAffichees(p.sweep).total > 1
+                      ? "ces " + retenuesAffichees(p.sweep).total + " comptes"
+                      : "ce compte"
+                  }}
                 </button>
               </div>
+              <p v-if="p.sweep && p.sweep.observed.length" class="adm-card__hint" data-balayage-observes>
+                {{ phraseObserves(p.sweep.observed.length) }}
+              </p>
               <p v-if="adm.balayageMessage[p.id]" class="adm-field__warn" role="alert" data-balayage-message>
                 {{ adm.balayageMessage[p.id] }}
               </p>

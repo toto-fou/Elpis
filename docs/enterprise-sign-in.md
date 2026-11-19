@@ -531,6 +531,7 @@ reasons are listed in [audit-events.md](audit-events.md#authentication).
 | "La connexion n'a pas abouti. Réessayez ou demandez à votre administrateur."         | `failed`            | Anything else: token rejected (signature, issuer, audience, nonce, expiry: `lib:<code>`), clock difference, subject missing              |
 | (same message)                                                                       | `failed`            | `client_auth_rejected` in the journal: the provider refused the client secret; check it, then try the other client authentication method |
 | (same message)                                                                       | `failed`            | `aud_untrusted` in the journal: the identity token lists another audience than Elpis                                                     |
+| (same message)                                                                       | `failed`            | `iss_mismatch` in the journal: the answer does not come from the configured issuer                                                       |
 
 Other messages: "Cette demande a expiré. Reconnectez-vous par le service de votre organisation." (the
 old-password step waited too long), "Cette demande n'est plus valable. Reconnectez-vous par le service de votre

@@ -62,6 +62,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
       acces: dependancesParDefaut(t.base),
       maintenant: () => T,
       publierSuspension: async (uid) => (publiees.push(uid), true),
+      revoquer: async () => undefined,
       journal: journalMuet,
     };
   });

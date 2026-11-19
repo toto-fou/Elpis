@@ -1,15 +1,23 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/annuaire/rattachement-annuaire.ts — assistant de rattachement LDAP : comptes locaux sans identité et entrée proposée, recherche à la main, rattachement par lot où le serveur relit chaque entrée par sa clé stable. */
 import { HttpError } from "@elpis/commun";
+import { auditEvent } from "@elpis/securite";
 
 import { ancreIdentite } from "../ancre";
+import { cleIdentifiant } from "../cle-identifiant";
 import { secretFournisseur } from "../fournisseurs";
-import { auditerRattachement, rattacher } from "../rattachement";
+import {
+  auditerRattachement,
+  rattacher,
+  revoquerOauthRattachement,
+  supprimerJetonsDuCompte,
+} from "../rattachement";
 import type { RaisonRefusRattachement } from "../rattachement";
 import type { FournisseurLdap } from "../reglages";
 import type { ConnexionAnnuaire, EntreeAnnuaire } from "./client";
-import { appartenance, ouvrirService } from "./connexion";
+import { annuairesActifs, appartenance, ouvrirService } from "./connexion";
 import type { DependancesAnnuaire } from "./connexion";
+import type { DependancesProvisionnement } from "../provisionnement";
 import { attributsUtilisateur, chercherUtilisateur, cleStable, etatEntree, profilExterne } from "./entree";
 import type { EtatEntree } from "./entree";
 import { ErreurAnnuaire } from "./erreur";
@@ -45,6 +53,7 @@ export type RaisonLien =
   | "entry_not_found"
   | "entry_ambiguous"
   | "entry_not_active"
+  | "entry_not_loginable"
   | "not_in_group"
   | "groups_unknown"
   | "directory_unavailable";
@@ -53,6 +62,9 @@ export interface ResultatLien {
   readonly user_id: number;
   readonly subject: string;
   readonly result: "linked" | RaisonLien;
+  readonly revoked_tokens?: number;
+  readonly revoked_oauth?: number;
+  readonly kept?: true;
 }
 
 const INDISPONIBLE = "L'annuaire ne répond pas : réessayez dans un instant.";
@@ -259,29 +271,49 @@ async function controlerEntree(
   return groupes === "inconnu" ? "groups_unknown" : null;
 }
 
-/** Rattache chaque lien indépendamment des autres : entrée relue par sa clé stable, puis une écriture unique par compte ; un refus n'arrête rien. */
+/** Rattache chaque lien indépendamment des autres : entrée relue par sa clé stable et retrouvée par le chemin de la connexion, puis une écriture unique par compte qui revérifie l'annuaire actif et son ancre ; un refus n'arrête rien et laisse une ligne d'audit en échec. */
 export async function rattacherComptes(
-  dep: DependancesAnnuaire & { readonly revoquer: (uid: number) => Promise<unknown> },
+  dep: DependancesAnnuaire & {
+    readonly revoquer: (uid: number) => Promise<unknown>;
+    readonly acces: Pick<DependancesProvisionnement, "acces">["acces"];
+  },
   f: FournisseurLdap,
   liens: readonly LienDemande[],
   confirmeAdmins: ReadonlySet<number>,
   operateur: OperateurRattachement,
+  options: { readonly garderJetons?: boolean } = {},
 ): Promise<ResultatLien[]> {
   const ancre = ancreIdentite(f);
-  if (ancre === null) throw new HttpError(409, "Cet annuaire ne peut pas recevoir de rattachement.");
   const comptesVus = new Set<number>();
   const clesVues = new Set<string>();
   const resultats: ResultatLien[] = [];
   const par = `admin:${operateur.id}`;
+  const garder = options.garderJetons === true;
+  let indisponible = false;
   await avecService(dep, f, async (cnx) => {
     for (const lien of liens) {
-      const fin = (result: ResultatLien["result"]): void => void resultats.push({ ...lien, result });
+      const fin = (result: ResultatLien["result"], plus: Partial<ResultatLien> = {}): void => {
+        resultats.push({ ...lien, result, ...plus });
+        if (result !== "linked")
+          auditEvent({
+            userId: operateur.id,
+            username: operateur.username,
+            action: "auth.identity.link",
+            ip: operateur.ip,
+            outcome: "failure",
+            details: { target_user_id: lien.user_id, provider_id: f.id, by: par, reason: result },
+          });
+      };
       if (comptesVus.has(lien.user_id) || clesVues.has(lien.subject)) {
         fin("duplicate");
         continue;
       }
       comptesVus.add(lien.user_id);
       clesVues.add(lien.subject);
+      if (indisponible) {
+        fin("directory_unavailable");
+        continue;
+      }
       let entree: EntreeAnnuaire;
       try {
         const lue = await lireParCle(cnx, f, lien.subject);
@@ -295,6 +327,10 @@ export async function rattacherComptes(
           fin(refus);
           continue;
         }
+        if (!(await connectable(cnx, f, entree, lien.subject))) {
+          fin("entry_not_loginable");
+          continue;
+        }
       } catch (e) {
         if (!(e instanceof ErreurAnnuaire)) throw e;
         dep.journal.warn(`annuaire ${f.id} : rattachement, ${e.nature}`);
@@ -302,9 +338,10 @@ export async function rattacherComptes(
         continue;
       }
       const externe = profilExterne(entree, f);
-      const t = dep.maintenant();
-      const obstacle = await dep.base.ecriture((x) =>
-        rattacher(
+      const issue = await dep.base.ecriture(async (x) => {
+        const actif = (await annuairesActifs(dep)).find((a) => a.id === f.id);
+        if (actif === undefined || ancreIdentite(actif) !== ancre) return "directory_unavailable" as const;
+        const obstacle = await rattacher(
           x,
           lien.user_id,
           {
@@ -315,19 +352,39 @@ export async function rattacherComptes(
             extEmail: externe.email,
             extName: externe.nom,
           },
-          { par, confirmeAdmin: confirmeAdmins.has(lien.user_id), t },
-        ),
-      );
-      if (obstacle !== null) {
-        fin(obstacle);
+          { par, confirmeAdmin: confirmeAdmins.has(lien.user_id), t: dep.maintenant() },
+        );
+        if (obstacle !== null) return obstacle;
+        return { tokens: garder ? null : await supprimerJetonsDuCompte(x, lien.user_id) };
+      });
+      if (typeof issue === "string") {
+        if (issue === "directory_unavailable") indisponible = true;
+        fin(issue);
         continue;
       }
-      fin("linked");
+      const oauth = garder
+        ? null
+        : await revoquerOauthRattachement({ acces: dep.acces, journal: dep.journal }, lien.user_id);
+      const jetons =
+        issue.tokens === null || oauth === null ? ("kept" as const) : { tokens: issue.tokens, oauth };
+      fin(
+        "linked",
+        jetons === "kept" ? { kept: true } : { revoked_tokens: jetons.tokens, revoked_oauth: jetons.oauth },
+      );
       const nom = await dep.base.get<{ username: string }>("SELECT username FROM users WHERE id=?", [
         lien.user_id,
       ]);
       auditerRattachement(
-        { uid: lien.user_id, username: nom?.username ?? null, fournisseurId: f.id, par, acteur: operateur },
+        {
+          uid: lien.user_id,
+          username: nom?.username ?? null,
+          fournisseurId: f.id,
+          par,
+          methode: "assistant",
+          subject: lien.subject,
+          acteur: operateur,
+          jetons,
+        },
         operateur.ip,
       );
       try {
@@ -338,4 +395,23 @@ export async function rattacherComptes(
     }
   });
   return resultats;
+}
+
+/** Vrai si la connexion retrouve cette entrée (même clé stable) avec l'identifiant qu'elle taperait. */
+async function connectable(
+  cnx: ConnexionAnnuaire,
+  f: FournisseurLdap,
+  entree: EntreeAnnuaire,
+  subject: string,
+): Promise<boolean> {
+  const cle = cleIdentifiant(profilExterne(entree, f).identifiant);
+  if (cle === null) return false;
+  const trouve = await chercherUtilisateur(cnx, f, cle);
+  if (typeof trouve === "string") return false;
+  try {
+    return cleStable(trouve, f) === subject;
+  } catch (e) {
+    if (e instanceof ErreurAnnuaire && e.nature === "configuration") return false;
+    throw e;
+  }
 }

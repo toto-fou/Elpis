@@ -54,6 +54,16 @@ describe("contrats REST : session et comptes (core réel)", () => {
     ).toMatchObject({ detail: expect.any(String) as unknown });
   });
 
+  it("preuve du titulaire : rien en attente sans flux de ce navigateur, et aucune preuve acceptée", async () => {
+    expect(await core.appeler("GET", "/api/auth/oidc/link-proof")).toEqual({
+      pending: false,
+      username: null,
+    });
+    expect(
+      await core.appeler("POST", "/api/auth/oidc/link-proof", { corps: { password: "mdp-quelconque-1" } }),
+    ).toMatchObject({ detail: expect.any(String) as unknown });
+  });
+
   it("modérateur : `is_admin` vrai, `role` moderator ; mot de passe à changer puis changé", async () => {
     const max = await core.connecter("max", "mdp-de-max-1");
     expect(await core.appeler("GET", "/api/me-lite", { cookie: max })).toMatchObject({

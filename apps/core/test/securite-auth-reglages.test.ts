@@ -450,6 +450,41 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       await t.base.run("DELETE FROM user_identities WHERE user_id=?", [alice]);
     });
 
+    it("rattachements préparés d'un fournisseur OIDC : supprimés avec lui, ou quand son émetteur ou son client change", async () => {
+      cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
+      expect(
+        (
+          await appeler(
+            admin,
+            "POST",
+            "/api/admin/auth/providers",
+            chef,
+            oidcValide({ id: "sso", required_groups: ["a"] }),
+          )
+        ).statusCode,
+      ).toBe(200);
+      const poser = (): Promise<unknown> =>
+        t.base.run(
+          "INSERT INTO auth_prelinks(user_id, provider_id, expected, waiver, created_by, created_at, expires_at, issuer, admin_confirmed, attempts) VALUES(?,?,?,?,?,?,?,?,?,?)",
+          [alice, "sso", "alice", 0, chef, 1, 9e9, "oidc:https://idp.exemple.lan", 0, 0],
+        );
+      const restantes = (): Promise<unknown[][]> =>
+        t.base.valeurs("SELECT id FROM auth_prelinks WHERE provider_id='sso'");
+      const mettre = (corps: unknown): Promise<{ statusCode: number }> =>
+        appeler(admin, "PUT", "/api/admin/auth/providers/sso", chef, corps);
+      await poser();
+      expect((await mettre({ required_groups: ["b"] })).statusCode).toBe(200);
+      expect(await restantes()).toHaveLength(1);
+      expect((await mettre({ issuer: "https://autre.exemple.lan" })).statusCode).toBe(200);
+      expect(await restantes()).toEqual([]);
+      await poser();
+      expect((await mettre({ client_id: "autre-client" })).statusCode).toBe(200);
+      expect(await restantes()).toEqual([]);
+      await poser();
+      expect((await appeler(admin, "DELETE", "/api/admin/auth/providers/sso", chef)).statusCode).toBe(200);
+      expect(await restantes()).toEqual([]);
+    });
+
     it("créations : doublon d'id 409, sixième fournisseur 400, corps invalide 400 sans rien écrire", async () => {
       cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
       expect(

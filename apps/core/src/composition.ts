@@ -541,6 +541,7 @@ export async function composer(
         annuaire: {
           ...(options.fabriqueAnnuaire === undefined ? {} : { fabrique: options.fabriqueAnnuaire }),
           publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
+          revoquer: (uid) => evenements.revoquer(uid),
           bac: piloteBac(),
         },
       }),

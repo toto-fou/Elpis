@@ -12,6 +12,7 @@ export {
   dependancesSession,
   exigerUtilisateur,
   ligneAcces,
+  ligneSession,
   ligneUtilisateur,
   revaliderFlux,
   signalerRefus,
@@ -61,6 +62,7 @@ export type { DependancesJetons, Jeton, JetonResolu, Politique, TypeJeton } from
 export { dependancesParDefaut } from "./defaut";
 export {
   aMotDePasseLocal,
+  methodeDuCompte,
   createExternalUser,
   createUser,
   ErreurNomUtilisateur,

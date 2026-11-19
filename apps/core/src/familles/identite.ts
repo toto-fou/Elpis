@@ -10,13 +10,16 @@ import { corpsJson, corpsLu, entete } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { DebitConnexion } from "../comptes/debit-connexion";
+import { ConnexionRefusee } from "../comptes/ouverture";
 import type { PortBac } from "../admin/bac";
 import { ligneUtilisateur } from "@elpis/auth";
 import { decouperHotePort } from "../interface/urls-publiques";
 import { fournisseursActifs, enregistrerTestReussi } from "../identite/fournisseurs";
 import type { Journal } from "../journal";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
+import { prouverEtRattacher } from "../identite/rattachement";
 import { connecterParOidc } from "../identite/oidc/connexion";
+import { lireFluxPreuve, ouvrirFluxPreuve, ouvrirSessionApresPreuve } from "../identite/oidc/preuve";
 import type { DependancesConnexionOidc } from "../identite/oidc/connexion";
 import { verifierRetour, requeteBrute } from "../identite/oidc/echange";
 import {
@@ -50,14 +53,17 @@ export interface DependancesIdentite {
   readonly demarrerHistoriqueFichiers?: (uid: number) => Promise<void>;
   readonly logMetric?: (nom: string, valeur: number, etiquettes: Record<string, unknown>) => void;
   readonly publierSuspension?: (uid: number) => Promise<boolean>;
-  /** Ferme les flux ouverts d'un compte dont une session vient d'être révoquée. */
-  readonly revoquer?: (uid: number) => Promise<unknown>;
+  /** Flux ouverts d'un compte rattaché coupés dans tous les process. */
+  readonly revoquer: (uid: number) => Promise<unknown>;
   readonly bac?: PortBac;
 }
 
 const CORPS_DEPART_MAX = 4096;
+const CORPS_PREUVE_MAX = 4096;
 const STATE_MAX = 256;
 const DUREE_REJEU_S = 900;
+const PREUVE_PERIMEE =
+  "Cette demande n'est plus valable : reconnectez-vous ou demandez à votre administrateur.";
 const REFUS_DEBIT = "Trop de tentatives de connexion : réessayez dans quelques minutes.";
 const INDISPONIBLE =
   "La connexion par le service d'identité est indisponible : demandez à votre administrateur.";
@@ -82,6 +88,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
       acces: dep.auth,
       maintenant,
       publierSuspension: dep.publierSuspension ?? (async () => false),
+      revoquer: dep.revoquer,
       bac: dep.bac,
       journal: dep.journal,
     },
@@ -242,7 +249,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
           .send(pageSimple("L'essai est terminé : vous pouvez fermer cet onglet."));
       }
       const verifie = await verifierRetour(ouverte, f, { publicUrl, flux, state, requete, maintenant: t });
-      await connecterParOidc(connexion, {
+      const issue = await connecterParOidc(connexion, {
         fournisseur: f,
         retour: verifie,
         session: req.session,
@@ -250,6 +257,26 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         ip,
         userAgent: entete(req, "user-agent") ?? null,
       });
+      if (typeof issue !== "number") {
+        await ouvrirFluxPreuve(
+          base,
+          {
+            providerId: f.id,
+            secretLiaison: secret,
+            prelinkId: issue.prelinkId,
+            profil: issue.profil,
+            appartenance: issue.appartenance,
+            cible: flux.cible,
+            oauthNext: flux.oauthNext,
+            adresse: ip,
+          },
+          t,
+        );
+        return rep
+          .headers({ ...ENTETES_RETOUR, "set-cookie": enteteLiaison(secret) })
+          .type("text/html; charset=utf-8")
+          .send(pageRetour("/?auth_link=1"));
+      }
       return rep
         .headers(ENTETES_RETOUR)
         .type("text/html; charset=utf-8")
@@ -314,9 +341,105 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     return rep.code(200).send();
   }
 
+  /** Demande de preuve en cours du navigateur : `pending` et le compte visé, ou rien. */
+  async function preuveEnCours(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
+    void rep.headers(ENTETES_REFUS);
+    const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
+    const aucune = { pending: false, username: null };
+    if (secret === null) return aucune;
+    const flux = await lireFluxPreuve(base, secret, maintenant());
+    if (flux === null) return aucune;
+    const compte = await base.get<{ username: string }>(
+      "SELECT u.username FROM auth_prelinks p JOIN users u ON u.id=p.user_id WHERE p.id=?",
+      [flux.prelinkId],
+    );
+    return compte === undefined ? aucune : { pending: true, username: compte.username };
+  }
+
+  /** Ancien mot de passe du compte visé : preuve du titulaire, rattachement, session `oidc:<id>`. */
+  async function prouverLien(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
+    void rep.headers(ENTETES_REFUS);
+    const corps = corpsJson(req);
+    const motDePasse = estDict(corps) ? corps["password"] : undefined;
+    if (typeof motDePasse !== "string" || motDePasse === "" || motDePasse.length > 1024)
+      throw new HttpError(400, "Champ « password » : texte attendu.");
+    const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
+    const t = maintenant();
+    const flux = secret === null ? null : await lireFluxPreuve(base, secret, t);
+    if (flux === null) throw new HttpError(409, PREUVE_PERIMEE);
+    const compte = await base.get<{ username: string }>(
+      "SELECT u.username FROM auth_prelinks p JOIN users u ON u.id=p.user_id WHERE p.id=?",
+      [flux.prelinkId],
+    );
+    if (compte === undefined) throw new HttpError(409, PREUVE_PERIMEE);
+    const f = (await fournisseursActifs(base, cookieSecure)).find((p) => p.id === flux.providerId);
+    if (f === undefined || f.type !== "oidc") throw new HttpError(409, PREUVE_PERIMEE);
+    const ip = ipDuClient(req, dep.mandataires);
+    limiter(ip);
+    const attente = debit.attenteS(compte.username, ip, t);
+    if (attente > 0) throw new HttpError(429, REFUS_DEBIT, { "Retry-After": String(Math.ceil(attente)) });
+    const essai = debit.prendre(compte.username, ip, t);
+    const r = await prouverEtRattacher(connexion.provisionnement, {
+      fournisseur: f,
+      prelinkId: flux.prelinkId,
+      profil: flux.profil,
+      appartenance: flux.appartenance,
+      motDePasse,
+      ip,
+    });
+    if (r.type === "mot_de_passe") {
+      if (essai.delaiMs > 0) await new Promise((fin) => setTimeout(fin, essai.delaiMs));
+      throw new HttpError(401, "invalid credentials");
+    }
+    if (r.type !== "compte") {
+      debit.annulation(essai, maintenant());
+      auditEvent({
+        userId: r.uid ?? null,
+        username: compte.username,
+        action: "auth.identity.link.denied",
+        ip,
+        outcome: "failure",
+        details: { provider_id: f.id, reason: r.type === "refus" ? r.raison : r.type },
+      });
+      throw new HttpError(409, PREUVE_PERIMEE);
+    }
+    try {
+      await ouvrirSessionApresPreuve(connexion, {
+        fournisseur: f,
+        uid: r.uid,
+        username: compte.username,
+        subject: flux.profil.subject,
+        session: req.session,
+        maintenant: t,
+        ip,
+        userAgent: entete(req, "user-agent") ?? null,
+      });
+    } catch (e) {
+      if (e instanceof ConnexionRefusee) throw new HttpError(409, PREUVE_PERIMEE);
+      throw e;
+    }
+    debit.reussite(essai, maintenant());
+    return { ok: true, next: cibleDeRetour(lireReglagesAuth().public_url, flux.cible, flux.oauthNext) };
+  }
+
   return {
     nom: "identite",
     routes: [
+      {
+        methode: "GET",
+        chemin: "/api/auth/oidc/link-proof",
+        processus: ["main"],
+        acces: "public",
+        traiter: preuveEnCours,
+      },
+      {
+        methode: "POST",
+        chemin: "/api/auth/oidc/link-proof",
+        processus: ["main"],
+        acces: "public",
+        corps: { limite: CORPS_PREUVE_MAX },
+        traiter: prouverLien,
+      },
       {
         methode: "POST",
         chemin: "/api/auth/oidc/:id/start",

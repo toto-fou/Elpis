@@ -51,23 +51,33 @@ export const RAISONS_LIEN = [
   "entry_not_found",
   "entry_ambiguous",
   "entry_not_active",
+  "entry_not_loginable",
   "not_in_group",
   "groups_unknown",
   "directory_unavailable",
 ] as const;
 
-/** Au plus 50 liens ; `confirm_admins` liste les comptes administrateurs que l'opérateur confirme un par un. */
+/** Au plus 50 liens ; `confirm_admins` liste les comptes administrateurs et modérateurs que l'opérateur confirme un par un ; `keep_tokens` garde les jetons d'API et accès OAuth (révoqués par défaut). */
 export const schemaCorpsRattachement = z.object({
   links: z
     .array(z.object({ user_id: entier, subject: z.string().min(1).max(256) }))
     .min(1)
     .max(50),
   confirm_admins: z.array(entier).max(50).default([]),
+  keep_tokens: z.boolean().default(false),
 });
 export const schemaReponseRattachement = z.object({
   results: z.array(
-    z.object({ user_id: entier, subject: z.string(), result: z.enum(["linked", ...RAISONS_LIEN]) }),
+    z.object({
+      user_id: entier,
+      subject: z.string(),
+      result: z.enum(["linked", ...RAISONS_LIEN]),
+      revoked_tokens: entier.optional(),
+      revoked_oauth: entier.optional(),
+      kept: z.literal(true).optional(),
+    }),
   ),
+  kept_tokens: z.boolean().default(false),
 });
 export type ReponseRattachement = z.infer<typeof schemaReponseRattachement>;
 

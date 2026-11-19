@@ -17,6 +17,18 @@ export type ReponseDepartOidc = z.infer<typeof schemaReponseDepartOidc>;
 export const schemaReponseDeconnexion = z.object({ ok: z.literal(true), logout_url: z.string().optional() });
 export type ReponseDeconnexion = z.infer<typeof schemaReponseDeconnexion>;
 
+/** Preuve du titulaire après un retour SSO : `pending` quand ce navigateur porte une demande en cours (`username` : le compte local visé) ; sinon `{ pending: false, username: null }`. */
+export const schemaReponsePreuveLien = z.object({ pending: z.boolean(), username: z.string().nullable() });
+export type ReponsePreuveLien = z.infer<typeof schemaReponsePreuveLien>;
+
+/** Ancien mot de passe local du compte visé. */
+export const schemaCorpsPreuveLien = z.object({ password: z.string().min(1).max(1024) });
+export type CorpsPreuveLien = z.infer<typeof schemaCorpsPreuveLien>;
+
+/** Preuve réussie : la session est ouverte, `next` est l'adresse où mène la connexion. */
+export const schemaReponsePreuveLienReussie = z.object({ ok: z.literal(true), next: z.string() });
+export type ReponsePreuveLienReussie = z.infer<typeof schemaReponsePreuveLienReussie>;
+
 /** Réponse 409 quand l'hôte de la requête n'est pas celui de l'adresse publique réglée : l'interface s'y rend d'abord. */
 export const schemaHoteNonCanonique = z.object({ detail: z.string(), canonical: z.string() });
 export type HoteNonCanonique = z.infer<typeof schemaHoteNonCanonique>;

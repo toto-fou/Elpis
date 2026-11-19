@@ -111,6 +111,8 @@ export interface DependancesComptes {
   readonly annuaire?: {
     readonly fabrique?: FabriqueConnexion;
     readonly publierSuspension?: (uid: number) => Promise<boolean>;
+    /** Flux ouverts d'un compte rattaché coupés dans tous les process. */
+    readonly revoquer: (uid: number) => Promise<unknown>;
     readonly bac?: PortBac;
   };
 }
@@ -314,6 +316,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
       acces: dep.auth,
       maintenant: () => maintenant(dep),
       publierSuspension: dep.annuaire?.publierSuspension ?? (async () => false),
+      revoquer: dep.annuaire?.revoquer ?? (async () => undefined),
       bac: dep.annuaire?.bac,
       journal: dep.journal,
     },

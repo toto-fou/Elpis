@@ -4,7 +4,19 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createUser, dependancesParDefaut, ligneUtilisateur, revoquerOauthDuCompte } from "@elpis/auth";
+import {
+  createUser,
+  dependancesParDefaut,
+  dependancesSession,
+  ligneUtilisateur,
+  metaSession,
+  ouvrirSession,
+  revaliderFlux,
+  revoquerOauthDuCompte,
+  Session,
+  validerSession,
+  verifyUser,
+} from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import { configureAudit, oublierConfigurationAudit } from "@elpis/securite";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
@@ -12,7 +24,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { composer } from "../src/composition";
 import { creerFamilleAdminComptes } from "../src/familles/admin-comptes";
+import { ConnexionRefusee, etablirConnexion } from "../src/comptes/ouverture";
 import { creerFamilleAdminRattachement } from "../src/familles/admin-rattachement";
+import { sessionAdmise } from "../src/identite/session";
 import { MOTEURS } from "./identite/banc";
 import { AnnuaireFactice, GROUPE, UUID } from "./identite/annuaire/annuaire-factice";
 import { ouvrirBancAnnuaire, URL_PUBLIQUE } from "./identite/annuaire/banc-annuaire";
@@ -111,10 +125,12 @@ describe.each(MOTEURS)("rattachement des comptes locaux (%s)", (moteur) => {
   const lier = (
     links: { user_id: number; subject: string }[],
     confirm: number[] = [],
+    keepTokens?: boolean,
   ): Promise<LightMyRequestResponse> =>
     appeler("POST", `/api/admin/auth/providers/${ID_RATTACHE}/migration/link`, {
       links,
       confirm_admins: confirm,
+      ...(keepTokens === undefined ? {} : { keep_tokens: keepTokens }),
     });
   const resultats = (r: LightMyRequestResponse): string[] =>
     (r.json() as { results: { result: string }[] }).results.map((x) => x.result);
@@ -163,7 +179,17 @@ describe.each(MOTEURS)("rattachement des comptes locaux (%s)", (moteur) => {
       expect(await b.t.base.all("SELECT * FROM users ORDER BY id")).toEqual(avant);
       expect(await identites()).toEqual([]);
       expect(revoques).toEqual([]);
-      expect(audits("auth.identity.link")).toHaveLength(lignesAvant);
+      const nouvelles = audits("auth.identity.link").slice(
+        0,
+        audits("auth.identity.link").length - lignesAvant,
+      );
+      expect(nouvelles).toHaveLength(3);
+      expect(nouvelles.every((l) => l.outcome === "failure")).toBe(true);
+      expect(nouvelles.map((l) => (l.details as { reason: string }).reason).sort()).toEqual([
+        "duplicate",
+        "entry_not_found",
+        "not_in_group",
+      ]);
     });
 
     it("le navigateur n'envoie que la clé : nom, DN, e-mail et rôle envoyés en plus sont ignorés, l'identité vient de l'annuaire", async () => {
@@ -658,7 +684,8 @@ describe.each(MOTEURS)("rattachement des comptes locaux (%s)", (moteur) => {
     it("création : identifiant normalisé, échéance à 30 jours, auteur, audit ; liste avec le nom du compte", async () => {
       const alice = await createUser(b.t.base, "alice", "mdp-alice-1");
       const avant = Date.now() / 1000;
-      const r = await preparer(alice, "Alice.Ｄupont@Exemple.LAN");
+      expect((await preparer(alice, "Alice.Ｄupont@Exemple.LAN")).statusCode).toBe(400);
+      const r = await preparer(alice, "Alice.Dupont@Exemple.LAN");
       expect(r.statusCode).toBe(200);
       expect(r.json()).toMatchObject({
         user_id: alice,
@@ -758,6 +785,161 @@ describe.each(MOTEURS)("rattachement des comptes locaux (%s)", (moteur) => {
       const { deleteUserFull } = await import("../src/comptes/suppression");
       await deleteUserFull(b.t.base, alice);
       expect(await lignes()).toEqual([]);
+    });
+  });
+
+  describe("assistant : contrôles de la relecture", () => {
+    const jeton = (uid: number) =>
+      b.t.base.run(
+        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
+        [uid, "api", "t", `h-${uid}-${Math.random()}`, "", "", 1],
+      );
+    const nbJetons = async (uid: number): Promise<number> =>
+      Number((await b.t.base.valeurs("SELECT COUNT(*) FROM tool_tokens WHERE user_id=?", [uid]))[0]?.[0]);
+
+    it("entrée que la connexion ne retrouverait pas (identifiant ambigu) : entry_not_loginable, rien d'écrit, refus audité", async () => {
+      const jean = await createUser(b.t.base, "jean", "mdp-local-1");
+      annuaire.ajouter({ uid: "jean", cle: UUID(9), mdp: MDP, groupes: [GROUPE] });
+      const r = await lier([{ user_id: jean, subject: UUID(1) }]);
+      expect(resultats(r)).toEqual(["entry_not_loginable"]);
+      expect(await identites()).toEqual([]);
+      expect((await compte("jean"))?.["pass_hash"]).not.toBe("!");
+      expect(audits("auth.identity.link")[0]).toMatchObject({
+        outcome: "failure",
+        details: { reason: "entry_not_loginable", target_user_id: jean },
+      });
+    });
+
+    it("un modérateur exige la même confirmation qu'un administrateur", async () => {
+      const mo = await createUser(b.t.base, "mo", "mdp-mo-1234", { isAdmin: 2 });
+      annuaire.ajouter({ uid: "mo", cle: UUID(6), mdp: MDP, groupes: [GROUPE] });
+      expect(resultats(await lier([{ user_id: mo, subject: UUID(6) }]))).toEqual([
+        "admin_confirmation_required",
+      ]);
+      expect(await identites()).toEqual([]);
+      expect(resultats(await lier([{ user_id: mo, subject: UUID(6) }], [mo]))).toEqual(["linked"]);
+      expect(Number((await compte("mo"))?.["is_admin"])).toBe(2);
+    });
+
+    it("jetons d'API et accès OAuth révoqués par le rattachement (nombres rendus et audités) ; keep_tokens les garde (kept)", async () => {
+      const jean = await createUser(b.t.base, "jean", "mdp-local-1");
+      const paul = await createUser(b.t.base, "paul", "mdp-local-2");
+      await jeton(jean);
+      await jeton(jean);
+      await jeton(paul);
+      const r1 = await lier([{ user_id: jean, subject: UUID(1) }]);
+      expect(r1.json()).toMatchObject({
+        results: [{ result: "linked", revoked_tokens: 2, revoked_oauth: 0 }],
+        kept_tokens: false,
+      });
+      expect(await nbJetons(jean)).toBe(0);
+      expect(audits("auth.identity.link")[0]).toMatchObject({
+        details: { method: "assistant", subject: UUID(1), revoked_tokens: 2, revoked_oauth: 0 },
+      });
+      const r2 = await lier([{ user_id: paul, subject: UUID(2) }], [], true);
+      expect(r2.json()).toMatchObject({ results: [{ result: "linked", kept: true }], kept_tokens: true });
+      expect(await nbJetons(paul)).toBe(1);
+      expect(audits("auth.identity.link")[0]).toMatchObject({ details: { kept: true } });
+    });
+
+    it("annuaire éteint pendant le lot : le lien en cours et les suivants sont refusés (directory_unavailable), le précédent reste lié", async () => {
+      const jean = await createUser(b.t.base, "jean", "mdp-local-1");
+      const paul = await createUser(b.t.base, "paul", "mdp-local-2");
+      const alice = await createUser(b.t.base, "alice", "mdp-alice-1");
+      annuaire.ajouter({ uid: "alice", cle: UUID(7), mdp: MDP, groupes: [GROUPE] });
+      const f = b.fournisseurs[0];
+      let lectures = 0;
+      const pousser = annuaire.recherches.push.bind(annuaire.recherches);
+      annuaire.recherches.push = (...e: string[]): number => {
+        if (/entryUUID=/u.test(e[0] ?? "") && ++lectures === 2)
+          b.cfg.ecrire({ auth: { providers: [{ ...f, enabled: false }] } });
+        return pousser(...e);
+      };
+      const r = await lier([
+        { user_id: jean, subject: UUID(1) },
+        { user_id: paul, subject: UUID(2) },
+        { user_id: alice, subject: UUID(7) },
+      ]);
+      expect(resultats(r)).toEqual(["linked", "directory_unavailable", "directory_unavailable"]);
+      expect((await identites()).map((i) => i["user_id"])).toEqual([jean]);
+      expect((await compte("paul"))?.["pass_hash"]).not.toBe("!");
+    });
+  });
+
+  describe("session cohérente avec l'état du compte", () => {
+    const deps = () => ({ ...dependancesParDefaut(b.t.base), sessionAdmise });
+    const session = (uid: number, methode: "password" | "ldap:annuaire"): Session => {
+      const s = new Session();
+      ouvrirSession(s, { uid, methode, maintenant: Date.now() / 1000 + 120, dureeMax: 3600 });
+      return s;
+    };
+    const utilisable = async (s: Session, uid: number): Promise<boolean> =>
+      (await validerSession(s, uid, dependancesSession(deps()))).valide &&
+      (await revaliderFlux(deps(), uid, s.get("_login_ts"), s.get("_sid"), metaSession(s)));
+    const effets = {
+      maintenant: () => Date.now() / 1000 + 60,
+      dureeMax: () => 3600,
+    };
+
+    it("mot de passe vérifié avant le rattachement : aucune session ouverte ni forgée n'est utilisable ensuite", async () => {
+      const jean = await createUser(b.t.base, "jean", "mdp-local-1");
+      expect(await verifyUser(b.t.base, "jean", "mdp-local-1")).toBe(jean);
+      expect(await utilisable(session(jean, "password"), jean)).toBe(true);
+      expect(resultats(await lier([{ user_id: jean, subject: UUID(1) }]))).toEqual(["linked"]);
+      await expect(
+        etablirConnexion(
+          { base: b.t.base, ...effets },
+          {
+            session: new Session(),
+            uid: jean,
+            username: "jean",
+            methode: "password",
+            ip: "1.1.1.1",
+            userAgent: null,
+          },
+        ),
+      ).rejects.toBeInstanceOf(ConnexionRefusee);
+      expect(await utilisable(session(jean, "password"), jean)).toBe(false);
+      expect(await utilisable(session(jean, "ldap:annuaire"), jean)).toBe(true);
+    });
+
+    it("session d'annuaire ouverte autour d'un détachement : refusée ensuite, la session par mot de passe redevient la bonne", async () => {
+      const jean = await createUser(b.t.base, "jean", "mdp-local-1");
+      expect(resultats(await lier([{ user_id: jean, subject: UUID(1) }]))).toEqual(["linked"]);
+      const r = await appeler("POST", `/api/admin/users/${jean}/identity/detach`, {
+        new_password: "Mdp-Temporaire-9",
+      });
+      expect(r.statusCode).toBe(200);
+      await expect(
+        etablirConnexion(
+          { base: b.t.base, ...effets },
+          {
+            session: new Session(),
+            uid: jean,
+            username: "jean",
+            methode: "ldap:annuaire",
+            ip: "1.1.1.1",
+            userAgent: null,
+          },
+        ),
+      ).rejects.toBeInstanceOf(ConnexionRefusee);
+      expect(await utilisable(session(jean, "ldap:annuaire"), jean)).toBe(false);
+      expect(await utilisable(session(jean, "password"), jean)).toBe(true);
+    });
+
+    it("détachement : jetons d'API supprimés dans l'écriture, audit écrit", async () => {
+      const jean = await createUser(b.t.base, "jean", "mdp-local-1");
+      expect(resultats(await lier([{ user_id: jean, subject: UUID(1) }], [], true))).toEqual(["linked"]);
+      await b.t.base.run(
+        "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at) VALUES(?,?,?,?,?,?,?)",
+        [jean, "api", "t", "h-detach", "", "", 1],
+      );
+      const r = await appeler("POST", `/api/admin/users/${jean}/identity/detach`, {
+        new_password: "Mdp-Temporaire-9",
+      });
+      expect(r.statusCode).toBe(200);
+      expect(await b.t.base.valeurs("SELECT 1 FROM tool_tokens WHERE user_id=?", [jean])).toEqual([]);
+      expect(audits("auth.identity.unlink")[0]).toMatchObject({ details: { target_user_id: jean } });
     });
   });
 });

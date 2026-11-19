@@ -8,7 +8,15 @@ import { ClientHttp } from "../../src/platform/http/client";
 import { decoderErreur, estAmbigu, messageErreur, valeurOuNull } from "../../src/platform/http/resultat";
 import { abandon, COMPTE_A, COMPTE_B, fetchManuel, json, texte } from "../aides";
 
-const MOI = { logged_in: true, id: 1, username: "alice", is_admin: false, role: "user", avatar: null };
+const MOI = {
+  logged_in: true,
+  id: 1,
+  username: "alice",
+  is_admin: false,
+  role: "user",
+  avatar: null,
+  password_managed: false,
+};
 
 function client(rep: Response | Error) {
   const session = new GestionnaireSession();

@@ -509,7 +509,7 @@
       "table",
       "auth_prelinks",
       "auth_prelinks",
-      "CREATE TABLE \"auth_prelinks\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"expected\" TEXT NOT NULL,\n  \"waiver\" INTEGER NOT NULL DEFAULT 0,\n  \"created_by\" INTEGER NOT NULL DEFAULT 0,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+      "CREATE TABLE \"auth_prelinks\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"expected\" TEXT NOT NULL,\n  \"waiver\" INTEGER NOT NULL DEFAULT 0,\n  \"created_by\" INTEGER NOT NULL DEFAULT 0,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  \"issuer\" TEXT NOT NULL DEFAULT '',\n  \"admin_confirmed\" INTEGER NOT NULL DEFAULT 0,\n  \"attempts\" INTEGER NOT NULL DEFAULT 0,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
     ],
     [
       "table",

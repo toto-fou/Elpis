@@ -17,12 +17,16 @@ import { compterAdminsLocaux } from "./etat";
 import { nomDerive } from "./nom";
 import {
   auditerRattachement,
+  ligneConvient,
   raisonDeRefus,
   rattacher,
   rattachementPrepareDe,
   revoquerFlux,
+  revoquerOauthRattachement,
+  supprimerJetonsDuCompte,
 } from "./rattachement";
 import type { LigneRattachementPrepare } from "./rattachement";
+import { ancreIdentite } from "./ancre";
 import type { Fournisseur } from "./reglages";
 
 export type Appartenance = "oui" | "non" | "inconnu";
@@ -52,7 +56,7 @@ export type Resolution =
 
 export interface DependancesProvisionnement extends DependancesEtat {
   /** Flux ouverts d'un compte rattaché coupés dans tous les process. */
-  readonly revoquer?: (uid: number) => Promise<unknown>;
+  readonly revoquer: (uid: number) => Promise<unknown>;
 }
 
 type LigneIdentite = {
@@ -70,6 +74,8 @@ interface Effets {
   suspendre: number | null;
   revoquer: number | null;
   username: string | null;
+  oauth: number | null;
+  oauthRevoques: number;
 }
 
 const LIRE_IDENTITE =
@@ -138,11 +144,23 @@ async function poserSuspensionDeLAnnuaire(c: Contexte, uid: number, origine: str
   }
 }
 
-/** Rattachement préparé d'un fournisseur OIDC pour cette identité inconnue : preuve à faire, ou rattachement tout de suite si la preuve est dispensée ; jamais de compte créé. */
+/** Rattachement préparé d'un fournisseur OIDC pour cette identité inconnue : preuve à faire, ou rattachement tout de suite si la preuve est dispensée (simple utilisateur seulement) ; jamais de compte créé. */
 async function rattachementPrepare(c: Contexte, l: LignePrepare): Promise<Resolution> {
-  const { dep, fournisseur, profil, maintenant, effets } = c;
+  const { dep, fournisseur, profil, effets } = c;
   const uid = Number(l.user_id);
+  const ancre = ancreIdentite(fournisseur);
+  const t = dep.maintenant();
+  if (!ligneConvient(l, { fournisseurId: fournisseur.id, ancre, profil, t }))
+    return refus("prelink_invalid", uid);
   if (Number(l.waiver) !== 1) return { type: "preuve", prelinkId: Number(l.id), uid };
+  const role = Number(
+    (await dep.base.get<{ is_admin: number | null }>("SELECT is_admin FROM users WHERE id=?", [uid]))
+      ?.is_admin,
+  );
+  if (role === 1 || role === 2) {
+    await dep.base.run("DELETE FROM auth_prelinks WHERE id=?", [l.id]);
+    return refus("prelink_invalid", uid);
+  }
   const par = `prelink:${Number(l.created_by)}`;
   const obstacle = await rattacher(
     dep.base,
@@ -150,20 +168,35 @@ async function rattachementPrepare(c: Contexte, l: LignePrepare): Promise<Resolu
     {
       fournisseurId: fournisseur.id,
       subject: profil.subject,
-      issuer: profil.issuer,
+      issuer: ancre,
       extUsername: profil.extUsername,
       extEmail: profil.extEmail,
       extName: profil.extName,
     },
-    { par, confirmeAdmin: false, t: maintenant },
+    { par, confirmeAdmin: false, t },
   );
   if (obstacle !== null)
     return refus(raisonDeRefus(obstacle), obstacle === "account_not_found" ? undefined : uid);
-  await dep.base.run("DELETE FROM auth_prelinks WHERE id=?", [l.id]);
+  const tokens = await supprimerJetonsDuCompte(dep.base, uid);
   const nom = await getUsernameById(dep.base, uid);
   effets.username = nom;
   effets.revoquer = uid;
-  c.audits.push(() => auditerRattachement({ uid, username: nom, fournisseurId: fournisseur.id, par }, c.ip));
+  effets.oauth = uid;
+  c.audits.push(() =>
+    auditerRattachement(
+      {
+        uid,
+        username: nom,
+        fournisseurId: fournisseur.id,
+        par,
+        methode: "waiver",
+        subject: profil.subject,
+        identifiantRecu: profil.extUsername,
+        jetons: { tokens, oauth: effets.oauthRevoques },
+      },
+      c.ip,
+    ),
+  );
   return { type: "compte", uid, cree: false };
 }
 
@@ -235,12 +268,13 @@ export async function resoudreIdentite(
     readonly ip?: string | null;
   },
 ): Promise<Resolution> {
-  const effets: Effets = { suspendre: null, revoquer: null, username: null };
+  const effets: Effets = { suspendre: null, revoquer: null, username: null, oauth: null, oauthRevoques: 0 };
   const c: Contexte = { dep, ...e, effets, audits: [], ip: e.ip ?? null };
   const r = await dep.base.ecriture(async (x) => {
     const l = await x.get<LigneIdentite>(LIRE_IDENTITE, [e.fournisseur.id, e.profil.subject]);
     return l ? identiteConnue(c, l) : creerCompte(c);
   });
+  if (effets.oauth !== null) effets.oauthRevoques = await revoquerOauthRattachement(dep, effets.oauth);
   for (const audit of c.audits) audit();
   if (r.type === "refus")
     auditEvent({

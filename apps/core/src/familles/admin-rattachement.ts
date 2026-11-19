@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-rattachement.ts — console (admins seulement) : rattachement des comptes locaux à une identité d'annuaire, détachement, rattachements préparés des fournisseurs OIDC. */
-import { ligneUtilisateur, revoquerTousAcces } from "@elpis/auth";
+import { ligneUtilisateur } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import {
@@ -27,14 +27,16 @@ import {
   rattacherComptes,
 } from "../identite/annuaire/rattachement-annuaire";
 import { fournisseurParId } from "../identite/fournisseurs";
+import { ancreIdentite } from "../identite/ancre";
 import {
   attenduValide,
   detacher,
+  revoquerOauthRattachement,
   preparerRattachement,
   purgerRattachementsPerimes,
 } from "../identite/rattachement";
 import type { LigneRattachementPrepare, RaisonRefusPrepare } from "../identite/rattachement";
-import type { FournisseurLdap } from "../identite/reglages";
+import type { FournisseurLdap, FournisseurOidc } from "../identite/reglages";
 import { ipDeRequete } from "../journal-securite/auditer";
 import type { Journal } from "../journal";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
@@ -115,12 +117,12 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
   }
 
   /** Fournisseur OIDC de l'identifiant du chemin (allumé ou non) ; 404 s'il n'existe pas, 409 s'il n'est pas OIDC. */
-  function fournisseurOidc(req: FastifyRequest): string {
+  function fournisseurOidc(req: FastifyRequest): FournisseurOidc {
     const f = fournisseurParId(idDuChemin(req, "id"));
     if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
     if (f.type !== "oidc")
       throw new HttpError(409, "Un annuaire se rattache par l'assistant de rattachement.");
-    return f.id;
+    return f;
   }
 
   async function lireMigration(req: FastifyRequest): Promise<unknown> {
@@ -142,13 +144,14 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
     const corps = corpsValide(req, schemaCorpsRattachement);
     const operateur = utilisateur(req);
     const resultats = await rattacherComptes(
-      { ...annuaire, revoquer: dep.revoquer },
+      { ...annuaire, revoquer: dep.revoquer, acces: auth },
       f,
       corps.links,
       new Set(corps.confirm_admins),
       { id: operateur, username: req.utilisateur?.username ?? null, ip: ipDeRequete(req) },
+      { garderJetons: corps.keep_tokens },
     );
-    return { results: resultats };
+    return { results: resultats, kept_tokens: corps.keep_tokens };
   }
 
   async function detacherCompte(req: FastifyRequest): Promise<unknown> {
@@ -158,20 +161,19 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
     if (cible === operateur) throw new HttpError(400, "Vous ne pouvez pas détacher votre propre compte.");
     if (!(await ligneUtilisateur(base, cible))) throw new HttpError(404, "Utilisateur introuvable");
     validerMotDePasse(motDePasse, auth.config());
-    const t = maintenant();
-    const detache = await base.ecriture((x) => detacher(x, cible, motDePasse, t));
+    const detache = await base.ecriture((x) => detacher(x, cible, motDePasse, maintenant()));
     if (detache === null) throw new HttpError(409, "Ce compte n'est rattaché à aucune identité.");
-    try {
-      await dep.revoquer(cible);
-    } catch (e) {
-      dep.journal.error({ err: e }, "[admin] publication session_revoked (détachement) échouée");
-    }
-    await revoquerTousAcces(auth, cible);
     auditer(req, "auth.identity.unlink", {
       target_user_id: cible,
       provider_id: detache.fournisseurId,
       by: `admin:${operateur}`,
     });
+    try {
+      await dep.revoquer(cible);
+    } catch (e) {
+      dep.journal.error({ err: e }, "[admin] publication session_revoked (détachement) échouée");
+    }
+    await revoquerOauthRattachement({ acces: auth, journal: dep.journal }, cible);
     return { ok: true };
   }
 
@@ -189,7 +191,7 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
   });
 
   async function listerPrepares(req: FastifyRequest): Promise<unknown> {
-    const id = fournisseurOidc(req);
+    const id = fournisseurOidc(req).id;
     await base.ecriture((x) => purgerRattachementsPerimes(x, maintenant()));
     const lignes = await base.all<LigneRattachementPrepare & { username: string | null }>(
       "SELECT p.id, p.user_id, p.provider_id, p.expected, p.waiver, p.created_by, p.created_at, p.expires_at, u.username FROM auth_prelinks p LEFT JOIN users u ON u.id=p.user_id WHERE p.provider_id=? ORDER BY p.created_at DESC, p.id DESC",
@@ -199,7 +201,9 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
   }
 
   async function creerPrepare(req: FastifyRequest): Promise<unknown> {
-    const id = fournisseurOidc(req);
+    const fournisseur = fournisseurOidc(req);
+    const id = fournisseur.id;
+    const ancre = ancreIdentite(fournisseur);
     const corps = corpsValide(req, schemaCorpsRattachementPrepare);
     const attendu = attenduValide(corps.expected);
     if (attendu === null) throw new HttpError(400, REQUETE_INVALIDE);
@@ -209,6 +213,7 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
       preparerRattachement(x, {
         uid: corps.user_id,
         fournisseurId: id,
+        ancre,
         attendu,
         dispense: corps.waiver,
         confirmeAdmin: corps.confirm_admin,
@@ -235,7 +240,7 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
   }
 
   async function supprimerPrepare(req: FastifyRequest): Promise<unknown> {
-    const id = fournisseurOidc(req);
+    const id = fournisseurOidc(req).id;
     const prelinkId = entierDuChemin(req, "prelink_id");
     const cible = await base.ecriture(async (x) => {
       const l = await x.get<{ user_id: number }>(

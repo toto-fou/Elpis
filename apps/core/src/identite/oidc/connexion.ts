@@ -7,7 +7,12 @@ import type { Base } from "@elpis/db";
 import { ConnexionRefusee, etablirConnexion } from "../../comptes/ouverture";
 import type { EffetsConnexion } from "../../comptes/ouverture";
 import { resoudreIdentite } from "../provisionnement";
-import type { DependancesProvisionnement, Resolution } from "../provisionnement";
+import type {
+  Appartenance,
+  DependancesProvisionnement,
+  ProfilIdentite,
+  Resolution,
+} from "../provisionnement";
 import type { FournisseurOidc } from "../reglages";
 import type { RetourVerifie } from "./echange";
 import { noterSessionExterne } from "./flux";
@@ -41,7 +46,15 @@ export function refusDeResolution(res: Resolution): RefusOidc {
   return new RefusOidc(CODE_PAR_RAISON[raison] ?? "conflict", raison, r.uid ?? null);
 }
 
-/** Ouvre la session du compte du retour vérifié ; rend l'identifiant du compte. */
+/** Preuve du titulaire à faire avant tout rattachement : aucune session n'est ouverte, le profil vérifié part dans un flux `proof`. */
+export interface PreuveAttendue {
+  readonly prelinkId: number;
+  readonly uid: number;
+  readonly profil: ProfilIdentite;
+  readonly appartenance: Appartenance;
+}
+
+/** Ouvre la session du compte du retour vérifié et rend son identifiant, ou rend la preuve attendue d'un compte local à rattacher. */
 export async function connecterParOidc(
   dep: DependancesConnexionOidc,
   e: {
@@ -52,7 +65,7 @@ export async function connecterParOidc(
     ip: string;
     userAgent: string | null;
   },
-): Promise<number> {
+): Promise<number | PreuveAttendue> {
   const f = e.fournisseur;
   const res = await resoudreIdentite(dep.provisionnement, {
     fournisseur: f,
@@ -61,6 +74,13 @@ export async function connecterParOidc(
     maintenant: e.maintenant,
     ip: e.ip,
   });
+  if (res.type === "preuve")
+    return {
+      prelinkId: res.prelinkId,
+      uid: res.uid,
+      profil: e.retour.profil,
+      appartenance: e.retour.appartenance,
+    };
   if (res.type !== "compte") throw refusDeResolution(res);
   const ligne = await ligneUtilisateur(dep.base, res.uid);
   try {

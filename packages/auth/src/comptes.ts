@@ -26,6 +26,14 @@ export function aMotDePasseLocal(ligne: Record<string, unknown> | null | undefin
   return String(ligne?.pass_hash ?? "") !== MARQUEUR_SANS_MOT_DE_PASSE;
 }
 
+/** Vrai si la méthode de connexion d'une session est encore celle du compte : mot de passe local pour `password` (ou méthode absente), identité de CE fournisseur pour `ldap:<id>` / `oidc:<id>`. */
+export function methodeDuCompte(auth: unknown, ligne: Record<string, unknown> | null | undefined): boolean {
+  if (typeof auth === "string" && /^(ldap|oidc):/u.test(auth))
+    return ligne?.ident_provider_id === auth.slice(auth.indexOf(":") + 1);
+  if (auth === undefined || auth === null || auth === "password") return aMotDePasseLocal(ligne);
+  return false;
+}
+
 export type CompteResume = {
   id: number;
   username: string;

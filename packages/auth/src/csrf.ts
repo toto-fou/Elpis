@@ -82,7 +82,10 @@ export function estInterSite(e: Entetes, hoteParDefaut = ""): boolean {
 export const PREFIXES_EXEMPTES_CSRF: readonly string[] = ["/api/webhooks/"];
 
 /** Routes qui ouvrent une session : contrôlées même sans cookie (CSRF de connexion). */
-export const CHEMINS_CSRF_SANS_COOKIE: ReadonlySet<string> = new Set(["/api/login-lite"]);
+export const CHEMINS_CSRF_SANS_COOKIE: ReadonlySet<string> = new Set([
+  "/api/login-lite",
+  "/api/auth/oidc/link-proof",
+]);
 
 const DEPART_SSO = /^\/api\/auth\/oidc\/[a-z0-9][a-z0-9-]{0,30}\/start$/u;
 

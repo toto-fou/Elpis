@@ -64,6 +64,14 @@ export async function ligneUtilisateur(x: Executeur, uid: number): Promise<Ligne
   return x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
 }
 
+/** Compte de la session avec le fournisseur de son identité externe (`ident_*`), en une requête : sert la cohérence entre la méthode de connexion et l'état du compte. */
+export async function ligneSession(x: Executeur, uid: number): Promise<LigneUtilisateur | undefined> {
+  return x.get<LigneUtilisateur>(
+    `SELECT u.*, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`,
+    [uid],
+  );
+}
+
 /** Suspension et identité externe d'un compte en une requête (`ident_*` absents pour un compte local) ; `undefined` si le compte manque. */
 export async function ligneAcces(
   x: Executeur,
@@ -84,7 +92,7 @@ function portesAdmise(dep: DependancesAuth): Pick<DependancesSession, "sessionAd
 export function dependancesSession(dep: DependancesAuth): DependancesSession {
   return {
     config: () => dep.config(),
-    utilisateur: (uid) => ligneUtilisateur(dep.base, uid),
+    utilisateur: (uid) => ligneSession(dep.base, uid),
     revoquee: (sid) => estRevoquee(dep.base, sid),
     maintenant: () => maintenant(dep),
     ...portesAdmise(dep),
@@ -142,11 +150,19 @@ export function revaliderFlux(
       maintenant: () => maintenant(dep),
       ...portesAdmise(dep),
       sessionMinTs: async (id) => {
-        const r = await dep.base.get<{ m: number | null; s: number | null; a: number | null }>(
-          "SELECT session_min_ts AS m, suspended_at AS s, is_admin AS a FROM users WHERE id = ?",
+        const r = await dep.base.get<{
+          m: number | null;
+          s: number | null;
+          a: number | null;
+          h: string | null;
+          p: string | null;
+        }>(
+          `SELECT u.session_min_ts AS m, u.suspended_at AS s, u.is_admin AS a, u.pass_hash AS h, i.provider_id AS p FROM users u ${JOINTURE_IDENTITE} WHERE u.id = ?`,
           [id],
         );
-        return r === undefined ? undefined : { min: r.m ?? null, suspended_at: r.s, is_admin: r.a };
+        return r === undefined
+          ? undefined
+          : { min: r.m ?? null, suspended_at: r.s, is_admin: r.a, pass_hash: r.h, ident_provider_id: r.p };
       },
     },
     meta,

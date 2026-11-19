@@ -85,6 +85,8 @@ export interface EtatMinSession {
   min: number | null;
   suspended_at?: number | null;
   is_admin?: number | null;
+  pass_hash?: string | null;
+  ident_provider_id?: string | null;
 }
 
 /** Ce qu'une session porte hors de l'identité du flux : échéance figée et méthode de connexion. */
@@ -212,7 +214,13 @@ export async function fluxEncoreValide(
     if (m > 0 && login < m) return true;
     if (!dep.sessionAdmise) return false;
     const ligne: LigneUtilisateur =
-      typeof etat === "object" && etat !== null ? { is_admin: etat.is_admin ?? 0 } : {};
+      typeof etat === "object" && etat !== null
+        ? {
+            is_admin: etat.is_admin ?? 0,
+            ...(etat.pass_hash === undefined ? {} : { pass_hash: etat.pass_hash }),
+            ...(etat.ident_provider_id === undefined ? {} : { ident_provider_id: etat.ident_provider_id }),
+          }
+        : {};
     return !(await dep.sessionAdmise(meta.auth, ligne));
   });
   if (compteRefuse) return false;

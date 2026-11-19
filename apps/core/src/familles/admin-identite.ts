@@ -240,6 +240,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       await supprimerSecretFournisseur(base, f.id, acteur(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [f.id]);
       await x.run("DELETE FROM auth_failures WHERE provider_id=?", [f.id]);
+      await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [f.id]);
       providers.push(f);
     });
     auditer(req, "admin.auth.provider.create", {
@@ -268,6 +269,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
           409,
           "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur.",
         );
+      if (champsFigesChanges(actuel, nouveau).length > 0)
+        await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
       providers[i] = nouveau;
       return [actuel, nouveau];
     });
@@ -297,6 +300,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       providers.splice(i, 1);
       await supprimerSecretFournisseur(base, id, acteur(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [id]);
+      await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
       await effacerEtatOidc(x, id);
       return lu?.type ?? null;
     });

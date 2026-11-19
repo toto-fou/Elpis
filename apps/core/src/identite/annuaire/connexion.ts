@@ -240,8 +240,10 @@ export async function authentifierParAnnuaire(
   actifs?: readonly FournisseurLdap[],
 ): Promise<ResultatAnnuaire> {
   if (!motDePasseAdmis(motDePasse)) return refus("bad_password", null);
-  const annuaires = actifs ?? (await annuairesActifs(dep));
-  if (annuaires.length === 0) return { type: "absent" };
-  const r = await dep.porte.avec(() => parcourir(dep, annuaires, identifiant, motDePasse));
+  // La porte est prise d'abord, sans attente : elle borne tout le travail, lecture des annuaires actifs comprise.
+  const r = await dep.porte.avec(async (): Promise<ResultatAnnuaire> => {
+    const annuaires = actifs ?? (await annuairesActifs(dep));
+    return annuaires.length === 0 ? { type: "absent" } : parcourir(dep, annuaires, identifiant, motDePasse);
+  });
   return r.admis ? r.valeur : { type: "indisponible" };
 }

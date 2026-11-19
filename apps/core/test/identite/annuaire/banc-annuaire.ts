@@ -39,7 +39,7 @@ export async function ouvrirBancAnnuaire(
   await initialiserBase(t.base);
   await createUser(t.base, "chef", "mdp-chef-1", { isAdmin: 1 });
   cleCoffreDeTest();
-  const cfg = configDeTest();
+  const cfg = configDeTest({ https: true });
   const fournisseurs: FournisseurLdap[] = [];
   for (const [i, extra] of extras.entries()) {
     const f = validerFournisseur(

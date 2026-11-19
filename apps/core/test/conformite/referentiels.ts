@@ -36,7 +36,6 @@ const ex = (
   applicable,
   ...(pourquoi === null ? {} : { pourquoi }),
   ...(portee === null ? {} : { portee }),
-  ...(portee === null ? {} : { portee }),
   preuves: preuves.map(([fichier, titre]) => ({ fichier, titre })),
 });
 
@@ -1047,10 +1046,30 @@ export const EXIGENCES: readonly Exigence[] = [
   ex(
     "OpenID Connect Core 1.0",
     "§3.1.3.7 (3)",
-    "The Client MUST validate that the aud (audience) Claim contains its client_id value",
+    "The Client MUST validate that the aud (audience) Claim contains its client_id value ... MUST be rejected ... if it contains additional audiences not trusted by the Client",
     true,
     null,
-    [["apps/core/test/securite-oidc.test.ts", "jeton d'identité : `aud` faux refusé"]],
+    [
+      ["apps/core/test/securite-oidc.test.ts", "jeton d'identité : `aud` faux refusé"],
+      [
+        "apps/core/test/conformite/oidc-jeton-identite.test.ts",
+        "Core §3.1.3.7 (3) : un public supplémentaire",
+      ],
+    ],
+  ),
+  ex(
+    "OpenID Connect Core 1.0",
+    "§3.1.3.7 (4)",
+    "If the ID Token contains multiple audiences, the Client SHOULD verify that an azp Claim is present",
+    true,
+    null,
+    [
+      [
+        "apps/core/test/conformite/oidc-jeton-identite.test.ts",
+        "Core §3.1.3.7 (3) : un public supplémentaire",
+      ],
+    ],
+    "plus strict : un jeton à plusieurs publics est refusé, `azp` présent ou non",
   ),
   ex(
     "OpenID Connect Core 1.0",

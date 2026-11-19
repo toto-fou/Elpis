@@ -103,8 +103,23 @@ export class AnnuaireFactice {
     }
     const cle = /^\((entryUUID|ipaUniqueID|objectGUID)=(.*)\)$/iu.exec(o.filtre);
     if (cle !== null) return base === BASE ? this.parCle((cle[1] ?? "").toLowerCase(), cle[2] ?? "") : [];
+    if (base !== BASE) return [];
+    const recherche = /^\(\|\(uid=(.*?)\)\(mail=(.*?)\)\(cn=(.*)\*\)\)$/u.exec(o.filtre);
+    if (recherche !== null) {
+      const [, id = "", mail = "", debut = ""] = recherche;
+      const bas = (v: string | Buffer | undefined): string => String(v ?? "").toLowerCase();
+      return this.personnes
+        .map((p) => this.entree(p))
+        .filter(
+          (e) =>
+            bas(e.attrs["uid"]?.[0]) === id.toLowerCase() ||
+            bas(e.attrs["mail"]?.[0]) === mail.toLowerCase() ||
+            bas(e.attrs["cn"]?.[0]).startsWith(debut.toLowerCase()),
+        )
+        .slice(0, o.limite);
+    }
     const uid = /^\(uid=(.*)\)$/u.exec(o.filtre);
-    if (uid === null || base !== BASE) return [];
+    if (uid === null) return [];
     return this.personnes
       .filter((p) => p.uid.toLowerCase() === (uid[1] ?? "").toLowerCase())
       .map((p) => this.entree(p));

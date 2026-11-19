@@ -18,6 +18,7 @@ import {
   listerJetons,
   listGrants,
   listGroups,
+  MARQUEUR_SANS_MOT_DE_PASSE,
   mergeUserSettings,
   resetUserPassword,
   ErreurSansMotDePasseLocal,
@@ -308,6 +309,21 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       dns: [...p.dns],
     }));
     const comptes = await getAllUsersWithGroups(base);
+    const identites = new Map(
+      (
+        await base.all<{
+          user_id: number;
+          provider_id: string;
+          ext_username: string | null;
+          linked_at: number;
+        }>("SELECT user_id, provider_id, ext_username, linked_at FROM user_identities")
+      ).map((i) => [Number(i.user_id), i]),
+    );
+    const sansMotDePasse = new Set(
+      (
+        await base.valeurs<[number]>("SELECT id FROM users WHERE pass_hash=?", [MARQUEUR_SANS_MOT_DE_PASSE])
+      ).map(([id]) => Number(id)),
+    );
     for (const u of comptes) {
       const s = u["_settings"] as Dict;
       delete u["_settings"];
@@ -317,6 +333,15 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       const id = u["id"] as number;
       const octets = await sandboxUsageBytes(id, travailBac(u["username"] as string, id));
       u["sandbox_used_mb"] = versFlottantPy(arrondiPy(octets / MO, 2));
+      const identite = identites.get(id);
+      u["identity"] = identite
+        ? {
+            provider_id: identite.provider_id,
+            ext_username: identite.ext_username,
+            linked_at: versFlottantPy(Number(identite.linked_at)),
+          }
+        : null;
+      u["has_local_password"] = !sansMotDePasse.has(id);
     }
     await describeUsers(base, comptes);
     return reponseJsonPy(rep, {

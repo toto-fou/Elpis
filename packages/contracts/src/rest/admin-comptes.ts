@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
+import { schemaIdentiteCompte } from "./admin-rattachement";
 import { schemaRole } from "./session";
 
 export const schemaCorpsCreationCompte = z.object({
@@ -62,6 +63,10 @@ export const schemaCompteConsole = z.object({
   network_profile_id: z.string(),
   forced_network_profile_id: z.string(),
   sandbox_used_mb: z.number(),
+  /** Identité d'annuaire rattachée, `null` pour un compte local. */
+  identity: schemaIdentiteCompte.nullable().default(null),
+  /** Faux pour un compte sans mot de passe local (il se connecte par son fournisseur). */
+  has_local_password: z.boolean().default(true),
   llm_engine_keys: z.array(z.string()).nullable(),
   llm_can_manage_models: z.boolean().nullable(),
   llm_effective_engine_keys: z.array(z.string()).nullable(),

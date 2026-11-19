@@ -13,6 +13,7 @@ export const MIGRATIONS_TS: readonly string[] = [
   "0033_identites_externes",
   "0034_echeance_des_revocations",
   "0035_echecs_annuaire",
+  "0036_rattachements_prepares",
 ];
 
 /** Notes d'une migration pour le journal du démarrage (jamais de secret). */

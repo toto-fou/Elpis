@@ -236,8 +236,11 @@ describe.each(MOTEURS)("console : comptes, groupes, clients OAuth (%s)", (moteur
             vusEntetes[k] = k === "content-type" ? (String(v).split(";")[0] ?? "") : String(v);
         }
         res.statut = r.statusCode;
-        // Écart voulu : l'état de suspension (absent du Python) est retiré de la liste avant comparaison.
-        res.corps = r.body.replaceAll(bac, "{bac}").replaceAll(',"suspended_at":0.0,"suspended_by":null', "");
+        // Écart voulu : l'état de suspension et l'identité rattachée (absents du Python) sont retirés de la liste avant comparaison.
+        res.corps = r.body
+          .replaceAll(bac, "{bac}")
+          .replaceAll(',"suspended_at":0.0,"suspended_by":null', "")
+          .replaceAll(',"identity":null,"has_local_password":true', "");
         res.entetes = vusEntetes;
       }
       const lignes = lignesAudit();

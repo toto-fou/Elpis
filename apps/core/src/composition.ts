@@ -64,6 +64,7 @@ import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
 import { creerFamilleAdminIdentite } from "./familles/admin-identite";
 import { creerFamilleAdminIdentiteBalayage } from "./familles/admin-identite-balayage";
+import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
 import type { FabriqueConnexion } from "./identite/annuaire/client";
 import { fabriqueLdapts } from "./identite/annuaire/client";
 import type { DependancesBalayage } from "./identite/annuaire/balayage";
@@ -562,6 +563,13 @@ export async function composer(
         revoquer: (uid) => evenements.revoquer(uid),
       }),
       creerFamilleAdminIdentiteBalayage(balayage),
+      creerFamilleAdminRattachement({
+        base,
+        auth,
+        journal: journal.child({ domaine: "admin" }),
+        revoquer: (uid) => evenements.revoquer(uid),
+        ...(options.fabriqueAnnuaire === undefined ? {} : { fabrique: options.fabriqueAnnuaire }),
+      }),
       creerFamilleAdminSecurite({
         base,
         auth,

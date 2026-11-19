@@ -21,6 +21,7 @@ import * as adminSecurite from "./admin-securite";
 import * as adminAudit from "./admin-audit";
 import * as adminIdentite from "./admin-identite";
 import * as adminIdentiteBalayage from "./admin-identite-balayage";
+import * as adminRattachement from "./admin-rattachement";
 import * as adminComptes from "./admin-comptes";
 import * as adminVue from "./admin-vue";
 import * as adminConfig from "./admin-config";
@@ -679,6 +680,47 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminIdentiteBalayage.schemaEtatBalayage,
     adminIdentiteBalayage.schemaCorpsConfirmationBalayage,
   ),
+  c(
+    "admin-rattachement",
+    "GET",
+    "/api/admin/auth/providers/:id/migration",
+    adminRattachement.schemaReponseMigration,
+  ),
+  c(
+    "admin-rattachement",
+    "POST",
+    "/api/admin/auth/providers/:id/migration/search",
+    adminRattachement.schemaReponseRechercheMigration,
+    adminRattachement.schemaCorpsRechercheMigration,
+  ),
+  c(
+    "admin-rattachement",
+    "POST",
+    "/api/admin/auth/providers/:id/migration/link",
+    adminRattachement.schemaReponseRattachement,
+    adminRattachement.schemaCorpsRattachement,
+  ),
+  c(
+    "admin-rattachement",
+    "POST",
+    "/api/admin/users/:target_id/identity/detach",
+    schemaOk,
+    adminRattachement.schemaCorpsDetachement,
+  ),
+  c(
+    "admin-rattachement",
+    "GET",
+    "/api/admin/auth/providers/:id/prelinks",
+    adminRattachement.schemaReponseRattachementsPrepares,
+  ),
+  c(
+    "admin-rattachement",
+    "POST",
+    "/api/admin/auth/providers/:id/prelinks",
+    adminRattachement.schemaRattachementPrepare,
+    adminRattachement.schemaCorpsRattachementPrepare,
+  ),
+  c("admin-rattachement", "DELETE", "/api/admin/auth/providers/:id/prelinks/:prelink_id", schemaOk),
   c("admin-runs", "GET", "/api/admin/runs/accounts", adminRuns.schemaReponseExecutionsParCompte),
   c("admin-runs", "GET", "/api/admin/runs", adminRuns.schemaReponseExecutionsConsole),
   c("admin-runs", "GET", "/api/admin/runs/:run_id/timeline", runs.schemaChronologie),

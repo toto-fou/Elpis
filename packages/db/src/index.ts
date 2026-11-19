@@ -83,4 +83,5 @@ export { MIGRATION_ETAT_DES_COMPTES } from "./etat-des-comptes";
 export { MIGRATION_IDENTITES_EXTERNES } from "./identites-externes";
 export { MIGRATION_ECHEANCE_DES_REVOCATIONS } from "./echeance-des-revocations";
 export { MIGRATION_ECHECS_ANNUAIRE } from "./echecs-annuaire";
+export { MIGRATION_RATTACHEMENTS_PREPARES } from "./rattachements-prepares";
 export { MIGRATION_RETRAIT_REMOTE_CODE, TABLES_REMOTE_CODE } from "./retrait-remote-code";

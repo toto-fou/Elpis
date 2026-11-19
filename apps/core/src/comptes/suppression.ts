@@ -76,6 +76,7 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
     await x.run("DELETE FROM shared_prompts WHERE to_user_id=? OR from_user_id=?", [uid, uid]);
     await x.run("DELETE FROM user_groups WHERE user_id=?", [uid]);
     await toleree(base, (tx) => tx.run("DELETE FROM user_identities WHERE user_id=?", [uid]));
+    await toleree(base, (tx) => tx.run("DELETE FROM auth_prelinks WHERE user_id=?", [uid]));
     await deletePrincipalRows(x, "user", uid, base);
     await toleree(base, (tx) => supprimerJetonsCompte(tx, uid));
     await toleree(base, (tx) => supprimerOauthCompte(tx, uid));

@@ -15,6 +15,18 @@
     ],
     [
       "index",
+      "idx_auth_prelinks_expected",
+      "auth_prelinks",
+      "CREATE UNIQUE INDEX \"idx_auth_prelinks_expected\" ON \"auth_prelinks\" (\"provider_id\", \"expected\")"
+    ],
+    [
+      "index",
+      "idx_auth_prelinks_user",
+      "auth_prelinks",
+      "CREATE UNIQUE INDEX \"idx_auth_prelinks_user\" ON \"auth_prelinks\" (\"user_id\")"
+    ],
+    [
+      "index",
       "idx_ax_nodes_parent",
       "ax_nodes",
       "CREATE INDEX \"idx_ax_nodes_parent\" ON \"ax_nodes\" (\"parent_id\")"
@@ -444,6 +456,12 @@
       "auth_failures",
       "auth_failures",
       "CREATE TABLE \"auth_failures\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"provider_id\" TEXT NOT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"count\" INTEGER NOT NULL DEFAULT 0,\n  \"window_start\" REAL NOT NULL DEFAULT 0,\n  \"last_at\" REAL NOT NULL DEFAULT 0\n)"
+    ],
+    [
+      "table",
+      "auth_prelinks",
+      "auth_prelinks",
+      "CREATE TABLE \"auth_prelinks\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"expected\" TEXT NOT NULL,\n  \"waiver\" INTEGER NOT NULL DEFAULT 0,\n  \"created_by\" INTEGER NOT NULL DEFAULT 0,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
     ],
     [
       "table",

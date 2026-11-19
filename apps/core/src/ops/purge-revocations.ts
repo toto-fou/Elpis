@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/ops/purge-revocations.ts — purge périodique de `revoked_sessions` dans main : une ligne plus vieille qu'une session ne sert plus. */
+/** apps/core/src/ops/purge-revocations.ts — purge périodique dans main de `revoked_sessions` (une ligne plus vieille qu'une session ne sert plus) et des rattachements préparés périmés. */
 import { dureeMaxSession, purgerRevocations } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import { dormirMs } from "@elpis/commun";
 
 import type { CycleDeVie } from "../cycle";
 import type { Journal } from "../journal";
+import { purgerRattachementsPerimes } from "../identite/rattachement";
 import type { ModeApp } from "../mode";
 
 export const INTERVALLE_PURGE_REVOCATIONS_MS = 3_600_000;
@@ -27,6 +28,7 @@ export async function purgerUnePasse(dep: DependancesAuth, journal: Journal): Pr
       MARGE_PURGE_REVOCATIONS_S,
     );
     if (n > 0) journal.info(`${n} révocation(s) de session périmée(s) purgée(s)`);
+    await purgerRattachementsPerimes(dep.base, maintenant);
     return n;
   } catch (e) {
     journal.warn({ err: e }, "purge des révocations de session en échec");

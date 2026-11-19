@@ -814,6 +814,21 @@ export const TABLES: readonly Table[] = [
     indexes: [{"name": "idx_auth_failures_entry", "cols": ["provider_id", "subject"], "unique": true}],
   },
   {
+    name: "auth_prelinks",
+    cols: [
+      { name: "id", type: "id" },
+      { name: "user_id", type: "int", null: false },
+      { name: "provider_id", type: "text", null: false },
+      { name: "expected", type: "text", null: false },
+      { name: "waiver", type: "int", null: false, default: 0 },
+      { name: "created_by", type: "int", null: false, default: 0 },
+      { name: "created_at", type: "real", null: false },
+      { name: "expires_at", type: "real", null: false },
+    ],
+    fks: [{"cols": ["user_id"], "table": "users", "refCols": ["id"], "onDelete": "CASCADE"}],
+    indexes: [{"name": "idx_auth_prelinks_user", "cols": ["user_id"], "unique": true}, {"name": "idx_auth_prelinks_expected", "cols": ["provider_id", "expected"], "unique": true}],
+  },
+  {
     name: "schema_migrations",
     cols: [
       { name: "id", type: "id" },

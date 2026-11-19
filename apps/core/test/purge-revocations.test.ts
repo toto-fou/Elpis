@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/purge-revocations.test.ts — purge périodique de `revoked_sessions` dans main : ligne récente gardée, périmée retirée, erreur de base sans arrêt du process. */
-import { dependancesParDefaut, estRevoquee, revoquerSid } from "@elpis/auth";
+/** apps/core/test/purge-revocations.test.ts — purge périodique de `revoked_sessions` et des rattachements préparés périmés dans main : ligne récente gardée, périmée retirée, erreur de base sans arrêt du process. */
+import { createUser, dependancesParDefaut, estRevoquee, revoquerSid } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
@@ -57,6 +57,17 @@ describe.each(MOTEURS)("purge des révocations (%s)", (moteur) => {
     expect(await purgerUnePasse(avecDuree(10_000_000), journalMuet)).toBe(0);
     expect(await estRevoquee(t.base, "vivante")).toBe(true);
     expect(await estRevoquee(t.base, "morte")).toBe(false);
+  });
+
+  it("la même passe retire les rattachements préparés périmés et garde les autres", async () => {
+    const uid = await createUser(t.base, "alice", "mdp-alice-1");
+    const bob = await createUser(t.base, "bob", "mdp-bob-123");
+    const ligne =
+      "INSERT INTO auth_prelinks(user_id, provider_id, expected, waiver, created_by, created_at, expires_at) VALUES(?,?,?,?,?,?,?)";
+    await t.base.run(ligne, [uid, "sso", "alice", 0, 1, 1, MAINTENANT - 1]);
+    await t.base.run(ligne, [bob, "sso", "bob", 0, 1, 1, MAINTENANT + 1]);
+    await purgerUnePasse(auth(), journalMuet);
+    expect(await t.base.valeurs("SELECT expected FROM auth_prelinks")).toEqual([["bob"]]);
   });
 
   it("une erreur de base est journalisée sans être relancée", async () => {

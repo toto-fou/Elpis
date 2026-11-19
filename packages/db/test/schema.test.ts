@@ -37,7 +37,7 @@ const python = JSON.parse(readFileSync(new URL("./vecteurs/base_python.json", im
 describe("DDL table par table", () => {
   it("même liste de tables, dans le même ordre", () => {
     expect(TABLES.map((t) => t.name)).toEqual(tables.map((t) => t.nom));
-    expect(TABLES).toHaveLength(48);
+    expect(TABLES).toHaveLength(49);
     expect(vecteur.tables.filter((t) => retiree(t.nom))).toHaveLength(10);
   });
 

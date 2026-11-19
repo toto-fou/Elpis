@@ -98,6 +98,7 @@ export async function connecterParAnnuaire(
     });
     return { type: "refus" };
   }
+  if (res.type === "preuve") return { type: "refus" };
   const ligne = await ligneUtilisateur(dep.provisionnement.base, res.uid);
   return { type: "ok", uid: res.uid, username: String(ligne?.username ?? ""), methode };
 }

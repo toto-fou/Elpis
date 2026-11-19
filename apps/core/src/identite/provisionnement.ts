@@ -5,6 +5,7 @@ import {
   createExternalUser,
   ErreurNomUtilisateur,
   getAllUsers,
+  getUsernameById,
   nomCanonique,
 } from "@elpis/auth";
 import { ErreurIntegrite } from "@elpis/db";
@@ -14,6 +15,14 @@ import { couperAcces, poserReactivation, poserSuspension } from "../comptes/etat
 import type { DependancesEtat } from "../comptes/etat";
 import { compterAdminsLocaux } from "./etat";
 import { nomDerive } from "./nom";
+import {
+  auditerRattachement,
+  raisonDeRefus,
+  rattacher,
+  rattachementPrepareDe,
+  revoquerFlux,
+} from "./rattachement";
+import type { LigneRattachementPrepare } from "./rattachement";
 import type { Fournisseur } from "./reglages";
 
 export type Appartenance = "oui" | "non" | "inconnu";
@@ -33,13 +42,18 @@ export type RaisonRefusIdentite =
   | "suspended"
   | "name_invalid"
   | "account_conflict"
-  | "no_local_admin";
+  | "no_local_admin"
+  | "prelink_invalid";
 
 export type Resolution =
   | { readonly type: "compte"; readonly uid: number; readonly cree: boolean }
+  | { readonly type: "preuve"; readonly prelinkId: number; readonly uid: number }
   | { readonly type: "refus"; readonly raison: RaisonRefusIdentite; readonly uid?: number };
 
-export type DependancesProvisionnement = DependancesEtat;
+export interface DependancesProvisionnement extends DependancesEtat {
+  /** Flux ouverts d'un compte rattaché coupés dans tous les process. */
+  readonly revoquer?: (uid: number) => Promise<unknown>;
+}
 
 type LigneIdentite = {
   id: number;
@@ -50,8 +64,11 @@ type LigneIdentite = {
   suspended_by: string | null;
 };
 
+type LignePrepare = LigneRattachementPrepare;
+
 interface Effets {
   suspendre: number | null;
+  revoquer: number | null;
   username: string | null;
 }
 
@@ -117,11 +134,44 @@ async function poserSuspensionDeLAnnuaire(c: Contexte, uid: number, origine: str
   }
 }
 
-/** Identité inconnue : le compte est créé ; le rattachement d'un compte existant se branchera ici, avant la création. */
+/** Rattachement préparé d'un fournisseur OIDC pour cette identité inconnue : preuve à faire, ou rattachement tout de suite si la preuve est dispensée ; jamais de compte créé. */
+async function rattachementPrepare(c: Contexte, l: LignePrepare): Promise<Resolution> {
+  const { dep, fournisseur, profil, maintenant, effets } = c;
+  const uid = Number(l.user_id);
+  if (Number(l.waiver) !== 1) return { type: "preuve", prelinkId: Number(l.id), uid };
+  const par = `prelink:${Number(l.created_by)}`;
+  const obstacle = await rattacher(
+    dep.base,
+    uid,
+    {
+      fournisseurId: fournisseur.id,
+      subject: profil.subject,
+      issuer: profil.issuer,
+      extUsername: profil.extUsername,
+      extEmail: profil.extEmail,
+      extName: profil.extName,
+    },
+    { par, confirmeAdmin: false, t: maintenant },
+  );
+  if (obstacle !== null)
+    return refus(raisonDeRefus(obstacle), obstacle === "account_not_found" ? undefined : uid);
+  await dep.base.run("DELETE FROM auth_prelinks WHERE id=?", [l.id]);
+  const nom = await getUsernameById(dep.base, uid);
+  effets.username = nom;
+  effets.revoquer = uid;
+  c.audits.push(() => auditerRattachement({ uid, username: nom, fournisseurId: fournisseur.id, par }, c.ip));
+  return { type: "compte", uid, cree: false };
+}
+
+/** Identité inconnue : un rattachement préparé (OIDC) décide d'abord, sinon le compte est créé ; jamais de rattachement par nom ou e-mail. */
 async function creerCompte(c: Contexte): Promise<Resolution> {
   const { dep, fournisseur, profil, appartenance, maintenant, effets } = c;
   if (appartenance === "non") return refus("not_in_group");
   if (appartenance === "inconnu") return refus("groups_unknown");
+  if (fournisseur.type === "oidc") {
+    const prepare = await rattachementPrepareDe(dep.base, fournisseur.id, profil.extUsername, maintenant);
+    if (prepare !== undefined) return rattachementPrepare(c, prepare);
+  }
   const nom = nomDerive(profil.extUsername);
   if (nom === null) return refus("name_invalid");
   if (await nomPris(dep.base, nom)) return refus("account_conflict");
@@ -181,7 +231,7 @@ export async function resoudreIdentite(
     readonly ip?: string | null;
   },
 ): Promise<Resolution> {
-  const effets: Effets = { suspendre: null, username: null };
+  const effets: Effets = { suspendre: null, revoquer: null, username: null };
   const c: Contexte = { dep, ...e, effets, audits: [], ip: e.ip ?? null };
   const r = await dep.base.ecriture(async (x) => {
     const l = await x.get<LigneIdentite>(LIRE_IDENTITE, [e.fournisseur.id, e.profil.subject]);
@@ -198,5 +248,6 @@ export async function resoudreIdentite(
       details: { provider_id: e.fournisseur.id, reason: r.raison },
     });
   if (effets.suspendre !== null) await couperAcces(dep, effets.suspendre);
+  if (effets.revoquer !== null) await revoquerFlux(dep, effets.revoquer);
   return r;
 }

@@ -402,6 +402,8 @@ includes it only if `backup.remote.include_audit` is `true`.
 
 ### Enterprise sign-in (`auth`)
 
+Setup guide: [enterprise-sign-in.md](enterprise-sign-in.md).
+
 Directory (LDAP, FreeIPA) and single sign-on (OIDC) providers. The section is read from disk on every
 use, with no restart, and is written only by Administration › Users & access › Enterprise sign-in and
 by `./elpis auth off`: the raw editor and `PATCH /api/admin/config` can neither create nor overwrite

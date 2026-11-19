@@ -816,7 +816,8 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
 
 ## Enterprise sign-in: emergency exit
 
-Settings: [configuration.md](configuration.md#enterprise-sign-in-auth). Three commands run on the host,
+Settings: [configuration.md](configuration.md#enterprise-sign-in-auth); setup guide and troubleshooting:
+[enterprise-sign-in.md](enterprise-sign-in.md). Three commands run on the host,
 with the core bundle, as the service account (with `sudo` they switch to it):
 
 | Command | Role |

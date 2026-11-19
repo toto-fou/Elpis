@@ -71,6 +71,14 @@ run Elpis on a dedicated machine or VM. Details below.
   the administrator, and revoked along with the account's sessions. The relay
   never passes the client's token to the tool service (signed
   delegation) and refuses undeclared browser origins.
+- Enterprise sign-in (optional, off by default): an LDAP directory over LDAPS or an OpenID Connect provider
+  decides who a person is and which groups they belong to; Elpis only signs in members of the required
+  groups, never links a person to an existing account by name or email, and keeps the secrets of the
+  providers in the vault. In scope: the sign-in and linking flows, the directory check, the provider
+  settings. Assumed: the directory and the identity provider are trusted and well run, the host name of
+  Elpis is dedicated to it, HTTPS is in force, and the certificate authority of the provider is the one
+  configured. A directory sign-in sends the directory password through Elpis; single sign-on does not.
+  See [docs/enterprise-sign-in.md](docs/enterprise-sign-in.md).
 - Driven browser: it runs inside each account's sandbox; its traffic
   leaves through the account's relay on the host, which applies the
   sandbox network profile and refuses loopback, link-local and the
@@ -80,6 +88,7 @@ run Elpis on a dedicated machine or VM. Details below.
 **Out of scope**
 
 - A malicious administrator, or a host machine that is already compromised.
+- A compromised directory or identity provider, or one that vouches for the wrong people.
 - The accuracy of a model's answers, the models and providers
   themselves.
 - A `desktop-agent` or a tool host exposed without authentication; an

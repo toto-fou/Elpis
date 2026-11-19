@@ -6,6 +6,18 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Enterprise sign-in.** People sign in with the account their organization manages: an LDAP directory
+  over LDAPS (FreeIPA, Active Directory, OpenLDAP, 389 Directory Server) or an OpenID Connect provider
+  (code flow with PKCE; Keycloak, Authentik, LemonLDAP::NG, AD FS). Off by default. Administration › Users &
+  access › Enterprise sign-in sets a provider up, with a **Tester** button (no user password is asked) and,
+  for single sign-on, a dry-run sign-in; switching on needs a required group, the secret in the vault and a
+  successful test. Accounts are created at the first sign-in or linked (assistant for a directory, prepared
+  link plus the old password once for single sign-on). A periodic directory check suspends people who left,
+  with a guard against mass departures. `./elpis auth status|doctor|off|reactivate` keep an emergency exit.
+  Guide: [docs/enterprise-sign-in.md](docs/enterprise-sign-in.md).
+
 ### Changed
 
 - **One version for the whole product.** `npm run bump -- X.Y.Z` writes it everywhere (workspace

@@ -5,6 +5,7 @@ import type { DependancesAuth } from "@elpis/auth";
 import { dormirMs } from "@elpis/commun";
 
 import type { CycleDeVie } from "../cycle";
+import { purgerFluxPerimes } from "../identite/oidc/flux";
 import type { Journal } from "../journal";
 import { purgerRattachementsPerimes } from "../identite/rattachement";
 import type { ModeApp } from "../mode";
@@ -17,7 +18,7 @@ export interface OptionsPurgeRevocations {
   readonly dormir?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
-/** Une passe : supprime les révocations plus vieilles que la durée de vie d'une session plus la marge ; une erreur est journalisée, jamais relancée. */
+/** Une passe : supprime les révocations plus vieilles que la durée de vie d'une session plus la marge, puis les flux et sessions de connexion externe périmés ; une erreur est journalisée, jamais relancée. */
 export async function purgerUnePasse(dep: DependancesAuth, journal: Journal): Promise<number> {
   try {
     const maintenant = dep.maintenant ? dep.maintenant() : Date.now() / 1000;
@@ -29,6 +30,8 @@ export async function purgerUnePasse(dep: DependancesAuth, journal: Journal): Pr
     );
     if (n > 0) journal.info(`${n} révocation(s) de session périmée(s) purgée(s)`);
     await purgerRattachementsPerimes(dep.base, maintenant);
+    const flux = await purgerFluxPerimes(dep.base, maintenant);
+    if (flux > 0) journal.info(`${flux} flux ou session de connexion externe périmé(s) purgé(s)`);
     return n;
   } catch (e) {
     journal.warn({ err: e }, "purge des révocations de session en échec");

@@ -2173,6 +2173,119 @@
       }
     },
     {
+      "nom": "auth_flows",
+      "sqlite": {
+        "table": "CREATE TABLE IF NOT EXISTS \"auth_flows\" (\n  \"state_hash\" TEXT PRIMARY KEY,\n  \"provider_id\" TEXT NOT NULL,\n  \"browser_hash\" TEXT NOT NULL,\n  \"ip_hash\" TEXT NOT NULL DEFAULT '',\n  \"nonce\" TEXT NOT NULL DEFAULT '',\n  \"code_verifier\" TEXT NOT NULL DEFAULT '',\n  \"target\" TEXT NOT NULL DEFAULT 'app',\n  \"oauth_next\" TEXT DEFAULT NULL,\n  \"trial_admin\" INTEGER DEFAULT NULL,\n  \"stage\" TEXT NOT NULL DEFAULT 'auth',\n  \"prelink_id\" INTEGER DEFAULT NULL,\n  \"profile_json\" TEXT DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL\n)",
+        "index": [
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_flows_provider\" ON \"auth_flows\" (\"provider_id\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_flows_ip\" ON \"auth_flows\" (\"ip_hash\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_flows_expires\" ON \"auth_flows\" (\"expires_at\")"
+        ],
+        "ajout_colonnes": {
+          "state_hash": "\"state_hash\" TEXT",
+          "provider_id": "\"provider_id\" TEXT NOT NULL",
+          "browser_hash": "\"browser_hash\" TEXT NOT NULL",
+          "ip_hash": "\"ip_hash\" TEXT NOT NULL DEFAULT ''",
+          "nonce": "\"nonce\" TEXT NOT NULL DEFAULT ''",
+          "code_verifier": "\"code_verifier\" TEXT NOT NULL DEFAULT ''",
+          "target": "\"target\" TEXT NOT NULL DEFAULT 'app'",
+          "oauth_next": "\"oauth_next\" TEXT DEFAULT NULL",
+          "trial_admin": "\"trial_admin\" INTEGER DEFAULT NULL",
+          "stage": "\"stage\" TEXT NOT NULL DEFAULT 'auth'",
+          "prelink_id": "\"prelink_id\" INTEGER DEFAULT NULL",
+          "profile_json": "\"profile_json\" TEXT DEFAULT NULL",
+          "created_at": "\"created_at\" REAL NOT NULL",
+          "expires_at": "\"expires_at\" REAL NOT NULL"
+        }
+      },
+      "postgres": {
+        "table": "CREATE TABLE IF NOT EXISTS \"auth_flows\" (\n  \"state_hash\" TEXT PRIMARY KEY,\n  \"provider_id\" TEXT NOT NULL,\n  \"browser_hash\" TEXT NOT NULL,\n  \"ip_hash\" TEXT NOT NULL DEFAULT '',\n  \"nonce\" TEXT NOT NULL DEFAULT '',\n  \"code_verifier\" TEXT NOT NULL DEFAULT '',\n  \"target\" TEXT NOT NULL DEFAULT 'app',\n  \"oauth_next\" TEXT DEFAULT NULL,\n  \"trial_admin\" BIGINT DEFAULT NULL,\n  \"stage\" TEXT NOT NULL DEFAULT 'auth',\n  \"prelink_id\" BIGINT DEFAULT NULL,\n  \"profile_json\" TEXT DEFAULT NULL,\n  \"created_at\" DOUBLE PRECISION NOT NULL,\n  \"expires_at\" DOUBLE PRECISION NOT NULL\n)",
+        "index": [
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_flows_provider\" ON \"auth_flows\" (\"provider_id\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_flows_ip\" ON \"auth_flows\" (\"ip_hash\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_flows_expires\" ON \"auth_flows\" (\"expires_at\")"
+        ],
+        "ajout_colonnes": {
+          "state_hash": "\"state_hash\" TEXT",
+          "provider_id": "\"provider_id\" TEXT NOT NULL",
+          "browser_hash": "\"browser_hash\" TEXT NOT NULL",
+          "ip_hash": "\"ip_hash\" TEXT NOT NULL DEFAULT ''",
+          "nonce": "\"nonce\" TEXT NOT NULL DEFAULT ''",
+          "code_verifier": "\"code_verifier\" TEXT NOT NULL DEFAULT ''",
+          "target": "\"target\" TEXT NOT NULL DEFAULT 'app'",
+          "oauth_next": "\"oauth_next\" TEXT DEFAULT NULL",
+          "trial_admin": "\"trial_admin\" BIGINT DEFAULT NULL",
+          "stage": "\"stage\" TEXT NOT NULL DEFAULT 'auth'",
+          "prelink_id": "\"prelink_id\" BIGINT DEFAULT NULL",
+          "profile_json": "\"profile_json\" TEXT DEFAULT NULL",
+          "created_at": "\"created_at\" DOUBLE PRECISION NOT NULL",
+          "expires_at": "\"expires_at\" DOUBLE PRECISION NOT NULL"
+        }
+      }
+    },
+    {
+      "nom": "auth_ext_sessions",
+      "sqlite": {
+        "table": "CREATE TABLE IF NOT EXISTS \"auth_ext_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"idp_sid\" TEXT DEFAULT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"id_token_enc\" TEXT DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)",
+        "index": [
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_ext_sessions_idp\" ON \"auth_ext_sessions\" (\"provider_id\", \"idp_sid\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_ext_sessions_subject\" ON \"auth_ext_sessions\" (\"provider_id\", \"subject\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_ext_sessions_expires\" ON \"auth_ext_sessions\" (\"expires_at\")"
+        ],
+        "ajout_colonnes": {
+          "sid": "\"sid\" TEXT",
+          "user_id": "\"user_id\" INTEGER NOT NULL",
+          "provider_id": "\"provider_id\" TEXT NOT NULL",
+          "idp_sid": "\"idp_sid\" TEXT DEFAULT NULL",
+          "subject": "\"subject\" TEXT NOT NULL",
+          "id_token_enc": "\"id_token_enc\" TEXT DEFAULT NULL",
+          "created_at": "\"created_at\" REAL NOT NULL",
+          "expires_at": "\"expires_at\" REAL NOT NULL"
+        }
+      },
+      "postgres": {
+        "table": "CREATE TABLE IF NOT EXISTS \"auth_ext_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" BIGINT NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"idp_sid\" TEXT DEFAULT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"id_token_enc\" TEXT DEFAULT NULL,\n  \"created_at\" DOUBLE PRECISION NOT NULL,\n  \"expires_at\" DOUBLE PRECISION NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)",
+        "index": [
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_ext_sessions_idp\" ON \"auth_ext_sessions\" (\"provider_id\", \"idp_sid\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_ext_sessions_subject\" ON \"auth_ext_sessions\" (\"provider_id\", \"subject\")",
+          "CREATE INDEX IF NOT EXISTS \"idx_auth_ext_sessions_expires\" ON \"auth_ext_sessions\" (\"expires_at\")"
+        ],
+        "ajout_colonnes": {
+          "sid": "\"sid\" TEXT",
+          "user_id": "\"user_id\" BIGINT NOT NULL",
+          "provider_id": "\"provider_id\" TEXT NOT NULL",
+          "idp_sid": "\"idp_sid\" TEXT DEFAULT NULL",
+          "subject": "\"subject\" TEXT NOT NULL",
+          "id_token_enc": "\"id_token_enc\" TEXT DEFAULT NULL",
+          "created_at": "\"created_at\" DOUBLE PRECISION NOT NULL",
+          "expires_at": "\"expires_at\" DOUBLE PRECISION NOT NULL"
+        }
+      }
+    },
+    {
+      "nom": "auth_trials",
+      "sqlite": {
+        "table": "CREATE TABLE IF NOT EXISTS \"auth_trials\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"admin_id\" INTEGER NOT NULL,\n  \"result_json\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL\n)",
+        "index": [],
+        "ajout_colonnes": {
+          "provider_id": "\"provider_id\" TEXT",
+          "admin_id": "\"admin_id\" INTEGER NOT NULL",
+          "result_json": "\"result_json\" TEXT NOT NULL",
+          "created_at": "\"created_at\" REAL NOT NULL"
+        }
+      },
+      "postgres": {
+        "table": "CREATE TABLE IF NOT EXISTS \"auth_trials\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"admin_id\" BIGINT NOT NULL,\n  \"result_json\" TEXT NOT NULL,\n  \"created_at\" DOUBLE PRECISION NOT NULL\n)",
+        "index": [],
+        "ajout_colonnes": {
+          "provider_id": "\"provider_id\" TEXT",
+          "admin_id": "\"admin_id\" BIGINT NOT NULL",
+          "result_json": "\"result_json\" TEXT NOT NULL",
+          "created_at": "\"created_at\" DOUBLE PRECISION NOT NULL"
+        }
+      }
+    },
+    {
       "nom": "schema_migrations",
       "sqlite": {
         "table": "CREATE TABLE IF NOT EXISTS \"schema_migrations\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"name\" TEXT UNIQUE NOT NULL,\n  \"applied_at\" REAL NOT NULL\n)",

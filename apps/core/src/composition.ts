@@ -65,6 +65,11 @@ import { creerFamilleAdminComptes } from "./familles/admin-comptes";
 import { creerFamilleAdminIdentite } from "./familles/admin-identite";
 import { creerFamilleAdminIdentiteBalayage } from "./familles/admin-identite-balayage";
 import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
+import { creerFamilleAdminIdentiteOidc } from "./familles/admin-identite-oidc";
+import { creerFamilleIdentite } from "./familles/identite";
+import { FabriqueConfigurations } from "./identite/oidc/configuration";
+import { methodesPubliques } from "./identite/oidc/publique";
+import type { OptionsSortant } from "./identite/sortant";
 import type { FabriqueConnexion } from "./identite/annuaire/client";
 import { fabriqueLdapts } from "./identite/annuaire/client";
 import type { DependancesBalayage } from "./identite/annuaire/balayage";
@@ -170,6 +175,8 @@ export interface OptionsComposition {
   readonly cycle?: CycleDeVie;
   /** Connexions à l'annuaire (LDAPS vérifié par défaut) ; les essais y glissent une fabrique factice. */
   readonly fabriqueAnnuaire?: FabriqueConnexion;
+  /** Résolution, juge et autorités du client sortant des fournisseurs SSO ; les essais y glissent leur fournisseur factice. */
+  readonly sortantOidc?: OptionsSortant;
 }
 
 /** Réglages lus au démarrage et vue courante de config.json : le « Redémarrage nécessaire » de main. */
@@ -418,6 +425,11 @@ export async function composer(
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
   brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
+  const configurationsOidc = new FabriqueConfigurations({
+    base,
+    maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
+    ...(options.sortantOidc === undefined ? {} : { sortant: options.sortantOidc }),
+  });
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());
@@ -500,7 +512,19 @@ export async function composer(
     ],
     gardes: creerGardes(auth),
     familles: [
-      ...famillesParDefaut(mode),
+      ...famillesParDefaut(mode, () =>
+        methodesPubliques(base, () => auth.attributsCookie().https_only === true),
+      ),
+      creerFamilleIdentite({
+        auth,
+        mandataires: comptes.mandataires,
+        journal: journal.child({ domaine: "identite" }),
+        configurations: configurationsOidc,
+        demarrerHistoriqueFichiers: comptes.demarrerHistoriqueFichiers,
+        logMetric: comptes.logMetric,
+        publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
+        bac: piloteBac(),
+      }),
       creerFamilleComptes({
         ...comptes,
         annuaire: {
@@ -569,6 +593,14 @@ export async function composer(
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
         ...(options.fabriqueAnnuaire === undefined ? {} : { fabrique: options.fabriqueAnnuaire }),
+      }),
+      creerFamilleAdminIdentiteOidc({
+        base,
+        auth,
+        mandataires: comptes.mandataires,
+        journal: journal.child({ domaine: "admin" }),
+        configurations: configurationsOidc,
+        ...(options.sortantOidc === undefined ? {} : { sortant: options.sortantOidc }),
       }),
       creerFamilleAdminSecurite({
         base,

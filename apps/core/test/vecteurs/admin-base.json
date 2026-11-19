@@ -97,7 +97,7 @@
       ],
       [
         {
-          "s": "\u0667"
+          "s": "٧"
         },
         "int"
       ],
@@ -133,7 +133,7 @@
       ],
       [
         {
-          "s": "\u20027\u3000"
+          "s": " 7　"
         },
         "int"
       ],
@@ -237,7 +237,7 @@
       ],
       [
         {
-          "s": "caf\u00e9"
+          "s": "café"
         },
         "text"
       ],
@@ -347,7 +347,7 @@
         "s": ""
       },
       {
-        "s": "\u2205"
+        "s": "∅"
       },
       {
         "x": "636166c3a9"
@@ -380,7 +380,7 @@
         ],
         [
           {
-            "s": "\u00e9"
+            "s": "é"
           },
           null
         ]
@@ -709,12 +709,12 @@
       null
     ],
     "seed": [
-      "INSERT INTO users(id, username, pass_salt, pass_hash, created_at, is_admin, settings_json) VALUES (1,'admin','s','h',1.5,1,'{\"theme\":\"clair\"}'),(2,'alice','s','h',2.0,0,'{}'),(3,'\u00c9mile','s','h',3.25,0,'{\"agents\":[{\"nom\":\"No\u00e9\"}]}')",
-      "INSERT INTO groups(id, name, description, created_at) VALUES (1,'\u00e9quipe','',1.0),(5,'b',NULL,2.0)",
+      "INSERT INTO users(id, username, pass_salt, pass_hash, created_at, is_admin, settings_json) VALUES (1,'admin','s','h',1.5,1,'{\"theme\":\"clair\"}'),(2,'alice','s','h',2.0,0,'{}'),(3,'Émile','s','h',3.25,0,'{\"agents\":[{\"nom\":\"Noé\"}]}')",
+      "INSERT INTO groups(id, name, description, created_at) VALUES (1,'équipe','',1.0),(5,'b',NULL,2.0)",
       "INSERT INTO user_groups(user_id, group_id) VALUES (1,1),(2,1),(999,1),(2,5),(3,77)",
-      "INSERT INTO chats(id, user_id, title, messages_json, updated_at, archived) VALUES ('c1',1,'Bonjour','[]',10.0,0),('c2',2,'B','[]',11.5,'oui'),('c3',42,'orphelin','[]',12.0,0),('c4',3,'\u00dcn\u00efc\u00f6d\u00e9 \ud83d\ude00','[{\"role\":\"user\"}]',0.1,'\u0667'),('C0',1,'casse','[]',1e20,'7_0')",
+      "INSERT INTO chats(id, user_id, title, messages_json, updated_at, archived) VALUES ('c1',1,'Bonjour','[]',10.0,0),('c2',2,'B','[]',11.5,'oui'),('c3',42,'orphelin','[]',12.0,0),('c4',3,'Ünïcödé 😀','[{\"role\":\"user\"}]',0.1,'٧'),('C0',1,'casse','[]',1e20,'7_0')",
       "INSERT INTO saved_prompts(id, user_id, title, content, created_at) VALUES (1,1,'t','x','abc'),(2,1,'u','y',4.5)",
-      "INSERT INTO session_messages(id, user_id, app, session_id, role, content, ts) VALUES (1,1,'chat','s1','user','Un caf\u00e9 noir',100.0),(2,2,'chat','s2','assistant','Cr\u00e8me br\u00fbl\u00e9e',101.5),(3,7,'chat','s3','user','orphelin',102.0)",
+      "INSERT INTO session_messages(id, user_id, app, session_id, role, content, ts) VALUES (1,1,'chat','s1','user','Un café noir',100.0),(2,2,'chat','s2','assistant','Crème brûlée',101.5),(3,7,'chat','s3','user','orphelin',102.0)",
       "INSERT INTO ax_nodes(id, site, path, parent_id, node_type, role, name, node_key) VALUES (3,'s','/',1,'n','r','c','k3'),(1,'s','/',NULL,'n','r','a','k1'),(2,'s','/',3,'n','r','b','k2'),(4,'s','/',99,'n','r','o','k4'),(5,'s','/',6,'n','r','x','k5'),(6,'s','/',5,'n','r','y','k6'),(7,'s','/',4,'n','r','z','k7')",
       "INSERT INTO metric_events(id, event_type, value, tags_json, created_at, user_id) VALUES (1,'x',0.1,'{}',5.0,1),(2,'y',1e20,NULL,6.0,NULL),(3,'z','7',NULL,7.5,2),(4,'w',NULL,'{}',8.0,'abc')",
       "INSERT INTO notifications(id, owner_user_id, kind, title, created_at) VALUES (10,1,'k','t',1.0),(20,2,'k','u',2.0)",
@@ -1250,7 +1250,7 @@
     },
     {
       "ok": {
-        "s": "caf\u00e9"
+        "s": "café"
       }
     },
     {
@@ -1275,12 +1275,12 @@
     },
     {
       "ok": {
-        "s": "caf\u00e9"
+        "s": "café"
       }
     },
     {
       "ok": {
-        "s": "\ufffdA"
+        "s": "�A"
       }
     },
     {
@@ -1290,7 +1290,7 @@
     }
   ],
   "norm": [
-    "\u2205",
+    "∅",
     "0",
     "-7",
     "123456789012",
@@ -1311,9 +1311,9 @@
     "-inf",
     "texte",
     "",
-    "\u2205",
-    "caf\u00e9",
-    "\ufffd"
+    "∅",
+    "café",
+    "�"
   ],
   "digest": [
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -1570,23 +1570,23 @@
     },
     {
       "erreur": "ValueError",
-      "message": "cible illisible : 'postgres://u@h/' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+      "message": "cible illisible : 'postgres://u@h/' (attendu sqlite:/… ou postgres://…)"
     },
     {
       "erreur": "ValueError",
-      "message": "cible illisible : 'postgres:///b' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+      "message": "cible illisible : 'postgres:///b' (attendu sqlite:/… ou postgres://…)"
     },
     {
       "erreur": "ValueError",
-      "message": "cible illisible : 'mysql://u@h/b' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+      "message": "cible illisible : 'mysql://u@h/b' (attendu sqlite:/… ou postgres://…)"
     },
     {
       "erreur": "ValueError",
-      "message": "cible illisible : '' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+      "message": "cible illisible : '' (attendu sqlite:/… ou postgres://…)"
     },
     {
       "erreur": "ValueError",
-      "message": "cible illisible : '' (attendu sqlite:/\u2026 ou postgres://\u2026)"
+      "message": "cible illisible : '' (attendu sqlite:/… ou postgres://…)"
     },
     {
       "ok": {
@@ -1621,13 +1621,13 @@
         "backend": "postgres",
         "host": "h",
         "port": 5432,
-        "name": "caf\u00e9",
-        "user": "u\u00e9",
+        "name": "café",
+        "user": "ué",
         "password": "",
         "tls": "off",
         "timeout": 60.0,
         "schema": null,
-        "description": "postgres://u\u00e9@h:5432/caf\u00e9"
+        "description": "postgres://ué@h:5432/café"
       }
     },
     {
@@ -1670,7 +1670,7 @@
     },
     {
       "statut": 400,
-      "detail": "H\u00f4te, base et utilisateur requis"
+      "detail": "Hôte, base et utilisateur requis"
     },
     {
       "ok": {
@@ -1771,11 +1771,11 @@
     },
     {
       "statut": 400,
-      "detail": "H\u00f4te, base et utilisateur requis"
+      "detail": "Hôte, base et utilisateur requis"
     },
     {
       "statut": 400,
-      "detail": "H\u00f4te, base et utilisateur requis"
+      "detail": "Hôte, base et utilisateur requis"
     },
     {
       "ok": {
@@ -2005,6 +2005,18 @@
           "dropped_columns": []
         },
         "user_identities": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "auth_flows": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "auth_trials": {
+          "source": 0,
+          "dropped_columns": []
+        },
+        "auth_ext_sessions": {
           "source": 0,
           "dropped_columns": []
         }
@@ -2442,6 +2454,33 @@
           "dropped_columns": [],
           "target": 0,
           "sample_ok": true
+        },
+        "auth_flows": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "auth_trials": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "auth_ext_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
         }
       },
       "ignored": {
@@ -2661,13 +2700,13 @@
           ],
           [
             3,
-            "\u00c9mile",
+            "Émile",
             "s",
             "h",
             "3.25",
             0,
             null,
-            "{\"agents\":[{\"nom\":\"No\u00e9\"}]}",
+            "{\"agents\":[{\"nom\":\"Noé\"}]}",
             0,
             "0.0",
             "0.0",
@@ -2711,7 +2750,7 @@
           [
             "c4",
             3,
-            "\u00dcn\u00efc\u00f6d\u00e9 \ud83d\ude00",
+            "Ünïcödé 😀",
             "[{\"role\":\"user\"}]",
             "0.1",
             7,
@@ -2730,7 +2769,7 @@
         "lignes": [
           [
             1,
-            "\u00e9quipe",
+            "équipe",
             "",
             "1.0"
           ],
@@ -2852,7 +2891,7 @@
             "s1",
             "",
             "user",
-            "Un caf\u00e9 noir",
+            "Un café noir",
             "100.0"
           ],
           [
@@ -2862,7 +2901,7 @@
             "s2",
             "",
             "assistant",
-            "Cr\u00e8me br\u00fbl\u00e9e",
+            "Crème brûlée",
             "101.5"
           ]
         ]
@@ -2888,9 +2927,12 @@
         ]
       },
       "_tables": [
+        "auth_ext_sessions",
         "auth_failures",
+        "auth_flows",
         "auth_prelinks",
         "auth_provider_state",
+        "auth_trials",
         "ax_credentials",
         "ax_nodes",
         "ax_selectors",
@@ -2971,13 +3013,13 @@
         "0026_usage_tool_tokens"
       ],
       "_fts": [
-        "Un caf\u00e9 noir"
+        "Un café noir"
       ],
       "_journal": "delete"
     },
     "non_vide": {
       "erreur": "TransferError",
-      "message": "cible non vide (53 tables) : le transfert exige une base vierge"
+      "message": "cible non vide (56 tables) : le transfert exige une base vierge"
     },
     "identiques": {
       "erreur": "TransferError",
@@ -2986,7 +3028,7 @@
     "partielle_check": {
       "ok": true,
       "target": "sqlite:<d>/cible.db",
-      "tables": 54,
+      "tables": 57,
       "empty": true,
       "partial": true
     },
@@ -3413,6 +3455,33 @@
           "dropped_columns": [],
           "target": 0,
           "sample_ok": true
+        },
+        "auth_flows": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "auth_trials": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
+        },
+        "auth_ext_sessions": {
+          "source": 0,
+          "copied": 0,
+          "orphans": 0,
+          "rejected": 0,
+          "dropped_columns": [],
+          "target": 0,
+          "sample_ok": true
         }
       },
       "ignored": {
@@ -3585,13 +3654,13 @@
           ],
           [
             3,
-            "\u00c9mile",
+            "Émile",
             "s",
             "h",
             "3.25",
             0,
             null,
-            "{\"agents\":[{\"nom\":\"No\u00e9\"}]}",
+            "{\"agents\":[{\"nom\":\"Noé\"}]}",
             0,
             "0.0",
             "0.0",
@@ -3635,7 +3704,7 @@
           [
             "c4",
             3,
-            "\u00dcn\u00efc\u00f6d\u00e9 \ud83d\ude00",
+            "Ünïcödé 😀",
             "[{\"role\":\"user\"}]",
             "0.1",
             7,
@@ -3654,7 +3723,7 @@
         "lignes": [
           [
             1,
-            "\u00e9quipe",
+            "équipe",
             "",
             "1.0"
           ],
@@ -3776,7 +3845,7 @@
             "s1",
             "",
             "user",
-            "Un caf\u00e9 noir",
+            "Un café noir",
             "100.0"
           ],
           [
@@ -3786,7 +3855,7 @@
             "s2",
             "",
             "assistant",
-            "Cr\u00e8me br\u00fbl\u00e9e",
+            "Crème brûlée",
             "101.5"
           ]
         ]
@@ -3812,9 +3881,12 @@
         ]
       },
       "_tables": [
+        "auth_ext_sessions",
         "auth_failures",
+        "auth_flows",
         "auth_prelinks",
         "auth_provider_state",
+        "auth_trials",
         "ax_credentials",
         "ax_nodes",
         "ax_selectors",
@@ -3895,13 +3967,13 @@
         "0026_usage_tool_tokens"
       ],
       "_fts": [
-        "Un caf\u00e9 noir"
+        "Un café noir"
       ],
       "_journal": "delete"
     },
     "source_pas_a_jour": {
       "erreur": "TransferError",
-      "message": "source pas \u00e0 jour (migrations non appliqu\u00e9es : 0001_rename_toolbox_to_mcp, 0002_remove_dead_blocks, 0003_drop_agentic_tables, 0004_drop_agents_routines_tables, 0005_notifications_table) \u2014 d\u00e9marrer l'application une fois"
+      "message": "source pas à jour (migrations non appliquées : 0001_rename_toolbox_to_mcp, 0002_remove_dead_blocks, 0003_drop_agentic_tables, 0004_drop_agents_routines_tables, 0005_notifications_table) — démarrer l'application une fois"
     }
   },
   "bascule": [
@@ -4429,7 +4501,7 @@
     {
       "statut": 400,
       "corps": {
-        "detail": "H\u00f4te, base et utilisateur requis"
+        "detail": "Hôte, base et utilisateur requis"
       },
       "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
       "mots": {
@@ -4440,7 +4512,7 @@
     {
       "statut": 409,
       "corps": {
-        "detail": "Moteur impos\u00e9 par APP_DB_BACKEND : retirer la variable d'abord"
+        "detail": "Moteur imposé par APP_DB_BACKEND : retirer la variable d'abord"
       },
       "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
       "mots": {
@@ -4462,7 +4534,7 @@
     {
       "statut": 409,
       "corps": {
-        "detail": "D\u00e9j\u00e0 sur SQLite"
+        "detail": "Déjà sur SQLite"
       },
       "config": "{\n  \"database\": {\n    \"pending\": {\n      \"backend\": \"postgres\",\n      \"host\": \"h2\",\n      \"port\": 5432,\n      \"name\": \"b\",\n      \"user\": \"u\",\n      \"tls\": \"off\"\n    }\n  }\n}",
       "mots": {

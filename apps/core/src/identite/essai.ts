@@ -4,12 +4,16 @@ import { networkInterfaces } from "node:os";
 
 import { adresseIpOuNul, estDict, HttpError } from "@elpis/commun";
 import type { JugeHote, VerdictHote } from "@elpis/http";
+import type { ServerMetadata } from "openid-client";
 
 import { defautsFournisseur, fusionner, hotePortHttps, hotePortLdaps, validerFournisseur } from "./reglages";
 import type { Fournisseur, FournisseurLdap, FournisseurOidc } from "./reglages";
 import { etapesAnnuaire } from "./annuaire/essai";
 import type { DemandeEssaiAnnuaire } from "./annuaire/essai";
 import type { FabriqueConnexion } from "./annuaire/client";
+import { etapesOidc } from "./oidc/essai";
+import type { ContexteEtapesOidc } from "./oidc/essai";
+import { adresseDecouverte, lireMetadonnees } from "./oidc/metadonnees";
 import { etape, PHRASES_SORTANT as PHRASES } from "./etapes";
 import type { EtapeEssai } from "./etapes";
 import { classerErreur, clientHttps, connexionTls, jugeSortant } from "./sortant";
@@ -42,6 +46,8 @@ export interface OptionsEssai {
   readonly adressesLocales?: () => readonly string[];
   /** Étapes propres à l'annuaire ; sans elle, un test LDAP s'arrête au TLS et reste incomplet. */
   readonly annuaire?: ParametresAnnuaire;
+  /** Lecture du secret client enregistré ; sans elle, un test OIDC n'a pas l'étape du secret. */
+  readonly oidc?: Pick<ContexteEtapesOidc, "secretEnregistre">;
 }
 
 export interface ParametresAnnuaire {
@@ -168,48 +174,51 @@ async function etapesAdresse(
   }
 }
 
-const POINTS_DE_TERMINAISON = ["authorization_endpoint", "token_endpoint", "jwks_uri"] as const;
-
-function pointInvalide(doc: Record<string, unknown>, origine: string): string | null {
-  for (const nom of POINTS_DE_TERMINAISON) {
-    const v = doc[nom];
-    if (typeof v !== "string" || !URL.canParse(v))
-      return `Le champ ${nom} est absent ou n'est pas une adresse.`;
-    const u = new URL(v);
-    if (u.protocol !== "https:") return `Le champ ${nom} n'est pas en https.`;
-    if (u.origin !== origine)
-      return `Le champ ${nom} n'est pas sur la même origine que l'émetteur : le fournisseur est mal configuré.`;
-  }
-  return null;
-}
-
-/** Découverte OIDC puis écart d'horloge, d'après l'en-tête `Date` de la même réponse. */
+/** Découverte OIDC, écart d'horloge d'après l'en-tête `Date` de la même réponse, puis les étapes OIDC propres au fournisseur. */
 async function etapesDecouverte(
   etapes: EtapeEssai[],
   f: FournisseurOidc,
   juge: JugeHote,
   sortant: OptionsSortant,
   maintenant: () => number,
+  oidc: OptionsEssai["oidc"],
 ): Promise<void> {
   const client = clientHttps({ ...sortant, juger: juge });
-  const adresse = `${f.issuer.replace(/\/+$/u, "")}/.well-known/openid-configuration`;
   const cible = hotePortHttps(f.issuer);
-  let lu: { statut: number; texte: string; date: string | null };
   try {
-    const rep = await client.fetch(adresse, { headers: { accept: "application/json" } });
-    lu = { statut: rep.status, texte: await rep.text(), date: rep.headers.get("date") };
-  } catch (e) {
-    etapes.push(etape("discovery", "Découverte", "fail", PHRASES[classerErreur(e)], cible));
-    return;
+    let lu: { statut: number; texte: string; date: string | null };
+    try {
+      const rep = await client.fetch(adresseDecouverte(f.issuer), {
+        headers: { accept: "application/json" },
+      });
+      lu = { statut: rep.status, texte: await rep.text(), date: rep.headers.get("date") };
+    } catch (e) {
+      etapes.push(etape("discovery", "Découverte", "fail", PHRASES[classerErreur(e)], cible));
+      return;
+    }
+    const d = decouverte(f, lu.statut, lu.texte, cible);
+    etapes.push(d.etape);
+    etapes.push(horloge(f, lu.date, maintenant, cible));
+    if (d.metadonnees !== null && oidc !== undefined)
+      await etapesOidc(etapes, f, d.metadonnees, {
+        fetch: client.fetch,
+        secretEnregistre: oidc.secretEnregistre,
+      });
   } finally {
     await client.fermer().catch(() => undefined);
   }
-  etapes.push(decouverte(f, lu.statut, lu.texte, cible));
-  etapes.push(horloge(f, lu.date, maintenant, cible));
 }
 
-function decouverte(f: FournisseurOidc, statut: number, texte: string, cible: string): EtapeEssai {
-  const echec = (detail: string): EtapeEssai => etape("discovery", "Découverte", "fail", detail, cible);
+function decouverte(
+  f: FournisseurOidc,
+  statut: number,
+  texte: string,
+  cible: string,
+): { etape: EtapeEssai; metadonnees: ServerMetadata | null } {
+  const echec = (detail: string): { etape: EtapeEssai; metadonnees: null } => ({
+    etape: etape("discovery", "Découverte", "fail", detail, cible),
+    metadonnees: null,
+  });
   if (statut !== 200) return echec(`Le serveur a répondu avec le statut ${statut} au lieu de 200.`);
   let doc: unknown;
   try {
@@ -217,14 +226,12 @@ function decouverte(f: FournisseurOidc, statut: number, texte: string, cible: st
   } catch {
     return echec("La réponse n'est pas un document JSON.");
   }
-  if (doc === null || typeof doc !== "object" || Array.isArray(doc))
-    return echec("La réponse n'est pas un objet JSON.");
-  const d = doc as Record<string, unknown>;
-  if (d["issuer"] !== f.issuer)
-    return echec("L'émetteur annoncé par le serveur ne correspond pas exactement à celui configuré.");
-  const invalide = pointInvalide(d, new URL(f.issuer).origin);
-  if (invalide !== null) return echec(invalide);
-  return etape("discovery", "Découverte", "ok", "Document de découverte valide (statut 200).", cible);
+  const v = lireMetadonnees(doc, f.issuer);
+  if (!v.ok) return echec(v.raison);
+  return {
+    etape: etape("discovery", "Découverte", "ok", "Document de découverte valide (statut 200).", cible),
+    metadonnees: v.metadonnees,
+  };
 }
 
 function horloge(
@@ -314,7 +321,7 @@ async function corps(
     const n = etapes.length;
     await etapesAdresse(etapes, hotePortHttps(f.issuer), juge, sortant, maintenant, locales);
     if (!signal.aborted && etapes.slice(n).every((e) => e.level !== "fail"))
-      await etapesDecouverte(etapes, f, juge, sortant, maintenant);
+      await etapesDecouverte(etapes, f, juge, sortant, maintenant, o.oidc);
   }
 }
 

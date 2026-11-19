@@ -80,6 +80,10 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
         corps: { secret: "mot-de-passe" },
       }),
     ).toMatchObject({ providers: [{ has_secret: true }, {}] });
+    expect(await core.appeler("GET", "/api/admin/auth/providers/sso/trial", { cookie })).toEqual({
+      result: null,
+    });
+    await core.appeler("POST", "/api/admin/auth/providers/sso/trial", { cookie, corps: {} });
     await core.appeler("POST", "/api/admin/auth/providers/annuaire/enable", { cookie });
     expect(
       await core.appeler("POST", "/api/admin/auth/providers/annuaire/disable", { cookie }),
@@ -123,7 +127,7 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
 
   it("toutes les routes du domaine admin-identite ont été interrogées", () => {
     const attendues = CONTRATS_REST.filter((r) => r.domaine === "admin-identite").map(cle);
-    expect(attendues).toHaveLength(9);
+    expect(attendues).toHaveLength(11);
     expect([...core.couvertes].filter((k) => attendues.includes(k)).sort()).toEqual([...attendues].sort());
   });
 });

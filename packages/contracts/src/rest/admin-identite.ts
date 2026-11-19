@@ -42,6 +42,9 @@ const champsOidc = {
   issuer: z.string(),
   client_id: z.string(),
   client_auth: z.enum(["basic", "post"]),
+  id_token_alg: z
+    .enum(["RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA"])
+    .default("RS256"),
   scopes: z.array(z.string()),
   subject_claim: z.string(),
   username_claim: z.string(),
@@ -120,7 +123,7 @@ export const schemaCorpsEssaiFournisseur = z
   .refine((o) => ["test_user", "secret"].every((k) => o[k] === undefined || typeof o[k] === "string"), {
     message: "test_user et secret : texte attendu",
   });
-/** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse ; `complete` n'est vrai que pour un annuaire dont toutes les étapes, utilisateur d'essai compris, sont passées (les clés OIDC ne sont pas encore essayées). */
+/** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse ; `complete` n'est vrai que pour un annuaire dont toutes les étapes, utilisateur d'essai compris, sont passées (un fournisseur OIDC n'est jamais complet : son essai à blanc le valide). */
 export const schemaReponseEssaiFournisseur = z.object({
   ok: z.boolean(),
   complete: z.boolean(),

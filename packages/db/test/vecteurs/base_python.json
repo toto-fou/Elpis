@@ -9,9 +9,45 @@
     ],
     [
       "index",
+      "idx_auth_ext_sessions_expires",
+      "auth_ext_sessions",
+      "CREATE INDEX \"idx_auth_ext_sessions_expires\" ON \"auth_ext_sessions\" (\"expires_at\")"
+    ],
+    [
+      "index",
+      "idx_auth_ext_sessions_idp",
+      "auth_ext_sessions",
+      "CREATE INDEX \"idx_auth_ext_sessions_idp\" ON \"auth_ext_sessions\" (\"provider_id\", \"idp_sid\")"
+    ],
+    [
+      "index",
+      "idx_auth_ext_sessions_subject",
+      "auth_ext_sessions",
+      "CREATE INDEX \"idx_auth_ext_sessions_subject\" ON \"auth_ext_sessions\" (\"provider_id\", \"subject\")"
+    ],
+    [
+      "index",
       "idx_auth_failures_entry",
       "auth_failures",
       "CREATE UNIQUE INDEX \"idx_auth_failures_entry\" ON \"auth_failures\" (\"provider_id\", \"subject\")"
+    ],
+    [
+      "index",
+      "idx_auth_flows_expires",
+      "auth_flows",
+      "CREATE INDEX \"idx_auth_flows_expires\" ON \"auth_flows\" (\"expires_at\")"
+    ],
+    [
+      "index",
+      "idx_auth_flows_ip",
+      "auth_flows",
+      "CREATE INDEX \"idx_auth_flows_ip\" ON \"auth_flows\" (\"ip_hash\")"
+    ],
+    [
+      "index",
+      "idx_auth_flows_provider",
+      "auth_flows",
+      "CREATE INDEX \"idx_auth_flows_provider\" ON \"auth_flows\" (\"provider_id\")"
     ],
     [
       "index",
@@ -453,9 +489,21 @@
     ],
     [
       "table",
+      "auth_ext_sessions",
+      "auth_ext_sessions",
+      "CREATE TABLE \"auth_ext_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"idp_sid\" TEXT DEFAULT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"id_token_enc\" TEXT DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+    ],
+    [
+      "table",
       "auth_failures",
       "auth_failures",
       "CREATE TABLE \"auth_failures\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"provider_id\" TEXT NOT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"count\" INTEGER NOT NULL DEFAULT 0,\n  \"window_start\" REAL NOT NULL DEFAULT 0,\n  \"last_at\" REAL NOT NULL DEFAULT 0\n)"
+    ],
+    [
+      "table",
+      "auth_flows",
+      "auth_flows",
+      "CREATE TABLE \"auth_flows\" (\n  \"state_hash\" TEXT PRIMARY KEY,\n  \"provider_id\" TEXT NOT NULL,\n  \"browser_hash\" TEXT NOT NULL,\n  \"ip_hash\" TEXT NOT NULL DEFAULT '',\n  \"nonce\" TEXT NOT NULL DEFAULT '',\n  \"code_verifier\" TEXT NOT NULL DEFAULT '',\n  \"target\" TEXT NOT NULL DEFAULT 'app',\n  \"oauth_next\" TEXT DEFAULT NULL,\n  \"trial_admin\" INTEGER DEFAULT NULL,\n  \"stage\" TEXT NOT NULL DEFAULT 'auth',\n  \"prelink_id\" INTEGER DEFAULT NULL,\n  \"profile_json\" TEXT DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL\n)"
     ],
     [
       "table",
@@ -468,6 +516,12 @@
       "auth_provider_state",
       "auth_provider_state",
       "CREATE TABLE \"auth_provider_state\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"tested_hash\" TEXT DEFAULT NULL,\n  \"tested_at\" REAL DEFAULT 0,\n  \"sweep_at\" REAL DEFAULT 0,\n  \"sweep_result\" TEXT DEFAULT NULL\n)"
+    ],
+    [
+      "table",
+      "auth_trials",
+      "auth_trials",
+      "CREATE TABLE \"auth_trials\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"admin_id\" INTEGER NOT NULL,\n  \"result_json\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL\n)"
     ],
     [
       "table",

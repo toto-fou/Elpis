@@ -48,6 +48,12 @@ describe("contrats REST : session et comptes (core réel)", () => {
     await core.appeler("GET", "/api/users/lite");
   });
 
+  it("départ d'une connexion SSO : 404 tant qu'aucun fournisseur n'est actif", async () => {
+    expect(
+      await core.appeler("POST", "/api/auth/oidc/sso/start", { corps: { target: "app" } }),
+    ).toMatchObject({ detail: expect.any(String) as unknown });
+  });
+
   it("modérateur : `is_admin` vrai, `role` moderator ; mot de passe à changer puis changé", async () => {
     const max = await core.connecter("max", "mdp-de-max-1");
     expect(await core.appeler("GET", "/api/me-lite", { cookie: max })).toMatchObject({

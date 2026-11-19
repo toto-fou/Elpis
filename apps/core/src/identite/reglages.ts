@@ -16,6 +16,20 @@ const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9._-
 const REGEX_PEM = /^\s*(?:-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/u;
 const BLOC_PEM = /-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----/gu;
 
+export const ALGORITHMES_JETON = [
+  "RS256",
+  "RS384",
+  "RS512",
+  "PS256",
+  "PS384",
+  "PS512",
+  "ES256",
+  "ES384",
+  "ES512",
+  "EdDSA",
+] as const;
+export type AlgorithmeJeton = (typeof ALGORITHMES_JETON)[number];
+
 export type ModeLocal = "all" | "admins";
 export type ModeGroupes = "memberof" | "chain" | "member";
 
@@ -55,6 +69,7 @@ export interface FournisseurOidc extends FournisseurCommun {
   issuer: string;
   client_id: string;
   client_auth: "basic" | "post";
+  id_token_alg: AlgorithmeJeton;
   scopes: string[];
   subject_claim: string;
   username_claim: string;
@@ -279,6 +294,7 @@ const CLES_OIDC = [
   "issuer",
   "client_id",
   "client_auth",
+  "id_token_alg",
   "scopes",
   "subject_claim",
   "username_claim",
@@ -378,6 +394,7 @@ function oidc(o: Record<string, unknown>, c: FournisseurCommun): FournisseurOidc
     issuer: adresseIssuer(o["issuer"]),
     client_id: texte(o["client_id"], "client_id", 1, 256),
     client_auth: choix(o["client_auth"], "client_auth", ["basic", "post"] as const),
+    id_token_alg: choix(o["id_token_alg"], "id_token_alg", ALGORITHMES_JETON),
     scopes: [...new Set(scopes)],
     subject_claim: nomRevendication(o["subject_claim"], "subject_claim"),
     username_claim: nomRevendication(o["username_claim"], "username_claim"),
@@ -429,6 +446,7 @@ export function defautsFournisseur(type: "ldap" | "oidc"): Record<string, unknow
   return {
     ...commun,
     client_auth: "basic",
+    id_token_alg: "RS256",
     scopes: ["openid", "profile", "email"],
     subject_claim: "sub",
     username_claim: "preferred_username",

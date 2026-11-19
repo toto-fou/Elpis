@@ -22,6 +22,8 @@ import * as adminAudit from "./admin-audit";
 import * as adminIdentite from "./admin-identite";
 import * as adminIdentiteBalayage from "./admin-identite-balayage";
 import * as adminRattachement from "./admin-rattachement";
+import * as adminIdentiteOidc from "./admin-identite-oidc";
+import * as identite from "./identite";
 import * as adminComptes from "./admin-comptes";
 import * as adminVue from "./admin-vue";
 import * as adminConfig from "./admin-config";
@@ -219,6 +221,13 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   c("session", "GET", "/api/auth/check", null),
   c("session", "POST", "/api/login-lite", session.schemaReponseConnexion, session.schemaCorpsConnexion),
   c("session", "POST", "/api/logout-lite", schemaOk),
+  c(
+    "session",
+    "POST",
+    "/api/auth/oidc/:id/start",
+    identite.schemaReponseDepartOidc,
+    identite.schemaCorpsDepartOidc,
+  ),
   c("session", "POST", "/api/users/change-password", schemaOk, session.schemaCorpsChangementMotDePasse),
   c("session", "GET", "/api/users/lite", session.schemaReponseComptesLite),
   c("chats", "GET", "/api/saved/chats", chats.schemaListeChats),
@@ -721,6 +730,19 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminRattachement.schemaCorpsRattachementPrepare,
   ),
   c("admin-rattachement", "DELETE", "/api/admin/auth/providers/:id/prelinks/:prelink_id", schemaOk),
+  c(
+    "admin-identite",
+    "POST",
+    "/api/admin/auth/providers/:id/trial",
+    adminIdentiteOidc.schemaReponseLancementEssai,
+    adminIdentiteOidc.schemaCorpsLancementEssai,
+  ),
+  c(
+    "admin-identite",
+    "GET",
+    "/api/admin/auth/providers/:id/trial",
+    adminIdentiteOidc.schemaReponseDernierEssai,
+  ),
   c("admin-runs", "GET", "/api/admin/runs/accounts", adminRuns.schemaReponseExecutionsParCompte),
   c("admin-runs", "GET", "/api/admin/runs", adminRuns.schemaReponseExecutionsConsole),
   c("admin-runs", "GET", "/api/admin/runs/:run_id/timeline", runs.schemaChronologie),

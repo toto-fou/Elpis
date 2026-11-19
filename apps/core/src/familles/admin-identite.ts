@@ -17,6 +17,7 @@ import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
 import type { FabriqueConnexion } from "../identite/annuaire/client";
 import { fabriqueLdapts } from "../identite/annuaire/client";
 import { lancerTest } from "../identite/essai";
+import { effacerEtatOidc } from "../identite/oidc/flux";
 import type { OptionsEssai } from "../identite/essai";
 import {
   couperSessionsDesFournisseurs,
@@ -96,7 +97,7 @@ async function identitesDeMemeAncre(x: Executeur, f: Fournisseur): Promise<boole
     [f.id],
   );
   const ancre = ancreIdentite(f);
-  return ancres.every(([a]) => ancre !== null && a === ancre);
+  return ancres.every(([a]) => a === ancre);
 }
 
 /** Empreinte courte d'un identifiant pour l'audit : l'identifiant lui-même n'y figure jamais. */
@@ -296,6 +297,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       providers.splice(i, 1);
       await supprimerSecretFournisseur(base, id, acteur(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [id]);
+      await effacerEtatOidc(x, id);
       return lu?.type ?? null;
     });
     auditer(req, "admin.auth.provider.delete", { provider_id: id, type });
@@ -353,6 +355,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       const i = positionDuFournisseur(providers, id);
       if (i < 0) throw new HttpError(404, "Fournisseur introuvable.");
       providers[i] = { ...(providers[i] as Dict), enabled: false };
+      await effacerEtatOidc(x, id);
       return couperSessionsDesFournisseurs(x, [id], maintenant());
     });
     for (const uid of comptes)
@@ -411,6 +414,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
             utilisateur,
             secret: secretSaisi,
           },
+          oidc: { secretEnregistre: (f) => secretFournisseur(base, f) },
         },
       );
     } catch (e) {

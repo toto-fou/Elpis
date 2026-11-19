@@ -113,6 +113,16 @@ export class DebitConnexion {
     );
   }
 
+  /** Secondes d'attente avant un nouvel essai de cette adresse seule (flux SSO) ; 0 s'il est permis. */
+  attenteAdresseS(adresse: string, t: number): number {
+    return this.adresses.attenteS(empreinte(adresse), t);
+  }
+
+  /** Prend un jeton de l'adresse seule. */
+  prendreAdresse(adresse: string, t: number): void {
+    this.adresses.prendre(empreinte(adresse), t);
+  }
+
   /** Compte l'essai dès son arrivée : des requêtes simultanées voient chacune le jeton de la précédente. */
   prendre(nom: string, adresse: string, t: number): Essai {
     const cleNom = empreinte(`${adresse}\0${nom}`);

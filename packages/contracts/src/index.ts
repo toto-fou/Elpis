@@ -24,6 +24,8 @@ export * from "./rest/admin-audit";
 export * from "./rest/admin-identite";
 export * from "./rest/admin-identite-balayage";
 export * from "./rest/admin-rattachement";
+export * from "./rest/admin-identite-oidc";
+export * from "./rest/identite";
 export * from "./rest/admin-runs";
 export * from "./rest/admin-securite";
 export * from "./rest/admin-comptes";

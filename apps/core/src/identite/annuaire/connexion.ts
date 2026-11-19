@@ -213,7 +213,7 @@ async function interroger(
       fournisseur: f,
       profil: {
         subject: sujet,
-        issuer: ancreIdentite(f) ?? "",
+        issuer: ancreIdentite(f),
         extUsername: externe.identifiant,
         extEmail: externe.email,
         extName: externe.nom,

@@ -62,6 +62,10 @@ export const schemaReponseConfigPublique = z.object({
   admin_url: z.string(),
   main_url: z.string(),
   app_mode: z.enum(["main", "admin"]),
+  /** Fournisseurs SSO actifs : identifiant et libellé, rien d'autre. */
+  login_methods: z.array(z.object({ id: z.string(), label: z.string() })).default([]),
+  /** Origine de l'adresse publique réglée, présente seulement quand un fournisseur SSO est actif. */
+  auth_origin: z.string().optional(),
   features: z.object({
     agents: z.boolean(),
     office_preview: z.boolean(),

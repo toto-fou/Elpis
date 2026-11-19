@@ -138,7 +138,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
     ).toMatchObject({ login_method: "oidc:sso" });
   });
 
-  it("l'ouverture de session qui échoue après le bon mot de passe : le même 401 que le mauvais, refus audité, aucune session", async () => {
+  it("l'ouverture de session qui échoue après le bon mot de passe : rattachement fait, la personne est renvoyée vers le SSO (409), l'essai est rendu, refus audité, aucune session", async () => {
     const ouverte = cookies(
       await b.main.inject({
         method: "POST",
@@ -157,10 +157,8 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
         /revoked_sessions/u.test(sql) ? Promise.reject(new Error("base occupée")) : reel(sql, ...reste),
       );
     try {
-      const mauvais = await prouver({ password: "pas-le-bon" }, `${cookie}; ${ouverte}`);
       const r = await prouver({ password: "mdp-local-1" }, `${cookie}; ${ouverte}`);
-      expect(r.statusCode, r.body).toBe(401);
-      expect(r.json()).toEqual(mauvais.json());
+      expect(r.statusCode, r.body).toBe(409);
       expect(String(r.headers["set-cookie"] ?? "")).not.toMatch(/mcpwebui_session=[^;"]+;/u);
       expect(
         lignesAuditRecentes({ actionPrefix: "auth.login.denied" }).some(
@@ -170,6 +168,15 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
     } finally {
       espion.mockRestore();
     }
+    expect(await identites()).toMatchObject([{ user_id: jean, subject: "sub-jd", linked_by: "proof" }]);
+    const suite = await retourDeJean();
+    expect(suite.retour.statusCode, suite.retour.body).toBe(200);
+    const moi = await b.main.inject({
+      method: "GET",
+      url: "/api/me-lite",
+      headers: { cookie: suite.session },
+    });
+    expect(moi.json()).toMatchObject({ logged_in: true, username: "jean-dupont" });
   });
 
   it("compte rattaché : `me-lite` dit que le mot de passe est géré, et le changement de son propre mot de passe est refusé", async () => {

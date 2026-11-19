@@ -84,11 +84,11 @@ export async function verifierJetonDeconnexion(
       currentDate: new Date(t * 1000),
     });
     payload = verifie.payload as Record<string, unknown>;
-    const aud = payload["aud"];
-    if (Array.isArray(aud) && aud.some((x) => x !== f.client_id)) throw refus("bad_audience");
   } catch (e) {
     throw refus(raisonJose(e));
   }
+  const aud = payload["aud"];
+  if (Array.isArray(aud) && aud.some((x) => x !== f.client_id)) throw refus("bad_audience");
   const iat = payload["iat"];
   if (typeof iat !== "number" || !Number.isFinite(iat)) throw refus("iat_missing");
   if (iat - t > f.clock_skew_sec || t - iat > AGE_MAX_S) throw refus("iat_invalid");

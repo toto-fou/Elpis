@@ -19,7 +19,7 @@ const LDAP = {
   bind_dn: "uid=svc,cn=users,dc=exemple,dc=lan",
   user_base_dn: "cn=users,dc=exemple,dc=lan",
   user_filter: "(uid={username})",
-  required_groups: ["elpis"],
+  required_groups: ["cn=elpis,cn=groups,dc=exemple,dc=lan"],
 };
 
 beforeAll(async () => {

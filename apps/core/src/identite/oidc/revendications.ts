@@ -55,23 +55,19 @@ function marqueDepassement(claims: Revendications, nomGroupes: string): boolean 
   return a === true || a === "true";
 }
 
-/** Valeurs de groupe réglées pour ce fournisseur (requis, rôles, correspondances). */
-function groupesRegles(f: FournisseurOidc): Set<string> {
-  return new Set([
-    ...f.required_groups,
-    ...f.roles.admin_groups,
-    ...f.roles.moderator_groups,
-    ...f.group_map.map.map((m) => m.external),
-  ]);
-}
-
-/** Groupes du jeton : tableau de chaînes, ou chaîne égale à un groupe réglé (liste d'un élément) ; `null` sinon (absent, autre type, dépassement : inconnu). */
+/** Groupes du jeton : tableau de chaînes, ou `null` (absent, d'un autre type, ou marqueur de dépassement : inconnu). */
 export function groupesDe(claims: Revendications, f: FournisseurOidc): string[] | null {
   if (marqueDepassement(claims, f.groups_claim)) return null;
   const v = lireRevendication(claims, f.groups_claim);
-  if (typeof v === "string") return v !== "" && groupesRegles(f).has(v) ? [v] : null;
   if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) return null;
   return v as string[];
+}
+
+/** Groupe requis reçu en chaîne unique (certains fournisseurs rendent ainsi un seul groupe) : il prouve l'appartenance, rien d'autre ; `null` pour toute autre chaîne. */
+export function groupeRequisSeulDe(claims: Revendications, f: FournisseurOidc): string | null {
+  if (marqueDepassement(claims, f.groups_claim)) return null;
+  const v = lireRevendication(claims, f.groups_claim);
+  return typeof v === "string" && v !== "" && f.required_groups.includes(v) ? v : null;
 }
 
 /** Appartenance à l'un des groupes requis : `inconnu` si les groupes ne se lisent pas. */

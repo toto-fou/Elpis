@@ -72,7 +72,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC : conformi
     it("§2.4 : ni `sid` ni `sub` refusé", async () => refuse({}, {}, "no_subject"));
     it("§2.4 : `aud` en liste d'un seul élément égal au client accepté ; avec un public de plus refusé (aucun autre public de confiance)", async () => {
       await accepte({ claims: { aud: ["elpis"] } });
-      await refuse({ claims: { aud: ["elpis", "autre-rp"] } });
+      await refuse({ claims: { aud: ["elpis", "autre-rp"] } }, undefined, "bad_audience");
     });
     it("§2.4 : `aud` en liste sans le client refusé", async () => refuse({ claims: { aud: ["autre-rp"] } }));
     it("§2.4 : `exp` absent toléré (plus tolérant que la norme : borné par `iat` et par l'usage unique du `jti`)", async () => {

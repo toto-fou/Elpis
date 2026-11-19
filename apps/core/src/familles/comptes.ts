@@ -544,18 +544,19 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           } catch (e) {
             if (e instanceof ConnexionRefusee) await plancher();
             else {
-              dep.journal.warn(
+              dep.journal.error(
                 { err: e },
                 "[auth] ouverture de session échouée après une vérification réussie",
               );
-              await sansEchec(() =>
-                auditerRefusConnexion(base, {
-                  username,
-                  ip,
-                  userAgent: ua,
-                  raison: "session_open_failed",
-                }),
-              );
+              auditLogin({
+                userId: uid,
+                username: nomDuCompte,
+                ip,
+                userAgent: ua,
+                success: false,
+                reason: "session_open_failed",
+                loginMethod: methode,
+              });
               await plancher();
               throw new HttpError(401, "invalid credentials");
             }

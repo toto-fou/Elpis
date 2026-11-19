@@ -215,10 +215,10 @@ Create a client for Elpis at the provider:
   `<public address>/api/auth/oidc/<id>/callback` and `<public address>/api/auth/oidc/<id>/backchannel-logout`;
   they appear once the public address and the **Identifiant** (Identifier) are filled. For sign-out, also
   allow `<public address>/` as post-logout address.
-- **Groups in the identity token**: a claim holding a list of strings (default name `groups`). A claim
-  holding one string counts as one group only when it is exactly a group set on this provider (required, role
-  or mapped group): providers that send a single group that way work, and several groups glued in one string
-  (`a;b`) are never split. If the identity token lacks the groups or the login name and the provider
+- **Groups in the identity token**: a claim holding a list of strings (default name `groups`). Some providers
+  send a person's single group as one string: a string that is exactly a **required group** lets the person
+  in, and nothing more is read from it (no role, no group, and it never counts as "not a member"). Any other
+  string, such as several groups glued together (`a;b`), is unreadable. If the identity token lacks the groups or the login name and the provider
   announces a user-information endpoint on the same origin as the issuer, Elpis reads it there as well; an
   endpoint on another origin is never called, and the test says so.
 - **The identity token is for Elpis alone**: a token that lists another audience next to the client
@@ -290,7 +290,8 @@ exigée".
   or a secret holding a character other than letters and digits is refused by the provider.
 - Expose the groups as a claim through the relying party's attributes, as a list (array type `auto` or
   `always`), and check in the trial that **Groupes** lists them one by one. A person with a single group is
-  accepted when that group is one set on the provider; a string holding several groups is not a list.
+  let in when that group is a required group; a string holding several groups is not a list. For roles and
+  groups to follow the provider, send a list (array type `always`).
 
 ### AD FS
 
@@ -301,7 +302,8 @@ exigée".
   and the login name through issuance transform rules (for example the Active Directory `sAMAccountName` as
   an outgoing claim named `username`, the groups as `group`). Then set **Revendication nom** and
   **Revendication groupes** to those names. Check them in the trial.
-- AD FS sends a person's single group as one string: it is accepted when it is a group set on the provider.
+- AD FS sends a person's single group as one string: the person is let in when it is a required group, and
+  roles are read from lists only.
 
 ### Microsoft Entra ID
 
@@ -634,9 +636,9 @@ work, and **Tester** then **Essayer la connexion** will say so.
 | OneLogin                                | Played on its profile   | Add the `groups` scope                                                                                                       |
 | Google, Amazon Cognito                  | Not supported           | Their token and key endpoints are on other hosts than the issuer. Put an identity broker you run (Keycloak, Dex) in front    |
 
-- **Groups are a list of strings.** A claim holding one string is read as one group only when it is exactly one
-  of the groups set on the provider (required, role or mapped group); several groups glued in one string
-  (`a;b`) are never split, and give "groups unreadable".
+- **Groups are a list of strings.** A claim holding one string only lets the person in when it is exactly a
+  required group; roles, mapped groups and suspensions are decided from lists only. Several groups glued in
+  one string (`a;b`) are never split, and give "groups unreadable".
 - **Back-channel sign-out** needs a provider that sends logout tokens (Keycloak and `node-oidc-provider` were
   played on real servers). A logout token without an expiry is accepted when it is recent; one listing another
   audience than Elpis is refused.

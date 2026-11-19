@@ -13,6 +13,7 @@ import { RefusOidc } from "./refus";
 import {
   appartenanceDe,
   emailVerifieDe,
+  groupeRequisSeulDe,
   groupesDe,
   identifiantFiable,
   lireRevendication,
@@ -141,6 +142,7 @@ export async function verifierRetour(
   if (sujet === null) throw new RefusOidc("failed", "subject_invalid");
   if (!secondFacteurSatisfait(claims, f)) throw new RefusOidc("mfa_required", "acr_amr");
   let groupes = groupesDe(claims, f);
+  let requisSeul = groupeRequisSeulDe(claims, f);
   let complement: Revendications = {};
   if (
     (groupes === null || texteDe(claims, f.username_claim) === "") &&
@@ -152,6 +154,7 @@ export async function verifierRetour(
       throw refusDe(err);
     }
     groupes ??= groupesDe(complement, f);
+    requisSeul ??= groupeRequisSeulDe(complement, f);
   }
   const identifiant = texteDe(claims, f.username_claim) || texteDe(complement, f.username_claim);
   const sourceIdentifiant = texteDe(claims, f.username_claim) === "" ? complement : claims;
@@ -170,7 +173,7 @@ export async function verifierRetour(
       extName: nom,
       identifiantFiable: identifiantFiable(sourceIdentifiant, f),
     },
-    appartenance: appartenanceDe(groupes, f),
+    appartenance: groupes === null && requisSeul !== null ? "oui" : appartenanceDe(groupes, f),
     vue: {
       iss: f.issuer,
       sujet,
@@ -180,7 +183,7 @@ export async function verifierRetour(
       emailVerifie: email !== "",
       acr: typeof acr === "string" ? acr.slice(0, 128) : null,
       amr: liste(lireRevendication(claims, "amr")),
-      groupes: groupes === null ? null : groupes.slice(0, 50),
+      groupes: groupes === null ? (requisSeul === null ? null : [requisSeul]) : groupes.slice(0, 50),
       sujetEstIdentifiant: identifiant !== "" && identifiant === sujet,
     },
     groupesComplets: groupes,

@@ -8,6 +8,7 @@ import { pageRetour } from "../../src/identite/oidc/page";
 import {
   appartenanceDe,
   emailVerifieDe,
+  groupeRequisSeulDe,
   groupesDe,
   lireRevendication,
   secondFacteurSatisfait,
@@ -57,16 +58,19 @@ describe("revendications", () => {
     expect(appartenanceDe(null, f())).toBe("inconnu");
   });
 
-  it("groupes : une chaîne égale à une valeur réglée (requis, rôles, correspondances) est la liste d'un élément, sans découpage ni rognage", () => {
+  it("groupes : une chaîne n'est jamais une liste ; seule une chaîne exactement égale à un groupe REQUIS prouve l'appartenance, sans découpage ni rognage", () => {
     const g = f({
+      required_groups: ["elpis", "equipe a;b"],
       roles: { enabled: true, admin_groups: ["adm"], moderator_groups: ["mod"] },
-      group_map: { enabled: true, map: [{ external: "equipe a;b", group_id: 3 }] },
+      group_map: { enabled: true, map: [{ external: "carte", group_id: 3 }] },
     });
-    for (const v of ["elpis", "adm", "mod", "equipe a;b"])
-      expect(groupesDe({ groups: v }, g), v).toEqual([v]);
-    for (const v of ["", "elpis;adm", "elpis,adm", "ELPIS", "elpis ", "equipe a", "equipe a; b"])
+    for (const v of ["elpis", "equipe a;b", "adm", "mod", "carte", "elpis;adm"])
       expect(groupesDe({ groups: v }, g), v).toBeNull();
-    expect(groupesDe({ groups: "elpis", hasgroups: true }, g)).toBeNull();
+    for (const v of ["elpis", "equipe a;b"]) expect(groupeRequisSeulDe({ groups: v }, g), v).toBe(v);
+    for (const v of ["", "adm", "mod", "carte", "elpis;adm", "elpis,adm", "ELPIS", "elpis ", "equipe a"])
+      expect(groupeRequisSeulDe({ groups: v }, g), v).toBeNull();
+    expect(groupeRequisSeulDe({ groups: ["elpis"] }, g)).toBeNull();
+    expect(groupeRequisSeulDe({ groups: "elpis", hasgroups: true }, g)).toBeNull();
   });
 
   it("`acr` et `amr` : seules les valeurs réglées passent", () => {

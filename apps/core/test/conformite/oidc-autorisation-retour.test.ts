@@ -190,9 +190,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("requête d'autorisation et r
     });
 
     it("RFC 6749 §10.12 : `state` modifié d'un caractère refusé", async () => {
-      const { rep } = await parcours(b, ELPIS("sub-x"), (u) =>
-        u.searchParams.set("state", `${u.searchParams.get("state")?.slice(0, -1) ?? ""}A`),
-      );
+      const { rep } = await parcours(b, ELPIS("sub-x"), (u) => {
+        const etat = u.searchParams.get("state") ?? "";
+        u.searchParams.set("state", `${etat.slice(0, -1)}${etat.endsWith("A") ? "B" : "A"}`);
+      });
       expect(["failed", "expired"]).toContain(codeRefus(rep));
     });
 

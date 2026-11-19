@@ -480,20 +480,17 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         userAgent: agent,
       });
     } catch (e) {
-      if (!(e instanceof ConnexionRefusee)) {
-        dep.journal.warn({ err: e }, "[auth] ouverture de session échouée après la preuve du titulaire");
-        auditerRefusPreuve(
-          { fournisseur: f, profil: flux.profil, ip, userAgent: agent },
-          {
-            uid: r.uid,
-            username: compte.username,
-            action: "auth.login.denied",
-            raison: "session_open_failed",
-          },
-        );
+      if (e instanceof ConnexionRefusee) {
+        if (essai.delaiMs > 0) await new Promise((fin) => setTimeout(fin, essai.delaiMs));
+        throw new HttpError(401, "invalid credentials");
       }
-      if (essai.delaiMs > 0) await new Promise((fin) => setTimeout(fin, essai.delaiMs));
-      throw new HttpError(401, "invalid credentials");
+      dep.journal.error({ err: e }, "[auth] ouverture de session échouée après la preuve du titulaire");
+      auditerRefusPreuve(
+        { fournisseur: f, profil: flux.profil, ip, userAgent: agent },
+        { uid: r.uid, username: compte.username, action: "auth.login.denied", raison: "session_open_failed" },
+      );
+      debit.annulation(essai, maintenant());
+      throw new HttpError(409, PREUVE_PERIMEE);
     }
     debit.reussite(essai, maintenant());
     return { ok: true, next: cibleDeRetour(lireReglagesAuth().public_url, flux.cible, flux.oauthNext) };

@@ -181,14 +181,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
           ).toBe("groups_unknown");
       });
 
-      it("AD FS : chaîne égale à un groupe de rôle mais pas au groupe requis : not_in_group", async () => {
+      it("AD FS : chaîne égale à un groupe de rôle mais pas au groupe requis : groups_unknown (une chaîne ne dit jamais « non membre »)", async () => {
         const x = await ouvrirProfil(moteur, a, {
           extra: { roles: { enabled: true, admin_groups: [], moderator_groups: ["moderateurs"] } },
         });
         const u = a.utilisateur("alice");
         expect(
           codeRefus((await x.connecter({ ...u, claims: { ...u.claims, group: "moderateurs" } })).retour),
-        ).toBe("not_in_group");
+        ).toBe("groups_unknown");
       });
 
       it("AD FS : plusieurs groupes (tableau) lus, `upn` pour l'identifiant, points d'accès avec barre finale", async () => {

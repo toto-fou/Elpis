@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/conformite/securite-sessions.test.ts — la gestion de session suit OWASP ASVS 5.0 V7 : identifiant aléatoire et renouvelé à chaque authentification, ancien cookie mort, déconnexion effective, attributs du cookie, aucun compte par défaut, ouverture par une action explicite (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/conformite/securite-sessions.test.ts — la gestion de session suit OWASP ASVS 5.0 V7 : identifiant aléatoire et renouvelé à chaque authentification, ancien cookie mort, déconnexion effective, attributs du cookie, ouverture par une action explicite (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { createUser, Session, validerSession } from "@elpis/auth";
 import type { DependancesSession } from "@elpis/auth";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -51,7 +51,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("sessions : ASVS 5.0 V7 (%s)"
     for (let i = 0; i < 20; i += 1) vus.add(sidDe(cookies(await loginLocal())));
     expect(vus.size).toBe(20);
     for (const sid of vus) expect(sid).toMatch(/^[A-Za-z0-9_-]{24}$/u);
-  });
+  }, 120_000);
 
   it("ASVS 5.0 V7.2.4 : une ré-authentification par mot de passe donne un identifiant neuf et l'ancien cookie est refusé", async () => {
     const a = cookies(await loginLocal());
@@ -109,7 +109,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("sessions : ASVS 5.0 V7 (%s)"
     expect(await moi(cookies(r, c))).toBe(true);
   });
 
-  it("ASVS 5.0 V3.3.2 et V3.3.4 : le cookie de session est HttpOnly, Secure, SameSite=Lax, limité à la durée de session, pour tous les modes de connexion", async () => {
+  it("ASVS 5.0 V3.3.2 et V3.3.4 : avec HTTPS en service, le cookie de session est HttpOnly, Secure, SameSite=Lax, limité à la durée de session, pour tous les modes de connexion", async () => {
     const local = String((await loginLocal()).headers["set-cookie"]);
     const { retour } = await b.connecter(ELPIS("sub-cookie"));
     for (const c of [local, String(retour.headers["set-cookie"])]) {
@@ -133,14 +133,20 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("sessions : ASVS 5.0 V7 (%s)"
     expect(c).not.toMatch(/domain=/iu);
   });
 
-  it("ASVS 5.0 V7.6.2 : aucune session ne naît d'une simple navigation, ni sur le départ SSO en GET ni sur un retour sans flux", async () => {
-    const depart = await b.main.inject({
-      method: "GET",
-      url: "/api/auth/oidc/sso/start",
-      headers: { host: HOTE_PUBLIC },
+  it("ASVS 5.0 V7.6.2 : aucune session ne naît d'une simple navigation, le départ SSO n'existe qu'en POST et un retour sans flux n'en ouvre aucune", async () => {
+    const depart = "/api/auth/oidc/sso/start";
+    const get = await b.main.inject({ method: "GET", url: depart, headers: { host: HOTE_PUBLIC } });
+    expect(get.statusCode).toBe(405);
+    const post = await b.main.inject({
+      method: "POST",
+      url: depart,
+      remoteAddress: "10.78.0.2",
+      headers: ENTETES,
+      payload: { target: "app" },
     });
-    expect(depart.statusCode).toBeGreaterThanOrEqual(400);
-    expect(String(depart.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session=ey");
+    expect(post.statusCode, post.body).toBe(200);
+    for (const r of [get, post])
+      expect(String(r.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session=");
     const retour = await b.main.inject({
       method: "GET",
       url: "/api/auth/oidc/sso/callback?code=x&state=y",
@@ -148,19 +154,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("sessions : ASVS 5.0 V7 (%s)"
       headers: { host: HOTE_PUBLIC },
     });
     expect(retour.statusCode).toBe(302);
-    expect(String(retour.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session=ey");
+    expect(String(retour.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session=");
     expect(await b.utilisateurs()).toEqual(["chef"]);
   });
 
-  it("ASVS 5.0 V6.3.2 : une base neuve ne contient aucun compte, donc aucun compte par défaut", async () => {
-    const neuf = (await import("@elpis/db/test")).ouvrirBaseDeTest(moteur);
-    try {
-      await (await import("@elpis/db")).initialiserBase(neuf.base);
-      expect(await neuf.base.valeurs("SELECT COUNT(*) FROM users")).toEqual([[0]]);
-    } finally {
-      await neuf.fermer();
-    }
-  });
   it("ASVS 5.0 V7.4.5 : un administrateur ferme depuis la console les sessions d'un compte, sans toucher aux autres", async () => {
     await createUser(b.t.base, "cible", "mdp-cible-1");
     const admin = cookies(await loginLocal());

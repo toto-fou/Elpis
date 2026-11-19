@@ -543,6 +543,22 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             );
           } catch (e) {
             if (e instanceof ConnexionRefusee) await plancher();
+            else {
+              dep.journal.warn(
+                { err: e },
+                "[auth] ouverture de session échouée après une vérification réussie",
+              );
+              await sansEchec(() =>
+                auditerRefusConnexion(base, {
+                  username,
+                  ip,
+                  userAgent: ua,
+                  raison: "session_open_failed",
+                }),
+              );
+              await plancher();
+              throw new HttpError(401, "invalid credentials");
+            }
             throw e;
           }
           if (verifieParMotDePasse !== null) {

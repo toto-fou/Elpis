@@ -127,9 +127,37 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("TLS sortant : guide TLS de l'ANSSI et ASVS
     });
     afterAll(() => rmSync(dossier, { recursive: true, force: true }));
 
-    const serveurRsa = async (ciphers: string): Promise<number> => {
+    const groupes = new Map<number, string>();
+    const dhe = (bits: number): string => {
+      if (!groupes.has(bits)) {
+        const args =
+          bits >= 2048
+            ? [
+                "genpkey",
+                "-genparam",
+                "-algorithm",
+                "DH",
+                "-pkeyopt",
+                `group:ffdhe${bits}`,
+                "-out",
+                `dh${bits}.pem`,
+              ]
+            : ["dhparam", "-dsaparam", "-out", `dh${bits}.pem`, String(bits)];
+        const r = spawnSync("openssl", args, { cwd: dossier });
+        if (r.status !== 0) throw new Error("openssl dhparam indisponible");
+        groupes.set(bits, readFileSync(join(dossier, `dh${bits}.pem`), "utf8"));
+      }
+      return groupes.get(bits) ?? "";
+    };
+    const serveurRsa = async (ciphers: string, dhparam?: string): Promise<number> => {
       const s = serveurHttps(
-        { cert: rsa.cert, key: rsa.key, maxVersion: "TLSv1.2", ciphers: `${ciphers}:@SECLEVEL=0` },
+        {
+          cert: rsa.cert,
+          key: rsa.key,
+          maxVersion: "TLSv1.2",
+          ciphers: `${ciphers}:@SECLEVEL=0`,
+          ...(dhparam === undefined ? {} : { dhparam }),
+        },
         (_q, r) => void r.end("x"),
       );
       serveurs.push(s);
@@ -154,6 +182,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("TLS sortant : guide TLS de l'ANSSI et ASVS
 
     it("ANSSI TLS R10 et ASVS 5.0 V12.1.2 : un serveur qui n'offre que le mode CBC, sans chiffrement authentifié, est refusé", async () => {
       expect(await essai(await serveurRsa("ECDHE-RSA-AES128-SHA256"))).toBe("tls");
+    });
+
+    it("ANSSI TLS R7- et ASVS 5.0 V12.1.2 : un serveur DHE dont le groupe n'a que 1024 bits est refusé", async () => {
+      expect(await essai(await serveurRsa("DHE-RSA-AES128-GCM-SHA256", dhe(1024)))).toBe("tls");
+    });
+
+    it("ANSSI TLS R7- et ASVS 5.0 V12.1.2 : un serveur DHE dont le groupe a 2048 bits est accepté", async () => {
+      expect(await essai(await serveurRsa("DHE-RSA-AES128-GCM-SHA256", dhe(2048)))).toBe("aucun");
     });
 
     it("ANSSI TLS R7 et R10 : ECDHE avec AES-GCM reste accepté en TLS 1.2", async () => {

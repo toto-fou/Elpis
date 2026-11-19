@@ -127,6 +127,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       expect([...CODES_ERREUR_CONNEXION]).toEqual([...CODES_REFUS]);
       const p = new URL(d.url ?? "").searchParams;
       expect(p.get("redirect_uri")).toBe(`${URL_PUBLIQUE}/api/auth/oidc/sso/callback`);
+      expect(p.get("response_type")).toBe("code");
       expect(p.get("code_challenge_method")).toBe("S256");
       expect(p.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/u);
       expect(p.get("state")).toMatch(/^[A-Za-z0-9_-]{43}$/u);
@@ -198,7 +199,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       return f;
     };
 
-    it("`alg: none` refusé", async () => void (await rejete({ alg: "none" })));
+    it("jeton d'identité : `alg: none` refusé", async () => void (await rejete({ alg: "none" })));
     it("HS256 signé avec le secret client refusé", async () => void (await rejete({ alg: "HS256" })));
     it("signature fausse (autre clé, même identifiant de clé) refusée", async () =>
       void (await rejete({ signerAvecAutreCle: true })));
@@ -206,12 +207,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       await b.reglages({ id_token_alg: "RS256" });
       await rejete({});
     });
-    it("`iss` faux refusé", async () =>
+    it("jeton d'identité : `iss` faux refusé", async () =>
       void (await rejete({ claims: { iss: "https://autre.exemple.lan" } })));
-    it("`aud` faux refusé", async () => void (await rejete({ claims: { aud: "autre-client" } })));
-    it("`nonce` faux refusé", async () => void (await rejete({ claims: { nonce: "autre-nonce" } })));
+    it("jeton d'identité : `aud` faux refusé", async () =>
+      void (await rejete({ claims: { aud: "autre-client" } })));
+    it("jeton d'identité : `nonce` faux refusé", async () =>
+      void (await rejete({ claims: { nonce: "autre-nonce" } })));
     it("jeton sans `nonce` refusé", async () => void (await rejete({ sans: ["nonce"] })));
-    it("jeton expiré refusé", async () => {
+    it("jeton d'identité : jeton expiré refusé", async () => {
       const t = Math.floor(Date.now() / 1000);
       await rejete({ claims: { iat: t - 7200, exp: t - 3600 } });
     });
@@ -228,7 +231,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       const t = Math.floor(Date.now() / 1000);
       await rejete({ claims: { iat: t + 30 } });
     });
-    it("sujet vide, trop long ou d'un autre type refusé", async () => {
+    it("sujet vide ou trop long refusé", async () => {
       await rejete({ claims: { sub: "" } }, ELPIS("x"));
       await rejete({ claims: { sub: "s".repeat(256) } }, ELPIS("x"));
     });

@@ -169,7 +169,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("client sortant : confiance, adresses, born
       );
     });
 
-    it("TLS 1.1 refusé", async () => {
+    it("version TLS : TLS 1.1 refusé", async () => {
       const e = await https(bonne, (_q, r) => void r.end("x"), {
         minVersion: "TLSv1",
         maxVersion: "TLSv1.1",

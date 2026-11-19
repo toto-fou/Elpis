@@ -283,6 +283,7 @@ function optionsTls(o: OptionsSortant): {
   ca: string[];
   ciphers: string;
   minVersion: "TLSv1.2";
+  minDHSize: 2048;
   rejectUnauthorized: true;
   checkServerIdentity: typeof verifierNomServeur;
   timeout: number;
@@ -292,6 +293,7 @@ function optionsTls(o: OptionsSortant): {
     ca: [...ancres(o)],
     ciphers: SUITES_TLS,
     minVersion: "TLSv1.2",
+    minDHSize: 2048,
     rejectUnauthorized: true,
     checkServerIdentity: verifierNomServeur,
     timeout: borne(o.delaiConnexionMs, DELAI_CONNEXION_MS),
@@ -441,6 +443,7 @@ function ouvrirTls(
           ca: options.ca,
           ciphers: options.ciphers,
           minVersion: options.minVersion,
+          minDHSize: options.minDHSize,
           rejectUnauthorized: options.rejectUnauthorized,
           checkServerIdentity: options.checkServerIdentity,
         });

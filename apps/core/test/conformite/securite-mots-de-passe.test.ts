@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/conformite/securite-mots-de-passe.test.ts — le mot de passe d'un compte local suit ASVS 5.0 V6.2 et le guide de l'ANSSI sur les mots de passe : vérifié tel que saisi, longs mots de passe acceptés, aucune expiration imposée (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { createUser } from "@elpis/auth";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MOTEURS } from "../identite/banc";
 import { HOTE_PUBLIC, ouvrirBancOidc } from "../identite/banc-oidc";
@@ -30,7 +30,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("mots de passe locaux : réf�
     await b.fermer();
   });
 
-  it("ASVS 5.0 V6.2.8 et V6.2.5 : le mot de passe est vérifié exactement tel que saisi (espaces, casse, Unicode), sans troncature ni normalisation", async () => {
+  it("ASVS 5.0 V6.2.8 : le mot de passe est vérifié exactement tel que saisi (espaces, casse, Unicode), sans troncature ni normalisation", async () => {
     const exact = `  Žlutý kůň, Pěl e${String.fromCharCode(0x301)} ódy 🙂 `;
     await createUser(b.t.base, "exact", exact);
     expect(await connexion("exact", exact)).toBe(200);
@@ -44,7 +44,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("mots de passe locaux : réf�
       expect(await connexion("exact", proche), JSON.stringify(proche)).toBe(401);
   });
 
-  it("ASVS 5.0 V6.2.9 et ANSSI PG-078 R22 : un mot de passe de 128 caractères est accepté à la création du compte, au changement et à la connexion", async () => {
+  it("ASVS 5.0 V6.2.9 et ANSSI PG-078 R22 : un mot de passe de 128 caractères est accepté au changement de mot de passe et à la connexion, sans être tronqué", async () => {
     const long = "Tr0ub4dor&3-".repeat(11).slice(0, 128);
     expect(long.length).toBe(128);
     await createUser(b.t.base, "long", "mot-de-passe-initial-1");
@@ -67,16 +67,15 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("mots de passe locaux : réf�
     expect(await connexion("long", long.slice(0, 64))).toBe(401);
   });
 
-  it("ASVS 5.0 V6.2.10 et ANSSI PG-078 R24 : aucun mécanisme n'expire un mot de passe de lui-même", async () => {
-    const colonnes = await b.t.base.valeurs<[string]>(
-      moteur === "sqlite"
-        ? "SELECT name FROM pragma_table_info('users')"
-        : "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'",
-    );
-    const noms = colonnes.map((l) => l[0]);
-    expect(noms).toContain("must_change_pwd");
-    expect(
-      noms.filter((n) => /expir|rotat|pass.*(age|until|valid)|pwd.*(age|until|valid)/iu.test(n)),
-    ).toEqual([]);
+  it("ASVS 5.0 V6.2.10 et ANSSI PG-078 R24 : un mot de passe local reste valable des années après sa création, sans que le temps l'expire", async () => {
+    await createUser(b.t.base, "ancien", "mdp-ancien-1");
+    expect(await connexion("ancien", "mdp-ancien-1")).toBe(200);
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 5 * 365 * 86_400_000 });
+    try {
+      expect(Date.now()).toBeGreaterThan(Date.parse("2030-01-01"));
+      expect(await connexion("ancien", "mdp-ancien-1")).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

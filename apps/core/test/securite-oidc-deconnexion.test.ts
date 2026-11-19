@@ -219,8 +219,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
 
     it("aucune session correspondante : 200 quand même", async () => {
       const a = await connecter("sub-jean", "idp-1");
-      expect((await poster(await b.idp.jetonDeconnexion({ sid: "inconnu" }))).statusCode).toBe(200);
-      expect((await poster(await b.idp.jetonDeconnexion({ sub: "personne" }))).statusCode).toBe(200);
+      for (const jeton of [
+        await b.idp.jetonDeconnexion({ sid: "inconnu" }),
+        await b.idp.jetonDeconnexion({ sub: "personne" }),
+      ]) {
+        const r = await poster(jeton);
+        expect(r.statusCode).toBe(200);
+        expect(r.headers["cache-control"]).toBe("no-store");
+      }
       expect(await vivante(a)).toBe(true);
     });
 
@@ -317,27 +323,36 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
     });
     const piege = (p: PiegesJeton): Promise<string> => b.idp.jetonDeconnexion({ sid: "idp-1" }, p);
 
-    it("signature fausse", async () => refuse(await piege({ signerAvecAutreCle: true }), "bad_signature"));
-    it("`alg` none", async () => refuse(await piege({ alg: "none" }), "bad_alg"));
-    it("HS256 signé avec le secret client", async () => refuse(await piege({ alg: "HS256" }), "bad_alg"));
-    it("émetteur faux", async () =>
+    it("jeton refusé en 400 : signature fausse", async () =>
+      refuse(await piege({ signerAvecAutreCle: true }), "bad_signature"));
+    it("jeton refusé en 400 : `alg` none", async () => refuse(await piege({ alg: "none" }), "bad_alg"));
+    it("jeton refusé en 400 : HS256 signé avec le secret client", async () =>
+      refuse(await piege({ alg: "HS256" }), "bad_alg"));
+    it("jeton refusé en 400 : émetteur faux", async () =>
       refuse(await piege({ claims: { iss: "https://autre.exemple.lan" } }), "bad_issuer"));
-    it("public faux", async () => refuse(await piege({ claims: { aud: "autre-client" } }), "bad_audience"));
-    it("événement absent", async () => refuse(await piege({ sans: ["events"] }), "no_event"));
-    it("événement d'un autre type", async () =>
+    it("jeton refusé en 400 : public faux", async () =>
+      refuse(await piege({ claims: { aud: "autre-client" } }), "bad_audience"));
+    it("jeton refusé en 400 : événement absent", async () =>
+      refuse(await piege({ sans: ["events"] }), "no_event"));
+    it("jeton refusé en 400 : événement d'un autre type", async () =>
       refuse(await piege({ claims: { events: { "http://autre/evt": {} } } }), "no_event"));
-    it("`nonce` présent", async () => refuse(await piege({ claims: { nonce: "n" } }), "nonce_present"));
-    it("`iat` trop vieux", async () =>
+    it("jeton refusé en 400 : `nonce` présent", async () =>
+      refuse(await piege({ claims: { nonce: "n" } }), "nonce_present"));
+    it("jeton refusé en 400 : `iat` trop vieux", async () =>
       refuse(await piege({ claims: { iat: maintenant() - 700 } }), "iat_invalid"));
-    it("`iat` dans le futur", async () =>
+    it("jeton refusé en 400 : `iat` dans le futur", async () =>
       refuse(await piege({ claims: { iat: maintenant() + 300 } }), "iat_invalid"));
-    it("`jti` absent", async () => refuse(await piege({ sans: ["jti"] }), "jti_missing"));
-    it("`iat` absent", async () => refuse(await piege({ sans: ["iat"] }), "iat_missing"));
-    it("`exp` dépassé", async () => refuse(await piege({ claims: { exp: maintenant() - 300 } }), "expired"));
-    it("ni `sid` ni `sub`", async () =>
+    it("jeton refusé en 400 : `jti` absent", async () =>
+      refuse(await piege({ sans: ["jti"] }), "jti_missing"));
+    it("jeton refusé en 400 : `iat` absent", async () =>
+      refuse(await piege({ sans: ["iat"] }), "iat_missing"));
+    it("jeton refusé en 400 : `exp` dépassé", async () =>
+      refuse(await piege({ claims: { exp: maintenant() - 300 } }), "expired"));
+    it("jeton refusé en 400 : ni `sid` ni `sub`", async () =>
       refuse(await b.idp.jetonDeconnexion({}, { claims: { x: 1 } }), "no_subject"));
-    it("`sid` d'un autre type", async () => refuse(await piege({ claims: { sid: 5 } }), "bad_claim"));
-    it("clé inconnue (`kid` absent des clés publiées)", async () =>
+    it("jeton refusé en 400 : `sid` d'un autre type", async () =>
+      refuse(await piege({ claims: { sid: 5 } }), "bad_claim"));
+    it("jeton refusé en 400 : clé inconnue (`kid` absent des clés publiées)", async () =>
       refuse(await piege({ kid: "inconnue" }), "no_key"));
     it("jeton d'identité rejoué (`nonce`, pas d'événement)", async () => {
       const identite = b.idp.emis.at(-1) ?? "";

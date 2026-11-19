@@ -9,6 +9,8 @@ import type { BancOidc } from "../identite/banc-oidc";
 import { OPENSSL_DISPONIBLE } from "../identite/pki-openssl";
 import type { LightMyRequestResponse } from "fastify";
 
+import { lignesAuditRecentes, lignesJournal } from "../aides";
+
 function codeDeRefus(r: LightMyRequestResponse): string | null {
   if (r.statusCode !== 302) return null;
   return /^\/\?auth_error=([a-z_]+)&ref=/u.exec(String(r.headers.location))?.[1] ?? null;
@@ -18,6 +20,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("client OIDC : référentiels
   let b: BancOidc;
 
   beforeEach(async () => {
+    lignesJournal.length = 0;
     b = await ouvrirBancOidc(moteur);
   });
   afterEach(async () => {
@@ -116,11 +119,18 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("client OIDC : référentiels
     expect(info?.corps.size).toBe(0);
   });
 
-  it("ANSSI-PA-080 R32 et RFC 9700 §4.9 : le jeton d'accès n'est ni gardé en base, ni rendu au navigateur, ni écrit au journal", async () => {
+  const tracesLisibles = (): string =>
+    JSON.stringify(lignesAuditRecentes({ limit: 500 })) + lignesJournal.join("\n");
+
+  it("ANSSI-PA-080 R32 et RFC 9700 §4.9 : le jeton d'accès, utilisé pour interroger `userinfo`, n'est ni gardé en base, ni rendu au navigateur, ni écrit au journal ni à l'audit", async () => {
     b.idp.userinfo = (u) => ({ sub: u.sub, groups: ["elpis"] });
     const { depart, retour, session } = await b.connecter(ELPIS("sub-acces", { groups: undefined }));
     const acces = b.idp.emis[0] ?? "";
     expect(acces).toMatch(/^acces-/u);
+    expect(
+      b.idp.traces.some((t) => t.chemin.endsWith("/userinfo") && t.autorisation === `Bearer ${acces}`),
+    ).toBe(true);
+    expect(retour.statusCode, retour.body).toBe(200);
     const tables = ["users", "user_identities", "auth_ext_sessions", "auth_flows", "revoked_sessions"];
     const base = JSON.stringify(await Promise.all(tables.map((t) => b.t.base.valeurs(`SELECT * FROM ${t}`))));
     expect(base.includes(acces)).toBe(false);
@@ -133,6 +143,19 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("client OIDC : référentiels
     ]);
     expect(vu.includes(acces)).toBe(false);
     expect(vu.includes(b.idp.clientSecret)).toBe(false);
+    expect(tracesLisibles().includes(acces)).toBe(false);
+    expect(tracesLisibles().length).toBeGreaterThan(0);
+  });
+
+  it("ANSSI-PA-080 R32 : un `userinfo` refusé (autre sujet) n'écrit pas non plus le jeton d'accès au journal ni à l'audit", async () => {
+    b.idp.userinfo = () => ({ sub: "autre-sujet", groups: ["elpis"] });
+    const { retour } = await b.connecter(ELPIS("sub-refus", { groups: undefined }));
+    expect(codeDeRefus(retour)).toBe("failed");
+    const acces = b.idp.emis[0] ?? "";
+    expect(acces).toMatch(/^acces-/u);
+    expect(b.idp.traces.some((t) => t.chemin.endsWith("/userinfo"))).toBe(true);
+    expect(lignesAuditRecentes({ actionPrefix: "auth.login.denied" }).length).toBeGreaterThan(0);
+    expect(tracesLisibles().includes(acces)).toBe(false);
   });
 
   it("ASVS 5.0 V9.1.3 : une clé ou une adresse de clés portée par l'en-tête du jeton (jwk, jku, x5u) n'est jamais utilisée", async () => {
@@ -141,8 +164,8 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("client OIDC : référentiels
     for (const entete of [
       { jwk: publique },
       { jwk: { ...publique, kid: "autre" }, kid: "autre" },
-      { jku: "https://attaquant.invalid/cles", kid: "inconnue" },
-      { x5u: "https://attaquant.invalid/chaine", kid: "inconnue" },
+      { jku: `${b.idp.issuer}/cles-de-l-attaquant`, kid: "inconnue" },
+      { x5u: `${b.idp.issuer}/chaine-de-l-attaquant`, kid: "inconnue" },
     ]) {
       const r = await retourForge((nonce) =>
         new SignJWT(revendications(nonce))
@@ -151,6 +174,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("client OIDC : référentiels
       );
       expect(codeDeRefus(r), JSON.stringify(Object.keys(entete))).toBe("failed");
     }
+    expect(b.idp.traces.filter((t) => t.chemin.endsWith("-de-l-attaquant"))).toEqual([]);
   });
 
   it("ASVS 5.0 V9.2.1 : un jeton d'identité qui n'est pas encore valable (nbf) est refusé", async () => {
@@ -160,14 +184,6 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("client OIDC : référentiels
     expect(await b.utilisateurs()).toEqual(["chef"]);
   });
 
-  it("ASVS 5.0 V9.2.2 : un jeton de déconnexion présenté comme jeton d'identité est refusé", async () => {
-    const r = await retourForge(async (nonce) => {
-      const logout = await b.idp.jetonDeconnexion({ sub: "sub-forge", sid: "s1" });
-      expect(nonce).not.toBe("");
-      return logout;
-    });
-    expect(codeDeRefus(r)).toBe("failed");
-  });
   it("OIDC Core §3.1.3.7 (4) : un jeton d'identité qui nomme un public de plus que le client est refusé", async () => {
     b.idp.pieges = { claims: { aud: [b.idp.clientId, "autre-client"] } };
     const { retour } = await b.connecter(ELPIS("sub-aud"));

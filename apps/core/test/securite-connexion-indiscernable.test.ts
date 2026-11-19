@@ -12,10 +12,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PAR_NOM_ET_ADRESSE } from "../src/comptes/debit-connexion";
 import { composer } from "../src/composition";
 import { MOTEURS } from "./identite/banc";
+import { cookies } from "./identite/banc-oidc";
 import { AnnuaireFactice, BASE, GROUPE, UUID } from "./identite/annuaire/annuaire-factice";
 import { ouvrirBancAnnuaire } from "./identite/annuaire/banc-annuaire";
 import type { BancAnnuaire } from "./identite/annuaire/banc-annuaire";
-import { appTest, journalMuet, lignesJournal } from "./aides";
+import { appTest, journalMuet, lignesAuditRecentes, lignesJournal } from "./aides";
 
 const MDP = "Pl4nt3-Mdp-Reconnaissable";
 const REFUS = { statusCode: 401, body: JSON.stringify({ detail: "invalid credentials" }) };
@@ -27,11 +28,17 @@ describe.each(MOTEURS)("refus indiscernables avec un annuaire actif (%s)", (mote
   let racine: string;
   let audit: string;
 
-  const essai = (username: string, password: string, ip: string): Promise<LightMyRequestResponse> =>
+  const essai = (
+    username: string,
+    password: string,
+    ip: string,
+    cookie = "",
+  ): Promise<LightMyRequestResponse> =>
     app.inject({
       method: "POST",
       url: "/api/login-lite",
       remoteAddress: ip,
+      ...(cookie === "" ? {} : { headers: { cookie } }),
       payload: { username, password },
     });
   const refuse = (r: LightMyRequestResponse): { statusCode: number; body: string } => ({
@@ -123,6 +130,26 @@ describe.each(MOTEURS)("refus indiscernables avec un annuaire actif (%s)", (mote
     expect(refuse(r)).toEqual(REFUS);
     expect(performance.now() - debut).toBeGreaterThanOrEqual(480);
     expect(await b.t.base.valeurs("SELECT 1 FROM user_identities")).toEqual([]);
+  });
+
+  it("la révocation de l'ancienne session qui échoue après un mot de passe juste : le même 401, après le plancher, refus audité, aucune session", async () => {
+    const ouverte = cookies(await essai("alice", "mdp-alice-1", "10.2.1.1"));
+    expect(ouverte).toContain("mcpwebui_session=");
+    const reel = b.t.base.run.bind(b.t.base);
+    vi.spyOn(b.t.base, "run").mockImplementation((sql, ...reste) =>
+      /revoked_sessions/u.test(sql) ? Promise.reject(new Error("base occupée")) : reel(sql, ...reste),
+    );
+    const debut = performance.now();
+    const r = await essai("alice", "mdp-alice-1", "10.2.1.2", ouverte);
+    expect(refuse(r)).toEqual(REFUS);
+    expect(performance.now() - debut).toBeGreaterThanOrEqual(480);
+    expect(String(r.headers["set-cookie"] ?? "")).not.toMatch(/mcpwebui_session=[^;"]+;/u);
+    expect(lignesJournal.join("\n")).not.toContain("mdp-alice-1");
+    expect(
+      lignesAuditRecentes({ actionPrefix: "auth.login.denied" }).some(
+        (e) => (e["details"] as Record<string, unknown>)["reason"] === "session_open_failed",
+      ),
+    ).toBe(true);
   });
 
   it("une requête en 429 ne coûte aucune lecture du coffre ni des états de fournisseur", async () => {

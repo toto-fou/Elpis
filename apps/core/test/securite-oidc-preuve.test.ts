@@ -2,7 +2,7 @@
 /** apps/core/test/securite-oidc-preuve.test.ts — la première connexion SSO d'un compte local préparé n'ouvre aucune session avant la preuve du titulaire ; la preuve vise le compte de la ligne préparée, jamais un nom du navigateur, est liée au navigateur du retour, compte ses échecs sur la ligne et ouvre la session `oidc:<id>` (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { createUser, verifyUser } from "@elpis/auth";
 import { schemaReponsePreuveLien, schemaReponsePreuveLienReussie } from "@elpis/contracts";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LightMyRequestResponse } from "fastify";
 
 import { ancreIdentite } from "../src/identite/ancre";
@@ -136,6 +136,40 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
         "details"
       ],
     ).toMatchObject({ login_method: "oidc:sso" });
+  });
+
+  it("l'ouverture de session qui échoue après le bon mot de passe : le même 401 que le mauvais, refus audité, aucune session", async () => {
+    const ouverte = cookies(
+      await b.main.inject({
+        method: "POST",
+        url: "/api/login-lite",
+        remoteAddress: adresseNeuve(),
+        headers: { host: HOTE_PUBLIC, "sec-fetch-site": "same-origin" },
+        payload: { username: "chef", password: "mdp-chef-1" },
+      }),
+    );
+    expect(ouverte).toContain("mcpwebui_session=");
+    const { cookie } = await retourDeJean();
+    const reel = b.t.base.run.bind(b.t.base);
+    const espion = vi
+      .spyOn(b.t.base, "run")
+      .mockImplementation((sql, ...reste) =>
+        /revoked_sessions/u.test(sql) ? Promise.reject(new Error("base occupée")) : reel(sql, ...reste),
+      );
+    try {
+      const mauvais = await prouver({ password: "pas-le-bon" }, `${cookie}; ${ouverte}`);
+      const r = await prouver({ password: "mdp-local-1" }, `${cookie}; ${ouverte}`);
+      expect(r.statusCode, r.body).toBe(401);
+      expect(r.json()).toEqual(mauvais.json());
+      expect(String(r.headers["set-cookie"] ?? "")).not.toMatch(/mcpwebui_session=[^;"]+;/u);
+      expect(
+        lignesAuditRecentes({ actionPrefix: "auth.login.denied" }).some(
+          (e) => (e["details"] as Record<string, unknown>)["reason"] === "session_open_failed",
+        ),
+      ).toBe(true);
+    } finally {
+      espion.mockRestore();
+    }
   });
 
   it("compte rattaché : `me-lite` dit que le mot de passe est géré, et le changement de son propre mot de passe est refusé", async () => {

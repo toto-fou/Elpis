@@ -162,7 +162,9 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       const vu = JSON.stringify([d.reponse.headers, d.reponse.body]);
       expect(vu).not.toMatch(/ca_inconnue|certificate|self.signed|UNABLE_TO|tls/iu);
       expect(vu).not.toContain(b.idp.issuer);
-      expect(lignesJournal.join("\n")).toMatch(/ca_inconnue|tls|certificat|unavailable/iu);
+      expect(lignesJournal.join("\n")).toMatch(
+        /WARNING \[identite\] connexion SSO sso : départ impossible \(discovery:ca_inconnue\)/u,
+      );
     });
   },
 );

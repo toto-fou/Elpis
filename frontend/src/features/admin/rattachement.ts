@@ -104,6 +104,7 @@ const PHRASES_LIEN: Readonly<Record<string, string>> = {
   groups_unknown: "Les groupes de cette entrée sont illisibles : réessayez.",
   directory_unavailable: "Annuaire injoignable, réessayez.",
 };
+const PHRASE_ROLE_RECALCULE = "Son rôle sera recalculé d'après l'annuaire à sa prochaine connexion.";
 const LIEN_GENERIQUE = "Rattachement impossible pour ce compte.";
 
 /** Phrase du résultat d'un rattachement ; une raison inconnue reçoit une phrase générique. */
@@ -437,9 +438,14 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     let rattaches = 0;
     let jetons = 0;
     let acces = 0;
+    let recalcules = 0;
     for (const r of lu.results) {
       if (r.result === "linked") {
         rattaches += 1;
+        if (r.role_will_be_managed) {
+          recalcules += 1;
+          phrases.set(r.user_id, `${phraseLien("linked")}. ${PHRASE_ROLE_RECALCULE}`);
+        }
         jetons += r.revoked_tokens ?? 0;
         acces += r.revoked_oauth ?? 0;
       } else phrases.set(r.user_id, phraseLien(r.result));
@@ -454,6 +460,11 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
         : "Aucun compte n'a été rattaché.";
     if (jetons > 0 || acces > 0)
       a.resume += ` Révoqués : ${jetons} jeton${jetons > 1 ? "s" : ""} d'API, ${acces} accès d'application.`;
+    if (recalcules > 0)
+      a.resume +=
+        recalcules > 1
+          ? " Leur rôle sera recalculé d'après l'annuaire à leur prochaine connexion."
+          : ` ${PHRASE_ROLE_RECALCULE}`;
     if (rattaches > 0) {
       void lien.loadUsers();
       void loadEnterpriseAuth();

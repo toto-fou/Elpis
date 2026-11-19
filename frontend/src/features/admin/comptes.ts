@@ -658,6 +658,13 @@ export function creerComptes(b: BaseAdmin) {
   const userEdit: Ref<EditionCompte | null> = ref(null);
   const admRoleLabel = (u: CompteConsole): string =>
     ({ admin: "Administrateur", moderator: "Modérateur", user: "Utilisateur" })[roleDe(u)] ?? "Utilisateur";
+  const ROLES_PAR_NIVEAU = [
+    { value: "admin", label: "Administrateur" },
+    { value: "moderator", label: "Modérateur" },
+    { value: "user", label: "Utilisateur" },
+  ];
+  const rolesRetrogradables = (u: CompteConsole): { value: string; label: string }[] =>
+    ROLES_PAR_NIVEAU.slice(ROLES_PAR_NIVEAU.findIndex((r) => r.value === roleDe(u)));
   function admNetProfileName(id: string): string {
     const p = usersNetProfiles.value.find((x) => x.id === id);
     return p ? p.name : id || "—";
@@ -945,6 +952,7 @@ export function creerComptes(b: BaseAdmin) {
     titreDesactivation,
     changerDesactivation,
     admRoleLabel,
+    rolesRetrogradables,
     admNetProfileName,
     admDesktopLabel,
     admDesktopTitle,

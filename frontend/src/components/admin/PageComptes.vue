@@ -367,10 +367,25 @@ function ajouterAuGroupe(ev: Event): void {
                           <div v-if="u.role_managed" class="adm-field" data-role-gere>
                             <span class="adm-field__label">Rôle</span>
                             <div class="adm-field__row text-sm">
-                              <span>{{ adm.admRoleLabel(u) }}</span>
+                              <select
+                                v-if="adm.rolesRetrogradables(u).length > 1"
+                                v-model="adm.userEdit.role"
+                                :disabled="u.id === adm.user.id"
+                                class="set-select"
+                                data-user-edit-first
+                              >
+                                <option
+                                  v-for="r in adm.rolesRetrogradables(u)"
+                                  :key="r.value"
+                                  :value="r.value"
+                                >
+                                  {{ r.label }}
+                                </option>
+                              </select>
+                              <span v-else>{{ adm.admRoleLabel(u) }}</span>
                               <span
                                 class="adm-pill"
-                                title="Le rôle de ce compte est donné par un groupe de votre annuaire."
+                                title="Le rôle de ce compte est donné par un groupe de votre annuaire. Vous pouvez seulement le rétrograder ; il sera recalculé à sa prochaine connexion."
                                 >géré par l'annuaire</span
                               >
                             </div>

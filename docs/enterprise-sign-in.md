@@ -245,7 +245,8 @@ Set the second factor at the provider, then make Elpis require it: **Niveaux d'a
 (`required_acr`) and **Méthodes d'authentification (amr)** (`required_amr`), space-separated lists. A sign-in
 is accepted when the identity token carries one of the listed `acr` values and, if set, one of the listed
 `amr` methods; the `acr` values are also sent in the request. Empty means no requirement, and the drawer says
-that no two-step check is then guaranteed by Elpis. A refusal shows "Une vérification en deux étapes est
+that no two-step check is then guaranteed by Elpis. For an administrator group, a `required_amr` made only of single-factor methods (`pwd`, `pin`, `kba`,
+`geo`) is not enough. A refusal shows "Une vérification en deux étapes est
 exigée".
 
 ### Keycloak
@@ -356,27 +357,52 @@ How the decision is made, for each person:
 - **One membership that cannot be read changes nothing.** If a single group to read is unreadable (directory
   error, missing group, no groups claim in the token), neither the role nor the groups of that person change.
   An unreadable answer is never taken as "not a member".
+- **A group with no visible member changes nothing either.** For a directory, when the service account sees
+  no member at all in a group of the roles or of the mapping (the group is empty, or hidden from that
+  account), nobody is demoted and nobody is removed because of it. The test reports it as a warning. As a
+  consequence, an administrator group that you emptied on purpose demotes nobody at the periodic check: lower
+  those roles by hand in **Comptes**.
 
 When the decision is applied:
 
 - **At each successful sign-in**, in both directions: the role goes up or down, groups are added or removed. An
   account created at a first sign-in gets its role and groups at once. The sign-in that completes a link with
-  the old password applies nothing; the next one does.
+  the old password (single sign-on) may lower the role at once, before the session opens; a promotion, and
+  any addition, waits for the next sign-in.
 - **During the periodic directory check**, for the people it finds present, only demotions and removals are
-  applied, never a promotion or an addition. Those wait for the person's next sign-in.
+  applied, never a promotion or an addition. Those wait for the person's next sign-in. The pass reads the
+  administrators and moderators first, so that a pass cut short by its time limit leaves the other accounts
+  for the next one; an entry that cannot be read is left as it is.
 - **Single sign-on has no periodic check**, so a change of groups at the provider reaches Elpis at the next
   sign-in of the person.
 - A **demotion closes the sessions** of the person. Elpis never demotes the last active administrator that has
   a local password.
-- The **role of such an account cannot be changed by hand**: the console refuses it for every account attached
-  to a provider whose `roles.enabled` is on.
+- The **role of such an account can be lowered by hand, never raised**: for every account attached to a
+  provider whose `roles.enabled` is on, **Comptes** only offers the current role and the lower ones, shown
+  with the mark **géré par l'annuaire** (managed by the directory), and the console refuses a promotion. The
+  role is recalculated from the groups at the next sign-in. The change is recorded as `admin.user.role` with
+  `role_managed`.
 
 **Administrator groups.** Giving the administrator role through groups is a deliberate step. When you save a
-provider with administrator groups for the first time, or change them, the save is refused until you confirm
-explicitly that their members become administrators. For single sign-on the provider must also require a
-second factor (`required_acr` or `required_amr`, see [Requiring a second factor](#requiring-a-second-factor)),
-otherwise the settings are refused; administrator groups of a single sign-on provider that does not require
-one are ignored, and `./elpis doctor` warns about it.
+provider with administrator groups, when you create it or change them, the save is refused until you confirm
+explicitly that their members become administrators: the drawer asks you to type **administrateur**. The
+confirmation is asked again when the way the groups are read changes: the **Appartenance** (Membership)
+mode of a directory, or, for single sign-on, the groups claim, `required_acr` or `required_amr`. For single
+sign-on the provider must also require a second factor (`required_acr`, or a `required_amr` that lists at
+least one method proving more than a single factor; `pwd`, `pin`, `kba` and `geo` do not, see
+[Requiring a second factor](#requiring-a-second-factor)), otherwise the settings are refused; administrator
+groups of a single sign-on provider that does not require one are ignored, and `./elpis doctor` warns about
+it. A mapping to an Elpis group that does not exist is refused when you save.
+
+**In the drawer.** The section **Rôles et groupes** (Roles and groups) is folded by default. Its first box,
+**Donner les rôles d'après les groupes de l'annuaire** (Give roles from the directory groups), turns on the
+role decision; **Groupes administrateurs** (Administrator groups) and **Groupes modérateurs** (Moderator
+groups) take the groups, one at a time, with **Ajouter**. The second box, **Affecter aux groupes Elpis
+d'après les groupes de l'annuaire** (Assign Elpis groups from the directory groups), turns on the mapping:
+pick the external group (**Groupe de l'annuaire**) and the **Groupe Elpis…** (Elpis group) it feeds, then
+**Ajouter**. With administrator groups, a fixed notice reminds you that an administrator of Elpis can run
+commands on the server. For single sign-on without a second factor, the section asks you to require a
+two-step verification first and the save stays unavailable.
 
 **Changing these settings** follows the general rule: switch the provider off, change them, test again, switch
 on. They are part of what the test covers.
@@ -390,6 +416,8 @@ group, one of a moderator group and one plain member. Nothing is written by a te
   roles or of the mapping does not exist, and states when members of the administrator groups would become
   administrators. **Droits de l'utilisateur d'essai** gives the role and the identifiers of the Elpis groups
   the test user would get, or a warning when a membership cannot be read (nothing would then change at sign-in).
+  **Groupes des rôles** also warns when the service account sees no member in a group of the roles or of the
+  mapping: the roles are then not modified.
 - **Single sign-on.** The result of the [sign-in trial](#the-sign-in-trial) reports the same for the person who
   signed in: the role and the Elpis groups, whether the groups were readable, the mapped Elpis groups that no
   longer exist, and whether the administrator groups are ignored for lack of a second factor.
@@ -451,7 +479,8 @@ account. Elpis never deletes an account by itself.
   provider calls the back-channel address of Elpis when the person signs out elsewhere or is closed at the
   provider. Elpis checks the signed logout token (signature, issuer, audience, validity, and the presence of its `jti`
   identifier) and closes the matching sessions; a token already applied is accepted again without effect. The
-  provider only gets a status code, and refused calls are limited per client address. That call comes from the provider to Elpis: **the provider
+  provider only gets a status code, and refused calls are limited per client address. When the token names
+  one session of the provider, the terminals opened from that session are closed with it. That call comes from the provider to Elpis: **the provider
   must trust the certificate of Elpis** (add your internal authority to it) and reach its public address.
 
 ## When it does not work

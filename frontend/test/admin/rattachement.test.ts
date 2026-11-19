@@ -362,6 +362,25 @@ describe("assistant de rattachement", () => {
     );
   });
 
+  it("un rôle bientôt géré par l'annuaire est dit dans le résultat", async () => {
+    const m = await ouvrirAssistant();
+    tous<HTMLInputElement>("[data-ratt-case]")[0]?.click();
+    await vider();
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    await attendre(450);
+    m.reponses[LIEN] = [
+      json({
+        results: [{ user_id: 2, subject: "uid-1", result: "linked", kept: true, role_will_be_managed: true }],
+      }),
+    ];
+    el("[data-ratt-valider]")?.click();
+    await vider();
+    expect(el("[data-ratt-resume]")?.textContent).toContain(
+      "Son rôle sera recalculé d'après l'annuaire à sa prochaine connexion.",
+    );
+  });
+
   it("une entrée qui ne peut pas se connecter est dite en clair", async () => {
     const m = await ouvrirAssistant();
     tous<HTMLInputElement>("[data-ratt-case]")[0]?.click();

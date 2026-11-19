@@ -204,7 +204,7 @@ const raison = (etat: string, dansGroupe: boolean | null): string => {
                     <p
                       v-if="l.resultat"
                       class="text-xs"
-                      :class="l.resultat === 'Rattaché' ? 'text-slate-700' : 'adm-field__warn'"
+                      :class="l.resultat.startsWith('Rattaché') ? 'text-slate-700' : 'adm-field__warn'"
                       role="status"
                       data-ratt-resultat-ligne
                     >

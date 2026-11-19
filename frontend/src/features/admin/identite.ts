@@ -507,7 +507,7 @@ export function creerIdentite(b: BaseAdmin) {
   const authRolesBloque = computed(
     () => authAdminSansSecondFacteur.value && !!authTiroir.value?.roles_enabled,
   );
-  /** Vrai quand la liste des groupes administrateurs, active, est nouvelle ou modifiée par rapport à l'état enregistré. */
+  /** Vrai quand les groupes administrateurs actifs, ou la façon de les lire, sont nouveaux ou modifiés par rapport à l'état enregistré. */
   const authAdminAConfirmer = computed(() => {
     const f = authTiroir.value;
     if (!f || !f.roles_enabled || f.admin_groups.length === 0) return false;
@@ -515,7 +515,14 @@ export function creerIdentite(b: BaseAdmin) {
     if (!p || !p.roles.enabled) return true;
     const a = [...p.roles.admin_groups].sort();
     const b = [...f.admin_groups].sort();
-    return a.length !== b.length || a.some((x, i) => x !== b[i]);
+    if (a.length !== b.length || a.some((x, i) => x !== b[i])) return true;
+    if (p.type === "ldap") return f.groups_mode !== p.groups.mode;
+    const mots_ = (t: string[]): string => [...t].sort().join(" ");
+    return (
+      f.groups_claim.trim() !== p.groups_claim ||
+      mots_(mots(f.required_acr)) !== mots_(p.required_acr) ||
+      mots_(mots(f.required_amr)) !== mots_(p.required_amr)
+    );
   });
   const authActifs = computed(() => (authEtat.value?.providers ?? []).filter((p) => p.active));
   const authAdressePublique = computed(() => authEtat.value?.public_url ?? "");

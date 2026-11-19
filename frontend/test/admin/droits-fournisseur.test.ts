@@ -169,6 +169,70 @@ describe("section Rôles et groupes : groupes administrateurs", () => {
   });
 });
 
+describe("section Rôles et groupes : confirmation à la création et au changement de sens", () => {
+  const ADMINS = { enabled: true, admin_groups: ["cn=admins"], moderator_groups: [] };
+
+  it("la création d'un fournisseur avec des groupes administrateurs demande la saisie et l'envoie", async () => {
+    const m = monter(etat([]), {});
+    await m.A.loadEnterpriseAuth();
+    m.A.authNouveau("oidc");
+    await vider();
+    const f = m.A.authTiroir.value;
+    if (!f) throw new Error("tiroir absent");
+    Object.assign(f, {
+      id: "neuf",
+      label: "Neuf",
+      issuer: "https://idp.example",
+      client_id: "elpis",
+      required_acr: "mfa",
+      roles_enabled: true,
+      admin_groups: ["cn=admins"],
+    });
+    m.reponses["POST /api/admin/auth/providers"] = [json(etat([LDAP_ETEINT]))];
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.mots).toEqual(["administrateur"]);
+    expect(envoye(m, "POST /api/admin/auth/providers")["confirm_admin_mapping"]).toBe(true);
+  });
+
+  it("un annuaire : changer l'appartenance rouvre la confirmation", async () => {
+    const enreg = { ...LDAP_ETEINT, roles: ADMINS };
+    const m = await ouvrir(enreg, "ipa");
+    m.reponses[PUT_IPA] = [json(etat([enreg]))];
+    const f = m.A.authTiroir.value;
+    if (!f) throw new Error("tiroir absent");
+    f.groups_mode = "chain";
+    await vider();
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.mots).toEqual(["administrateur"]);
+    expect(envoye(m, PUT_IPA)["confirm_admin_mapping"]).toBe(true);
+  });
+
+  for (const champ of ["groups_claim", "required_acr", "required_amr"] as const)
+    it(`un SSO : changer ${champ} rouvre la confirmation`, async () => {
+      const enreg = { ...SSO_2FA, roles: ADMINS };
+      const m = await ouvrir(enreg, "sso");
+      m.reponses[PUT_SSO] = [json(etat([enreg]))];
+      const f = m.A.authTiroir.value;
+      if (!f) throw new Error("tiroir absent");
+      f[champ] = champ === "groups_claim" ? "roles" : "mfa pwd";
+      await vider();
+      await clic("#ent-enregistrer-fournisseur");
+      expect(m.mots).toEqual(["administrateur"]);
+      expect(envoye(m, PUT_SSO)["confirm_admin_mapping"]).toBe(true);
+    });
+
+  it("le 400 d'un groupe Elpis inexistant affiche son détail", async () => {
+    const m = await ouvrir(LDAP_ETEINT, "ipa");
+    m.reponses[PUT_IPA] = [
+      json({ detail: "Champ « group_map.map.group_id » : ce groupe n'existe pas." }, 400),
+    ];
+    await clic("#ent-enregistrer-fournisseur");
+    expect(el("[role=alert].adm-field__warn:not([data-avertissement-admin])")?.textContent).toContain(
+      "ce groupe n'existe pas.",
+    );
+  });
+});
+
 describe("section Rôles et groupes : SSO sans second facteur", () => {
   it("la phrase s'affiche et l'enregistrement est indisponible quand les rôles sont allumés", async () => {
     const m = await ouvrir(OIDC, "sso");
@@ -387,16 +451,57 @@ describe("page Comptes : rôle géré par l'annuaire", () => {
     await vider();
   };
 
-  it("remplace le sélecteur par le rôle en lecture seule et la mention", async () => {
+  const OPTIONS = "[data-role-gere] select[data-user-edit-first] option";
+
+  it("un modérateur géré garde un sélecteur limité à son rôle et au rôle inférieur, avec la mention", async () => {
     const m = await page();
     await ouvrirEdition(m, 2);
     const bloc = el("[data-role-gere]");
-    expect(bloc?.textContent).toContain("Modérateur");
+    expect(tous<HTMLOptionElement>(OPTIONS).map((o) => o.value)).toEqual(["moderator", "user"]);
     expect(bloc?.textContent).toContain("géré par l'annuaire");
     expect(bloc?.querySelector(".adm-pill")?.getAttribute("title")).toBe(
-      "Le rôle de ce compte est donné par un groupe de votre annuaire.",
+      "Le rôle de ce compte est donné par un groupe de votre annuaire. Vous pouvez seulement le rétrograder ; il sera recalculé à sa prochaine connexion.",
     );
+  });
+
+  it("un administrateur géré peut descendre à tout rôle inférieur", async () => {
+    const m = monter(etat([LDAP]), {
+      page: "accounts",
+      utilisateurs: [
+        compteConsole(1, "root", { is_admin: 1 }),
+        compteConsole(4, "carl", { is_admin: 1, role_managed: true }),
+      ],
+    });
+    await m.A.loadEnterpriseAuth();
+    await m.A.loadUsers();
+    await vider();
+    await ouvrirEdition(m, 4);
+    expect(tous<HTMLOptionElement>(OPTIONS).map((o) => o.value)).toEqual(["admin", "moderator", "user"]);
+  });
+
+  it("un compte géré déjà utilisateur reste en lecture seule", async () => {
+    const m = monter(etat([LDAP]), {
+      page: "accounts",
+      utilisateurs: [
+        compteConsole(1, "root", { is_admin: 1 }),
+        compteConsole(5, "dora", { is_admin: 0, role_managed: true }),
+      ],
+    });
+    await m.A.loadEnterpriseAuth();
+    await m.A.loadUsers();
+    await vider();
+    await ouvrirEdition(m, 5);
+    expect(el("[data-role-gere]")?.textContent).toContain("Utilisateur");
     expect(el("[data-user-edit] select[data-user-edit-first]")).toBeNull();
+  });
+
+  it("la rétrogradation d'un rôle géré part au serveur", async () => {
+    const m = await page();
+    await ouvrirEdition(m, 2);
+    m.reponses["POST /api/admin/users/2/role"] = [json({ ok: true, role: "user" })];
+    await saisir("[data-role-gere] select[data-user-edit-first]", "user");
+    await clic('[data-user-edit] button[type="submit"]');
+    expect(m.corps["POST /api/admin/users/2/role"]?.[0]).toEqual({ role: "user" });
   });
 
   it("un compte non géré garde son sélecteur", async () => {
@@ -410,10 +515,17 @@ describe("page Comptes : rôle géré par l'annuaire", () => {
     const m = await page();
     await ouvrirEdition(m, 3);
     m.reponses["POST /api/admin/users/3/role"] = [
-      json({ detail: "Le rôle de ce compte est géré par votre annuaire." }, 409),
+      json(
+        {
+          detail: "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+        },
+        409,
+      ),
     ];
     await saisir("[data-user-edit] select[data-user-edit-first]", "moderator");
     await clic('[data-user-edit] button[type="submit"]');
-    expect(m.toasts).toContain("Le rôle de ce compte est géré par votre annuaire.");
+    expect(m.toasts).toContain(
+      "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+    );
   });
 });

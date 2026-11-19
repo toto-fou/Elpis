@@ -30,8 +30,8 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
           Donner les rôles d'après les groupes de l'annuaire
         </label>
         <p class="adm-card__hint">
-          Le rôle d'une personne est recalculé à chacune de ses connexions. Il ne se modifie alors plus dans
-          la page Comptes.
+          Le rôle d'une personne est recalculé à chacune de ses connexions. Dans la page Comptes, il ne peut
+          alors plus qu'être rétrogradé.
         </p>
 
         <div class="adm-field">

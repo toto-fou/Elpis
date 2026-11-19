@@ -68,6 +68,7 @@ import { creerFamilleAdminIdentiteBalayage } from "./familles/admin-identite-bal
 import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
 import { creerFamilleAdminIdentiteOidc } from "./familles/admin-identite-oidc";
 import { creerFamilleIdentite } from "./familles/identite";
+import { maintenirDecouvertesChaudes } from "./identite/oidc/rechauffement";
 import { FabriqueConfigurations } from "./identite/oidc/configuration";
 import { adresseDeFinDeSession } from "./identite/oidc/deconnexion";
 import { methodesPubliques } from "./identite/oidc/publique";
@@ -444,6 +445,20 @@ export async function composer(
     maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
     ...(options.sortantOidc === undefined ? {} : { sortant: options.sortantOidc }),
   });
+  cycle.auDemarrage(
+    "découvertes des fournisseurs SSO",
+    () =>
+      maintenirDecouvertesChaudes(
+        {
+          base,
+          configurations: configurationsOidc,
+          cookieSecure: () => auth.attributsCookie().https_only === true,
+          journal: journal.child({ domaine: "identite" }),
+        },
+        cycle.signalArret,
+      ),
+    { arrierePlan: true },
+  );
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());
@@ -538,7 +553,7 @@ export async function composer(
         demarrerHistoriqueFichiers: comptes.demarrerHistoriqueFichiers,
         logMetric: comptes.logMetric,
         publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
-        revoquer: (uid) => evenements.revoquer(uid),
+        revoquer: (uid, sid) => evenements.revoquer(uid, sid),
         bac: piloteBac(),
       }),
       creerFamilleComptes({

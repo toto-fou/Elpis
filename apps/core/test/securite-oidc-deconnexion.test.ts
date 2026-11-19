@@ -5,8 +5,12 @@ import { cheminSansCookie } from "../../../packages/auth/src/csrf";
 import type { LightMyRequestResponse } from "fastify";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { adresseDeFinDeSession, RefusAgreges } from "../src/identite/oidc/deconnexion";
+import { FabriqueConfigurations } from "../src/identite/oidc/configuration";
 import { lireMetadonnees } from "../src/identite/oidc/metadonnees";
-import { lignesAuditRecentes, lignesJournal } from "./aides";
+import { maintenirDecouvertesChaudes, rechaufferDecouvertes } from "../src/identite/oidc/rechauffement";
+import type { DependancesRechauffement } from "../src/identite/oidc/rechauffement";
+import { journalMuet, lignesAuditRecentes, lignesJournal } from "./aides";
 import {
   adresseNeuve,
   cookies,
@@ -17,7 +21,7 @@ import {
 } from "./identite/banc-oidc";
 import type { BancOidc } from "./identite/banc-oidc";
 import { MOTEURS } from "./identite/banc";
-import { OidcFactice } from "./identite/oidc-factice";
+import { OidcFactice, VERS_BOUCLE } from "./identite/oidc-factice";
 import type { PiegesJeton } from "./identite/oidc-factice";
 import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 
@@ -61,6 +65,23 @@ describe("découverte : points de fin de session", () => {
   });
 });
 
+describe("journal agrégé des refus", () => {
+  it("une seule ligne par raison et par minute, avec le nombre", () => {
+    vi.useFakeTimers();
+    try {
+      const lignes: string[] = [];
+      const a = new RefusAgreges((raison, n) => lignes.push(`${raison}:${n}`));
+      for (let i = 0; i < 30; i++) a.noter("malformed");
+      a.noter("bad_alg");
+      expect(lignes).toEqual([]);
+      vi.advanceTimersByTime(60_000);
+      expect(lignes.sort()).toEqual(["bad_alg:1", "malformed:30"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("garde inter-site", () => {
   it("la route du canal arrière n'est pas une route qui ouvre une session : aucun contrôle sans cookie", () => {
     expect(cheminSansCookie("/api/auth/oidc/sso/backchannel-logout")).toBe(false);
@@ -85,12 +106,18 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
     (await b.connecter(ELPIS(sub, { sid }))).session;
   const poster = (
     jeton: string,
-    o: { id?: string; corps?: string; type?: string; entetes?: Record<string, string> } = {},
+    o: {
+      id?: string;
+      corps?: string;
+      type?: string;
+      entetes?: Record<string, string>;
+      adresse?: string;
+    } = {},
   ): Promise<LightMyRequestResponse> =>
     b.main.inject({
       method: "POST",
       url: `/api/auth/oidc/${o.id ?? "sso"}/backchannel-logout`,
-      remoteAddress: adresseNeuve(),
+      remoteAddress: o.adresse ?? adresseNeuve(),
       headers: {
         host: HOTE_PUBLIC,
         "content-type": o.type ?? "application/x-www-form-urlencoded",
@@ -109,11 +136,44 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
     }
   };
 
+  const ouverts: AbortController[] = [];
+  /** Flux `/api/system-events` ouverts avec ces cookies ; `fermes` dit lesquels ont reçu `session_expired`. */
+  const ouvrirFlux = async (...cookiesDeSession: string[]): Promise<{ fermes(): Promise<boolean[]> }> => {
+    const adresse = await b.main.listen({ port: 0, host: "127.0.0.1" });
+    const recus = cookiesDeSession.map(() => ({ texte: "" }));
+    await Promise.all(
+      cookiesDeSession.map(async (cookie, i) => {
+        const stop = new AbortController();
+        ouverts.push(stop);
+        const rep = await fetch(`${adresse}/api/system-events`, {
+          headers: { host: HOTE_PUBLIC, cookie },
+          signal: stop.signal,
+        });
+        expect(rep.status).toBe(200);
+        void (async () => {
+          try {
+            for await (const morceau of rep.body as unknown as AsyncIterable<Uint8Array>)
+              (recus[i] as { texte: string }).texte += Buffer.from(morceau).toString();
+          } catch {
+            // flux interrompu par le test
+          }
+        })();
+      }),
+    );
+    return {
+      fermes: async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        return recus.map((r) => r.texte.includes("session_expired"));
+      },
+    };
+  };
+
   beforeEach(async () => {
     lignesJournal.length = 0;
     await ouvrir();
   });
   afterEach(async () => {
+    for (const c of ouverts.splice(0)) c.abort();
     vi.useRealTimers();
     await b.fermer();
   });
@@ -204,6 +264,30 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
       expect(await vivante(neuve)).toBe(true);
     });
 
+    it("une erreur interne ne consomme pas le `jti` : le fournisseur peut réessayer", async () => {
+      const a = await connecter("sub-jean", "idp-1");
+      const jeton = await b.idp.jetonDeconnexion({ sid: "idp-1" });
+      await b.t.base.run("ALTER TABLE auth_ext_sessions RENAME TO auth_ext_sessions_x");
+      try {
+        expect((await poster(jeton)).statusCode).toBe(500);
+      } finally {
+        await b.t.base.run("ALTER TABLE auth_ext_sessions_x RENAME TO auth_ext_sessions");
+      }
+      expect(await vivante(a)).toBe(true);
+      expect((await poster(jeton)).statusCode).toBe(200);
+      expect(await vivante(a)).toBe(false);
+    });
+
+    it("fermer une session ne ferme que ses flux : par `sid`, un flux d'une autre session du compte reste ouvert", async () => {
+      const a = await connecter("sub-jean", "idp-1");
+      const autre = await connecter("sub-jean", "idp-2");
+      const evenements = await ouvrirFlux(a, autre);
+      expect((await poster(await b.idp.jetonDeconnexion({ sid: "idp-1" }))).statusCode).toBe(200);
+      expect(await evenements.fermes()).toEqual([true, false]);
+      expect((await poster(await b.idp.jetonDeconnexion({ sub: "sub-jean" }))).statusCode).toBe(200);
+      expect(await evenements.fermes()).toEqual([true, true]);
+    });
+
     it("clé de signature tournée : relue au plus une fois par minute", async () => {
       const a = await connecter("sub-jean", "idp-1");
       await b.idp.rotation();
@@ -247,6 +331,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
       refuse(await piege({ claims: { iat: maintenant() - 700 } }), "iat_invalid"));
     it("`iat` dans le futur", async () =>
       refuse(await piege({ claims: { iat: maintenant() + 300 } }), "iat_invalid"));
+    it("`jti` absent", async () => refuse(await piege({ sans: ["jti"] }), "jti_missing"));
     it("`iat` absent", async () => refuse(await piege({ sans: ["iat"] }), "iat_missing"));
     it("`exp` dépassé", async () => refuse(await piege({ claims: { exp: maintenant() - 300 } }), "expired"));
     it("ni `sid` ni `sub`", async () =>
@@ -349,16 +434,44 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
       expect(r.statusCode).toBe(404);
     });
 
-    it("60 appels par minute et par fournisseur, puis 429 ; un autre fournisseur a son propre plafond", async () => {
-      await b.ajouter("autre", REGLAGE);
+    it("20 refus par minute et par adresse, puis 429 pour cette adresse seulement ; relâchée après une minute", async () => {
       const codes: number[] = [];
-      for (let i = 0; i < 62; i++) codes.push((await poster("x")).statusCode);
-      expect(codes.slice(0, 60).every((c) => c === 400)).toBe(true);
-      expect(codes.slice(60)).toEqual([429, 429]);
-      expect((await poster("x", { id: "autre" })).statusCode).toBe(400);
+      for (let i = 0; i < 22; i++) codes.push((await poster("x", { adresse: "198.51.100.7" })).statusCode);
+      expect(codes.slice(0, 20).every((c) => c === 400)).toBe(true);
+      expect(codes.slice(20)).toEqual([429, 429]);
+      expect((await poster("x")).statusCode).toBe(400);
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(Date.now() + 61_000);
-      expect((await poster("x")).statusCode).toBe(400);
+      expect((await poster("x", { adresse: "198.51.100.7" })).statusCode).toBe(400);
+    });
+
+    it("200 requêtes invalides d'une adresse n'empêchent pas un jeton valide d'une autre : 200 et la session meurt", async () => {
+      const a = await connecter("sub-jean", "idp-1");
+      for (let i = 0; i < 200; i++) await poster("x", { adresse: "198.51.100.8" });
+      const r = await poster(await b.idp.jetonDeconnexion({ sid: "idp-1" }));
+      expect(r.statusCode, r.body).toBe(200);
+      expect(await vivante(a)).toBe(false);
+    });
+
+    it("50 refus : pas une ligne de journal par refus (agrégation par raison et par minute)", async () => {
+      lignesJournal.length = 0;
+      for (let i = 0; i < 50; i++) await poster("x", { adresse: "198.51.100.9" });
+      expect(lignesJournal.filter((l) => l.includes("déconnexion SSO")).length).toBeLessThan(5);
+    });
+
+    it("clés illisibles : une seule lecture sortante pour 20 jetons, relue après une minute", async () => {
+      await connecter("sub-jean", "idp-1");
+      await b.idp.rotation();
+      b.idp.jeuDeCles = { keys: "x" };
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(Date.now() + 301_000);
+      const lues = b.idp.lecturesCles;
+      for (let i = 0; i < 20; i++)
+        expect((await poster(await b.idp.jetonDeconnexion({ sid: "idp-1" }))).statusCode).toBe(400);
+      expect(b.idp.lecturesCles - lues).toBe(1);
+      vi.setSystemTime(Date.now() + 61_000);
+      expect((await poster(await b.idp.jetonDeconnexion({ sid: "idp-1" }))).statusCode).toBe(400);
+      expect(b.idp.lecturesCles - lues).toBe(2);
     });
 
     it("sans cookie, la garde inter-site laisse passer ; avec un cookie de session cross-site, elle refuse comme ailleurs", async () => {
@@ -444,6 +557,70 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
       expect(b.idp.traces.length).toBe(avant);
       expect(await vivante(a)).toBe(false);
       expect(await lignes("SELECT COUNT(*) FROM auth_ext_sessions")).toEqual([[0]]);
+    });
+
+    describe("après un redémarrage : découverte tenue chaude", () => {
+      const neuve = (): FabriqueConfigurations =>
+        new FabriqueConfigurations({
+          base: b.t.base,
+          maintenant: () => Date.now() / 1000,
+          sortant: { juger: VERS_BOUCLE },
+        });
+      const dependances = (configurations: FabriqueConfigurations): DependancesRechauffement => ({
+        base: b.t.base,
+        configurations,
+        cookieSecure: () => true,
+        journal: journalMuet,
+      });
+      const fin = (configurations: FabriqueConfigurations, sid: string): Promise<string | null> =>
+        adresseDeFinDeSession({ base: b.t.base, configurations, cookieSecure: () => true }, sid);
+      const sidLocal = async (): Promise<string> =>
+        String((await lignes("SELECT sid FROM auth_ext_sessions"))[0]?.[0]);
+
+      it("fabrique neuve : pas d'adresse ; après le réchauffement : adresse rendue, sans appel sortant au moment de la déconnexion", async () => {
+        await connecter("sub-jean", "idp-1");
+        const froide = neuve();
+        const sid = await sidLocal();
+        expect(await fin(froide, sid)).toBeNull();
+        await connecter("sub-jean", "idp-2");
+        const chaude = neuve();
+        await rechaufferDecouvertes(dependances(chaude));
+        const avant = b.idp.traces.length;
+        const url = await fin(chaude, await sidLocal());
+        expect(b.idp.traces.length).toBe(avant);
+        expect(new URL(url ?? "").origin).toBe(b.idp.origine);
+      });
+
+      it("fournisseur en panne : réchauffement sans erreur, pas d'adresse, déconnexion réussie, un seul appel de découverte", async () => {
+        const a = await connecter("sub-jean", "idp-1");
+        b.idp.decouverte = { issuer: "https://autre.exemple.lan/realms/x" };
+        const chaude = neuve();
+        const lues = (): number =>
+          b.idp.traces.filter((t) => t.chemin.endsWith("openid-configuration")).length;
+        const avant = lues();
+        await rechaufferDecouvertes(dependances(chaude));
+        await rechaufferDecouvertes(dependances(chaude));
+        expect(lues() - avant).toBe(1);
+        expect(await fin(chaude, await sidLocal())).toBeNull();
+        expect((await deconnecter(a)).statusCode).toBe(200);
+        expect(await vivante(a)).toBe(false);
+      });
+
+      it("fournisseur sans déconnexion initiée par Elpis : rien n'est lu", async () => {
+        await b.reglages({ logout: { rp_initiated: false, backchannel: true } });
+        const avant = b.idp.traces.length;
+        await rechaufferDecouvertes(dependances(neuve()));
+        expect(b.idp.traces.length).toBe(avant);
+      });
+
+      it("la boucle fait une passe au démarrage et s'arrête au signal", async () => {
+        const arret = new AbortController();
+        const chaude = neuve();
+        const fini = maintenirDecouvertesChaudes(dependances(chaude), arret.signal, 3600);
+        await vi.waitFor(() => expect(chaude.metadonneesGardees(b.fournisseur, URL_PUBLIQUE)).not.toBeNull());
+        arret.abort();
+        await fini;
+      });
     });
 
     it("fournisseur en panne : la déconnexion locale réussit, sans appel", async () => {

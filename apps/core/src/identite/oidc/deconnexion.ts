@@ -16,7 +16,8 @@ import { RefusOidc } from "./refus";
 
 export const EVENEMENT_DECONNEXION = "http://schemas.openid.net/event/backchannel-logout";
 export const CORPS_DECONNEXION_MAX = 16 * 1024;
-export const APPELS_PAR_MINUTE = 60;
+export const REFUS_PAR_MINUTE = 20;
+const ADRESSES_MAX = 5000;
 const AGE_MAX_S = 600;
 const CHAMP_MAX = 255;
 const JTI_MAX = 2000;
@@ -97,23 +98,60 @@ export async function verifierJetonDeconnexion(
   const sub = texteBorne(payload["sub"]);
   const jti = texteBorne(payload["jti"]);
   if (sid === undefined || sub === undefined || jti === undefined) throw refus("bad_claim");
+  if (jti === null) throw refus("jti_missing");
   if (sid === null && sub === null) throw refus("no_subject");
   return { sid, sub, jti, iat };
 }
 
-/** Plafond d'appels par fournisseur et par minute pour ce process (fenêtre fixe, en mémoire). */
-export class PlafondAppels {
+/** Refus par adresse source et par minute pour ce process (fenêtre fixe, en mémoire, bornée) : seuls les refus comptent, un jeton valide n'est jamais compté. */
+export class RefusParAdresse {
   private readonly fenetres = new Map<string, { debut: number; n: number }>();
 
-  /** Compte un appel ; faux au-delà du plafond de la minute. */
-  prendre(id: string, t: number): boolean {
-    const w = this.fenetres.get(id);
-    if (w === undefined || t - w.debut >= 60) {
-      this.fenetres.set(id, { debut: t, n: 1 });
-      return true;
+  /** Vrai si cette adresse a déjà atteint le plafond de refus de la minute. */
+  saturee(cle: string, t: number): boolean {
+    const w = this.fenetres.get(cle);
+    return w !== undefined && t - w.debut < 60 && w.n >= REFUS_PAR_MINUTE;
+  }
+
+  /** Note un refus de cette adresse. */
+  noter(cle: string, t: number): void {
+    const w = this.fenetres.get(cle);
+    if (w !== undefined && t - w.debut < 60) {
+      w.n += 1;
+      return;
     }
-    w.n += 1;
-    return w.n <= APPELS_PAR_MINUTE;
+    if (this.fenetres.size >= ADRESSES_MAX) {
+      for (const [k, v] of this.fenetres) if (t - v.debut >= 60) this.fenetres.delete(k);
+      if (this.fenetres.size >= ADRESSES_MAX)
+        this.fenetres.delete(this.fenetres.keys().next().value as string);
+    }
+    this.fenetres.set(cle, { debut: t, n: 1 });
+  }
+}
+
+/** Ligne de journal d'un refus agrégée : une ligne par raison et par minute au plus, avec le nombre, écrite à la fin de la minute. */
+export class RefusAgreges {
+  private readonly raisons = new Map<string, number>();
+
+  private readonly ecrire: (raison: string, n: number) => void;
+
+  constructor(ecrire: (raison: string, n: number) => void) {
+    this.ecrire = ecrire;
+  }
+
+  /** Compte un refus ; la ligne de sa raison part une minute plus tard. */
+  noter(raison: string): void {
+    const n = this.raisons.get(raison);
+    if (n !== undefined) {
+      this.raisons.set(raison, n + 1);
+      return;
+    }
+    this.raisons.set(raison, 1);
+    setTimeout(() => {
+      const total = this.raisons.get(raison) ?? 0;
+      this.raisons.delete(raison);
+      this.ecrire(raison, total);
+    }, 60_000).unref();
   }
 }
 
@@ -121,14 +159,17 @@ export class PlafondAppels {
 export class JetonsVus {
   private readonly vus = new Map<string, number>();
 
-  /** Vrai si ce `jti` du fournisseur a déjà été appliqué ; sinon le note jusqu'à `expire`. */
-  dejaVu(id: string, jti: string, expire: number, t: number): boolean {
+  /** Vrai si ce `jti` du fournisseur a déjà été appliqué. */
+  dejaVu(id: string, jti: string, t: number): boolean {
+    const fin = this.vus.get(`${id}\u0000${jti}`);
+    return fin !== undefined && fin >= t;
+  }
+
+  /** Note ce `jti` comme appliqué jusqu'à `expire`. */
+  noter(id: string, jti: string, expire: number, t: number): void {
     for (const [cle, fin] of this.vus) if (fin < t) this.vus.delete(cle);
-    const cle = `${id}\u0000${jti}`;
-    if (this.vus.has(cle)) return true;
     if (this.vus.size >= JTI_MAX) this.vus.delete(this.vus.keys().next().value as string);
-    this.vus.set(cle, expire);
-    return false;
+    this.vus.set(`${id}\u0000${jti}`, expire);
   }
 }
 
@@ -179,6 +220,7 @@ async function supprimerPreuvesDuSujet(x: Executeur, providerId: string, sub: st
 export interface BilanDeconnexion {
   readonly sessions: number;
   readonly comptes: readonly number[];
+  readonly fermees: readonly { readonly sid: string; readonly uid: number }[];
 }
 
 /** Révoque les sessions de ce fournisseur visées par le jeton et supprime leurs lignes ; rend leur nombre et les comptes touchés. */
@@ -197,7 +239,11 @@ export async function appliquerDeconnexion(
     if (j.sub !== null) await supprimerPreuvesDuSujet(x, f.id, j.sub);
     return visees;
   });
-  return { sessions: lignes.length, comptes: [...new Set(lignes.map((l) => Number(l.user_id)))] };
+  return {
+    sessions: lignes.length,
+    comptes: [...new Set(lignes.map((l) => Number(l.user_id)))],
+    fermees: lignes.map((l) => ({ sid: l.sid, uid: Number(l.user_id) })),
+  };
 }
 
 export interface DependancesFinDeSession {

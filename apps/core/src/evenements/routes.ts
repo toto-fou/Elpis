@@ -20,6 +20,7 @@ import { corpsJson } from "@elpis/http";
 /** Identité du flux, lue après la garde `session` : compte, staff (`is_admin` 1 ou 2), revalidation périodique. */
 export interface IdentiteFlux {
   readonly uid: number;
+  readonly sid?: string | null;
   readonly staff: boolean;
   readonly encoreValide?: VerifierSession;
 }
@@ -40,6 +41,7 @@ export function identiteDeSession(dep: DependancesAuth): ResoudreIdentite {
     const meta = metaSession(requete.session);
     return {
       uid,
+      sid: typeof sid === "string" && sid !== "" ? sid : null,
       staff,
       encoreValide: async () => {
         if (!(await revaliderFlux(dep, uid, loginTs, sid, meta))) return false;
@@ -214,6 +216,7 @@ export function familleEvenements(ctx: ContexteRoutes): Famille {
             isStaff: identite.staff,
             journal: demande,
             userId: identite.uid,
+            sid: identite.sid ?? null,
             validityCheck: identite.encoreValide,
             signal,
           }),

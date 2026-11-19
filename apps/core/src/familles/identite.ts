@@ -33,7 +33,8 @@ import {
   appliquerDeconnexion,
   CORPS_DECONNEXION_MAX,
   JetonsVus,
-  PlafondAppels,
+  RefusAgreges,
+  RefusParAdresse,
   verifierJetonDeconnexion,
 } from "../identite/oidc/deconnexion";
 import { oauthNextAdmis, preparerDepart } from "../identite/oidc/depart";
@@ -67,7 +68,7 @@ export interface DependancesIdentite {
   readonly logMetric?: (nom: string, valeur: number, etiquettes: Record<string, unknown>) => void;
   readonly publierSuspension?: (uid: number) => Promise<boolean>;
   /** Flux ouverts d'un compte rattaché coupés dans tous les process. */
-  readonly revoquer: (uid: number) => Promise<unknown>;
+  readonly revoquer: (uid: number, sid?: string) => Promise<unknown>;
   readonly bac?: PortBac;
 }
 
@@ -329,8 +330,11 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     }
   }
 
-  const plafond = new PlafondAppels();
+  const refusParAdresse = new RefusParAdresse();
   const vus = new JetonsVus();
+  const refusAgreges = new RefusAgreges((raison, n) =>
+    dep.journal.warn(`déconnexion SSO refusée : ${raison} (${n} sur la dernière minute)`),
+  );
 
   /** Déconnexion par canal arrière : jeton signé du fournisseur ; 200 sans corps s'il est valide, 400 sinon, jamais rien du jeton en retour. */
   async function canalArriere(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
@@ -338,12 +342,14 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     if (!f.logout.backchannel) throw new HttpError(404, "Not Found");
     void rep.headers(SANS_CACHE);
     const t = maintenant();
+    const cle = cleAdresse(ipDuClient(req, dep.mandataires));
     const refuser = (raison: string, statut = 400): FastifyReply => {
-      dep.journal.warn(`déconnexion SSO ${f.id} refusée : ${raison}`);
+      refusParAdresse.noter(cle, t);
+      refusAgreges.noter(raison);
       auditerRefus(req, "auth.oidc.backchannel_logout.denied", { provider_id: f.id, reason: raison });
       return rep.code(statut).send();
     };
-    if (!plafond.prendre(f.id, t)) return refuser("rate_limited", 429);
+    if (refusParAdresse.saturee(cle, t)) return refuser("rate_limited", 429);
     if (!/^application\/x-www-form-urlencoded\s*(;|$)/iu.test(entete(req, "content-type") ?? ""))
       return refuser("content_type");
     const champs = new URLSearchParams(corpsLu(req).toString("utf8"));
@@ -361,14 +367,18 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     } catch (e) {
       return refuser(e instanceof RefusOidc ? e.cause_ : "invalid");
     }
-    if (jeton.jti !== null && vus.dejaVu(f.id, jeton.jti, jeton.iat + DUREE_REJEU_S, t))
-      return rep.code(200).send();
+    if (jeton.jti !== null && vus.dejaVu(f.id, jeton.jti, t)) return rep.code(200).send();
     const bilan = await appliquerDeconnexion(base, f, jeton, t);
-    for (const uid of bilan.comptes) {
+    if (jeton.jti !== null) vus.noter(f.id, jeton.jti, jeton.iat + DUREE_REJEU_S, t);
+    const cibles =
+      jeton.sid !== null
+        ? bilan.fermees.map((s) => ({ uid: s.uid, sid: s.sid }))
+        : bilan.comptes.map((uid) => ({ uid, sid: undefined }));
+    for (const c of cibles) {
       try {
-        await dep.revoquer?.(uid);
+        await dep.revoquer?.(c.uid, c.sid);
       } catch (e) {
-        dep.journal.warn({ err: e }, `déconnexion SSO ${f.id} : flux du compte non fermés`);
+        dep.journal.warn({ err: e }, `déconnexion SSO ${f.id} : flux non fermés`);
       }
     }
     auditerRequete(req, "auth.oidc.backchannel_logout", {

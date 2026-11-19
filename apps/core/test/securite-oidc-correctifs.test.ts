@@ -110,17 +110,17 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("correctifs du SSO OIDC (%s)"
       expect((await b.demarrer()).reponse.statusCode).toBe(200);
     });
 
-    it("fournisseur en panne : un seul appel sortant pour 20 départs, 503 ; relu après 30 secondes", async () => {
+    it("fournisseur en panne : un seul appel sortant pour 20 départs, 503 ; relu après 60 secondes", async () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       b.idp.decouverte = { issuer: "https://autre.exemple.lan/realms/x" };
       const avant = decouvertes();
       for (let i = 0; i < 20; i++) expect((await b.demarrer()).reponse.statusCode).toBe(503);
       expect(decouvertes() - avant).toBe(1);
-      vi.setSystemTime(Date.now() + 31_000);
+      vi.setSystemTime(Date.now() + 61_000);
       expect((await b.demarrer()).reponse.statusCode).toBe(503);
       expect(decouvertes() - avant).toBe(2);
       b.idp.decouverte = {};
-      vi.setSystemTime(Date.now() + 31_000);
+      vi.setSystemTime(Date.now() + 61_000);
       expect((await b.demarrer()).reponse.statusCode).toBe(200);
     });
 

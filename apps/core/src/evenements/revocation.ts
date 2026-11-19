@@ -20,7 +20,7 @@ export interface BilanRevocation {
   terminaux: number;
 }
 
-/** `{"type": "session_revoked", "uid": N|null}` : `session_expired` puis fermeture ; idempotent. */
+/** `{"type": "session_revoked", "uid": N|null}` : `session_expired` puis fermeture ; avec `sid`, les seuls flux de cette session (les autres se ferment à leur revalidation) ; idempotent. */
 export async function applySessionRevocation(
   payload: Message,
   cibles: CiblesRevocation,
@@ -34,6 +34,11 @@ export async function applySessionRevocation(
     return null;
   }
   const expire: Message = { type: "session_expired" };
+  const sid = payload["sid"];
+  if (uid !== null && typeof sid === "string" && sid !== "") {
+    const fermes = cibles.systemEvents.disconnectSession(uid, sid, expire);
+    return { uid, systeme: fermes, terminaux: 0 };
+  }
   const systeme = cibles.systemEvents.disconnectUser(uid, expire);
   let terminaux = 0;
   try {

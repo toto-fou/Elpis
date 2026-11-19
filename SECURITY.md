@@ -78,6 +78,10 @@ run Elpis on a dedicated machine or VM. Details below.
   settings. Assumed: the directory and the identity provider are trusted and well run, the host name of
   Elpis is dedicated to it, HTTPS is in force, and the certificate authority of the provider is the one
   configured. A directory sign-in sends the directory password through Elpis; single sign-on does not.
+  Optionally (off by default), the role and some Elpis groups follow the provider's groups: exact matches
+  only, a membership that cannot be read changes nothing, and administrator groups need an explicit
+  confirmation and, for single sign-on, a required second factor. Provider-side sign-out and back-channel
+  logout end the sessions of that provider only, on a signed logout token.
   See [docs/enterprise-sign-in.md](docs/enterprise-sign-in.md).
 - Driven browser: it runs inside each account's sandbox; its traffic
   leaves through the account's relay on the host, which applies the

@@ -420,21 +420,37 @@ returns them.
 | `providers` | `[]` | Five providers at most |
 
 Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at most, never changed),
-`type` (`ldap` or `oidc`, never changed), `label` (1 to 40 characters), `enabled`, `preset`, `ca_pem`
-(PEM certificates, 64 KiB at most; when present, the only trust anchor of this provider),
-`required_groups` (0 to 20 entries; at least one is needed to switch on), `roles`, `group_map` and
-`freshness_days` (1 to 90, default 14).
+`type` (`ldap` or `oidc`, never changed), `label` (1 to 40 characters), `enabled`, `preset` (40 characters at
+most), `ca_pem` (PEM certificates, 64 KiB at most; when present, the only trust anchor of this provider),
+`required_groups` (0 to 20 entries of 512 characters at most; at least one is needed to switch on), `roles`,
+`group_map` and `freshness_days` (1 to 90, default 14). Texts contain no control character (the pasted certificate authority aside).
 
-- LDAP: `urls` (one to three `ldaps://host[:port]`, never plain `ldap://`), `bind_dn`, `user_base_dn`,
-  `user_filter` (contains `{username}` exactly once), `attrs` (`id`, `username`, `email`, `name`; `id` is the stable key and
-  must be a server-generated identifier: `entryUUID`, `ipaUniqueID`, `objectGUID` or `nsUniqueId`, different from the other three),
-  `groups.mode` (`memberof`, `chain`, `member`), `max_failures` (1 to 20, default 4),
-  `failure_window_sec` (60 to 86400, default 900), `timeout_sec` (2 to 30, default 10).
-- OIDC: `issuer` (`https`, no query or fragment), `client_id`, `client_auth` (`basic`, `post`),
-  `scopes` (must contain `openid`), `subject_claim`, `username_claim`, `email_claim`, `name_claim`,
-  `groups_claim`, `required_acr`, `required_amr`, `max_age_sec` (0 = none), `clock_skew_sec` (0 to
-  300, default 60), `session_max_age_sec` (0 = global duration), `logout`
-  (`rp_initiated`, `backchannel`).
+- `roles` (all three keys required; see [enterprise-sign-in.md](enterprise-sign-in.md#roles-and-groups-from-the-directory)):
+  `enabled` (default `false`), `admin_groups` and `moderator_groups` (0 to 20 entries of 512 characters at
+  most each, no duplicate). The role of the accounts of the provider follows these groups; administrator groups
+  of an `oidc` provider count only when it sets `required_acr` or `required_amr`.
+- `group_map`: `enabled` (default `false`) and `map`, 0 to 50 pairs `{external, group_id}` (`external`: 1 to 512
+  characters, the group DN or the exact claim value; `group_id`: identifier of an Elpis group, 1 or more; no
+  duplicate pair).
+- LDAP: `urls` (one to three `ldaps://host[:port]`, never plain `ldap://`, no duplicate host and port),
+  `bind_dn` and `user_base_dn` (512 characters at most), `user_filter` (starts with `(`, ends with `)`, contains
+  `{username}` exactly once, 512 characters at most), `attrs` (`id`, `username`, `email`, `name`: attribute
+  names; `id` is the stable key and must be a server-generated identifier: `entryUUID`, `ipaUniqueID`,
+  `objectGUID` or `nsUniqueId`, different from the other three), `groups.mode` (`memberof`, `chain`,
+  `member`), `max_failures` (1 to 20, default 4), `failure_window_sec` (60 to 86400, default 900),
+  `timeout_sec` (2 to 30, default 10).
+- OIDC: `issuer` (`https`, no credentials, query or fragment, 512 characters at most), `client_id` (1 to 256
+  characters), `client_auth` (`basic`, `post`; default `basic`), `id_token_alg` (`RS256`, `RS384`, `RS512`,
+  `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512` or `EdDSA`; default `RS256`; symmetric and unsigned
+  algorithms are not accepted), `scopes` (1 to 20, must contain `openid`; default `openid profile email`),
+  `subject_claim` (default `sub`), `username_claim` (default `preferred_username`), `email_claim` (default
+  `email`), `name_claim` (default `name`), `groups_claim` (default `groups`; claim names of 1 to 64 letters,
+  digits, `_`, `-`, `.` or `:`, a dotted path reaches a nested claim), `required_acr` and `required_amr`
+  (0 to 10 values of 128 characters at most; empty = no requirement), `max_age_sec` (0 to 604800, 0 = none),
+  `clock_skew_sec` (0 to 300, default 60), `session_max_age_sec` (0 to 2592000, 0 = global duration), `logout`
+  (`rp_initiated`, `backchannel`, both default `false`).
+
+The defaults are those of a provider created in the console; a section written by hand has none (every key is required).
 
 A provider counts as active only when, at every read: it is switched on, all its settings are valid
 (unknown keys included), `required_groups` is not empty, `public_url` is a valid `https` origin,

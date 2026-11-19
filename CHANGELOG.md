@@ -15,7 +15,10 @@ follow [SemVer](https://semver.org/).
   for single sign-on, a dry-run sign-in; switching on needs a required group, the secret in the vault and a
   successful test. Accounts are created at the first sign-in or linked (assistant for a directory, prepared
   link plus the old password once for single sign-on). A periodic directory check suspends people who left,
-  with a guard against mass departures. `./elpis auth status|doctor|off|reactivate` keep an emergency exit.
+  with a guard against mass departures. Optionally, the role and some Elpis groups follow the groups of the
+  directory or provider (administrator groups need a confirmation and, for single sign-on, a required second
+  factor), and sign-out reaches the provider (RP-initiated and back-channel logout).
+  `./elpis auth status|doctor|off|reactivate` keep an emergency exit.
   Guide: [docs/enterprise-sign-in.md](docs/enterprise-sign-in.md).
 
 ### Changed

@@ -6,8 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { testerFournisseur } from "../../src/identite/essai";
 import { secretFournisseur } from "../../src/identite/fournisseurs";
-import { navigateur, ouvrirBancRecette, temoins } from "./recette-outils";
-import type { BancRecette, Compte, Ecoute, Reponse } from "./recette-outils";
+import { formulaire, navigateur, ouvrirBancRecette, temoins, traverserFournisseur } from "./recette-outils";
+import type { BancRecette, Compte, Ecoute } from "./recette-outils";
 
 interface Client {
   /** Identifiant du fournisseur dans Elpis, qui est aussi celui du client chez le fournisseur. */
@@ -38,48 +38,8 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect de 
   const ca = RECETTE === null ? "" : readFileSync(recette.ca, "utf8");
   const origine = RECETTE === null ? "" : new URL(recette.issuer).origin;
 
-  /** Champs cachés et action du premier formulaire d'une page du fournisseur. */
-  function formulaire(page: Reponse): { action: string; champs: Record<string, string> } | null {
-    const f = /<form[^>]*action="([^"]+)"[^>]*>([\s\S]*?)<\/form>/u.exec(page.corps);
-    if (f === null) return null;
-    const champs: Record<string, string> = {};
-    for (const m of (f[2] ?? "").matchAll(/<input[^>]*type="hidden"[^>]*>/gu)) {
-      const nom = /name="([^"]+)"/u.exec(m[0])?.[1];
-      if (nom !== undefined) champs[nom] = /value="([^"]*)"/u.exec(m[0])?.[1] ?? "";
-    }
-    return { action: (f[1] ?? "").replaceAll("&amp;", "&"), champs };
-  }
-
-  /** Suit le fournisseur comme un navigateur (redirections chez lui, connexion, consentement) jusqu'au retour vers Elpis. */
-  async function traverser(
-    depart: string,
-    c: Compte,
-    jarInitial = "",
-  ): Promise<{ lieu: string; jar: string }> {
-    let jar = jarInitial;
-    let page = await navigateur(depart, ca, { cookie: jar });
-    jar = temoins(page, jar);
-    for (let i = 0; i < 12; i++) {
-      if (page.statut >= 300 && page.statut < 400) {
-        const suite = new URL(String(page.entetes["location"]), recette.issuer);
-        if (suite.origin !== origine) return { lieu: suite.href, jar };
-        page = await navigateur(suite.href, ca, { cookie: jar });
-      } else {
-        const f = formulaire(page);
-        if (f === null)
-          throw new Error(`page inattendue du fournisseur : ${page.statut} ${page.corps.slice(0, 200)}`);
-        const saisie: Record<string, string> = page.corps.includes('name="login"')
-          ? { login: c.login, password: c.mdp }
-          : {};
-        page = await navigateur(new URL(f.action, recette.issuer).href, ca, {
-          cookie: jar,
-          corps: new URLSearchParams({ ...f.champs, ...saisie }).toString(),
-        });
-      }
-      jar = temoins(page, jar);
-    }
-    throw new Error("le fournisseur n'a pas rendu la main");
-  }
+  const traverser = (depart: string, c: Compte, jar = "") =>
+    traverserFournisseur(recette.issuer, ca, depart, c, jar);
 
   describe.each((RECETTE?.clients ?? []).map((c) => [`${c.id} (${c.alg}, ${c.auth})`, c] as const))(
     "%s",

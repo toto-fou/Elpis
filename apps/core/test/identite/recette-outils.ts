@@ -96,6 +96,56 @@ export function temoins(r: Reponse, avant = ""): string {
   return [...jar.values()].join("; ");
 }
 
+/** Champs cachés et action du premier formulaire d'une page du fournisseur. */
+export function formulaire(page: Reponse): { action: string; champs: Record<string, string> } | null {
+  const f = /<form[^>]*action="([^"]*)"[^>]*>([\s\S]*?)<\/form>/u.exec(page.corps);
+  if (f === null) return null;
+  const champs: Record<string, string> = {};
+  for (const m of (f[2] ?? "").matchAll(/<input[^>]*type="hidden"[^>]*>/gu)) {
+    const nom = /name="([^"]+)"/u.exec(m[0])?.[1];
+    if (nom !== undefined) champs[nom] = /value="([^"]*)"/u.exec(m[0])?.[1] ?? "";
+  }
+  return { action: (f[1] ?? "").replaceAll("&amp;", "&"), champs };
+}
+
+/** Suit le fournisseur comme un navigateur (redirections chez lui, connexion, consentement) jusqu'à ce qu'il renvoie ailleurs ; `champs` : noms des champs d'identifiant et de mot de passe de son formulaire. */
+export async function traverserFournisseur(
+  issuer: string,
+  ca: string,
+  depart: string,
+  c: Compte,
+  jarInitial = "",
+  champs: { login: string; mdp: string } = { login: "login", mdp: "password" },
+): Promise<{ lieu: string; jar: string }> {
+  const origine = new URL(issuer).origin;
+  let jar = jarInitial;
+  let courante = depart;
+  let page = await navigateur(courante, ca, { cookie: jar });
+  jar = temoins(page, jar);
+  for (let i = 0; i < 12; i++) {
+    if (page.statut >= 300 && page.statut < 400) {
+      const suite = new URL(String(page.entetes["location"]), courante);
+      if (suite.origin !== origine) return { lieu: suite.href, jar };
+      courante = suite.href;
+      page = await navigateur(courante, ca, { cookie: jar });
+    } else {
+      const f = formulaire(page);
+      if (f === null)
+        throw new Error(`page inattendue du fournisseur : ${page.statut} ${page.corps.slice(0, 200)}`);
+      const saisie: Record<string, string> = page.corps.includes(`name="${champs.login}"`)
+        ? { [champs.login]: c.login, [champs.mdp]: c.mdp }
+        : {};
+      courante = new URL(f.action === "" ? courante : f.action, courante).href;
+      page = await navigateur(courante, ca, {
+        cookie: jar,
+        corps: new URLSearchParams({ ...f.champs, ...saisie }).toString(),
+      });
+    }
+    jar = temoins(page, jar);
+  }
+  throw new Error("le fournisseur n'a pas rendu la main");
+}
+
 export interface BancRecette {
   readonly t: BaseDeTest;
   readonly main: FastifyInstance;

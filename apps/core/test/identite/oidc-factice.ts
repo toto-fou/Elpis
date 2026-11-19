@@ -175,6 +175,8 @@ export class OidcFactice {
       token_endpoint: `${o}/realms/elpis/token`,
       jwks_uri: `${o}/realms/elpis/certs`,
       userinfo_endpoint: `${o}/realms/elpis/userinfo`,
+      end_session_endpoint: `${o}/realms/elpis/logout`,
+      backchannel_logout_supported: true,
       id_token_signing_alg_values_supported: [this.alg],
       token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
       code_challenge_methods_supported: ["S256"],
@@ -339,6 +341,26 @@ export class OidcFactice {
       ...code.utilisateur.claims,
       ...p.claims,
     };
+    return this.signer(claims, p);
+  }
+
+  /** Jeton de déconnexion par canal arrière honnête (`sid` et `sub` donnés), modifié par les pièges (`claims`, `sans`, `alg`, `kid`, `signerAvecAutreCle`). */
+  async jetonDeconnexion(u: { sid?: string; sub?: string }, p: PiegesJeton = {}): Promise<string> {
+    const t = Math.floor(Date.now() / 1000);
+    const claims: Record<string, unknown> = {
+      iss: this.issuer,
+      aud: this.clientId,
+      iat: t,
+      jti: randomBytes(8).toString("hex"),
+      events: { "http://schemas.openid.net/event/backchannel-logout": {} },
+      ...(u.sid === undefined ? {} : { sid: u.sid }),
+      ...(u.sub === undefined ? {} : { sub: u.sub }),
+      ...p.claims,
+    };
+    return this.signer(claims, p);
+  }
+
+  private async signer(claims: Record<string, unknown>, p: PiegesJeton): Promise<string> {
     for (const nom of p.sans ?? []) delete claims[nom];
     const alg = p.alg ?? this.alg;
     if (alg === "none") {

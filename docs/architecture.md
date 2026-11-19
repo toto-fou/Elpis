@@ -1793,7 +1793,8 @@ slowly, then with `429` and `Retry-After`. A successful login resets the
 
 | Endpoint | Description |
 |---|---|
-| `POST /api/logout-lite` | Log out (server-side revocation + cookie removal with the right attributes) |
+| `POST /api/logout-lite` | Log out (server-side revocation + cookie removal with the right attributes); `logout_url` is added when the single sign-on provider that opened the session also wants its own session ended |
+| `POST /api/auth/oidc/:id/backchannel-logout` | Back-channel logout token from a single sign-on provider (public, form-encoded, 16 KiB, 60 calls per minute and provider per process): closes only that provider's sessions |
 | `GET /api/me-lite` | Info about the signed-in user |
 | `GET /api/auth/check` | Lightweight probe (`auth_request` for a proxied service) |
 | `POST /api/users/change-password` | Change password (strict cross-site guard) |

@@ -68,6 +68,7 @@ import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
 import { creerFamilleAdminIdentiteOidc } from "./familles/admin-identite-oidc";
 import { creerFamilleIdentite } from "./familles/identite";
 import { FabriqueConfigurations } from "./identite/oidc/configuration";
+import { adresseDeFinDeSession } from "./identite/oidc/deconnexion";
 import { methodesPubliques } from "./identite/oidc/publique";
 import type { OptionsSortant } from "./identite/sortant";
 import type { FabriqueConnexion } from "./identite/annuaire/client";
@@ -523,10 +524,20 @@ export async function composer(
         demarrerHistoriqueFichiers: comptes.demarrerHistoriqueFichiers,
         logMetric: comptes.logMetric,
         publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
+        revoquer: (uid) => evenements.revoquer(uid),
         bac: piloteBac(),
       }),
       creerFamilleComptes({
         ...comptes,
+        finDeSessionSso: (sid) =>
+          adresseDeFinDeSession(
+            {
+              base,
+              configurations: configurationsOidc,
+              cookieSecure: () => auth.attributsCookie().https_only === true,
+            },
+            sid,
+          ),
         annuaire: {
           ...(options.fabriqueAnnuaire === undefined ? {} : { fabrique: options.fabriqueAnnuaire }),
           publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,

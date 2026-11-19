@@ -6,7 +6,7 @@ import { dependancesSession, dureeMaxSession, ipDuClient, validerSession, valeur
 import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
 import { estDict, HttpError } from "@elpis/commun";
 import { auditEvent } from "@elpis/securite";
-import { corpsJson, entete } from "@elpis/http";
+import { corpsJson, corpsLu, entete } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { DebitConnexion } from "../comptes/debit-connexion";
@@ -15,9 +15,17 @@ import { ligneUtilisateur } from "@elpis/auth";
 import { decouperHotePort } from "../interface/urls-publiques";
 import { fournisseursActifs, enregistrerTestReussi } from "../identite/fournisseurs";
 import type { Journal } from "../journal";
+import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { connecterParOidc } from "../identite/oidc/connexion";
 import type { DependancesConnexionOidc } from "../identite/oidc/connexion";
 import { verifierRetour, requeteBrute } from "../identite/oidc/echange";
+import {
+  appliquerDeconnexion,
+  CORPS_DECONNEXION_MAX,
+  JetonsVus,
+  PlafondAppels,
+  verifierJetonDeconnexion,
+} from "../identite/oidc/deconnexion";
 import { oauthNextAdmis, preparerDepart } from "../identite/oidc/depart";
 import type { FabriqueConfigurations } from "../identite/oidc/configuration";
 import { resultatEssaiBlanc, resultatEssaiEchoue, ranger } from "../identite/oidc/essai-blanc";
@@ -42,14 +50,18 @@ export interface DependancesIdentite {
   readonly demarrerHistoriqueFichiers?: (uid: number) => Promise<void>;
   readonly logMetric?: (nom: string, valeur: number, etiquettes: Record<string, unknown>) => void;
   readonly publierSuspension?: (uid: number) => Promise<boolean>;
+  /** Ferme les flux ouverts d'un compte dont une session vient d'être révoquée. */
+  readonly revoquer?: (uid: number) => Promise<unknown>;
   readonly bac?: PortBac;
 }
 
 const CORPS_DEPART_MAX = 4096;
 const STATE_MAX = 256;
+const DUREE_REJEU_S = 900;
 const REFUS_DEBIT = "Trop de tentatives de connexion : réessayez dans quelques minutes.";
 const INDISPONIBLE =
   "La connexion par le service d'identité est indisponible : demandez à votre administrateur.";
+const SANS_CACHE = { "cache-control": "no-store" } as const;
 const HOTE_NON_CANONIQUE = "Utilisez l'adresse publique du service.";
 const ENTETES_REFUS = { "cache-control": "no-store", "referrer-policy": "no-referrer" } as const;
 
@@ -252,6 +264,56 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     }
   }
 
+  const plafond = new PlafondAppels();
+  const vus = new JetonsVus();
+
+  /** Déconnexion par canal arrière : jeton signé du fournisseur ; 200 sans corps s'il est valide, 400 sinon, jamais rien du jeton en retour. */
+  async function canalArriere(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
+    const f = await actif(idDuChemin(req));
+    if (!f.logout.backchannel) throw new HttpError(404, "Not Found");
+    void rep.headers(SANS_CACHE);
+    const t = maintenant();
+    const refuser = (raison: string, statut = 400): FastifyReply => {
+      dep.journal.warn(`déconnexion SSO ${f.id} refusée : ${raison}`);
+      auditerRefus(req, "auth.oidc.backchannel_logout.denied", { provider_id: f.id, reason: raison });
+      return rep.code(statut).send();
+    };
+    if (!plafond.prendre(f.id, t)) return refuser("rate_limited", 429);
+    if (!/^application\/x-www-form-urlencoded\s*(;|$)/iu.test(entete(req, "content-type") ?? ""))
+      return refuser("content_type");
+    const champs = new URLSearchParams(corpsLu(req).toString("utf8"));
+    const jetons = champs.getAll("logout_token");
+    if (jetons.length !== 1) return refuser("malformed");
+    let jeton;
+    try {
+      jeton = await verifierJetonDeconnexion(
+        dep.configurations,
+        f,
+        lireReglagesAuth().public_url,
+        jetons[0] ?? "",
+        t,
+      );
+    } catch (e) {
+      return refuser(e instanceof RefusOidc ? e.cause_ : "invalid");
+    }
+    if (jeton.jti !== null && vus.dejaVu(f.id, jeton.jti, jeton.iat + DUREE_REJEU_S, t))
+      return rep.code(200).send();
+    const bilan = await appliquerDeconnexion(base, f, jeton, t);
+    for (const uid of bilan.comptes) {
+      try {
+        await dep.revoquer?.(uid);
+      } catch (e) {
+        dep.journal.warn({ err: e }, `déconnexion SSO ${f.id} : flux du compte non fermés`);
+      }
+    }
+    auditerRequete(req, "auth.oidc.backchannel_logout", {
+      provider_id: f.id,
+      sessions: bilan.sessions,
+      by: jeton.sid !== null ? "sid" : "sub",
+    });
+    return rep.code(200).send();
+  }
+
   return {
     nom: "identite",
     routes: [
@@ -269,6 +331,14 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         processus: ["main"],
         acces: "public",
         traiter: retour,
+      },
+      {
+        methode: "POST",
+        chemin: "/api/auth/oidc/:id/backchannel-logout",
+        processus: ["main"],
+        acces: "public",
+        corps: { limite: CORPS_DECONNEXION_MAX },
+        traiter: canalArriere,
       },
     ],
   };

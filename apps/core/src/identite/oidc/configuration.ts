@@ -10,7 +10,7 @@ import {
   getJwksCache,
   setJwksCache,
 } from "openid-client";
-import type { ExportedJWKSCache, ServerMetadata } from "openid-client";
+import type { ExportedJWKSCache, JWK, ServerMetadata } from "openid-client";
 
 import type { Base } from "@elpis/db";
 
@@ -23,6 +23,9 @@ import { RefusOidc } from "./refus";
 
 export const DUREE_DECOUVERTE_S = 3600;
 const DELAI_BIBLIOTHEQUE_S = 10;
+const CLES_FRAICHES_S = 300;
+const CLES_RELECTURE_S = 60;
+const CLES_MAX = 50;
 
 interface Decouverte {
   readonly empreinte: string;
@@ -57,6 +60,49 @@ export class FabriqueConfigurations {
   oublier(id: string): void {
     this.decouvertes.delete(id);
     this.cles.delete(id);
+  }
+
+  /** Métadonnées de la dernière découverte (mêmes réglages), même périmées, sans aucun appel ; `null` si rien n'est gardé. */
+  metadonneesGardees(f: FournisseurOidc, publicUrl: string): ServerMetadata | null {
+    const c = this.decouvertes.get(f.id);
+    return c !== undefined && c.empreinte === empreinteFournisseur(f, publicUrl) ? c.metadonnees : null;
+  }
+
+  /** Clés de signature du fournisseur, dans le cache de la connexion : relues si le cache a plus de cinq minutes, ou, une fois par minute au plus, si la clé `kid` y manque. */
+  async clesDeSignature(f: FournisseurOidc, publicUrl: string, kid: string | undefined): Promise<JWK[]> {
+    const client = this.client(f);
+    try {
+      const metadonnees = await this.decouvrir(f, publicUrl, client);
+      const t = this.o.maintenant();
+      const gardees = this.cles.get(f.id);
+      const age = gardees === undefined ? Infinity : t - gardees.uat;
+      const absente = kid !== undefined && !(gardees?.jwks.keys ?? []).some((k) => k.kid === kid);
+      if (gardees !== undefined && age < CLES_FRAICHES_S && !(absente && age >= CLES_RELECTURE_S))
+        return gardees.jwks.keys;
+      let rep: Response;
+      let texte: string;
+      try {
+        rep = await client.fetch(String(metadonnees.jwks_uri), { headers: { accept: "application/json" } });
+        texte = await rep.text();
+      } catch (e) {
+        throw new RefusOidc("unavailable", `jwks:${e instanceof ErreurSortant ? e.code : "reseau"}`);
+      }
+      if (rep.status !== 200) throw new RefusOidc("unavailable", `jwks:status_${rep.status}`);
+      let doc: unknown;
+      try {
+        doc = JSON.parse(texte);
+      } catch {
+        throw new RefusOidc("unavailable", "jwks:json");
+      }
+      const liste = (doc as { keys?: unknown } | null)?.keys;
+      if (!Array.isArray(liste) || liste.length > CLES_MAX)
+        throw new RefusOidc("unavailable", "jwks:invalid");
+      const keys = liste.filter((k): k is JWK => k !== null && typeof k === "object" && !Array.isArray(k));
+      this.cles.set(f.id, { jwks: { keys }, uat: t });
+      return keys;
+    } finally {
+      await client.fermer().catch(() => undefined);
+    }
   }
 
   /** Client sortant des réglages du fournisseur (autorités du fournisseur, adresses jugées et épinglées). */

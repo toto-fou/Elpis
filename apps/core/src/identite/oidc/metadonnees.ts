@@ -54,6 +54,11 @@ export function lireMetadonnees(doc: unknown, issuer: string): VerdictMetadonnee
       );
     m[nom] = v;
   }
+  const fin = adresseHttps(lire("end_session_endpoint"));
+  if (fin !== null && fin.origin === origine && fin.hash === "")
+    m["end_session_endpoint"] = lire("end_session_endpoint");
+  if (typeof lire("backchannel_logout_supported") === "boolean")
+    m["backchannel_logout_supported"] = lire("backchannel_logout_supported");
   for (const nom of [
     "id_token_signing_alg_values_supported",
     "token_endpoint_auth_methods_supported",

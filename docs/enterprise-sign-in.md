@@ -43,7 +43,10 @@ Reference of every setting: [configuration.md](configuration.md#enterprise-sign-
 4. **The certificate authority.** The directory (LDAPS) and the provider (https) are verified against the
    certificate authorities of the Elpis server. If yours is internal, paste it in the **Autorité de
    certification** (Certificate authority) field of the provider: PEM, 64 KiB at most; when present it is the
-   only trust anchor of that provider. The name in the address must match the certificate.
+   only trust anchor of that provider. The name in the address must be one of the **subject alternative
+   names** of the certificate: the common name is not read, a wildcard only counts as a whole first label
+   (`*.example.lan`), and an address given as an IP needs an IP entry. The server must offer TLS 1.2 or 1.3
+   with a forward-secret key exchange and an authenticated cipher (see [Compatibility](#compatibility)).
 5. **The clocks.** Elpis, the directory and the provider must agree on the time. The test measures the
    difference and fails beyond the tolerance (single sign-on: **Écart (s)**, 60 s by default, 0 to 300).
 6. **The network.** The Elpis host must reach the directory (default port 636) or the provider over https.
@@ -145,7 +148,7 @@ entries, the four attributes below and the state attributes of the preset, and t
 (and their membership attribute). The test names what it cannot read.
 
 How a sign-in goes: the service account looks the typed login up with the **Filtre** (Filter, `{username}`
-once) under **Base des comptes**; the entry must be active, the person must belong to a required group; only
+once, as the whole value of an equality test) under **Base des comptes**; the entry must be active, the person must belong to a required group; only
 then is the typed password sent to the directory, on a separate connection, as a bind of the person's own
 entry. A person who is not in a required group is never linked: no account is created, no password is sent,
 and the sign-in shows the usual wrong-login message. A sign-in suspends nobody; suspending people who left is
@@ -182,9 +185,13 @@ Several groups may be listed: one is enough.
   `krbLastPwdChange`. A locked entry is refused; an entry without an expiration date counts as active only if
   `krbLastPwdChange` shows that a password was set. Without these attributes the entry state is unknown and the
   sign-in is refused (`state_unknown` in the journal).
+- **Service account.** **Compte de service** takes the full distinguished name of the account, written with
+  the usual attribute names (`cn`, `uid`, `ou`, `dc`…). A user principal name (`svc@example.lan`) or a
+  `DOMAIN\name` is refused.
 - **Active Directory.** Type the `sAMAccountName`, not the UPN. A required group must not be the primary group
   of its members (such as Domain Users): primary membership is not visible in `memberOf` and the test rejects
-  it.
+  it. Give the address of a domain controller on the LDAPS port (636), not the global catalog (3269), which
+  does not serve the account state Elpis reads.
 - **OpenLDAP and 389 Directory Server.** Elpis reads no account state for them. To retire someone, remove them
   from the required group or delete the entry. 389 Directory Server uses the OpenLDAP preset with `nsUniqueId`.
 - **Expired password, locked or disabled account.** Where the state is read (FreeIPA, Active Directory), such
@@ -208,9 +215,14 @@ Create a client for Elpis at the provider:
   `<public address>/api/auth/oidc/<id>/callback` and `<public address>/api/auth/oidc/<id>/backchannel-logout`;
   they appear once the public address and the **Identifiant** (Identifier) are filled. For sign-out, also
   allow `<public address>/` as post-logout address.
-- **Groups in the identity token**: a claim holding a list of strings (default name `groups`). If the identity
-  token lacks the groups or the login name and the provider announces a user-information endpoint, Elpis
-  reads it there as well.
+- **Groups in the identity token**: a claim holding a list of strings (default name `groups`). A claim
+  holding one string counts as one group only when it is exactly a group set on this provider (required, role
+  or mapped group): providers that send a single group that way work, and several groups glued in one string
+  (`a;b`) are never split. If the identity token lacks the groups or the login name and the provider
+  announces a user-information endpoint on the same origin as the issuer, Elpis reads it there as well; an
+  endpoint on another origin is never called, and the test says so.
+- **The identity token is for Elpis alone**: a token that lists another audience next to the client
+  identifier is refused.
 - A **signature algorithm** for the identity token that matches **Algorithme de signature du jeton** (default
   `RS256`; an asymmetric one). Symmetric and unsigned algorithms are never accepted.
 
@@ -274,8 +286,11 @@ exigée".
   Issuer: the portal address, such as `https://auth.example.lan`.
 - **The default subject is the user name.** Set the attribute used as subject to a unique value that never
   changes, then use `sub`; otherwise the trial warns.
-- Expose the groups as a claim through the relying party's attributes and check in the trial that **Groupes**
-  lists them one by one; a single string is not a list of groups.
+- Set **Authentification client** to **Corps de requête (post)**: with the header method, a client identifier
+  or a secret holding a character other than letters and digits is refused by the provider.
+- Expose the groups as a claim through the relying party's attributes, as a list (array type `auto` or
+  `always`), and check in the trial that **Groupes** lists them one by one. A person with a single group is
+  accepted when that group is one set on the provider; a string holding several groups is not a list.
 
 ### AD FS
 
@@ -286,6 +301,18 @@ exigée".
   and the login name through issuance transform rules (for example the Active Directory `sAMAccountName` as
   an outgoing claim named `username`, the groups as `group`). Then set **Revendication nom** and
   **Revendication groupes** to those names. Check them in the trial.
+- AD FS sends a person's single group as one string: it is accepted when it is a group set on the provider.
+
+### Microsoft Entra ID
+
+- Register an application with a **client secret** and the return address of Elpis (platform **Web**).
+  Issuer: `https://login.microsoftonline.com/<tenant id>/v2.0`, with the identifier of **your tenant**; the
+  shared issuers (`common`, `organizations`) are refused.
+- **Put the groups in the identity token** (token configuration, groups claim): they come as a list of group
+  identifiers, which is what **Groupes requis** then takes. The user-information endpoint of Entra ID is on
+  another host and is not called, so the login name and the groups must be in the identity token.
+- A person in too many groups for the token gets no groups claim and is refused (`groups_unknown`): limit the
+  claim to the groups assigned to the application.
 
 ## Accounts
 
@@ -477,8 +504,8 @@ account. Elpis never deletes an account by itself.
   of Elpis only, for up to an hour.
 - **Accepter la déconnexion par canal arrière** (Accept back-channel logout, `logout.backchannel`): the
   provider calls the back-channel address of Elpis when the person signs out elsewhere or is closed at the
-  provider. Elpis checks the signed logout token (signature, issuer, audience, validity, and the presence of its `jti`
-  identifier) and closes the matching sessions; a token already applied is accepted again without effect. The
+  provider. Elpis checks the signed logout token (signature, issuer, audience, age, expiry when it carries one,
+  and the presence of its `jti` identifier) and closes the matching sessions; a token already applied is accepted again without effect. The
   provider only gets a status code, and refused calls are limited per client address. When the token names
   one session of the provider, the terminals opened from that session are closed with it. That call comes from the provider to Elpis: **the provider
   must trust the certificate of Elpis** (add your internal authority to it) and reach its public address.
@@ -491,17 +518,19 @@ Sécurité (`auth.login.denied`, `details.ref`). A directory failure always show
 the reason is in the security journal, under `auth.login.denied` with `login_method` `ldap:<id>`. All the
 reasons are listed in [audit-events.md](audit-events.md#authentication).
 
-| Message shown                                                                        | Code (`auth_error`) | Probable cause                                                                                                              |
-| ------------------------------------------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| "Votre compte n'est pas autorisé à utiliser Elpis. Demandez à votre administrateur." | `not_in_group`      | Not in a required group (check the group value in the trial)                                                                |
-| (same message)                                                                       | `groups_unknown`    | No groups claim, not a list of strings, or too many groups for the token (Keycloak: person without group)                   |
-| (same message)                                                                       | `conflict`          | An account already has the derived name, the name is invalid or reserved, or the prepared link does not match               |
-| (same message)                                                                       | `suspended`         | Account suspended: by the directory check (left the group) or by an administrator                                           |
-| "Une vérification en deux étapes est exigée. Reconnectez-vous en la validant."       | `mfa_required`      | `acr` / `amr` of the token do not match **required_acr** / **required_amr**                                                 |
-| "Connexion refusée par le service de votre organisation."                            | `denied`            | The provider answered with an error (person refused or cancelled there)                                                     |
-| "La connexion a pris trop de temps. Réessayez."                                      | `expired`           | The sign-in was too long, was opened from another address than the public one, or the browser blocked cookies               |
-| "Le service de connexion de votre organisation ne répond pas…"                       | `unavailable`       | Provider unreachable, discovery or keys unreadable, client secret missing, no local administrator left                      |
-| "La connexion n'a pas abouti. Réessayez ou demandez à votre administrateur."         | `failed`            | Anything else: token rejected (signature, issuer, audience, nonce, expiry: `lib:<code>`), clock difference, subject missing |
+| Message shown                                                                        | Code (`auth_error`) | Probable cause                                                                                                                           |
+| ------------------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| "Votre compte n'est pas autorisé à utiliser Elpis. Demandez à votre administrateur." | `not_in_group`      | Not in a required group (check the group value in the trial)                                                                             |
+| (same message)                                                                       | `groups_unknown`    | No groups claim, not a list of strings, or too many groups for the token (Keycloak: person without group)                                |
+| (same message)                                                                       | `conflict`          | An account already has the derived name, the name is invalid or reserved, or the prepared link does not match                            |
+| (same message)                                                                       | `suspended`         | Account suspended: by the directory check (left the group) or by an administrator                                                        |
+| "Une vérification en deux étapes est exigée. Reconnectez-vous en la validant."       | `mfa_required`      | `acr` / `amr` of the token do not match **required_acr** / **required_amr**                                                              |
+| "Connexion refusée par le service de votre organisation."                            | `denied`            | The provider answered with an error (person refused or cancelled there)                                                                  |
+| "La connexion a pris trop de temps. Réessayez."                                      | `expired`           | The sign-in was too long, was opened from another address than the public one, or the browser blocked cookies                            |
+| "Le service de connexion de votre organisation ne répond pas…"                       | `unavailable`       | Provider unreachable, discovery or keys unreadable, client secret missing, no local administrator left                                   |
+| "La connexion n'a pas abouti. Réessayez ou demandez à votre administrateur."         | `failed`            | Anything else: token rejected (signature, issuer, audience, nonce, expiry: `lib:<code>`), clock difference, subject missing              |
+| (same message)                                                                       | `failed`            | `client_auth_rejected` in the journal: the provider refused the client secret; check it, then try the other client authentication method |
+| (same message)                                                                       | `failed`            | `aud_untrusted` in the journal: the identity token lists another audience than Elpis                                                     |
 
 Other messages: "Cette demande a expiré. Reconnectez-vous par le service de votre organisation." (the
 old-password step waited too long), "Cette demande n'est plus valable. Reconnectez-vous par le service de votre
@@ -532,14 +561,85 @@ Commands on the host, described in [operations.md](operations.md#enterprise-sign
   and tests (see [audit-events.md](audit-events.md#enterprise-sign-in-admin)). Passwords, secrets, tokens and
   anything the provider says in its own words are never logged; a typed login is only kept as a hash.
 - **TLS is always verified.** There is no switch to disable certificate verification. Without a trusted
-  authority the test fails and tells you to paste yours.
+  authority the test fails and tells you to paste yours. The server name is checked against the subject
+  alternative names only, and only forward-secret, authenticated cipher suites are accepted.
 - **Trust.** The directory and the provider are trusted to say who a person is and which groups they belong to.
   The host name of Elpis is its trust boundary: dedicated to it, in HTTPS. See [SECURITY.md](../SECURITY.md).
 - **The settings are written only by the console** (and `./elpis auth off`): neither the raw editor nor the
   configuration API can create or overwrite the `auth` section.
 
-## What has been proven
+## Compatibility
 
-Sign-in journeys have been played against 389 Directory Server, OpenLDAP and Keycloak. FreeIPA, Active
-Directory, Authentik, LemonLDAP::NG and AD FS follow the same standard settings but still have to be validated
-on your site: run **Tester** (and **Essayer la connexion**) on each before switching it on.
+What follows comes from two kinds of proof. **Played on a real server**: the whole journey (test, sign-in,
+refusals, sign-out) ran against that product in a container. **Played on its profile**: the automated tests
+replay what the product documents (discovery, token shapes, group formats) against a local provider or
+directory. A product that is not listed has not been looked at; one that follows the standards below should
+work, and **Tester** then **Essayer la connexion** will say so.
+
+### What Elpis expects from any server
+
+- **TLS 1.2 or 1.3** with a forward-secret key exchange (ECDHE or DHE) and an authenticated cipher (AES-GCM
+  or ChaCha20-Poly1305). Servers that only offer static RSA key exchange or CBC ciphers are refused.
+- **A certificate that names the server in its subject alternative names.** The common name is not read, and a
+  wildcard only counts as a whole first label (`*.example.lan`). An address given as an IP needs an IP entry.
+- **Directory**: LDAP v3 over LDAPS, a service account given as a full distinguished name, a stable
+  server-generated key (`entryUUID`, `ipaUniqueID`, `objectGUID` or `nsUniqueId`), and groups whose members are
+  distinguished names (`member`, `uniqueMember`) or that are listed in `memberOf` on the person.
+- **Single sign-on**: OpenID Connect discovery, authorization code flow with PKCE S256, a confidential client
+  authenticated by its secret (header or request body), an identity token signed with an asymmetric algorithm
+  (RS256, RS384, RS512, PS256, PS384, PS512, ES256, ES384, ES512 or EdDSA), and the token and key endpoints on
+  the same origin as the issuer.
+
+### Directories
+
+| Directory                                                                  | Status                  | Settings and limits                                                                                                                 |
+| -------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 389 Directory Server                                                       | Played on a real server | OpenLDAP preset with `nsUniqueId`; `memberOf` with the MemberOf plugin (nested groups count), else `member`                         |
+| OpenLDAP                                                                   | Played on a real server | OpenLDAP preset; `member`, or `memberOf` with the memberof overlay                                                                  |
+| Samba AD DC                                                                | Played on a real server | Active Directory preset, as is (disabled account, password to change, nested groups)                                                |
+| LLDAP                                                                      | Played on a real server | OpenLDAP preset, `entryUUID`, either membership mode. See the note below                                                            |
+| Active Directory (Windows Server 2016+)                                    | Played on its profile   | Active Directory preset. Use a domain controller on port 636, not the global catalog (3269), which does not serve the account state |
+| FreeIPA / Red Hat IdM                                                      | Played on its profile   | FreeIPA preset; its 389 Directory Server engine was played on a real server with the FreeIPA attributes                             |
+| OpenDJ / ForgeRock DS                                                      | Played on its profile   | **Autre** preset, `entryUUID`, `member` mode (`isMemberOf` is not read)                                                             |
+| Groups that are only `posixGroup`                                          | Not supported           | Members listed by login (`memberUid`) are not read: use groups of distinguished names                                               |
+| NetIQ eDirectory, Oracle Internet Directory, IBM Security Directory Server | Not supported           | Their stable key attribute is not one of the four accepted                                                                          |
+
+- **LLDAP.** For a person who is not in the group it answers "no such object" instead of an empty result, which
+  Elpis reads as "groups unreadable". The person is refused all the same; but a person **removed** from the
+  required group is not suspended by the periodic check: their sign-in is refused at once, and their tokens and
+  routines stop when the verification of the account lapses (**Fraîcheur**, 14 days by default). To cut
+  someone off at once, suspend the account in Elpis.
+- **Sign-in name.** One login format per directory: the **Filtre** takes `{username}` once.
+- **Account state** (disabled, locked, expired) is read on FreeIPA and Active Directory only. Elsewhere the
+  directory itself refuses the bind and the person sees the usual wrong-login message.
+
+### Identity providers
+
+| Provider                                | Status                  | Settings and limits                                                                                                          |
+| --------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Keycloak                                | Played on a real server | See [Keycloak](#keycloak). Sign-out both ways                                                                                |
+| LemonLDAP::NG                           | Played on a real server | See [LemonLDAP::NG](#lemonldapng): client authentication in the request body; a single group sent as a string was played too |
+| Dex                                     | Played on a real server | Add the `groups` scope. No sign-out at the provider                                                                          |
+| Providers built on `node-oidc-provider` | Played on a real server | RS256, PS256, ES256, ES384 and EdDSA, both client authentication methods, pushed authorization requests, sign-out both ways  |
+| Microsoft Entra ID                      | Played on its profile   | See [Microsoft Entra ID](#microsoft-entra-id): groups in the identity token, issuer of your tenant                           |
+| AD FS                                   | Played on its profile   | See [AD FS](#ad-fs)                                                                                                          |
+| Authentik                               | Played on its profile   | See [Authentik](#authentik): a signing key is mandatory                                                                      |
+| Okta                                    | Played on its profile   | Standard settings; create a `groups` claim                                                                                   |
+| GitLab                                  | Played on its profile   | The groups are read at the user-information endpoint (full group paths). No sign-out at the provider                         |
+| Authelia                                | Played on its profile   | Add the `groups` scope; the groups and the login name are read at the user-information endpoint                              |
+| Kanidm                                  | Played on its profile   | ES256, client authentication in the header, `groups` scope                                                                   |
+| Auth0, Ory Hydra                        | Played on its profile   | Type the issuer with its final slash. Auth0: put the groups in a claim with a plain name                                     |
+| Zitadel                                 | Played on its profile   | Provide the groups as a list of strings (an Action); its native roles claim is an object and is not read                     |
+| OneLogin                                | Played on its profile   | Add the `groups` scope                                                                                                       |
+| Google, Amazon Cognito                  | Not supported           | Their token and key endpoints are on other hosts than the issuer. Put an identity broker you run (Keycloak, Dex) in front    |
+
+- **Groups are a list of strings.** A claim holding one string is read as one group only when it is exactly one
+  of the groups set on the provider (required, role or mapped group); several groups glued in one string
+  (`a;b`) are never split, and give "groups unreadable".
+- **Back-channel sign-out** needs a provider that sends logout tokens (Keycloak and `node-oidc-provider` were
+  played on real servers). A logout token without an expiry is accepted when it is recent; one listing another
+  audience than Elpis is refused.
+- **Not read**: a claim whose name is an address (`https://…`), a signed or encrypted user-information
+  answer, an encrypted identity token, an issuer shared by several tenants.
+- **A required group is mandatory**: a provider that cannot say which groups a person belongs to cannot be
+  switched on.

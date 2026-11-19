@@ -2,21 +2,26 @@
 /** apps/core/test/identite/annuaire/recette-reelle.test.ts — recette à la main contre de vrais annuaires LDAPS (389-DS, OpenLDAP…) décrits par le fichier JSON de `ELPIS_RECETTE_LDAP` ; sautée sans lui. */
 import { readFileSync } from "node:fs";
 
-import { createUser } from "@elpis/auth";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { createUser, dependancesParDefaut, revoquerOauthDuCompte } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { composer } from "../../../src/composition";
 import { groupeExiste } from "../../../src/identite/annuaire/appartenance";
 import { fabriqueLdapts } from "../../../src/identite/annuaire/client";
 import { authentifierParAnnuaire, PorteAnnuaire } from "../../../src/identite/annuaire/connexion";
 import type { DependancesAnnuaire, ResultatAnnuaire } from "../../../src/identite/annuaire/connexion";
 import { testerFournisseur } from "../../../src/identite/essai";
-import { enregistrerSecret } from "../../../src/identite/fournisseurs";
+import { enregistrerSecret, enregistrerTestReussi } from "../../../src/identite/fournisseurs";
 import { validerFournisseur } from "../../../src/identite/reglages";
 import type { FournisseurLdap } from "../../../src/identite/reglages";
-import { journalMuet } from "../../aides";
+import { appTest, journalMuet } from "../../aides";
 import { cleCoffreDeTest, configDeTest, ldapValide } from "../aides";
 import type { ConfigDeTest } from "../aides";
 
@@ -40,6 +45,9 @@ interface AnnuaireReel {
   readonly groupe_absent: string;
   readonly membre: Compte;
   readonly hors_groupe: Compte;
+  /** Groupe d'administrateurs dont `membre` fait partie et pas `autre_membre` (rôles par l'annuaire). */
+  readonly groupe_admins?: string;
+  readonly autre_membre?: Compte;
   readonly expire?: Compte;
   readonly desactive?: Compte;
 }
@@ -240,5 +248,71 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
       const f = await fournisseur(a);
       expect((await auth(f, a.desactive ?? a.membre)).type).not.toBe("ok");
     });
+  });
+
+  describe.each(
+    recette.annuaires.filter((a) => a.groupe_admins !== undefined).map((a) => [a.nom, a] as const),
+  )("%s : connexion par l'application et rôles d'après les groupes", (_nom, a) => {
+    it("la session s'ouvre par /api/login-lite ; le rôle suit le groupe d'administrateurs, à la connexion seulement", async () => {
+      const f = await fournisseur(a, {
+        id: "recette",
+        enabled: true,
+        roles: { enabled: true, admin_groups: [a.groupe_admins], moderator_groups: [] },
+      });
+      const publique = "https://elpis.exemple.lan";
+      await enregistrerTestReussi(t.base, f, publique);
+      cfg.ecrire({ auth: { public_url: publique, providers: [f] } });
+      const dossier = mkdtempSync(join(tmpdir(), "elpis-recette-ldap-"));
+      const dep = {
+        ...dependancesParDefaut(t.base),
+        config: () => ({}),
+        attributsCookie: () => ({
+          cookie_name: "mcpwebui_session",
+          same_site: "lax" as const,
+          https_only: true,
+          max_age: 86_400,
+        }),
+        secret: () => "secret-de-recette",
+        jetonService: () => "",
+        revoquerOauth: (uid: number) => revoquerOauthDuCompte(t.base, uid, 1),
+      };
+      const main = await appTest({
+        ...(await composer("main", t.base, journalMuet, dep, dossier)),
+        mode: "main",
+      });
+      try {
+        const role = async (c: Compte): Promise<{ statut: number; role?: string; username?: string }> => {
+          const r = await main.inject({
+            method: "POST",
+            url: "/api/login-lite",
+            headers: { host: "elpis.exemple.lan", "sec-fetch-site": "same-origin" },
+            payload: { username: c.login, password: c.mdp },
+          });
+          const brut = r.headers["set-cookie"];
+          const cookie = (Array.isArray(brut) ? brut : [String(brut ?? "")])
+            .map((l) => l.split(";")[0])
+            .join("; ");
+          const moi = await main.inject({
+            method: "GET",
+            url: "/api/me-lite",
+            headers: { host: "elpis.exemple.lan", cookie },
+          });
+          return { statut: r.statusCode, ...moi.json<{ role?: string; username?: string }>() };
+        };
+        expect(await role(a.membre)).toMatchObject({ statut: 200, role: "admin", username: a.membre.login });
+        const autre = a.autre_membre;
+        if (autre !== undefined)
+          expect(await role(autre)).toMatchObject({
+            statut: 200,
+            role: "user",
+            username: autre.login.replaceAll(".", "-"),
+          });
+        expect((await role({ login: a.membre.login, mdp: `${a.membre.mdp}x` })).statut).toBe(401);
+        expect((await role(a.hors_groupe)).statut).toBe(401);
+      } finally {
+        await main.close();
+        rmSync(dossier, { recursive: true, force: true });
+      }
+    }, 60_000);
   });
 });

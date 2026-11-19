@@ -247,11 +247,82 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     expect((r.claims["groups"] as string[]).length).toBe(50);
     const audit = JSON.stringify(lignesAuditRecentes({ limit: 100 }));
     expect(audit).not.toContain("MARQUEUR-HORS-LISTE");
-    expect(lignesAuditRecentes({ actionPrefix: "admin.auth.provider.trial" })[0]?.["details"]).toMatchObject({
+    const essais = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.trial" });
+    expect(essais.find((l) => l["action"] === "admin.auth.provider.trial")?.["details"]).toMatchObject({
       provider_id: "sso",
       ok: true,
       started: true,
     });
+    expect(essais.find((l) => l["action"] === "admin.auth.provider.trial.result")?.["details"]).toMatchObject(
+      {
+        provider_id: "sso",
+        ok: true,
+        outcome: "create",
+        reason: null,
+      },
+    );
+  });
+
+  it("réglages changés entre le départ et le retour : échec `settings_changed`, test non enregistré, issue journalisée", async () => {
+    const l = await lancer();
+    const { retour } = b.idp.autoriser(l.json<Lancement>().url ?? "", ELPIS("sub-essai"));
+    await b.reglages({ clock_skew_sec: 7 });
+    await b.t.base.run("DELETE FROM auth_provider_state");
+    const r = await b.retourner(retour, { cookie: `${cookies(l)}; ${admin}` });
+    expect(r.statusCode).toBe(200);
+    const g = (await lire()).json<{ result: { ok: boolean; decision: Record<string, unknown> } }>().result;
+    expect(g.ok).toBe(false);
+    expect(g.decision).toEqual({ outcome: "error", username: null, reason: "settings_changed" });
+    expect(await testReussiCourant(b.t.base, b.fournisseur, URL_PUBLIQUE)).toBe(false);
+    await sansCompte();
+    const ev = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.trial.result" })[0];
+    expect(ev?.["details"]).toMatchObject({
+      provider_id: "sso",
+      ok: false,
+      outcome: "error",
+      reason: "settings_changed",
+    });
+  });
+
+  it("modifier le fournisseur supprime ses flux d'essai en cours", async () => {
+    await lancer();
+    expect(await lignes("SELECT COUNT(*) FROM auth_flows WHERE trial_admin IS NOT NULL")).toEqual([[1]]);
+    const m = await b.console.inject({
+      method: "PUT",
+      url: "/api/admin/auth/providers/sso",
+      headers: { host: HOTE_PUBLIC, cookie: admin, "sec-fetch-site": "same-origin" },
+      payload: { label: "Autre libellé" },
+    });
+    expect(m.statusCode, m.body).toBe(200);
+    expect(await lignes("SELECT COUNT(*) FROM auth_flows")).toEqual([[0]]);
+  });
+
+  it("décision de refus (nom invalide, groupe) : essai rendu, test non retenu ; connexion ou création : retenu", async () => {
+    b.idp.userinfo = (x) => ({ sub: x.sub });
+    await parcours(ELPIS("sub-nom", { preferred_username: "!!" }));
+    expect((await lire()).json<{ result: { ok: boolean } }>().result.ok).toBe(false);
+    expect(await testReussiCourant(b.t.base, b.fournisseur, URL_PUBLIQUE)).toBe(false);
+    await parcours(ELPIS("sub-autre", { groups: ["autres"] }));
+    expect(await testReussiCourant(b.t.base, b.fournisseur, URL_PUBLIQUE)).toBe(false);
+    await parcours(ELPIS("sub-bon"));
+    expect((await lire()).json<{ result: { ok: boolean } }>().result.ok).toBe(true);
+    expect(await testReussiCourant(b.t.base, b.fournisseur, URL_PUBLIQUE)).toBe(true);
+    const evs = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.trial.result" });
+    expect(evs.map((e) => (e["details"] as Record<string, unknown>)["reason"]).sort()).toEqual(
+      ["name_invalid", "not_in_group", null].sort(),
+    );
+  });
+
+  it("ouverture de la configuration impossible au retour : résultat d'échec rangé pour la console", async () => {
+    const l = await lancer();
+    const { retour } = b.idp.autoriser(l.json<Lancement>().url ?? "", ELPIS("sub-essai"));
+    await b.t.base.run("DELETE FROM vault_secrets");
+    const r = await b.retourner(retour, { cookie: `${cookies(l)}; ${admin}` });
+    expect(r.statusCode).toBe(200);
+    const g = (await lire()).json<{ result: { ok: boolean; decision: Record<string, unknown> } }>().result;
+    expect(g.ok).toBe(false);
+    expect(g.decision).toEqual({ outcome: "error", username: null, reason: "unavailable" });
+    await sansCompte();
   });
 
   it("le dernier résultat remplace le précédent ; sans essai : `null`", async () => {

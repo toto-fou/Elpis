@@ -23,6 +23,7 @@ import { RefusOidc } from "./refus";
 
 export const DUREE_DECOUVERTE_S = 3600;
 const DELAI_BIBLIOTHEQUE_S = 10;
+const ECHEC_DECOUVERTE_S = 30;
 const CLES_FRAICHES_S = 300;
 const CLES_RELECTURE_S = 60;
 const CLES_MAX = 50;
@@ -31,6 +32,17 @@ interface Decouverte {
   readonly empreinte: string;
   readonly expire: number;
   readonly metadonnees: ServerMetadata;
+}
+
+interface EchecDecouverte {
+  readonly empreinte: string;
+  readonly jusqua: number;
+  readonly cause: string;
+}
+
+interface ClesGardees {
+  readonly empreinte: string;
+  readonly cache: ExportedJWKSCache;
 }
 
 export interface ConfigurationOuverte {
@@ -49,17 +61,12 @@ export interface OptionsConfigurations {
 /** Fabrique des configurations d'un process : une découverte et un cache de clés par fournisseur (jamais partagés avec l'autre process). */
 export class FabriqueConfigurations {
   private readonly decouvertes = new Map<string, Decouverte>();
-  private readonly cles = new Map<string, ExportedJWKSCache>();
+  private readonly echecs = new Map<string, EchecDecouverte>();
+  private readonly cles = new Map<string, ClesGardees>();
   private readonly o: OptionsConfigurations;
 
   constructor(o: OptionsConfigurations) {
     this.o = o;
-  }
-
-  /** Clé de l'oubli : un fournisseur éteint ou supprimé ne laisse rien en mémoire. */
-  oublier(id: string): void {
-    this.decouvertes.delete(id);
-    this.cles.delete(id);
   }
 
   /** Métadonnées de la dernière découverte (mêmes réglages), même périmées, sans aucun appel ; `null` si rien n'est gardé. */
@@ -74,7 +81,7 @@ export class FabriqueConfigurations {
     try {
       const metadonnees = await this.decouvrir(f, publicUrl, client);
       const t = this.o.maintenant();
-      const gardees = this.cles.get(f.id);
+      const gardees = this.clesGardees(f, publicUrl);
       const age = gardees === undefined ? Infinity : t - gardees.uat;
       const absente = kid !== undefined && !(gardees?.jwks.keys ?? []).some((k) => k.kid === kid);
       if (gardees !== undefined && age < CLES_FRAICHES_S && !(absente && age >= CLES_RELECTURE_S))
@@ -98,11 +105,20 @@ export class FabriqueConfigurations {
       if (!Array.isArray(liste) || liste.length > CLES_MAX)
         throw new RefusOidc("unavailable", "jwks:invalid");
       const keys = liste.filter((k): k is JWK => k !== null && typeof k === "object" && !Array.isArray(k));
-      this.cles.set(f.id, { jwks: { keys }, uat: t });
+      this.cles.set(f.id, {
+        empreinte: empreinteFournisseur(f, publicUrl),
+        cache: { jwks: { keys }, uat: t },
+      });
       return keys;
     } finally {
       await client.fermer().catch(() => undefined);
     }
+  }
+
+  /** Clés gardées de ce fournisseur, seulement si elles viennent des mêmes réglages. */
+  private clesGardees(f: FournisseurOidc, publicUrl: string): ExportedJWKSCache | undefined {
+    const g = this.cles.get(f.id);
+    return g !== undefined && g.empreinte === empreinteFournisseur(f, publicUrl) ? g.cache : undefined;
   }
 
   /** Client sortant des réglages du fournisseur (autorités du fournisseur, adresses jugées et épinglées). */
@@ -120,6 +136,24 @@ export class FabriqueConfigurations {
     const connue = this.decouvertes.get(f.id);
     if (connue !== undefined && connue.empreinte === empreinte && connue.expire > t)
       return connue.metadonnees;
+    const echec = this.echecs.get(f.id);
+    if (echec !== undefined && echec.empreinte === empreinte && echec.jusqua > t)
+      throw new RefusOidc("unavailable", echec.cause);
+    let metadonnees: ServerMetadata;
+    try {
+      metadonnees = await this.lireDecouverte(f, client);
+    } catch (e) {
+      if (e instanceof RefusOidc)
+        this.echecs.set(f.id, { empreinte, jusqua: t + ECHEC_DECOUVERTE_S, cause: e.cause_ });
+      throw e;
+    }
+    this.echecs.delete(f.id);
+    this.decouvertes.set(f.id, { empreinte, expire: t + DUREE_DECOUVERTE_S, metadonnees });
+    return metadonnees;
+  }
+
+  /** Document de découverte lu et vérifié ; `unavailable` s'il manque ou s'il est faux. */
+  private async lireDecouverte(f: FournisseurOidc, client: ClientHttps): Promise<ServerMetadata> {
     let rep: Response;
     let texte: string;
     try {
@@ -137,7 +171,6 @@ export class FabriqueConfigurations {
     }
     const v = lireMetadonnees(doc, f.issuer);
     if (!v.ok) throw new RefusOidc("unavailable", "discovery:invalid");
-    this.decouvertes.set(f.id, { empreinte, expire: t + DUREE_DECOUVERTE_S, metadonnees: v.metadonnees });
     return v.metadonnees;
   }
 
@@ -157,14 +190,15 @@ export class FabriqueConfigurations {
       config[customFetch] = (url, options) => client.fetch(url, options as RequestInit);
       config.timeout = DELAI_BIBLIOTHEQUE_S;
       enableNonRepudiationChecks(config);
-      const gardees = this.cles.get(f.id);
+      const gardees = this.clesGardees(f, publicUrl);
       if (gardees !== undefined) setJwksCache(config, gardees);
       return {
         config,
         metadonnees,
         terminer: async () => {
           const lues = getJwksCache(config);
-          if (lues !== undefined) this.cles.set(f.id, lues);
+          if (lues !== undefined)
+            this.cles.set(f.id, { empreinte: empreinteFournisseur(f, publicUrl), cache: lues });
           await client.fermer().catch(() => undefined);
         },
       };

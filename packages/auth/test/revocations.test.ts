@@ -65,6 +65,25 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
     expect(await leverMinSession(t.base, uid + 1, 1)).toBe(false);
   });
 
+  it("la coupure d'un compte supprime ses lignes de session du fournisseur d'identité, pas celles des autres", async () => {
+    const compte = (nom: string): Promise<number> =>
+      t.base.insertId(
+        `INSERT INTO users(username, pass_salt, pass_hash, created_at) VALUES ('${nom}', 's', 'h', 0)`,
+      );
+    const [a, b] = [await compte("alice"), await compte("bob")];
+    for (const [sid, uid] of [
+      ["s1", a],
+      ["s2", a],
+      ["s3", b],
+    ] as const)
+      await t.base.run(
+        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, subject, created_at, expires_at) VALUES(?,?,?,?,?,?)",
+        [sid, uid, "sso", "x", 1, 9999],
+      );
+    await leverMinSession(t.base, a, 10);
+    expect(await t.base.valeurs("SELECT sid FROM auth_ext_sessions")).toEqual([["s3"]]);
+  });
+
   it("purge par échéance : la ligne reste tant que la session n'a pas expiré, quelle que soit la durée de configuration", async () => {
     await revoquerSid(t.base, "vivante", null, 100, 5000);
     await revoquerSid(t.base, "expiree", null, 100, 900);

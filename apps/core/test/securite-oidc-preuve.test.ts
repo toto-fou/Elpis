@@ -8,7 +8,14 @@ import type { LightMyRequestResponse } from "fastify";
 import { ancreIdentite } from "../src/identite/ancre";
 import { preparerRattachement } from "../src/identite/rattachement";
 import { lignesAuditRecentes } from "./aides";
-import { adresseNeuve, cookies, ELPIS, HOTE_PUBLIC, ouvrirBancOidc } from "./identite/banc-oidc";
+import {
+  adresseNeuve,
+  cookies,
+  ELPIS,
+  HOTE_PUBLIC,
+  ouvrirBancOidc,
+  URL_PUBLIQUE,
+} from "./identite/banc-oidc";
 import type { BancOidc } from "./identite/banc-oidc";
 import { MOTEURS } from "./identite/banc";
 import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
@@ -265,5 +272,70 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
     await b.reglages({ enabled: false });
     expect((await prouver({ password: "mdp-local-1" }, cookie)).statusCode).toBe(409);
     expect(await identites()).toEqual([]);
+  });
+
+  describe("session ouverte par la preuve (sans `sid` du fournisseur ni jeton d'identité)", () => {
+    const REGLAGE = { logout: { rp_initiated: true, backchannel: true } };
+
+    it("déconnexion par le fournisseur (`sub` seul) : la session meurt, la ligne est supprimée", async () => {
+      await b.reglages(REGLAGE);
+      const { cookie } = await retourDeJean();
+      const session = cookies(await prouver({ password: "mdp-local-1" }, cookie), cookie);
+      expect(await b.t.base.valeurs("SELECT idp_sid, id_token_enc, subject FROM auth_ext_sessions")).toEqual([
+        [null, null, "sub-jd"],
+      ]);
+      const r = await b.main.inject({
+        method: "POST",
+        url: "/api/auth/oidc/sso/backchannel-logout",
+        remoteAddress: adresseNeuve(),
+        headers: { host: HOTE_PUBLIC, "content-type": "application/x-www-form-urlencoded" },
+        payload: new URLSearchParams({
+          logout_token: await b.idp.jetonDeconnexion({ sub: "sub-jd" }),
+        }).toString(),
+      });
+      expect(r.statusCode, r.body).toBe(200);
+      expect(await b.t.base.valeurs("SELECT COUNT(*) FROM auth_ext_sessions")).toEqual([[0]]);
+      const moi = await b.main.inject({ method: "GET", url: "/api/me-lite", headers: { cookie: session } });
+      expect(moi.json<{ logged_in?: boolean }>().logged_in).toBe(false);
+    });
+
+    it("déconnexion d'Elpis : `logout_url` sans indice d'identité, ligne supprimée", async () => {
+      await b.reglages(REGLAGE);
+      const { cookie } = await retourDeJean();
+      const session = cookies(await prouver({ password: "mdp-local-1" }, cookie), cookie);
+      const r = await b.main.inject({
+        method: "POST",
+        url: "/api/logout-lite",
+        headers: { host: HOTE_PUBLIC, "sec-fetch-site": "same-origin", cookie: session },
+      });
+      expect(r.statusCode, r.body).toBe(200);
+      const u = new URL(r.json<{ logout_url: string }>().logout_url);
+      expect(u.searchParams.has("id_token_hint")).toBe(false);
+      expect(u.searchParams.get("client_id")).toBe("elpis");
+      expect(await b.t.base.valeurs("SELECT COUNT(*) FROM auth_ext_sessions")).toEqual([[0]]);
+    });
+  });
+
+  it("`auth.local.mode = admins` : la preuve reste possible pour un compte ordinaire (ce n'est pas une connexion locale)", async () => {
+    b.cfg.ecrire({
+      auth: { public_url: URL_PUBLIQUE, local: { mode: "admins" }, providers: [b.fournisseur] },
+    });
+    const local = await b.main.inject({
+      method: "POST",
+      url: "/api/login-lite",
+      remoteAddress: adresseNeuve(),
+      headers: { host: HOTE_PUBLIC, "sec-fetch-site": "same-origin" },
+      payload: { username: "jean-dupont", password: "mdp-local-1" },
+    });
+    expect(local.statusCode).toBe(401);
+    const { cookie } = await retourDeJean();
+    const r = await prouver({ password: "mdp-local-1" }, cookie);
+    expect(r.statusCode, r.body).toBe(200);
+    const moi = await b.main.inject({
+      method: "GET",
+      url: "/api/me-lite",
+      headers: { cookie: cookies(r, cookie) },
+    });
+    expect(moi.json()).toMatchObject({ logged_in: true, username: "jean-dupont" });
   });
 });

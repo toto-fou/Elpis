@@ -36,6 +36,8 @@ export interface RetourVerifie {
   readonly vue: VueRevendications;
   readonly idToken: string | null;
   readonly idpSid: string | null;
+  /** `sub` du jeton d'identité, rangé avec la session pour la déconnexion par canal arrière. */
+  readonly sub: string;
 }
 
 export interface VueRevendications {
@@ -117,6 +119,7 @@ export async function verifierRetour(
   if (claims === undefined) throw new RefusOidc("failed", "id_token_missing");
   if (typeof claims.iat !== "number" || claims.iat > e.maintenant + f.clock_skew_sec)
     throw new RefusOidc("failed", "iat_in_future");
+  if (claims.azp !== undefined && claims.azp !== f.client_id) throw new RefusOidc("failed", "azp_mismatch");
   const sujet = sujetDe(claims, f);
   if (sujet === null) throw new RefusOidc("failed", "subject_invalid");
   if (!secondFacteurSatisfait(claims, f)) throw new RefusOidc("mfa_required", "acr_amr");
@@ -161,6 +164,7 @@ export async function verifierRetour(
       groupes: groupes === null ? null : groupes.slice(0, 50),
       sujetEstIdentifiant: identifiant !== "" && identifiant === sujet,
     },
+    sub: claims.sub,
     idToken: jetons.id_token ?? null,
     idpSid: typeof sid === "string" && sid !== "" && sid.length <= SID_MAX && sid.isWellFormed() ? sid : null,
   };

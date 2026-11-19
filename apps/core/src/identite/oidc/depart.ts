@@ -15,6 +15,7 @@ import type { FabriqueConfigurations } from "./configuration";
 import { creerFlux, empreinte } from "./flux";
 import type { CibleFlux } from "./flux";
 import { RefusOidc } from "./refus";
+import { empreinteFournisseur } from "../fournisseurs";
 import type { FournisseurOidc } from "../reglages";
 
 const OAUTH_NEXT_MAX = 2000;
@@ -66,6 +67,7 @@ export async function preparerDepart(
         oauthNext: d.oauthNext,
         essaiAdmin: d.essaiAdmin,
         adresse: d.adresse,
+        empreinteReglages: d.essaiAdmin === null ? null : empreinteFournisseur(f, d.publicUrl),
       },
       dep.maintenant(),
     );

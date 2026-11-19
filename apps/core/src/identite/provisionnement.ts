@@ -116,6 +116,7 @@ async function identiteConnue(c: Contexte, l: LigneIdentite): Promise<Resolution
   const origine = `directory:${fournisseur.id}`;
   if (appartenance === "non") {
     if (await poserSuspensionDeLAnnuaire(c, uid, origine)) {
+      await dep.base.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
       effets.suspendre = uid;
       c.audits.push(() => auditCompte(c, "auth.account.suspend", uid, l.username, origine));
     }
@@ -286,7 +287,7 @@ export async function resoudreIdentite(
       details: { provider_id: e.fournisseur.id, reason: r.raison },
     });
   if (effets.suspendre !== null)
-    couperAcces(dep, effets.suspendre).catch((e: unknown) =>
+    couperAcces(dep, effets.suspendre, { revoquerAcces: false }).catch((e: unknown) =>
       dep.journal.error({ err: e }, "[auth] coupure d'accès du compte sorti du groupe échouée"),
     );
   if (effets.revoquer !== null) await revoquerFlux(dep, effets.revoquer);

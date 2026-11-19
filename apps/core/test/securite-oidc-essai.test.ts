@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/securite-oidc-essai.test.ts — le bouton « Tester » d'un fournisseur OIDC lit les clés, vérifie les algorithmes annoncés, l'origine des points d'accès, l'authentification du client et le secret, avertit sur un sujet inhabituel et ne vaut jamais test complet. */
+import { generateKeyPairSync } from "node:crypto";
+import type { KeyObject } from "node:crypto";
+
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { testerFournisseur } from "../src/identite/essai";
@@ -101,5 +104,50 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur OIDC", () => {
     expect(r.par).toMatchObject({ subject: "warn", par: "warn" });
     expect(r.ok).toBe(true);
     idp.decouverte = {};
+  });
+
+  it("PKCE S256 non annoncé : avertissement ; annoncé : aucune étape `pkce`", async () => {
+    expect(await tester()).toMatchObject({ par: expect.not.objectContaining({ pkce: expect.anything() }) });
+    idp.decouverte = { code_challenge_methods_supported: ["plain"] };
+    const r = await tester();
+    expect(r.par["pkce"]).toBe("warn");
+    expect(r.ok).toBe(true);
+    idp.decouverte = { code_challenge_methods_supported: undefined };
+    expect((await tester()).par["pkce"]).toBe("warn");
+    idp.decouverte = {};
+  });
+
+  it("seules les clés que la bibliothèque acceptera sont comptées : RSA de moins de 2048 bits, Ed448 pour EdDSA, mauvais usage ou courbe écartés", async () => {
+    const jwk = (
+      type: "rsa" | "ed448" | "ed25519" | "ec",
+      opt: { modulusLength?: number; namedCurve?: string; extra?: object } = {},
+    ): object => {
+      const { extra, ...params } = opt;
+      const { publicKey } = generateKeyPairSync(type as "rsa", params as never) as unknown as {
+        publicKey: KeyObject;
+      };
+      return { ...publicKey.export({ format: "jwk" }), ...extra };
+    };
+    const publier = (keys: unknown[]): void => {
+      idp.jeuDeCles = { keys };
+    };
+    try {
+      publier([jwk("rsa", { modulusLength: 1024 })]);
+      expect((await tester({ id_token_alg: "RS256" })).par["jwks"]).toBe("fail");
+      publier([jwk("rsa", { modulusLength: 2048 })]);
+      expect((await tester({ id_token_alg: "RS256" })).par["jwks"]).toBe("ok");
+      publier([jwk("rsa", { modulusLength: 2048, extra: { use: "enc" } })]);
+      expect((await tester({ id_token_alg: "RS256" })).par["jwks"]).toBe("fail");
+      publier([jwk("rsa", { modulusLength: 2048, extra: { key_ops: ["encrypt"] } })]);
+      expect((await tester({ id_token_alg: "RS256" })).par["jwks"]).toBe("fail");
+      publier([jwk("ed448")]);
+      expect((await tester({ id_token_alg: "EdDSA" })).par["jwks"]).toBe("fail");
+      publier([jwk("ed25519")]);
+      expect((await tester({ id_token_alg: "EdDSA" })).par["jwks"]).toBe("ok");
+      publier([jwk("ec", { namedCurve: "P-384" })]);
+      expect((await tester({ id_token_alg: "ES256" })).par["jwks"]).toBe("fail");
+    } finally {
+      idp.jeuDeCles = null;
+    }
   });
 });

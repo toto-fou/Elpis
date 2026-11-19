@@ -32,6 +32,8 @@ export async function etablirConnexion(
     methode: MethodeConnexion;
     ip: string;
     userAgent: string | null;
+    /** Écriture faite avant tout effet et avant l'audit de succès ; si elle échoue, la session est vidée et l'erreur remonte. */
+    avantEffets?: () => Promise<void>;
   },
 ): Promise<void> {
   const ligne = await ligneSession(dep.base, e.uid);
@@ -55,6 +57,14 @@ export async function etablirConnexion(
   }
   const t = dep.maintenant();
   ouvrirSession(e.session, { uid: e.uid, methode: e.methode, maintenant: t, dureeMax: dep.dureeMax() });
+  if (e.avantEffets !== undefined) {
+    try {
+      await e.avantEffets();
+    } catch (err) {
+      e.session.vider();
+      throw err;
+    }
+  }
   try {
     await dep.base.run("UPDATE users SET last_login_at=? WHERE id=?", [t, e.uid]);
   } catch {

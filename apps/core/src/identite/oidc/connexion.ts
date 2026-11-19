@@ -93,29 +93,32 @@ export async function connecterParOidc(
         methode: `oidc:${f.id}`,
         ip: e.ip,
         userAgent: e.userAgent,
+        avantEffets: async () => {
+          const sid = e.session.get("_sid");
+          const expire = e.session.get("_exp");
+          try {
+            if (typeof sid !== "string" || typeof expire !== "number")
+              throw new Error("session sans identifiant");
+            await noterSessionExterne(dep.base, {
+              sid,
+              uid: res.uid,
+              providerId: f.id,
+              idpSid: e.retour.idpSid,
+              subject: e.retour.sub,
+              idToken: e.retour.idToken,
+              maintenant: e.maintenant,
+              expire,
+              avertir: (m) => dep.provisionnement.journal.warn(m),
+            });
+          } catch {
+            throw new RefusOidc("unavailable", "ext_session_write", res.uid);
+          }
+        },
       },
     );
   } catch (err) {
     if (err instanceof ConnexionRefusee) throw new RefusOidc("suspended", "account_suspended", res.uid);
     throw err;
-  }
-  const sid = e.session.get("_sid");
-  const expire = e.session.get("_exp");
-  try {
-    if (typeof sid !== "string" || typeof expire !== "number") throw new Error("session sans identifiant");
-    await noterSessionExterne(dep.base, {
-      sid,
-      uid: res.uid,
-      providerId: f.id,
-      idpSid: e.retour.idpSid,
-      subject: e.retour.profil.subject,
-      idToken: e.retour.idToken,
-      maintenant: e.maintenant,
-      expire,
-    });
-  } catch {
-    e.session.vider();
-    throw new RefusOidc("unavailable", "ext_session_write", res.uid);
   }
   return res.uid;
 }

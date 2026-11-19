@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/identite.ts — connexion par SSO OpenID Connect : départ du flux (main et console) et retour du fournisseur (main) ; 404 tant que le fournisseur n'est pas actif, tout refus mène à un code d'une liste fermée. */
+/** apps/core/src/familles/identite.ts — connexion par SSO OpenID Connect : départ du flux (main et console) et retour du fournisseur (main) ; 404 tant que le fournisseur n'est pas actif, tout refus mène à un code d'une liste fermée ; la frontière de confiance du cookie de liaison est le nom d'hôte (tout port). */
 import { randomBytes } from "node:crypto";
 
-import { dependancesSession, dureeMaxSession, ipDuClient, validerSession, valeurCookie } from "@elpis/auth";
+import {
+  cleAdresse,
+  dependancesSession,
+  dureeMaxSession,
+  ipDuClient,
+  validerSession,
+  valeurCookie,
+} from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
 import { estDict, HttpError } from "@elpis/commun";
 import { auditEvent } from "@elpis/securite";
@@ -14,7 +21,7 @@ import { ConnexionRefusee } from "../comptes/ouverture";
 import type { PortBac } from "../admin/bac";
 import { ligneUtilisateur } from "@elpis/auth";
 import { decouperHotePort } from "../interface/urls-publiques";
-import { fournisseursActifs, enregistrerTestReussi } from "../identite/fournisseurs";
+import { empreinteFournisseur, fournisseursActifs, enregistrerTestReussi } from "../identite/fournisseurs";
 import type { Journal } from "../journal";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { prouverEtRattacher } from "../identite/rattachement";
@@ -31,7 +38,13 @@ import {
 } from "../identite/oidc/deconnexion";
 import { oauthNextAdmis, preparerDepart } from "../identite/oidc/depart";
 import type { FabriqueConfigurations } from "../identite/oidc/configuration";
-import { resultatEssaiBlanc, resultatEssaiEchoue, ranger } from "../identite/oidc/essai-blanc";
+import {
+  RAISON_REGLAGES_CHANGES,
+  resultatEssaiBlanc,
+  resultatEssaiEchoue,
+  ranger,
+} from "../identite/oidc/essai-blanc";
+import type { ResultatEssaiBlanc } from "../identite/oidc/essai-blanc";
 import {
   COOKIE_LIAISON,
   consommerFlux,
@@ -110,9 +123,10 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
 
   function limiter(ip: string): void {
     const t = maintenant();
-    const attente = debit.attenteAdresseS(ip, t);
+    const cle = cleAdresse(ip);
+    const attente = debit.attenteAdresseS(cle, t);
     if (attente > 0) throw new HttpError(429, REFUS_DEBIT, { "Retry-After": String(Math.ceil(attente)) });
-    debit.prendreAdresse(ip, t);
+    debit.prendreAdresse(cle, t);
   }
 
   async function depart(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
@@ -154,6 +168,15 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     return { url: r.url };
   }
 
+  /** Nom du compte pour l'audit, `null` s'il ne se lit pas. */
+  async function nomDe(uid: number): Promise<string | null> {
+    try {
+      return String((await ligneUtilisateur(base, uid))?.username ?? "") || null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Refus d'un retour : référence aléatoire, cause réelle au journal et à l'audit, code fermé dans l'adresse de redirection. */
   async function refuser(
     req: FastifyRequest,
@@ -163,14 +186,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   ): Promise<unknown> {
     const ref = randomBytes(6).toString("base64url");
     dep.journal.warn(`connexion SSO ${id} refusée (réf. ${ref}) : ${refus.cause_}`);
-    let username: string | null = null;
-    if (refus.uid !== null) {
-      try {
-        username = String((await ligneUtilisateur(base, refus.uid))?.username ?? "") || null;
-      } catch {
-        username = null;
-      }
-    }
+    const username = refus.uid === null ? null : await nomDe(refus.uid);
     auditEvent({
       userId: refus.uid,
       username,
@@ -206,12 +222,13 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
     if (!estActif && secret === null) throw new HttpError(404, "Not Found");
     const ip = ipDuClient(req, dep.mandataires);
+    const cle = cleAdresse(ip);
     const publicUrl = lireReglagesAuth().public_url;
     const t = maintenant();
     let ouverte: Awaited<ReturnType<FabriqueConfigurations["ouvrir"]>> | null = null;
     try {
-      if (debit.attenteAdresseS(ip, t) > 0) throw new RefusOidc("unavailable", "rate_limited");
-      debit.prendreAdresse(ip, t);
+      if (debit.attenteAdresseS(cle, t) > 0) throw new RefusOidc("unavailable", "rate_limited");
+      debit.prendreAdresse(cle, t);
       if (secret === null) throw new RefusOidc("expired", "binding_cookie_missing");
       const requete = requeteBrute(req.url);
       const state = new URLSearchParams(requete).get("state") ?? "";
@@ -226,12 +243,14 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
       if (flux.etape !== "auth") throw new RefusOidc("failed", "stage_unexpected");
       if (flux.essaiAdmin !== null && !(await administrateurDeLEssai(req, flux.essaiAdmin)))
         throw new RefusOidc("failed", "trial_admin_session_missing");
-      ouverte = await dep.configurations.ouvrir(f, publicUrl);
       if (flux.essaiAdmin !== null) {
         const admin = flux.essaiAdmin;
-        let resultat;
+        let resultat: ResultatEssaiBlanc;
         let verifie = null;
         try {
+          if (flux.empreinteReglages !== empreinteFournisseur(f, publicUrl))
+            throw new RefusOidc("failed", RAISON_REGLAGES_CHANGES);
+          ouverte = await dep.configurations.ouvrir(f, publicUrl);
           verifie = await verifierRetour(ouverte, f, { publicUrl, flux, state, requete, maintenant: t });
           resultat = await resultatEssaiBlanc(base, f, verifie, t);
         } catch (e) {
@@ -243,11 +262,25 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
           await ranger(x, f.id, admin, resultat);
           if (verifie !== null && resultat.ok) await enregistrerTestReussi(x, f, publicUrl, t);
         });
+        auditEvent({
+          userId: admin,
+          username: await nomDe(admin),
+          action: "admin.auth.provider.trial.result",
+          ip,
+          details: {
+            provider_id: f.id,
+            ok: resultat.ok,
+            outcome: resultat.decision.outcome,
+            reason: resultat.decision.reason,
+          },
+        });
+        if (resultat.ok) debit.rendreAdresse(cle, t);
         return rep
           .headers(ENTETES_RETOUR)
           .type("text/html; charset=utf-8")
           .send(pageSimple("L'essai est terminé : vous pouvez fermer cet onglet."));
       }
+      ouverte = await dep.configurations.ouvrir(f, publicUrl);
       const verifie = await verifierRetour(ouverte, f, { publicUrl, flux, state, requete, maintenant: t });
       const issue = await connecterParOidc(connexion, {
         fournisseur: f,
@@ -266,6 +299,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
             prelinkId: issue.prelinkId,
             profil: issue.profil,
             appartenance: issue.appartenance,
+            sub: verifie.sub,
             cible: flux.cible,
             oauthNext: flux.oauthNext,
             adresse: ip,
@@ -277,6 +311,8 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
           .type("text/html; charset=utf-8")
           .send(pageRetour("/?auth_link=1"));
       }
+      debit.rendreAdresse(cle, t);
+      debit.rendreAdresse(cle, t);
       return rep
         .headers(ENTETES_RETOUR)
         .type("text/html; charset=utf-8")
@@ -376,9 +412,10 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     if (f === undefined || f.type !== "oidc") throw new HttpError(409, PREUVE_PERIMEE);
     const ip = ipDuClient(req, dep.mandataires);
     limiter(ip);
-    const attente = debit.attenteS(compte.username, ip, t);
+    const cle = cleAdresse(ip);
+    const attente = debit.attenteS(compte.username, cle, t);
     if (attente > 0) throw new HttpError(429, REFUS_DEBIT, { "Retry-After": String(Math.ceil(attente)) });
-    const essai = debit.prendre(compte.username, ip, t);
+    const essai = debit.prendre(compte.username, cle, t);
     const r = await prouverEtRattacher(connexion.provisionnement, {
       fournisseur: f,
       prelinkId: flux.prelinkId,
@@ -408,7 +445,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         fournisseur: f,
         uid: r.uid,
         username: compte.username,
-        subject: flux.profil.subject,
+        sub: flux.sub,
         session: req.session,
         maintenant: t,
         ip,

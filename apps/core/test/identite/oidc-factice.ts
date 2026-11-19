@@ -78,6 +78,9 @@ export class OidcFactice {
   readonly cleHs = "secret-hs-de-test";
   /** Pièges du prochain jeton (remis à zéro à chaque émission). */
   pieges: PiegesJeton = {};
+
+  /** Jeu de clés publié à la place de la clé honnête ; `null` : la clé honnête. */
+  jeuDeCles: unknown = null;
   /** Corps rendu par le point d'information (`null` : 404). */
   userinfo: ((u: Utilisateur) => Record<string, unknown> | null) | null = null;
   /** Remplace la réponse du point de jetons (statut, entêtes, corps) ; `null` : réponse normale. */
@@ -265,7 +268,7 @@ export class OidcFactice {
       return this.json(r, 200, this.documentDecouverte(), { date: new Date().toUTCString() });
     if (chemin === "/realms/elpis/certs") {
       this.lecturesCles += 1;
-      return this.json(r, 200, { keys: [this.cle.jwk] });
+      return this.json(r, 200, this.jeuDeCles ?? { keys: [this.cle.jwk] });
     }
     if (chemin === "/realms/elpis/par" && q.method === "POST") {
       const uri = `urn:ietf:params:oauth:request_uri:${randomBytes(8).toString("hex")}`;

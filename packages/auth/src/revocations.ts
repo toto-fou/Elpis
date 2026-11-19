@@ -45,16 +45,14 @@ export async function purgerRevocations(
   ).changes;
 }
 
-/** `bump_session_min_ts` : toute session ouverte avant `ts` est refusée ; la coupure ne baisse jamais (condition dans la requête). */
+/** `bump_session_min_ts` : toute session ouverte avant `ts` est refusée et leurs lignes de session du fournisseur d'identité sont supprimées ; la coupure ne baisse jamais (condition dans la requête). */
 export async function leverMinSession(x: Executeur, userId: number, ts: number): Promise<boolean> {
-  return (
-    (
-      await x.run(
-        "UPDATE users SET session_min_ts=? WHERE id=? AND (session_min_ts IS NULL OR session_min_ts < ?)",
-        [ts, userId, ts],
-      )
-    ).changes > 0
+  const r = await x.run(
+    "UPDATE users SET session_min_ts=? WHERE id=? AND (session_min_ts IS NULL OR session_min_ts < ?)",
+    [ts, userId, ts],
   );
+  await x.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [userId]);
+  return r.changes > 0;
 }
 
 /** Durée de vie maximale d'une session en secondes (`security.session.max_age_sec`), comme la lit `validerSession`. */

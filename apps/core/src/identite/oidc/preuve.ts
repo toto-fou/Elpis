@@ -2,6 +2,7 @@
 /** apps/core/src/identite/oidc/preuve.ts — étape « preuve du titulaire » d'une première connexion SSO : flux `proof` lié au navigateur (profil vérifié rangé côté serveur) et session ouverte une fois la preuve faite. */
 import { randomBytes } from "node:crypto";
 
+import { cleAdresse } from "@elpis/auth";
 import type { Session } from "@elpis/auth";
 import type { Base } from "@elpis/db";
 
@@ -19,6 +20,8 @@ export interface FluxPreuve {
   readonly prelinkId: number;
   readonly profil: ProfilIdentite;
   readonly appartenance: Appartenance;
+  /** `sub` du jeton d'identité d'où vient le profil. */
+  readonly sub: string;
   readonly cible: CibleFlux;
   readonly oauthNext: string | null;
 }
@@ -35,7 +38,9 @@ type LignePreuve = {
 const texte = (v: unknown): v is string => typeof v === "string";
 
 /** Profil et appartenance relus du JSON rangé ; `null` si la forme n'est pas exacte. */
-function profilDe(json: string | null): { profil: ProfilIdentite; appartenance: Appartenance } | null {
+function profilDe(
+  json: string | null,
+): { profil: ProfilIdentite; appartenance: Appartenance; sub: string } | null {
   if (json === null) return null;
   let v: unknown;
   try {
@@ -45,11 +50,15 @@ function profilDe(json: string | null): { profil: ProfilIdentite; appartenance: 
   }
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
-  const { subject, issuer, extUsername, extEmail, extName, appartenance } = o;
+  const { subject, issuer, extUsername, extEmail, extName, appartenance, sub } = o;
   if (!texte(subject) || !texte(issuer) || !texte(extUsername) || !texte(extEmail) || !texte(extName))
     return null;
   if (appartenance !== "oui" && appartenance !== "non" && appartenance !== "inconnu") return null;
-  return { profil: { subject, issuer, extUsername, extEmail, extName }, appartenance };
+  return {
+    profil: { subject, issuer, extUsername, extEmail, extName },
+    appartenance,
+    sub: texte(sub) ? sub : subject,
+  };
 }
 
 /** Flux d'étape `proof` du navigateur (état neuf, même empreinte de navigateur, dix minutes) ; un flux `proof` antérieur du même navigateur est remplacé. */
@@ -61,6 +70,7 @@ export async function ouvrirFluxPreuve(
     readonly prelinkId: number;
     readonly profil: ProfilIdentite;
     readonly appartenance: Appartenance;
+    readonly sub: string;
     readonly cible: CibleFlux;
     readonly oauthNext: string | null;
     readonly adresse: string;
@@ -76,7 +86,7 @@ export async function ouvrirFluxPreuve(
         empreinte(randomBytes(32).toString("base64url")),
         e.providerId,
         navigateur,
-        empreinte(e.adresse),
+        empreinte(cleAdresse(e.adresse)),
         "",
         "",
         e.cible,
@@ -84,7 +94,7 @@ export async function ouvrirFluxPreuve(
         null,
         "proof",
         e.prelinkId,
-        JSON.stringify({ ...e.profil, appartenance: e.appartenance }),
+        JSON.stringify({ ...e.profil, appartenance: e.appartenance, sub: e.sub }),
         maintenant,
         maintenant + DUREE_FLUX_S,
       ],
@@ -126,7 +136,7 @@ export async function ouvrirSessionApresPreuve(
     readonly fournisseur: FournisseurOidc;
     readonly uid: number;
     readonly username: string;
-    readonly subject: string;
+    readonly sub: string;
     readonly session: Session;
     readonly maintenant: number;
     readonly ip: string;
@@ -142,24 +152,22 @@ export async function ouvrirSessionApresPreuve(
       methode: `oidc:${e.fournisseur.id}`,
       ip: e.ip,
       userAgent: e.userAgent,
+      avantEffets: async () => {
+        const sid = e.session.get("_sid");
+        const expire = e.session.get("_exp");
+        if (typeof sid !== "string" || typeof expire !== "number")
+          throw new Error("session sans identifiant");
+        await noterSessionExterne(dep.base, {
+          sid,
+          uid: e.uid,
+          providerId: e.fournisseur.id,
+          idpSid: null,
+          subject: e.sub,
+          idToken: null,
+          maintenant: e.maintenant,
+          expire,
+        });
+      },
     },
   );
-  const sid = e.session.get("_sid");
-  const expire = e.session.get("_exp");
-  try {
-    if (typeof sid !== "string" || typeof expire !== "number") throw new Error("session sans identifiant");
-    await noterSessionExterne(dep.base, {
-      sid,
-      uid: e.uid,
-      providerId: e.fournisseur.id,
-      idpSid: null,
-      subject: e.subject,
-      idToken: null,
-      maintenant: e.maintenant,
-      expire,
-    });
-  } catch (err) {
-    e.session.vider();
-    throw err;
-  }
 }

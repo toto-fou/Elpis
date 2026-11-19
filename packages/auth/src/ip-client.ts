@@ -91,3 +91,17 @@ export function ipDuClient(req: RequeteIp, reseaux: readonly Reseau[] = mandatai
   }
   return ip;
 }
+
+/** Clé d'adresse d'un client pour les plafonds : IPv4 telle quelle (forme `::ffff:` ramenée), préfixe /64 en IPv6 ; texte inconnu rendu tel quel. */
+export function cleAdresse(ip: string): string {
+  const v4 = ip.startsWith("::ffff:") && ip.includes(".") ? ip.slice(7) : ip;
+  const a = adresseIpOuNul(v4);
+  if (a === null || a.version === 4) return v4;
+  if (a.valeur >> 32n === 0xffffn) {
+    const n = a.valeur & 0xffffffffn;
+    return [24n, 16n, 8n, 0n].map((d) => String((n >> d) & 255n)).join(".");
+  }
+  const haut = a.valeur >> 64n;
+  const hextets = Array.from({ length: 4 }, (_, i) => ((haut >> BigInt(48 - 16 * i)) & 0xffffn).toString(16));
+  return `${hextets.join(":")}::/64`;
+}

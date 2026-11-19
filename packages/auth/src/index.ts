@@ -22,6 +22,7 @@ export { installerAuth } from "./installer";
 export {
   adressePair,
   analyserMandataires,
+  cleAdresse,
   estMandataireDeConfiance,
   ipClient,
   ipDuClient,

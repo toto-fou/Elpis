@@ -134,14 +134,14 @@ export class JetonsVus {
 
 type LigneSession = { sid: string; user_id: number; expires_at: number };
 
-/** Sessions de CE fournisseur visées par le jeton ; sans `sid`, le sujet doit être celui que la connexion range (`sub`). */
+/** Sessions de CE fournisseur visées par le jeton : par `sid` (et `sub` s'il est donné), sinon par `sub` seul, rangé avec la session. */
 async function sessionsVisees(
   x: Executeur,
   f: FournisseurOidc,
   j: JetonDeconnexion,
 ): Promise<LigneSession[]> {
   if (j.sid !== null) {
-    if (j.sub !== null && f.subject_claim === "sub")
+    if (j.sub !== null)
       return x.all<LigneSession>(
         "SELECT sid, user_id, expires_at FROM auth_ext_sessions WHERE provider_id=? AND idp_sid=? AND subject=?",
         [f.id, j.sid, j.sub],
@@ -151,7 +151,7 @@ async function sessionsVisees(
       [f.id, j.sid],
     );
   }
-  if (j.sub === null || f.subject_claim !== "sub") return [];
+  if (j.sub === null) return [];
   return x.all<LigneSession>(
     "SELECT sid, user_id, expires_at FROM auth_ext_sessions WHERE provider_id=? AND subject=?",
     [f.id, j.sub],

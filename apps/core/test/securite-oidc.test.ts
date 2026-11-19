@@ -579,7 +579,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       expect((await b.demarrer()).reponse.statusCode).toBe(200);
     });
 
-    it("plafond de 5 000 flux au total", async () => {
+    it("plafond de 5 000 flux par fournisseur", async () => {
       const lignesFlux = Array.from({ length: 5000 }, (_v, i) => [
         `h${i}`,
         "sso",
@@ -608,14 +608,27 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       expect((await b.demarrer({ adresse })).reponse.statusCode).toBe(200);
     });
 
-    it("le débit de connexion par adresse s'applique au départ comme au retour", async () => {
+    it("le seau de débit par adresse s'applique au départ comme au retour, hors plafond de flux", async () => {
       const adresse = adresseNeuve();
-      let refuse = 0;
+      let premierRefus = -1;
       for (let i = 0; i < 60; i++) {
         const r = await b.demarrer({ adresse });
-        if (r.reponse.statusCode === 429) refuse += 1;
+        await b.t.base.run("DELETE FROM auth_flows");
+        if (r.reponse.statusCode === 429 && premierRefus < 0) premierRefus = i;
       }
-      expect(refuse).toBeGreaterThan(0);
+      expect(premierRefus).toBeGreaterThanOrEqual(50);
+      const autre = adresseNeuve();
+      const cookie = `${COOKIE_LIAISON}=${"a".repeat(43)}`;
+      const url = `${URL_PUBLIQUE}/x?code=a&state=${"A".repeat(43)}`;
+      const codes: string[] = [];
+      for (let i = 0; i < 60; i++) {
+        const r = await b.retourner(url, { cookie, adresse: autre });
+        codes.push(/auth_error=([a-z_]+)/u.exec(String(r.headers.location))?.[1] ?? "");
+      }
+      expect(codes.indexOf("unavailable")).toBeGreaterThanOrEqual(50);
+      expect(
+        denies().some((e) => (e["details"] as Record<string, unknown>)["reason"] === "rate_limited"),
+      ).toBe(true);
     });
   });
 

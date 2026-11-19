@@ -123,6 +123,11 @@ export class DebitConnexion {
     this.adresses.prendre(empreinte(adresse), t);
   }
 
+  /** Rend un jeton de l'adresse seule (flux SSO abouti). */
+  rendreAdresse(adresse: string, t: number): void {
+    this.adresses.rendre(empreinte(adresse), t);
+  }
+
   /** Compte l'essai dès son arrivée : des requêtes simultanées voient chacune le jeton de la précédente. */
   prendre(nom: string, adresse: string, t: number): Essai {
     const cleNom = empreinte(`${adresse}\0${nom}`);

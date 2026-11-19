@@ -279,6 +279,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         );
       if (champsFigesChanges(actuel, nouveau).length > 0)
         await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
+      await x.run("DELETE FROM auth_flows WHERE provider_id=? AND trial_admin IS NOT NULL", [id]);
       providers[i] = nouveau;
       return [actuel, nouveau];
     });

@@ -8,10 +8,12 @@ import type { FournisseurOidc } from "../reglages";
 import type { RetourVerifie } from "./echange";
 import type { RefusOidc } from "./refus";
 
+export const RAISON_REGLAGES_CHANGES = "settings_changed";
+
 export interface ResultatEssaiBlanc {
   /** Secondes depuis l'époque. */
   readonly at: number;
-  /** Le parcours est allé au bout et les groupes se lisent. */
+  /** Le parcours est allé au bout, les groupes se lisent et la décision serait une connexion ou une création. */
   readonly ok: boolean;
   readonly claims: {
     readonly iss: string;
@@ -79,9 +81,10 @@ export async function resultatEssaiBlanc(
 ): Promise<ResultatEssaiBlanc> {
   const warnings: string[] = [];
   if (r.vue.sujetEstIdentifiant) warnings.push(AVERTISSEMENT_SUJET);
+  const decision = await decider(x, f, r);
   return {
     at: maintenant,
-    ok: r.appartenance !== "inconnu",
+    ok: r.appartenance !== "inconnu" && (decision.outcome === "login" || decision.outcome === "create"),
     claims: {
       iss: r.vue.iss,
       subject: r.vue.sujet,
@@ -93,18 +96,22 @@ export async function resultatEssaiBlanc(
       amr: r.vue.amr,
       groups: r.vue.groupes,
     },
-    decision: await decider(x, f, r),
+    decision,
     warnings,
   };
 }
 
-/** Résultat d'un essai à blanc qui a échoué : la cause fermée, rien d'autre. */
+/** Résultat d'un essai à blanc qui a échoué : le code de refus, ou `settings_changed` ; rien d'autre. */
 export function resultatEssaiEchoue(refus: RefusOidc, maintenant: number): ResultatEssaiBlanc {
   return {
     at: maintenant,
     ok: false,
     claims: null,
-    decision: { outcome: "error", username: null, reason: refus.code },
+    decision: {
+      outcome: "error",
+      username: null,
+      reason: refus.cause_ === RAISON_REGLAGES_CHANGES ? RAISON_REGLAGES_CHANGES : refus.code,
+    },
     warnings: [],
   };
 }

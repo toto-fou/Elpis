@@ -10,6 +10,7 @@ import { classerErreur } from "../sortant";
 
 const ALGOS_REFUSES = /^(none|HS(256|384|512))$/u;
 const FAMILLE: Readonly<Record<string, string>> = { RS: "RSA", PS: "RSA", ES: "EC", Ed: "OKP" };
+const RSA_BITS_MIN = 2048;
 const COURBE: Readonly<Record<string, string>> = { ES256: "P-256", ES384: "P-384", ES512: "P-521" };
 
 export interface ContexteEtapesOidc {
@@ -17,19 +18,30 @@ export interface ContexteEtapesOidc {
   readonly secretEnregistre: (f: FournisseurOidc) => Promise<string | null>;
 }
 
-/** Nombre de clés de signature du jeu de clés qui conviennent à l'algorithme réglé. */
+/** Clé que la bibliothèque acceptera pour cet algorithme : type, courbe, taille RSA d'au moins 2048 bits, usage. */
+function cleConvient(k: unknown, alg: string): boolean {
+  if (k === null || typeof k !== "object") return false;
+  const o = k as Record<string, unknown>;
+  if (o["kty"] !== FAMILLE[alg.slice(0, 2)]) return false;
+  if (o["use"] !== undefined && o["use"] !== "sig") return false;
+  if (Array.isArray(o["key_ops"]) && !o["key_ops"].includes("verify")) return false;
+  if (typeof o["alg"] === "string" && o["alg"] !== alg) return false;
+  if (o["kty"] === "RSA") return typeof o["n"] === "string" && tailleRsaBits(o["n"]) >= RSA_BITS_MIN;
+  return o["crv"] === (COURBE[alg] ?? "Ed25519");
+}
+
+/** Taille en bits d'un module RSA donné en base64url (zéros de tête exclus). */
+function tailleRsaBits(n: string): number {
+  const octets = Buffer.from(n, "base64url");
+  let i = 0;
+  while (i < octets.length && octets[i] === 0) i++;
+  return i >= octets.length ? 0 : (octets.length - i) * 8 - Math.clz32(octets[i] as number) + 24;
+}
+
+/** Nombre de clés de signature du jeu de clés que la bibliothèque acceptera pour l'algorithme réglé. */
 function clesDeSignature(jeu: unknown, alg: string): number {
   const keys = (jeu as { keys?: unknown } | null)?.keys;
-  if (!Array.isArray(keys)) return 0;
-  return keys.filter((k: unknown) => {
-    if (k === null || typeof k !== "object") return false;
-    const o = k as Record<string, unknown>;
-    if (o["kty"] !== FAMILLE[alg.slice(0, 2)]) return false;
-    if (o["use"] !== undefined && o["use"] !== "sig") return false;
-    if (typeof o["alg"] === "string" && o["alg"] !== alg) return false;
-    const courbe = COURBE[alg] ?? (alg === "EdDSA" ? "Ed25519" : undefined);
-    return courbe === undefined || o["crv"] === courbe || (alg === "EdDSA" && o["crv"] === "Ed448");
-  }).length;
+  return Array.isArray(keys) ? keys.filter((k: unknown) => cleConvient(k, alg)).length : 0;
 }
 
 async function etapeCles(
@@ -90,6 +102,18 @@ function etapeAlgorithmes(f: FournisseurOidc, m: ServerMetadata, cible: string):
   );
 }
 
+function etapePkce(m: ServerMetadata, cible: string): EtapeEssai | null {
+  return m.code_challenge_methods_supported?.includes("S256") === true
+    ? null
+    : etape(
+        "pkce",
+        "PKCE",
+        "warn",
+        "Le fournisseur n'annonce pas PKCE S256 : vérifiez qu'il l'exige.",
+        cible,
+      );
+}
+
 function etapeAuthentification(f: FournisseurOidc, m: ServerMetadata, cible: string): EtapeEssai {
   const methode = f.client_auth === "basic" ? "client_secret_basic" : "client_secret_post";
   const annonces = m.token_endpoint_auth_methods_supported;
@@ -131,6 +155,8 @@ export async function etapesOidc(
   );
   etapes.push(etapeAlgorithmes(f, m, cible));
   etapes.push(await etapeCles(f, m, c, cible));
+  const pkce = etapePkce(m, cible);
+  if (pkce !== null) etapes.push(pkce);
   etapes.push(etapeAuthentification(f, m, cible));
   etapes.push(
     (await c.secretEnregistre(f)) === null

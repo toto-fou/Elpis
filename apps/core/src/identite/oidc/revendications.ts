@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/revendications.ts — lecture des revendications vérifiées d'un jeton d'identité : toujours par `Object.hasOwn`, sujet, groupes (chemin pointé), `acr` et `amr` requis, e-mail vérifié seulement. */
+import { droitsActifs } from "../correspondance";
 import type { Appartenance } from "../provisionnement";
 import type { FournisseurOidc } from "../reglages";
 
@@ -63,9 +64,9 @@ export function groupesDe(claims: Revendications, f: FournisseurOidc): string[] 
   return v as string[];
 }
 
-/** Groupe requis reçu en chaîne unique (certains fournisseurs rendent ainsi un seul groupe) : il prouve l'appartenance, rien d'autre ; `null` pour toute autre chaîne. */
+/** Groupe requis reçu en chaîne unique (certains fournisseurs rendent ainsi un seul groupe) : il prouve l'appartenance, rien d'autre ; `null` pour toute autre chaîne, et dès que les rôles ou les groupes suivent le fournisseur (une liste est alors exigée). */
 export function groupeRequisSeulDe(claims: Revendications, f: FournisseurOidc): string | null {
-  if (marqueDepassement(claims, f.groups_claim)) return null;
+  if (droitsActifs(f) || marqueDepassement(claims, f.groups_claim)) return null;
   const v = lireRevendication(claims, f.groups_claim);
   return typeof v === "string" && v !== "" && f.required_groups.includes(v) ? v : null;
 }

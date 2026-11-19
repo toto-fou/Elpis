@@ -59,11 +59,7 @@ describe("revendications", () => {
   });
 
   it("groupes : une chaîne n'est jamais une liste ; seule une chaîne exactement égale à un groupe REQUIS prouve l'appartenance, sans découpage ni rognage", () => {
-    const g = f({
-      required_groups: ["elpis", "equipe a;b"],
-      roles: { enabled: true, admin_groups: ["adm"], moderator_groups: ["mod"] },
-      group_map: { enabled: true, map: [{ external: "carte", group_id: 3 }] },
-    });
+    const g = f({ required_groups: ["elpis", "equipe a;b"] });
     for (const v of ["elpis", "equipe a;b", "adm", "mod", "carte", "elpis;adm"])
       expect(groupesDe({ groups: v }, g), v).toBeNull();
     for (const v of ["elpis", "equipe a;b"]) expect(groupeRequisSeulDe({ groups: v }, g), v).toBe(v);
@@ -71,6 +67,9 @@ describe("revendications", () => {
       expect(groupeRequisSeulDe({ groups: v }, g), v).toBeNull();
     expect(groupeRequisSeulDe({ groups: ["elpis"] }, g)).toBeNull();
     expect(groupeRequisSeulDe({ groups: "elpis", hasgroups: true }, g)).toBeNull();
+    const roles = f({ roles: { enabled: true, admin_groups: [], moderator_groups: ["mod"] } });
+    const carte = f({ group_map: { enabled: true, map: [{ external: "carte", group_id: 3 }] } });
+    for (const suivi of [roles, carte]) expect(groupeRequisSeulDe({ groups: "elpis" }, suivi)).toBeNull();
   });
 
   it("`acr` et `amr` : seules les valeurs réglées passent", () => {

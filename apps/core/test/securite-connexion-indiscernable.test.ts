@@ -146,10 +146,10 @@ describe.each(MOTEURS)("refus indiscernables avec un annuaire actif (%s)", (mote
     expect(String(r.headers["set-cookie"] ?? "")).not.toMatch(/mcpwebui_session=[^;"]+;/u);
     expect(lignesJournal.join("\n")).not.toContain("mdp-alice-1");
     expect(
-      lignesAuditRecentes({ actionPrefix: "auth.login.denied" }).some(
+      lignesAuditRecentes({ actionPrefix: "auth.login.denied" }).find(
         (e) => (e["details"] as Record<string, unknown>)["reason"] === "session_open_failed",
       ),
-    ).toBe(true);
+    ).toMatchObject({ username: "alice", details: { login_method: "password" } });
   });
 
   it("une requête en 429 ne coûte aucune lecture du coffre ni des états de fournisseur", async () => {

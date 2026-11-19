@@ -298,13 +298,15 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       await refuse(ELPIS("s", { groups: [1, 2] }), "groups_unknown");
       await refuse(ELPIS("s", { groups: { elpis: true } }), "groups_unknown");
     });
-    it("chaîne unique égale au groupe requis : connexion ; toute autre chaîne, même égale à un groupe de rôle : `groups_unknown`, jamais « non membre »", async () => {
-      await b.reglages({ roles: { enabled: true, admin_groups: [], moderator_groups: ["mods"] } });
+    it("chaîne unique égale au groupe requis : connexion, par le jeton ou par le point d'information ; toute autre chaîne : `groups_unknown`, jamais « non membre »", async () => {
       await refuse(ELPIS("s", { groups: "mods" }), "groups_unknown");
+      await refuse(ELPIS("s", { groups: "elpis;mods" }), "groups_unknown");
       expect((await b.connecter(ELPIS("sub-un", { groups: "elpis" }))).retour.statusCode).toBe(200);
+      b.idp.userinfo = (u) => ({ sub: u.sub, groups: "elpis" });
+      expect((await b.connecter(ELPIS("sub-deux", { groups: undefined }))).retour.statusCode).toBe(200);
     });
     const OTP = ["pwd", "otp"];
-    it("une chaîne ne donne ni rôle ni groupe : égale au groupe requis qui est aussi celui des administrateurs, elle ouvre un compte ordinaire, même avec le second facteur", async () => {
+    it("rôles ou groupes suivis par le fournisseur : une chaîne n'est plus lue, une liste est exigée (ni rôle donné, ni rôle gardé sur une chaîne)", async () => {
       const niveau = async (nom: string): Promise<number> =>
         Number(
           (await b.t.base.get<{ is_admin: number }>("SELECT is_admin FROM users WHERE username=?", [nom]))
@@ -315,16 +317,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
         roles: { enabled: true, admin_groups: ["admins"], moderator_groups: ["mods"] },
         required_amr: ["otp"],
       });
-      expect((await b.connecter(ELPIS("sub-chaine", { groups: "admins", amr: OTP }))).retour.statusCode).toBe(
-        200,
-      );
-      expect(await niveau("sub-chaine")).toBe(0);
+      await refuse(ELPIS("sub-chaine", { groups: "admins", amr: OTP }), "groups_unknown");
+      await refuse(ELPIS("sub-chaine", { groups: "elpis", amr: OTP }), "groups_unknown");
       expect(
         (await b.connecter(ELPIS("sub-liste", { groups: ["admins"], amr: OTP }))).retour.statusCode,
       ).toBe(200);
       expect(await niveau("sub-liste")).toBe(1);
     });
-    it("identité connue et chaîne : une vue partielle ne suspend ni ne rétrograde personne", async () => {
+    it("identité connue et chaîne : jamais suspendue ni rétrogradée par une chaîne, et jamais admise avec des droits que la chaîne ne permet pas de vérifier", async () => {
       const etat = async (nom: string) =>
         b.t.base.get<{ is_admin: number; suspended_at: number }>(
           "SELECT is_admin, suspended_at FROM users WHERE username=?",
@@ -343,18 +343,28 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
         (await b.connecter(ELPIS("sub-chef", { groups: ["elpis", "admins"], amr: OTP }))).retour.statusCode,
       ).toBe(200);
       expect(await etat("sub-chef")).toMatchObject({ is_admin: 1, suspended_at: 0 });
-      // Le fournisseur ne rend plus que la première valeur : groupe requis seul → connexion, rôle inchangé.
-      expect((await b.connecter(ELPIS("sub-chef", { groups: "elpis", amr: OTP }))).retour.statusCode).toBe(
+      // Le fournisseur ne rend plus qu'une valeur : rien ne dit si elle est toute la liste ou sa première ligne.
+      for (const groups of ["elpis", "mods", "admins"])
+        expect(await code({ groups, amr: OTP }), groups).toBe("groups_unknown");
+      expect(await etat("sub-chef")).toMatchObject({ is_admin: 1, suspended_at: 0 });
+      // Une LISTE sans le groupe des administrateurs rétrograde ; sans le groupe requis elle suspend.
+      expect((await b.connecter(ELPIS("sub-chef", { groups: ["elpis"], amr: OTP }))).retour.statusCode).toBe(
         200,
       );
-      expect(await etat("sub-chef")).toMatchObject({ is_admin: 1, suspended_at: 0 });
-      // Ou seulement un groupe de rôle : inconnu, refus sans suspension ni rétrogradation.
-      expect(await code({ groups: "mods", amr: OTP })).toBe("groups_unknown");
-      expect(await code({ groups: "admins", amr: OTP })).toBe("groups_unknown");
-      expect(await etat("sub-chef")).toMatchObject({ is_admin: 1, suspended_at: 0 });
-      // Une LISTE qui ne porte plus le groupe requis reste un « non » : suspension.
+      expect(await etat("sub-chef")).toMatchObject({ is_admin: 0, suspended_at: 0 });
       expect(await code({ groups: ["mods"], amr: OTP })).toBe("not_in_group");
       expect(Number((await etat("sub-chef"))?.suspended_at)).toBeGreaterThan(0);
+    });
+    it("identité connue, sans rôle ni groupe suivi : la chaîne du groupe requis laisse entrer, une autre chaîne ne suspend pas", async () => {
+      expect((await b.connecter(ELPIS("sub-simple", { groups: ["elpis"] }))).retour.statusCode).toBe(200);
+      expect((await b.connecter(ELPIS("sub-simple", { groups: "elpis" }))).retour.statusCode).toBe(200);
+      const r = await b.connecter(ELPIS("sub-simple", { groups: "autres" }));
+      expect(refus(r.retour).code).toBe("groups_unknown");
+      expect(
+        await b.t.base.get<{ suspended_at: number }>("SELECT suspended_at FROM users WHERE username=?", [
+          "sub-simple",
+        ]),
+      ).toMatchObject({ suspended_at: 0 });
     });
     it("groupes en dépassement (`_claim_names`, `hasgroups`) : `groups_unknown` même avec une liste présente", async () => {
       await refuse(

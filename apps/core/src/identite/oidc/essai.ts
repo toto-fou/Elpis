@@ -162,7 +162,7 @@ export async function etapesOidc(
       "endpoints",
       "Points d'accès",
       "ok",
-      m[USERINFO_HORS_ORIGINE] === true
+      m.userinfo_endpoint === undefined
         ? "Jetons et clés sur la même origine que l'émetteur ; autorisation en https."
         : "Jetons, clés et informations sur la même origine que l'émetteur ; autorisation en https.",
       cible,

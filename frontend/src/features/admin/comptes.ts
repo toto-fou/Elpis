@@ -97,6 +97,9 @@ function chargeAcces(m: FormulaireAcces): {
   return { body: { engine_keys: keys, can_manage_models: manage }, changed };
 }
 
+const MENTION_SUPPRESSION =
+  "Supprimer n'est pas bannir : le compte sera recréé à la prochaine connexion par l'annuaire. Pour interdire l'accès, désactivez-le.";
+
 const roleDe = (u: CompteConsole): string =>
   u.is_admin === 1 ? "admin" : u.is_admin === 2 ? "moderator" : "user";
 
@@ -236,7 +239,8 @@ export function creerComptes(b: BaseAdmin) {
     const confirme = await confirmerParMot(
       ctx,
       `Supprimer ${cibles.length} compte(s) ?`,
-      `${noms}. Toutes leurs conversations seront supprimées. Action irréversible.`,
+      `${noms}. Toutes leurs conversations seront supprimées. Action irréversible.` +
+        (cibles.some((u) => u.identity) ? " " + MENTION_SUPPRESSION : ""),
       "SUPPRIMER",
       "Supprimer",
     );
@@ -347,7 +351,8 @@ export function creerComptes(b: BaseAdmin) {
     const confirme = await confirmerParMot(
       ctx,
       `Supprimer l'utilisateur "${u.username}" ?`,
-      "Cette action est irréversible. Toutes ses conversations seront supprimées.",
+      "Cette action est irréversible. Toutes ses conversations seront supprimées." +
+        (u.identity ? " " + MENTION_SUPPRESSION : ""),
       "SUPPRIMER",
       "Supprimer",
     );
@@ -465,6 +470,7 @@ export function creerComptes(b: BaseAdmin) {
   const newPasswordInput = ref("");
   const resetCibles: Ref<CompteConsole[]> = ref([]);
   function openResetModal(u: CompteConsole): void {
+    if (u.has_local_password === false) return;
     resetCibles.value = [];
     resetTarget.value = u;
     newPasswordInput.value = "";
@@ -472,7 +478,7 @@ export function creerComptes(b: BaseAdmin) {
   /** Un compte à la fois : un mot de passe temporaire commun ouvrirait chaque compte aux autres titulaires. */
   function reinitialiserSelection(): void {
     const cibles = autresQueMoi();
-    if (cibles.length !== 1) return;
+    if (cibles.length !== 1 || cibles[0]?.has_local_password === false) return;
     resetCibles.value = [];
     resetTarget.value = cibles[0] ?? null;
     newPasswordInput.value = "";
@@ -942,5 +948,6 @@ export function creerComptes(b: BaseAdmin) {
     admNetProfileName,
     admDesktopLabel,
     admDesktopTitle,
+    mentionSuppression: MENTION_SUPPRESSION,
   };
 }

@@ -152,7 +152,12 @@ const ENTREES: readonly EntreeAdmin[] = [
     icon: "ph-users",
     role: "admin",
     pages: [
-      { id: "accounts", label: "Comptes", wide: true, loaders: [["loadUsers"], ["loadGroups"]] },
+      {
+        id: "accounts",
+        label: "Comptes",
+        wide: true,
+        loaders: [["loadUsers"], ["loadGroups"], ["loadEnterpriseAuth"]],
+      },
       { id: "groups", label: "Groupes", wide: true, loaders: [["loadGroups"], ["loadUsers"]] },
       {
         id: "rights",

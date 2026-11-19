@@ -18,6 +18,7 @@ import { setupAdminHotesOutils } from "./hotes-outils";
 import { creerInference } from "./inference";
 import { creerJournalSecurite } from "./journal-securite";
 import { creerIdentite } from "./identite";
+import { creerRattachement } from "./rattachement";
 import { creerJournalisation } from "./journalisation";
 import { creerJournaux } from "./journaux";
 import { creerMetriques } from "./metriques";
@@ -138,6 +139,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     saveAuditSettings: journalisation.saveAuditSettings,
   });
   const identite = creerIdentite(b);
+  const rattachement = creerRattachement(b, identite);
   const config = creerConfig(b);
   Object.assign(lien, { loadAdminConfig: config.loadAdminConfig, saveConfigStore: config.saveConfigStore });
   const { liberer: libererPalette, ...palette } = creerPalette(b, {
@@ -193,6 +195,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     ...agents,
     ...journalisation,
     ...identite,
+    ...rattachement,
     ...config,
     ...observabilite,
     ...journalSecurite,

@@ -41,6 +41,53 @@ const adm = domaineAdmin();
 
   <Transition name="modal">
     <div
+      v-if="adm.detachCible"
+      class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4"
+      @click.self="adm.detachFermer"
+    >
+      <div
+        class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Détacher le compte"
+        tabindex="-1"
+        data-a11y-modal
+        @keydown.esc.stop="adm.detachFermer"
+      >
+        <h3 class="font-bold mb-2 text-lg text-slate-800">
+          Détacher <span class="text-blue-600">{{ adm.detachCible.username }}</span>
+        </h3>
+        <p class="adm-card__hint mb-3">
+          Le compte redeviendra local. La personne devra changer ce mot de passe à sa prochaine connexion.
+        </p>
+        <input
+          v-model="adm.detachMotDePasse"
+          type="text"
+          autocomplete="off"
+          data-detach-mdp
+          placeholder="Mot de passe temporaire"
+          autofocus
+          class="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg mb-3 outline-none focus:ring-1 focus:ring-blue-500 font-medium text-sm text-slate-700 transition-colors"
+          @keydown.enter="adm.detachConfirmer()"
+        />
+        <p v-if="adm.detachErreur" class="adm-field__warn mb-3" role="alert">{{ adm.detachErreur }}</p>
+        <div class="flex justify-end gap-2">
+          <button class="adm-btn adm-btn--quiet" @click="adm.detachFermer">Annuler</button>
+          <button
+            class="adm-btn adm-btn--primary"
+            data-detach-valider
+            :disabled="adm.detachBusy || !adm.detachMotDePasse"
+            @click="adm.detachConfirmer()"
+          >
+            Détacher
+          </button>
+        </div>
+      </div>
+    </div>
+  </Transition>
+
+  <Transition name="modal">
+    <div
       v-if="adm.showNewUserModal"
       class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4"
       @click.self="adm.showNewUserModal = false"

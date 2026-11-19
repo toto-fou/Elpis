@@ -4,6 +4,7 @@
 import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
+import { heureCourte } from "../../features/admin/horodatage";
 import { PRESETS_LDAP } from "../../features/admin/identite";
 import EtapesEssai from "./EtapesEssai.vue";
 
@@ -635,6 +636,101 @@ const titre = computed(() => {
                   </p>
                 </template>
               </div>
+            </section>
+
+            <section
+              v-if="!f.nouveau && f.type === 'oidc'"
+              class="space-y-2"
+              aria-labelledby="ent-prelien-h"
+              data-prelinks
+            >
+              <h3 id="ent-prelien-h" class="adm-field__label">Comptes existants</h3>
+              <p class="adm-card__hint">
+                À sa première connexion par ce fournisseur, la personne devra saisir une fois son ancien mot
+                de passe Elpis.
+              </p>
+              <ul v-if="adm.prelinks.length" class="adm-rows" aria-label="Rattachements préparés">
+                <li v-for="p in adm.prelinks" :key="p.id" class="adm-row adm-row--full" data-prelink>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div class="min-w-0 flex-1 text-xs">
+                      <span class="font-medium">{{ p.username ?? "Compte supprimé" }}</span>
+                      <span class="font-mono text-slate-500"> {{ p.expected }}</span>
+                      <div class="adm-card__hint">
+                        {{ p.waiver ? "Sans ancien mot de passe · " : "" }}Échéance :
+                        {{ heureCourte(p.expires_at) }}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      class="adm-btn adm-btn--icon adm-btn--danger-hover"
+                      data-prelink-supprimer
+                      :aria-label="'Supprimer le rattachement préparé de ' + (p.username ?? 'ce compte')"
+                      :disabled="adm.prelinksBusy"
+                      @click="adm.prelinkSupprimer(p)"
+                    >
+                      <i class="ph ph-trash" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </li>
+              </ul>
+              <p v-else class="adm-card__hint">Aucun rattachement préparé.</p>
+
+              <label class="adm-field">
+                <span class="adm-field__label">Compte local</span>
+                <select
+                  id="ent-prelien-compte"
+                  v-model.number="adm.prelinkForm.user_id"
+                  class="set-select w-full"
+                >
+                  <option :value="0">—</option>
+                  <option v-for="u in adm.prelinkComptes" :key="u.id" :value="u.id">
+                    {{ u.username }}{{ u.is_admin === 1 ? " (administrateur)" : "" }}
+                  </option>
+                </select>
+              </label>
+              <label class="adm-field">
+                <span class="adm-field__label">Identifiant attendu chez le fournisseur</span>
+                <input
+                  id="ent-prelien-attendu"
+                  v-model="adm.prelinkForm.expected"
+                  class="set-input font-mono text-xs"
+                  maxlength="256"
+                  autocomplete="off"
+                />
+              </label>
+              <label
+                class="flex items-center gap-2 text-xs"
+                :title="
+                  adm.prelinkAdmin ? 'Un administrateur doit toujours prouver son ancien mot de passe.' : ''
+                "
+              >
+                <input
+                  id="ent-prelien-dispense"
+                  v-model="adm.prelinkForm.waiver"
+                  type="checkbox"
+                  :disabled="adm.prelinkAdmin"
+                />
+                <span>Identité vérifiée hors ligne : ne pas demander l'ancien mot de passe</span>
+              </label>
+              <p v-if="adm.prelinkAdmin" class="adm-card__hint" data-prelink-dispense-admin>
+                Un administrateur doit toujours prouver son ancien mot de passe.
+              </p>
+              <label v-if="adm.prelinkAdmin" class="flex items-center gap-2 text-xs ent-ko">
+                <input id="ent-prelien-admin" v-model="adm.prelinkForm.confirm_admin" type="checkbox" />
+                <span class="adm-row__label">Je confirme le rattachement de cet administrateur</span>
+              </label>
+              <p v-if="adm.prelinksErreur" class="adm-field__warn" role="alert" data-prelinks-erreur>
+                {{ adm.prelinksErreur }}
+              </p>
+              <button
+                id="ent-prelien-ajouter"
+                type="button"
+                class="adm-btn adm-tool adm-btn--sm"
+                :disabled="adm.prelinksBusy || !adm.prelinkPret"
+                @click="adm.prelinkAjouter()"
+              >
+                <i class="ph ph-plus" aria-hidden="true"></i> Préparer le rattachement
+              </button>
             </section>
 
             <section v-if="!f.nouveau" class="adm-card adm-zone" aria-labelledby="ent-zone-h">

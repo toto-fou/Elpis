@@ -240,6 +240,8 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     if (balayageEnCours.value !== null || !r.complet) return;
     const corps = schemaCorpsConfirmationBalayage.safeParse({
       user_ids: [...new Set(r.comptes.map((c) => c.user_id))],
+      // Empreinte de l'ensemble retenu tel qu'il a été affiché : le serveur refuse s'il a changé depuis.
+      held_hash: etatPasse.held_hash,
     });
     if (!corps.success) return;
     const n = corps.data.user_ids.length;

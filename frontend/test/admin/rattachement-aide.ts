@@ -101,6 +101,7 @@ export function sweep(over: Record<string, unknown> = {}) {
     pending: 0,
     held: [],
     held_total: 0,
+    held_hash: "",
     observed: [],
     ok_at: null,
     ...over,

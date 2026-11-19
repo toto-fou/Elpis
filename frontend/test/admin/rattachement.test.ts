@@ -38,6 +38,9 @@ async function ouvrirPage(initial: unknown, opts: Parameters<typeof monter>[1] =
   return m;
 }
 
+/** Empreinte de l'ensemble retenu, telle que le serveur la range avec la passe. */
+const EMPREINTE = "0123456789abcdef0123456789abcdef";
+
 describe("balayage de l'annuaire", () => {
   it("affiche « Jamais » quand aucune passe n'a eu lieu, seulement pour un annuaire actif", async () => {
     await ouvrirPage(
@@ -102,7 +105,9 @@ describe("balayage de l'annuaire", () => {
 
   it("des suspensions retenues proposent de désactiver, après saisie du nombre", async () => {
     const m = await ouvrirPage(
-      etat([{ ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3 }) }]),
+      etat([
+        { ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3, held_hash: EMPREINTE }) },
+      ]),
     );
     const t = el("[data-balayage-retenues]")?.textContent ?? "";
     expect(t).toContain("3 comptes ne sont plus dans l'annuaire ou dans un groupe requis.");
@@ -111,7 +116,9 @@ describe("balayage de l'annuaire", () => {
     m.reponses["POST /api/admin/auth/providers/ipa/sweep/confirm"] = [json(sweep())];
     await clic("[data-balayage-confirmer]");
     expect(m.mots).toEqual(["3"]);
-    expect(m.corps["POST /api/admin/auth/providers/ipa/sweep/confirm"]).toEqual([{ user_ids: [1, 2, 3] }]);
+    expect(m.corps["POST /api/admin/auth/providers/ipa/sweep/confirm"]).toEqual([
+      { user_ids: [1, 2, 3], held_hash: EMPREINTE },
+    ]);
   });
 
   it("la liste des comptes retenus est montrée avec une raison en clair, et seuls ces comptes sont confirmés", async () => {
@@ -120,7 +127,9 @@ describe("balayage de l'annuaire", () => {
       { user_id: 9, username: "bob", reason: "entry_disabled" },
       { user_id: 12, username: "zoe", reason: "not_in_group" },
     ];
-    const m = await ouvrirPage(etat([{ ...LDAP, sweep: sweep({ pending: 3, held, held_total: 3 }) }]));
+    const m = await ouvrirPage(
+      etat([{ ...LDAP, sweep: sweep({ pending: 3, held, held_total: 3, held_hash: EMPREINTE }) }]),
+    );
     const l = tous("[data-balayage-compte]").map((x) => x.textContent?.replace(/\s+/g, " ").trim());
     expect(l).toEqual([
       "eve · entrée introuvable",
@@ -130,12 +139,19 @@ describe("balayage de l'annuaire", () => {
     expect(el("[data-balayage-autres]")).toBeNull();
     m.reponses["POST /api/admin/auth/providers/ipa/sweep/confirm"] = [json(sweep())];
     await clic("[data-balayage-confirmer]");
-    expect(m.corps["POST /api/admin/auth/providers/ipa/sweep/confirm"]).toEqual([{ user_ids: [5, 9, 12] }]);
+    expect(m.corps["POST /api/admin/auth/providers/ipa/sweep/confirm"]).toEqual([
+      { user_ids: [5, 9, 12], held_hash: EMPREINTE },
+    ]);
   });
 
   it("liste incomplète : « et N autres », phrase dédiée, confirmation indisponible", async () => {
     const m = await ouvrirPage(
-      etat([{ ...LDAP, sweep: sweep({ pending: 250, held: retenus(200), held_total: 250 }) }]),
+      etat([
+        {
+          ...LDAP,
+          sweep: sweep({ pending: 250, held: retenus(200), held_total: 250, held_hash: EMPREINTE }),
+        },
+      ]),
     );
     expect(tous("[data-balayage-compte]")).toHaveLength(200);
     expect(el("[data-balayage-autres]")?.textContent).toContain("et 50 autres");
@@ -155,8 +171,8 @@ describe("balayage de l'annuaire", () => {
           ...LDAP,
           sweep: sweep({
             observed: [
-              { user_id: 4, reason: "entry_missing" },
-              { user_id: 6, reason: "not_in_group" },
+              { user_id: 4, reason: "entry_missing", at: 1_800_000_000 },
+              { user_id: 6, reason: "not_in_group", at: 1_800_000_000 },
             ],
           }),
         },
@@ -170,7 +186,9 @@ describe("balayage de l'annuaire", () => {
 
   it("un refus de la saisie n'envoie rien", async () => {
     const m = await ouvrirPage(
-      etat([{ ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3 }) }]),
+      etat([
+        { ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3, held_hash: EMPREINTE }) },
+      ]),
       { accepter: false },
     );
     await clic("[data-balayage-confirmer]");
@@ -180,11 +198,17 @@ describe("balayage de l'annuaire", () => {
 
   it("un 409 à la confirmation recharge l'état et dit que la situation a changé", async () => {
     const m = await ouvrirPage(
-      etat([{ ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3 }) }]),
+      etat([
+        { ...LDAP, sweep: sweep({ pending: 3, held: retenus(3), held_total: 3, held_hash: EMPREINTE }) },
+      ]),
     );
     m.reponses["POST /api/admin/auth/providers/ipa/sweep/confirm"] = [json({ detail: "x" }, 409)];
     m.reponses["GET /api/admin/auth"] = [
-      json(etat([{ ...LDAP, sweep: sweep({ pending: 4, held: retenus(4), held_total: 4 }) }])),
+      json(
+        etat([
+          { ...LDAP, sweep: sweep({ pending: 4, held: retenus(4), held_total: 4, held_hash: EMPREINTE }) },
+        ]),
+      ),
     ];
     await clic("[data-balayage-confirmer]");
     expect(el("[data-balayage-message]")?.textContent).toContain(

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/identite/recette-oidc-reelle.test.ts — recette à la main contre un vrai fournisseur OpenID Connect (Keycloak…) décrit par le fichier JSON de `ELPIS_RECETTE_OIDC` ; sautée sans lui. */
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { request } from "node:https";
+import { createServer, request } from "node:https";
+import type { Server } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createUser, dependancesParDefaut, revoquerOauthDuCompte } from "@elpis/auth";
+import { createUser, dependancesParDefaut, resetUserPassword, revoquerOauthDuCompte } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
@@ -16,6 +17,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { composer } from "../../src/composition";
 import { testerFournisseur } from "../../src/identite/essai";
 import { enregistrerSecret, enregistrerTestReussi, secretFournisseur } from "../../src/identite/fournisseurs";
+import { ancreIdentite } from "../../src/identite/ancre";
+import { preparerRattachement } from "../../src/identite/rattachement";
 import { validerFournisseur } from "../../src/identite/reglages";
 import type { FournisseurOidc } from "../../src/identite/reglages";
 import { appTest, journalMuet } from "../aides";
@@ -40,6 +43,15 @@ interface Recette {
   readonly membre: Compte;
   readonly autre_membre: Compte;
   readonly hors_groupe: Compte;
+  /** Administrateur du fournisseur (API d'administration), pour provoquer une déconnexion par canal arrière. */
+  readonly admin_fournisseur?: Compte & { readonly realm: string };
+  /** Adresse où le fournisseur peut joindre Elpis en HTTPS (celle de `public_url`), avec son certificat. */
+  readonly ecoute?: {
+    readonly hote: string;
+    readonly port: number;
+    readonly cert: string;
+    readonly cle: string;
+  };
 }
 
 const CHEMIN = process.env["ELPIS_RECETTE_OIDC"] ?? "";
@@ -56,7 +68,7 @@ interface Reponse {
 function navigateur(
   adresse: string,
   ca: string,
-  o: { cookie?: string; corps?: string } = {},
+  o: { cookie?: string; corps?: string; entetes?: Record<string, string> } = {},
 ): Promise<Reponse> {
   return new Promise((resoudre, rejeter) => {
     const r = request(
@@ -66,6 +78,7 @@ function navigateur(
         ca,
         headers: {
           ...(o.cookie ? { cookie: o.cookie } : {}),
+          ...o.entetes,
           ...(o.corps === undefined
             ? {}
             : {
@@ -346,4 +359,159 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect ré
       await installer();
     }
   }, 60_000);
+
+  const interroger = (methode: "GET" | "POST", url: string, cookie: string, corps?: object) =>
+    main.inject({
+      method: methode,
+      url,
+      remoteAddress: adresse(),
+      headers: { host: hote, "sec-fetch-site": "same-origin", cookie },
+      ...(corps === undefined ? {} : { payload: corps }),
+    });
+
+  it("preuve du titulaire : un compte local existant est relié après son ancien mot de passe, une seule fois", async () => {
+    const nom = recette.membre.login;
+    const compte = await t.base.get<{ id: number }>("SELECT id FROM users WHERE username=?", [nom]);
+    const uid = Number(compte?.id);
+    // Le compte redevient un compte local à mot de passe, comme sur une instance d'avant le SSO.
+    await t.base.run("DELETE FROM user_identities WHERE user_id=?", [uid]);
+    await resetUserPassword(t.base, uid, "ancien-mdp-local-1", { detacher: true });
+    const prepare = await t.base.ecriture((x) =>
+      preparerRattachement(x, {
+        uid,
+        fournisseurId: "sso",
+        ancre: ancreIdentite(fournisseur),
+        attendu: nom,
+        dispense: false,
+        confirmeAdmin: false,
+        par: 1,
+        t: Date.now() / 1000,
+      }),
+    );
+    expect(prepare).toHaveProperty("id");
+
+    const { retour, session: liaison } = await connecter(recette.membre);
+    expect(retour.statusCode, String(retour.headers["location"])).toBe(200);
+    expect(retour.body).toContain("auth_link=1");
+    expect((await moi(liaison)).username).toBeUndefined();
+    expect((await interroger("GET", "/api/auth/oidc/link-proof", liaison)).json()).toEqual({
+      pending: true,
+      username: nom,
+    });
+    // Sans le cookie de liaison (autre navigateur), rien n'est en attente.
+    expect((await interroger("GET", "/api/auth/oidc/link-proof", "")).json()).toEqual({
+      pending: false,
+      username: null,
+    });
+    const faux = await interroger("POST", "/api/auth/oidc/link-proof", liaison, { password: "pas-le-bon" });
+    expect(faux.statusCode).toBe(401);
+    const bon = await interroger("POST", "/api/auth/oidc/link-proof", liaison, {
+      password: "ancien-mdp-local-1",
+    });
+    expect(bon.statusCode, bon.body).toBe(200);
+    expect(bon.json()).toMatchObject({ ok: true, next: "/" });
+    expect((await moi(cookies(bon, liaison))).username).toBe(nom);
+    const identite = await t.base.get<{ linked_by: string; issuer: string }>(
+      "SELECT linked_by, issuer FROM user_identities WHERE user_id=?",
+      [uid],
+    );
+    expect(identite).toMatchObject({ linked_by: "proof", issuer: `oidc:${recette.issuer}` });
+    // L'ancien mot de passe local ne vaut plus rien, et la preuve ne se rejoue pas.
+    const local = await interroger("POST", "/api/login-lite", "", {
+      username: nom,
+      password: "ancien-mdp-local-1",
+    });
+    expect(local.statusCode).toBe(401);
+    const rejeu = await interroger("POST", "/api/auth/oidc/link-proof", liaison, {
+      password: "ancien-mdp-local-1",
+    });
+    expect(rejeu.statusCode).toBe(409);
+  }, 60_000);
+
+  describe.skipIf(RECETTE?.ecoute === undefined || RECETTE?.admin_fournisseur === undefined)(
+    "déconnexion côté fournisseur",
+    () => {
+      let ecoute: Server;
+
+      beforeAll(async () => {
+        const e = recette.ecoute;
+        if (e === undefined) return;
+        await installer({ logout: { rp_initiated: true, backchannel: true } });
+        // Le fournisseur appelle Elpis à son adresse publique : un écouteur HTTPS relaie vers l'application du test.
+        ecoute = createServer({ cert: readFileSync(e.cert), key: readFileSync(e.cle) }, (req, res) => {
+          const morceaux: Buffer[] = [];
+          req.on("data", (m: Buffer) => morceaux.push(m));
+          req.on("end", () => {
+            void main
+              .inject({
+                method: req.method === "POST" ? "POST" : "GET",
+                url: req.url ?? "/",
+                headers: req.headers as Record<string, string>,
+                payload: Buffer.concat(morceaux),
+                remoteAddress: req.socket.remoteAddress ?? "0.0.0.0",
+              })
+              .then((r) => {
+                res.writeHead(r.statusCode);
+                res.end(r.rawPayload);
+              });
+          });
+        });
+        await new Promise<void>((pret) => ecoute.listen(e.port, e.hote, pret));
+      });
+
+      afterAll(async () => {
+        await new Promise<void>((fin) => (ecoute === undefined ? fin() : ecoute.close(() => fin())));
+        await installer();
+      });
+
+      it("déconnexion d'Elpis : `logout_url` mène à la fin de session du fournisseur, sur son origine", async () => {
+        const { retour, session } = await connecter(recette.autre_membre);
+        expect(retour.statusCode, String(retour.headers["location"])).toBe(200);
+        const sortie = await interroger("POST", "/api/logout-lite", session);
+        expect(sortie.statusCode).toBe(200);
+        const adresseDeFin = new URL(sortie.json<{ logout_url: string }>().logout_url);
+        expect(adresseDeFin.origin).toBe(new URL(recette.issuer).origin);
+        expect(adresseDeFin.searchParams.get("post_logout_redirect_uri")).toBe(`${recette.public_url}/`);
+        expect((await moi(session)).username).toBeUndefined();
+      }, 60_000);
+
+      it("session fermée chez le fournisseur : il prévient Elpis par canal arrière, la session Elpis meurt", async () => {
+        const admin = recette.admin_fournisseur;
+        if (admin === undefined) return;
+        const { retour, session } = await connecter(recette.autre_membre);
+        expect(retour.statusCode, String(retour.headers["location"])).toBe(200);
+        const nom = recette.autre_membre.login.replaceAll(".", "-");
+        expect((await moi(session)).username).toBe(nom);
+        const racine = new URL(recette.issuer).origin;
+        const jeton = await navigateur(`${racine}/realms/master/protocol/openid-connect/token`, ca, {
+          corps: new URLSearchParams({
+            grant_type: "password",
+            client_id: "admin-cli",
+            username: admin.login,
+            password: admin.mdp,
+          }).toString(),
+        });
+        expect(jeton.statut, jeton.corps.slice(0, 200)).toBe(200);
+        const porteur = {
+          authorization: `Bearer ${(JSON.parse(jeton.corps) as { access_token: string }).access_token}`,
+        };
+        const liste = await navigateur(
+          `${racine}/admin/realms/${admin.realm}/users?exact=true&username=${encodeURIComponent(recette.autre_membre.login)}`,
+          ca,
+          { entetes: porteur },
+        );
+        const idFournisseur = (JSON.parse(liste.corps) as { id: string }[])[0]?.id;
+        expect(idFournisseur, liste.corps.slice(0, 200)).toBeTruthy();
+        const fermeture = await navigateur(
+          `${racine}/admin/realms/${admin.realm}/users/${String(idFournisseur)}/logout`,
+          ca,
+          { corps: "", entetes: porteur },
+        );
+        expect(fermeture.statut, fermeture.corps.slice(0, 200)).toBe(204);
+        await expect
+          .poll(async () => (await moi(session)).username, { timeout: 15_000, interval: 500 })
+          .toBeUndefined();
+      }, 60_000);
+    },
+  );
 });

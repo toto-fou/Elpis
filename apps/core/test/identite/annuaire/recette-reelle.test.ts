@@ -272,6 +272,9 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
         enabled: true,
         roles: { enabled: true, admin_groups: [a.groupe_admins], moderator_groups: [] },
       });
+      // Base partagée par les annuaires de ce fichier : on repart sans les comptes créés par l'annuaire précédent.
+      await t.base.run("DELETE FROM user_identities");
+      await t.base.run("DELETE FROM users WHERE username<>?", ["chef"]);
       const publique = "https://elpis.exemple.lan";
       await enregistrerTestReussi(t.base, f, publique);
       cfg.ecrire({ auth: { public_url: publique, providers: [f] } });

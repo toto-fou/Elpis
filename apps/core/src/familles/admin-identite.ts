@@ -12,6 +12,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
+import { etatBalayage } from "../identite/annuaire/balayage";
 import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
 import type { FabriqueConnexion } from "../identite/annuaire/client";
 import { fabriqueLdapts } from "../identite/annuaire/client";
@@ -155,6 +156,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         tested: e.tested,
         active: f.enabled && e.ecart === null,
         identities: await nombreIdentites(x, f.id),
+        sweep: f.type === "ldap" ? await etatBalayage(x, f.id) : null,
       });
     }
     return {

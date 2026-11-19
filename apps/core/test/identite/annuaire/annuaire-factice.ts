@@ -30,13 +30,15 @@ export interface Trace {
 export class AnnuaireFactice {
   personnes: Personne[] = [];
   groupesLisibles = true;
-  /** DN de groupes qui n'existent plus dans l'annuaire (un groupe requis disparu ne vaut pas « non membre »). */
-  groupesSupprimes = new Set<string>();
   injoignable = false;
   urlsInjoignables = new Set<string>();
   /** DN d'utilisateurs dont la liaison n'aboutit pas (délai dépassé). */
   liaisonsSansReponse = new Set<string>();
   pause: Promise<void> | null = null;
+  /** Groupes qui existent dans l'annuaire (la recherche d'un autre répond « objet inexistant »). */
+  groupesExistants = new Set<string>([GROUPE]);
+  /** Clés dont la recherche par clé échoue (erreur de protocole). */
+  clesEnErreur = new Set<string>();
   readonly traces: Trace[] = [];
   readonly recherches: string[] = [];
 
@@ -95,28 +97,45 @@ export class AnnuaireFactice {
       const p = this.personnes.find((x) => this.dn(x) === membre[1]);
       return p?.groupes.includes(base) ? [{ dn: base, attrs: {} }] : [];
     }
-    if (o.portee === "base" && o.filtre === "(objectClass=*)") {
-      if (!this.groupesLisibles) throw new ErreurAnnuaire("protocole", { code: 50 });
-      const connu = this.groupesSupprimes.has(base)
-        ? false
-        : base === GROUPE || this.personnes.some((x) => x.groupes.includes(base));
-      return connu ? [{ dn: base, attrs: {} }] : [];
+    if (o.filtre === "(objectClass=*)") {
+      if (!this.groupesExistants.has(base)) throw new ErreurAnnuaire("protocole", { code: 32 });
+      return [{ dn: base, attrs: {} }];
     }
+    const cle = /^\((entryUUID|ipaUniqueID|objectGUID)=(.*)\)$/iu.exec(o.filtre);
+    if (cle !== null) return base === BASE ? this.parCle((cle[1] ?? "").toLowerCase(), cle[2] ?? "") : [];
     const uid = /^\(uid=(.*)\)$/u.exec(o.filtre);
     if (uid === null || base !== BASE) return [];
     return this.personnes
       .filter((p) => p.uid.toLowerCase() === (uid[1] ?? "").toLowerCase())
-      .map((p) => ({
-        dn: this.dn(p),
-        attrs: {
-          uid: [p.uid],
-          entryuuid: [p.cle],
-          ipauniqueid: [p.cle],
-          mail: [`${p.uid}@exemple.lan`],
-          cn: [`Nom ${p.uid}`],
-          ...(p.attrs ?? {}),
-        },
-      }));
+      .map((p) => this.entree(p));
+  }
+
+  private entree(p: Personne): EntreeAnnuaire {
+    return {
+      dn: this.dn(p),
+      attrs: {
+        uid: [p.uid],
+        entryuuid: [p.cle],
+        ipauniqueid: [p.cle],
+        mail: [`${p.uid}@exemple.lan`],
+        cn: [`Nom ${p.uid}`],
+        ...(p.attrs ?? {}),
+      },
+    };
+  }
+
+  private parCle(attribut: string, valeur: string): EntreeAnnuaire[] {
+    const voulu = valeur.replace(/\\([0-9a-f]{2})/giu, "$1").toLowerCase();
+    const trouvees = this.personnes
+      .map((p) => ({ p, e: this.entree(p) }))
+      .filter(({ e }) =>
+        (e.attrs[attribut] ?? []).some(
+          (v) => (Buffer.isBuffer(v) ? v.toString("hex") : v.toLowerCase()) === voulu,
+        ),
+      );
+    if (trouvees.some(({ p }) => this.clesEnErreur.has(p.cle)))
+      throw new ErreurAnnuaire("protocole", { code: 1 });
+    return trouvees.map(({ e }) => e);
   }
 }
 

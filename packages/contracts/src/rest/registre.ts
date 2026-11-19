@@ -20,6 +20,7 @@ import * as adminRuns from "./admin-runs";
 import * as adminSecurite from "./admin-securite";
 import * as adminAudit from "./admin-audit";
 import * as adminIdentite from "./admin-identite";
+import * as adminIdentiteBalayage from "./admin-identite-balayage";
 import * as adminComptes from "./admin-comptes";
 import * as adminVue from "./admin-vue";
 import * as adminConfig from "./admin-config";
@@ -664,6 +665,19 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     "/api/admin/auth/providers/test",
     adminIdentite.schemaReponseEssaiFournisseur,
     adminIdentite.schemaCorpsEssaiFournisseur,
+  ),
+  c(
+    "admin-identite-balayage",
+    "POST",
+    "/api/admin/auth/providers/:id/sweep",
+    adminIdentiteBalayage.schemaEtatBalayage,
+  ),
+  c(
+    "admin-identite-balayage",
+    "POST",
+    "/api/admin/auth/providers/:id/sweep/confirm",
+    adminIdentiteBalayage.schemaEtatBalayage,
+    adminIdentiteBalayage.schemaCorpsConfirmationBalayage,
   ),
   c("admin-runs", "GET", "/api/admin/runs/accounts", adminRuns.schemaReponseExecutionsParCompte),
   c("admin-runs", "GET", "/api/admin/runs", adminRuns.schemaReponseExecutionsConsole),

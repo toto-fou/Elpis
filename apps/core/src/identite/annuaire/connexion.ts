@@ -96,8 +96,8 @@ function signaler(dep: DependancesAnnuaire, f: FournisseurLdap, e: ErreurAnnuair
 }
 
 /** Connexion de service liée, adresses essayées dans l'ordre (la suivante seulement sur « injoignable ») ; rend aussi l'adresse retenue. */
-async function ouvrirService(
-  dep: DependancesAnnuaire,
+export async function ouvrirService(
+  dep: Pick<DependancesAnnuaire, "fabrique">,
   f: FournisseurLdap,
   secret: string,
 ): Promise<{ cnx: ConnexionAnnuaire; url: string }> {
@@ -118,7 +118,7 @@ async function ouvrirService(
   throw derniere;
 }
 
-async function appartenance(
+export async function appartenance(
   cnx: ConnexionAnnuaire,
   f: FournisseurLdap,
   entree: EntreeAnnuaire,

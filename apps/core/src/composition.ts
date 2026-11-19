@@ -28,6 +28,7 @@ import { blockRemoteUrlReason, configureAudit, defaultAuditDir, defaultAuditKeyP
 
 import type { Extension } from "./app";
 import { CycleDeVie } from "./cycle";
+import { brancherBalayageAnnuaire } from "./ops/balayage-annuaire";
 import { brancherPurgeRevocations } from "./ops/purge-revocations";
 import { installerRefusGeneriques, signalerRefusAuth } from "./journal-securite/auditer";
 import { etatJournalSecurite } from "./journal-securite/etat";
@@ -62,7 +63,10 @@ import {
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
 import { creerFamilleAdminIdentite } from "./familles/admin-identite";
+import { creerFamilleAdminIdentiteBalayage } from "./familles/admin-identite-balayage";
 import type { FabriqueConnexion } from "./identite/annuaire/client";
+import { fabriqueLdapts } from "./identite/annuaire/client";
+import type { DependancesBalayage } from "./identite/annuaire/balayage";
 import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
@@ -425,6 +429,23 @@ export async function composer(
     evenements,
     journal: journal.child({ domaine: "metrics" }),
   });
+  const horloge = (): number => (auth.maintenant ? auth.maintenant() : Date.now() / 1000);
+  const balayage: DependancesBalayage = {
+    base,
+    fabrique: options.fabriqueAnnuaire ?? fabriqueLdapts(),
+    maintenant: horloge,
+    cookieSecure: () => auth.attributsCookie().https_only === true,
+    journal: journal.child({ domaine: "annuaire" }),
+    etat: {
+      base,
+      acces: auth,
+      maintenant: horloge,
+      publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
+      bac: piloteBac(),
+      journal: journal.child({ domaine: "annuaire" }),
+    },
+  };
+  brancherBalayageAnnuaire(mode, cycle, balayage);
   installerPublicationNotifications(async (message) => void (await evenements.diffuserPartout(message)));
   brancherIndexationRag(mode, base, cycle, {
     diffuser: (message) => evenements.diffuserPartout(message),
@@ -540,6 +561,7 @@ export async function composer(
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
       }),
+      creerFamilleAdminIdentiteBalayage(balayage),
       creerFamilleAdminSecurite({
         base,
         auth,

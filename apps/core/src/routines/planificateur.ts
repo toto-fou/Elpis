@@ -3,7 +3,14 @@
 import { AsyncResource } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 
-import { compteSuspendu, getUsernameById, getUserSettings, ligneUtilisateur } from "@elpis/auth";
+import {
+  accesPerime,
+  compteSuspendu,
+  getUsernameById,
+  getUserSettings,
+  ligneAcces,
+  ligneUtilisateur,
+} from "@elpis/auth";
 import {
   CancelledError,
   cleHashPy,
@@ -26,7 +33,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { config } from "@elpis/config";
+import { config, configView } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
   clientBuiltinRef,
@@ -74,6 +81,7 @@ import {
   reconcileOrphans,
   routineNotificationTitle,
 } from "./magasin";
+import { RAISON_PEREMPTION, signalerPeremption } from "./peremption";
 import { dansPorteeRoutine } from "./ports";
 
 const log = journal("routines");
@@ -476,11 +484,28 @@ export class Planificateur {
     }
   }
 
+  /** Run sauté faute de vérification récente du compte : marqué avec sa raison (une fois seulement pour le planning) et une seule notification au propriétaire tant qu'elle n'est pas lue. */
+  private async sauterPourPeremption(rid: number, uid: number, trigger: string): Promise<void> {
+    const neuve = await signalerPeremption(this.base, uid);
+    if (trigger !== "schedule" || neuve)
+      try {
+        await insertSkippedRun(this.base, rid, uid, { trigger, reason: RAISON_PEREMPTION });
+      } catch {
+        // journal au mieux
+      }
+    log.info(`[ROUTINES] SKIP routine=${rid} user=${uid} (compte à reconnecter)`);
+  }
+
   /** `launch_run` : admission atomique (plafond du compte, garde anti-chevauchement) puis run dans ce process ; `null` = run `skipped` journalisé. */
   async lancerRun(routine: Dict, o: Lancement): Promise<number | null> {
     const uid = intPy(routine["owner_user_id"]);
     const rid = intPy(routine["id"]);
-    if (compteSuspendu(await ligneUtilisateur(this.base, uid))) {
+    const acces = await ligneAcces(this.base, uid);
+    if (o.trigger !== "manual" && accesPerime(acces, configView(), Date.now() / 1000)) {
+      await this.sauterPourPeremption(rid, uid, o.trigger);
+      return null;
+    }
+    if (compteSuspendu(acces)) {
       if (o.trigger !== "schedule")
         try {
           await insertSkippedRun(this.base, rid, uid, { trigger: o.trigger, reason: "compte suspendu" });

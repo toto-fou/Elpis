@@ -7,6 +7,7 @@ import type { Executeur } from "@elpis/db";
 import { egauxEnTempsConstant, jetonInterne } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { COLONNES_IDENTITE, JOINTURE_IDENTITE } from "./etat-compte";
 import { estLocalDirect } from "./local";
 import { estRevoquee } from "./revocations";
 import { fluxEncoreValide, validerSession } from "./session";
@@ -61,6 +62,16 @@ export function maintenant(dep: DependancesAuth): number {
 
 export async function ligneUtilisateur(x: Executeur, uid: number): Promise<LigneUtilisateur | undefined> {
   return x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
+}
+
+/** Suspension et identité externe d'un compte en une requête (`ident_*` absents pour un compte local) ; `undefined` si le compte manque. */
+export async function ligneAcces(
+  x: Executeur,
+  uid: number,
+): Promise<{ suspended_at: unknown; ident_provider_id: unknown; ident_checked_at: unknown } | undefined> {
+  return x.get(`SELECT u.suspended_at, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`, [
+    uid,
+  ]);
 }
 
 /** Porte « méthode de connexion admise » de `dep`, absente quand il n'en fournit pas. */

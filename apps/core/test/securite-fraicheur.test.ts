@@ -1,0 +1,442 @@
+// SPDX-License-Identifier: MIT
+/** apps/core/test/securite-fraicheur.test.ts — un accès sans session interactive d'un compte externe exige une vérification récente (jeton d'API, OAuth MCP, routine, webhook) ; un compte local n'est jamais gêné, ni un compte externe que l'annuaire confirme à chaque passe (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash, randomBytes } from "node:crypto";
+
+import {
+  accesPerime,
+  creerJeton,
+  createExternalUser,
+  createUser,
+  dependancesParDefaut,
+  ErreurOAuth,
+  exchangeCode,
+  getClient,
+  issueCode,
+  refresh,
+  registerClient,
+  resoudreJeton,
+  verifyAccessToken,
+} from "@elpis/auth";
+import type { ClientOAuth, DependancesOAuth } from "@elpis/auth";
+import { configView } from "@elpis/config";
+import { configureAudit, configurerCoffre, oublierConfigurationAudit } from "@elpis/securite";
+import type { FastifyInstance } from "fastify";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { creerFamilleWebhooks } from "../src/familles/webhooks";
+import { ancreIdentite } from "../src/identite/ancre";
+import { balayerAnnuaire } from "../src/identite/annuaire/balayage";
+import type { DependancesBalayage } from "../src/identite/annuaire/balayage";
+import { createRoutine, setRoutineWebhook } from "../src/routines/magasin";
+import { Planificateur } from "../src/routines/planificateur";
+import { appTest, journalMuet } from "./aides";
+import { AnnuaireFactice, GROUPE, UUID } from "./identite/annuaire/annuaire-factice";
+import type { Personne } from "./identite/annuaire/annuaire-factice";
+import { ouvrirBancAnnuaire } from "./identite/annuaire/banc-annuaire";
+import type { BancAnnuaire } from "./identite/annuaire/banc-annuaire";
+import { MOTEURS } from "./identite/banc";
+
+const JOUR = 86_400;
+configurerCoffre({
+  cleEnv: randomBytes(32).toString("base64"),
+  systeme: "/nonexistent/vault.key",
+  repli: "/nonexistent/.vault.key",
+});
+
+describe("accesPerime : fonction pure", () => {
+  const config = (p: Record<string, unknown>[]): unknown => ({ auth: { providers: p } });
+  const ligne = (id: unknown, vu: unknown): { ident_provider_id: unknown; ident_checked_at: unknown } => ({
+    ident_provider_id: id,
+    ident_checked_at: vu,
+  });
+  const T = 1_800_000_000;
+  const ldap = config([{ id: "a", enabled: true, freshness_days: 3 }]);
+
+  it("compte local (sans identité) : jamais concerné, quelle que soit la configuration", () => {
+    expect(accesPerime(ligne(null, null), ldap, T)).toBe(false);
+    expect(accesPerime(ligne(undefined, undefined), {}, T)).toBe(false);
+    expect(accesPerime(undefined, undefined, T)).toBe(false);
+    expect(accesPerime(null, null, T)).toBe(false);
+  });
+
+  it("frais jusqu'à freshness_days inclus, périmé au-delà", () => {
+    expect(accesPerime(ligne("a", T - 3 * JOUR), ldap, T)).toBe(false);
+    expect(accesPerime(ligne("a", T - 3 * JOUR - 1), ldap, T)).toBe(true);
+  });
+
+  it("jamais vérifiée (0, nul, illisible) : périmé", () => {
+    for (const vu of [0, null, undefined, "x", -5]) expect(accesPerime(ligne("a", vu), ldap, T)).toBe(true);
+  });
+
+  it("fournisseur supprimé, éteint, absent de la configuration : périmé", () => {
+    expect(accesPerime(ligne("a", T), config([]), T)).toBe(true);
+    expect(accesPerime(ligne("a", T), config([{ id: "a", enabled: false, freshness_days: 3 }]), T)).toBe(
+      true,
+    );
+    expect(accesPerime(ligne("a", T), {}, T)).toBe(true);
+    expect(accesPerime(ligne("a", T), null, T)).toBe(true);
+    expect(accesPerime(ligne("a", T), config([{ id: "b", enabled: true }]), T)).toBe(true);
+  });
+
+  it("durée absente ou illisible : 14 jours", () => {
+    for (const j of [undefined, "x", 0, -1]) {
+      const c = config([{ id: "a", enabled: true, freshness_days: j }]);
+      expect(accesPerime(ligne("a", T - 13 * JOUR), c, T)).toBe(false);
+      expect(accesPerime(ligne("a", T - 15 * JOUR), c, T)).toBe(true);
+    }
+  });
+});
+
+describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) => {
+  let b: BancAnnuaire;
+  let annuaire: AnnuaireFactice;
+  let audit: string;
+  let verrous: string;
+  let maintenant: number;
+  let dep: ReturnType<typeof dependancesParDefaut>;
+
+  const auth = () => ({
+    ...dependancesParDefaut(b.t.base),
+    maintenant: () => b.horloge,
+    config: () => configView(),
+  });
+  const externe = async (
+    nom: string,
+    n: number,
+    vu: number,
+    extra: Partial<Personne> = {},
+  ): Promise<number> => {
+    const p = annuaire.ajouter({ uid: nom, cle: UUID(n), mdp: "x", groupes: [GROUPE], ...extra });
+    const uid = await createExternalUser(b.t.base, nom, { maintenant: b.horloge - 100 * JOUR });
+    await b.t.base.run(
+      "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?)",
+      [uid, "annuaire", p.cle, ancreIdentite(b.fournisseurs[0] as never), "auto", b.horloge - 100 * JOUR, vu],
+    );
+    return uid;
+  };
+  const verifier = (uid: number, vu: number): Promise<unknown> =>
+    b.t.base.run("UPDATE user_identities SET checked_at=? WHERE user_id=?", [vu, uid]);
+  const balayage = (): DependancesBalayage => ({
+    base: b.t.base,
+    fabrique: annuaire.fabrique,
+    maintenant: () => b.horloge,
+    cookieSecure: () => true,
+    journal: journalMuet,
+    cheminVerrou: (id) => join(verrous, `${id}.lock`),
+    etat: {
+      base: b.t.base,
+      acces: dep,
+      maintenant: () => b.horloge,
+      publierSuspension: async () => true,
+      journal: journalMuet,
+    },
+  });
+  const eteindre = (): void =>
+    b.cfg.ecrire({
+      auth: {
+        public_url: "https://elpis.exemple.lan",
+        providers: [{ ...b.fournisseurs[0], enabled: false }],
+      },
+    });
+
+  beforeEach(async () => {
+    annuaire = new AnnuaireFactice();
+    b = await ouvrirBancAnnuaire(moteur, [{}], annuaire);
+    maintenant = Math.floor(Date.now() / 1000);
+    b.horloge = maintenant;
+    dep = auth();
+    audit = mkdtempSync(join(tmpdir(), "elpis-audit-fraicheur-"));
+    verrous = mkdtempSync(join(tmpdir(), "elpis-verrous-fraicheur-"));
+    configureAudit({ service: "main", auditDir: audit, hmacKeyPath: join(audit, "sans-cle") });
+  });
+  afterEach(async () => {
+    oublierConfigurationAudit();
+    rmSync(audit, { recursive: true, force: true });
+    rmSync(verrous, { recursive: true, force: true });
+    await b.fermer();
+  });
+
+  describe("jetons d'API", () => {
+    const ok = async (jeton: string, type: "tools" | "vision" = "tools"): Promise<boolean> =>
+      (await resoudreJeton(dep, jeton, [type], false)) !== null;
+
+    it("compte externe frais : accepté ; périmé : refusé ; local : jamais concerné", async () => {
+      const frais = await externe("frais", 1, maintenant - JOUR);
+      const perime = await externe("perime", 2, maintenant - 15 * JOUR);
+      const local = await createUser(b.t.base, "locale", "mdp-locale-1", {
+        maintenant: maintenant - 400 * JOUR,
+      });
+      const [jf] = await creerJeton(dep, frais, "tools", "t", ["fs"], 5);
+      const [jp] = await creerJeton(dep, perime, "tools", "t", ["fs"], 5);
+      const [vp] = await creerJeton(dep, perime, "vision");
+      const [jl] = await creerJeton(dep, local, "tools", "t", ["fs"], 5);
+      expect(await ok(jf as string)).toBe(true);
+      expect(await ok(jp as string)).toBe(false);
+      expect(await ok(vp as string, "vision")).toBe(false);
+      expect(await ok(jl as string)).toBe(true);
+    });
+
+    it("fournisseur éteint : les jetons de ses comptes sont périmés, ceux d'un compte local restent", async () => {
+      const uid = await externe("jean", 1, maintenant);
+      const local = await createUser(b.t.base, "locale", "mdp-locale-1");
+      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 5);
+      const [jl] = await creerJeton(dep, local, "tools", "t", ["fs"], 5);
+      expect(await ok(j as string)).toBe(true);
+      eteindre();
+      expect(await ok(j as string)).toBe(false);
+      expect(await ok(jl as string)).toBe(true);
+    });
+
+    it("la vérification est faite sur la ligne déjà lue : la fraîcheur se perd avec le temps et revient avec une vérification", async () => {
+      const uid = await externe("jean", 1, maintenant);
+      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
+      expect(await ok(j as string)).toBe(true);
+      b.horloge = maintenant + 15 * JOUR;
+      expect(await ok(j as string)).toBe(false);
+      await verifier(uid, b.horloge);
+      expect(await ok(j as string)).toBe(true);
+    });
+  });
+
+  describe("OAuth MCP", () => {
+    it("jeton d'accès, échange du code et rafraîchissement : refusés pour un compte périmé, pas pour un frais ni un local", async () => {
+      const frais = await externe("frais", 1, maintenant - JOUR);
+      const perime = await externe("perime", 2, maintenant - 1 * JOUR);
+      const local = await createUser(b.t.base, "locale", "mdp-locale-1", {
+        maintenant: maintenant - 400 * JOUR,
+      });
+      let n = 0;
+      const od: DependancesOAuth = {
+        base: b.t.base,
+        config: () => configView(),
+        maintenant: () => b.horloge,
+        jetonUrl: (k) => `U${String(++n).padStart(4, "0")}`.padEnd(Math.ceil((4 * k) / 3), "u"),
+        jetonHex: (k) => `H${String(++n).padStart(4, "0")}`.padEnd(2 * k, "0"),
+        resoudre: async () => [],
+        telecharger: async () => Buffer.from(""),
+      };
+      const cree = (await registerClient(
+        od,
+        { redirect_uris: ["https://c.example/cb"], client_name: "C" },
+        "dcr",
+        1000,
+      )) as Record<string, string>;
+      const client = (await getClient(b.t.base, cree["client_id"] as string)) as ClientOAuth;
+      const verifierPkce = "v".repeat(50);
+      const defi = createHash("sha256").update(verifierPkce).digest("base64url");
+      const code = (uid: number): Promise<string> =>
+        issueCode(od, {
+          client_id: client.client_id,
+          user_id: uid,
+          redirect_uri: "https://c.example/cb",
+          code_challenge: defi,
+          resource: "",
+          families: ["fs"],
+        });
+      const echange = (c: string): Promise<Record<string, unknown>> =>
+        exchangeCode(od, {
+          code: c,
+          client,
+          redirectUri: "https://c.example/cb",
+          codeVerifier: verifierPkce,
+          resource: "",
+          appUrl: "https://app.lan",
+        });
+      const rafraichir = (r: string): Promise<Record<string, unknown>> =>
+        refresh(od, { refreshToken: r, client, scope: null, resource: "", appUrl: "https://app.lan" });
+      const motif = async (f: () => Promise<unknown>): Promise<string> =>
+        f().then(
+          () => "ok",
+          (e: unknown) => {
+            if (e instanceof ErreurOAuth) return e.error;
+            throw e;
+          },
+        );
+      const pf = await echange(await code(frais));
+      const pp = await echange(await code(perime));
+      const pl = await echange(await code(local));
+      for (const p of [pf, pp, pl]) expect(await verifyAccessToken(od, p["access_token"])).not.toBeNull();
+      await verifier(perime, maintenant - 15 * JOUR);
+      expect(await verifyAccessToken(od, pp["access_token"])).toBeNull();
+      expect(await motif(() => rafraichir(String(pp["refresh_token"])))).toBe("invalid_grant");
+      expect(await motif(async () => echange(await code(perime)))).toBe("invalid_grant");
+      expect(await verifyAccessToken(od, pf["access_token"])).not.toBeNull();
+      expect(await motif(() => rafraichir(String(pf["refresh_token"])))).toBe("ok");
+      expect(await motif(() => rafraichir(String(pl["refresh_token"])))).toBe("ok");
+      await verifier(perime, maintenant);
+      expect(await verifyAccessToken(od, pp["access_token"])).not.toBeNull();
+    });
+  });
+
+  describe("routines et webhooks", () => {
+    let lancees: number[];
+    let p: Planificateur;
+    const champs = {
+      name: "r",
+      cron_expr: "* * * * *",
+      model: null,
+      system_prompt: "",
+      task_prompt: "t",
+      mcp_servers: [],
+    };
+    const routine = async (id: number): Promise<Record<string, unknown>> =>
+      (await b.t.base.get<Record<string, unknown>>("SELECT * FROM editor_routines WHERE id=?", [
+        id,
+      ])) as Record<string, unknown>;
+    const runs = async (id: number): Promise<[string, string | null][]> =>
+      (
+        await b.t.base.valeurs<[string, string | null]>(
+          "SELECT status, error FROM editor_routine_runs WHERE routine_id=? ORDER BY id",
+          [id],
+        )
+      ).map(([s, e]) => [s, e]);
+    const notifications = async (uid: number): Promise<number> =>
+      Number(
+        (
+          await b.t.base.valeurs<[number]>(
+            "SELECT COUNT(*) FROM notifications WHERE owner_user_id=? AND kind='account_recheck'",
+            [uid],
+          )
+        )[0]?.[0],
+      );
+
+    beforeEach(() => {
+      lancees = [];
+      p = new Planificateur({
+        base: b.t.base,
+        meneur: { tenu: true, essayer: async () => true, rendre: async () => undefined },
+        llmJoignable: async () => true,
+        runner: async (o) => {
+          lancees.push(Number(o.userId ?? 0));
+          return ["ok", [], {}];
+        },
+      });
+    });
+
+    it("compte périmé : routine sautée avec une raison propre, une seule notification pour plusieurs déclenchements", async () => {
+      const uid = await externe("jean", 1, maintenant - 15 * JOUR);
+      const r = await routine(await createRoutine(b.t.base, uid, champs));
+      const id = Number(r["id"]);
+      expect(await p.lancerRun(r, { trigger: "schedule" })).toBeNull();
+      expect(await p.lancerRun(r, { trigger: "schedule" })).toBeNull();
+      expect(await p.lancerRun(r, { trigger: "webhook", context: "x" })).toBeNull();
+      expect(await p.lancerRun(r, { trigger: "chain" })).toBeNull();
+      expect(await runs(id)).toEqual([
+        ["skipped", "compte à reconnecter"],
+        ["skipped", "compte à reconnecter"],
+        ["skipped", "compte à reconnecter"],
+      ]);
+      expect(await notifications(uid)).toBe(1);
+      expect(lancees).toEqual([]);
+    });
+
+    it("la notification lue, un nouveau constat en crée une autre", async () => {
+      const uid = await externe("jean", 1, maintenant - 15 * JOUR);
+      const r = await routine(await createRoutine(b.t.base, uid, champs));
+      await p.lancerRun(r, { trigger: "schedule" });
+      await b.t.base.run("UPDATE notifications SET read_at=? WHERE owner_user_id=?", [maintenant, uid]);
+      await p.lancerRun(r, { trigger: "schedule" });
+      expect(await notifications(uid)).toBe(2);
+    });
+
+    it("compte frais, compte local et lancement manuel d'un compte périmé : jamais gênés", async () => {
+      const frais = await externe("frais", 1, maintenant - JOUR);
+      const perime = await externe("perime", 2, maintenant - 15 * JOUR);
+      const local = await createUser(b.t.base, "locale", "mdp-locale-1", {
+        maintenant: maintenant - 400 * JOUR,
+      });
+      for (const uid of [frais, local]) {
+        const r = await routine(await createRoutine(b.t.base, uid, champs));
+        expect(await p.lancerRun(r, { trigger: "schedule" })).not.toBeNull();
+        await vi.waitFor(async () => expect(lancees).toContain(uid));
+        await p.drainer();
+      }
+      const rp = await routine(await createRoutine(b.t.base, perime, champs));
+      expect(await p.lancerRun(rp, { trigger: "manual" })).not.toBeNull();
+      await p.drainer();
+      expect(await notifications(frais)).toBe(0);
+      expect(await notifications(local)).toBe(0);
+      expect(await notifications(perime)).toBe(0);
+    });
+
+    it("webhook : compte périmé → livraison sautée, run « skipped » ; vérification rafraîchie → run lancé", async () => {
+      const uid = await externe("jean", 1, maintenant - 15 * JOUR);
+      const id = await createRoutine(b.t.base, uid, { ...champs, cron_expr: "" });
+      const secret = "s".repeat(32);
+      await setRoutineWebhook(b.t.base, id, uid, { enabled: true, secret });
+      const app: FastifyInstance = await appTest({
+        familles: [creerFamilleWebhooks({ base: b.t.base, planificateur: p })],
+      });
+      try {
+        const livrer = async (): Promise<Record<string, unknown>> =>
+          (
+            await app.inject({
+              method: "POST",
+              url: `/api/webhooks/routines/${id}?token=${secret}`,
+              headers: { "content-type": "application/json", "x-webhook-event": "push" },
+              payload: { ref: "refs/heads/main" },
+            })
+          ).json();
+        expect(await livrer()).toMatchObject({ skipped: true });
+        expect(await runs(id)).toEqual([["skipped", "compte à reconnecter"]]);
+        expect(await notifications(uid)).toBe(1);
+        await verifier(uid, Math.floor(Date.now() / 1000));
+        expect(await livrer()).toHaveProperty("run_id");
+        await vi.waitFor(() => expect(lancees).toEqual([uid]));
+        await p.drainer();
+      } finally {
+        await app.close();
+      }
+    });
+
+    it("fournisseur éteint : le planning d'un compte externe est sauté", async () => {
+      const uid = await externe("jean", 1, Math.floor(Date.now() / 1000));
+      const r = await routine(await createRoutine(b.t.base, uid, champs));
+      eteindre();
+      expect(await p.lancerRun(r, { trigger: "schedule" })).toBeNull();
+    });
+  });
+
+  describe("le balayage rafraîchit la vérification", () => {
+    it("passe réussie : un compte périmé redevient frais, ses jetons repartent", async () => {
+      const uid = await externe("jean", 1, maintenant - 40 * JOUR);
+      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
+      expect(await resoudreJeton(dep, j as string, ["tools"], false)).toBeNull();
+      const r = await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
+      expect(r).toMatchObject({ type: "bilan", etat: { aborted: null, seen: 1 } });
+      expect(await resoudreJeton(dep, j as string, ["tools"], false)).not.toBeNull();
+    });
+
+    it("annuaire qui répond chaque jour : le compte n'est jamais gêné pendant 40 jours", async () => {
+      const uid = await externe("jean", 1, maintenant);
+      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
+      for (let i = 0; i < 40; i++) {
+        b.horloge += JOUR;
+        await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
+        expect(await resoudreJeton(dep, j as string, ["tools"], false)).not.toBeNull();
+      }
+    });
+
+    it("annuaire injoignable plus de freshness_days : les accès non interactifs s'arrêtent d'eux-mêmes, sans suspension", async () => {
+      const uid = await externe("jean", 1, maintenant);
+      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
+      annuaire.injoignable = true;
+      for (let i = 0; i < 13; i++) {
+        b.horloge += JOUR;
+        await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
+      }
+      expect(await resoudreJeton(dep, j as string, ["tools"], false)).not.toBeNull();
+      for (let i = 0; i < 2; i++) {
+        b.horloge += JOUR;
+        await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
+      }
+      expect(await resoudreJeton(dep, j as string, ["tools"], false)).toBeNull();
+      expect(await b.t.base.get("SELECT suspended_at FROM users WHERE id=?", [uid])).toMatchObject({
+        suspended_at: 0,
+      });
+    });
+  });
+});

@@ -6,7 +6,7 @@ import { tokenDigest, tokenUrlsafe } from "@elpis/securite";
 import { arrondiEntierPy, comparePointsDeCode, intPy, stripPy, strPy, veritePy } from "@elpis/commun";
 
 import { valeur } from "./dict";
-import { compteSuspendu } from "./etat-compte";
+import { accesPerime, COLONNES_IDENTITE, compteSuspendu, JOINTURE_IDENTITE } from "./etat-compte";
 
 export const PREFIXES = { tools: "ept_", vision: "evt_" } as const;
 export type TypeJeton = keyof typeof PREFIXES;
@@ -294,7 +294,7 @@ export async function resoudreJeton(
   try {
     r = await dep.base.get(
       "SELECT t.id, t.user_id, t.kind, t.name, t.token_hash, t.hint, t.families, t.created_at, t.expires_at, " +
-        "t.last_used_at, u.username, u.suspended_at FROM tool_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash=?",
+        `t.last_used_at, u.username, u.suspended_at, ${COLONNES_IDENTITE} FROM tool_tokens t JOIN users u ON u.id = t.user_id ${JOINTURE_IDENTITE} WHERE t.token_hash=?`,
       [tokenDigest(tok)],
     );
   } catch (e) {
@@ -302,6 +302,7 @@ export async function resoudreJeton(
     return null;
   }
   if (!r || String(r.kind) !== type || !veritePy(r.username) || compteSuspendu(r)) return null;
+  if (accesPerime(r, config, maintenant(dep))) return null;
   const l = ligne(r);
   if (l.expires_at !== null && l.expires_at <= maintenant(dep)) return null;
   let fams = l.families;

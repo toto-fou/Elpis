@@ -39,7 +39,7 @@ import { blockRemoteUrlReason, egauxEnTempsConstant } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
 
 import { valeur } from "./dict";
-import { compteSuspendu } from "./etat-compte";
+import { accesPerime, COLONNES_IDENTITE, compteSuspendu, JOINTURE_IDENTITE } from "./etat-compte";
 import { politique } from "./jetons";
 
 export const ACCESS_PREFIX = "eoa_";
@@ -126,6 +126,8 @@ export interface ClientDuRelais {
   grant_id: string;
   resource: string;
 }
+
+const COMPTE_ACCES = `SELECT u.suspended_at, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`;
 
 function maintenant(dep: DependancesOAuth): number {
   return dep.maintenant ? dep.maintenant() : Date.now() / 1000;
@@ -794,9 +796,10 @@ export async function exchangeCode(dep: DependancesOAuth, e: Echange): Promise<D
     if (!pkceOk(e.codeVerifier, r["code_challenge"]))
       return [new ErreurOAuth("invalid_grant", "Vérification PKCE refusée."), {}];
     if (cible !== null) return [cible, {}];
-    const compte = await tx.get("SELECT suspended_at FROM users WHERE id=?", [Number(r["user_id"])]);
+    const compte = await tx.get(COMPTE_ACCES, [Number(r["user_id"])]);
     if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
-    if (compteSuspendu(compte)) return [new ErreurOAuth("invalid_grant", "Code inconnu."), {}];
+    if (compteSuspendu(compte) || accesPerime(compte, dep.config(), t))
+      return [new ErreurOAuth("invalid_grant", "Code inconnu."), {}];
     if (familles.length === 0)
       return [new ErreurOAuth("invalid_scope", "Aucune famille encore autorisée."), {}];
     const paire = await emettrePaire(
@@ -862,9 +865,9 @@ export async function refresh(dep: DependancesOAuth, f: Rafraichissement): Promi
     if (Number(r["expires_at"]) < t)
       return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement expiré."), {}];
     if (cible !== null) return [cible, {}];
-    const compte = await tx.get("SELECT suspended_at FROM users WHERE id=?", [Number(r["user_id"])]);
+    const compte = await tx.get(COMPTE_ACCES, [Number(r["user_id"])]);
     if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
-    if (compteSuspendu(compte))
+    if (compteSuspendu(compte) || accesPerime(compte, dep.config(), t))
       return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement inconnu."), {}];
     if (err !== null) return [err, {}];
     if (accordees.length === 0)
@@ -973,7 +976,7 @@ export async function verifyAccessToken(
   try {
     r = await dep.base.get(
       "SELECT t.id, t.grant_id, t.user_id, t.client_id, t.families, t.resource, t.expires_at, t.revoked_at, " +
-        "t.last_used_at, u.username, u.suspended_at FROM oauth_tokens t JOIN users u ON u.id = t.user_id " +
+        `t.last_used_at, u.username, u.suspended_at, ${COLONNES_IDENTITE} FROM oauth_tokens t JOIN users u ON u.id = t.user_id ${JOINTURE_IDENTITE} ` +
         "WHERE t.token_hash=? AND t.kind='access'",
       [empreinte(jeton)],
     );
@@ -984,6 +987,7 @@ export async function verifyAccessToken(
   if (!r || (r["revoked_at"] !== null && r["revoked_at"] !== undefined)) return null;
   if (Number(r["expires_at"]) <= maintenant(dep) || !veritePy(r["username"]) || compteSuspendu(r))
     return null;
+  if (accesPerime(r, dep.config(), maintenant(dep))) return null;
   let familles = famillesListe(r["families"]).filter((f) => pol.families.includes(f));
   const res = strPy(veritePy(r["resource"]) ? r["resource"] : "");
   const fam = resourceFamily(res);

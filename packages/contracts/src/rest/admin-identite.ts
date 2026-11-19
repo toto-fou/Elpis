@@ -2,6 +2,7 @@
 /** packages/contracts/src/rest/admin-identite.ts — console › connexion d'entreprise : réglages `auth`, fournisseurs d'identité (LDAP, OIDC), secret et activation. */
 import { z } from "zod";
 
+import { schemaEtatBalayage } from "./admin-identite-balayage";
 import { entier } from "./commun";
 
 const modeLocal = z.enum(["all", "admins"]);
@@ -60,6 +61,8 @@ const etatFournisseur = {
   tested: z.boolean(),
   active: z.boolean(),
   identities: entier,
+  /** Dernière passe de l'annuaire (`null` : aucune, ou fournisseur sans balayage). */
+  sweep: schemaEtatBalayage.nullable().optional(),
 };
 
 export const schemaFournisseurAuth = z.discriminatedUnion("type", [

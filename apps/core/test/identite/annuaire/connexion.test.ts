@@ -230,7 +230,7 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
 
     it("groupe requis disparu de l'annuaire : inconnu, jamais non (« non » suspendrait le compte)", async () => {
       annuaire.personnes[0]!.groupes = [];
-      annuaire.groupesSupprimes.add(GROUPE);
+      annuaire.groupesExistants.delete(GROUPE);
       expect(await auth("jean")).toMatchObject({ type: "ok", appartenance: "inconnu" });
     });
 

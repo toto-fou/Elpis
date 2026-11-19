@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/identite/reglages.test.ts — réglages `auth` : lecteur tolérant (section absente ou corrompue, fournisseur invalide écarté) et validateur strict (une valeur fausse par champ sensible). */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { HttpError } from "@elpis/commun";
 import { describe, expect, it } from "vitest";
 
@@ -10,6 +14,7 @@ import {
   validerModification,
   validerReglagesGeneraux,
 } from "../../src/identite/reglages";
+import { PRESETS } from "../../src/identite/annuaire/presets";
 import { empreinteFournisseur, porteeDuFournisseur } from "../../src/identite/fournisseurs";
 import { CA_PEM, ldapValide, oidcValide } from "./aides";
 
@@ -176,12 +181,12 @@ describe("validateur strict (une valeur fausse par champ sensible)", () => {
     [
       "vingt et un groupes requis",
       () =>
-        validerFournisseur(ldapValide({ required_groups: Array.from({ length: 21 }, (_, i) => `g${i}`) })),
+        validerFournisseur(ldapValide({ required_groups: Array.from({ length: 21 }, (_, i) => `cn=g${i}`) })),
       /required_groups/u,
     ],
     [
       "groupe requis trop long",
-      () => validerFournisseur(ldapValide({ required_groups: ["g".repeat(513)] })),
+      () => validerFournisseur(ldapValide({ required_groups: ["cn=".concat("g".repeat(510))] })),
       /required_groups/u,
     ],
     [
@@ -306,5 +311,113 @@ describe("adresse d'annuaire : schéma et hôte insensibles à la casse (RFC 398
   it("l'émetteur OIDC ne se normalise pas : il se compare exactement", () => {
     const f = validerFournisseur(oidcValide({ issuer: "https://Idp.exemple.lan/Realm" }));
     expect((f as { issuer: string }).issuer).toBe("https://Idp.exemple.lan/Realm");
+  });
+});
+
+describe("adresse d'annuaire : ASCII imprimable seulement, repli de casse Unicode refusé", () => {
+  const urls = (u: string): string[] =>
+    (validerFournisseur(ldapValide({ urls: [u] })) as { urls: string[] }).urls;
+
+  it.each(["ldapſ://hote", "ldaps://ſerver.lan", "ldaps://Kerber.lan", "ldaps://hôte.lan", "ldaps://a.lan "])(
+    "%j : refusé",
+    (u) => {
+      expect(refus(() => urls(u))).toMatch(/urls/u);
+    },
+  );
+
+  it("`LDAPS://Hote.LAN:636` reste accepté et normalisé", () => {
+    expect(urls("LDAPS://Hote.LAN:636")).toEqual(["ldaps://hote.lan:636"]);
+  });
+});
+
+describe("noms distinctifs : grammaire de RFC 4514 exigée des réglages", () => {
+  const MESSAGE =
+    "Champ « bind_dn » : écrivez le nom distinctif avec les noms d'attribut usuels (cn, uid, ou, dc…).";
+  const bind = (bind_dn: string): string => refus(() => validerFournisseur(ldapValide({ bind_dn })));
+
+  it.each([
+    "2.5.4.3=svc,dc=x",
+    "cn=#0403737663,dc=x",
+    "uid=\\svc,dc=x",
+    "cn=svc\\",
+    "cn=a;dc=x",
+    'cn="a,b",dc=x',
+    "svc@corp.example",
+    "cn=#41\\,dc=x",
+  ])("bind_dn %j : refusé avec le message pour l'administrateur", (dn) => {
+    expect(bind(dn)).toBe(`400 ${MESSAGE}`);
+  });
+
+  it("bind_dn usuel accepté, y compris avec un RDN multivalué et des échappements valides", () => {
+    for (const dn of ["uid=svc,cn=users,dc=exemple,dc=lan", "cn=a\\, b+uid=x,dc=x", "cn=\\C3\\A9,dc=x"])
+      expect(bind(dn)).toBe("aucun refus");
+  });
+
+  it("base des utilisateurs, groupe requis, groupes de rôles et de correspondance : refusés hors grammaire", () => {
+    const f = (extra: Record<string, unknown>): string => refus(() => validerFournisseur(ldapValide(extra)));
+    expect(f({ user_base_dn: "cn=a;dc=x" })).toMatch(/user_base_dn/u);
+    expect(f({ required_groups: ["elpis"] })).toMatch(/required_groups/u);
+    expect(f({ required_groups: ["cn=elpis,dc=x"] })).toBe("aucun refus");
+    const roles = (admin: string[], moderateur: string[]): Record<string, unknown> => ({
+      roles: { enabled: true, admin_groups: admin, moderator_groups: moderateur },
+    });
+    expect(f(roles(["admins"], []))).toMatch(/roles\.admin_groups/u);
+    expect(f(roles([], ["cn=m\\"]))).toMatch(/roles\.moderator_groups/u);
+    expect(f(roles(["cn=a,dc=x"], ["cn=m,dc=x"]))).toBe("aucun refus");
+    expect(f({ group_map: { enabled: true, map: [{ external: "g", group_id: 1 }] } })).toMatch(
+      /group_map\.map/u,
+    );
+    expect(f({ group_map: { enabled: true, map: [{ external: "cn=g,dc=x", group_id: 1 }] } })).toBe(
+      "aucun refus",
+    );
+  });
+
+  it("le lecteur tolérant tient pour mal configuré un fournisseur dont le bind_dn est hors grammaire", () => {
+    const lu = reglagesAuthDepuis({ providers: [ldapValide({ bind_dn: "2.5.4.3=svc,dc=x" })] });
+    expect(lu.providers).toEqual([]);
+    expect(lu.invalides).toHaveLength(1);
+  });
+});
+
+describe("gabarit du filtre : {username} est la valeur entière d'une égalité, hors de tout « non »", () => {
+  const filtre = (user_filter: string): string =>
+    refus(() => validerFournisseur(ldapValide({ user_filter })));
+
+  it.each([
+    "(uid={username}*)",
+    "(uid=*{username})",
+    "(uid=*{username}*)",
+    "(uid~={username})",
+    "(uid>={username})",
+    "(uid<={username})",
+    "(!(uid={username}))",
+    "(&(objectClass=person)(!(uid={username})))",
+    "(!(!(uid={username})))",
+    "(uid:caseExactMatch:={username})",
+    "(uid=x{username})",
+    "(uid={username}x)",
+  ])("%s : refusé", (g) => {
+    expect(filtre(g)).toMatch(/user_filter/u);
+  });
+
+  it("gabarit qui ne se lit pas : refusé", () => {
+    expect(filtre("(uid={username}")).toMatch(/user_filter/u);
+    expect(filtre("(&(uid={username}))x)")).toMatch(/user_filter/u);
+  });
+
+  it("égalité seule, ou dans un « et » / « ou » : acceptée", () => {
+    for (const g of ["(uid={username})", "(&(objectClass=person)(uid={username}))", "(|(uid={username}))"])
+      expect(filtre(g)).toBe("aucun refus");
+  });
+
+  it("gabarits des préréglages et du tableau de la section Directory du guide : acceptés", () => {
+    const racine = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
+    const ligne = readFileSync(join(racine, "docs/enterprise-sign-in.md"), "utf8")
+      .split("\n")
+      .find((l) => l.startsWith("| **Filtre**"));
+    const guide = [...(ligne ?? "").matchAll(/`([^`]*\{username\}[^`]*)`/gu)].map((m) => m[1] as string);
+    expect(guide.length).toBeGreaterThanOrEqual(3);
+    for (const g of [...Object.values(PRESETS).map((p) => p.filtre), ...guide])
+      expect(filtre(g), g).toBe("aucun refus");
   });
 });

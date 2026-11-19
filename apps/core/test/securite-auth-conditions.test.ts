@@ -18,7 +18,7 @@ describe.each(MOTEURS)("conditions de lecture d'un fournisseur allumé (%s)", (m
   });
 
   const allume = (extra: Record<string, unknown> = {}) =>
-    validerFournisseur(ldapValide({ required_groups: ["elpis"], enabled: true, ...extra }));
+    validerFournisseur(ldapValide({ required_groups: ["cn=elpis"], enabled: true, ...extra }));
   const ids = async (secure = true): Promise<string[]> =>
     (await fournisseursActifs(b.t.base, () => secure)).map((f) => f.id);
 

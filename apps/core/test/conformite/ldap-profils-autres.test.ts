@@ -17,6 +17,7 @@ import {
   MDP_PERSONNE,
   profil389,
   profilFreeipa,
+  profilLldap,
   profilOpenDj,
   profilOpenLdap,
   profilOpenLdapMemberOf,
@@ -45,7 +46,11 @@ function ppolicy(o: { delai?: number; grace?: number; erreur?: number }): Buffer
 describe("clés stables : attributs refusés par choix (plus strict que la norme)", () => {
   it.each([
     ["NetIQ eDirectory : GUID (chaîne d'octets)", "GUID", "cn"],
-    ["LLDAP : uuid", "uuid", "cn"],
+    [
+      "LLDAP, attribut `uuid` (LLDAP se configure avec entryUUID, voir le profil LLDAP plus bas)",
+      "uuid",
+      "cn",
+    ],
     ["authentik (outpost LDAP) : uid (identifiant unique de l'utilisateur)", "uid", "cn"],
     ["Oracle Internet Directory : orclguid", "orclguid", "cn"],
     ["IBM Security Directory Server : ibm-entryUuid", "ibm-entryUuid", "cn"],
@@ -77,6 +82,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("autres annuaires sur LDAPS l
     await hote.fermer();
   });
   afterEach(async () => {
+    expect(hote.serveur.erreursLecture()).toBe(0);
     await b?.fermer();
   });
   const ouvrir = async (p: ProfilAnnuaire, extra: Record<string, unknown> = {}): Promise<void> => {
@@ -288,13 +294,17 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("autres annuaires sur LDAPS l
       await ouvrir(variante(p, { entrees }));
       expect(await auth("jean")).toMatchObject({ raison: "not_in_group" });
     });
-    it("groupOfUniqueNames, valeurs DN#UID, serveur qui ignore l'UID absent de l'assertion : accepté", async () => {
+    it("groupOfUniqueNames, valeurs DN#UID (uniqueMemberMatch d'OpenLDAP : une valeur avec UID ne correspond pas à une assertion sans UID) : personne n'entre en mode member", async () => {
       await ouvrir(profilUniqueMemberUid());
-      expect(await auth("jean")).toMatchObject({ type: "ok" });
-    });
-    it("RFC 4517 §4.2.31 lu strictement (UID présent d'un côté seulement : pas de correspondance) : personne n'entre, LIMITE à confirmer par serveur", async () => {
-      await ouvrir(variante(profilUniqueMemberUid(), { options: { uniqueMemberStrict: true } }));
       expect(await auth("jean")).toMatchObject({ raison: "not_in_group" });
+      expect(liaisons()).not.toContain(profilUniqueMemberUid().personnes[0]?.dn);
+    });
+  });
+
+  describe("serveur non identifié", () => {
+    it("groupOfUniqueNames, valeurs DN#UID, serveur qui ignore l'UID absent de l'assertion : accepté", async () => {
+      await ouvrir(variante(profilUniqueMemberUid(), { options: { uniqueMemberStrict: false } }));
+      expect(await auth("jean")).toMatchObject({ type: "ok" });
     });
   });
 
@@ -330,8 +340,53 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("autres annuaires sur LDAPS l
       await ouvrir(variante(p, { entrees: sans, reglages: { groups: { mode: "member" } } }));
       expect(await auth("jean")).toMatchObject({ type: "ok" });
     });
+    it("groupe imbriqué avec memberOf transitif : admis en mode memberof, refusé en mode member", async () => {
+      await ouvrir(profil389());
+      expect(await auth("imbrique")).toMatchObject({ type: "ok" });
+      await b.fermer();
+      await ouvrir(variante(profil389(), { reglages: { groups: { mode: "member" } } }));
+      expect(await auth("imbrique")).toMatchObject({ type: "refus", raison: "not_in_group" });
+      expect(await auth("jean")).toMatchObject({ type: "ok" });
+    });
     it("test complet, sans étape en échec", async () => {
       await ouvrir(profil389());
+      expect((await jouerEssai(b, hote, "jean")).filter((x) => x.level === "fail")).toEqual([]);
+    });
+  });
+
+  describe("LLDAP (entryUUID, memberOf, code 32 sur une recherche de portée base sans correspondance)", () => {
+    it("membre du groupe : connexion acceptée", async () => {
+      await ouvrir(profilLldap());
+      expect(await auth("jean")).toMatchObject({ type: "ok" });
+    });
+    it("non-membre : refus groups_unknown (le code 32 se lit « inconnu », jamais « non »), aucune liaison de personne", async () => {
+      await ouvrir(profilLldap());
+      expect(await auth("horsgroupe")).toMatchObject({ type: "refus", raison: "groups_unknown" });
+      expect(liaisons()).toEqual([profilLldap().serviceDn]);
+    });
+    it("balayage : un membre retiré du groupe est « inconnu » (jamais observé comme parti), il n'est pas suspendu", async () => {
+      const p = profilLldap();
+      const sans = entreesModifiees(p, "jean", (a) => {
+        const { memberOf: _m, ...reste } = a;
+        return reste;
+      });
+      await ouvrir(variante(p, { entrees: sans }));
+      const balayage = preparerBalayage(b, fabriqueReelle());
+      try {
+        const id = await balayage.rattacher("jean", p.personnes[0]?.cle ?? "");
+        const r = await balayage.passe();
+        expect(r).toMatchObject({
+          type: "bilan",
+          etat: { aborted: null, seen: 0, unknown: 1, suspended: 0 },
+        });
+        if (r.type === "bilan") expect(r.etat.observed).toEqual([]);
+        expect(await balayage.suspendu(id)).toBe(false);
+      } finally {
+        await balayage.fermer();
+      }
+    });
+    it("test complet, sans étape en échec", async () => {
+      await ouvrir(profilLldap());
       expect((await jouerEssai(b, hote, "jean")).filter((x) => x.level === "fail")).toEqual([]);
     });
   });

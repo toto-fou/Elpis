@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/identite/annuaire/serveur-ldap.ts — mini serveur LDAPS de test (BER avec les briques de ldapts) : liaison simple, recherche scriptée, renvois, silence, journal des requêtes reçues. */
+import { createHash } from "node:crypto";
 import { createServer } from "node:tls";
 import type { Server, TLSSocket } from "node:tls";
 
@@ -25,9 +26,13 @@ export interface EntreeServeur {
 }
 
 export interface RequeteRecue {
-  readonly type: "bind" | "search" | "unbind";
+  readonly type: "bind" | "search" | "unbind" | "illisible";
   readonly dn?: string;
   readonly longueurMdp?: number;
+  /** Étiquette BER de l'opération (type « illisible » : le reste de la requête n'a pas pu être lu). */
+  readonly tag?: number;
+  /** Empreinte SHA-256 du mot de passe reçu dans une liaison. */
+  readonly empreinteMdp?: string;
   readonly base?: string;
   readonly portee?: number;
   readonly deref?: number;
@@ -127,6 +132,8 @@ export interface ServeurLdap {
   readonly comportement: ComportementServeur;
   /** Connexions acceptées depuis le démarrage. */
   connexions(): number;
+  /** Requêtes dont la lecture a échoué depuis le démarrage (chacune est aussi notée « illisible »). */
+  erreursLecture(): number;
   /** Ferme côté serveur toutes les connexions ouvertes. */
   couper(): void;
   fermer(): Promise<void>;
@@ -272,10 +279,17 @@ function lireControles(r: BerReader): string[] {
   return oids;
 }
 
-function traiter(r: BerReader, s: TLSSocket, requetes: RequeteRecue[], c: ComportementServeur): void {
+function traiter(
+  r: BerReader,
+  s: TLSSocket,
+  requetes: RequeteRecue[],
+  c: ComportementServeur,
+  lue: { tag: number },
+): void {
   r.readSequence();
   const id = r.readInt() ?? 0;
   const tag = r.readSequence() ?? 0;
+  lue.tag = tag;
   if (tag === 0x42) {
     requetes.push({ type: "unbind" });
     s.end();
@@ -287,7 +301,15 @@ function traiter(r: BerReader, s: TLSSocket, requetes: RequeteRecue[], c: Compor
     const choix = r.peek() ?? 0;
     const mdp = r.readString(0x80, true) ?? Buffer.alloc(0);
     const controles = lireControles(r);
-    requetes.push({ type: "bind", dn, longueurMdp: mdp.length, version, choix, controles });
+    requetes.push({
+      type: "bind",
+      dn,
+      longueurMdp: mdp.length,
+      empreinteMdp: createHash("sha256").update(mdp).digest("hex"),
+      version,
+      choix,
+      controles,
+    });
     if (c.muet) return;
     if (c.brutLiaison !== null) {
       envoyer(s, c, c.brutLiaison);
@@ -397,6 +419,7 @@ export async function demarrerServeurLdap(
   const poignees: PoigneeTls[] = [];
   let echecsTls = 0;
   let acceptees = 0;
+  let illisibles = 0;
   const serveur: Server = createServer({ cert, key: cle, ...options }, (s) => {
     sockets.add(s);
     acceptees++;
@@ -421,9 +444,13 @@ export async function demarrerServeurLdap(
         if (tampon.length < total) return;
         const message = tampon.subarray(0, total);
         tampon = tampon.subarray(total);
+        const lue = { tag: -1 };
+        const avant = requetes.length;
         try {
-          traiter(new BerReader(message), s, requetes, comportement);
+          traiter(new BerReader(message), s, requetes, comportement, lue);
         } catch {
+          illisibles++;
+          if (requetes.length === avant) requetes.push({ type: "illisible", tag: lue.tag });
           s.destroy();
           return;
         }
@@ -442,6 +469,7 @@ export async function demarrerServeurLdap(
     requetes,
     comportement,
     connexions: () => acceptees,
+    erreursLecture: () => illisibles,
     couper: () => {
       for (const s of sockets) s.destroy();
     },

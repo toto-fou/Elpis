@@ -187,6 +187,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("adaptateur réel sur LDAPS local", () => {
     await cnx.fermer();
     expect(serveur.connexions()).toBe(avant);
     expect(serveur.requetes.filter((q) => q.type !== "unbind")).toHaveLength(0);
+    expect(serveur.erreursLecture()).toBe(0);
     const ferme = await ouvrir();
     await ferme.fermer();
     await expect(ferme.chercher("dc=x", PARAMS)).rejects.toMatchObject({ nature: "injoignable" });
@@ -233,6 +234,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("adaptateur réel sur LDAPS local", () => {
         sortant: "ca_inconnue",
       });
       expect(serveur.requetes.filter((q) => q.type !== "unbind")).toHaveLength(0);
+      expect(serveur.erreursLecture()).toBe(0);
     } finally {
       effacer(autre);
     }

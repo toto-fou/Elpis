@@ -82,6 +82,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       await hote.fermer();
     });
     afterEach(async () => {
+      expect(hote.serveur.erreursLecture()).toBe(0);
       await b?.fermer();
     });
     const recherchesUtilisateur = (): string[] =>

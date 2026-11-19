@@ -5,6 +5,9 @@ import { createHash, X509Certificate } from "node:crypto";
 import { adresseIpOuNul, estDict, FlottantPy, HttpError } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 
+import { gabaritEnEgalite } from "./annuaire/client";
+import { dnUsuel, dnValide } from "./annuaire/dn";
+
 export const FOURNISSEURS_MAX = 5;
 export const CA_PEM_MAX = 64 * 1024;
 export const REGEX_ID = /^[a-z0-9][a-z0-9-]{0,30}$/u;
@@ -12,7 +15,8 @@ const CONTROLE = /\p{Cc}/u;
 const REGEX_ATTRIBUT = /^[A-Za-z][A-Za-z0-9.;-]{0,63}$/u;
 const REGEX_REVENDICATION = /^[A-Za-z0-9_.:-]{1,64}$/u;
 const REGEX_JETON_SCOPE = /^[\x21\x23-\x5b\x5d-\x7e]+$/u;
-const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9._-]*)(?::(\d{1,5}))?$/iu;
+const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9._-]*)(?::(\d{1,5}))?$/u;
+const REGEX_ASCII_IMPRIMABLE = /^[\x21-\x7e]+$/u;
 const REGEX_PEM = /^\s*(?:-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/u;
 const BLOC_PEM = /-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----/gu;
 
@@ -194,7 +198,8 @@ function adresseIssuer(v: unknown): string {
 
 function adresseLdaps(v: unknown): string {
   const t = texte(v, "urls", 1, 300);
-  const m = REGEX_URL_LDAPS.exec(t);
+  const bas = REGEX_ASCII_IMPRIMABLE.test(t) ? t.toLowerCase() : "";
+  const m = REGEX_URL_LDAPS.exec(bas);
   if (m === null) return refus("urls", "adresses ldaps://hôte[:port] seulement");
   const crochets = /^\[(.*)\]$/u.exec(m[1] ?? "")?.[1];
   if (crochets !== undefined && (!crochets.includes(":") || adresseIpOuNul(crochets) === null))
@@ -202,7 +207,7 @@ function adresseLdaps(v: unknown): string {
   const port = m[2];
   if (port !== undefined && (Number(port) < 1 || Number(port) > 65_535 || port.startsWith("0")))
     return refus("urls", "port invalide");
-  return t.toLowerCase();
+  return bas;
 }
 
 /** Hôte et port (636 par défaut) d'une adresse `ldaps://` validée, en minuscules. */
@@ -360,6 +365,15 @@ function ldap(o: Record<string, unknown>, c: FournisseurCommun): FournisseurLdap
   const filtre = texte(o["user_filter"], "user_filter", 1, 512);
   if (filtre.split("{username}").length !== 2 || !filtre.startsWith("(") || !filtre.endsWith(")"))
     refus("user_filter", "filtre entre parenthèses contenant une fois {username}");
+  if (!gabaritEnEgalite(filtre))
+    refus("user_filter", "{username} doit être la valeur entière d'une égalité, hors de tout « non »");
+  for (const [champ, groupes] of [
+    ["required_groups", c.required_groups],
+    ["roles.admin_groups", c.roles.admin_groups],
+    ["roles.moderator_groups", c.roles.moderator_groups],
+    ["group_map.map", c.group_map.map.map((m) => m.external)],
+  ] as const)
+    if (!groupes.every(dnValide)) refus(champ, "noms distinctifs (DN) valides attendus");
   const attrs = objet(o["attrs"], "attrs", ["id", "username", "email", "name"]);
   const groupes = objet(o["groups"], "groups", ["mode"]);
   const cle = nomAttribut(attrs["id"], "attrs.id");
@@ -368,12 +382,17 @@ function ldap(o: Record<string, unknown>, c: FournisseurCommun): FournisseurLdap
   for (const autre of ["username", "email", "name"])
     if (cle.toLowerCase() === nomAttribut(attrs[autre], `attrs.${autre}`).toLowerCase())
       refus("attrs.id", `différent de attrs.${autre}`);
+  const bindDn = texte(o["bind_dn"], "bind_dn", 1, 512);
+  if (!dnUsuel(bindDn))
+    refus("bind_dn", "écrivez le nom distinctif avec les noms d'attribut usuels (cn, uid, ou, dc…)");
+  const baseDn = texte(o["user_base_dn"], "user_base_dn", 1, 512);
+  if (!dnValide(baseDn)) refus("user_base_dn", "nom distinctif (DN) valide attendu");
   return {
     ...c,
     type: "ldap",
     urls: adresses,
-    bind_dn: texte(o["bind_dn"], "bind_dn", 1, 512),
-    user_base_dn: texte(o["user_base_dn"], "user_base_dn", 1, 512),
+    bind_dn: bindDn,
+    user_base_dn: baseDn,
     user_filter: filtre,
     attrs: {
       id: cle,

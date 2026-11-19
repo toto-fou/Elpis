@@ -221,7 +221,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
 
     it("création, secret, lecture : le secret n'est jamais renvoyé ni écrit dans config.json ni au journal", async () => {
       cfg.ecrire(null);
-      const brut = ldapValide({ required_groups: ["elpis"] });
+      const brut = ldapValide({ required_groups: ["cn=elpis"] });
       const cree = await appeler(admin, "POST", "/api/admin/auth/providers", chef, brut);
       expect(cree.statusCode, cree.body).toBe(200);
       expect(
@@ -327,7 +327,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
         expect.stringMatching(/administrateur/u),
       ]);
       expect(await motif()).toMatch(/groupe/u);
-      const avecGroupe = validerFournisseur(ldapValide({ required_groups: ["elpis"] }));
+      const avecGroupe = validerFournisseur(ldapValide({ required_groups: ["cn=elpis"] }));
       cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [avecGroupe] } });
       await t.base.run("DELETE FROM vault_secrets WHERE name='auth-annuaire'");
       expect(await motif()).toMatch(/secret/u);
@@ -428,7 +428,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
             "POST",
             "/api/admin/auth/providers",
             chef,
-            oidcValide({ required_groups: ["a"] }),
+            oidcValide({ required_groups: ["cn=a"] }),
           )
         ).statusCode,
       ).toBe(200);
@@ -458,7 +458,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
             "POST",
             "/api/admin/auth/providers",
             chef,
-            oidcValide({ id: "sso", required_groups: ["a"] }),
+            oidcValide({ id: "sso", required_groups: ["cn=a"] }),
           )
         ).statusCode,
       ).toBe(200);
@@ -472,7 +472,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       const mettre = (corps: unknown): Promise<{ statusCode: number }> =>
         appeler(admin, "PUT", "/api/admin/auth/providers/sso", chef, corps);
       await poser();
-      expect((await mettre({ required_groups: ["b"] })).statusCode).toBe(200);
+      expect((await mettre({ required_groups: ["cn=b"] })).statusCode).toBe(200);
       expect(await restantes()).toHaveLength(1);
       expect((await mettre({ issuer: "https://autre.exemple.lan" })).statusCode).toBe(200);
       expect(await restantes()).toEqual([]);

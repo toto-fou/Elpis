@@ -963,8 +963,8 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
             group_map: {
               enabled: false,
               map: [
-                { external: "g", group_id: 1 },
-                { external: "g", group_id: 1 },
+                { external: "cn=g", group_id: 1 },
+                { external: "cn=g", group_id: 1 },
               ],
             },
           })
@@ -976,8 +976,8 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
             group_map: {
               enabled: true,
               map: [
-                { external: "g", group_id: gEquipe },
-                { external: "g", group_id: gAutre },
+                { external: "cn=g", group_id: gEquipe },
+                { external: "cn=g", group_id: gAutre },
               ],
             },
           })

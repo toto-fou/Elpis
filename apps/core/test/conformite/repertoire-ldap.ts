@@ -37,6 +37,8 @@ export interface OptionsRepertoire {
   racineDse?: EntreeServeur;
   /** RFC 4517 §4.2.31 lu strictement : une valeur `DN#UID` ne correspond pas à une assertion sans UID. */
   uniqueMemberStrict?: boolean;
+  /** Recherche de portée base sans correspondance : ce code de résultat au lieu de « succès, 0 entrée » (32 pour LLDAP). */
+  baseSansCorrespondance?: number;
   /** Réponse imposée avant toute évaluation (droits, erreurs propres au produit). */
   interception?: (d: DemandeRecherche) => ReponseRecherche | null;
 }
@@ -189,6 +191,8 @@ export function creerRepertoire(
     const trouvees = entrees.filter(
       (e) => dansLaPortee(e, d.base, d.portee) && correspond(d.filtre, e, entrees, o),
     );
+    if (d.portee === 0 && trouvees.length === 0 && o.baseSansCorrespondance !== undefined)
+      return { elements: [], code: o.baseSansCorrespondance };
     const plafond = Math.min(d.limite > 0 ? d.limite : Infinity, o.limiteServeur ?? Infinity);
     const gardees = trouvees.slice(0, plafond);
     const elements: ElementRecherche[] = gardees.map((e) => ({ entree: projeter(e, d.attributs, o) }));

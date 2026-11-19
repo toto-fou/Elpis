@@ -39,7 +39,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
 
   it("identités restantes de la même ancre (fichier perdu puis refait à l'identique) : création permise, identités et comptes gardés, compteur d'échecs remis à zéro", async () => {
     b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
-    const f = validerFournisseur(ldapValide({ required_groups: ["elpis"] }));
+    const f = validerFournisseur(ldapValide({ required_groups: ["cn=elpis"] }));
     const ancre = ancreIdentite(f);
     expect(ancre).toBe("ldap:cn=users,dc=exemple,dc=lan#entryuuid");
     await b.t.base.run(
@@ -53,7 +53,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
     const r = await b.appeler(
       "POST",
       "/api/admin/auth/providers",
-      ldapValide({ required_groups: ["elpis"] }),
+      ldapValide({ required_groups: ["cn=elpis"] }),
     );
     expect(r.statusCode, r.body).toBe(200);
     expect(await lignes("SELECT user_id FROM user_identities WHERE provider_id='annuaire'")).toEqual([
@@ -73,7 +73,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
     "identités restantes d'une autre ancre (%s) : création refusée (409), rien n'est touché",
     async (_n, ecart) => {
       b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
-      const ancienne = ancreIdentite(validerFournisseur(ldapValide({ required_groups: ["elpis"] })));
+      const ancienne = ancreIdentite(validerFournisseur(ldapValide({ required_groups: ["cn=elpis"] })));
       await b.t.base.run(
         "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?,?,?,?,?,?)",
         [b.alice, "annuaire", "s-alice", ancienne, "auto", 1],
@@ -81,7 +81,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
       const r = await b.appeler(
         "POST",
         "/api/admin/auth/providers",
-        ldapValide({ required_groups: ["elpis"], ...ecart }),
+        ldapValide({ required_groups: ["cn=elpis"], ...ecart }),
       );
       expect(r.statusCode).toBe(409);
       expect(b.lireConfig()["auth"]).toEqual({ public_url: URL_PUBLIQUE, providers: [] });
@@ -99,7 +99,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
     const r = await b.appeler(
       "POST",
       "/api/admin/auth/providers",
-      oidcValide({ required_groups: ["elpis"] }),
+      oidcValide({ required_groups: ["cn=elpis"] }),
     );
     expect(r.statusCode).toBe(409);
     await b.t.base.run("DELETE FROM user_identities WHERE provider_id='sso'");
@@ -107,7 +107,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
 
   it("sans identité : état et secret d'avant disparaissent à la création", async () => {
     await b.t.base.run("DELETE FROM auth_provider_state WHERE provider_id='annuaire'");
-    const f = validerFournisseur(ldapValide({ required_groups: ["elpis"] }));
+    const f = validerFournisseur(ldapValide({ required_groups: ["cn=elpis"] }));
     b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [f] } });
     expect(
       (await b.appeler("PUT", "/api/admin/auth/providers/annuaire/secret", { secret: "ancien-secret-1" }))
@@ -123,7 +123,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
     const r = await b.appeler(
       "POST",
       "/api/admin/auth/providers",
-      ldapValide({ required_groups: ["elpis"] }),
+      ldapValide({ required_groups: ["cn=elpis"] }),
     );
     expect(r.statusCode, r.body).toBe(200);
     expect(await lignes("SELECT 1 FROM vault_secrets WHERE name='auth-annuaire'")).toHaveLength(0);

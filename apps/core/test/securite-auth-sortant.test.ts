@@ -194,13 +194,35 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("client sortant : confiance, adresses, born
       }
     });
 
-    it("le code du client ne contient aucun moyen d'éteindre la vérification", () => {
+    it("le code du client ne contient aucun moyen d'éteindre la vérification (liste fermée, tout `src/identite`)", () => {
       const dossier = join(import.meta.dirname, "..", "src", "identite");
-      for (const nom of readdirSync(dossier).filter((n) => n.endsWith(".ts"))) {
-        const t = readFileSync(join(dossier, nom), "utf8");
-        expect(t, nom).not.toMatch(
-          /rejectUnauthorized\s*:\s*(?:false|0|undefined|!)|checkServerIdentity\s*:(?!\s*(?:typeof\s+)?verifierNomServeur\b|\s*options\.checkServerIdentity\b)|\.checkServerIdentity\s*=[^=]|NODE_TLS_REJECT_UNAUTHORIZED/u,
-        );
+      const fichiers = readdirSync(dossier, { recursive: true, encoding: "utf8" }).filter((n) =>
+        /\.(?:[cm]?[jt]s)$/u.test(n),
+      );
+      const lignes = (nom: string, mot: string): string[] =>
+        readFileSync(join(dossier, nom), "utf8")
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l.includes(mot));
+      expect(fichiers).toContain("sortant.ts");
+      expect(fichiers).toContain(join("annuaire", "client.ts"));
+      const verification = [
+        'import { checkServerIdentity, connect as tlsConnect } from "node:tls";',
+        "return checkServerIdentity(hote, {",
+        "checkServerIdentity: typeof verifierNomServeur;",
+        "checkServerIdentity: verifierNomServeur,",
+        "checkServerIdentity: options.checkServerIdentity,",
+      ];
+      const permisRejet = [
+        "rejectUnauthorized: true;",
+        "rejectUnauthorized: true,",
+        "rejectUnauthorized: options.rejectUnauthorized,",
+      ];
+      for (const nom of fichiers) {
+        expect(lignes(nom, "NODE_TLS_REJECT_UNAUTHORIZED"), nom).toEqual([]);
+        expect(lignes(nom, "checkServerIdentity"), nom).toEqual(nom === "sortant.ts" ? verification : []);
+        const rejet = lignes(nom, "rejectUnauthorized");
+        for (const l of rejet) expect(permisRejet, `${nom} : ${l}`).toContain(l);
       }
     });
 

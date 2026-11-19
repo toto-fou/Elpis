@@ -476,8 +476,8 @@ export const profilOpenLdapMemberOf = (): ProfilAnnuaire =>
     codeCompteFerme: 49,
   });
 
-export const profil389 = (): ProfilAnnuaire =>
-  profilSimple({
+export const profil389 = (): ProfilAnnuaire => {
+  const p = profilSimple({
     id: "389ds",
     libelle: "389 Directory Server / Red Hat Directory Server",
     sources: [
@@ -495,6 +495,64 @@ export const profil389 = (): ProfilAnnuaire =>
     codeCompteFerme: 53,
     diagnosticFerme: "Account inactivated. Contact system administrator.",
   });
+  const racine = "dc=exemple,dc=lan";
+  const parent = `cn=elpis,ou=groups,${racine}`;
+  const sousGroupe = `cn=equipe,ou=groups,${racine}`;
+  const imbrique = `uid=imbrique,ou=people,${racine}`;
+  const cle = `a1b2c3d4-${hex(4, 8)}-c9d0e1f2-a3b4c5d6`;
+  const entrees = [
+    ...p.entrees.map((x) =>
+      x.dn === parent
+        ? { ...x, attrs: { ...x.attrs, member: [...(x.attrs["member"] ?? []), sousGroupe] } }
+        : x,
+    ),
+    {
+      dn: sousGroupe,
+      attrs: { objectClass: ["top", "groupOfNames"], cn: ["equipe"], member: [imbrique], memberOf: [parent] },
+    },
+    {
+      dn: imbrique,
+      attrs: {
+        objectClass: ["top", "person", "organizationalPerson", "inetOrgPerson"],
+        uid: ["imbrique"],
+        cn: ["Nom imbrique"],
+        mail: ["imbrique@exemple.lan"],
+        nsUniqueId: [cle],
+        memberOf: [sousGroupe, parent],
+      },
+    },
+  ];
+  return {
+    ...p,
+    entrees,
+    personnes: [...p.personnes, { uid: "imbrique", dn: imbrique, mdp: MDP_PERSONNE, cle, attendu: null }],
+    liaison: (d, m) => (d === imbrique ? { code: m.toString() === MDP_PERSONNE ? 0 : 49 } : p.liaison(d, m)),
+  };
+};
+
+/** LLDAP : clé entryUUID, `memberOf` sur les utilisateurs, et recherche de portée base sans correspondance rendue en code 32. */
+export const profilLldap = (): ProfilAnnuaire => {
+  const p = profilSimple({
+    id: "lldap",
+    libelle: "LLDAP (entryUUID, memberOf, code 32 sur une recherche de portée base sans correspondance)",
+    sources: ["https://github.com/lldap/lldap (constat de recette réelle : code 32)"],
+    racine: "dc=exemple,dc=lan",
+    attrCle: "entryUUID",
+    cle: uuid,
+    classeGroupe: "groupOfUniqueNames",
+    attrMembre: "uniqueMember",
+    avecMemberOf: true,
+    mode: "memberof",
+    preset: "openldap",
+    codeCompteFerme: 49,
+  });
+  return {
+    ...variante(p, { options: { baseSansCorrespondance: 32 } }),
+    personnes: p.personnes.map((x) =>
+      x.attendu === "not_in_group" ? { ...x, attendu: "groups_unknown" } : x,
+    ),
+  };
+};
 
 export const profilOpenDj = (): ProfilAnnuaire =>
   profilSimple({
@@ -513,11 +571,14 @@ export const profilOpenDj = (): ProfilAnnuaire =>
     codeCompteFerme: 49,
   });
 
-export const profilUniqueMemberUid = (): ProfilAnnuaire =>
-  profilSimple({
+export const profilUniqueMemberUid = (): ProfilAnnuaire => {
+  const p = profilSimple({
     id: "unique-member-uid",
-    libelle: "groupOfUniqueNames avec valeurs DN#UID (RFC 4519)",
-    sources: ["https://www.rfc-editor.org/rfc/rfc4519.txt"],
+    libelle: "OpenLDAP : groupOfUniqueNames avec valeurs DN#UID (RFC 4519), personne n'entre en mode member",
+    sources: [
+      "https://www.rfc-editor.org/rfc/rfc4519.txt",
+      "https://git.openldap.org/openldap/openldap/-/blob/master/servers/slapd/schema_init.c (uniqueMemberMatch)",
+    ],
     racine: "dc=exemple,dc=lan",
     attrCle: "entryUUID",
     cle: uuid,
@@ -529,6 +590,11 @@ export const profilUniqueMemberUid = (): ProfilAnnuaire =>
     preset: "openldap",
     codeCompteFerme: 49,
   });
+  return {
+    ...variante(p, { options: { uniqueMemberStrict: true } }),
+    personnes: p.personnes.map((x) => ({ ...x, attendu: "not_in_group" })),
+  };
+};
 
 /** Samba AD DC : mêmes attributs et mêmes règles qu'Active Directory (écarts propres non sourcés). */
 export const profilSamba = (): ProfilAnnuaire => ({
@@ -549,4 +615,5 @@ export const PROFILS: readonly (() => ProfilAnnuaire)[] = [
   profil389,
   profilOpenDj,
   profilUniqueMemberUid,
+  profilLldap,
 ];

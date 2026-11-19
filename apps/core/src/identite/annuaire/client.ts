@@ -3,7 +3,17 @@
 import type * as tls from "node:tls";
 import type { TLSSocket } from "node:tls";
 
-import { Client, Filter, FilterParser, MessageParserError, ResultCodeError } from "ldapts";
+import {
+  AndFilter,
+  Client,
+  EqualityFilter,
+  Filter,
+  FilterParser,
+  MessageParserError,
+  NotFilter,
+  OrFilter,
+  ResultCodeError,
+} from "ldapts";
 import type { Entry } from "ldapts";
 
 import type { FournisseurLdap } from "../reglages";
@@ -55,6 +65,28 @@ export function verifierFiltre(filtre: string): void {
   } catch {
     throw new ErreurAnnuaire("configuration");
   }
+}
+
+const SENTINELLE = "elpis-sentinelle-9f3a";
+
+/** Vrai si, dans le filtre `(attribut=…)` lu par la bibliothèque, la valeur de l'unique `{username}` du gabarit est exactement celle d'une égalité hors de tout « non ». */
+export function gabaritEnEgalite(gabarit: string): boolean {
+  let filtre: Filter;
+  try {
+    filtre = FilterParser.parseString(gabarit.replace("{username}", SENTINELLE));
+  } catch {
+    return false;
+  }
+  let egalites = 0;
+  const ok = (f: Filter, sousNon: boolean): boolean => {
+    if (f instanceof AndFilter || f instanceof OrFilter) return f.filters.every((x) => ok(x, sousNon));
+    if (f instanceof NotFilter) return ok(f.filter, true);
+    if (!f.toString().includes(SENTINELLE)) return true;
+    if (sousNon || !(f instanceof EqualityFilter) || String(f.value) !== SENTINELLE) return false;
+    egalites++;
+    return true;
+  };
+  return ok(filtre, false) && egalites === 1;
 }
 
 /** Traduit toute erreur de la bibliothèque ou du réseau en erreur d'annuaire, sans garder son message. */

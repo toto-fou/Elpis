@@ -47,6 +47,9 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("RFC 4511 : protocole LDAP v3", () => {
   afterAll(async () => {
     await hote.fermer();
   });
+  afterEach(() => {
+    expect(hote.serveur.erreursLecture()).toBe(0);
+  });
   beforeEach(async () => {
     await new Promise((ok) => setTimeout(ok, 60));
     profil = profilOpenLdap();
@@ -175,9 +178,9 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("RFC 4511 : protocole LDAP v3", () => {
       const c = hote.serveur.comportement;
       c.rechercher = () => ({
         elements: [
-          { renvois: ["ldaps://autre.exemple.lan/dc=x??sub"] },
+          { renvois: [`${hote.url}/dc=x??sub`] },
           { entree: { dn: "uid=jean,dc=exemple,dc=lan", attrs: { uid: ["jean"] } } },
-          { renvois: ["ldaps://autre2.exemple.lan/dc=y??sub"] },
+          { renvois: [`${hote.url}/dc=y??sub`] },
         ],
         code: 0,
       });
@@ -189,7 +192,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("RFC 4511 : protocole LDAP v3", () => {
 
     it("RFC 4511 §4.5.2 : une réponse faite de références seules est « aucune entrée », jamais une erreur ni une suite", async () => {
       hote.serveur.comportement.rechercher = () => ({
-        elements: [{ renvois: ["ldaps://autre.exemple.lan/dc=x??sub"] }],
+        elements: [{ renvois: [`${hote.url}/dc=x??sub`] }],
         code: 0,
       });
       expect(await cherche()).toEqual([]);
@@ -286,7 +289,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("RFC 4511 : protocole LDAP v3", () => {
       hote.serveur.comportement.rechercher = () => ({
         elements: [],
         code: 10,
-        renvois: ["ldaps://autre.exemple.lan/dc=x??sub"],
+        renvois: [`${hote.url}/dc=x??sub`],
       });
       const avant = hote.serveur.connexions();
       await expect(cherche()).rejects.toMatchObject({ nature: "protocole", code: 10 });
@@ -426,7 +429,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("RFC 4511 : protocole LDAP v3", () => {
     );
 
     it.each(CODES_PANNE.filter((n) => ![49, 53].includes(n)).map((n) => [n, NOMS[n]] as const))(
-      "RFC 4511 §4.1.9 : code %i (%s) à la liaison de la personne : « indisponible », pas « mauvais mot de passe » (le compteur d'essais n'avance pas)",
+      "RFC 4511 §4.1.9 : code %i (%s) à la liaison de la personne : « indisponible », pas « mauvais mot de passe » (l'essai est compté dès que la liaison part, panne comprise)",
       async (code) => {
         const dnJean = profil.personnes[0]?.dn ?? "";
         const normal = profil.liaison;
@@ -435,7 +438,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("RFC 4511 : protocole LDAP v3", () => {
           type: "indisponible",
         });
         const essais = await b.t.base.valeurs("SELECT provider_id, subject, count FROM auth_failures");
-        expect(essais.every(([, , n]) => Number(n) <= 1)).toBe(true);
+        expect(essais.map(([, , n]) => Number(n))).toEqual([1]);
       },
     );
 

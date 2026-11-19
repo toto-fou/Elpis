@@ -2,8 +2,9 @@
 /** apps/core/test/conformite/ldap-rfc4514-dn.test.ts — RFC 4514 : comparaison des DN (échappements équivalents, blancs, RDN multivalués) et DN renvoyés par le serveur repris tels quels pour la liaison et l'appartenance (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { echapperFiltre } from "../../src/identite/annuaire/client";
 import { authentifierParAnnuaire } from "../../src/identite/annuaire/connexion";
-import { dnNormalise, memeDn } from "../../src/identite/annuaire/dn";
+import { dnNormalise, dnUsuel, dnValide, memeDn } from "../../src/identite/annuaire/dn";
 import type { BancAnnuaire } from "../identite/annuaire/banc-annuaire";
 import { MOTEURS } from "../identite/banc";
 import { OPENSSL_DISPONIBLE } from "../identite/pki-openssl";
@@ -41,6 +42,61 @@ describe("RFC 4514 §2.4 et §3 : DN équivalents, DN différents", () => {
     ["dièse de tête échappé contre forme hexadécimale", "cn=\\#41,dc=x", "cn=#41,dc=x"],
   ])("RFC 4514 §2.4 : %s : DN différents", (_n, a, b) => {
     expect(memeDn(a, b)).toBe(false);
+  });
+
+  it.each([
+    ["forme # : virgule échappée contre séparateur de RDN", "cn=#41\\,dc=x", "cn=#41,dc=x"],
+    ["forme # : plus échappé contre séparateur de valeurs", "cn=#41\\+dc=x", "cn=#41+dc=x"],
+    [
+      "forme # : paire hexadécimale contre barre oblique inverse suivie de texte",
+      "cn=#41\\ff,dc=x",
+      "cn=#41\\\\ff,dc=x",
+    ],
+    ["barre oblique inverse devant un caractère ordinaire", "uid=\\svc,dc=x", "uid=svc,dc=x"],
+    ["paire hexadécimale incomplète", "cn=a\\4", "cn=a4"],
+    ["barre oblique inverse finale contre barre échappée", "cn=svc\\", "cn=svc\\\\"],
+    ["point-virgule non échappé (RFC 2253) contre échappé", "cn=a;dc=x", "cn=a\\;dc=x"],
+    ["guillemets (RFC 2253) contre guillemet échappé", 'cn="a,b"', 'cn=\\"a,b"'],
+  ])("RFC 4514 §3 : %s : DN différents (un DN hors grammaire n'est égal qu'à lui-même)", (_n, a, b) => {
+    expect(memeDn(a, b)).toBe(false);
+    expect(dnNormalise(a)).not.toBe(dnNormalise(b));
+  });
+
+  it.each([
+    "cn=#41\\,dc=x",
+    "uid=\\svc,dc=x",
+    "cn=a\\4",
+    "cn=svc\\",
+    "cn=a;dc=x",
+    'cn="a,b"',
+    "cn=#4,dc=x",
+    "cn=a,,dc=x",
+    "=a",
+    "cn",
+  ])(
+    "RFC 4514 §3 : %j hors grammaire : égal à son seul texte, jamais à un DN valide ni à une autre écriture",
+    (dn) => {
+      expect(dnValide(dn)).toBe(false);
+      expect(memeDn(dn, dn)).toBe(true);
+      expect(memeDn(dn, dn.toUpperCase() === dn ? `${dn} ` : dn.toUpperCase())).toBe(false);
+      expect(memeDn(dn, "cn=a,dc=x")).toBe(false);
+    },
+  );
+
+  it("RFC 4514 §3 : DN vide valide ; forme # valide gardée en minuscules ; coût linéaire sur une entrée longue", () => {
+    expect(dnValide("")).toBe(true);
+    expect(memeDn("cn=#4A4b,dc=x", "CN=#4a4B,DC=X")).toBe(true);
+    const t0 = Date.now();
+    dnNormalise(`cn=${"\\".repeat(200_001)}`);
+    dnNormalise(`${"cn=a,".repeat(40_000)}dc=x`);
+    expect(Date.now() - t0).toBeLessThan(2000);
+  });
+
+  it("RFC 4514 §3 : type d'attribut numérique et valeur # reconnus pour le validateur des réglages", () => {
+    expect(dnUsuel("uid=svc,ou=x,dc=exemple,dc=lan")).toBe(true);
+    expect(dnUsuel("2.5.4.3=svc,dc=x")).toBe(false);
+    expect(dnUsuel("cn=#0403737663,dc=x")).toBe(false);
+    expect(dnUsuel("cn=a;b,dc=x")).toBe(false);
   });
 
   it("RFC 4514 §2.4 : une espace de fin échappée ne laisse jamais une barre oblique inverse pendante", () => {
@@ -95,6 +151,9 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("RFC 4514 : DN renvoyés par 
       expect(await authentifierParAnnuaire(b.dep(), "jean", MDP_PERSONNE)).toMatchObject({ type: "ok" });
       const liees = hote.serveur.requetes.filter((q) => q.type === "bind").map((q) => q.dn);
       expect(liees).toContain(dn);
+      const echappe = echapperFiltre(dn);
+      const filtres = hote.serveur.requetes.filter((q) => q.type === "search").map((q) => q.filtre);
+      expect(filtres).toContain(`(|(member=${echappe})(uniquemember=${echappe}))`);
     },
   );
 });

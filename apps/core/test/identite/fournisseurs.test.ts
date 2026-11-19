@@ -59,7 +59,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     avant: Record<string, unknown> = {},
   ): Promise<string> {
     const id = `ldap${++compteur}`;
-    const brut = ldapValide({ id, enabled: true, required_groups: ["elpis"], ...avant });
+    const brut = ldapValide({ id, enabled: true, required_groups: ["cn=elpis"], ...avant });
     const f = validerFournisseur(brut);
     await enregistrerSecret(t.base, f, "mot-de-passe-de-service", ACTEUR);
     await enregistrerTestReussi(t.base, f, URL_PUBLIQUE);
@@ -120,7 +120,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     ["clé inconnue", { verify_tls: false }],
     ["réglages changés à la main depuis le test (bind_dn)", { bind_dn: "uid=autre,dc=exemple,dc=lan" }],
     ["filtre changé à la main depuis le test", { user_filter: "(cn={username})" }],
-    ["groupe requis ajouté à la main depuis le test", { required_groups: ["elpis", "tous"] }],
+    ["groupe requis ajouté à la main depuis le test", { required_groups: ["cn=elpis", "cn=tous"] }],
   ])("non actif : %s", async (_nom, ecart) => {
     await pret(ecart);
     expect(await actifs()).toEqual([]);
@@ -128,7 +128,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
 
   it("allumé à la main sans test réussi : non actif ; avertissement unique au journal", async () => {
     const id = `ldap${++compteur}`;
-    const brut = ldapValide({ id, enabled: true, required_groups: ["elpis"] });
+    const brut = ldapValide({ id, enabled: true, required_groups: ["cn=elpis"] });
     await enregistrerSecret(t.base, validerFournisseur(brut), "mdp", ACTEUR);
     cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [brut] } });
     for (let i = 0; i < 3; i++) expect(await actifs()).toEqual([]);
@@ -140,7 +140,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
 
   it("adresse publique absente, http ou avec chemin : non actif", async () => {
     const id = await pret();
-    const f = ldapValide({ id, enabled: true, required_groups: ["elpis"] });
+    const f = ldapValide({ id, enabled: true, required_groups: ["cn=elpis"] });
     for (const url of ["", "http://elpis.exemple.lan", "https://elpis.exemple.lan/x", "elpis.exemple.lan"]) {
       cfg.ecrire({ auth: { public_url: url, providers: [f] } });
       expect(await actifs(), url).toEqual([]);
@@ -151,7 +151,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
 
   it("changer l'adresse publique après le test : non actif (l'empreinte la compte)", async () => {
     const id = await pret();
-    const f = ldapValide({ id, enabled: true, required_groups: ["elpis"] });
+    const f = ldapValide({ id, enabled: true, required_groups: ["cn=elpis"] });
     cfg.ecrire({ auth: { public_url: "https://autre.exemple.lan", providers: [f] } });
     expect(await actifs()).toEqual([]);
   });
@@ -177,7 +177,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
       ["ldaps://ldap.exemple.lan:6360"],
       ["ldaps://ldap.exemple.lan", "ldaps://replique.exemple.lan"],
     ]) {
-      const brut = ldapValide({ id, enabled: true, required_groups: ["elpis"], urls });
+      const brut = ldapValide({ id, enabled: true, required_groups: ["cn=elpis"], urls });
       cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [brut] } });
       const modifie = validerFournisseur(brut);
       expect(await secretFournisseur(t.base, modifie), urls.join()).toBeNull();
@@ -223,7 +223,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     for (const modif of [
       { bind_dn: "uid=x" },
       { preset: "freeipa" },
-      { ca_pem: "", required_groups: ["a"] },
+      { ca_pem: "", required_groups: ["cn=a"] },
       { timeout_sec: 11 },
     ])
       expect(empreinteFournisseur({ ...f, ...modif } as never, URL_PUBLIQUE), JSON.stringify(modif)).not.toBe(

@@ -631,7 +631,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
             `uid=a${i},cn=users,dc=exemple,dc=lan`,
             `UID=a${i} , cn=users,dc=exemple,dc=lan`,
             `uid=\\61${i},cn=users,dc=exemple,dc=lan`,
-            `0.9.2342.19200300.100.1.1=a${i},cn=users,dc=exemple,dc=lan`,
+            `userid=a${i},cn=users,dc=exemple,dc=lan`,
             `cn=users+uid=a${i},dc=exemple,dc=lan`,
           ][i % 5] as string;
         for (let i = 0; i < 9; i++)

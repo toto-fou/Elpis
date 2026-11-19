@@ -226,10 +226,8 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("TLS de l'annuaire", () => {
         usage: "keyCertSign",
       });
       const s = await demarrer(f.cert, f.cle);
-      let erreur: unknown = null;
-      await lier(s, "ldap.exemple.lan", ca.cert).catch((e: unknown) => (erreur = e));
-      // Si la pile TLS n'applique pas l'usage de clé, la liaison réussit : le cas est alors un doute du rapport.
-      expect(erreur === null || (erreur as { nature?: string }).nature === "injoignable").toBe(true);
+      await expect(lier(s, "ldap.exemple.lan", ca.cert)).rejects.toMatchObject(refus(["tls", "reseau"]));
+      aucuneLiaison(s);
     });
   });
 

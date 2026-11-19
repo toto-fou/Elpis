@@ -45,10 +45,10 @@ describe("Active Directory : formes de connexion et réglages", () => {
   it("Microsoft Learn (formes de nom AD) : le nom du compte de service doit être un DN : UPN et DOMAINE\\compte refusés par choix (plus strict que la norme)", () => {
     const f = fournisseur(AD_FOURNISSEUR);
     expect(f.bind_dn).toContain("=");
-    // Les réglages acceptent n'importe quel texte ; la liaison, elle, exige un DN (voir le protocole).
-    expect(() =>
-      validerFournisseur(ldapValide({ ...AD_FOURNISSEUR, bind_dn: "svc@corp.example" })),
-    ).not.toThrow();
+    for (const bind_dn of ["svc@corp.example", "CORP\\svc"])
+      expect(() => validerFournisseur(ldapValide({ ...AD_FOURNISSEUR, bind_dn }))).toThrowError(
+        /bind_dn|nom distinctif/u,
+      );
   });
   it("RFC 4515 §3 : un gabarit de filtre à deux {username} (sAMAccountName OU UPN) est refusé par choix (plus strict que la norme)", () => {
     expect(() =>
@@ -86,6 +86,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("Active Directory sur LDAPS l
     await hote.fermer();
   });
   afterEach(async () => {
+    expect(hote.serveur.erreursLecture()).toBe(0);
     await b?.fermer();
   });
   const ouvrir = async (p: ProfilAnnuaire, extra: Record<string, unknown> = {}): Promise<void> => {
@@ -256,16 +257,16 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("Active Directory sur LDAPS l
   });
 
   describe("références de continuation à la racine du domaine (RFC 4511 §4.5.2, DomainDnsZones, ForestDnsZones)", () => {
-    const references = [
-      "ldaps://DomainDnsZones.corp.example:636/DC=DomainDnsZones,DC=corp,DC=example",
-      "ldaps://ForestDnsZones.corp.example:636/DC=ForestDnsZones,DC=corp,DC=example",
-      "ldaps://corp.example:636/CN=Configuration,DC=corp,DC=example",
+    const references = (): string[] => [
+      `${hote.url}/DC=DomainDnsZones,DC=corp,DC=example`,
+      `${hote.url}/DC=ForestDnsZones,DC=corp,DC=example`,
+      `${hote.url}/CN=Configuration,DC=corp,DC=example`,
     ];
     it.each([true, false])(
       "recherche depuis la racine du domaine, références %s avant les entrées : connexion acceptée, aucune référence suivie",
       async (avant) => {
         const p = variante(profilActiveDirectory(), {
-          options: { renvoisRacine: { racine: AD.RACINE, uris: references, avant } },
+          options: { renvoisRacine: { racine: AD.RACINE, uris: references(), avant } },
           reglages: { user_base_dn: AD.RACINE },
         });
         await ouvrir(p);

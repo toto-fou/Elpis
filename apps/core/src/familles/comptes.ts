@@ -72,7 +72,9 @@ import { connecterParAnnuaire } from "../comptes/voie-annuaire";
 import { fabriqueLdapts } from "../identite/annuaire/client";
 import type { FabriqueConnexion } from "../identite/annuaire/client";
 import { annuairesActifs, PorteAnnuaire } from "../identite/annuaire/connexion";
+import { cleIdentifiant } from "../identite/cle-identifiant";
 import { lireReglagesAuth } from "../identite/reglages";
+import type { FournisseurLdap } from "../identite/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
 import type { Journal } from "../journal";
@@ -120,6 +122,20 @@ const PLANCHER_REFUS_MS = 500;
 const REFUS_DEBIT_CONNEXION = "Trop de tentatives de connexion : réessayez dans quelques minutes.";
 const REFUS_AVATAR_ASSISTANT =
   "L'avatar de l'assistant est le logo de l'application, réglé par l'administrateur dans la console.";
+
+/** Un annuaire est allumé dans la configuration (lecture mémoire, sans base ni coffre). */
+function annuaireEnvisage(): boolean {
+  return lireReglagesAuth().providers.some((f) => f.type === "ldap" && f.enabled);
+}
+
+/** Un compte local de ce nom (casse ignorée) se connecte par mot de passe : l'annuaire ne reçoit jamais ce mot de passe. */
+async function aCompteLocalAMotDePasse(base: Base, cle: string): Promise<boolean> {
+  const lignes = await base.all<Record<string, unknown>>(
+    "SELECT pass_hash FROM users WHERE lower(username)=?",
+    [cle],
+  );
+  return lignes.some((l) => aMotDePasseLocal(l));
+}
 
 function maintenant(dep: DependancesComptes): number {
   return dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000;
@@ -370,12 +386,32 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const ua = entete(req, "user-agent") ?? null;
           const arrivee = maintenant(dep);
           const depart = performance.now();
-          const actifs = await annuairesActifs(voieAnnuaire.annuaire);
-          const nomLimiteur = actifs.length > 0 ? username.normalize("NFKC").toLowerCase() : username;
+          const envisage = annuaireEnvisage();
+          const cle = envisage ? cleIdentifiant(username) : null;
+          let nomLimiteur = envisage ? (cle ?? username.normalize("NFKC").toLowerCase()) : username;
           const attente = debitConnexion.attenteS(nomLimiteur, ip, arrivee);
           if (attente > 0)
             throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
-          const essai = debitConnexion.prendre(nomLimiteur, ip, arrivee);
+          let essai = debitConnexion.prendre(nomLimiteur, ip, arrivee);
+          let actifs: FournisseurLdap[] = [];
+          if (envisage) {
+            try {
+              actifs = await annuairesActifs(voieAnnuaire.annuaire);
+            } catch (e) {
+              debitConnexion.annulation(essai, maintenant(dep));
+              throw e;
+            }
+            if (actifs.length === 0) {
+              debitConnexion.annulation(essai, maintenant(dep));
+              nomLimiteur = username;
+              const reprise = debitConnexion.attenteS(nomLimiteur, ip, arrivee);
+              if (reprise > 0)
+                throw new HttpError(429, REFUS_DEBIT_CONNEXION, {
+                  "Retry-After": String(Math.ceil(reprise)),
+                });
+              essai = debitConnexion.prendre(nomLimiteur, ip, arrivee);
+            }
+          }
           const plancher = async (): Promise<void> => {
             if (actifs.length > 0)
               await attendre(Math.max(0, PLANCHER_REFUS_MS - (performance.now() - depart)));
@@ -386,22 +422,35 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           let methode: MethodeConnexion = "password";
           let nomDuCompte = username;
           let indisponible = false;
+          let payerCout = false;
           try {
-            const local = actifs.length > 0 ? await getUser(base, username) : undefined;
-            if (actifs.length > 0 && (local === undefined || !aMotDePasseLocal(local))) {
-              const issue = await connecterParAnnuaire(voieAnnuaire, {
-                identifiant: username,
-                motDePasse: secret,
-                actifs,
-                maintenant: maintenant(dep),
-                client: { ip, userAgent: ua },
-              });
-              uid = issue.type === "ok" ? issue.uid : null;
-              if (issue.type === "ok") {
-                methode = issue.methode;
-                nomDuCompte = issue.username;
+            const refuse = actifs.length > 0 && cle === null;
+            const parAnnuaire =
+              actifs.length > 0 && cle !== null && !(await aCompteLocalAMotDePasse(base, cle));
+            if (refuse) {
+              uid = null;
+              payerCout = true;
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "unknown_user" });
+            } else if (parAnnuaire && cle !== null) {
+              payerCout = true;
+              try {
+                const issue = await connecterParAnnuaire(voieAnnuaire, {
+                  identifiant: cle,
+                  motDePasse: secret,
+                  actifs,
+                  maintenant: maintenant(dep),
+                  client: { ip, userAgent: ua },
+                });
+                uid = issue.type === "ok" ? issue.uid : null;
+                if (issue.type === "ok") {
+                  methode = issue.methode;
+                  nomDuCompte = issue.username;
+                }
+                indisponible = issue.type === "indisponible";
+              } catch (e) {
+                dep.journal.warn({ err: e }, "[auth] connexion par l'annuaire : erreur interne");
+                uid = null;
               }
-              indisponible = issue.type === "indisponible";
             } else {
               const compte =
                 lireReglagesAuth().local.mode === "admins" ? await getUser(base, username) : undefined;
@@ -457,6 +506,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           if (uid === null) {
             if (essai.epuise)
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "rate_limited" });
+            if (payerCout && secret.isWellFormed()) await completerCoutRefus(secret, null);
             await plancher();
             throw new HttpError(401, "invalid credentials");
           }

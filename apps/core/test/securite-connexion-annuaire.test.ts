@@ -238,8 +238,8 @@ describe.each(MOTEURS)("connexion par l'annuaire (%s)", (moteur) => {
 
     it.each([
       ["Jean-Dupont", "jean.dupont"],
-      ["Jean-Dupont", "JEAN-DUPONT"],
-      ["Jean_Dupont", "jean_dupont"],
+      ["Jean_Dupont", "jean.dupont"],
+      ["jean-dupont", "Jean__Dupont"],
     ])(
       "homonyme du compte local « %s » (annuaire : %s) : refus, aucun compte créé ni modifié",
       async (existant, ext) => {
@@ -261,10 +261,45 @@ describe.each(MOTEURS)("connexion par l'annuaire (%s)", (moteur) => {
       },
     );
 
-    it("compte local de même nom à la casse près : l'annuaire décide, homonyme refusé", async () => {
-      await createUser(b.t.base, "jean", "mdp-local-1");
-      expect(refuse(await essai("JEAN", MDP))).toEqual(REFUS);
-      expect(await utilisateurs()).toEqual([["chef"], ["jean"]]);
+    it.each([
+      ["JEAN"],
+      ["ｊｅａｎ"],
+      ["jean\u200b"],
+      ["jean\u00ad"],
+      ["Jean"],
+      ["jean "],
+      [" jean"],
+      ["jean\u3000"],
+    ])(
+      "compte local `jean` à mot de passe, saisie %j : le mot de passe ne part jamais à l'annuaire, même 401",
+      async (saisie) => {
+        await createUser(b.t.base, "jean", "mdp-local-1");
+        expect(refuse(await essai(saisie, MDP))).toEqual(REFUS);
+        expect(annuaire.traces).toEqual([]);
+        if (!["jean ", " jean", "jean\u3000"].includes(saisie))
+          expect(refuse(await essai(saisie, "mdp-local-1"))).toEqual(REFUS);
+        expect(annuaire.traces).toEqual([]);
+        expect(await utilisateurs()).toEqual([["chef"], ["jean"]]);
+      },
+    );
+
+    it.each([
+      ["jean\u200b"],
+      ["je\u00adan"],
+      ["jean\u0338"],
+      ["je\u2028an"],
+      ["je  an"],
+      ["jean\u00a0\u00a0x"],
+      ["\ud800"],
+    ])("identifiant refusé %j : jamais envoyé à l'annuaire, même 401", async (saisie) => {
+      expect(refuse(await essai(saisie, MDP))).toEqual(REFUS);
+      expect(annuaire.traces).toEqual([]);
+    });
+
+    it("l'identifiant envoyé à l'annuaire est la clé (minuscules, espaces de bord retirés), non la saisie brute", async () => {
+      expect((await essai("  JEAN ", MDP)).statusCode).toBe(200);
+      expect(annuaire.recherches.every((r) => !/JEAN/u.test(r))).toBe(true);
+      expect(annuaire.recherches.some((r) => r.includes("(uid=jean)"))).toBe(true);
     });
 
     it("hors du groupe à la création : refus, aucun compte", async () => {
@@ -274,27 +309,41 @@ describe.each(MOTEURS)("connexion par l'annuaire (%s)", (moteur) => {
       expect(audits("auth.login")[0]).toMatchObject({ details: { reason: "not_in_group" } });
     });
 
-    it("retiré du groupe : refus ET compte suspendu ; groupes illisibles : refus sans suspension ; remis : réactivé", async () => {
+    it("retiré du groupe : refus sans liaison ni suspension (le balayage suspend) ; groupes illisibles : refus sans rien modifier ; remis : connecté", async () => {
       const ouverte = cookie(await essai("jean", MDP));
       const etat = () =>
         b.t.base.get<{ suspended_at: number; suspended_by: string | null }>(
           "SELECT suspended_at, suspended_by FROM users WHERE username='jean'",
         );
+      const liaisons = annuaire.liaisonsUtilisateur.length;
       annuaire.personnes[0]!.groupes = [];
       expect(refuse(await essai("jean", MDP))).toEqual(REFUS);
-      expect(await etat()).toMatchObject({ suspended_by: "directory:annuaire" });
-      expect((await moi(ouverte))["logged_in"]).toBe(false);
+      expect(audits("auth.login")[0]).toMatchObject({ details: { reason: "not_in_group" } });
+      expect(annuaire.liaisonsUtilisateur).toHaveLength(liaisons);
+      expect(Number((await etat())?.suspended_at)).toBe(0);
+      expect((await moi(ouverte))["logged_in"]).toBe(true);
       annuaire.personnes[0]!.groupes = [GROUPE];
       annuaire.groupesLisibles = false;
       const avant = await etat();
       expect(refuse(await essai("jean", MDP))).toEqual(REFUS);
+      expect(audits("auth.login")[0]).toMatchObject({ details: { reason: "groups_unknown" } });
       expect(await etat()).toEqual(avant);
       annuaire.groupesLisibles = true;
       const r = await essai("jean", MDP);
       expect(r.statusCode).toBe(200);
-      expect(Number((await etat())?.suspended_at)).toBe(0);
       expect((await moi(cookie(r)))["logged_in"]).toBe(true);
-      expect((await moi(ouverte))["logged_in"]).toBe(false);
+    });
+
+    it("suspendu par le balayage puis remis dans le groupe : la connexion le réactive", async () => {
+      await essai("jean", MDP);
+      await b.t.base.run(
+        "UPDATE users SET suspended_at=5, suspended_by='directory:annuaire' WHERE username='jean'",
+      );
+      expect((await essai("jean", MDP)).statusCode).toBe(200);
+      const l = await b.t.base.get<{ suspended_at: number }>(
+        "SELECT suspended_at FROM users WHERE username='jean'",
+      );
+      expect(Number(l?.suspended_at)).toBe(0);
     });
 
     it("groupes illisibles dès la première connexion : refus, aucun compte", async () => {

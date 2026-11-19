@@ -216,10 +216,16 @@ async function verifierEntree(
     verrouillee: "verrouillé",
     expiree: "mot de passe expiré",
   };
+  const sansExpiration =
+    etat === "active" &&
+    presetDe(f.preset)?.famille === "freeipa" &&
+    (trouve.attrs["krbpasswordexpiration"] ?? []).length === 0;
   return {
     verdict: {
-      level: etat === "active" ? "ok" : "warn",
-      detail: `${detail} Compte ${libelle[etat]}.`,
+      level: etat === "active" && !sansExpiration ? "ok" : "warn",
+      detail: sansExpiration
+        ? `${detail} Compte ${libelle[etat]}. L'expiration du mot de passe n'est pas lisible pour cet utilisateur : un mot de passe expiré ne serait pas refusé.`
+        : `${detail} Compte ${libelle[etat]}.`,
     },
     entree: trouve,
   };

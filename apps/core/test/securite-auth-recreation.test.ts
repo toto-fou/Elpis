@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-auth-recreation.test.ts — un identifiant de fournisseur recréé n'hérite ni des comptes liés, ni de l'état, ni du secret d'avant ; le secret ne s'écrit que pour un fournisseur présent. */
+/** apps/core/test/securite-auth-recreation.test.ts — un identifiant de fournisseur recréé n'hérite ni de l'état ni du secret d'avant ; les identités d'avant ne sont reprises que si l'ancre (base des utilisateurs et attribut de clé, jamais les serveurs) est la même, sinon la création est refusée ; changer d'hôte impose de ressaisir le secret et de refaire un test complet ; le secret ne s'écrit que pour un fournisseur présent. */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { ancreIdentite } from "../src/identite/ancre";

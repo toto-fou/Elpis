@@ -424,7 +424,8 @@ Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at 
 `freshness_days` (1 to 90, default 14).
 
 - LDAP: `urls` (one to three `ldaps://host[:port]`, never plain `ldap://`), `bind_dn`, `user_base_dn`,
-  `user_filter` (contains `{username}` exactly once), `attrs` (`id`, `username`, `email`, `name`),
+  `user_filter` (contains `{username}` exactly once), `attrs` (`id`, `username`, `email`, `name`; `id` is the stable key and
+  must be a server-generated identifier: `entryUUID`, `ipaUniqueID`, `objectGUID` or `nsUniqueId`, different from the other three),
   `groups.mode` (`memberof`, `chain`, `member`), `max_failures` (1 to 20, default 4),
   `failure_window_sec` (60 to 86400, default 900), `timeout_sec` (2 to 30, default 10).
 - OIDC: `issuer` (`https`, no query or fragment), `client_id`, `client_auth` (`basic`, `post`),

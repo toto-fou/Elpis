@@ -109,11 +109,27 @@ export function normaliserEntree(brut: Entry): EntreeAnnuaire {
   return { dn: brut.dn, attrs };
 }
 
-function lierSocketUnique(socket: TLSSocket): typeof tls.connect {
+/** Octets reçus au plus par opération (liaison, recherche) ; au-delà la socket est détruite. */
+export const OCTETS_RECUS_MAX = 1024 * 1024;
+
+interface Reception {
+  octets: number;
+  depasse: boolean;
+}
+
+/** Compte les octets reçus sur la socket avant ldapts (le compteur repart à chaque opération) et la détruit au-delà du plafond. */
+function lierSocketUnique(socket: TLSSocket, r: Reception): typeof tls.connect {
   let servie = false;
   return (() => {
     if (servie) throw new Error("socket déjà servie");
     servie = true;
+    socket.on("data", (morceau: Buffer) => {
+      r.octets += morceau.length;
+      if (r.octets > OCTETS_RECUS_MAX && !r.depasse) {
+        r.depasse = true;
+        socket.destroy();
+      }
+    });
     return socket;
   }) as unknown as typeof tls.connect;
 }
@@ -121,6 +137,7 @@ function lierSocketUnique(socket: TLSSocket): typeof tls.connect {
 interface Ouverte {
   readonly client: Client;
   readonly socket: TLSSocket;
+  readonly reception: Reception;
 }
 
 class ConnexionLdapts implements ConnexionAnnuaire {
@@ -147,10 +164,19 @@ class ConnexionLdapts implements ConnexionAnnuaire {
     if (this.lie) throw new ErreurAnnuaire("configuration");
     this.lie = true;
     try {
-      await (await this.obtenir()).client.bind(dn, motDePasse);
+      const { client, reception } = await this.obtenir();
+      reception.octets = 0;
+      await client.bind(dn, motDePasse);
+      if (reception.depasse) throw new ErreurAnnuaire("protocole");
     } catch (e) {
-      throw traduireErreur(e);
+      throw await this.apresEchec(e);
     }
+  }
+
+  /** Une réception au-delà du plafond est une erreur de protocole, quelle que soit l'erreur de la bibliothèque. */
+  private async apresEchec(e: unknown): Promise<ErreurAnnuaire> {
+    const ouverte = await this.ouverte?.catch(() => null);
+    return ouverte?.reception.depasse === true ? new ErreurAnnuaire("protocole") : traduireErreur(e);
   }
 
   async chercher(base: string, o: OptionsRecherche): Promise<EntreeAnnuaire[]> {
@@ -160,7 +186,8 @@ class ConnexionLdapts implements ConnexionAnnuaire {
       ? [...BINAIRES, ...attributs.filter((a) => a.toLowerCase() === "objectguid")]
       : [];
     try {
-      const { client } = await this.obtenir();
+      const { client, reception } = await this.obtenir();
+      reception.octets = 0;
       const r = await client.search(base, {
         scope: o.portee,
         filter: FilterParser.parseString(o.filtre),
@@ -170,9 +197,10 @@ class ConnexionLdapts implements ConnexionAnnuaire {
         timeLimit: this.delaiSec,
         derefAliases: "never",
       });
+      if (reception.depasse) throw new ErreurAnnuaire("protocole");
       return r.searchEntries.slice(0, o.limite).map(normaliserEntree);
     } catch (e) {
-      throw traduireErreur(e);
+      throw await this.apresEchec(e);
     }
   }
 
@@ -220,14 +248,15 @@ export function fabriqueLdapts(o: OptionsFabrique = {}): FabriqueConnexion {
         socket.destroy();
         throw new ErreurAnnuaire("injoignable", { sortant: "tls" });
       }
+      const reception: Reception = { octets: 0, depasse: false };
       const client = new Client({
         url: `ldaps://${u.host}`,
         timeout: delai,
         connectTimeout: delai,
         strictDN: true,
-        createSecureConnection: lierSocketUnique(socket),
+        createSecureConnection: lierSocketUnique(socket, reception),
       });
-      return { client, socket };
+      return { client, socket, reception };
     };
     return Promise.resolve(new ConnexionLdapts(ouvrir, fournisseur.timeout_sec));
   };

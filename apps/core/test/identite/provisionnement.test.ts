@@ -187,10 +187,23 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     it("retiré du groupe : refus et compte suspendu `directory:<id>`, coupure propagée", async () => {
       expect(await resoudre(profil(), "non", T + 10)).toEqual({ type: "refus", raison: "not_in_group", uid });
       expect(await etat()).toMatchObject({ suspended_at: T + 10, suspended_by: "directory:annuaire" });
-      expect(publiees).toEqual([uid]);
+      await vi.waitFor(() => expect(publiees).toEqual([uid]));
       const ev = lignesAuditRecentes({ actionPrefix: "auth.account.suspend" })[0];
       expect(ev).toMatchObject({ user_id: uid, username: "jdupont" });
       expect(ev?.["details"]).toMatchObject({ origin: "directory:annuaire", provider_id: "annuaire" });
+    });
+
+    it("la coupure d'accès n'est pas attendue : une panne de publication ne change pas la réponse et est journalisée", async () => {
+      dep = {
+        ...dep,
+        publierSuspension: () => new Promise(() => undefined),
+      };
+      const r = await Promise.race([
+        resoudre(profil(), "non", T + 10),
+        new Promise<string>((ok) => setTimeout(() => ok("bloque"), 3000)),
+      ]);
+      expect(r).toEqual({ type: "refus", raison: "not_in_group", uid });
+      expect(await etat()).toMatchObject({ suspended_by: "directory:annuaire" });
     });
 
     it("groupes illisibles : refus sans rien modifier (ni suspension, ni mise à jour, ni coupure)", async () => {

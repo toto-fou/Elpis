@@ -40,6 +40,10 @@ export interface ServeurLdap {
   readonly port: number;
   readonly requetes: RequeteRecue[];
   readonly comportement: ComportementServeur;
+  /** Connexions acceptées depuis le démarrage. */
+  connexions(): number;
+  /** Ferme côté serveur toutes les connexions ouvertes. */
+  couper(): void;
   fermer(): Promise<void>;
 }
 
@@ -142,8 +146,10 @@ export async function demarrerServeurLdap(cert: string, cle: string): Promise<Se
     diagnostic: "",
   };
   const sockets = new Set<TLSSocket>();
+  let acceptees = 0;
   const serveur: Server = createServer({ cert, key: cle }, (s) => {
     sockets.add(s);
+    acceptees++;
     s.on("close", () => sockets.delete(s));
     s.on("error", () => undefined);
     let tampon = Buffer.alloc(0);
@@ -166,6 +172,10 @@ export async function demarrerServeurLdap(cert: string, cle: string): Promise<Se
     port: typeof adresse === "object" && adresse !== null ? adresse.port : 0,
     requetes,
     comportement,
+    connexions: () => acceptees,
+    couper: () => {
+      for (const s of sockets) s.destroy();
+    },
     fermer: () =>
       new Promise<void>((ok) => {
         for (const s of sockets) s.destroy();

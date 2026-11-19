@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/identite/annuaire/client-reel.test.ts — l'adaptateur réel de bout en bout sur LDAPS local : TLS vérifié, liaison, recherche bornée, renvois ignorés, attributs binaires, aucune reconnexion, annuaire muet. */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+/** apps/core/test/identite/annuaire/client-reel.test.ts — l'adaptateur réel de bout en bout sur LDAPS local : TLS vérifié, liaison, recherche bornée, renvois ignorés, attributs binaires, aucune reconnexion, plafond d'octets, annuaire muet. */
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { fabriqueLdapts } from "../../../src/identite/annuaire/client";
 import type { ConnexionAnnuaire } from "../../../src/identite/annuaire/client";
 import { appartient } from "../../../src/identite/annuaire/appartenance";
+import { ErreurAnnuaire } from "../../../src/identite/annuaire/erreur";
 import { chercherUtilisateur, cleStable, etatEntree } from "../../../src/identite/annuaire/entree";
 import { PRESETS } from "../../../src/identite/annuaire/presets";
 import { creerAutoSigne, creerAutorite, creerFeuille, effacer, OPENSSL_DISPONIBLE } from "../pki-openssl";
@@ -72,7 +73,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("adaptateur réel sur LDAPS local", () => {
     expect(types.slice(0, 2)).toEqual(["bind", "search"]);
   });
 
-  it("borne la recherche : limite, délai du serveur, alias jamais déréférencés, attributs nommés", async () => {
+  it("borne la recherche : limite, délai du serveur, attributs nommés, `derefAliases` « never » sur le fil (ce que ldapts envoie aussi par défaut)", async () => {
     serveur.requetes.length = 0;
     const cnx = await ouvrir({ timeout_sec: 7 });
     await cnx.lier(DN, "mot-de-passe-service");
@@ -154,13 +155,51 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("adaptateur réel sur LDAPS local", () => {
     await bonne.fermer();
   });
 
-  it("aucune reconnexion : la connexion fermée ne se rouvre pas", async () => {
+  it("aucune reconnexion : le serveur ferme la connexion, aucune nouvelle socket n'est ouverte, l'opération échoue", async () => {
     const cnx = await ouvrir();
     await cnx.lier(DN, "mot-de-passe-service");
-    await cnx.fermer();
+    const avant = serveur.connexions();
+    serveur.couper();
+    await new Promise((ok) => setTimeout(ok, 100));
     serveur.requetes.length = 0;
-    await expect(cnx.chercher("dc=x", PARAMS)).rejects.toMatchObject({ nature: "injoignable" });
-    expect(serveur.requetes).toHaveLength(0);
+    await expect(cnx.chercher("dc=x", PARAMS)).rejects.toBeInstanceOf(ErreurAnnuaire);
+    await cnx.fermer();
+    expect(serveur.connexions()).toBe(avant);
+    expect(serveur.requetes.filter((q) => q.type !== "unbind")).toHaveLength(0);
+    const ferme = await ouvrir();
+    await ferme.fermer();
+    await expect(ferme.chercher("dc=x", PARAMS)).rejects.toMatchObject({ nature: "injoignable" });
+  });
+
+  describe("plafond d'octets reçus par opération", () => {
+    const gros = (n: number): void => {
+      serveur.comportement.entrees = Array.from({ length: n }, (_, i) => ({
+        dn: `uid=u${i},cn=users,dc=exemple,dc=lan`,
+        attrs: { uid: [`u${i}`], mail: ["x".repeat(200_000)] },
+      }));
+    };
+    afterEach(() => {
+      serveur.comportement.entrees = [];
+    });
+
+    it("une réponse de plus de 1 Mio : socket détruite, l'opération échoue en « protocole »", async () => {
+      gros(8);
+      const cnx = await ouvrir();
+      await cnx.lier(DN, "mot-de-passe-service");
+      await expect(cnx.chercher("cn=users,dc=exemple,dc=lan", PARAMS)).rejects.toMatchObject({
+        nature: "protocole",
+      });
+      await cnx.fermer();
+    });
+
+    it("le compteur repart à chaque opération : des réponses de 600 Kio à la suite passent", async () => {
+      gros(3);
+      const cnx = await ouvrir();
+      await cnx.lier(DN, "mot-de-passe-service");
+      for (let i = 0; i < 4; i++)
+        expect(await cnx.chercher("cn=users,dc=exemple,dc=lan", PARAMS)).toHaveLength(2);
+      await cnx.fermer();
+    });
   });
 
   it("une autorité inconnue : « injoignable », jamais une liaison", async () => {

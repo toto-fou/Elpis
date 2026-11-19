@@ -537,8 +537,24 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
         expect(r.complete).toBe(false);
       });
 
-      it("attribut d'état illisible : échec qui nomme l'attribut que le compte de service ne lit pas", async () => {
+      it("FreeIPA sans expiration lisible : avertissement clair, le test reste complet", async () => {
         annuaire.ajouter("sans-etat", { nsaccountlock: ["false"] });
+        const r = await tester({
+          ...reglages({
+            preset: "freeipa",
+            attrs: { id: "entryUUID", username: "uid", email: "mail", name: "cn" },
+          }),
+          test_user: "sans-etat",
+        });
+        expect(etape(r, "test_user")).toMatchObject({ level: "warn" });
+        expect(etape(r, "test_user")?.detail).toContain(
+          "L'expiration du mot de passe n'est pas lisible pour cet utilisateur : un mot de passe expiré ne serait pas refusé.",
+        );
+        expect(r.complete).toBe(true);
+      });
+
+      it("attribut d'état illisible : échec qui nomme l'attribut que le compte de service ne lit pas", async () => {
+        annuaire.ajouter("sans-etat", { nsaccountlock: ["false"], krbpasswordexpiration: ["demain"] });
         const r = await tester({
           ...reglages({
             preset: "freeipa",

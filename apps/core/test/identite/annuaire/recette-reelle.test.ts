@@ -137,14 +137,14 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
         expect((await auth(f, { login, mdp: a.membre.mdp })).type, login).toBe("absent");
     });
 
-    it("hors du groupe requis : la liaison réussit mais l'appartenance est « non »", async () => {
+    it("hors du groupe requis : refus not_in_group, aucune liaison de l'utilisateur", async () => {
       const f = await fournisseur(a);
-      expect(await auth(f, a.hors_groupe)).toMatchObject({ type: "ok", appartenance: "non" });
+      expect(await auth(f, a.hors_groupe)).toMatchObject({ type: "refus", raison: "not_in_group" });
     });
 
-    it("groupe requis qui n'existe pas : appartenance « inconnu » (jamais « non », qui suspendrait)", async () => {
+    it("groupe requis qui n'existe pas : refus groups_unknown (jamais « non »)", async () => {
       const f = await fournisseur(a, { required_groups: [a.groupe_absent] });
-      expect(await auth(f, a.membre)).toMatchObject({ type: "ok", appartenance: "inconnu" });
+      expect(await auth(f, a.membre)).toMatchObject({ type: "refus", raison: "groups_unknown" });
       const cnx = await fabriqueLdapts()(f, a.url);
       try {
         await cnx.lier(a.bind_dn, a.secret);

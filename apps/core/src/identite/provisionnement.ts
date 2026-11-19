@@ -78,11 +78,15 @@ const LIRE_IDENTITE =
 const refus = (raison: RaisonRefusIdentite, uid?: number): Resolution =>
   uid === undefined ? { type: "refus", raison } : { type: "refus", raison, uid };
 
-/** Compte déjà portant ce nom, casse ignorée et forme canonique comprise. */
+/** Forme comparée des noms : casse ignorée, toute suite de `.`, `-`, `_` vaut un seul `-`. */
+const cleHomonyme = (nom: string): string => nom.toLowerCase().replace(/[._-]+/gu, "-");
+
+/** Compte déjà portant ce nom, à la casse et aux séparateurs `.`, `-`, `_` près, forme canonique comprise. */
 async function nomPris(x: DependancesEtat["base"], nom: string): Promise<boolean> {
+  const cle = cleHomonyme(nom);
   return (await getAllUsers(x)).some((u) => {
-    const autre = String(u.username ?? "").toLowerCase();
-    return autre === nom || nomCanonique(autre) === nom;
+    const autre = String(u.username ?? "");
+    return cleHomonyme(autre) === cle || cleHomonyme(nomCanonique(autre)) === cle;
   });
 }
 
@@ -247,7 +251,10 @@ export async function resoudreIdentite(
       outcome: "failure",
       details: { provider_id: e.fournisseur.id, reason: r.raison },
     });
-  if (effets.suspendre !== null) await couperAcces(dep, effets.suspendre);
+  if (effets.suspendre !== null)
+    couperAcces(dep, effets.suspendre).catch((e: unknown) =>
+      dep.journal.error({ err: e }, "[auth] coupure d'accès du compte sorti du groupe échouée"),
+    );
   if (effets.revoquer !== null) await revoquerFlux(dep, effets.revoquer);
   return r;
 }

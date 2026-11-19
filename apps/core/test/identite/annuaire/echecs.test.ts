@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/identite/annuaire/echecs.test.ts — le compteur d'essais par entrée vit en base : deux connexions à la base (deux processus) le voient et l'incrémentent sans perte, la fenêtre ne se prolonge pas (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/identite/annuaire/echecs.test.ts — le compteur d'essais par entrée vit en base : deux connexions à la base (deux processus) le voient et l'incrémentent sans perte, le seau se vide en continu, sans effet de bord de fenêtre (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { initialiserBase, ouvrirBase } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import { ouvrirBaseDeTest, reglagesPgDeTest } from "@elpis/db/test";
@@ -33,13 +33,16 @@ describe.each(MOTEURS)("compteur d'essais par entrée (%s)", (moteur) => {
 
   const lignes = (): Promise<unknown[][]> =>
     t.base.valeurs("SELECT provider_id, subject, count, window_start FROM auth_failures");
+  const niveau = async (): Promise<number> =>
+    Number((await t.base.valeurs("SELECT window_start FROM auth_failures"))[0]?.[0]);
 
   it("le seuil est dépassé au quatrième essai, quelle que soit la connexion qui compte", async () => {
     expect(await compterEssai(t.base, f, "cle", 10)).toBe(false);
     expect(await compterEssai(autre, f, "cle", 11)).toBe(false);
     expect(await compterEssai(t.base, f, "cle", 12)).toBe(false);
     expect(await compterEssai(autre, f, "cle", 13)).toBe(true);
-    expect(await lignes()).toEqual([["annuaire", "cle", 4, 10]]);
+    expect(await t.base.valeurs("SELECT count FROM auth_failures")).toEqual([[4]]);
+    expect(await niveau()).toBeCloseTo(3.91, 6);
   });
 
   it("essais simultanés depuis deux connexions : aucun n'est perdu", async () => {
@@ -50,20 +53,37 @@ describe.each(MOTEURS)("compteur d'essais par entrée (%s)", (moteur) => {
     expect(await t.base.valeurs("SELECT count FROM auth_failures")).toEqual([[12]]);
   });
 
-  it("la fenêtre s'ouvre au premier essai et ne se prolonge pas ; passée, elle repart de un", async () => {
+  it("le niveau baisse avec le temps : un essai espacé repart de zéro, jamais d'effet de bord de fenêtre", async () => {
     await compterEssai(t.base, f, "cle", 10);
-    await compterEssai(t.base, f, "cle", 100);
-    await compterEssai(t.base, f, "cle", 110);
-    expect(await lignes()).toEqual([["annuaire", "cle", 3, 10]]);
+    await compterEssai(t.base, f, "cle", 11);
     expect(await compterEssai(t.base, f, "cle", 111)).toBe(false);
-    expect(await lignes()).toEqual([["annuaire", "cle", 1, 111]]);
+    expect(await niveau()).toBeCloseTo(1, 6);
+  });
+
+  it("à cheval sur deux fenêtres : trois essais à la fin de la première, trois au début de la suivante, un seul de plus passe", async () => {
+    const permis: boolean[] = [];
+    for (const t0 of [97, 98, 99, 101, 102, 103]) permis.push(!(await compterEssai(t.base, f, "cle", t0)));
+    expect(permis).toEqual([true, true, true, false, false, false]);
+  });
+
+  it("jamais plus que la rafale puis le débit : sur 400 s, un essai par seconde laisse passer au plus max + 400·max/fenêtre", async () => {
+    let passes = 0;
+    for (let s = 0; s < 400; s++) if (!(await compterEssai(t.base, f, "cle", s))) passes++;
+    expect(passes).toBeLessThanOrEqual(3 + (400 * 3) / 100);
+    expect(passes).toBeGreaterThanOrEqual(3);
+  });
+
+  it("l'essai refusé ne fait pas croître le niveau au-delà de max + 1 : le blocage retombe après une fenêtre", async () => {
+    for (let s = 0; s < 1000; s++) await compterEssai(t.base, f, "cle", s * 0.01);
+    expect(await niveau()).toBeLessThanOrEqual(4);
+    expect(await compterEssai(t.base, f, "cle", 10 + 100)).toBe(false);
   });
 
   it("chaque entrée a son compteur ; la réussite remet à zéro celui de l'entrée seule", async () => {
     await compterEssai(t.base, f, "a", 10);
     await compterEssai(t.base, f, "b", 10);
     await oublierEssais(autre, f, "a");
-    expect(await lignes()).toEqual([["annuaire", "b", 1, 10]]);
+    expect(await lignes()).toEqual([["annuaire", "b", 1, 1]]);
   });
 
   it("une seule ligne par (fournisseur, entrée) : l'index est unique", async () => {

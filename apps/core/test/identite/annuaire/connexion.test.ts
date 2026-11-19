@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/identite/annuaire/connexion.test.ts — l'authentification par annuaire : l'annuaire qui contient l'identifiant décide, l'utilisateur se lie sur sa propre connexion, le compteur par entrée coupe avant l'annuaire, l'état et les groupes sont lus après la liaison, tout est fermé (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/identite/annuaire/connexion.test.ts — l'authentification par annuaire : l'annuaire qui contient l'identifiant décide, l'utilisateur se lie sur sa propre connexion, le compteur par entrée coupe avant l'annuaire, l'état et l'appartenance sont jugés avant toute liaison de l'utilisateur, tout est fermé (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -9,6 +9,7 @@ import {
   AUTHENTIFICATIONS_EN_COURS_MAX,
 } from "../../../src/identite/annuaire/connexion";
 import { supprimerSecretFournisseur } from "../../../src/identite/fournisseurs";
+import { ErreurAnnuaire } from "../../../src/identite/annuaire/erreur";
 import { MOTEURS } from "../banc";
 import { AnnuaireFactice, BASE, DN_SERVICE, GROUPE, UUID } from "./annuaire-factice";
 import { ouvrirBancAnnuaire } from "./banc-annuaire";
@@ -73,6 +74,15 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
     expect(await auth("personne")).toEqual({ type: "absent" });
     expect(annuaire.liaisonsUtilisateur).toEqual([]);
     expect(annuaire.traces.every((t) => t.ferme)).toBe(true);
+  });
+
+  it("code 49 reçu sur la RECHERCHE : l'annuaire est indisponible, jamais « absent » (le suivant n'est pas essayé)", async () => {
+    await b.fermer();
+    await ouvrir([{}, {}]);
+    annuaire.rechercheUtilisateurEnErreur = new ErreurAnnuaire("identifiants", { code: 49 });
+    expect(await auth("jean")).toEqual({ type: "indisponible" });
+    expect(annuaire.liaisonsUtilisateur).toEqual([]);
+    expect(annuaire.traces.every((t) => t.url === "ldaps://ldap.exemple.lan")).toBe(true);
   });
 
   it("identifiant à métacaractères de filtre : échappé, aucune entrée trouvée", async () => {
@@ -152,6 +162,19 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
       expect(annuaire.traces.every((t) => t.ferme)).toBe(true);
     });
 
+    it.each([19, 53])(
+      "liaison refusée par le code %i (entrée verrouillée ou désactivée) : refus d'identifiants compté, pas « indisponible »",
+      async (code) => {
+        annuaire.liaisonsEnErreur.set(`uid=jean,${BASE}`, new ErreurAnnuaire("protocole", { code }));
+        expect(await auth("jean")).toEqual({
+          type: "refus",
+          raison: "bad_password",
+          fournisseurId: "annuaire",
+        });
+        expect(await echecs()).toEqual([["annuaire", UUID(1), 1]]);
+      },
+    );
+
     it("rafale simultanée : jamais plus de liaisons que le seuil", async () => {
       const rs = await Promise.all(Array.from({ length: 6 }, () => auth("jean", "faux")));
       expect(rs.filter((r) => r.type === "refus" && r.raison === "throttled")).toHaveLength(3);
@@ -170,7 +193,7 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
       ["désactivée", { nsaccountlock: ["TRUE"], ...sain }, "entry_disabled"],
       ["mot de passe expiré", { krbpasswordexpiration: ["20000101000000Z"] }, "password_expired"],
       ["état illisible", { nsaccountlock: ["peut-être"], ...sain }, "state_unknown"],
-      ["expiration absente", {}, "state_unknown"],
+      ["expiration illisible", { krbpasswordexpiration: ["demain"] }, "state_unknown"],
     ])("FreeIPA, %s : refus %s", async (_n, attrs, raison) => {
       await b.fermer();
       await ouvrir([freeipa]);
@@ -223,20 +246,47 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
   });
 
   describe("appartenance aux groupes requis", () => {
-    it("hors du groupe : non", async () => {
+    const sansLiaison = async (): Promise<void> => {
+      expect(annuaire.liaisonsUtilisateur).toEqual([]);
+      expect(await echecs()).toEqual([]);
+      expect(annuaire.traces.every((t) => t.ferme)).toBe(true);
+    };
+
+    it("hors du groupe : refus not_in_group avant toute liaison, rien n'est compté", async () => {
       annuaire.personnes[0]!.groupes = [];
-      expect(await auth("jean")).toMatchObject({ type: "ok", appartenance: "non" });
+      expect(await auth("jean")).toEqual({
+        type: "refus",
+        raison: "not_in_group",
+        fournisseurId: "annuaire",
+      });
+      await sansLiaison();
     });
 
-    it("groupe requis disparu de l'annuaire : inconnu, jamais non (« non » suspendrait le compte)", async () => {
+    it("groupe requis disparu de l'annuaire : inconnu, jamais non ; aucune liaison", async () => {
       annuaire.personnes[0]!.groupes = [];
       annuaire.groupesExistants.delete(GROUPE);
-      expect(await auth("jean")).toMatchObject({ type: "ok", appartenance: "inconnu" });
+      expect(await auth("jean")).toEqual({
+        type: "refus",
+        raison: "groups_unknown",
+        fournisseurId: "annuaire",
+      });
+      await sansLiaison();
     });
 
-    it("groupes illisibles : inconnu, jamais non", async () => {
+    it("groupes illisibles : refus groups_unknown, aucune liaison, aucun compteur", async () => {
       annuaire.groupesLisibles = false;
-      expect(await auth("jean")).toMatchObject({ type: "ok", appartenance: "inconnu" });
+      expect(await auth("jean")).toEqual({
+        type: "refus",
+        raison: "groups_unknown",
+        fournisseurId: "annuaire",
+      });
+      await sansLiaison();
+    });
+
+    it("une entrée hors des groupes n'est ni devinable ni verrouillable : mille essais, aucune liaison ni compteur", async () => {
+      annuaire.personnes[0]!.groupes = [];
+      for (let i = 0; i < 20; i++) await auth("jean", `faux-${i}`);
+      await sansLiaison();
     });
 
     it("un groupe suffit parmi plusieurs", async () => {
@@ -310,6 +360,20 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
     b.cfg.ecrire({ auth: { public_url: "https://elpis.exemple.lan", providers: [] } });
     expect(await auth("jean")).toEqual({ type: "absent" });
     expect(annuaire.traces).toEqual([]);
+  });
+
+  it("échéance globale : un annuaire qui ne répond jamais donne « indisponible », les connexions sont fermées et la place de la porte rendue", async () => {
+    annuaire.pause = new Promise(() => undefined);
+    const dep = { ...b.dep(), echeanceMs: 150 };
+    const rs = await Promise.all(
+      Array.from({ length: AUTHENTIFICATIONS_EN_COURS_MAX + 2 }, () =>
+        authentifierParAnnuaire(dep, "jean", MDP),
+      ),
+    );
+    expect(rs.every((r) => r.type === "indisponible")).toBe(true);
+    expect(annuaire.traces.every((t) => t.ferme)).toBe(true);
+    annuaire.pause = null;
+    expect(await authentifierParAnnuaire(dep, "jean", MDP)).toMatchObject({ type: "ok" });
   });
 
   it("au plus 8 authentifications en cours et 32 en attente ; au-delà : indisponible sans attendre", async () => {

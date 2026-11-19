@@ -103,7 +103,8 @@ function etatFreeipa(entree: EntreeAnnuaire, maintenant: number): EtatEntree {
   if (verrouille) return "desactivee";
   const verrouOk = verrou !== "invalide" && (verrou.v === null || verrou.v.toLowerCase() === "false");
   if (!verrouOk || expiration === "invalide") return "inconnu";
-  const fin = expiration.v === null ? null : tempsGeneralise(expiration.v);
+  if (expiration.v === null) return "active";
+  const fin = tempsGeneralise(expiration.v);
   if (fin === null) return "inconnu";
   return fin <= maintenant ? "expiree" : "active";
 }

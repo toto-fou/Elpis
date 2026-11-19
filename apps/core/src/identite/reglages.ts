@@ -322,6 +322,8 @@ function communs(o: Record<string, unknown>): FournisseurCommun {
   };
 }
 
+const CLES_STABLES = ["entryuuid", "ipauniqueid", "objectguid", "nsuniqueid"];
+
 function ldap(o: Record<string, unknown>, c: FournisseurCommun): FournisseurLdap {
   const urls = o["urls"];
   if (!Array.isArray(urls) || urls.length < 1 || urls.length > 3)
@@ -333,6 +335,12 @@ function ldap(o: Record<string, unknown>, c: FournisseurCommun): FournisseurLdap
     refus("user_filter", "filtre entre parenthèses contenant une fois {username}");
   const attrs = objet(o["attrs"], "attrs", ["id", "username", "email", "name"]);
   const groupes = objet(o["groups"], "groups", ["mode"]);
+  const cle = nomAttribut(attrs["id"], "attrs.id");
+  if (!CLES_STABLES.includes(cle.toLowerCase()))
+    refus("attrs.id", "identifiant généré par le serveur : entryUUID, ipaUniqueID, objectGUID ou nsUniqueId");
+  for (const autre of ["username", "email", "name"])
+    if (cle.toLowerCase() === nomAttribut(attrs[autre], `attrs.${autre}`).toLowerCase())
+      refus("attrs.id", `différent de attrs.${autre}`);
   return {
     ...c,
     type: "ldap",
@@ -341,7 +349,7 @@ function ldap(o: Record<string, unknown>, c: FournisseurCommun): FournisseurLdap
     user_base_dn: texte(o["user_base_dn"], "user_base_dn", 1, 512),
     user_filter: filtre,
     attrs: {
-      id: nomAttribut(attrs["id"], "attrs.id"),
+      id: cle,
       username: nomAttribut(attrs["username"], "attrs.username"),
       email: nomAttribut(attrs["email"], "attrs.email"),
       name: nomAttribut(attrs["name"], "attrs.name"),

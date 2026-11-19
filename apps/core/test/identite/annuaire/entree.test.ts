@@ -128,13 +128,13 @@ describe("cleStable", () => {
     expect(() => cleStable(e, avec("active-directory"))).toThrow(ErreurAnnuaire);
   });
 
-  it("accepte une clé libre simple pour le préréglage « other » personnalisé, la refuse avec espaces", () => {
+  it("accepte une clé libre simple pour nsUniqueId, la refuse avec espaces", () => {
     const f = fournisseur({
       preset: "other",
-      attrs: { id: "employeeNumber", username: "uid", email: "mail", name: "cn" },
+      attrs: { id: "nsUniqueId", username: "uid", email: "mail", name: "cn" },
     });
-    expect(cleStable(entree("x", { employeenumber: ["AB-12"] }), f)).toBe("ab-12");
-    expect(() => cleStable(entree("x", { employeenumber: ["AB 12"] }), f)).toThrow(ErreurAnnuaire);
+    expect(cleStable(entree("x", { nsuniqueid: ["AB-12"] }), f)).toBe("ab-12");
+    expect(() => cleStable(entree("x", { nsuniqueid: ["AB 12"] }), f)).toThrow(ErreurAnnuaire);
   });
 });
 
@@ -151,9 +151,11 @@ describe("etatEntree", () => {
     );
   });
 
-  it("FreeIPA : échéance du mot de passe absente (attribut illisible par le compte de service) donne « inconnu »", () => {
-    expect(etat(ipa, {})).toBe("inconnu");
-    expect(etat(ipa, { nsaccountlock: ["FALSE"] })).toBe("inconnu");
+  it("FreeIPA : échéance du mot de passe absente (politique sans expiration) : pas d'expiration connue, l'entrée n'est pas expirée", () => {
+    expect(etat(ipa, {})).toBe("active");
+    expect(etat(ipa, { nsaccountlock: ["FALSE"] })).toBe("active");
+    expect(etat(ipa, { nsaccountlock: ["TRUE"] })).toBe("desactivee");
+    expect(etat(ipa, { nsaccountlock: ["peut-être"] })).toBe("inconnu");
   });
 
   it("FreeIPA : désactivé par l'administrateur de l'annuaire", () => {

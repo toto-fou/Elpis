@@ -39,6 +39,10 @@ export class AnnuaireFactice {
   groupesExistants = new Set<string>([GROUPE]);
   /** Clés dont la recherche par clé échoue (erreur de protocole). */
   clesEnErreur = new Set<string>();
+  /** DN d'utilisateurs dont la liaison échoue avec cette erreur (ex. code 19 ou 53). */
+  liaisonsEnErreur = new Map<string, Error>();
+  /** Erreur rendue à la recherche d'un utilisateur par son identifiant. */
+  rechercheUtilisateurEnErreur: ErreurAnnuaire | null = null;
   readonly traces: Trace[] = [];
   readonly recherches: string[] = [];
 
@@ -77,6 +81,8 @@ export class AnnuaireFactice {
           if (mdp === MDP_SERVICE) return;
           throw new ErreurAnnuaire("identifiants");
         }
+        const erreur = this.liaisonsEnErreur.get(dn);
+        if (erreur !== undefined) throw erreur;
         if (this.liaisonsSansReponse.has(dn)) throw new ErreurAnnuaire("injoignable");
         const p = this.personnes.find((x) => this.dn(x) === dn);
         if (p === undefined || p.mdp !== mdp || mdp === "") throw new ErreurAnnuaire("identifiants");
@@ -120,6 +126,7 @@ export class AnnuaireFactice {
     }
     const uid = /^\(uid=(.*)\)$/u.exec(o.filtre);
     if (uid === null) return [];
+    if (this.rechercheUtilisateurEnErreur !== null) throw this.rechercheUtilisateurEnErreur;
     return this.personnes
       .filter((p) => p.uid.toLowerCase() === (uid[1] ?? "").toLowerCase())
       .map((p) => this.entree(p));

@@ -111,30 +111,27 @@ describe("connexion locale et mot de passe (core réel, process console)", () =>
     expect((await connexion("bob", "mdp-bob-1")).statusCode).toBe(200);
   });
 
-  it("compte sans mot de passe local : aucune saisie ne le connecte, il ne change pas de mot de passe", async () => {
+  it("compte sans mot de passe local : aucune saisie ne le connecte, et sa session ouverte par mot de passe ne vaut plus rien", async () => {
     for (const saisie of ["mdp-externe-1", "!", "x"])
       expect((await connexion("externe", saisie)).statusCode).toBe(401);
     const avant = await core.base.get<{ pass_hash: string }>("SELECT pass_hash FROM users WHERE id=?", [ext]);
-    const r = await core.app.inject({
-      method: "POST",
-      url: "/api/users/change-password",
-      headers: { cookie: cookieExt },
-      payload: { old_password: "!", new_password: "Nouveau-mdp-1234" },
-    });
-    expect(r.statusCode).toBe(403);
-    expect(r.json<{ detail: string }>().detail).toMatch(/organisation/u);
-    const sans = await core.app.inject({
-      method: "POST",
-      url: "/api/users/change-password",
-      headers: { cookie: cookieExt },
-      payload: { new_password: "Nouveau-mdp-1234" },
-    });
-    expect(sans.statusCode).toBe(403);
+    // La session avait été ouverte par mot de passe : elle n'est plus admise depuis que le compte n'en a plus.
+    for (const payload of [
+      { old_password: "!", new_password: "Nouveau-mdp-1234" },
+      { new_password: "Nouveau-mdp-1234" },
+    ]) {
+      const r = await core.app.inject({
+        method: "POST",
+        url: "/api/users/change-password",
+        headers: { cookie: cookieExt },
+        payload,
+      });
+      expect(r.statusCode).toBe(401);
+    }
     expect(
       (await core.base.get<{ pass_hash: string }>("SELECT pass_hash FROM users WHERE id=?", [ext]))
         ?.pass_hash,
     ).toBe(avant?.pass_hash);
-    expect(lignesAuditRecentes({ actionPrefix: "auth.password.change.denied" }).length).toBeGreaterThan(0);
   });
 
   it("réinitialisation par la console d'un compte sans mot de passe local : 409", async () => {

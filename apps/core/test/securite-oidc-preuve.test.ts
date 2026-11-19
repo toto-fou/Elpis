@@ -162,7 +162,8 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
       url: "/api/me-lite",
       headers: { cookie: cookies(connexion) },
     });
-    expect(local.json()).toMatchObject({ logged_in: true, password_managed: false });
+    expect(local.json()).toMatchObject({ logged_in: true });
+    expect(local.json()).not.toHaveProperty("password_managed");
   });
 
   it("mauvais mot de passe : 401 commun, compteur sur la ligne ; au cinquième échec la ligne est supprimée et auditée", async () => {

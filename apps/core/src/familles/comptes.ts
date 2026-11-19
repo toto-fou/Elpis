@@ -350,7 +350,8 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             is_admin: [1, 2].includes(Number(ligne.is_admin)),
             role: ROLES[Number(ligne.is_admin)] ?? "user",
             avatar: ligne.avatar ?? null,
-            password_managed: !aMotDePasseLocal(ligne),
+            // Champ présent seulement pour un compte sans mot de passe local : la réponse d'un compte local ne change pas.
+            ...(aMotDePasseLocal(ligne) ? {} : { password_managed: true }),
           };
         },
       },

@@ -213,7 +213,6 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
       is_admin: true,
       role: "admin",
       avatar: null,
-      password_managed: false,
     });
   });
 
@@ -558,7 +557,7 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
       expect(vue).toEqual([
         { id: 2, username: "bob", groups: "", ext_username: "bob.martin", provider_label: "Annuaire IPA" },
         { id: 3, username: "carol", groups: "", ext_username: "carol.durand", provider_label: null },
-        { id: 4, username: "dave", groups: "", ext_username: null, provider_label: null },
+        { id: 4, username: "dave", groups: "" },
       ]);
       expect(JSON.stringify(vue)).not.toMatch(/emetteur|cle-bob|Nom Secret|exemple\.lan/u);
       expect((await voir(bob)).map((u) => u["username"])).toEqual(["admin", "carol", "dave"]);
@@ -741,7 +740,6 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
       is_admin: true,
       role: "moderator",
       avatar: null,
-      password_managed: false,
     });
     const check = await app.inject({ method: "GET", url: "/api/auth/check", headers: { cookie: suite } });
     expect([check.statusCode, check.body]).toEqual([204, ""]);

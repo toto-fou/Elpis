@@ -250,11 +250,11 @@ describe.each(MOTEURS)("connexion par l'annuaire (%s)", (moteur) => {
       expect(await b.t.base.valeurs("SELECT user_id, linked_by FROM user_identities")).toHaveLength(1);
     });
 
-    it("compte local : `password_managed` faux", async () => {
+    it("compte local : `password_managed` absent (sa réponse ne change pas)", async () => {
       await createUser(b.t.base, "alice", "mdp-alice-1");
-      expect(await moi(cookie(await essai("alice", "mdp-alice-1")))).toMatchObject({
-        password_managed: false,
-      });
+      const r = await moi(cookie(await essai("alice", "mdp-alice-1")));
+      expect(r).toMatchObject({ logged_in: true, username: "alice" });
+      expect(r).not.toHaveProperty("password_managed");
     });
 
     it("identifiant d'annuaire rebaptisé : retrouvé par la clé stable, même compte", async () => {

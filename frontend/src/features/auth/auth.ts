@@ -216,7 +216,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
         is_admin: data.is_admin,
         role: data.role,
         avatar: data.avatar,
-        ...(data.password_managed === undefined ? {} : { password_managed: data.password_managed }),
+        password_managed: data.password_managed === true,
       };
       session.ouvrir(compte);
       user.value = compte;

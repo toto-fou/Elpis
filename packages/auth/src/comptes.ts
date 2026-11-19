@@ -46,10 +46,10 @@ export type CompteLite = {
   id: number;
   username: string;
   groups: string;
-  /** Identifiant d'annuaire du compte rattaché, `null` pour un compte local. */
-  ext_username: string | null;
-  /** Libellé du fournisseur du compte rattaché, `null` pour un compte local ou un fournisseur disparu. */
-  provider_label: string | null;
+  /** Identifiant d'annuaire du compte rattaché ; absent pour un compte local. */
+  ext_username?: string | null;
+  /** Libellé du fournisseur du compte rattaché, `null` s'il a disparu ; absent pour un compte local. */
+  provider_label?: string | null;
 };
 
 /** Ligne brute de la requête : le fournisseur n'est rendu que par son libellé. */
@@ -256,8 +256,10 @@ export async function getUsersLite(
     id: Number(r.id),
     username: r.username,
     groups: r.groups || "",
-    ext_username: r.ext_username ?? null,
-    provider_label: r.provider_id == null ? null : libelle(String(r.provider_id)),
+    // Identité d'annuaire présente seulement pour un compte rattaché : la ligne d'un compte local ne change pas.
+    ...(r.provider_id == null
+      ? {}
+      : { ext_username: r.ext_username ?? null, provider_label: libelle(String(r.provider_id)) }),
   });
   const tous = async (): Promise<CompteLite[]> =>
     (

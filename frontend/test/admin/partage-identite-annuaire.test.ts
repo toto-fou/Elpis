@@ -65,11 +65,11 @@ describe("partage : identité d'annuaire", () => {
     expect(texte(2)).toBeNull();
   });
 
-  it("le schéma de la liste accepte une ancienne forme (champs par défaut à null)", () => {
+  it("le schéma de la liste accepte un compte local, dont la ligne n'a pas les champs d'identité", () => {
     const r = schemaReponseComptesLite.parse({
       users: [{ id: 1, username: "a", groups: "" }],
       my_groups: [],
     });
-    expect(r.users[0]).toMatchObject({ ext_username: null, provider_label: null });
+    expect(r.users[0]).toEqual({ id: 1, username: "a", groups: "" });
   });
 });

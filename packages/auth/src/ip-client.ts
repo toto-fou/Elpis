@@ -105,3 +105,14 @@ export function cleAdresse(ip: string): string {
   const hextets = Array.from({ length: 4 }, (_, i) => ((haut >> BigInt(48 - 16 * i)) & 0xffffn).toString(16));
   return `${hextets.join(":")}::/64`;
 }
+
+/** Clé d'adresse EXACTE d'un client : IPv4 telle quelle (forme `::ffff:` ramenée), IPv6 en huit groupes complets ; texte inconnu rendu tel quel. */
+export function cleAdresseExacte(ip: string): string {
+  const v4 = ip.startsWith("::ffff:") && ip.includes(".") ? ip.slice(7) : ip;
+  const a = adresseIpOuNul(v4);
+  if (a === null || a.version === 4) return v4;
+  if (a.valeur >> 32n === 0xffffn) return cleAdresse(v4);
+  return Array.from({ length: 8 }, (_, i) =>
+    ((a.valeur >> BigInt(112 - 16 * i)) & 0xffffn).toString(16),
+  ).join(":");
+}

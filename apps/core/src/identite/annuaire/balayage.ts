@@ -14,7 +14,8 @@ import { poserReactivation, suspendre } from "../../comptes/etat";
 import type { DependancesEtat } from "../../comptes/etat";
 import type { Journal } from "../../journal";
 import { ancreIdentite } from "../ancre";
-import { secretFournisseur } from "../fournisseurs";
+import { empreinteFournisseur, fournisseursActifs, secretFournisseur } from "../fournisseurs";
+import { lireReglagesAuth } from "../reglages";
 import type { FournisseurLdap } from "../reglages";
 import type { EntreeAnnuaire, FabriqueConnexion } from "./client";
 import { appartenance, ouvrirService } from "./connexion";
@@ -113,8 +114,9 @@ export interface DependancesBalayage {
 }
 
 export type IssueBalayage =
-  | { readonly type: "bilan"; readonly etat: EtatBalayage }
+  | { readonly type: "bilan"; readonly etat: EtatBalayage; readonly nouvelles?: number }
   | { readonly type: "occupe" }
+  | { readonly type: "ecarte" }
   | { readonly type: "verrou_indisponible" }
   | { readonly type: "decompte_change"; readonly etat: EtatBalayage };
 
@@ -474,6 +476,21 @@ async function suspendreDeparts(
   return { n, echoues };
 }
 
+/** Vrai si le compte est encore suspendu par cette origine (relu juste avant une révocation). */
+async function toujoursSuspendu(dep: DependancesBalayage, userId: number, origine: string): Promise<boolean> {
+  const u = await dep.base.get<{ suspended_at: unknown; suspended_by: string | null }>(
+    "SELECT suspended_at, suspended_by FROM users WHERE id=?",
+    [userId],
+  );
+  return u !== undefined && u.suspended_by === origine && compteSuspendu(u);
+}
+
+/** Vrai si le fournisseur est encore actif avec les réglages qu'il avait au début de la passe. */
+async function inchange(dep: DependancesBalayage, f: FournisseurLdap, debut: string): Promise<boolean> {
+  const courant = (await fournisseursActifs(dep.base, dep.cookieSecure)).find((p) => p.id === f.id);
+  return courant !== undefined && empreinteFournisseur(courant, lireReglagesAuth().public_url) === debut;
+}
+
 /** Jetons d'API et accès OAuth supprimés pour les comptes suspendus par cet annuaire depuis plus de 7 jours et toujours partis, l'état de suspension étant relu dans l'écriture. */
 async function revoquerAnciens(
   dep: DependancesBalayage,
@@ -494,6 +511,7 @@ async function revoquerAnciens(
         return (await x.run("DELETE FROM tool_tokens WHERE user_id=?", [ligne.user_id])).changes;
       });
       if (jetons === null) continue;
+      if (!(await toujoursSuspendu(dep, ligne.user_id, origine))) continue;
       const oauth = (await dep.etat.acces.revoquerOauth?.(Number(ligne.user_id))) ?? 0;
       if (jetons + oauth > 0)
         auditer("auth.account.access_revoke", ligne, f, {
@@ -625,6 +643,7 @@ async function passe(
     type: "bilan",
     etat: await termine({ ...vide, ...reprise, aborted: raison }),
   });
+  const debut = empreinteFournisseur(f, lireReglagesAuth().public_url);
   const secret = await secretFournisseur(dep.base, f);
   if (secret === null) return abandon("secret_missing");
   const identites = await identitesDe(dep, f);
@@ -636,6 +655,7 @@ async function passe(
     dep.journal.warn({ err: e }, `annuaire ${f.id} : passe interrompue par une erreur interne`);
     return abandon("internal");
   }
+  if (!(await inchange(dep, f, debut))) return { type: "ecarte" };
   const ancre = ancreIdentite(f);
   const denominateur = identites.filter((l) => l.issuer === ancre && !compteSuspendu(l)).length;
   const departs = a.departs.filter(({ ligne }) => !compteSuspendu(ligne));
@@ -660,6 +680,7 @@ async function passe(
           ? (confirmer?.user_ids ?? []).includes(idDe(d))
           : observationMure(anciennes.get(idDe(d)), at, intervalleMs),
       );
+  if (aSuspendre.length > 0 && !(await inchange(dep, f, debut))) return { type: "ecarte" };
   const { n: suspendus, echoues } = await suspendreDeparts(dep, f, aSuspendre);
   const suspendusIds = new Set(aSuspendre.map(idDe));
   const restants = departs.filter((d) => !suspendusIds.has(idDe(d)) || echoues.includes(d));
@@ -692,7 +713,10 @@ async function passe(
     observed: observes.sort((x, y) => x.user_id - y.user_id),
     ok_at: at,
   });
-  return confirmer !== undefined && !confirmee ? { type: "decompte_change", etat } : { type: "bilan", etat };
+  const nouvelles = observes.filter((o) => !anciennes.has(o.user_id)).length;
+  return confirmer !== undefined && !confirmee
+    ? { type: "decompte_change", etat }
+    : { type: "bilan", etat, nouvelles };
 }
 
 /** Prise du verrou bornée dans le temps : une prise qui ne rend pas la main est relâchée si elle aboutit plus tard. */

@@ -23,6 +23,7 @@ export {
   adressePair,
   analyserMandataires,
   cleAdresse,
+  cleAdresseExacte,
   estMandataireDeConfiance,
   ipClient,
   ipDuClient,

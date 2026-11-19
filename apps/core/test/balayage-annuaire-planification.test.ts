@@ -14,6 +14,7 @@ import { createExternalUser } from "@elpis/auth";
 import { etatBalayage } from "../src/identite/annuaire/balayage";
 import type { DependancesBalayage } from "../src/identite/annuaire/balayage";
 import {
+  balayerLesAnnuaires,
   brancherBalayageAnnuaire,
   INTERVALLE_BALAYAGE_MS,
   PREMIERE_PASSE_MS,
@@ -118,6 +119,43 @@ describe.each(MOTEURS)("balayage planifié (%s)", (moteur) => {
       "SELECT suspended_at FROM users WHERE username='jean'",
     );
     expect(Number(l?.suspended_at)).toBeGreaterThan(0);
+  });
+
+  it("la revérification rapide ne suit qu'une observation nouvelle : ni une suspension qui échoue, ni une observation trop vieille ne la reprogramment", async () => {
+    const luc = annuaire.ajouter({ uid: "luc", cle: UUID(2), mdp: "x", groupes: [GROUPE] });
+    const jean = annuaire.ajouter({ uid: "jean", cle: UUID(1), mdp: "x", groupes: [GROUPE] });
+    for (const p of [luc, jean]) {
+      const id = await createExternalUser(b.t.base, p.uid, { maintenant: b.horloge - 1000 });
+      await b.t.base.run(
+        "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?)",
+        [id, "annuaire", p.cle, ancreIdentite(b.fournisseurs[0] as FournisseurLdap), "auto", 1, 5],
+      );
+    }
+    jean.groupes = [];
+    const appels: string[] = [];
+    const reverifier = (id: string): void => void appels.push(id);
+    await balayerLesAnnuaires(dep(), INTERVALLE_BALAYAGE_MS, { reverifier });
+    expect(appels).toEqual(["annuaire"]);
+    const enPanne = (): DependancesBalayage => {
+      const d = dep();
+      return {
+        ...d,
+        etat: {
+          ...d.etat,
+          publierSuspension: () => {
+            throw new Error("panne");
+          },
+        },
+      };
+    };
+    for (let i = 0; i < 3; i++) {
+      b.horloge += 600;
+      await balayerLesAnnuaires(enPanne(), INTERVALLE_BALAYAGE_MS, { reverifier });
+    }
+    expect(appels).toEqual(["annuaire"]);
+    b.horloge += 5000;
+    await balayerLesAnnuaires(dep(), INTERVALLE_BALAYAGE_MS, { reverifier });
+    expect(appels).toEqual(["annuaire"]);
   });
 
   it("admin : rien n'est planifié", async () => {

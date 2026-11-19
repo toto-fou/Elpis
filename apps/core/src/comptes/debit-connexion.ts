@@ -14,6 +14,7 @@ interface Seau {
 
 export const PAR_NOM_ET_ADRESSE: Regle = { capacite: 8, rechargeS: 300 };
 export const PAR_ADRESSE: Regle = { capacite: 50, rechargeS: 15 };
+export const PAR_PREFIXE: Regle = { capacite: 500, rechargeS: 3 };
 export const SEAUX_MAX = 10_000;
 const MENAGE_S = 60;
 
@@ -99,10 +100,11 @@ class Seaux {
 export class DebitConnexion {
   private readonly noms = new Seaux(PAR_NOM_ET_ADRESSE);
   private readonly adresses = new Seaux(PAR_ADRESSE);
+  private readonly prefixes = new Seaux(PAR_PREFIXE);
 
   /** Seaux gardés, pour contrôle. */
   get taille(): number {
-    return this.noms.taille + this.adresses.taille;
+    return this.noms.taille + this.adresses.taille + this.prefixes.taille;
   }
 
   /** Secondes d'attente avant un nouvel essai ; 0 s'il est permis (aucun jeton pris). */
@@ -113,19 +115,24 @@ export class DebitConnexion {
     );
   }
 
-  /** Secondes d'attente avant un nouvel essai de cette adresse seule (flux SSO) ; 0 s'il est permis. */
-  attenteAdresseS(adresse: string, t: number): number {
-    return this.adresses.attenteS(empreinte(adresse), t);
+  /** Secondes d'attente avant un nouveau départ SSO de cette adresse exacte et de son préfixe ; 0 s'il est permis. */
+  attenteSsoS(exacte: string, prefixe: string, t: number): number {
+    return Math.max(
+      this.adresses.attenteS(empreinte(exacte), t),
+      this.prefixes.attenteS(empreinte(prefixe), t),
+    );
   }
 
-  /** Prend un jeton de l'adresse seule. */
-  prendreAdresse(adresse: string, t: number): void {
-    this.adresses.prendre(empreinte(adresse), t);
+  /** Prend un jeton de l'adresse exacte et un du préfixe. */
+  prendreSso(exacte: string, prefixe: string, t: number): void {
+    this.adresses.prendre(empreinte(exacte), t);
+    this.prefixes.prendre(empreinte(prefixe), t);
   }
 
-  /** Rend un jeton de l'adresse seule (flux SSO abouti). */
-  rendreAdresse(adresse: string, t: number): void {
-    this.adresses.rendre(empreinte(adresse), t);
+  /** Rend un jeton de l'adresse exacte et un du préfixe (flux SSO abouti). */
+  rendreSso(exacte: string, prefixe: string, t: number): void {
+    this.adresses.rendre(empreinte(exacte), t);
+    this.prefixes.rendre(empreinte(prefixe), t);
   }
 
   /** Compte l'essai dès son arrivée : des requêtes simultanées voient chacune le jeton de la précédente. */

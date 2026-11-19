@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/securite-oidc-correctifs.test.ts — la connexion SSO reste disponible pour tous (plafonds IPv6 au /64, par fournisseur, panne de découverte gardée, jetons rendus après une réussite), refuse un `azp` étranger, range la ligne de session avant l'audit de succès et n'en garde pas après fermeture, coupe sans révoquer les accès quand l'annuaire retire la personne du groupe (SQLite, PostgreSQL si ELPIS_TEST_PG). */
-import { cleAdresse } from "@elpis/auth";
+import { cleAdresse, cleAdresseExacte } from "@elpis/auth";
 import { configurerCoffre } from "@elpis/securite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LightMyRequestResponse } from "fastify";
 
 import { FabriqueConfigurations } from "../src/identite/oidc/configuration";
-import { FLUX_PAR_FOURNISSEUR_MAX, noterSessionExterne } from "../src/identite/oidc/flux";
+import {
+  empreinte,
+  empreinteAdresses,
+  FLUX_PAR_FOURNISSEUR_MAX,
+  FLUX_PAR_PREFIXE_MAX,
+  noterSessionExterne,
+} from "../src/identite/oidc/flux";
 import { lignesAuditRecentes, lignesJournal } from "./aides";
 import {
   adresseNeuve,
@@ -39,6 +45,14 @@ describe("clé d'adresse des plafonds", () => {
     expect(cleAdresse("2001:db8:0:2::1")).not.toBe(a);
     expect(cleAdresse("?")).toBe("?");
   });
+
+  it("adresse exacte : IPv4 telle quelle, `::ffff:` ramenée, IPv6 en huit groupes complets distincts d'une adresse du même /64", () => {
+    expect(cleAdresseExacte("::ffff:10.1.2.3")).toBe("10.1.2.3");
+    expect(cleAdresseExacte("2001:db8:0:1::1")).toBe("2001:db8:0:1:0:0:0:1");
+    expect(cleAdresseExacte("2001:0db8:0000:0001:0:0:0:1")).toBe(cleAdresseExacte("2001:db8:0:1::1"));
+    expect(cleAdresseExacte("2001:db8:0:1::2")).not.toBe(cleAdresseExacte("2001:db8:0:1::1"));
+    expect(cleAdresseExacte("?")).toBe("?");
+  });
 });
 
 describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("correctifs du SSO OIDC (%s)", (moteur) => {
@@ -47,14 +61,19 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("correctifs du SSO OIDC (%s)"
   const lignes = (sql: string, p?: (string | number)[]): Promise<unknown[][]> => b.t.base.valeurs(sql, p);
   const decouvertes = (): number =>
     b.idp.traces.filter((t) => t.chemin.endsWith("openid-configuration")).length;
-  const remplir = async (id: string, n: number, essai: number | null): Promise<void> => {
+  const remplir = async (
+    id: string,
+    n: number,
+    essai: number | null,
+    ip: (i: number) => string = (i) => `ip${i}`,
+  ): Promise<void> => {
     await b.t.base.runMany(
       SQL_FLUX,
       Array.from({ length: n }, (_v, i) => [
         `h-${id}-${essai}-${i}`,
         id,
         "b",
-        `ip${i}`,
+        ip(i),
         "n",
         "v",
         "app",
@@ -77,32 +96,79 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("correctifs du SSO OIDC (%s)"
   });
 
   describe("disponibilité de la connexion pour tous", () => {
-    it("25 départs de 25 adresses d'un même /64 comptent comme une seule adresse ; un autre /64 reste servi", async () => {
+    it("25 départs d'une même adresse IPv6 : 20 passent ; 25 adresses d'un même /64 passent toutes ; un autre /64 reste servi", async () => {
       const statuts: number[] = [];
       for (let i = 1; i <= 25; i++)
-        statuts.push((await b.demarrer({ adresse: `2001:db8:0:1::${i.toString(16)}` })).reponse.statusCode);
+        statuts.push((await b.demarrer({ adresse: "2001:db8:0:1::1" })).reponse.statusCode);
       expect(statuts.filter((s) => s === 200)).toHaveLength(20);
       expect(statuts.slice(20)).toEqual([429, 429, 429, 429, 429]);
-      expect((await b.demarrer({ adresse: "2001:db8:0:2::1" })).reponse.statusCode).toBe(200);
+      for (let i = 1; i <= 25; i++)
+        expect((await b.demarrer({ adresse: `2001:db8:0:2::${i.toString(16)}` })).reponse.statusCode).toBe(
+          200,
+        );
+      expect((await b.demarrer({ adresse: "2001:db8:0:3::1" })).reponse.statusCode).toBe(200);
       expect((await b.demarrer({ adresse: "::ffff:10.9.9.9" })).reponse.statusCode).toBe(200);
     });
 
-    it("le seau de débit par adresse est celui du /64 : 50 départs, puis refus pour tout le préfixe", async () => {
+    it("600 adresses d'un même /64 : 500 flux au plus pour le préfixe, un autre /64 reste servi", async () => {
+      const statuts: number[] = [];
+      for (let i = 1; i <= 600; i++)
+        statuts.push((await b.demarrer({ adresse: `2001:db8:0:4::${i.toString(16)}` })).reponse.statusCode);
+      expect(statuts.filter((s) => s === 200)).toHaveLength(FLUX_PAR_PREFIXE_MAX);
+      expect(new Set(statuts.slice(FLUX_PAR_PREFIXE_MAX))).toEqual(new Set([429]));
+      expect((await b.demarrer({ adresse: "2001:db8:0:5::1" })).reponse.statusCode).toBe(200);
+    });
+
+    it("le seau de débit est celui de l'adresse exacte : 50 départs, puis refus pour elle seule", async () => {
       for (let i = 1; i <= 50; i++) {
-        const r = await b.demarrer({ adresse: `2001:db8:0:3::${i.toString(16)}` });
+        const r = await b.demarrer({ adresse: "2001:db8:0:6::1" });
         expect(r.reponse.statusCode, String(i)).toBe(200);
         await b.t.base.run("DELETE FROM auth_flows");
       }
-      const r = await b.demarrer({ adresse: "2001:db8:0:3::ffff" });
+      const r = await b.demarrer({ adresse: "2001:db8:0:6::1" });
       expect(r.reponse.statusCode).toBe(429);
       expect(r.reponse.headers["retry-after"]).not.toBe("60");
+      expect((await b.demarrer({ adresse: "2001:db8:0:6::2" })).reponse.statusCode).toBe(200);
     });
 
-    it("plafond de flux PAR fournisseur : A saturé, B utilisable", async () => {
+    it("le seau du préfixe : 500 départs d'adresses différentes d'un /64, puis refus pour tout le préfixe", async () => {
+      for (let i = 1; i <= 500; i++) {
+        const r = await b.demarrer({ adresse: `2001:db8:0:7::${i.toString(16)}` });
+        expect(r.reponse.statusCode, String(i)).toBe(200);
+        await b.t.base.run("DELETE FROM auth_flows");
+      }
+      expect((await b.demarrer({ adresse: "2001:db8:0:7::ffff" })).reponse.statusCode).toBe(429);
+      expect((await b.demarrer({ adresse: "2001:db8:0:8::1" })).reponse.statusCode).toBe(200);
+    });
+
+    it("plafond de flux PAR fournisseur : A saturé par un préfixe, B utilisable, un autre préfixe passe en évinçant le plus ancien du préfixe le plus représenté", async () => {
       await b.ajouter("autre");
-      await remplir("sso", FLUX_PAR_FOURNISSEUR_MAX, null);
-      expect((await b.demarrer({ id: "sso" })).reponse.statusCode).toBe(429);
+      await remplir("sso", FLUX_PAR_FOURNISSEUR_MAX, null, (i) => `${empreinte("gros")}:${i}`);
       expect((await b.demarrer({ id: "autre" })).reponse.statusCode).toBe(200);
+      const avant = await lignes(
+        "SELECT state_hash FROM auth_flows WHERE provider_id='sso' AND created_at=1",
+      );
+      expect(avant).toHaveLength(FLUX_PAR_FOURNISSEUR_MAX);
+      await b.t.base.run("UPDATE auth_flows SET created_at=2 WHERE state_hash=?", [`h-sso-null-7`]);
+      expect((await b.demarrer({ id: "sso", adresse: "2001:db8:0:9::1" })).reponse.statusCode).toBe(200);
+      expect(await lignes("SELECT COUNT(*) FROM auth_flows WHERE provider_id='sso'")).toEqual([
+        [FLUX_PAR_FOURNISSEUR_MAX],
+      ]);
+      expect(await lignes("SELECT COUNT(*) FROM auth_flows WHERE state_hash='h-sso-null-7'")).toEqual([[1]]);
+    });
+
+    it("plafond de flux PAR fournisseur : un préfixe qui détient déjà plus de 20 flux est refusé, sans rien évincer", async () => {
+      const adresse = "2001:db8:0:a::1";
+      await remplir(
+        "sso",
+        FLUX_PAR_FOURNISSEUR_MAX,
+        null,
+        (i) => `${empreinteAdresses(adresse).slice(0, 64)}:${i}`,
+      );
+      expect((await b.demarrer({ id: "sso", adresse })).reponse.statusCode).toBe(429);
+      expect(await lignes("SELECT COUNT(*) FROM auth_flows WHERE provider_id='sso'")).toEqual([
+        [FLUX_PAR_FOURNISSEUR_MAX],
+      ]);
     });
 
     it("les flux d'essai d'un administrateur ne comptent pas dans le plafond du fournisseur", async () => {

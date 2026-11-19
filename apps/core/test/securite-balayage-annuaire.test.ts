@@ -41,7 +41,7 @@ import type { FournisseurLdap } from "../src/identite/reglages";
 import { appTest, journalMuet, lignesAuditRecentes } from "./aides";
 import { AnnuaireFactice, GROUPE, UUID } from "./identite/annuaire/annuaire-factice";
 import type { Personne } from "./identite/annuaire/annuaire-factice";
-import { ouvrirBancAnnuaire } from "./identite/annuaire/banc-annuaire";
+import { ouvrirBancAnnuaire, URL_PUBLIQUE } from "./identite/annuaire/banc-annuaire";
 import type { BancAnnuaire } from "./identite/annuaire/banc-annuaire";
 import { MOTEURS } from "./identite/banc";
 
@@ -744,6 +744,43 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
   describe("une observation a un âge, et ce qui est réversible se ferme tout de suite", () => {
     beforeEach(() => ouvrir());
 
+    it.each([
+      ["éteint", { enabled: false }],
+      ["réglages modifiés", { user_base_dn: "cn=autres,dc=exemple,dc=lan" }],
+    ])(
+      "fournisseur %s pendant la passe : rien n'est suspendu, aucune observation réécrite, passe écartée",
+      async (_nom, changement) => {
+        const jean = await rattacher("jean", 1, { groupes: [] });
+        await rattacher("luc", 2);
+        const t0 = b.horloge;
+        await bilan();
+        b.horloge = t0 + 600;
+        const avant = await etatBalayage(b.t.base, "annuaire");
+        const original = annuaire.fabrique;
+        let change = false;
+        const r = await balayerAnnuaire(
+          {
+            ...dep(),
+            fabrique: async (fo, url) => {
+              if (!change) {
+                change = true;
+                b.cfg.ecrire({
+                  auth: { public_url: URL_PUBLIQUE, providers: [{ ...f(), ...changement }] },
+                });
+              }
+              return original(fo, url);
+            },
+          },
+          f(),
+        );
+        expect(change).toBe(true);
+        expect(r).toEqual({ type: "ecarte" });
+        expect(await suspendu(jean)).toBeNull();
+        expect(await etatBalayage(b.t.base, "annuaire")).toEqual(avant);
+        expect(avant?.observed).toEqual([{ user_id: jean.uid, reason: expect.any(String), at: t0 }]);
+      },
+    );
+
     it("deux passes à moins de 2 minutes : rien n'est suspendu et la date de la première observation est gardée ; au-delà : suspendu", async () => {
       const jean = await rattacher("jean", 1, { groupes: [] });
       await rattacher("luc", 2);
@@ -845,6 +882,33 @@ describe.each(MOTEURS)("balayage de l'annuaire (%s)", (moteur) => {
       annuaire.injoignable = true;
       await bilan();
       expect(await vu(jean)).toBe(5);
+    });
+
+    it("révocation OAuth après 7 jours : l'état de suspension est relu juste avant, un compte réactivé entre-temps garde ses accès OAuth", async () => {
+      const jean = await rattacher("jean", 1, { groupes: [] });
+      await rattacher("luc", 2);
+      await deuxPasses();
+      b.horloge += DUREE_AVANT_REVOCATION_S + 10;
+      const revoques: number[] = [];
+      const base = Object.create(b.t.base) as typeof b.t.base;
+      base.ecriture = async (fn) => {
+        const r = await b.t.base.ecriture(fn);
+        await b.t.base.run("UPDATE users SET suspended_at=0, suspended_by=NULL WHERE id=?", [jean.uid]);
+        return r;
+      };
+      const d = dep();
+      await balayerAnnuaire(
+        {
+          ...d,
+          base,
+          etat: {
+            ...d.etat,
+            acces: { ...d.etat.acces, revoquerOauth: async (uid) => (revoques.push(uid), 1) },
+          },
+        },
+        f(),
+      );
+      expect(revoques).toEqual([]);
     });
 
     it("suppression des jetons après 7 jours : l'état de suspension est relu dans l'écriture, un compte réactivé pendant la passe ne perd rien", async () => {

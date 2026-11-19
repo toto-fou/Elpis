@@ -12,6 +12,8 @@ import {
 import { dechiffrerSecret } from "@elpis/securite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { enregistrerSecret, enregistrerTestReussi } from "../src/identite/fournisseurs";
+import { empreinteAdresses } from "../src/identite/oidc/flux";
 import { CODES_REFUS } from "../src/identite/oidc/refus";
 import { lignesAuditRecentes, lignesJournal } from "./aides";
 import {
@@ -579,12 +581,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       expect((await b.demarrer()).reponse.statusCode).toBe(200);
     });
 
-    it("plafond de 5 000 flux par fournisseur", async () => {
+    it("plafond de 5 000 flux par fournisseur : refusé pour un préfixe qui en détient déjà plus de 20", async () => {
+      const adresse = adresseNeuve();
+      const prefixe = empreinteAdresses(adresse).slice(0, 64);
       const lignesFlux = Array.from({ length: 5000 }, (_v, i) => [
         `h${i}`,
         "sso",
         "b",
-        `ip${i}`,
+        `${prefixe}:${i}`,
         "n",
         "v",
         "app",
@@ -598,7 +602,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
         "INSERT INTO auth_flows(state_hash, provider_id, browser_hash, ip_hash, nonce, code_verifier, target, oauth_next, trial_admin, stage, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
         lignesFlux,
       );
-      expect((await b.demarrer()).reponse.statusCode).toBe(429);
+      expect((await b.demarrer({ adresse })).reponse.statusCode).toBe(429);
     });
 
     it("les flux périmés ne comptent pas dans les plafonds", async () => {
@@ -791,7 +795,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
     });
 
     it("autorité inconnue : la connexion TLS échoue, rien n'est lu", async () => {
-      await b.reglages({ ca_pem: "" });
+      const f = await b.reglages({ ca_pem: "" });
+      expect((await b.demarrer()).reponse.statusCode).toBe(404);
+      await enregistrerSecret(b.t.base, f, b.idp.clientSecret, { userId: null, username: null, ip: null });
+      await enregistrerTestReussi(b.t.base, f, URL_PUBLIQUE);
       const r = await b.demarrer();
       expect(r.reponse.statusCode).toBe(503);
       expect(b.idp.traces).toEqual([]);

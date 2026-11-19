@@ -410,7 +410,8 @@ by `./elpis auth off`: the raw editor and `PATCH /api/admin/config` can neither 
 it. `./elpis configure` re-reads it from disk just before writing and keeps it as it is; `--force` starts again from the example file (the old one is kept as `config.json.bak`) but carries the section over with every provider switched off and the local password open to everyone. Without the section nothing changes: no new route
 answers, no outgoing call is made, the login page is the same. Passwords and client secrets are
 never in `config.json`: they live in the secrets vault as the instance secrets `auth-<id>`, bound
-to the host and port of the provider (changing either asks for the secret again), and no route
+to the provider's addresses, its certificate authority and, for a directory, its service account
+(changing any of them asks for the secret again), and no route
 returns them.
 
 | Key | Default | Description |

@@ -2,7 +2,6 @@
 /** apps/core/src/identite/oidc/preuve.ts — étape « preuve du titulaire » d'une première connexion SSO : flux `proof` lié au navigateur (profil vérifié rangé côté serveur) et session ouverte une fois la preuve faite. */
 import { randomBytes } from "node:crypto";
 
-import { cleAdresse } from "@elpis/auth";
 import type { Session } from "@elpis/auth";
 import type { Base } from "@elpis/db";
 import { chiffrerSecret, dechiffrerSecret } from "@elpis/securite";
@@ -12,7 +11,7 @@ import type { EffetsConnexion } from "../../comptes/ouverture";
 import type { Appartenance, ProfilIdentite } from "../provisionnement";
 import type { FournisseurOidc } from "../reglages";
 import { dureeDeSession } from "./connexion";
-import { DUREE_FLUX_S, empreinte, noterSessionExterne } from "./flux";
+import { DUREE_FLUX_S, empreinte, empreinteAdresses, noterSessionExterne } from "./flux";
 import type { CibleFlux } from "./flux";
 
 export interface FluxPreuve {
@@ -127,7 +126,7 @@ export async function ouvrirFluxPreuve(
         stateHash,
         e.providerId,
         navigateur,
-        empreinte(cleAdresse(e.adresse)),
+        empreinteAdresses(e.adresse),
         "",
         "",
         e.cible,

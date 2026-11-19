@@ -10,7 +10,7 @@ import type { CleCoffre } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
-import { hoteExact, hotes } from "../secrets/portee";
+import { autoriteDePortee, dnDePortee, empreinteAutorite, hoteExact, hotes } from "../secrets/portee";
 import {
   creerSecret,
   dechiffrerLigne,
@@ -20,6 +20,7 @@ import {
   supprimerSecret,
 } from "../secrets/stockage";
 import type { Acteur } from "../secrets/stockage";
+import { dnNormalise } from "./annuaire/dn";
 import { compterAdminsLocaux } from "./etat";
 import { hotePortHttps, hotePortLdaps, lireReglagesAuth } from "./reglages";
 import type { Fournisseur, ReglagesAuthLus } from "./reglages";
@@ -136,12 +137,25 @@ export function hotesDuFournisseur(f: Fournisseur): string[] {
   return bruts.map((h) => hoteExact(h) ?? h);
 }
 
-/** Mot de passe ou secret client du fournisseur ; `null` s'il est absent, hors de portée de l'adresse courante ou illisible, jamais une chaîne vide. */
+/** Portée du secret d'un fournisseur : adresses, autorité de certification et, pour un annuaire, DN de liaison normalisé. */
+export function porteeDuFournisseur(f: Fournisseur): { hosts: string[]; ca: string; bind_dn?: string } {
+  return {
+    hosts: hotesDuFournisseur(f),
+    ca: empreinteAutorite(f.ca_pem),
+    ...(f.type === "ldap" ? { bind_dn: dnNormalise(f.bind_dn) } : {}),
+  };
+}
+
+/** Mot de passe ou secret client du fournisseur ; `null` s'il est absent, hors de portée des adresses, de l'autorité ou du DN courants, ou illisible, jamais une chaîne vide. */
 export async function secretFournisseur(x: Executeur, f: Fournisseur): Promise<string | null> {
   const l = await lireLigneParNom(x, null, nomSecret(f.id));
   if (l === null || l.kind !== "token") return null;
-  const portee = hotes(porteeDe(l));
-  if (!hotesDuFournisseur(f).every((h) => portee.includes(h))) return null;
+  const rangee = porteeDe(l);
+  const attendue = porteeDuFournisseur(f);
+  const hotesRanges = hotes(rangee);
+  if (!attendue.hosts.every((h) => hotesRanges.includes(h))) return null;
+  if (autoriteDePortee(rangee) !== attendue.ca) return null;
+  if ((dnDePortee(rangee) ?? null) !== (attendue.bind_dn ?? null)) return null;
   try {
     const v = dechiffrerLigne(l);
     return v === "" ? null : v;
@@ -154,7 +168,7 @@ export async function secretFournisseur(x: Executeur, f: Fournisseur): Promise<s
   }
 }
 
-/** Secret rangé ou remplacé, portée = adresses courantes du fournisseur ; nom pris par un autre genre : 409. */
+/** Secret rangé ou remplacé, portée = adresses, autorité et DN de liaison courants du fournisseur ; nom pris par un autre genre : 409. */
 export async function enregistrerSecret(
   base: Base,
   f: Fournisseur,
@@ -162,7 +176,7 @@ export async function enregistrerSecret(
   acteur: Acteur,
 ): Promise<void> {
   const nom = nomSecret(f.id);
-  const portee = { hosts: hotesDuFournisseur(f) };
+  const portee = porteeDuFournisseur(f);
   await base.ecriture(async () => {
     const l = await lireLigneParNom(base, null, nom);
     if (l !== null && l.kind !== "token")

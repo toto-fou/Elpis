@@ -35,9 +35,14 @@ import {
   empreinteFournisseur,
   enregistrerSecret,
   enregistrerTestReussi,
+  fournisseursActifs,
   hmacCoffre,
+  hotesDuFournisseur,
   contexteSecretTeste,
+  nomSecret,
+  secretFournisseur,
 } from "../src/identite/fournisseurs";
+import { creerSecret } from "../src/secrets/stockage";
 import { validerFournisseur } from "../src/identite/reglages";
 import type { FournisseurLdap } from "../src/identite/reglages";
 import { appTest, journalMuet, lignesAuditRecentes, lignesJournal } from "./aides";
@@ -568,6 +573,42 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test complet d'un annuaire", () =>
         expect(annuaire.ouvertures).toBe(0);
         expect(annuaire.liaisons).toEqual([]);
         expect(await etat()).toEqual([]);
+      });
+
+      it("réglages enregistrés d'abord (PUT) puis testés : autorité ou DN changés, le secret enregistré ne part nulle part et le fournisseur n'est pas activable", async () => {
+        await avecSecretRange(fournisseur());
+        const put = await appeler("PUT", "/api/admin/auth/providers/annuaire", { ca_pem: CA_PEM });
+        expect(put.statusCode, put.body).toBe(200);
+        const sousAutreAc = await tester({ ...reglages({ ca_pem: CA_PEM }), test_user: "jean" });
+        expect(sousAutreAc.complete).toBe(false);
+        expect(await secretFournisseur(t.base, fournisseur({ ca_pem: CA_PEM }))).toBeNull();
+        await appeler("PUT", "/api/admin/auth/providers/annuaire", { ca_pem: ca.cert });
+        const dn = await appeler("PUT", "/api/admin/auth/providers/annuaire", { bind_dn: DN_VOISIN });
+        expect(dn.statusCode, dn.body).toBe(200);
+        const autreDn = await tester({ ...reglages({ bind_dn: DN_VOISIN }), test_user: "jean" });
+        expect(etape(autreDn, "service_bind")?.detail).toContain("ressaisissez");
+        expect(annuaire.ouvertures).toBe(0);
+        expect(annuaire.liaisons).toEqual([]);
+        expect(await etat()).toEqual([]);
+        const ids = await fournisseursActifs(t.base, () => true);
+        expect(ids).toEqual([]);
+      });
+
+      it("secret rangé avec l'ancienne forme de portée (hôtes seuls) : hors de portée", async () => {
+        const f = fournisseur();
+        await creerSecret(
+          t.base,
+          null,
+          {
+            name: nomSecret(f.id),
+            kind: "token",
+            scope: { hosts: hotesDuFournisseur(f) },
+            value: MDP_SERVICE,
+            policy: { subagents: false, routines: false, confirm_first_use: false, tls: "strict" },
+          },
+          ACTEUR,
+        );
+        expect(await secretFournisseur(t.base, f)).toBeNull();
       });
 
       it("secret enregistré et même autorité : il sert", async () => {

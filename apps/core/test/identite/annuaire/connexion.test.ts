@@ -11,9 +11,10 @@ import {
 import { cleComparee } from "../../../src/identite/cle-identifiant";
 import { supprimerSecretFournisseur } from "../../../src/identite/fournisseurs";
 import { ErreurAnnuaire } from "../../../src/identite/annuaire/erreur";
+import { CA_PEM } from "../aides";
 import { MOTEURS } from "../banc";
 import { AnnuaireFactice, BASE, DN_SERVICE, GROUPE, UUID } from "./annuaire-factice";
-import { ouvrirBancAnnuaire } from "./banc-annuaire";
+import { ouvrirBancAnnuaire, URL_PUBLIQUE } from "./banc-annuaire";
 import type { BancAnnuaire } from "./banc-annuaire";
 
 const MDP = "mot-de-passe-de-jean";
@@ -359,6 +360,20 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
       expect(await auth("jean")).toMatchObject({ type: "ok", fournisseur: { id: "annuaire2" } });
     });
   });
+
+  it.each([
+    ["autorité de certification", { ca_pem: CA_PEM }],
+    ["DN de liaison", { bind_dn: `uid=autre,${BASE}` }],
+  ])(
+    "%s changé dans les réglages enregistrés : l'annuaire n'est plus actif, aucune connexion",
+    async (_n, extra) => {
+      const f = { ...b.fournisseurs[0]!, ...extra };
+      b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [f] } });
+      expect(await annuairesActifs(b.dep())).toEqual([]);
+      expect(await auth("jean")).toEqual({ type: "absent" });
+      expect(annuaire.traces).toEqual([]);
+    },
+  );
 
   it("plusieurs adresses : la suivante seulement sur « injoignable »", async () => {
     await b.fermer();

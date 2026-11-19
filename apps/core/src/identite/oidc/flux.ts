@@ -2,12 +2,13 @@
 /** apps/core/src/identite/oidc/flux.ts — flux de connexion SSO en base : création plafonnée, consommation à usage unique, lien au navigateur, sessions du fournisseur, purge. */
 import { createHash } from "node:crypto";
 
-import { cleAdresse } from "@elpis/auth";
+import { cleAdresse, cleAdresseExacte } from "@elpis/auth";
 import type { Base, Executeur } from "@elpis/db";
 import { chiffrerSecret, compareDigest } from "@elpis/securite";
 
 export const DUREE_FLUX_S = 600;
 export const FLUX_PAR_ADRESSE_MAX = 20;
+export const FLUX_PAR_PREFIXE_MAX = 500;
 export const FLUX_PAR_FOURNISSEUR_MAX = 5000;
 export const COOKIE_LIAISON = "__Host-elpis-sso";
 
@@ -55,22 +56,61 @@ export function memeEmpreinte(a: string, b: string): boolean {
   return a.length === b.length && compareDigest(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
 }
 
-/** Flux créé sous l'écriture exclusive de la base, dans les plafonds par adresse (IPv6 au /64) et par fournisseur (essais d'administrateur exclus) ; faux si un plafond est atteint. */
+/** Place libre pour un flux de ce fournisseur : sous le plafond, ou, s'il est atteint, refusée si le préfixe détient déjà plus que sa part, sinon le plus ancien flux du préfixe le plus représentant est supprimé. */
+async function faireDePlace(
+  x: Executeur,
+  fournisseur: string,
+  prefixe: string,
+  maintenant: number,
+): Promise<boolean> {
+  const COMMUN = "provider_id=? AND trial_admin IS NULL AND expires_at>?";
+  const total = await x.valeurs<[number]>(`SELECT COUNT(*) FROM auth_flows WHERE ${COMMUN}`, [
+    fournisseur,
+    maintenant,
+  ]);
+  if (Number(total[0]?.[0] ?? 0) < FLUX_PAR_FOURNISSEUR_MAX) return true;
+  const sien = await x.valeurs<[number]>(
+    `SELECT COUNT(*) FROM auth_flows WHERE ${COMMUN} AND ip_hash LIKE ?`,
+    [fournisseur, maintenant, `${prefixe}:%`],
+  );
+  if (Number(sien[0]?.[0] ?? 0) > FLUX_PAR_ADRESSE_MAX) return false;
+  const gros = await x.valeurs<[string]>(
+    `SELECT substr(ip_hash, 1, ${LONGUEUR_EMPREINTE}) AS p FROM auth_flows WHERE ${COMMUN} GROUP BY p ORDER BY COUNT(*) DESC, p LIMIT 1`,
+    [fournisseur, maintenant],
+  );
+  const plusAncien = await x.valeurs<[string]>(
+    `SELECT state_hash FROM auth_flows WHERE ${COMMUN} AND stage='auth' AND ip_hash LIKE ? ORDER BY created_at, state_hash LIMIT 1`,
+    [fournisseur, maintenant, `${gros[0]?.[0] ?? ""}:%`],
+  );
+  const cible = plusAncien[0]?.[0];
+  if (cible === undefined) return false;
+  await x.run("DELETE FROM auth_flows WHERE state_hash=?", [cible]);
+  return true;
+}
+
+/** Valeur de `ip_hash` : `<empreinte du préfixe>:<empreinte de l'adresse exacte>` ; le préfixe se compare par début de chaîne, l'adresse par égalité. */
+export function empreinteAdresses(adresse: string): string {
+  return `${empreinte(cleAdresse(adresse))}:${empreinte(cleAdresseExacte(adresse))}`;
+}
+
+const LONGUEUR_EMPREINTE = 64;
+
+/** Flux créé sous l'écriture exclusive de la base, dans les plafonds par adresse exacte, par préfixe (/64 en IPv6) et par fournisseur (essais d'administrateur exclus) ; faux si un plafond est atteint. */
 export async function creerFlux(base: Base, f: FluxCree, maintenant: number): Promise<boolean> {
   return base.ecriture(async (x) => {
-    if (f.essaiAdmin === null) {
-      const total = await x.valeurs<[number]>(
-        "SELECT COUNT(*) FROM auth_flows WHERE provider_id=? AND trial_admin IS NULL AND expires_at>?",
-        [f.providerId, maintenant],
-      );
-      if (Number(total[0]?.[0] ?? 0) >= FLUX_PAR_FOURNISSEUR_MAX) return false;
-    }
-    const ip = empreinte(cleAdresse(f.adresse));
+    const ip = empreinteAdresses(f.adresse);
+    const prefixe = ip.slice(0, LONGUEUR_EMPREINTE);
     const adresse = await x.valeurs<[number]>(
       "SELECT COUNT(*) FROM auth_flows WHERE ip_hash=? AND expires_at>?",
       [ip, maintenant],
     );
     if (Number(adresse[0]?.[0] ?? 0) >= FLUX_PAR_ADRESSE_MAX) return false;
+    const groupe = await x.valeurs<[number]>(
+      "SELECT COUNT(*) FROM auth_flows WHERE ip_hash LIKE ? AND expires_at>?",
+      [`${prefixe}:%`, maintenant],
+    );
+    if (Number(groupe[0]?.[0] ?? 0) >= FLUX_PAR_PREFIXE_MAX) return false;
+    if (f.essaiAdmin === null && !(await faireDePlace(x, f.providerId, prefixe, maintenant))) return false;
     await x.run(
       "INSERT INTO auth_flows(state_hash, provider_id, browser_hash, ip_hash, nonce, code_verifier, target, oauth_next, trial_admin, stage, profile_json, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [

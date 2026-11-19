@@ -19,7 +19,7 @@ export interface OptionsBalayageAnnuaire {
   readonly dormir?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
-/** Une passe sur chaque annuaire actif (ou sur ceux de `seulement`), l'un après l'autre ; une erreur est journalisée et n'arrête ni les suivants ni le cycle ; `reverifier` reçoit chaque annuaire dont la passe a noté une nouvelle observation. */
+/** Une passe sur chaque annuaire actif (ou sur ceux de `seulement`), l'un après l'autre ; une erreur est journalisée et n'arrête ni les suivants ni le cycle ; `reverifier` reçoit chaque annuaire dont la passe a noté une observation nouvelle (jamais une observation redatée). */
 export async function balayerLesAnnuaires(
   dep: DependancesBalayage,
   intervalleMs: number = INTERVALLE_BALAYAGE_MS,
@@ -32,8 +32,7 @@ export async function balayerLesAnnuaires(
         const issue = await balayerAnnuaire(dep, f, { intervalleMs });
         if (issue.type === "occupe")
           dep.journal.info(`annuaire ${f.id} : passe ignorée, une autre est en cours`);
-        if (issue.type === "bilan" && issue.etat.observed.some((o) => o.at === issue.etat.at))
-          options.reverifier?.(f.id);
+        if (issue.type === "bilan" && (issue.nouvelles ?? 0) > 0) options.reverifier?.(f.id);
         await alerterSiPerime(dep, f, intervalleMs);
       } catch (e) {
         dep.journal.warn({ err: e }, `balayage de l'annuaire ${f.id} en échec`);

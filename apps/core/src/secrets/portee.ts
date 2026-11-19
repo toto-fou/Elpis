@@ -142,10 +142,38 @@ export function hotes(p: PorteeSecret): string[] {
   return Array.isArray(h) ? h.filter((x): x is string => typeof x === "string") : [];
 }
 
-/** Portée par hôtes : `{hosts: ["hôte:port", …]}`, port explicite, 3 hôtes au plus. */
+/** Autorité de certification d'une portée de fournisseur : « system » ou une empreinte SHA-256 en hexadécimal. */
+const RE_AUTORITE = /^(?:system|[0-9a-f]{64})$/u;
+
+/** Autorité de certification (`ca_pem` enregistré) sous la forme de la portée : « system » si vide, sinon son empreinte SHA-256. */
+export function empreinteAutorite(caPem: string): string {
+  return caPem === "" ? "system" : createHash("sha256").update(caPem, "utf8").digest("hex");
+}
+
+/** Autorité de certification d'une portée de fournisseur d'identité (`null` si absente). */
+export function autoriteDePortee(p: PorteeSecret): string | null {
+  const a = (p as { ca?: unknown }).ca;
+  return typeof a === "string" ? a : null;
+}
+
+/** DN de liaison d'une portée d'annuaire (`null` si absent). */
+export function dnDePortee(p: PorteeSecret): string | null {
+  const d = (p as { bind_dn?: unknown }).bind_dn;
+  return typeof d === "string" ? d : null;
+}
+
+/** Portée par hôtes : `{hosts: ["hôte:port", …], ca?, bind_dn?}`, port explicite, 3 hôtes au plus. */
 function porteeHotes(p: Record<string, unknown>): PorteeSecret {
   const brutes = p["hosts"];
-  if (Object.keys(p).length !== 1 || !Array.isArray(brutes) || brutes.length === 0)
+  const ca = p["ca"];
+  const dn = p["bind_dn"];
+  if (Object.keys(p).some((k) => k !== "hosts" && k !== "ca" && k !== "bind_dn"))
+    throw refusPortee("Invalid scope: only 'hosts', 'ca' and 'bind_dn' are allowed.");
+  if (ca !== undefined && (typeof ca !== "string" || !RE_AUTORITE.test(ca)))
+    throw refusPortee("Invalid scope: 'ca' is 'system' or a SHA-256 fingerprint.");
+  if (dn !== undefined && (typeof dn !== "string" || dn === "" || dn.length > 1024))
+    throw refusPortee("Invalid scope: 'bind_dn' is a non-empty DN.");
+  if (!Array.isArray(brutes) || brutes.length === 0)
     throw refusPortee("Invalid scope: 'hosts' must list one or more host:port entries.");
   const hotesNormalises: string[] = [];
   for (const h of brutes) {
@@ -156,7 +184,11 @@ function porteeHotes(p: Record<string, unknown>): PorteeSecret {
   }
   if (hotesNormalises.length > HOTES_AUTH_MAX)
     throw refusPortee(`Invalid scope: ${HOTES_AUTH_MAX} hosts at most.`);
-  return { hosts: hotesNormalises } as unknown as PorteeSecret;
+  return {
+    hosts: hotesNormalises,
+    ...(ca === undefined ? {} : { ca }),
+    ...(dn === undefined ? {} : { bind_dn: dn }),
+  } as unknown as PorteeSecret;
 }
 
 /** Portée validée et normalisée selon le genre ; un jeton n'a pas de portée, sauf la clé du moteur d'images (origines exactes) et les secrets `auth-*` (hôtes et ports). */

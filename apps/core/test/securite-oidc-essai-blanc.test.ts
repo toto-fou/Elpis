@@ -6,8 +6,9 @@ import { createUser } from "@elpis/auth";
 import { schemaReponseDernierEssai, schemaReponseLancementEssai } from "@elpis/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { testReussiCourant } from "../src/identite/fournisseurs";
+import { secretFournisseur, testReussiCourant } from "../src/identite/fournisseurs";
 import { lignesAuditRecentes, lignesJournal } from "./aides";
+import { CA_PEM } from "./identite/aides";
 import { MOTEURS } from "./identite/banc";
 import { cookies, ELPIS, HOTE_PUBLIC, ouvrirBancOidc, URL_PUBLIQUE } from "./identite/banc-oidc";
 import type { BancOidc } from "./identite/banc-oidc";
@@ -217,6 +218,17 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     expect(await lignes("SELECT COUNT(*) FROM auth_flows")).toEqual([[0]]);
     await b.reglages({ enabled: true });
     expect((await lancer()).statusCode).toBe(409);
+  });
+
+  it("autorité de certification changée dans les réglages enregistrés : le secret client est hors de portée, l'essai est refusé sans flux", async () => {
+    expect(await secretFournisseur(b.t.base, b.fournisseur)).not.toBeNull();
+    const modifie = await b.reglages({ ca_pem: CA_PEM });
+    expect(await secretFournisseur(b.t.base, modifie)).toBeNull();
+    const l = await lancer();
+    expect(l.statusCode).toBe(200);
+    expect(l.json<Lancement>()).toMatchObject({ ok: false, url: null });
+    expect(l.headers["set-cookie"]).toBeUndefined();
+    expect(await lignes("SELECT COUNT(*) FROM auth_flows")).toEqual([[0]]);
   });
 
   it("une étape en échec : pas de flux, pas d'adresse", async () => {

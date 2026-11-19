@@ -36,6 +36,8 @@ export function creerFamilleAdminIdentiteBalayage(dep: DependancesBalayage): Fam
     const r = await balayerAnnuaire(dep, f);
     if (r.type === "verrou_indisponible")
       throw new HttpError(503, "La vérification est indisponible : demandez à votre administrateur.");
+    if (r.type === "ecarte")
+      throw new HttpError(409, "Le fournisseur a changé pendant la passe : relisez l'état et recommencez.");
     if (r.type !== "bilan") throw new HttpError(409, "Une passe est déjà en cours pour cet annuaire.");
     auditer(req, "admin.auth.sweep", {
       provider_id: f.id,
@@ -79,6 +81,8 @@ export function creerFamilleAdminIdentiteBalayage(dep: DependancesBalayage): Fam
     if (r.type === "occupe") throw new HttpError(409, "Une passe est déjà en cours pour cet annuaire.");
     if (r.type === "verrou_indisponible")
       throw new HttpError(503, "La vérification est indisponible : demandez à votre administrateur.");
+    if (r.type === "ecarte")
+      throw new HttpError(409, "Le fournisseur a changé pendant la passe : relisez l'état et recommencez.");
     const etat = r.etat;
     if (r.type === "decompte_change" || etat.aborted !== null)
       throw new HttpError(409, {

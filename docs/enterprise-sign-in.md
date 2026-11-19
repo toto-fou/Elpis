@@ -71,7 +71,8 @@ The same steps apply to both kinds.
 4. Enter the secret: **Mot de passe du compte de service** (Service account password) for a directory,
    **Secret client** (Client secret) for single sign-on. Click **Ajouter** or **Enregistrer**. The secret goes
    to the secrets vault, is never shown again (the field then says **Enregistré**, with **Supprimer** to
-   remove it) and is bound to the host and port of the provider: changing them asks for it again.
+   remove it) and is bound to its addresses, its certificate authority and, for a directory, its service account: changing
+   any of them asks for it again.
 5. Click **Tester** (Test). See [What the test checks](#what-the-test-checks).
 6. Single sign-on only: save, then, with the provider still switched off, click **Essayer la connexion**
    (Try the sign-in) and sign in with a real account. See [The sign-in trial](#the-sign-in-trial).

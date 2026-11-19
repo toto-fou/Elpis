@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 
 import {
   cleAdresse,
+  cleAdresseExacte,
   dependancesSession,
   dureeMaxSession,
   ipDuClient,
@@ -124,10 +125,9 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
 
   function limiter(ip: string): void {
     const t = maintenant();
-    const cle = cleAdresse(ip);
-    const attente = debit.attenteAdresseS(cle, t);
+    const attente = debit.attenteSsoS(cleAdresseExacte(ip), cleAdresse(ip), t);
     if (attente > 0) throw new HttpError(429, REFUS_DEBIT, { "Retry-After": String(Math.ceil(attente)) });
-    debit.prendreAdresse(cle, t);
+    debit.prendreSso(cleAdresseExacte(ip), cleAdresse(ip), t);
   }
 
   async function depart(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
@@ -224,12 +224,13 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     if (!estActif && secret === null) throw new HttpError(404, "Not Found");
     const ip = ipDuClient(req, dep.mandataires);
     const cle = cleAdresse(ip);
+    const exacte = cleAdresseExacte(ip);
     const publicUrl = lireReglagesAuth().public_url;
     const t = maintenant();
     let ouverte: Awaited<ReturnType<FabriqueConfigurations["ouvrir"]>> | null = null;
     try {
-      if (debit.attenteAdresseS(cle, t) > 0) throw new RefusOidc("unavailable", "rate_limited");
-      debit.prendreAdresse(cle, t);
+      if (debit.attenteSsoS(exacte, cle, t) > 0) throw new RefusOidc("unavailable", "rate_limited");
+      debit.prendreSso(exacte, cle, t);
       if (secret === null) throw new RefusOidc("expired", "binding_cookie_missing");
       const requete = requeteBrute(req.url);
       const state = new URLSearchParams(requete).get("state") ?? "";
@@ -275,7 +276,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
             reason: resultat.decision.reason,
           },
         });
-        if (resultat.ok) debit.rendreAdresse(cle, t);
+        if (resultat.ok) debit.rendreSso(exacte, cle, t);
         return rep
           .headers(ENTETES_RETOUR)
           .type("text/html; charset=utf-8")
@@ -314,8 +315,8 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
           .type("text/html; charset=utf-8")
           .send(pageRetour("/?auth_link=1"));
       }
-      debit.rendreAdresse(cle, t);
-      debit.rendreAdresse(cle, t);
+      debit.rendreSso(exacte, cle, t);
+      debit.rendreSso(exacte, cle, t);
       return rep
         .headers(ENTETES_RETOUR)
         .type("text/html; charset=utf-8")

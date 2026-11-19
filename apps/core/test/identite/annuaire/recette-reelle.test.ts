@@ -12,6 +12,7 @@ import { groupeExiste } from "../../../src/identite/annuaire/appartenance";
 import { fabriqueLdapts } from "../../../src/identite/annuaire/client";
 import { authentifierParAnnuaire, PorteAnnuaire } from "../../../src/identite/annuaire/connexion";
 import type { DependancesAnnuaire, ResultatAnnuaire } from "../../../src/identite/annuaire/connexion";
+import { testerFournisseur } from "../../../src/identite/essai";
 import { enregistrerSecret } from "../../../src/identite/fournisseurs";
 import { validerFournisseur } from "../../../src/identite/reglages";
 import type { FournisseurLdap } from "../../../src/identite/reglages";
@@ -179,6 +180,51 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
         });
       },
     );
+
+    it("bouton Tester : toutes les étapes passent avec un utilisateur d'essai, et le test est complet", async () => {
+      const f = await fournisseur(a);
+      const { type: _type, ...reglages } = f;
+      const r = await testerFournisseur(
+        { type: "ldap", ...reglages },
+        { publicUrl: "https://elpis.exemple.lan", cookieSecure: true, adminsLocaux: 1 },
+        {
+          annuaire: {
+            fabrique: (sortant) => fabriqueLdapts(sortant),
+            secretEnregistre: () => Promise.resolve(null),
+            utilisateur: a.membre.login,
+            secret: a.secret,
+          },
+        },
+      );
+      expect(r.steps.filter((e) => e.level === "fail").map((e) => `${e.id} : ${e.detail}`)).toEqual([]);
+      expect(r.steps.map((e) => e.id)).toEqual(
+        expect.arrayContaining([
+          "tls",
+          "service_bind",
+          "user_base",
+          "groups",
+          "test_user",
+          "test_user_profile",
+        ]),
+      );
+      expect(r).toMatchObject({ ok: true, complete: true });
+    });
+
+    it("bouton Tester : sans utilisateur d'essai, ou avec un secret faux, le test n'est pas complet", async () => {
+      const f = await fournisseur(a);
+      const { type: _type, ...reglages } = f;
+      const contexte = { publicUrl: "https://elpis.exemple.lan", cookieSecure: true, adminsLocaux: 1 };
+      const annuaire = { fabrique: fabriqueLdapts, secretEnregistre: () => Promise.resolve(null) };
+      const sansUtilisateur = await testerFournisseur({ type: "ldap", ...reglages }, contexte, {
+        annuaire: { ...annuaire, secret: a.secret },
+      });
+      expect(sansUtilisateur.complete).toBe(false);
+      const secretFaux = await testerFournisseur({ type: "ldap", ...reglages }, contexte, {
+        annuaire: { ...annuaire, secret: "pas-le-bon-secret", utilisateur: a.membre.login },
+      });
+      expect(secretFaux).toMatchObject({ ok: false, complete: false });
+      expect(secretFaux.steps.find((e) => e.id === "service_bind")?.level).toBe("fail");
+    });
 
     it.skipIf(a.desactive === undefined)("compte désactivé dans l'annuaire : aucune session", async () => {
       const f = await fournisseur(a);

@@ -258,7 +258,10 @@ describe("agent bureau : transport, mémos, stabilisation, matrice", () => {
   it("matrice : compte suspendu relu avant chaque cible (cibles suivantes sautées) et pendant le sondage (script arrêté)", async () => {
     const horlogeAvant = { ...HORLOGE_AUTOMATISATION };
     let t = 0;
-    Object.assign(HORLOGE_AUTOMATISATION, { maintenant: () => t, dormir: async (s: number) => void (t += s) });
+    Object.assign(HORLOGE_AUTOMATISATION, {
+      maintenant: () => t,
+      dormir: async (s: number) => void (t += s),
+    });
     try {
       lan.reponses = [ok(), ok({ run_id: "r" }), ok({ running: false, code: 0 })];
       const vuesAvant = lan.vues.length;

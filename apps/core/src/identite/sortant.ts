@@ -208,8 +208,24 @@ function borne(valeur: number | undefined, maximum: number): number {
   return valeur !== undefined && valeur > 0 ? Math.min(valeur, maximum) : maximum;
 }
 
+/** Suites acceptées : échange de clés à confidentialité persistante et chiffrement authentifié seulement. */
+const SUITES_TLS = [
+  "TLS_AES_256_GCM_SHA384",
+  "TLS_CHACHA20_POLY1305_SHA256",
+  "TLS_AES_128_GCM_SHA256",
+  "ECDHE-ECDSA-AES256-GCM-SHA384",
+  "ECDHE-RSA-AES256-GCM-SHA384",
+  "ECDHE-ECDSA-CHACHA20-POLY1305",
+  "ECDHE-RSA-CHACHA20-POLY1305",
+  "ECDHE-ECDSA-AES128-GCM-SHA256",
+  "ECDHE-RSA-AES128-GCM-SHA256",
+  "DHE-RSA-AES256-GCM-SHA384",
+  "DHE-RSA-AES128-GCM-SHA256",
+].join(":");
+
 function optionsTls(o: OptionsSortant): {
   ca: string[];
+  ciphers: string;
   minVersion: "TLSv1.2";
   rejectUnauthorized: true;
   timeout: number;
@@ -217,6 +233,7 @@ function optionsTls(o: OptionsSortant): {
 } {
   return {
     ca: [...ancres(o)],
+    ciphers: SUITES_TLS,
     minVersion: "TLSv1.2",
     rejectUnauthorized: true,
     timeout: borne(o.delaiConnexionMs, DELAI_CONNEXION_MS),
@@ -364,6 +381,7 @@ function ouvrirTls(
           servername: litterale ? undefined : hote,
           lookup: rechercheEpinglee(v.adresses),
           ca: options.ca,
+          ciphers: options.ciphers,
           minVersion: options.minVersion,
           rejectUnauthorized: options.rejectUnauthorized,
         });

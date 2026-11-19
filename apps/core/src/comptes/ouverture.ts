@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/ouverture.ts — suites communes d'une connexion réussie, quelle que soit la méthode. */
-import { compteSuspendu, ligneSession, methodeDuCompte, ouvrirSession } from "@elpis/auth";
+import { compteSuspendu, ligneSession, methodeDuCompte, ouvrirSession, revoquerSid } from "@elpis/auth";
 import type { MethodeConnexion, Session } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import type { Executeur } from "@elpis/db";
@@ -20,6 +20,15 @@ export interface EffetsConnexion {
   readonly dureeMax: () => number;
   readonly demarrerHistoriqueFichiers?: (uid: number) => Promise<void>;
   readonly logMetric?: (nom: string, valeur: number, etiquettes: Record<string, unknown>) => void;
+}
+
+/** Révoque la session que porte déjà la requête (ré-authentification) : son `_sid` ne vaut plus rien dès la nouvelle ouverture. */
+async function terminerSessionCourante(base: Executeur, session: Session, t: number): Promise<void> {
+  const sid = session.get("_sid");
+  if (typeof sid !== "string" || sid === "") return;
+  const uid = session.get("user_id");
+  const exp = session.get("_exp");
+  await revoquerSid(base, sid, typeof uid === "number" ? uid : null, t, typeof exp === "number" ? exp : 0);
 }
 
 /** Refuse un compte suspendu ou dont la méthode de connexion n'est plus celle du compte (audit, `ConnexionRefusee`), sinon ouvre la session puis enchaîne dernière connexion, historique de fichiers, métrique et audit ; seule voie d'ouverture d'une session. */
@@ -56,6 +65,7 @@ export async function etablirConnexion(
     throw new ConnexionRefusee();
   }
   const t = dep.maintenant();
+  await terminerSessionCourante(dep.base, e.session, t);
   ouvrirSession(e.session, { uid: e.uid, methode: e.methode, maintenant: t, dureeMax: dep.dureeMax() });
   if (e.avantEffets !== undefined) {
     try {

@@ -58,7 +58,9 @@ function monter(
     const refus = Object.entries(opts.refus ?? {}).find(([suffixe]) => url.endsWith(suffixe))?.[1];
     if (refus) return Promise.resolve(json({ detail: refus.detail }, refus.statut));
     if (url.endsWith("/suspend") && opts.propage !== undefined)
-      return Promise.resolve(json({ ok: true, propagated: opts.propage }));
+      return Promise.resolve(
+        json({ ok: true, propagated: opts.propage, tokens_revoked: 2, oauth_revoked: 1 }),
+      );
     return Promise.resolve(
       json({ ok: true, users: [], groups: [], network_profiles: [], desktop_targets: [] }),
     );

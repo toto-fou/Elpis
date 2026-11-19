@@ -718,7 +718,7 @@ export function creerComptes(b: BaseAdmin) {
     const ok = desactiver
       ? await openConfirm(
           `Désactiver ${u.username} ?`,
-          "Ce compte ne pourra plus se connecter. Ses sessions sont fermées, ses jetons et ses routines sont bloqués, ses données sont conservées.",
+          "Ce compte ne pourra plus se connecter. Ses sessions sont fermées, ses jetons et ses accès d'applications sont révoqués, ses routines sont bloquées, ses données sont conservées.",
           true,
           "Désactiver",
         )

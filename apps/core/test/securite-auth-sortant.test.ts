@@ -199,7 +199,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("client sortant : confiance, adresses, born
       for (const nom of readdirSync(dossier).filter((n) => n.endsWith(".ts"))) {
         const t = readFileSync(join(dossier, nom), "utf8");
         expect(t, nom).not.toMatch(
-          /rejectUnauthorized\s*:\s*(?:false|0|undefined|!)|checkServerIdentity|NODE_TLS_REJECT_UNAUTHORIZED/u,
+          /rejectUnauthorized\s*:\s*(?:false|0|undefined|!)|checkServerIdentity\s*:(?!\s*(?:typeof\s+)?verifierNomServeur\b|\s*options\.checkServerIdentity\b)|\.checkServerIdentity\s*=[^=]|NODE_TLS_REJECT_UNAUTHORIZED/u,
         );
       }
     });

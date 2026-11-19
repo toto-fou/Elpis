@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/conformite/ldap-tls.test.ts — TLS de l'annuaire (RFC 5246 / 8446, RFC 6125, RFC 4513 §3.1.3 et §6.3.1) contre un vrai LDAPS local : versions, nom du serveur, chaîne, validité, usage de clé, ancre unique, SNI, aucun octet LDAP avant la vérification. */
+/** apps/core/test/conformite/ldap-tls.test.ts — TLS de l'annuaire (RFC 5246 / 8446, RFC 9525, RFC 4513 §3.1.3 et §6.3.1) contre un vrai LDAPS local : versions, nom du serveur, chaîne, validité, usage de clé, ancre unique, SNI, aucun octet LDAP avant la vérification. */
 import { createServer } from "node:net";
 import type { Server } from "node:net";
 
@@ -95,7 +95,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("TLS de l'annuaire", () => {
     });
   });
 
-  describe("nom du serveur (RFC 6125 §6.4, RFC 4513 §3.1.3)", () => {
+  describe("nom du serveur (RFC 9525, RFC 4513 §3.1.3)", () => {
     it("RFC 6125 §6.4.4 : nom présent dans le SAN DNS : accepté, nom envoyé en SNI", async () => {
       const ca = autorite();
       const s = await feuille(ca, { noms: ["ldap.exemple.lan", "autre.exemple.lan"] });
@@ -121,10 +121,11 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("TLS de l'annuaire", () => {
       await expect(lier(s, "a.b.exemple.lan", ca.cert)).rejects.toMatchObject(refus("nom_certificat"));
       await expect(lier(s, "exemple.lan", ca.cert)).rejects.toMatchObject(refus("nom_certificat"));
     });
-    it("RFC 6125 §6.4.3 : joker partiel `l*.exemple.lan` : accepté par la pile TLS (permis aux clients), joker hors de l'étiquette de gauche : refusé", async () => {
+    it("RFC 9525 §6.3 : joker partiel `l*.exemple.lan` ignoré, joker hors de l'étiquette de gauche ignoré : refusés", async () => {
       const ca = autorite();
       const partiel = await feuille(ca, { noms: ["l*.exemple.lan"] });
-      await lier(partiel, "ldap.exemple.lan", ca.cert);
+      await expect(lier(partiel, "ldap.exemple.lan", ca.cert)).rejects.toMatchObject(refus("nom_certificat"));
+      aucuneLiaison(partiel);
       const milieu = await feuille(ca, { noms: ["ldap.*.lan"] });
       await expect(lier(milieu, "ldap.exemple.lan", ca.cert)).rejects.toMatchObject(refus("nom_certificat"));
       aucuneLiaison(milieu);
@@ -135,12 +136,12 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("TLS de l'annuaire", () => {
       await expect(lier(s, "intrus.exemple.lan", ca.cert)).rejects.toMatchObject(refus("nom_certificat"));
       aucuneLiaison(s);
     });
-    it("RFC 4513 §3.1.3 : CN seul, sans SAN : accepté (repli déprécié mais permis) ; un autre nom : refusé", async () => {
+    it("RFC 9525 §2 : CN seul, sans SAN : refusé même quand le CN est le nom demandé, aucun octet LDAP", async () => {
       const ca = autorite();
       const f = creerFeuilleSpeciale(ca, { cn: "ldap.exemple.lan", san: null, eku: "serverAuth" });
       const s = await demarrer(f.cert, f.cle);
-      await lier(s, "ldap.exemple.lan", ca.cert);
-      await expect(lier(s, "intrus.exemple.lan", ca.cert)).rejects.toMatchObject(refus("nom_certificat"));
+      await expect(lier(s, "ldap.exemple.lan", ca.cert)).rejects.toMatchObject(refus("nom_certificat"));
+      aucuneLiaison(s);
     });
     it("RFC 6125 §6.4.4 : le SAN prime sur le CN : CN correct mais SAN d'un autre nom : refusé", async () => {
       const ca = autorite();

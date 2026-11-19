@@ -16,7 +16,7 @@ import type { ContexteEtapesOidc } from "./oidc/essai";
 import { adresseDecouverte, lireMetadonnees } from "./oidc/metadonnees";
 import { etape, PHRASES_SORTANT as PHRASES } from "./etapes";
 import type { EtapeEssai } from "./etapes";
-import { classerErreur, clientHttps, connexionTls, jugeSortant } from "./sortant";
+import { classerErreur, clientHttps, connexionTls, jugeSortant, sansNomAlternatif } from "./sortant";
 import type { OptionsSortant } from "./sortant";
 
 export type { EtapeEssai } from "./etapes";
@@ -24,6 +24,14 @@ export type { EtapeEssai } from "./etapes";
 export const DELAI_GLOBAL_MS = 20_000;
 const JOURS_ALERTE = 30;
 const ADRESSES_MAX = 5;
+
+const PHRASE_SANS_SAN =
+  "Le certificat du serveur ne porte pas de nom alternatif (subjectAltName) : faites-le réémettre avec le nom du serveur.";
+
+/** Phrase de l'étape en échec : celle du code, ou celle du certificat sans nom alternatif. */
+function phrase(e: unknown): string {
+  return sansNomAlternatif(e) ? PHRASE_SANS_SAN : PHRASES[classerErreur(e)];
+}
 
 export interface ResultatEssai {
   ok: boolean;
@@ -172,7 +180,7 @@ async function etapesAdresse(
     const decrit = `${c.version_tls}, sujet ${c.sujet || "?"}, émis par ${c.emetteur || "?"}, valable du ${dateIso(c.valide_du)} au ${dateIso(c.valide_au)} (${jours} jours restants), adresse ${c.adresse}.`;
     etapes.push(etape("tls", "Certificat", jours < JOURS_ALERTE ? "warn" : "ok", decrit, cible));
   } catch (e) {
-    etapes.push(etape("tls", "Certificat", "fail", PHRASES[classerErreur(e)], cible));
+    etapes.push(etape("tls", "Certificat", "fail", phrase(e), cible));
   }
 }
 
@@ -195,7 +203,7 @@ async function etapesDecouverte(
       });
       lu = { statut: rep.status, texte: await rep.text(), date: rep.headers.get("date") };
     } catch (e) {
-      etapes.push(etape("discovery", "Découverte", "fail", PHRASES[classerErreur(e)], cible));
+      etapes.push(etape("discovery", "Découverte", "fail", phrase(e), cible));
       return;
     }
     const d = decouverte(f, lu.statut, lu.texte, cible);

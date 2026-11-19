@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/sortant.ts — client sortant des fournisseurs d'identité (https et ldaps) : adresses jugées puis épinglées, ancres de confiance, TLS 1.2 au moins, ni redirection ni proxy, tailles et délais bornés. */
 import { lookup } from "node:dns/promises";
-import { connect as tlsConnect } from "node:tls";
-import type { TLSSocket } from "node:tls";
+import { checkServerIdentity, connect as tlsConnect } from "node:tls";
+import type { PeerCertificate, TLSSocket } from "node:tls";
 
 import { adresseIpOuNul } from "@elpis/commun";
 import {
@@ -48,11 +48,13 @@ export type CodeSortant =
 /** Échec du client sortant : un code fermé, jamais le message d'un tiers. */
 export class ErreurSortant extends Error {
   readonly code: CodeSortant;
+  readonly elpisSansSan: boolean;
 
-  constructor(code: CodeSortant) {
+  constructor(code: CodeSortant, sansSan = false) {
     super(code);
     this.name = "ErreurSortant";
     this.code = code;
+    this.elpisSansSan = sansSan;
   }
 }
 
@@ -223,11 +225,66 @@ const SUITES_TLS = [
   "DHE-RSA-AES128-GCM-SHA256",
 ].join(":");
 
+const JOKER_ADMIS = /^\*\.[^*.]+(?:\.[^*.]+)+$/u;
+const NOM_INVALIDE = "ERR_TLS_CERT_ALTNAME_INVALID";
+
+/** Entrées du subjectAltName tel que Node l'écrit (« , » hors d'une valeur entre guillemets) ; `null` si des guillemets ne se referment pas. */
+function entreesSan(san: string): string[] | null {
+  const entrees: string[] = [];
+  let debut = 0;
+  let guillemets = false;
+  for (let i = 0; i < san.length; i++) {
+    const c = san[i];
+    if (guillemets && c === "\\") i++;
+    else if (c === '"') guillemets = !guillemets;
+    else if (!guillemets && c === "," && san[i + 1] === " ") {
+      entrees.push(san.slice(debut, i));
+      debut = i + 2;
+      i++;
+    }
+  }
+  if (guillemets) return null;
+  entrees.push(san.slice(debut));
+  return entrees;
+}
+
+/** Une entrée DNS n'est gardée que sans guillemets (aucun nom d'hôte n'en demande) et, avec un joker, seulement dans la forme admise. */
+function entreeAdmise(e: string): boolean {
+  if (!e.startsWith("DNS:")) return true;
+  const nom = e.slice(4);
+  return !nom.includes('"') && (!nom.includes("*") || JOKER_ADMIS.test(nom));
+}
+
+/** Vrai quand l'erreur vient d'un certificat sans extension subjectAltName. */
+export function sansNomAlternatif(e: unknown): boolean {
+  return enChaine(e).some((x) => (x as { elpisSansSan?: unknown }).elpisSansSan === true);
+}
+
+/** Nom du serveur selon RFC 9525 : subjectAltName obligatoire (le CN n'est jamais lu), joker admis seulement comme étiquette de gauche entière avec deux étiquettes derrière, comparaison déléguée à Node sur un certificat nettoyé. */
+export function verifierNomServeur(hote: string, cert: PeerCertificate): Error | undefined {
+  const san = (cert as { subjectaltname?: unknown }).subjectaltname;
+  if (typeof san !== "string" || san.trim() === "")
+    return Object.assign(new Error("subjectAltName absent"), { code: NOM_INVALIDE, elpisSansSan: true });
+  const illisible = Object.assign(new Error("subjectAltName illisible"), { code: NOM_INVALIDE });
+  const entrees = entreesSan(san);
+  if (entrees === null) return illisible;
+  try {
+    return checkServerIdentity(hote, {
+      ...cert,
+      subject: undefined,
+      subjectaltname: entrees.filter(entreeAdmise).join(", "),
+    } as unknown as PeerCertificate);
+  } catch {
+    return illisible;
+  }
+}
+
 function optionsTls(o: OptionsSortant): {
   ca: string[];
   ciphers: string;
   minVersion: "TLSv1.2";
   rejectUnauthorized: true;
+  checkServerIdentity: typeof verifierNomServeur;
   timeout: number;
   maxCachedSessions: 0;
 } {
@@ -236,6 +293,7 @@ function optionsTls(o: OptionsSortant): {
     ciphers: SUITES_TLS,
     minVersion: "TLSv1.2",
     rejectUnauthorized: true,
+    checkServerIdentity: verifierNomServeur,
     timeout: borne(o.delaiConnexionMs, DELAI_CONNEXION_MS),
     maxCachedSessions: 0,
   };
@@ -318,7 +376,7 @@ export function clientHttps(o: OptionsSortant = {}): ClientHttps {
         headers: rep.headers,
       });
     } catch (e) {
-      throw e instanceof ErreurSortant ? e : new ErreurSortant(classerErreur(e));
+      throw e instanceof ErreurSortant ? e : new ErreurSortant(classerErreur(e), sansNomAlternatif(e));
     }
   };
   return { fetch: f, fermer: () => agent.close() };
@@ -355,13 +413,13 @@ function ouvrirTls(
   return new Promise<TLSSocket>((resoudre, rejeter) => {
     let termine = false;
     let socket: TLSSocket | undefined;
-    const echouer = (code: CodeSortant): void => {
+    const echouer = (code: CodeSortant, sansSan = false): void => {
       if (termine) return;
       termine = true;
       clearTimeout(minuteur);
       signal?.removeEventListener("abort", surEcheance);
       socket?.destroy();
-      rejeter(new ErreurSortant(code));
+      rejeter(new ErreurSortant(code, sansSan));
     };
     const surEcheance = (): void => echouer("delai");
     const minuteur = setTimeout(surEcheance, options.timeout);
@@ -384,8 +442,9 @@ function ouvrirTls(
           ciphers: options.ciphers,
           minVersion: options.minVersion,
           rejectUnauthorized: options.rejectUnauthorized,
+          checkServerIdentity: options.checkServerIdentity,
         });
-        socket.on("error", (e) => echouer(classerErreur(e)));
+        socket.on("error", (e) => echouer(classerErreur(e), sansNomAlternatif(e)));
         socket.once("secureConnect", () => {
           if (termine) return;
           if (socket?.authorized !== true) return echouer("tls");

@@ -10,6 +10,7 @@ import {
   validerModification,
   validerReglagesGeneraux,
 } from "../../src/identite/reglages";
+import { empreinteFournisseur, porteeDuFournisseur } from "../../src/identite/fournisseurs";
 import { CA_PEM, ldapValide, oidcValide } from "./aides";
 
 function refus(f: () => unknown): string {
@@ -270,5 +271,40 @@ describe("validateur strict (une valeur fausse par champ sensible)", () => {
       local: { mode: "admins" },
     });
     expect(validerReglagesGeneraux({ public_url: "" }, base).public_url).toBe("");
+  });
+});
+
+describe("adresse d'annuaire : schéma et hôte insensibles à la casse (RFC 3986 §3.1, §3.2.2)", () => {
+  const urls = (u: string): string[] =>
+    (validerFournisseur(ldapValide({ urls: [u] })) as { urls: string[] }).urls;
+
+  it("`LDAPS://Annuaire.Exemple.LAN:636` est enregistrée en minuscules, par le validateur strict comme par le lecteur tolérant", () => {
+    expect(urls("LDAPS://Annuaire.Exemple.LAN:636")).toEqual(["ldaps://annuaire.exemple.lan:636"]);
+    const lu = reglagesAuthDepuis({ providers: [ldapValide({ urls: ["Ldaps://Annuaire.Exemple.LAN"] })] });
+    expect(lu.invalides).toEqual([]);
+    expect((lu.providers[0] as { urls: string[] }).urls).toEqual(["ldaps://annuaire.exemple.lan"]);
+  });
+
+  it("`ldap://` reste refusé quelle que soit la casse, et une adresse qui ne diffère que par la casse est un doublon", () => {
+    for (const u of ["ldap://a.lan", "LDAP://a.lan", "Ldap://a.lan"])
+      expect(
+        refus(() => urls(u)),
+        u,
+      ).toMatch(/urls/u);
+    expect(
+      refus(() => validerFournisseur(ldapValide({ urls: ["LDAPS://A.lan", "ldaps://a.lan:636"] }))),
+    ).toMatch(/double/u);
+  });
+
+  it("même portée de secret et même empreinte de test pour une adresse qui ne diffère que par la casse", () => {
+    const a = validerFournisseur(ldapValide({ urls: ["LDAPS://Annuaire.Exemple.LAN"] }));
+    const b = validerFournisseur(ldapValide({ urls: ["ldaps://annuaire.exemple.lan"] }));
+    expect(porteeDuFournisseur(a)).toEqual(porteeDuFournisseur(b));
+    expect(empreinteFournisseur(a, "https://elpis.lan")).toBe(empreinteFournisseur(b, "https://elpis.lan"));
+  });
+
+  it("l'émetteur OIDC ne se normalise pas : il se compare exactement", () => {
+    const f = validerFournisseur(oidcValide({ issuer: "https://Idp.exemple.lan/Realm" }));
+    expect((f as { issuer: string }).issuer).toBe("https://Idp.exemple.lan/Realm");
   });
 });

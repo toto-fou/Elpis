@@ -12,7 +12,7 @@ const CONTROLE = /\p{Cc}/u;
 const REGEX_ATTRIBUT = /^[A-Za-z][A-Za-z0-9.;-]{0,63}$/u;
 const REGEX_REVENDICATION = /^[A-Za-z0-9_.:-]{1,64}$/u;
 const REGEX_JETON_SCOPE = /^[\x21\x23-\x5b\x5d-\x7e]+$/u;
-const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9._-]*)(?::(\d{1,5}))?$/u;
+const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9._-]*)(?::(\d{1,5}))?$/iu;
 const REGEX_PEM = /^\s*(?:-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/u;
 const BLOC_PEM = /-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----/gu;
 
@@ -202,7 +202,7 @@ function adresseLdaps(v: unknown): string {
   const port = m[2];
   if (port !== undefined && (Number(port) < 1 || Number(port) > 65_535 || port.startsWith("0")))
     return refus("urls", "port invalide");
-  return t;
+  return t.toLowerCase();
 }
 
 /** Hôte et port (636 par défaut) d'une adresse `ldaps://` validée, en minuscules. */

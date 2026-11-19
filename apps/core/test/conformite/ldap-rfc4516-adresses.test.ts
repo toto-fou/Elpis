@@ -76,9 +76,12 @@ describe("RFC 4516 §2 : adresses refusées", () => {
     expect(accepte(url)).toBe(false);
   });
 
-  it("RFC 3986 §3.1 (schéma insensible à la casse) : `LDAPS://` est refusé par choix (plus strict que la norme)", () => {
-    expect(accepte("LDAPS://ldap.exemple.lan")).toBe(false);
-    expect(accepte("Ldaps://ldap.exemple.lan")).toBe(false);
+  it("RFC 3986 §3.1 et §3.2.2 (schéma et hôte insensibles à la casse) : `LDAPS://Ldap.Exemple.LAN` est accepté et enregistré en minuscules, `LDAP://` reste refusé", () => {
+    const urls = (u: string): string[] =>
+      (validerFournisseur(ldapValide({ urls: [u] })) as { urls: string[] }).urls;
+    expect(urls("LDAPS://Ldap.Exemple.LAN:636")).toEqual(["ldaps://ldap.exemple.lan:636"]);
+    expect(urls("Ldaps://ldap.exemple.lan")).toEqual(["ldaps://ldap.exemple.lan"]);
+    expect(accepte("LDAP://ldap.exemple.lan")).toBe(false);
   });
 
   it("l'adaptateur refuse de lui-même une adresse hors forme, sans ouvrir de socket", async () => {

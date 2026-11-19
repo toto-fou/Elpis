@@ -242,6 +242,18 @@ def auth_eteinte(auth: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def refuse_https_off_with_providers() -> None:
+    """Refuse de couper HTTPS tant qu'un fournisseur d'identité est allumé dans config.json (les mots de passe d'annuaire circuleraient en clair)."""
+    auth = auth_section_of(read_config_strict(CONFIG) if CONFIG.exists() else None)
+    allumes = [str(p.get("id") or "?") for p in (auth or {}).get("providers") or []
+               if isinstance(p, dict) and p.get("enabled")]
+    if allumes:
+        warn("HTTPS ne peut pas être coupé tant qu'un fournisseur d'identité est allumé "
+             f"({', '.join(allumes)}) : éteignez-le d'abord dans la console, ou relancez avec --force "
+             "(qui éteint tous les fournisseurs).")
+        raise SystemExit(2)
+
+
 def write_config(cfg: Dict[str, Any], eteindre_auth: bool = False) -> None:
     """config.json écrit avec les sections security.audit et auth relues juste avant : un réglage fait depuis la console pendant configure reste (auth éteinte avec --force)."""
     lue = read_config_strict(CONFIG) if CONFIG.exists() else None
@@ -596,6 +608,8 @@ def step_access(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], env: Di
             mode = "off"
         elif not p.yes("Garder HTTPS malgré tout (Caddy installé plus tard) ?", False):
             mode = "off"
+    if mode == "off" and not a.force:
+        refuse_https_off_with_providers()
 
     # Écoute hors HTTPS (security.listen). Clé absente d'une config existante
     # = installation d'avant le réglage, qui écoutait sur le réseau : on garde.

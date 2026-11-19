@@ -12,12 +12,13 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
-import { testerFournisseur } from "../identite/essai";
+import { lancerTest } from "../identite/essai";
 import type { OptionsEssai } from "../identite/essai";
 import {
   couperSessionsDesFournisseurs,
   empreinteFournisseur,
   enregistrerSecret,
+  connexionSecurisee,
   etatFournisseur,
   champsFigesChanges,
   nombreIdentites,
@@ -52,6 +53,7 @@ export interface DependancesAdminIdentite {
 }
 
 const TESTS_MAX = 2;
+const CIBLES_AUDIT_MAX = 5;
 
 const REGEX_ID_AUDIT = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const SANS_CACHE = { "cache-control": "no-store" };
@@ -120,9 +122,10 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   /** Réglages, état de chaque fournisseur et prérequis, tels que la console les lit. */
   async function vue(x: Executeur): Promise<Record<string, unknown>> {
     const r = lireReglagesAuth();
+    const securise = connexionSecurisee(dep.auth.attributsCookie().https_only === true);
     const providers = [];
     for (const f of r.providers) {
-      const e = await etatFournisseur(x, f, r.public_url, dep.auth.attributsCookie().https_only === true);
+      const e = await etatFournisseur(x, f, r.public_url, securise);
       providers.push({
         ...f,
         has_secret: e.has_secret,
@@ -138,7 +141,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       invalid_providers: r.invalides,
       prerequisites: {
         public_url_https: r.public_url !== "",
-        cookie_secure: dep.auth.attributsCookie().https_only === true,
+        cookie_secure: securise,
         local_admins: await compterAdminsLocaux(x),
       },
       bounds: {
@@ -303,12 +306,12 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       const { f, i } = fournisseurDuFichier(providers, id);
       const publique = reglagesAuthDepuis(cfg["auth"]).public_url;
       if (publique === "") throw new HttpError(409, "L'adresse publique en https est requise.");
-      if (dep.auth.attributsCookie().https_only !== true)
+      if (!connexionSecurisee(dep.auth.attributsCookie().https_only === true))
         throw new HttpError(409, "La connexion sécurisée (https) doit être en vigueur sur ce serveur.");
       await exigerAdminLocal(x);
       if (f.required_groups.length === 0)
         throw new HttpError(409, "Au moins un groupe requis doit être renseigné.");
-      const e = await etatFournisseur(x, f, publique);
+      const e = await etatFournisseur(x, f, publique, true);
       if (!e.has_secret) throw new HttpError(409, "Le secret du fournisseur est absent.");
       if (!e.tested) throw new HttpError(409, "Un test réussi sur les réglages courants est requis.");
       providers[i] = { ...f, enabled: true };
@@ -338,7 +341,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   let testsEnCours = 0;
 
-  /** Test d'un fournisseur sous le plafond de deux à la fois pour l'instance : 429 au-delà ; toujours 200 avec le résultat. */
+  /** Test d'un fournisseur sous le plafond de deux à la fois pour l'instance : 429 au-delà, le créneau n'étant rendu qu'à la fin réelle du travail ; toujours 200 avec le résultat. */
   async function tester(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
     const corps = corpsJson(req);
     if (testsEnCours >= TESTS_MAX)
@@ -346,30 +349,41 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         "Retry-After": "5",
       });
     testsEnCours += 1;
+    let lance: ReturnType<typeof lancerTest>;
     try {
-      const r = await testerFournisseur(
+      lance = lancerTest(
         corps,
         {
           publicUrl: lireReglagesAuth().public_url,
-          cookieSecure: dep.auth.attributsCookie().https_only === true,
+          cookieSecure: connexionSecurisee(dep.auth.attributsCookie().https_only === true),
           adminsLocaux: await compterAdminsLocaux(base),
         },
         dep.essai,
       );
-      const brut = estDict(corps) ? corps : {};
-      const id = typeof brut["id"] === "string" && REGEX_ID_AUDIT.test(brut["id"]) ? brut["id"] : null;
-      const type = brut["type"] === "ldap" || brut["type"] === "oidc" ? brut["type"] : null;
-      auditer(req, "admin.auth.provider.test", {
-        provider_id: id,
-        type,
-        ok: r.ok,
-        failed_step: r.steps.find((e) => e.level === "fail")?.id ?? null,
-      });
-      void rep.headers(SANS_CACHE);
-      return r;
-    } finally {
+    } catch (e) {
       testsEnCours -= 1;
+      throw e;
     }
+    void lance.termine.finally(() => {
+      testsEnCours -= 1;
+    });
+    const r = await lance.resultat;
+    const brut = estDict(corps) ? corps : {};
+    const id = typeof brut["id"] === "string" && REGEX_ID_AUDIT.test(brut["id"]) ? brut["id"] : null;
+    const type = brut["type"] === "ldap" || brut["type"] === "oidc" ? brut["type"] : null;
+    const targets = [...new Set(r.steps.flatMap((e) => (e.target === null ? [] : [e.target])))].slice(
+      0,
+      CIBLES_AUDIT_MAX,
+    );
+    auditer(req, "admin.auth.provider.test", {
+      provider_id: id,
+      type,
+      ok: r.ok,
+      failed_step: r.steps.find((e) => e.level === "fail")?.id ?? null,
+      targets,
+    });
+    void rep.headers(SANS_CACHE);
+    return r;
   }
 
   return {

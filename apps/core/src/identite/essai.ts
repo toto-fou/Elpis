@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/essai.ts — bouton « Tester » d'un fournisseur : réglages, prérequis, résolution, adresse, TLS, découverte et horloge OIDC, rendus en étapes à liste blanche. */
-import { estDict, HttpError } from "@elpis/commun";
+import { networkInterfaces } from "node:os";
+
+import { adresseIpOuNul, estDict, HttpError } from "@elpis/commun";
 import type { JugeHote, VerdictHote } from "@elpis/http";
 
 import { defautsFournisseur, fusionner, hotePortHttps, hotePortLdaps, validerFournisseur } from "./reglages";
@@ -39,10 +41,22 @@ export interface OptionsEssai {
   readonly sortant?: OptionsSortant;
   readonly maintenant?: () => number;
   readonly delaiGlobalMs?: number;
+  /** Adresses de cette machine ; celles de ses interfaces non bouclées par défaut. */
+  readonly adressesLocales?: () => readonly string[];
+}
+
+export interface TestLance {
+  /** Résultat rendu au plus tard à l'échéance globale. */
+  readonly resultat: Promise<ResultatEssai>;
+  /** Fin réelle du travail (résolutions et connexions comprises), jamais rejetée. */
+  readonly termine: Promise<void>;
 }
 
 const PHRASES: Readonly<Record<CodeSortant, string>> = {
   ca_illisible: "L'autorité de certification collée est illisible : collez-la à nouveau au format PEM.",
+  magasin_illisible:
+    "Les autorités de certification de ce serveur sont illisibles : collez celle de votre organisation ou demandez à votre administrateur.",
+  pas_tls: "Ce port ne parle pas TLS : vérifiez le port.",
   adresse_refusee: "Adresse refusée.",
   resolution: "Le nom de l'hôte ne se résout pas.",
   refusee: "Connexion refusée par la machine distante.",
@@ -75,18 +89,32 @@ function etape(
   return { id, label, level, detail: borner(detail), target };
 }
 
-/** Juge appelé une fois par `hôte:port` : ce que l'étape « adresse » affiche est ce que les connexions utilisent. */
-function jugeUnique(base: JugeHote): JugeHote {
+/** Juge appelé une fois par `hôte:port` (ce que l'étape « adresse » affiche est ce que les connexions utilisent), qui ne démarre ni ne rend rien une fois l'échéance levée. */
+function jugeUnique(base: JugeHote, signal: AbortSignal): JugeHote {
   const vus = new Map<string, Promise<VerdictHote>>();
-  return (hote, port) => {
+  return async (hote, port) => {
+    signal.throwIfAborted();
     const cle = `${hote}:${port}`;
     let v = vus.get(cle);
     if (v === undefined) {
       v = base(hote, port);
       vus.set(cle, v);
     }
-    return v;
+    const verdict = await v;
+    signal.throwIfAborted();
+    return verdict;
   };
+}
+
+function cleIp(texte: string): string | null {
+  const a = adresseIpOuNul(texte);
+  return a === null ? null : `${a.version}:${a.valeur}`;
+}
+
+function adressesDeLaMachine(): string[] {
+  return Object.values(networkInterfaces()).flatMap((l) =>
+    (l ?? []).filter((i) => !i.internal).map((i) => i.address),
+  );
 }
 
 function coupe(hotePort: string): { hote: string; port: number } {
@@ -111,9 +139,10 @@ async function etapesAdresse(
   juge: JugeHote,
   sortant: OptionsSortant,
   maintenant: () => number,
+  locales: ReadonlySet<string>,
 ): Promise<void> {
   const { hote, port } = coupe(cible);
-  const litterale = hote.includes(":") || /^[\d.]+$/u.test(hote);
+  const litterale = adresseIpOuNul(hote) !== null;
   let v: VerdictHote;
   try {
     v = await juge(hote, port);
@@ -139,7 +168,16 @@ async function etapesAdresse(
     return;
   }
   const liste = v.adresses.slice(0, ADRESSES_MAX).join(", ");
-  etapes.push(etape("address", "Adresse", "ok", `Adresse autorisée : ${liste}.`, cible));
+  const machine = v.adresses.some((a) => locales.has(cleIp(a) ?? ""));
+  etapes.push(
+    etape(
+      "address",
+      "Adresse",
+      machine ? "warn" : "ok",
+      `Adresse autorisée : ${liste}.${machine ? " Cette adresse est celle de cette machine." : ""}`,
+      cible,
+    ),
+  );
   try {
     const { socket, certificat: c } = await connexionTls(hote, port, { ...sortant, juger: juge });
     socket.destroy();
@@ -255,6 +293,7 @@ async function corps(
   reglages: unknown,
   contexte: ContexteEssai,
   o: OptionsEssai,
+  signal: AbortSignal,
 ): Promise<void> {
   const maintenant = o.maintenant ?? Date.now;
   let f: Fournisseur;
@@ -269,48 +308,61 @@ async function corps(
     return;
   }
   etapes.push(prerequis(contexte));
-  const sortant: OptionsSortant = { ...o.sortant, caPem: f.ca_pem };
-  const juge = jugeUnique(o.sortant?.juger ?? jugeSortant(o.sortant?.resoudre));
+  const sortant: OptionsSortant = { ...o.sortant, caPem: f.ca_pem, signal };
+  const juge = jugeUnique(o.sortant?.juger ?? jugeSortant(o.sortant?.resoudre), signal);
+  const locales = new Set((o.adressesLocales ?? adressesDeLaMachine)().map((a) => cleIp(a) ?? ""));
   if (f.type === "ldap")
-    for (const u of f.urls) await etapesAdresse(etapes, hotePortLdaps(u), juge, sortant, maintenant);
+    for (const u of f.urls) {
+      if (signal.aborted) return;
+      await etapesAdresse(etapes, hotePortLdaps(u), juge, sortant, maintenant, locales);
+    }
   else {
     const n = etapes.length;
-    await etapesAdresse(etapes, hotePortHttps(f.issuer), juge, sortant, maintenant);
-    if (etapes.slice(n).every((e) => e.level !== "fail"))
+    await etapesAdresse(etapes, hotePortHttps(f.issuer), juge, sortant, maintenant, locales);
+    if (!signal.aborted && etapes.slice(n).every((e) => e.level !== "fail"))
       await etapesDecouverte(etapes, f, juge, sortant, maintenant);
   }
 }
 
-/** Teste les réglages d'un fournisseur sans jamais lever ; `complete` reste faux (liaison LDAP et clés OIDC viennent plus tard) : aucun test réussi n'est enregistré. */
-export async function testerFournisseur(
+/** Lance le test d'un fournisseur sans jamais lever : `resultat` part au plus tard à l'échéance globale, qui arrête aussi le travail (plus aucune résolution ni connexion ne démarre) ; `termine` n'est tenu qu'à la fin réelle du travail. `complete` reste faux (liaison LDAP et clés OIDC viennent plus tard) : aucun test réussi n'est enregistré. */
+export function lancerTest(
   reglages: unknown,
   contexte: ContexteEssai,
   options: OptionsEssai = {},
-): Promise<ResultatEssai> {
+): TestLance {
   const etapes: EtapeEssai[] = [];
   const global = options.delaiGlobalMs ?? DELAI_GLOBAL_MS;
+  const arret = new AbortController();
   let minuteur: NodeJS.Timeout | undefined;
   const limite = new Promise<"delai">((r) => {
-    minuteur = setTimeout(() => r("delai"), global);
+    minuteur = setTimeout(() => {
+      arret.abort();
+      r("delai");
+    }, global);
   });
-  try {
-    const fin = await Promise.race([
-      corps(etapes, reglages, contexte, options).then(() => "fini" as const),
-      limite,
-    ]);
+  const travail = corps(etapes, reglages, contexte, options, arret.signal).then(
+    () => "fini" as const,
+    () => "erreur" as const,
+  );
+  const resultat = Promise.race([travail, limite]).then((fin) => {
     const steps = [...etapes];
     if (fin === "delai")
       steps.push(
         etape("timeout", "Délai global", "fail", `Le test a dépassé ${Math.round(global / 1000)} secondes.`),
       );
+    if (fin === "erreur")
+      steps.push(etape("internal", "Test", "fail", "Le test a échoué : demandez à votre administrateur."));
     return { ok: steps.every((e) => e.level !== "fail"), complete: false, steps };
-  } catch {
-    const steps = [
-      ...etapes,
-      etape("internal", "Test", "fail", "Le test a échoué : demandez à votre administrateur."),
-    ];
-    return { ok: false, complete: false, steps };
-  } finally {
-    clearTimeout(minuteur);
-  }
+  });
+  const termine = travail.then(() => clearTimeout(minuteur));
+  return { resultat, termine };
+}
+
+/** Teste les réglages d'un fournisseur et rend le résultat (voir `lancerTest`). */
+export async function testerFournisseur(
+  reglages: unknown,
+  contexte: ContexteEssai,
+  options: OptionsEssai = {},
+): Promise<ResultatEssai> {
+  return lancerTest(reglages, contexte, options).resultat;
 }

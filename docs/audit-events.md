@@ -393,7 +393,7 @@ Written by the console process for Administration › Users & access › Enterpr
 | `admin.auth.provider.enable`  | success | Provider switched on (public address, secure cookie, local admin, groups, secret, test hold). | `provider_id`                                     |
 | `admin.auth.provider.disable` | success | Provider switched off; the sessions of its accounts are cut.                                  | `provider_id`, `sessions_cut` (accounts)          |
 | `admin.auth.provider.secret`  | success | Service password or client secret stored or removed.                                          | `provider_id`, `action` (`set`, `delete`)         |
-| `admin.auth.provider.test`    | success | Provider settings tested; nothing is stored. At most two tests at a time. `ok` is false when a step failed. | `provider_id` (`null` if absent), `type` (`ldap`, `oidc`, `null`), `ok`, `failed_step` (first failed step, `null`) |
+| `admin.auth.provider.test`    | success | Provider settings tested; nothing is stored. At most two tests at a time. `ok` is false when a step failed. | `provider_id` (`null` if absent), `type` (`ldap`, `oidc`, `null`), `ok`, `failed_step` (first failed step, `null`), `targets` (the `host:port` pairs reached, 5 at most) |
 
 ### Security journal (admin)
 
@@ -488,7 +488,7 @@ audit setup` creates it.
 | `cli.db.use`       | `backend`, `os_user`                                                                                                          |
 | `cli.audit.verify` | `from`, `to` (days or `null`), `intact`, `os_user`                                                                            |
 | `auth.cli.off`     | `providers_disabled` (ids), `local_mode_before`, `sessions_cut` (accounts, `null` if the database was unreachable), `os_user` |
-| `auth.cli.reactivate` | `user_id`, `username`, `os_user` |
+| `auth.cli.reactivate` | success: `user_id`, `username`, `previous_suspended_by`, `previous_suspended_at`, `os_user`; failure: `username`, `reason` (`unknown_account`, `not_suspended`), `user_id` (when the account exists), `os_user` |
 
 ## Never logged
 

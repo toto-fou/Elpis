@@ -41,7 +41,7 @@ export async function ouvrirBanc(moteur: "sqlite" | "postgres"): Promise<Banc> {
   const t = ouvrirBaseDeTest(moteur);
   await initialiserBase(t.base);
   cleCoffreDeTest();
-  const cfg = configDeTest();
+  const cfg = configDeTest({ https: true });
   const dossier = mkdtempSync(join(tmpdir(), "elpis-banc-auth-"));
   configureAudit({
     service: "admin",

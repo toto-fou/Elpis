@@ -66,3 +66,29 @@ def test_ecritures_suivantes_gardent_ce_que_la_console_a_fait(conf, tmp_path):
     (tmp_path / "config.json").write_text(json.dumps(rallume), encoding="utf-8")
     conf.write_config({})
     assert ecrit(tmp_path)["auth"]["providers"][1]["enabled"] is True
+
+
+def etape_acces(conf, tmp_path, monkeypatch, https, force=False):
+    monkeypatch.setattr(conf, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.setattr(conf, "port_in_use", lambda _p: False)
+    for cle in ("ELPIS_CFG_HTTPS", "ELPIS_HTTPS_MODE"):
+        monkeypatch.delenv(cle, raising=False)
+    a = conf.argparse.Namespace(https=https, force=force, listen=None, public_host="", domain=None, acme_email=None)
+    return conf.step_access(conf.Prompter(False), a, {}, {})
+
+
+def test_couper_https_refuse_tant_qu_un_fournisseur_est_allume(conf, tmp_path, monkeypatch):
+    (tmp_path / "config.json").write_text(json.dumps({"auth": AUTH}), encoding="utf-8")
+    with pytest.raises(SystemExit) as sortie:
+        etape_acces(conf, tmp_path, monkeypatch, "off")
+    assert sortie.value.code not in (0, None)
+    assert not (tmp_path / ".env").exists()
+
+
+def test_couper_https_permis_sans_fournisseur_allume_ou_avec_force(conf, tmp_path, monkeypatch):
+    eteinte = json.loads(json.dumps(AUTH))
+    eteinte["providers"][0]["enabled"] = False
+    (tmp_path / "config.json").write_text(json.dumps({"auth": eteinte}), encoding="utf-8")
+    assert etape_acces(conf, tmp_path, monkeypatch, "off")["mode"] == "off"
+    (tmp_path / "config.json").write_text(json.dumps({"auth": AUTH}), encoding="utf-8")
+    assert etape_acces(conf, tmp_path, monkeypatch, "off", force=True)["mode"] == "off"

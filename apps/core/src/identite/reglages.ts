@@ -2,7 +2,7 @@
 /** apps/core/src/identite/reglages.ts — réglages `config.json › auth` : types, lecteur tolérant lu à chaud et validateur strict des écritures. */
 import { createHash, X509Certificate } from "node:crypto";
 
-import { estDict, FlottantPy, HttpError } from "@elpis/commun";
+import { adresseIpOuNul, estDict, FlottantPy, HttpError } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 
 export const FOURNISSEURS_MAX = 5;
@@ -167,6 +167,7 @@ function adresseIssuer(v: unknown): string {
   const u = new URL(t);
   if (u.protocol !== "https:" || !u.hostname || u.username || u.password)
     return refus("issuer", "adresse https sans identifiants, requête ni fragment");
+  if (u.port === "0") return refus("issuer", "port invalide");
   return t;
 }
 
@@ -174,6 +175,9 @@ function adresseLdaps(v: unknown): string {
   const t = texte(v, "urls", 1, 300);
   const m = REGEX_URL_LDAPS.exec(t);
   if (m === null) return refus("urls", "adresses ldaps://hôte[:port] seulement");
+  const crochets = /^\[(.*)\]$/u.exec(m[1] ?? "")?.[1];
+  if (crochets !== undefined && (!crochets.includes(":") || adresseIpOuNul(crochets) === null))
+    return refus("urls", "adresse IPv6 invalide");
   const port = m[2];
   if (port !== undefined && (Number(port) < 1 || Number(port) > 65_535 || port.startsWith("0")))
     return refus("urls", "port invalide");

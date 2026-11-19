@@ -43,8 +43,8 @@ export interface ConfigDeTest {
   fermer(): void;
 }
 
-/** config.json jetable comme fichier de la configuration. */
-export function configDeTest(): ConfigDeTest {
+/** config.json jetable comme fichier de la configuration ; `https` : toute écriture d'une section `auth` met aussi HTTPS en service (sauf si `security` est donné). */
+export function configDeTest(o: { https?: boolean } = {}): ConfigDeTest {
   const dossier = mkdtempSync(join(tmpdir(), "elpis-auth-config-"));
   const chemin = join(dossier, "config.json");
   const restaurer = surchargerConfig({ CONFIG_JSON_PATH: chemin });
@@ -53,7 +53,13 @@ export function configDeTest(): ConfigDeTest {
     chemin,
     ecrire(contenu) {
       if (contenu === null) rmSync(chemin, { force: true });
-      else writeFileSync(chemin, JSON.stringify(contenu));
+      else {
+        const https = o.https === true && "auth" in contenu && !("security" in contenu);
+        writeFileSync(
+          chemin,
+          JSON.stringify(https ? { ...contenu, security: { https: { enabled: true } } } : contenu),
+        );
+      }
       invalidateConfigCache();
     },
     fermer() {

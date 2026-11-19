@@ -49,7 +49,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
     t = ouvrirBaseDeTest("sqlite");
     await initialiserBase(t.base);
     cleCoffreDeTest();
-    cfg = configDeTest();
+    cfg = configDeTest({ https: true });
     dossier = mkdtempSync(join(tmpdir(), "elpis-securite-auth-"));
     configureAudit({
       service: "admin",

@@ -25,7 +25,8 @@ export class ConnexionRefusee extends Error {
   }
 }
 
-function recherche(adresses: readonly string[]): LookupFunction {
+/** `lookup` de Node qui ne rend que ces adresses, sans résolution. */
+export function rechercheEpinglee(adresses: readonly string[]): LookupFunction {
   const liste = adresses.map((a) => ({ address: a, family: a.includes(":") ? 6 : 4 }));
   return (hote, options, rappel) => {
     const premiere = liste[0];
@@ -49,7 +50,7 @@ export function connecteurEpingle(
         if (v.motif !== null) rappel(new ConnexionRefusee(v.motif), null);
         else if (v.adresses.length === 0)
           rappel(new ConnexionRefusee(`aucune adresse validée (${hote})`), null);
-        else buildConnector({ ...connexion, lookup: recherche(v.adresses) })(opts, rappel);
+        else buildConnector({ ...connexion, lookup: rechercheEpinglee(v.adresses) })(opts, rappel);
       },
       (e: unknown) => rappel(e instanceof Error ? e : new Error(String(e)), null),
     );

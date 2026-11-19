@@ -16,6 +16,7 @@ export {
   ConnexionRefusee,
   fetchPar,
   MESSAGE_REFUS,
+  rechercheEpinglee,
 } from "./epinglage";
 export type { JugeHote, VerdictHote } from "./epinglage";
 export { ouvrirFlux } from "./flux";

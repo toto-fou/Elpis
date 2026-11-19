@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/identite/fournisseurs.test.ts — fournisseurs actifs : chaque invariant de lecture tient quoi que le fichier contienne, secret absent ou hors portée = null, empreinte du dernier test réussi, coupure des sessions (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { readFileSync } from "node:fs";
+
 import { createUser } from "@elpis/auth";
+import { sessionCookieAttrs } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
@@ -12,6 +14,7 @@ import {
   empreinteFournisseur,
   enregistrerSecret,
   enregistrerTestReussi,
+  etatFournisseur,
   fournisseurParId,
   fournisseursActifs,
   hotesDuFournisseur,
@@ -40,7 +43,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     await initialiserBase(t.base);
     await createUser(t.base, "chef-local", "mdp-chef-1", { isAdmin: 1 });
     cleCoffreDeTest();
-    cfg = configDeTest();
+    cfg = configDeTest({ https: true });
     lignes = [];
     installerCrochetJournal((_n, m) => lignes.push(m));
   });
@@ -80,13 +83,26 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     expect(await actifs(true)).toEqual([id]);
   });
 
-  it("par défaut, l'attribut est lu dans la configuration en vigueur", async () => {
+  it("la condition du cookie n'a aucune valeur par défaut : un appelant qui ne la passe pas ne compile pas", async () => {
+    const id = await pret();
+    const f = fournisseurParId(id);
+    // @ts-expect-error la valeur figée du processus appelant est obligatoire
+    const sans = fournisseursActifs(t.base);
+    // @ts-expect-error idem pour l'état d'un fournisseur
+    const etat = f === undefined ? null : etatFournisseur(t.base, f, URL_PUBLIQUE);
+    await Promise.allSettled([sans, etat]);
+    expect(f).toBeDefined();
+  });
+
+  it("HTTPS doit être en service : `same_site: none` force le cookie `Secure` sans suffire à rendre un fournisseur actif", async () => {
     const id = await pret();
     const brut = JSON.parse(readFileSync(cfg.chemin, "utf8")) as Record<string, unknown>;
-    cfg.ecrire({ ...brut, security: { session: { https_only: false } } });
-    expect((await fournisseursActifs(t.base)).map((f) => f.id)).toEqual([]);
-    cfg.ecrire({ ...brut, security: { session: { https_only: true } } });
-    expect((await fournisseursActifs(t.base)).map((f) => f.id)).toEqual([id]);
+    const lu = (): boolean => sessionCookieAttrs().https_only;
+    cfg.ecrire({ ...brut, security: { https: { enabled: false }, session: { same_site: "none" } } });
+    expect(lu()).toBe(true);
+    expect((await fournisseursActifs(t.base, lu)).map((f) => f.id)).toEqual([]);
+    cfg.ecrire({ ...brut, security: { https: { enabled: true }, session: { same_site: "none" } } });
+    expect((await fournisseursActifs(t.base, lu)).map((f) => f.id)).toEqual([id]);
   });
 
   it("section absente ou corrompue : aucun fournisseur actif", async () => {

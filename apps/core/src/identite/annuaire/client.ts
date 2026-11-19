@@ -62,7 +62,9 @@ export function traduireErreur(e: unknown): ErreurAnnuaire {
     return new ErreurAnnuaire(e.code === 49 ? "identifiants" : "protocole", { code: e.code });
   if (e instanceof ErreurSortant)
     return new ErreurAnnuaire(
-      e.code === "ca_illisible" || e.code === "schema" ? "configuration" : "injoignable",
+      e.code === "ca_illisible" || e.code === "magasin_illisible" || e.code === "schema"
+        ? "configuration"
+        : "injoignable",
       { sortant: e.code },
     );
   if (e instanceof MessageParserError) return new ErreurAnnuaire("protocole");

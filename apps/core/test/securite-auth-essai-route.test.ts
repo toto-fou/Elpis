@@ -11,6 +11,7 @@ import { HttpError } from "@elpis/commun";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
+import type { JugeHote } from "@elpis/http";
 import { configureAudit, oublierConfigurationAudit } from "@elpis/securite";
 import type { FastifyInstance, FastifyRequest, LightMyRequestResponse } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -32,13 +33,17 @@ describe("test d'un fournisseur : route (SQLite)", () => {
   let muet: ServeurTcp;
   let portMuet = 0;
   let cookieSecure = true;
+  let jugeCourant: JugeHote = async () => ({ motif: null, adresses: ["127.0.0.1"] });
+  const essai: { sortant: { juger: JugeHote; delaiConnexionMs: number }; delaiGlobalMs?: number } = {
+    sortant: { juger: (h, p) => jugeCourant(h, p), delaiConnexionMs: 700 },
+  };
   const sockets: { destroy: () => void }[] = [];
 
   beforeAll(async () => {
     t = ouvrirBaseDeTest("sqlite");
     await initialiserBase(t.base);
     cleCoffreDeTest();
-    cfg = configDeTest();
+    cfg = configDeTest({ https: true });
     cfg.ecrire({ auth: { public_url: "https://elpis.exemple.lan", providers: [] } });
     dossier = mkdtempSync(join(tmpdir(), "elpis-essai-route-"));
     configureAudit({
@@ -75,12 +80,7 @@ describe("test d'un fournisseur : route (SQLite)", () => {
           auth,
           journal: journalMuet,
           revoquer: async () => undefined,
-          essai: {
-            sortant: {
-              juger: async () => ({ motif: null, adresses: ["127.0.0.1"] }),
-              delaiConnexionMs: 700,
-            },
-          },
+          essai,
         }),
       ],
       gardes: {
@@ -136,6 +136,7 @@ describe("test d'un fournisseur : route (SQLite)", () => {
       type: "ldap",
       ok: false,
       failed_step: "tls",
+      targets: [`serveur-muet.invalid:${portMuet}`],
     });
     expect(await t.base.valeurs("SELECT * FROM auth_provider_state")).toEqual([]);
   });
@@ -175,5 +176,33 @@ describe("test d'un fournisseur : route (SQLite)", () => {
     expect((await a).statusCode).toBe(200);
     expect((await b).statusCode).toBe(200);
     expect((await tester(chef, lent())).statusCode).toBe(200);
+  });
+
+  it("le plafond tient tant que le travail continue : réponse rendue à l'échéance, créneau rendu à la fin réelle", async () => {
+    jugeCourant = async () => {
+      await new Promise((r) => setTimeout(r, 700));
+      return { motif: null, adresses: ["127.0.0.1"] };
+    };
+    essai.delaiGlobalMs = 100;
+    try {
+      const [a, b] = await Promise.all([tester(chef, lent()), tester(chef, lent())]);
+      for (const r of [a, b]) {
+        expect(r.statusCode).toBe(200);
+        expect(r.json<{ steps: { id: string }[] }>().steps.at(-1)?.id).toBe("timeout");
+      }
+      expect((await tester(chef, lent())).statusCode, "réponses parties, travail en cours").toBe(429);
+      await new Promise((r) => setTimeout(r, 800));
+      jugeCourant = async () => ({ motif: null, adresses: ["127.0.0.1"] });
+      essai.delaiGlobalMs = undefined;
+      expect((await tester(chef, lent())).statusCode, "travail fini").toBe(200);
+    } finally {
+      essai.delaiGlobalMs = undefined;
+    }
+  });
+
+  it("les cibles visées sont dans l'audit : un balayage se reconstitue", async () => {
+    await tester(chef, ldapValide({ urls: ["ldaps://a.invalid:1", "ldaps://b.invalid:2"] }));
+    const ev = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.test" })[0];
+    expect((ev?.["details"] as { targets: string[] }).targets).toEqual(["a.invalid:1", "b.invalid:2"]);
   });
 });

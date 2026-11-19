@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/sortant.ts — client sortant des fournisseurs d'identité (https et ldaps) : adresses jugées puis épinglées, ancres de confiance, TLS 1.2 au moins, ni redirection ni proxy, tailles et délais bornés. */
+import { lookup } from "node:dns/promises";
+import { connect as tlsConnect } from "node:tls";
 import type { TLSSocket } from "node:tls";
 
 import { adresseIpOuNul } from "@elpis/commun";
@@ -8,13 +10,16 @@ import {
   autoritesTls,
   certificatsPem,
   CODE_REFUS,
-  connecteurEpingle,
   fetchPar,
+  rechercheEpinglee,
 } from "@elpis/http";
 import type { JugeHote } from "@elpis/http";
 import type { Resolveur } from "@elpis/securite";
 
 import { gardeGit } from "../git/garde";
+
+const RESOLUTIONS_SIMULTANEES = 2;
+const DELAI_RESOLUTION_MS = 5_000;
 
 export const DELAI_CONNEXION_MS = 5_000;
 export const DELAI_TOTAL_MS = 10_000;
@@ -22,6 +27,8 @@ export const TAILLE_MAX = 1024 * 1024;
 
 export type CodeSortant =
   | "ca_illisible"
+  | "magasin_illisible"
+  | "pas_tls"
   | "adresse_refusee"
   | "resolution"
   | "refusee"
@@ -59,17 +66,78 @@ export interface OptionsSortant {
   readonly delaiConnexionMs?: number;
   readonly delaiTotalMs?: number;
   readonly tailleMax?: number;
+  /** Échéance du travail en cours : plus aucune résolution ni connexion ne démarre une fois levée. */
+  readonly signal?: AbortSignal;
 }
 
-/** Juge de production : adresses jugées par `gardeGit` (réseau local permis ; boucle, lien local, non spécifiée et multidiffusion refusés), une seule résolution, adresses validées rendues. */
-export function jugeSortant(resoudre?: Resolveur): JugeHote {
+export interface OptionsResolution {
+  readonly chercher?: (hote: string) => Promise<string[]>;
+  readonly delaiMs?: number;
+  readonly simultanes?: number;
+}
+
+async function chercherSysteme(hote: string): Promise<string[]> {
+  return (await lookup(hote, { all: true, order: "verbatim" })).map((r) => r.address);
+}
+
+/** Résolveur à délai fixe et au plus N recherches du système en vol (le fil occupé n'est rendu que quand la recherche finit réellement) : le groupe de fils commun ne se sature pas. */
+export function creerResolutionBornee(o: OptionsResolution = {}): Resolveur {
+  const chercher = o.chercher ?? chercherSysteme;
+  const delai = o.delaiMs ?? DELAI_RESOLUTION_MS;
+  const maximum = o.simultanes ?? RESOLUTIONS_SIMULTANEES;
+  let enCours = 0;
+  const attente: (() => void)[] = [];
+  const echec = (): Error => Object.assign(new Error("resolution"), { code: "EAI_AGAIN" });
+  const prendre = (): Promise<void> => {
+    if (enCours < maximum) {
+      enCours += 1;
+      return Promise.resolve();
+    }
+    return new Promise<void>((ok, ko) => {
+      const reveil = (): void => {
+        clearTimeout(minuteur);
+        ok();
+      };
+      const minuteur = setTimeout(() => {
+        attente.splice(attente.indexOf(reveil), 1);
+        ko(echec());
+      }, delai);
+      attente.push(reveil);
+    });
+  };
+  const rendre = (): void => {
+    const suivant = attente.shift();
+    if (suivant === undefined) enCours -= 1;
+    else suivant();
+  };
+  return async (hote) => {
+    await prendre();
+    const travail = Promise.resolve()
+      .then(() => chercher(hote))
+      .finally(rendre);
+    let minuteur: NodeJS.Timeout | undefined;
+    const limite = new Promise<never>((_, ko) => {
+      minuteur = setTimeout(() => ko(echec()), delai);
+    });
+    try {
+      return await Promise.race([travail, limite]);
+    } finally {
+      clearTimeout(minuteur);
+    }
+  };
+}
+
+const resolutionSortant = creerResolutionBornee();
+
+/** Juge de production : adresses jugées par `gardeGit` (réseau local permis ; boucle, lien local, non spécifiée et multidiffusion refusés), une seule résolution bornée en temps, adresses validées rendues. */
+export function jugeSortant(resoudre: Resolveur = resolutionSortant): JugeHote {
   return async (hote, port) => {
     const url = `https://${hote.includes(":") ? `[${hote}]` : hote}:${port}/`;
     const v = await gardeGit(url, {
       allowSchemes: ["https"],
       allowHosts: [],
       criticalOnly: true,
-      ...(resoudre === undefined ? {} : { resoudre }),
+      resoudre,
     });
     if (v.motif !== null) return { motif: v.motif, adresses: [] };
     return { motif: null, adresses: v.adresses ?? (adresseIpOuNul(hote) !== null ? [hote] : []) };
@@ -99,6 +167,15 @@ const CODES_TLS: Readonly<Record<string, CodeSortant>> = {
   UND_ERR_CONNECT_TIMEOUT: "delai",
   UND_ERR_HEADERS_TIMEOUT: "delai",
   UND_ERR_BODY_TIMEOUT: "delai",
+  ERR_SSL_WRONG_VERSION_NUMBER: "pas_tls",
+  ERR_SSL_HTTP_REQUEST: "pas_tls",
+  ERR_SSL_HTTPS_PROXY_REQUEST: "pas_tls",
+  ERR_SSL_UNKNOWN_PROTOCOL: "pas_tls",
+  ERR_SSL_PACKET_LENGTH_TOO_LONG: "pas_tls",
+  ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION: "version_tls",
+  ERR_SSL_UNSUPPORTED_PROTOCOL: "version_tls",
+  ERR_SSL_NO_PROTOCOLS_AVAILABLE: "version_tls",
+  ERR_SSL_TLSV1_ALERT_INSUFFICIENT_SECURITY: "version_tls",
   [CODE_REFUS]: "adresse_refusee",
 };
 
@@ -110,7 +187,6 @@ export function classerErreur(e: unknown): CodeSortant {
     if (typeof code === "string") {
       const connu = CODES_TLS[code];
       if (connu !== undefined) return connu;
-      if (/^ERR_SSL_.*(VERSION|PROTOCOL)/u.test(code)) return "version_tls";
       if (/^ERR_(SSL|TLS)_/u.test(code)) return "tls";
     }
     if (x.name === "TimeoutError" || x.name === "AbortError") return "delai";
@@ -120,10 +196,11 @@ export function classerErreur(e: unknown): CodeSortant {
 
 function ancres(o: OptionsSortant): readonly string[] {
   const collees = o.caPem ?? "";
+  const colle = collees.trim() !== "";
   try {
-    return collees.trim() !== "" ? certificatsPem(collees) : (o.magasin ?? autoritesTls());
+    return colle ? certificatsPem(collees) : (o.magasin ?? autoritesTls());
   } catch {
-    throw new ErreurSortant("ca_illisible");
+    throw new ErreurSortant(colle ? "ca_illisible" : "magasin_illisible");
   }
 }
 
@@ -191,11 +268,15 @@ const SANS_CORPS = new Set([101, 204, 205, 304]);
 export function clientHttps(o: OptionsSortant = {}): ClientHttps {
   const total = borne(o.delaiTotalMs, DELAI_TOTAL_MS);
   const max = borne(o.tailleMax, TAILLE_MAX);
-  const agent = agentEpingle(o.juger ?? jugeSortant(o.resoudre), optionsTls(o), {
-    allowH2: false,
-    headersTimeout: total,
-    bodyTimeout: total,
-  });
+  const agent = agentEpingle(
+    o.juger ?? jugeSortant(o.resoudre),
+    { ...optionsTls(o), allowH2: false },
+    {
+      allowH2: false,
+      headersTimeout: total,
+      bodyTimeout: total,
+    },
+  );
   const pareFeu = fetchPar(agent);
   const f: typeof globalThis.fetch = async (entree, init) => {
     try {
@@ -203,7 +284,11 @@ export function clientHttps(o: OptionsSortant = {}): ClientHttps {
       const u = new URL(urlDe(entree));
       if (u.protocol !== "https:" || u.username !== "" || u.password !== "")
         throw new ErreurSortant("schema");
-      const signal = AbortSignal.any([AbortSignal.timeout(total), ...(init?.signal ? [init.signal] : [])]);
+      const signal = AbortSignal.any([
+        AbortSignal.timeout(total),
+        ...(o.signal ? [o.signal] : []),
+        ...(init?.signal ? [init.signal] : []),
+      ]);
       const rep = await pareFeu(entree, { ...init, redirect: "manual", signal });
       if ((rep.status >= 300 && rep.status < 400) || rep.type === "opaqueredirect") {
         await rep.body?.cancel().catch(() => undefined);
@@ -232,54 +317,80 @@ export interface CertificatPresente {
   readonly adresse: string;
 }
 
-const CONTROLE = /\p{Cc}/gu;
+const CONTROLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 
-function nomCourt(champ: unknown): string {
+/** Nom d'un champ de certificat présenté, sans caractère de contrôle, de mise en forme ni séparateur de ligne, borné à 120 caractères. */
+export function nomCourt(champ: unknown): string {
   const o = (champ ?? {}) as Record<string, unknown>;
   const v = o["CN"] ?? o["O"];
   const texte = Array.isArray(v) ? String(v[0] ?? "") : typeof v === "string" ? v : "";
   return texte.replace(CONTROLE, "?").slice(0, 120);
 }
 
-/** Connexion TLS brute (ldaps) : même juge, mêmes adresses épinglées, même vérification ; rend la socket (seulement si `authorized`) et ce que le certificat présenté permet de décrire. */
+function ouvrirTls(
+  hote: string,
+  port: number,
+  juger: JugeHote,
+  options: ReturnType<typeof optionsTls>,
+  signal: AbortSignal | undefined,
+): Promise<TLSSocket> {
+  const litterale = adresseIpOuNul(hote) !== null;
+  return new Promise<TLSSocket>((resoudre, rejeter) => {
+    let termine = false;
+    let socket: TLSSocket | undefined;
+    const echouer = (code: CodeSortant): void => {
+      if (termine) return;
+      termine = true;
+      clearTimeout(minuteur);
+      signal?.removeEventListener("abort", surEcheance);
+      socket?.destroy();
+      rejeter(new ErreurSortant(code));
+    };
+    const surEcheance = (): void => echouer("delai");
+    const minuteur = setTimeout(surEcheance, options.timeout);
+    signal?.addEventListener("abort", surEcheance, { once: true });
+    if (signal?.aborted) {
+      surEcheance();
+      return;
+    }
+    juger(hote, port).then(
+      (v) => {
+        if (termine) return;
+        if (signal?.aborted) return surEcheance();
+        if (v.motif !== null || v.adresses.length === 0) return echouer("adresse_refusee");
+        socket = tlsConnect({
+          host: hote,
+          port,
+          servername: litterale ? undefined : hote,
+          lookup: rechercheEpinglee(v.adresses),
+          ca: options.ca,
+          minVersion: options.minVersion,
+          rejectUnauthorized: options.rejectUnauthorized,
+        });
+        socket.on("error", (e) => echouer(classerErreur(e)));
+        socket.once("secureConnect", () => {
+          if (termine) return;
+          if (socket?.authorized !== true) return echouer("tls");
+          termine = true;
+          clearTimeout(minuteur);
+          signal?.removeEventListener("abort", surEcheance);
+          resoudre(socket);
+        });
+      },
+      (e: unknown) => echouer(classerErreur(e)),
+    );
+  });
+}
+
+/** Connexion TLS brute (ldaps), sans ALPN : même juge, mêmes adresses épinglées, mêmes ancres, même vérification ; rend la socket (seulement si `authorized`) et ce que le certificat présenté permet de décrire. */
 export async function connexionTls(
   hote: string,
   port: number,
   o: OptionsSortant = {},
 ): Promise<{ socket: TLSSocket; certificat: CertificatPresente }> {
   const options = optionsTls(o);
-  const connecter = connecteurEpingle(o.juger ?? jugeSortant(o.resoudre), options);
   const nu = hote.replace(/^\[(.*)\]$/su, "$1");
-  const litterale = adresseIpOuNul(nu) !== null;
-  let abandonne = false;
-  const socket = await new Promise<TLSSocket>((resoudre, rejeter) => {
-    const minuteur = setTimeout(() => {
-      abandonne = true;
-      rejeter(new ErreurSortant("delai"));
-    }, options.timeout);
-    connecter(
-      {
-        hostname: nu,
-        host: nu,
-        protocol: "https:",
-        port: String(port),
-        servername: litterale ? undefined : nu,
-      },
-      (err, s) => {
-        clearTimeout(minuteur);
-        if (err !== null || s === null) {
-          if (!abandonne) rejeter(new ErreurSortant(classerErreur(err)));
-          return;
-        }
-        if (abandonne) s.destroy();
-        else resoudre(s as TLSSocket);
-      },
-    );
-  });
-  if (socket.authorized !== true) {
-    socket.destroy();
-    throw new ErreurSortant("tls");
-  }
+  const socket = await ouvrirTls(nu, port, o.juger ?? jugeSortant(o.resoudre), options, o.signal);
   const c = socket.getPeerCertificate();
   const certificat: CertificatPresente = {
     sujet: nomCourt(c.subject),

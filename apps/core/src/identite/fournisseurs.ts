@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 
 import { estDict } from "@elpis/commun";
-import { sessionCookieAttrs } from "@elpis/config";
+import { liveConfigValue } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
 
 import { journal } from "../journal";
@@ -167,19 +167,24 @@ export function champsFigesChanges(avant: Fournisseur, apres: Fournisseur): stri
   return ["type"];
 }
 
+/** Vrai si le cookie de session émis par le processus est `Secure` ET que HTTPS est en service dans la configuration (`security.https.enabled`) : `same_site: none` ne suffit jamais. */
+export function connexionSecurisee(cookieSecure: boolean): boolean {
+  return cookieSecure && liveConfigValue("security.https.enabled", false) === true;
+}
+
 /** Secret et test du fournisseur, et la raison pour laquelle un fournisseur allumé n'est pas actif (`null` s'il l'est) ; la console, l'activation et la connexion s'y fient. */
 export async function etatFournisseur(
   x: Executeur,
   f: Fournisseur,
   publicUrl: string,
-  cookieSecure = true,
+  cookieSecure: boolean,
 ): Promise<{ has_secret: boolean; tested: boolean; ecart: string | null }> {
   const has_secret = (await secretFournisseur(x, f)) !== null;
   const tested = await testReussiCourant(x, f, publicUrl);
   const ecart =
     publicUrl === ""
       ? "adresse publique absente ou invalide"
-      : !cookieSecure
+      : !connexionSecurisee(cookieSecure)
         ? "cookie de session non sécurisé"
         : (await compterAdminsLocaux(x)) === 0
           ? "aucun administrateur local actif"
@@ -225,11 +230,8 @@ function signaler(id: string, raison: string | null): void {
   log.warn(`fournisseur d'identité ${id} allumé mais écarté : ${raison}`);
 }
 
-/** Fournisseurs allumés dont tous les invariants de lecture tiennent (cookie `Secure` compris), quoi que le fichier contienne ; chaque écart est signalé une fois au journal. */
-export async function fournisseursActifs(
-  x: Executeur,
-  cookieSecure: () => boolean = () => sessionCookieAttrs().https_only,
-): Promise<Fournisseur[]> {
+/** Fournisseurs allumés dont tous les invariants de lecture tiennent, quoi que le fichier contienne ; `cookieSecure` est la valeur figée du cookie du processus appelant ; chaque écart est signalé une fois au journal. */
+export async function fournisseursActifs(x: Executeur, cookieSecure: () => boolean): Promise<Fournisseur[]> {
   const r = lireReglagesAuth();
   const actifs: Fournisseur[] = [];
   for (const f of r.providers) {

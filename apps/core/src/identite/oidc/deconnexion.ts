@@ -81,6 +81,7 @@ export async function verifierJetonDeconnexion(
       audience: f.client_id,
       clockTolerance: f.clock_skew_sec,
       currentDate: new Date(t * 1000),
+      requiredClaims: ["exp"],
     });
     payload = verifie.payload as Record<string, unknown>;
   } catch (e) {

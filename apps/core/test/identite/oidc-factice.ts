@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/identite/oidc-factice.ts — fournisseur OIDC factice en processus : serveur HTTPS local sous une autorité de test, jetons signés avec jose, défauts et pièges réglables (algorithme, émetteur, public, nonce, validité, clés, taille, redirection, userinfo), requêtes tracées. */
 import { createHash, randomBytes } from "node:crypto";
+import type { webcrypto } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:https";
 import type { Server } from "node:https";
@@ -51,6 +52,33 @@ export interface PiegesJeton {
   sans?: string[];
   /** Ne rend pas de jeton d'identité. */
   sansJeton?: boolean;
+  /** En-tête sans `kid`. */
+  sansKid?: boolean;
+  /** Paramètres ajoutés à l'en-tête protégé (`typ`, `crit`, `jku`…) ; `undefined` retire le paramètre. */
+  entete?: Record<string, unknown>;
+  /** Clé qui signe réellement, à la place de la clé publiée. */
+  cleDeSignature?: CryptoKey;
+  /** Chaîne rendue telle quelle comme jeton d'identité. */
+  jetonBrut?: string;
+  /** Signature faite à la main (sans les contrôles de l'en-tête de la bibliothèque) : permet `crit` inconnu, `b64`, etc. */
+  signatureManuelle?: boolean;
+}
+
+/** Chemins servis par le fournisseur (absolus) ; chacun remplace son défaut sous la racine de l'émetteur. */
+export interface CheminsFactice {
+  auth?: string;
+  token?: string;
+  certs?: string;
+  userinfo?: string;
+  logout?: string;
+  par?: string;
+}
+
+/** Réponse HTTP brute d'un chemin surchargé. */
+export interface ReponseBrute {
+  statut: number;
+  entetes?: Record<string, string>;
+  corps?: string;
 }
 
 export interface OptionsFactice {
@@ -62,6 +90,17 @@ export interface OptionsFactice {
   authClient?: "basic" | "post";
   /** Document de découverte : champs remplacés ou retirés (`undefined`). */
   decouverte?: Record<string, unknown>;
+  /** Chemin de l'émetteur sous l'origine (`/realms/elpis` par défaut ; `""` : émetteur à la racine). */
+  racine?: string;
+  /** L'émetteur se termine par une barre. */
+  barreFinale?: boolean;
+  chemins?: CheminsFactice;
+  /** Taille du module RSA des clés générées. */
+  modulusLength?: number;
+  /** Le retour d'autorisation porte `iss` (`true` : l'émetteur ; une chaîne : cette valeur). */
+  issDansReponse?: boolean | string;
+  /** Le point d'autorisation refuse toute requête non poussée. */
+  exigerPar?: boolean;
 }
 
 const base64url = (b: Buffer | string): string => Buffer.from(b).toString("base64url");
@@ -76,6 +115,16 @@ export class OidcFactice {
   readonly alg: string;
   readonly ca: Autorite;
   readonly cleHs = "secret-hs-de-test";
+  readonly racine: string;
+  readonly barreFinale: boolean;
+  readonly chemins: Required<CheminsFactice>;
+  readonly modulusLength: number | undefined;
+  issDansReponse: boolean | string;
+  exigerPar: boolean;
+  /** Réponses brutes par chemin (avant tout traitement), pour les pièges de transport. */
+  readonly surcharges = new Map<string, () => ReponseBrute>();
+  /** Champs ajoutés (ou retirés avec `undefined`) à la réponse du point de jetons. */
+  extraJetons: Record<string, unknown> = {};
   /** Pièges du prochain jeton (remis à zéro à chaque émission). */
   pieges: PiegesJeton = {};
 
@@ -91,6 +140,8 @@ export class OidcFactice {
   lecturesCles = 0;
   /** Jetons d'identité et d'accès émis, pour vérifier qu'aucun ne fuit. */
   readonly emis: string[] = [];
+  /** Erreurs internes du fournisseur factice (jeton impossible à fabriquer…) : toujours vide dans un test honnête. */
+  readonly erreurs: string[] = [];
   private serveur!: Server;
   private readonly sockets = new Set<Socket>();
   private port = 0;
@@ -108,6 +159,21 @@ export class OidcFactice {
     this.authClient = o.authClient ?? "basic";
     this.alg = o.alg ?? "ES256";
     this.decouverte = { ...o.decouverte };
+    this.racine = o.racine ?? "/realms/elpis";
+    this.barreFinale = o.barreFinale ?? false;
+    this.modulusLength = o.modulusLength;
+    this.issDansReponse = o.issDansReponse ?? false;
+    this.exigerPar = o.exigerPar ?? false;
+    const r = this.racine;
+    this.chemins = {
+      auth: `${r}/auth`,
+      token: `${r}/token`,
+      certs: `${r}/certs`,
+      userinfo: `${r}/userinfo`,
+      logout: `${r}/logout`,
+      par: `${r}/par`,
+      ...o.chemins,
+    };
     this.ca = creerAutorite("Fournisseur factice");
   }
 
@@ -118,7 +184,30 @@ export class OidcFactice {
   }
 
   get issuer(): string {
-    return `https://${NOM_FOURNISSEUR}:${this.port}/realms/elpis`;
+    return `https://${NOM_FOURNISSEUR}:${this.port}${this.racine}${this.barreFinale ? "/" : ""}`;
+  }
+
+  /** Adresse du document de découverte de l'émetteur. */
+  get adresseDecouverte(): string {
+    return `${this.origine}${this.racine}/.well-known/openid-configuration`;
+  }
+
+  /** Clé publique honnête, telle que publiée. */
+  get jwkPublic(): JWK {
+    return this.cle.jwk;
+  }
+
+  /** Paire de clés neuve d'un algorithme (`jwk` avec `kid`, `use` et `alg`). */
+  async genererCle(
+    alg: string,
+    kid: string,
+    modulusLength?: number,
+  ): Promise<{ privee: CryptoKey; jwk: JWK }> {
+    const { publicKey, privateKey } = await generateKeyPair(alg, {
+      extractable: true,
+      ...(modulusLength === undefined ? {} : { modulusLength }),
+    });
+    return { privee: privateKey, jwk: { ...(await exportJWK(publicKey)), kid, use: "sig", alg } };
   }
 
   get origine(): string {
@@ -131,7 +220,10 @@ export class OidcFactice {
   }
 
   private async nouvelleCle(): Promise<{ privee: CryptoKey; jwk: JWK; kid: string }> {
-    const { publicKey, privateKey } = await generateKeyPair(this.alg, { extractable: true });
+    const { publicKey, privateKey } = await generateKeyPair(this.alg, {
+      extractable: true,
+      ...(this.modulusLength === undefined ? {} : { modulusLength: this.modulusLength }),
+    });
     this.nombreCles += 1;
     const kid = `cle-${this.nombreCles}`;
     return {
@@ -146,7 +238,8 @@ export class OidcFactice {
     this.autreCle = { privee: (await generateKeyPair(this.alg, { extractable: true })).privateKey };
     const feuille = creerFeuille(this.ca, { noms: [NOM_FOURNISSEUR], ips: ["127.0.0.1"] });
     this.serveur = createServer({ cert: feuille.cert, key: feuille.cle }, (q, r) => {
-      void this.traiter(q, r).catch(() => {
+      void this.traiter(q, r).catch((e: unknown) => {
+        this.erreurs.push(e instanceof Error ? e.message : String(e));
         r.statusCode = 500;
         r.end();
       });
@@ -172,13 +265,14 @@ export class OidcFactice {
 
   private documentDecouverte(): Record<string, unknown> {
     const o = this.origine;
+    const c = this.chemins;
     const base: Record<string, unknown> = {
       issuer: this.issuer,
-      authorization_endpoint: `${o}/realms/elpis/auth`,
-      token_endpoint: `${o}/realms/elpis/token`,
-      jwks_uri: `${o}/realms/elpis/certs`,
-      userinfo_endpoint: `${o}/realms/elpis/userinfo`,
-      end_session_endpoint: `${o}/realms/elpis/logout`,
+      authorization_endpoint: `${o}${c.auth}`,
+      token_endpoint: `${o}${c.token}`,
+      jwks_uri: `${o}${c.certs}`,
+      userinfo_endpoint: `${o}${c.userinfo}`,
+      end_session_endpoint: `${o}${c.logout}`,
       backchannel_logout_supported: true,
       id_token_signing_alg_values_supported: [this.alg],
       token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
@@ -205,7 +299,8 @@ export class OidcFactice {
           throw new Error(`${k} ne doit pas figurer en clair dans l'adresse poussée`);
       for (const [k, v] of poussee) u.searchParams.set(k, v);
     }
-    if (u.origin !== this.origine || u.pathname !== "/realms/elpis/auth")
+    if (this.exigerPar && poussee === undefined) throw new Error("requête non poussée refusée (PAR exigé)");
+    if (u.origin !== this.origine || u.pathname !== this.chemins.auth)
       throw new Error(`adresse d'autorisation inattendue : ${u.origin}${u.pathname}`);
     const p = u.searchParams;
     const attendu: Record<string, string> = {
@@ -228,6 +323,8 @@ export class OidcFactice {
     const retour = new URL(p.get("redirect_uri") ?? "");
     retour.searchParams.set("code", code);
     retour.searchParams.set("state", p.get("state") ?? "");
+    if (this.issDansReponse !== false)
+      retour.searchParams.set("iss", this.issDansReponse === true ? this.issuer : this.issDansReponse);
     return { retour: retour.href, code, state: p.get("state") ?? "" };
   }
 
@@ -235,7 +332,7 @@ export class OidcFactice {
   activerPar(): void {
     this.decouverte = {
       ...this.decouverte,
-      pushed_authorization_request_endpoint: `${this.origine}/realms/elpis/par`,
+      pushed_authorization_request_endpoint: `${this.origine}${this.chemins.par}`,
     };
   }
 
@@ -264,23 +361,29 @@ export class OidcFactice {
       autorisation: q.headers.authorization ?? null,
       corps,
     });
-    if (chemin === "/realms/elpis/.well-known/openid-configuration")
+    const surcharge = this.surcharges.get(chemin)?.();
+    if (surcharge !== undefined) {
+      r.writeHead(surcharge.statut, surcharge.entetes ?? {});
+      r.end(surcharge.corps ?? "");
+      return;
+    }
+    if (chemin === `${this.racine}/.well-known/openid-configuration`)
       return this.json(r, 200, this.documentDecouverte(), { date: new Date().toUTCString() });
-    if (chemin === "/realms/elpis/certs") {
+    if (chemin === this.chemins.certs) {
       this.lecturesCles += 1;
       return this.json(r, 200, this.jeuDeCles ?? { keys: [this.cle.jwk] });
     }
-    if (chemin === "/realms/elpis/par" && q.method === "POST") {
+    if (chemin === this.chemins.par && q.method === "POST") {
       const uri = `urn:ietf:params:oauth:request_uri:${randomBytes(8).toString("hex")}`;
       this.requetesPoussees.set(uri, corps);
       return this.json(r, 201, { request_uri: uri, expires_in: 60 });
     }
-    if (chemin === "/realms/elpis/token" && q.method === "POST") {
+    if (chemin === this.chemins.token && q.method === "POST") {
       if (this.muet) return;
       return this.jetons(q, r, corps);
     }
-    if (chemin === "/realms/elpis/userinfo") return this.informations(q, r);
-    if (chemin === "/realms/elpis/trop-gros") {
+    if (chemin === this.chemins.userinfo) return this.informations(q, r);
+    if (chemin === `${this.racine}/trop-gros`) {
       r.writeHead(200, { "content-type": "application/json" });
       r.end(Buffer.alloc(1024 * 1024 + 10, 0x20));
       return;
@@ -303,8 +406,9 @@ export class OidcFactice {
       const a = q.headers.authorization ?? "";
       if (!a.startsWith("Basic ")) return erreur("invalid_client");
       const [id, ...reste] = Buffer.from(a.slice(6), "base64").toString("utf8").split(":");
-      if (decodeURIComponent(id ?? "") !== this.clientId) return erreur("invalid_client");
-      secret = decodeURIComponent(reste.join(":"));
+      const decoder = (t: string): string => decodeURIComponent(t.replace(/\+/gu, " "));
+      if (decoder(id ?? "") !== this.clientId) return erreur("invalid_client");
+      secret = decoder(reste.join(":"));
     } else {
       if (corps.get("client_id") !== this.clientId) return erreur("invalid_client");
       secret = corps.get("client_secret");
@@ -322,12 +426,15 @@ export class OidcFactice {
     const jeton = await this.fabriquerJeton(code, p);
     const acces = `acces-${randomBytes(8).toString("hex")}`;
     this.emis.push(acces, jeton);
-    this.json(r, 200, {
+    const corpsJetons: Record<string, unknown> = {
       access_token: acces,
       token_type: "Bearer",
       expires_in: 300,
       ...(p.sansJeton ? {} : { id_token: jeton }),
-    });
+      ...this.extraJetons,
+    };
+    for (const [k, v] of Object.entries(this.extraJetons)) if (v === undefined) delete corpsJetons[k];
+    this.json(r, 200, corpsJetons);
   }
 
   /** Jeton d'identité honnête pour ce code, modifié par les pièges. */
@@ -354,6 +461,7 @@ export class OidcFactice {
       iss: this.issuer,
       aud: this.clientId,
       iat: t,
+      exp: t + 120,
       jti: randomBytes(8).toString("hex"),
       events: { "http://schemas.openid.net/event/backchannel-logout": {} },
       ...(u.sid === undefined ? {} : { sid: u.sid }),
@@ -365,15 +473,40 @@ export class OidcFactice {
 
   private async signer(claims: Record<string, unknown>, p: PiegesJeton): Promise<string> {
     for (const nom of p.sans ?? []) delete claims[nom];
+    if (p.jetonBrut !== undefined) return p.jetonBrut;
     const alg = p.alg ?? this.alg;
     if (alg === "none") {
       const entete = base64url(JSON.stringify({ alg: "none", typ: "JWT" }));
       return `${entete}.${base64url(JSON.stringify(claims))}.`;
     }
-    const jwt = new SignJWT(claims).setProtectedHeader({ alg, typ: "JWT", kid: p.kid ?? this.cle.kid });
+    const entete: Record<string, unknown> = {
+      alg,
+      typ: "JWT",
+      ...(p.sansKid ? {} : { kid: p.kid ?? this.cle.kid }),
+      ...p.entete,
+    };
+    for (const [k, v] of Object.entries(entete)) if (v === undefined) delete entete[k];
+    if (p.signatureManuelle) return this.signerAMain(entete, claims, p.cleDeSignature ?? this.cle.privee);
+    const jwt = new SignJWT(claims).setProtectedHeader(entete as { alg: string });
     if (alg.startsWith("HS"))
       return jwt.sign(new TextEncoder().encode(p.signerAvecAutreCle ? "autre" : this.clientSecret));
-    return jwt.sign(p.signerAvecAutreCle ? this.autreCle.privee : this.cle.privee);
+    return jwt.sign(p.cleDeSignature ?? (p.signerAvecAutreCle ? this.autreCle.privee : this.cle.privee));
+  }
+
+  private async signerAMain(
+    entete: Record<string, unknown>,
+    claims: Record<string, unknown>,
+    cle: CryptoKey,
+  ): Promise<string> {
+    const alg = String(entete["alg"]);
+    const algo: webcrypto.Algorithm | webcrypto.RsaPssParams | webcrypto.EcdsaParams = alg.startsWith("ES")
+      ? { name: "ECDSA", hash: `SHA-${alg.slice(2)}` }
+      : alg.startsWith("PS")
+        ? { name: "RSA-PSS", saltLength: Number(alg.slice(2)) / 8 }
+        : { name: "RSASSA-PKCS1-v1_5" };
+    const entree = `${base64url(JSON.stringify(entete))}.${base64url(JSON.stringify(claims))}`;
+    const signature = await crypto.subtle.sign(algo, cle, Buffer.from(entree));
+    return `${entree}.${base64url(Buffer.from(signature))}`;
   }
 
   private informations(_q: IncomingMessage, r: ServerResponse): void {

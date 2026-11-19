@@ -284,6 +284,25 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     expect(p.arreterCompte(alice)).toBe(0);
   });
 
+  it("suspendre : les lignes de session du fournisseur du compte sont supprimées dans la même écriture, celles des autres comptes restent", async () => {
+    const ligne = (sid: string, uid: number): Promise<unknown> =>
+      t.base.run(
+        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, idp_sid, subject, id_token_enc, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        [sid, uid, "sso", null, `sub-${sid}`, null, 1, 9e9],
+      );
+    await ligne("s-alice", alice);
+    await ligne("s-bob", bob);
+    const d = {
+      base: t.base,
+      acces: dependancesParDefaut(t.base),
+      maintenant: () => T0,
+      publierSuspension: async () => true,
+      journal: journalMuet,
+    };
+    expect((await suspendre(d, alice, "admin")).change).toBe(true);
+    expect(await t.base.valeurs("SELECT sid FROM auth_ext_sessions")).toEqual([["s-bob"]]);
+  });
+
   it("suspendre : état posé une fois (premier auteur gardé), min de session levé, bac détruit, publication faite ; réactiver ne baisse pas le min", async () => {
     const publies: number[] = [];
     const appels: unknown[][] = [];

@@ -24,7 +24,7 @@ import { decouperHotePort } from "../interface/urls-publiques";
 import { empreinteFournisseur, fournisseursActifs, enregistrerTestReussi } from "../identite/fournisseurs";
 import type { Journal } from "../journal";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
-import { prouverEtRattacher } from "../identite/rattachement";
+import { auditerRefusPreuve, prouverEtRattacher } from "../identite/rattachement";
 import { connecterParOidc } from "../identite/oidc/connexion";
 import { lireFluxPreuve, ouvrirFluxPreuve, ouvrirSessionApresPreuve } from "../identite/oidc/preuve";
 import type { DependancesConnexionOidc } from "../identite/oidc/connexion";
@@ -300,6 +300,8 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
             profil: issue.profil,
             appartenance: issue.appartenance,
             sub: verifie.sub,
+            idpSid: verifie.idpSid,
+            idToken: verifie.idToken,
             cible: flux.cible,
             oauthNext: flux.oauthNext,
             adresse: ip,
@@ -416,6 +418,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     const attente = debit.attenteS(compte.username, cle, t);
     if (attente > 0) throw new HttpError(429, REFUS_DEBIT, { "Retry-After": String(Math.ceil(attente)) });
     const essai = debit.prendre(compte.username, cle, t);
+    const agent = entete(req, "user-agent") ?? null;
     const r = await prouverEtRattacher(connexion.provisionnement, {
       fournisseur: f,
       prelinkId: flux.prelinkId,
@@ -423,21 +426,28 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
       appartenance: flux.appartenance,
       motDePasse,
       ip,
+      userAgent: agent,
     });
     if (r.type === "mot_de_passe") {
+      if (essai.epuise)
+        auditerRefusPreuve(
+          { fournisseur: f, profil: flux.profil, ip, userAgent: agent },
+          { uid: null, username: compte.username, action: "auth.login.denied", raison: "rate_limited" },
+        );
       if (essai.delaiMs > 0) await new Promise((fin) => setTimeout(fin, essai.delaiMs));
       throw new HttpError(401, "invalid credentials");
     }
     if (r.type !== "compte") {
       debit.annulation(essai, maintenant());
-      auditEvent({
-        userId: r.uid ?? null,
-        username: compte.username,
-        action: "auth.identity.link.denied",
-        ip,
-        outcome: "failure",
-        details: { provider_id: f.id, reason: r.type === "refus" ? r.raison : r.type },
-      });
+      auditerRefusPreuve(
+        { fournisseur: f, profil: flux.profil, ip, userAgent: agent },
+        {
+          uid: r.type === "refus" ? (r.uid ?? null) : null,
+          username: compte.username,
+          action: "auth.identity.link.denied",
+          raison: r.type === "refus" ? r.raison : r.type,
+        },
+      );
       throw new HttpError(409, PREUVE_PERIMEE);
     }
     try {
@@ -446,13 +456,15 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         uid: r.uid,
         username: compte.username,
         sub: flux.sub,
+        idpSid: flux.idpSid,
+        idToken: flux.idToken,
         session: req.session,
         maintenant: t,
         ip,
-        userAgent: entete(req, "user-agent") ?? null,
+        userAgent: agent,
       });
     } catch (e) {
-      if (e instanceof ConnexionRefusee) throw new HttpError(409, PREUVE_PERIMEE);
+      if (e instanceof ConnexionRefusee) throw new HttpError(401, "invalid credentials");
       throw e;
     }
     debit.reussite(essai, maintenant());

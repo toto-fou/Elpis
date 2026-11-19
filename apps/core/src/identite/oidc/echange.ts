@@ -14,6 +14,7 @@ import {
   appartenanceDe,
   emailVerifieDe,
   groupesDe,
+  identifiantFiable,
   lireRevendication,
   secondFacteurSatisfait,
   sujetDe,
@@ -137,6 +138,7 @@ export async function verifierRetour(
     groupes ??= groupesDe(complement, f);
   }
   const identifiant = texteDe(claims, f.username_claim) || texteDe(complement, f.username_claim);
+  const sourceIdentifiant = texteDe(claims, f.username_claim) === "" ? complement : claims;
   const nom = texteDe(claims, f.name_claim) || texteDe(complement, f.name_claim);
   const email =
     emailVerifieDe(claims, f) ||
@@ -150,6 +152,7 @@ export async function verifierRetour(
       extUsername: identifiant,
       extEmail: email,
       extName: nom,
+      identifiantFiable: identifiantFiable(sourceIdentifiant, f),
     },
     appartenance: appartenanceDe(groupes, f),
     vue: {

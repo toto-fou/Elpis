@@ -37,6 +37,14 @@ export function texteDe(claims: Revendications, nom: string): string {
   return typeof v === "string" && v.isWellFormed() ? v.slice(0, TEXTE_MAX) : "";
 }
 
+/** Vrai si l'identifiant lu peut servir à une correspondance : 255 caractères au plus, et `email_verified` vrai dans la même source quand la revendication désigne l'e-mail. */
+export function identifiantFiable(source: Revendications, f: FournisseurOidc): boolean {
+  const v = lireRevendication(source, f.username_claim);
+  if (typeof v !== "string" || v.length > TEXTE_MAX) return false;
+  const email = f.username_claim === "email" || f.username_claim === f.email_claim;
+  return !email || lireRevendication(source, "email_verified") === true;
+}
+
 function marqueDepassement(claims: Revendications, nomGroupes: string): boolean {
   const noms = proprieteDe(claims, "_claim_names");
   if (noms !== undefined && noms !== null && typeof noms === "object") {

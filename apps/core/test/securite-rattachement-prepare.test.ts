@@ -56,7 +56,7 @@ describe("identifiant attendu : alphabet sûr, minuscules ASCII", () => {
       "\u212Aim",
       "ſam",
       "",
-      "a".repeat(257),
+      "a".repeat(256),
     ])
       expect(attenduValide(mauvais), JSON.stringify(mauvais)).toBeNull();
     expect(attenduValide(7)).toBeNull();
@@ -407,7 +407,7 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
   });
 
   describe("preuve du titulaire", () => {
-    it("écrit l'identité sur le compte de la ligne, tue l'ancien mot de passe, garde jetons et accès, coupe les sessions, supprime la ligne et ses flux", async () => {
+    it("écrit l'identité sur le compte de la ligne, tue l'ancien mot de passe, révoque jetons et accès, coupe les sessions, supprime la ligne et ses flux", async () => {
       const jean = await createUser(t.base, "jean-dupont", "mdp-local-1");
       await t.base.run("UPDATE users SET must_change_pwd=1 WHERE id=?", [jean]);
       await jeton(jean);
@@ -426,8 +426,8 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
       ]);
       expect(await lignes()).toEqual([]);
       expect(await t.base.valeurs("SELECT 1 FROM auth_flows")).toEqual([]);
-      expect(await nbJetons(jean)).toBe(1);
-      expect(oauthRevoques).toEqual([]);
+      expect(await nbJetons(jean)).toBe(0);
+      expect(oauthRevoques).toEqual([jean]);
       expect(revoques).toEqual([jean]);
       expect(audit("auth.identity.link")[0]).toMatchObject({
         user_id: jean,
@@ -435,7 +435,8 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
           target_user_id: jean,
           method: "proof",
           subject: "sub-1",
-          kept: true,
+          revoked_tokens: 1,
+          revoked_oauth: 2,
           by: `prelink:${chef}`,
         },
       });
@@ -563,6 +564,23 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
       expect(await verifyUser(t.base, "sam", "mdp-sam-123")).toBe(sam);
     });
 
+    it("dernier administrateur local : jamais de preuve proposée au retour SSO, et aucun essai compté ni mot de passe vérifié ensuite", async () => {
+      const sam = await createUser(t.base, "sam", "mdp-sam-123", { isAdmin: 1 });
+      const id = await preparer(sam, "sam", { confirmeAdmin: true });
+      await t.base.run("UPDATE users SET is_admin=0 WHERE id=?", [chef]);
+      expect(await resoudre(profil({ extUsername: "sam" }))).toMatchObject({
+        type: "refus",
+        raison: "prelink_invalid",
+        uid: sam,
+      });
+      for (const mdp of ["faux", "mdp-sam-123"])
+        expect(await preuve(id, mdp, { profil: profil({ extUsername: "sam" }) })).toMatchObject({
+          type: "refus",
+          raison: "no_local_admin",
+        });
+      expect(Number((await lignes())[0]?.["attempts"])).toBe(0);
+    });
+
     it("compte suspendu, ou déjà rattaché à une autre entrée depuis la préparation : refus", async () => {
       const jean = await createUser(t.base, "jean-dupont", "mdp-local-1");
       const id = await preparer(jean, "jean.dupont");
@@ -601,7 +619,7 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
       const jean = await createUser(t.base, "jean-dupont", "mdp-local-1");
       const id = await preparer(jean, "jean.dupont");
       dep = avecCourse(() => t.base.run("UPDATE users SET pass_salt='autre-sel' WHERE id=?", [jean]));
-      expect(await preuve(id, "mdp-local-1")).toMatchObject({ type: "refus", raison: "prelink_invalid" });
+      expect(await preuve(id, "mdp-local-1")).toEqual({ type: "mot_de_passe", verrouille: false });
       expect(await identites()).toEqual([]);
       expect(await lignes()).toHaveLength(1);
     });
@@ -610,7 +628,7 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
       const jean = await createUser(t.base, "jean-dupont", "mdp-local-1");
       const id = await preparer(jean, "jean.dupont");
       dep = avecCourse(() => t.base.run("DELETE FROM auth_prelinks WHERE id=?", [id]));
-      expect(await preuve(id, "mdp-local-1")).toMatchObject({ type: "refus", raison: "prelink_invalid" });
+      expect(await preuve(id, "mdp-local-1")).toEqual({ type: "mot_de_passe", verrouille: false });
       expect(await identites()).toEqual([]);
       expect(await verifyUser(t.base, "jean-dupont", "mdp-local-1")).toBe(jean);
     });

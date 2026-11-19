@@ -190,6 +190,11 @@ export async function nombreIdentites(x: Executeur, id: string): Promise<number>
 
 const hoteSeul = (url: string): string => hotePortLdaps(url).replace(/:\d+$/u, "");
 
+/** Vrai si la revendication d'identifiant d'un fournisseur OIDC change (les rattachements préparés qui l'attendent ne valent plus). */
+export function revendicationIdentifiantChangee(avant: Fournisseur, apres: Fournisseur): boolean {
+  return avant.type === "oidc" && apres.type === "oidc" && avant.username_claim !== apres.username_claim;
+}
+
 /** Champs figés tant que des identités existent, parmi ceux que `apres` change (pour `urls` : plus aucun hôte d'origine ne demeure). */
 export function champsFigesChanges(avant: Fournisseur, apres: Fournisseur): string[] {
   if (avant.type === "oidc" && apres.type === "oidc")

@@ -450,7 +450,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       await t.base.run("DELETE FROM user_identities WHERE user_id=?", [alice]);
     });
 
-    it("rattachements préparés d'un fournisseur OIDC : supprimés avec lui, ou quand son émetteur ou son client change", async () => {
+    it("rattachements préparés d'un fournisseur OIDC : supprimés avec lui, ou quand son émetteur, son client ou sa revendication d'identifiant change", async () => {
       cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
       expect(
         (
@@ -479,6 +479,9 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       expect(await restantes()).toEqual([]);
       await poser();
       expect((await mettre({ client_id: "autre-client" })).statusCode).toBe(200);
+      expect(await restantes()).toEqual([]);
+      await poser();
+      expect((await mettre({ username_claim: "upn" })).statusCode).toBe(200);
       expect(await restantes()).toEqual([]);
       await poser();
       expect((await appeler(admin, "DELETE", "/api/admin/auth/providers/sso", chef)).statusCode).toBe(200);

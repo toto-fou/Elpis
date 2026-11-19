@@ -32,6 +32,7 @@ import {
   connexionSecurisee,
   etatFournisseur,
   champsFigesChanges,
+  revendicationIdentifiantChangee,
   enregistrerTestReussi,
   hmacCoffre,
   hotesDuFournisseur,
@@ -277,7 +278,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
           409,
           "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur.",
         );
-      if (champsFigesChanges(actuel, nouveau).length > 0)
+      if (champsFigesChanges(actuel, nouveau).length > 0 || revendicationIdentifiantChangee(actuel, nouveau))
         await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
       await x.run("DELETE FROM auth_flows WHERE provider_id=? AND trial_admin IS NOT NULL", [id]);
       providers[i] = nouveau;

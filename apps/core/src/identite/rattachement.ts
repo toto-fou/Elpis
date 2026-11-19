@@ -22,8 +22,8 @@ export const DUREE_RATTACHEMENT_PREPARE_S = 30 * 86_400;
 export const DUREE_RATTACHEMENT_DISPENSE_S = 72 * 3600;
 /** Échecs de mot de passe tolérés sur une ligne préparée avant qu'elle soit supprimée. */
 export const ECHECS_PREUVE_MAX = 5;
-const FORME_ATTENDU = /^[a-z0-9._@-]{1,256}$/u;
-const FORME_RECU = /^[A-Za-z0-9._@-]{1,256}$/u;
+const FORME_ATTENDU = /^[a-z0-9._@-]{1,255}$/u;
+const FORME_RECU = /^[A-Za-z0-9._@-]{1,255}$/u;
 
 export type RaisonRefusRattachement =
   | "account_not_found"
@@ -61,14 +61,14 @@ const COLONNES_PREPARE =
 
 const minusculesAscii = (t: string): string => t.replace(/[A-Z]/gu, (c) => c.toLowerCase());
 
-/** Identifiant attendu à la création : minuscules ASCII, `[a-z0-9._@-]{1,256}` ; `null` sinon. */
+/** Identifiant attendu à la création : minuscules ASCII, `[a-z0-9._@-]{1,255}` ; `null` sinon. */
 export function attenduValide(brut: unknown): string | null {
   if (typeof brut !== "string") return null;
   const n = minusculesAscii(brut);
   return FORME_ATTENDU.test(n) ? n : null;
 }
 
-/** Forme comparée d'un identifiant reçu du fournisseur : `[A-Za-z0-9._@-]{1,256}` en minuscules ASCII ; `null` pour tout autre identifiant (aucune correspondance). */
+/** Forme comparée d'un identifiant reçu du fournisseur : `[A-Za-z0-9._@-]{1,255}` en minuscules ASCII ; `null` pour tout autre identifiant (aucune correspondance). */
 export function attenduDeRecu(recu: string): string | null {
   return typeof recu === "string" && FORME_RECU.test(recu) ? minusculesAscii(recu) : null;
 }
@@ -306,7 +306,7 @@ export function raisonDeRefus(r: RaisonRefusRattachement): Refus["raison"] {
   return "account_conflict";
 }
 
-/** Vrai si la ligne préparée est celle de ce fournisseur, de cette ancre et de cet identifiant (égalité stricte), non périmée. */
+/** Vrai si la ligne préparée est celle de ce fournisseur, de cette ancre et de cet identifiant fiable (égalité stricte), non périmée. */
 export function ligneConvient(
   l: LigneRattachementPrepare,
   e: { fournisseurId: string; ancre: string; profil: ProfilIdentite; t: number },
@@ -319,6 +319,7 @@ export function ligneConvient(
     l.provider_id === e.fournisseurId &&
     l.issuer === e.ancre &&
     e.profil.issuer === e.ancre &&
+    e.profil.identifiantFiable !== false &&
     e.profil.subject !== ""
   );
 }
@@ -332,11 +333,40 @@ export interface EntreePreuve {
   readonly appartenance: Appartenance;
   readonly motDePasse: string;
   readonly ip: string | null;
+  readonly userAgent?: string | null | undefined;
 }
 
 type SnapshotCompte = { username: string; pass_hash: string; pass_salt: string; is_admin: number | null };
 
-/** Ligne préparée et compte relus, contrôlés ; refus sinon. */
+/** Refus d'une preuve au journal d'audit : identifiant reçu réduit à une empreinte, méthode `oidc:<id>`. */
+export function auditerRefusPreuve(
+  e: Pick<EntreePreuve, "fournisseur" | "profil" | "ip" | "userAgent">,
+  c: {
+    readonly uid: number | null;
+    readonly username: string | null;
+    readonly action: "auth.identity.link.denied" | "auth.prelink.locked" | "auth.login.denied";
+    readonly raison: string;
+  },
+): void {
+  auditEvent({
+    userId: c.uid,
+    username: c.username,
+    action: c.action,
+    ip: e.ip,
+    outcome: "failure",
+    details: {
+      ...(c.uid === null ? {} : { target_user_id: c.uid }),
+      provider_id: e.fournisseur.id,
+      reason: c.raison,
+      subject: e.profil.subject,
+      identifier_hash: empreinteIdentifiant(e.profil.extUsername),
+      user_agent: (e.userAgent ?? "").slice(0, 200),
+      login_method: `oidc:${e.fournisseur.id}`,
+    },
+  });
+}
+
+/** Ligne préparée et compte relus, contrôlés (tout refus décidable avant le mot de passe l'est ici) ; refus sinon. */
 async function lireEtControler(
   x: Executeur,
   e: EntreePreuve,
@@ -359,41 +389,63 @@ async function lireEtControler(
     return refus("suspended", uid);
   if ((await x.get("SELECT 1 AS un FROM user_identities WHERE user_id=?", [uid])) !== undefined)
     return refus("account_conflict", uid);
+  if (
+    (await x.get("SELECT 1 AS un FROM user_identities WHERE provider_id=? AND subject=?", [
+      e.fournisseur.id,
+      e.profil.subject,
+    ])) !== undefined
+  )
+    return refus("account_conflict", uid);
   const role = Number(c.is_admin);
   if ((role === 1 || role === 2) && Number(l.admin_confirmed) !== 1) return refus("prelink_invalid", uid);
+  if (role === 1)
+    try {
+      await exigerAdminLocal(x, { sauf: uid });
+    } catch (err) {
+      if (err instanceof HttpError && err.statusCode === 409) return refus("no_local_admin", uid);
+      throw err;
+    }
   return { ligne: l, compte: c };
 }
 
-/** Échec de mot de passe compté sur la ligne préparée ; à `ECHECS_PREUVE_MAX` la ligne et ses flux sont supprimés. */
-async function compterEchec(
+/** Réserve un essai de mot de passe sur la ligne (une seule écriture : le plafond tient sous requêtes simultanées) ; faux si le plafond est atteint ou la ligne disparue. */
+async function reserverEssai(dep: DependancesProvisionnement, prelinkId: number): Promise<boolean> {
+  const r = await dep.base.run("UPDATE auth_prelinks SET attempts=attempts+1 WHERE id=? AND attempts<?", [
+    prelinkId,
+    ECHECS_PREUVE_MAX,
+  ]);
+  return r.changes > 0;
+}
+
+/** Échec de mot de passe : à `ECHECS_PREUVE_MAX` essais réservés, la ligne et ses flux sont supprimés ; vrai si c'est le cas. */
+async function verrouillerSiEpuise(
   dep: DependancesProvisionnement,
   e: EntreePreuve,
   uid: number,
   nom: string,
+  raison: string,
 ): Promise<boolean> {
   const verrouille = await dep.base.ecriture(async (x) => {
-    const r = await x.run("UPDATE auth_prelinks SET attempts=attempts+1 WHERE id=?", [e.prelinkId]);
-    if (r.changes === 0) return false;
     const l = await x.get<{ attempts: number }>("SELECT attempts FROM auth_prelinks WHERE id=?", [
       e.prelinkId,
     ]);
-    if (Number(l?.attempts ?? 0) < ECHECS_PREUVE_MAX) return false;
+    if (l === undefined || Number(l.attempts) < ECHECS_PREUVE_MAX) return false;
     await x.run("DELETE FROM auth_prelinks WHERE id=?", [e.prelinkId]);
     await x.run("DELETE FROM auth_flows WHERE prelink_id=?", [e.prelinkId]);
     return true;
   });
-  auditEvent({
-    userId: uid,
+  auditerRefusPreuve(e, {
+    uid,
     username: nom,
     action: verrouille ? "auth.prelink.locked" : "auth.identity.link.denied",
-    ip: e.ip,
-    outcome: "failure",
-    details: { target_user_id: uid, provider_id: e.fournisseur.id, reason: "bad_password" },
+    raison,
   });
   return verrouille;
 }
 
-/** Seule voie de consommation d'un rattachement préparé avec preuve : lit la ligne et son compte, vérifie l'ancien mot de passe du compte DE LA LIGNE hors verrou, puis dans l'écriture revérifie la ligne, que le mot de passe n'a pas changé, écrit l'identité et supprime la ligne ; jetons et accès gardés. */
+type IssueEcriture = { readonly echec: string } | { readonly ok: true };
+
+/** Seule voie de consommation d'un rattachement préparé avec preuve : refus décidables rendus avant tout mot de passe, essai réservé dans une écriture, puis vérification de l'ancien mot de passe du compte DE LA LIGNE ; après elle, seule réponse possible : rattaché ou mot de passe faux (un état changé entre-temps vaut mot de passe faux). */
 export async function prouverEtRattacher(
   dep: DependancesProvisionnement,
   e: EntreePreuve,
@@ -403,21 +455,24 @@ export async function prouverEtRattacher(
   const ancre = ancreIdentite(e.fournisseur);
   const lu = await lireEtControler(dep.base, e, ancre, dep.maintenant());
   if ("type" in lu) return lu;
+  if (Number(lu.ligne.attempts) >= ECHECS_PREUVE_MAX || !(await reserverEssai(dep, e.prelinkId)))
+    return refus("prelink_invalid", Number(lu.ligne.user_id));
   const uid = Number(lu.ligne.user_id);
   const nom = lu.compte.username;
   const prouve = typeof e.motDePasse === "string" && (await verifyUser(dep.base, nom, e.motDePasse)) === uid;
-  if (!prouve) return { type: "mot_de_passe", verrouille: await compterEchec(dep, e, uid, nom) };
-  const effets: { audit: (() => void) | null } = { audit: null };
-  const r = await dep.base.ecriture(async (x) => {
+  if (!prouve)
+    return { type: "mot_de_passe", verrouille: await verrouillerSiEpuise(dep, e, uid, nom, "bad_password") };
+  const effets: { audit: ((oauth: number) => void) | null } = { audit: null };
+  const r = await dep.base.ecriture(async (x): Promise<IssueEcriture> => {
     const t = dep.maintenant();
     const relu = await lireEtControler(x, e, ancre, t);
-    if ("type" in relu) return relu;
+    if ("type" in relu) return { echec: relu.type === "refus" ? relu.raison : relu.type };
     if (
       relu.ligne.user_id !== lu.ligne.user_id ||
       relu.compte.pass_hash !== lu.compte.pass_hash ||
       relu.compte.pass_salt !== lu.compte.pass_salt
     )
-      return refus("prelink_invalid", uid);
+      return { echec: "prelink_invalid" };
     const obstacle = await rattacher(
       x,
       uid,
@@ -431,10 +486,10 @@ export async function prouverEtRattacher(
       },
       { par: "proof", confirmeAdmin: Number(relu.ligne.admin_confirmed) === 1, t },
     );
-    if (obstacle !== null)
-      return refus(raisonDeRefus(obstacle), obstacle === "account_not_found" ? undefined : uid);
+    if (obstacle !== null) return { echec: obstacle };
     await x.run("DELETE FROM auth_flows WHERE prelink_id=?", [e.prelinkId]);
-    effets.audit = () =>
+    const tokens = await supprimerJetonsDuCompte(x, uid);
+    effets.audit = (oauth) =>
       auditerRattachement(
         {
           uid,
@@ -444,15 +499,20 @@ export async function prouverEtRattacher(
           methode: "proof",
           subject: e.profil.subject,
           identifiantRecu: e.profil.extUsername,
-          jetons: "kept",
+          jetons: { tokens, oauth },
         },
         e.ip,
       );
-    return { type: "compte", uid, cree: false } satisfies Resolution;
+    return { ok: true };
   });
-  effets.audit?.();
-  if (r.type === "compte") await revoquerFlux(dep, r.uid);
-  return r;
+  if ("echec" in r) {
+    auditerRefusPreuve(e, { uid, username: nom, action: "auth.identity.link.denied", raison: r.echec });
+    return { type: "mot_de_passe", verrouille: false };
+  }
+  const oauth = await revoquerOauthRattachement(dep, uid);
+  effets.audit?.(oauth);
+  await revoquerFlux(dep, uid);
+  return { type: "compte", uid, cree: false };
 }
 
 /** Flux ouverts du compte coupés (au mieux : une panne est journalisée, `session_min_ts` refuse déjà les sessions d'avant). */

@@ -4,7 +4,7 @@ import { surchargerConfig } from "@elpis/config";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { appelerHote } from "../../src/admin/pilote-bac";
-import { makePreviewToken } from "../../src/relais/apercu";
+import { makePreviewToken, TTL_S } from "../../src/relais/apercu";
 import { entetesRelais, identiteRelais } from "../../src/relais/identite";
 import { FauxToolhost, JETON, monterBanc } from "./aides";
 import type { Banc } from "./aides";
@@ -87,6 +87,24 @@ describe("relais HTTP et aperçu (7)", () => {
       expect(await statut(2)).toBe(200);
       await reactiver(1);
       expect(await statut(1)).toBe(200);
+    } finally {
+      restaurer();
+    }
+  });
+
+  it("aperçu : un jeton émis avant le plancher de session du compte (rattachement, détachement, révocation) est refusé, un jeton émis après passe", async () => {
+    const restaurer = surchargerConfig({ SESSION_SECRET: "secret-apercu" });
+    try {
+      const statut = async (jeton: string): Promise<number> =>
+        (await fetch(`${banc.url}/api/sandbox/pv/${jeton}/site/index.html`)).status;
+      const maintenant = Date.now() / 1000;
+      const [ancien] = makePreviewToken(1, TTL_S, { maintenant: maintenant - 600 });
+      const [recent] = makePreviewToken(1, TTL_S, { maintenant });
+      expect(await statut(ancien)).toBe(200);
+      await banc.base.base.run("UPDATE users SET session_min_ts=? WHERE id=1", [maintenant - 60]);
+      expect(await statut(ancien)).toBe(403);
+      expect(await statut(recent)).toBe(200);
+      expect(await statut(makePreviewToken(2)[0])).toBe(200);
     } finally {
       restaurer();
     }

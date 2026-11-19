@@ -55,7 +55,10 @@ export async function poserSuspensionDetaillee(
     "UPDATE users SET suspended_at=?, suspended_by=?, session_min_ts=CASE WHEN session_min_ts IS NULL OR session_min_ts<? THEN ? ELSE session_min_ts END WHERE id=? AND (suspended_at IS NULL OR suspended_at=0)",
     [t, par, t, t, uid],
   );
-  if (pose.changes > 0) return { change: true, remplace: null };
+  if (pose.changes > 0) {
+    await x.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
+    return { change: true, remplace: null };
+  }
   if (par !== "admin") return { change: false, remplace: null };
   const l = await x.get<{ suspended_by: string | null }>("SELECT suspended_by FROM users WHERE id=?", [uid]);
   const origine = String(l?.suspended_by ?? "");
@@ -64,7 +67,9 @@ export async function poserSuspensionDetaillee(
     "UPDATE users SET suspended_by=? WHERE id=? AND suspended_by=? AND suspended_at IS NOT NULL AND suspended_at<>0",
     [par, uid, origine],
   );
-  return remplace.changes > 0 ? { change: true, remplace: origine } : { change: false, remplace: null };
+  if (remplace.changes === 0) return { change: false, remplace: null };
+  await x.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
+  return { change: true, remplace: origine };
 }
 
 /** Pose la suspension et la coupure des sessions dans l'écriture de l'appelant (refusée si elle retire le dernier administrateur local actif, sans écraser une suspension déjà posée) ; vrai si l'état a changé. */

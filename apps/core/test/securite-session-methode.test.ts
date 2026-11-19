@@ -138,9 +138,11 @@ describe("méthode de connexion relue à chaud (sessions et flux)", () => {
   it("session par mot de passe ouverte avant le rattachement : refusée dès que le compte n'a plus de mot de passe local", async () => {
     const s = ouvrir(simple, "password");
     expect(await valide(s, simple)).toBe(true);
+    expect(await fluxGarde(s, simple)).toBe(true);
     await t.base.run("UPDATE users SET pass_hash='!' WHERE id=?", [simple]);
+    expect(await valide(s, simple)).toBe(false);
+    expect(await fluxGarde(s, simple)).toBe(false);
     expect(await valide(ouvrir(simple, "password"), simple)).toBe(false);
-    expect(await fluxGarde(ouvrir(simple, "password"), simple)).toBe(false);
   });
 });
 

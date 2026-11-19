@@ -134,7 +134,7 @@ export class JetonsVus {
 
 type LigneSession = { sid: string; user_id: number; expires_at: number };
 
-/** Sessions de CE fournisseur visées par le jeton : par `sid` (et `sub` s'il est donné), sinon par `sub` seul, rangé avec la session. */
+/** Sessions de CE fournisseur visées par le jeton : par `sid` (et `sub` s'il est donné, avec les sessions de ce sujet sans `sid` rangé), sinon par `sub` seul. */
 async function sessionsVisees(
   x: Executeur,
   f: FournisseurOidc,
@@ -143,8 +143,8 @@ async function sessionsVisees(
   if (j.sid !== null) {
     if (j.sub !== null)
       return x.all<LigneSession>(
-        "SELECT sid, user_id, expires_at FROM auth_ext_sessions WHERE provider_id=? AND idp_sid=? AND subject=?",
-        [f.id, j.sid, j.sub],
+        "SELECT sid, user_id, expires_at FROM auth_ext_sessions WHERE provider_id=? AND subject=? AND (idp_sid=? OR idp_sid IS NULL)",
+        [f.id, j.sub, j.sid],
       );
     return x.all<LigneSession>(
       "SELECT sid, user_id, expires_at FROM auth_ext_sessions WHERE provider_id=? AND idp_sid=?",
@@ -156,6 +156,24 @@ async function sessionsVisees(
     "SELECT sid, user_id, expires_at FROM auth_ext_sessions WHERE provider_id=? AND subject=?",
     [f.id, j.sub],
   );
+}
+
+/** Flux `proof` en attente de ce sujet chez ce fournisseur supprimés : la personne recommence par le SSO. */
+async function supprimerPreuvesDuSujet(x: Executeur, providerId: string, sub: string): Promise<void> {
+  const flux = await x.all<{ state_hash: string; profile_json: string | null }>(
+    "SELECT state_hash, profile_json FROM auth_flows WHERE provider_id=? AND stage='proof'",
+    [providerId],
+  );
+  for (const l of flux) {
+    let v: Partial<Record<"sub" | "subject", unknown>> = {};
+    try {
+      v = l.profile_json === null ? {} : ((JSON.parse(l.profile_json) as typeof v | null) ?? {});
+    } catch {
+      v = {};
+    }
+    if (v.sub === sub || v.subject === sub)
+      await x.run("DELETE FROM auth_flows WHERE state_hash=?", [l.state_hash]);
+  }
 }
 
 export interface BilanDeconnexion {
@@ -176,6 +194,7 @@ export async function appliquerDeconnexion(
       await revoquerSid(x, l.sid, Number(l.user_id), t, Number(l.expires_at));
       await x.run("DELETE FROM auth_ext_sessions WHERE sid=?", [l.sid]);
     }
+    if (j.sub !== null) await supprimerPreuvesDuSujet(x, f.id, j.sub);
     return visees;
   });
   return { sessions: lignes.length, comptes: [...new Set(lignes.map((l) => Number(l.user_id)))] };

@@ -100,7 +100,7 @@ export const schemaReponseRattachementsPrepares = z.object({ items: z.array(sche
 /** `waiver` : dispense de la preuve par l'ancien mot de passe, refusée pour un administrateur ; `confirm_admin` obligatoire pour un administrateur. */
 export const schemaCorpsRattachementPrepare = z.object({
   user_id: entier,
-  expected: z.string().min(1).max(256),
+  expected: z.string().min(1).max(255),
   waiver: z.boolean().default(false),
   confirm_admin: z.boolean().default(false),
 });

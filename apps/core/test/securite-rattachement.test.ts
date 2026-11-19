@@ -633,6 +633,7 @@ describe.each(MOTEURS)("rattachement des comptes locaux (%s)", (moteur) => {
       const jeanne = await createUser(b.t.base, "jeanne", "mdp-local-2");
       await lier([{ user_id: jean, subject: UUID(1) }]);
       await detacher(jean);
+      await b.t.base.run("UPDATE users SET username='jean-ancien' WHERE id=?", [jean]);
       expect(resultats(await lier([{ user_id: jeanne, subject: UUID(1) }]))).toEqual(["linked"]);
     });
   });
@@ -796,6 +797,16 @@ describe.each(MOTEURS)("rattachement des comptes locaux (%s)", (moteur) => {
       );
     const nbJetons = async (uid: number): Promise<number> =>
       Number((await b.t.base.valeurs("SELECT COUNT(*) FROM tool_tokens WHERE user_id=?", [uid]))[0]?.[0]);
+
+    it("un AUTRE compte à mot de passe local porte l'identifiant de l'entrée (casse ignorée) : entry_not_loginable, rien d'écrit ; sans mot de passe local il ne gêne plus", async () => {
+      const marie = await createUser(b.t.base, "marie", "mdp-local-1");
+      const autre = await createUser(b.t.base, "Jean", "mdp-local-2");
+      expect(resultats(await lier([{ user_id: marie, subject: UUID(1) }]))).toEqual(["entry_not_loginable"]);
+      expect(await identites()).toEqual([]);
+      expect((await compte("marie"))?.["pass_hash"]).not.toBe("!");
+      await b.t.base.run("UPDATE users SET pass_hash='!' WHERE id=?", [autre]);
+      expect(resultats(await lier([{ user_id: marie, subject: UUID(1) }]))).toEqual(["linked"]);
+    });
 
     it("entrée que la connexion ne retrouverait pas (identifiant ambigu) : entry_not_loginable, rien d'écrit, refus audité", async () => {
       const jean = await createUser(b.t.base, "jean", "mdp-local-1");

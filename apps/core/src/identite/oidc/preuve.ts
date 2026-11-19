@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { cleAdresse } from "@elpis/auth";
 import type { Session } from "@elpis/auth";
 import type { Base } from "@elpis/db";
+import { chiffrerSecret, dechiffrerSecret } from "@elpis/securite";
 
 import { etablirConnexion } from "../../comptes/ouverture";
 import type { EffetsConnexion } from "../../comptes/ouverture";
@@ -22,6 +23,9 @@ export interface FluxPreuve {
   readonly appartenance: Appartenance;
   /** `sub` du jeton d'identité d'où vient le profil. */
   readonly sub: string;
+  /** Identifiant de session du fournisseur et jeton d'identité du retour vérifié ; `null` s'ils manquent. */
+  readonly idpSid: string | null;
+  readonly idToken: string | null;
   readonly cible: CibleFlux;
   readonly oauthNext: string | null;
 }
@@ -37,10 +41,19 @@ type LignePreuve = {
 
 const texte = (v: unknown): v is string => typeof v === "string";
 
-/** Profil et appartenance relus du JSON rangé ; `null` si la forme n'est pas exacte. */
+const contexteJeton = (stateHash: string): string => `auth-proof-flow:${stateHash}`;
+
+/** Profil, appartenance, `sub`, `sid` et jeton d'identité (déchiffré) relus du JSON rangé ; `null` si la forme n'est pas exacte. */
 function profilDe(
   json: string | null,
-): { profil: ProfilIdentite; appartenance: Appartenance; sub: string } | null {
+  stateHash: string,
+): {
+  profil: ProfilIdentite;
+  appartenance: Appartenance;
+  sub: string;
+  idpSid: string | null;
+  idToken: string | null;
+} | null {
   if (json === null) return null;
   let v: unknown;
   try {
@@ -50,14 +63,31 @@ function profilDe(
   }
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
-  const { subject, issuer, extUsername, extEmail, extName, appartenance, sub } = o;
+  const { subject, issuer, extUsername, extEmail, extName, appartenance, sub, idpSid, idTokenEnc } = o;
   if (!texte(subject) || !texte(issuer) || !texte(extUsername) || !texte(extEmail) || !texte(extName))
     return null;
   if (appartenance !== "oui" && appartenance !== "non" && appartenance !== "inconnu") return null;
+  let idToken: string | null = null;
+  if (texte(idTokenEnc)) {
+    try {
+      idToken = dechiffrerSecret(idTokenEnc, contexteJeton(stateHash));
+    } catch {
+      idToken = null;
+    }
+  }
   return {
-    profil: { subject, issuer, extUsername, extEmail, extName },
+    profil: {
+      subject,
+      issuer,
+      extUsername,
+      extEmail,
+      extName,
+      ...(o["identifiantFiable"] === false ? { identifiantFiable: false } : {}),
+    },
     appartenance,
     sub: texte(sub) ? sub : subject,
+    idpSid: texte(idpSid) ? idpSid : null,
+    idToken,
   };
 }
 
@@ -71,6 +101,8 @@ export async function ouvrirFluxPreuve(
     readonly profil: ProfilIdentite;
     readonly appartenance: Appartenance;
     readonly sub: string;
+    readonly idpSid: string | null;
+    readonly idToken: string | null;
     readonly cible: CibleFlux;
     readonly oauthNext: string | null;
     readonly adresse: string;
@@ -78,12 +110,21 @@ export async function ouvrirFluxPreuve(
   maintenant: number,
 ): Promise<void> {
   const navigateur = empreinte(e.secretLiaison);
+  const stateHash = empreinte(randomBytes(32).toString("base64url"));
+  let idTokenEnc: string | null = null;
+  if (e.idToken !== null) {
+    try {
+      idTokenEnc = chiffrerSecret(e.idToken, contexteJeton(stateHash));
+    } catch {
+      idTokenEnc = null;
+    }
+  }
   await base.ecriture(async (x) => {
     await x.run("DELETE FROM auth_flows WHERE browser_hash=? AND stage='proof'", [navigateur]);
     await x.run(
       "INSERT INTO auth_flows(state_hash, provider_id, browser_hash, ip_hash, nonce, code_verifier, target, oauth_next, trial_admin, stage, prelink_id, profile_json, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [
-        empreinte(randomBytes(32).toString("base64url")),
+        stateHash,
         e.providerId,
         navigateur,
         empreinte(cleAdresse(e.adresse)),
@@ -94,7 +135,13 @@ export async function ouvrirFluxPreuve(
         null,
         "proof",
         e.prelinkId,
-        JSON.stringify({ ...e.profil, appartenance: e.appartenance, sub: e.sub }),
+        JSON.stringify({
+          ...e.profil,
+          appartenance: e.appartenance,
+          sub: e.sub,
+          idpSid: e.idpSid,
+          idTokenEnc,
+        }),
         maintenant,
         maintenant + DUREE_FLUX_S,
       ],
@@ -113,7 +160,7 @@ export async function lireFluxPreuve(
     [empreinte(secretLiaison), maintenant],
   );
   if (l === undefined || l.prelink_id === null) return null;
-  const p = profilDe(l.profile_json);
+  const p = profilDe(l.profile_json, l.state_hash);
   if (p === null) return null;
   return {
     stateHash: l.state_hash,
@@ -125,7 +172,7 @@ export async function lireFluxPreuve(
   };
 }
 
-/** Session `oidc:<id>` du compte dont la preuve vient d'aboutir, et ligne de session du fournisseur (sans jeton d'identité ni `sid` du fournisseur : le retour n'est plus en main). */
+/** Session `oidc:<id>` du compte dont la preuve vient d'aboutir, et ligne de session du fournisseur avec le `sid` et le jeton d'identité du retour vérifié (une session SSO complète). */
 export async function ouvrirSessionApresPreuve(
   dep: {
     readonly base: Base;
@@ -137,6 +184,8 @@ export async function ouvrirSessionApresPreuve(
     readonly uid: number;
     readonly username: string;
     readonly sub: string;
+    readonly idpSid: string | null;
+    readonly idToken: string | null;
     readonly session: Session;
     readonly maintenant: number;
     readonly ip: string;
@@ -161,9 +210,9 @@ export async function ouvrirSessionApresPreuve(
           sid,
           uid: e.uid,
           providerId: e.fournisseur.id,
-          idpSid: null,
+          idpSid: e.idpSid,
           subject: e.sub,
-          idToken: null,
+          idToken: e.idToken,
           maintenant: e.maintenant,
           expire,
         });

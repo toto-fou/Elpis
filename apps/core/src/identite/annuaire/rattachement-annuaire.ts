@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/annuaire/rattachement-annuaire.ts — assistant de rattachement LDAP : comptes locaux sans identité et entrée proposée, recherche à la main, rattachement par lot où le serveur relit chaque entrée par sa clé stable. */
+import { MARQUEUR_SANS_MOT_DE_PASSE } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import { auditEvent } from "@elpis/securite";
 
@@ -327,7 +328,7 @@ export async function rattacherComptes(
           fin(refus);
           continue;
         }
-        if (!(await connectable(cnx, f, entree, lien.subject))) {
+        if (!(await connectable(dep, cnx, f, entree, lien.subject, lien.user_id))) {
           fin("entry_not_loginable");
           continue;
         }
@@ -397,15 +398,22 @@ export async function rattacherComptes(
   return resultats;
 }
 
-/** Vrai si la connexion retrouve cette entrée (même clé stable) avec l'identifiant qu'elle taperait. */
+/** Vrai si la connexion retrouve cette entrée (même clé stable) avec l'identifiant qu'elle taperait, et qu'aucun AUTRE compte à mot de passe local ne porte cet identifiant (la connexion irait à lui). */
 async function connectable(
+  dep: Pick<DependancesAnnuaire, "base">,
   cnx: ConnexionAnnuaire,
   f: FournisseurLdap,
   entree: EntreeAnnuaire,
   subject: string,
+  uid: number,
 ): Promise<boolean> {
   const cle = cleIdentifiant(profilExterne(entree, f).identifiant);
   if (cle === null) return false;
+  const local = await dep.base.get(
+    "SELECT 1 AS un FROM users WHERE id<>? AND pass_hash<>? AND lower(username)=?",
+    [uid, MARQUEUR_SANS_MOT_DE_PASSE, cle.toLowerCase()],
+  );
+  if (local !== undefined) return false;
   const trouve = await chercherUtilisateur(cnx, f, cle);
   if (typeof trouve === "string") return false;
   try {

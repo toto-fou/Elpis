@@ -8,12 +8,13 @@ import {
   getUsernameById,
   nomCanonique,
 } from "@elpis/auth";
+import { HttpError } from "@elpis/commun";
 import { ErreurIntegrite } from "@elpis/db";
 import { auditEvent } from "@elpis/securite";
 
 import { couperAcces, poserReactivation, poserSuspension } from "../comptes/etat";
 import type { DependancesEtat } from "../comptes/etat";
-import { compterAdminsLocaux } from "./etat";
+import { compterAdminsLocaux, exigerAdminLocal } from "./etat";
 import { nomDerive } from "./nom";
 import {
   auditerRattachement,
@@ -37,6 +38,8 @@ export interface ProfilIdentite {
   readonly extUsername: string;
   readonly extEmail: string;
   readonly extName: string;
+  /** Faux si l'identifiant ne peut pas servir à une correspondance (e-mail non vérifié, plus de 255 caractères) ; absent : fiable. */
+  readonly identifiantFiable?: boolean;
 }
 
 export type RaisonRefusIdentite =
@@ -145,6 +148,17 @@ async function poserSuspensionDeLAnnuaire(c: Contexte, uid: number, origine: str
   }
 }
 
+/** Vrai si ce compte est le dernier administrateur local actif : sa preuve ne pourrait jamais aboutir. */
+async function dernierAdminLocal(x: DependancesEtat["base"], uid: number): Promise<boolean> {
+  try {
+    await exigerAdminLocal(x, { sauf: uid });
+    return false;
+  } catch (e) {
+    if (e instanceof HttpError && e.statusCode === 409) return true;
+    throw e;
+  }
+}
+
 /** Rattachement préparé d'un fournisseur OIDC pour cette identité inconnue : preuve à faire, ou rattachement tout de suite si la preuve est dispensée (simple utilisateur seulement) ; jamais de compte créé. */
 async function rattachementPrepare(c: Contexte, l: LignePrepare): Promise<Resolution> {
   const { dep, fournisseur, profil, effets } = c;
@@ -153,11 +167,14 @@ async function rattachementPrepare(c: Contexte, l: LignePrepare): Promise<Resolu
   const t = dep.maintenant();
   if (!ligneConvient(l, { fournisseurId: fournisseur.id, ancre, profil, t }))
     return refus("prelink_invalid", uid);
-  if (Number(l.waiver) !== 1) return { type: "preuve", prelinkId: Number(l.id), uid };
   const role = Number(
     (await dep.base.get<{ is_admin: number | null }>("SELECT is_admin FROM users WHERE id=?", [uid]))
       ?.is_admin,
   );
+  if (Number(l.waiver) !== 1) {
+    if (role === 1 && (await dernierAdminLocal(dep.base, uid))) return refus("prelink_invalid", uid);
+    return { type: "preuve", prelinkId: Number(l.id), uid };
+  }
   if (role === 1 || role === 2) {
     await dep.base.run("DELETE FROM auth_prelinks WHERE id=?", [l.id]);
     return refus("prelink_invalid", uid);

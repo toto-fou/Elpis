@@ -16,6 +16,8 @@ export class ConnexionRefusee extends HttpError {
 export interface EffetsConnexion {
   readonly base: Executeur;
   readonly maintenant: () => number;
+  /** Durée de vie d'une session en secondes (configuration courante). */
+  readonly dureeMax: () => number;
   readonly demarrerHistoriqueFichiers?: (uid: number) => Promise<void>;
   readonly logMetric?: (nom: string, valeur: number, etiquettes: Record<string, unknown>) => void;
 }
@@ -45,7 +47,7 @@ export async function etablirConnexion(
     throw new ConnexionRefusee();
   }
   const t = dep.maintenant();
-  ouvrirSession(e.session, { uid: e.uid, methode: e.methode, maintenant: t });
+  ouvrirSession(e.session, { uid: e.uid, methode: e.methode, maintenant: t, dureeMax: dep.dureeMax() });
   try {
     await dep.base.run("UPDATE users SET last_login_at=? WHERE id=?", [t, e.uid]);
   } catch {

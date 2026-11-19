@@ -422,6 +422,48 @@ describe("vecteurs du Python", () => {
 });
 
 describe("au-delà des vecteurs", () => {
+  it("session perdue en plein tour : génération abandonnée, `session_expired` en dernière ligne, réponse fermée", async () => {
+    url = sd.url;
+    ecrireConfig({});
+    reglerTourImagePourTests({ pingS: 0.05 });
+    Object.assign(etat, {
+      etats: Array.from({ length: 400 }, () => ({ status: "generating" })),
+      stop: null,
+      chat: "perdu",
+      sondages: 0,
+    });
+    const auth = dependancesParDefaut(t.base);
+    const surveille = await appTest({
+      familles: [creerFamilleChat({ base: t.base, dormir: async () => undefined, auth, revalidationMs: 30 })],
+      gardes: {
+        session: async (req) => {
+          req.utilisateur = { id: 1, username: "x" };
+          Object.assign(req, { session: { get: () => undefined } });
+        },
+      },
+    });
+    try {
+      const r = await surveille.inject({
+        method: "POST",
+        url: "/api/chat-saved-stream3",
+        headers: { "content-type": "application/json" },
+        payload: JSON.stringify({
+          chat_id: "perdu",
+          messages: [{ role: "user", content: "un chat" }],
+          image_gen: {},
+        }),
+      });
+      const lignes = r.body.trim().split("\n");
+      expect(lignes.at(-1)).toBe('{"type": "session_expired"}');
+      expect(lignes.filter((l) => l.includes("session_expired"))).toHaveLength(1);
+      expect(lignes.some((l) => l.includes('"type": "final"'))).toBe(false);
+    } finally {
+      await surveille.close();
+      etat.etats = [];
+      reglerTourImagePourTests({ pingS: 3600 });
+    }
+  });
+
   it("client parti en plein calcul : le tour finit seul et persiste ; pings pendant le silence", async () => {
     url = sd.url;
     ecrireConfig({});

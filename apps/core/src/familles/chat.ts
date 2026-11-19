@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/chat.ts — génération d'un tour de chat en flux NDJSON : ouverture commune au tour « Images » et au réveilleur des jobs (`tour/ouverture.ts`), puis le tour (chatbot_app/routes/chats.py). */
-import { revaliderFlux } from "@elpis/auth";
+import { metaSession, revaliderFlux } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import { estDict, HttpError, pyJsonLoads, texteJsonPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
@@ -19,6 +19,7 @@ export { admettreTour, ouvrirTour } from "../tour/ouverture";
 export type { TourOuvert } from "../tour/ouverture";
 
 export const REVALIDATION_CHAT_MS = 60_000;
+const PERDUE: unique symbol = Symbol("sessionPerdue");
 
 export interface DependancesChat extends DependancesOuverture {
   readonly auth?: DependancesAuth;
@@ -42,18 +43,33 @@ async function streamer(dep: DependancesChat, req: FastifyRequest, rep: FastifyR
   const uid = utilisateur(req);
   const data = corpsDuTour(req.corpsBrut);
   if (data["image_gen"] !== null && data["image_gen"] !== undefined)
-    return imageTurn(dep, rep, data, uid, await admettreTour(dep, uid, data));
+    return imageTurn(dep, rep, data, uid, await admettreTour(dep, uid, data), (surPerte) =>
+      surveillerSession(dep, uid, req, surPerte),
+    );
   const tour = await ouvrirTour(dep, uid, data);
   const sortie = ouvrirFlux(rep, { "content-type": "application/x-ndjson; charset=utf-8" }, dep.arret);
   const coupure = new AbortController();
+  let perdue: () => void = () => undefined;
+  const sessionPerdue = new Promise<typeof PERDUE>((ok) => (perdue = () => ok(PERDUE)));
   const arretSurveillance = surveillerSession(dep, uid, req, async () => {
-    await sortie.ecrire(ligneNdjson({ type: "session_expired" }));
     coupure.abort();
+    perdue();
   });
   try {
     const signal = AbortSignal.any([sortie.signal, coupure.signal]);
-    for await (const ev of runTurn({ base: dep.base }, tour.plan, tour.res, tour.base, signal))
-      await sortie.ecrire(ligneNdjson(ev));
+    const evenements = runTurn({ base: dep.base }, tour.plan, tour.res, tour.base, signal)[
+      Symbol.asyncIterator
+    ]();
+    for (;;) {
+      const suivant = await Promise.race([evenements.next(), sessionPerdue]);
+      if (suivant === PERDUE) {
+        void evenements.return?.(undefined).catch(() => undefined);
+        await sortie.ecrire(ligneNdjson({ type: "session_expired" }));
+        break;
+      }
+      if (suivant.done) break;
+      await sortie.ecrire(ligneNdjson(suivant.value));
+    }
   } finally {
     arretSurveillance();
     sortie.fermer();
@@ -71,6 +87,7 @@ export function surveillerSession(
   if (!auth) return () => undefined;
   const loginTs = req.session.get("_login_ts");
   const sid = req.session.get("_sid");
+  const meta = metaSession(req.session);
   let enCours = false;
   let fini = false;
   const minuterie = setInterval(() => {
@@ -78,7 +95,7 @@ export function surveillerSession(
     enCours = true;
     void (async () => {
       try {
-        if (await revaliderFlux(auth, uid, loginTs, sid)) return;
+        if (await revaliderFlux(auth, uid, loginTs, sid, meta)) return;
       } catch {
         return;
       } finally {

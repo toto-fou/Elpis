@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/etat.ts — suspension et réactivation d'un compte : état et coupure des sessions posés en une écriture, puis flux, terminaux, exécutions et bac coupés. */
-import { getUsernameById, getUserSettings } from "@elpis/auth";
+import { getUsernameById, getUserSettings, revoquerTousAcces } from "@elpis/auth";
+import type { DependancesJetons } from "@elpis/auth";
 import type { Base } from "@elpis/db";
 
 import { travailBac } from "../admin/bac";
@@ -11,6 +12,8 @@ import type { Journal } from "../journal";
 
 export interface DependancesEtat {
   readonly base: Base;
+  /** Jetons d'API et accès OAuth du compte, révoqués par toute suspension. */
+  readonly acces: DependancesJetons;
   readonly maintenant: () => number;
   /** Suspension propagée aux process (flux, terminaux, exécutions, main compris) ; vrai si main l'a reçue. */
   readonly publierSuspension: (uid: number) => Promise<boolean>;
@@ -25,9 +28,13 @@ export interface BilanSuspension {
   readonly propage: boolean;
   /** Le conteneur du compte est détruit. */
   readonly bacArrete: boolean;
+  /** Jetons d'API révoqués. */
+  readonly tokens: number;
+  /** Accès OAuth révoqués. */
+  readonly oauth: number;
 }
 
-/** Pose la suspension et la coupure des sessions en UNE écriture (refusée si elle retire le dernier administrateur local actif, sans écraser une suspension déjà posée), puis coupe flux, exécutions et bac. */
+/** Pose la suspension et la coupure des sessions en UNE écriture (refusée si elle retire le dernier administrateur local actif, sans écraser une suspension déjà posée), puis révoque jetons et accès OAuth et coupe flux, exécutions et bac. */
 export async function suspendre(dep: DependancesEtat, uid: number, par: string): Promise<BilanSuspension> {
   const t = dep.maintenant();
   const change = await dep.base.ecriture(async (x) => {
@@ -41,6 +48,7 @@ export async function suspendre(dep: DependancesEtat, uid: number, par: string):
       ).changes > 0
     );
   });
+  const { tokens, oauth } = await revoquerAcces(dep, uid);
   let propage = false;
   try {
     propage = (await dep.publierSuspension(uid)) !== false;
@@ -48,7 +56,17 @@ export async function suspendre(dep: DependancesEtat, uid: number, par: string):
     dep.journal.error({ err: e }, "[admin] publication account_suspended échouée");
   }
   const bacArrete = await detruireBac(dep, uid);
-  return { change, propage, bacArrete };
+  return { change, propage, bacArrete, tokens, oauth };
+}
+
+/** Jetons d'API et accès OAuth du compte révoqués (au mieux : une panne est journalisée, l'état suspendu les refuse déjà). */
+async function revoquerAcces(dep: DependancesEtat, uid: number): Promise<{ tokens: number; oauth: number }> {
+  try {
+    return await revoquerTousAcces(dep.acces, uid);
+  } catch (e) {
+    dep.journal.error({ err: e }, "[admin] révocation des accès du compte suspendu échouée");
+    return { tokens: 0, oauth: 0 };
+  }
 }
 
 /** Conteneur du compte détruit (au mieux) : un compte suspendu n'a plus de processus qui tourne. */

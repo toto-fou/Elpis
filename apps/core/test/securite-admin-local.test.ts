@@ -137,6 +137,7 @@ describe.each(MOTEURS)("administrateur local (%s)", (moteur) => {
           suspendre(
             {
               base: t.base,
+              acces: dependancesParDefaut(t.base),
               maintenant: () => 1,
               publierSuspension: async () => true,
               journal: journalMuet,

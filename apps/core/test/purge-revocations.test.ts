@@ -46,6 +46,19 @@ describe.each(MOTEURS)("purge des révocations (%s)", (moteur) => {
     expect(await estRevoquee(t.base, "perimee")).toBe(false);
   });
 
+  it("une révocation dont la session n'a pas expiré reste, même si la durée de configuration a été raccourcie puis rallongée", async () => {
+    await revoquerSid(t.base, "vivante", null, MAINTENANT - 5000, MAINTENANT + 100);
+    await revoquerSid(t.base, "morte", null, MAINTENANT - 9000, MAINTENANT - MARGE_PURGE_REVOCATIONS_S - 1);
+    const avecDuree = (max: number) => ({
+      ...auth(),
+      config: () => ({ security: { session: { max_age_sec: max } } }),
+    });
+    expect(await purgerUnePasse(avecDuree(10), journalMuet)).toBe(1);
+    expect(await purgerUnePasse(avecDuree(10_000_000), journalMuet)).toBe(0);
+    expect(await estRevoquee(t.base, "vivante")).toBe(true);
+    expect(await estRevoquee(t.base, "morte")).toBe(false);
+  });
+
   it("une erreur de base est journalisée sans être relancée", async () => {
     const base = { ...t.base, run: () => Promise.reject(new Error("panne")) };
     await expect(purgerUnePasse(auth(base as never), journalMuet)).resolves.toBe(0);

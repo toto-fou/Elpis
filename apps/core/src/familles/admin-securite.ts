@@ -3,7 +3,6 @@
 import {
   dureeMaxSession,
   estLocalDirect,
-  effacerMinSession,
   leverMinSession,
   ligneUtilisateur,
   revoquerTousAcces,
@@ -108,8 +107,9 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     const revoques: Dict[] = [];
     try {
       const lignes = await base.valeurs<[unknown, unknown, unknown]>(
-        "SELECT id, username, session_min_ts FROM users WHERE session_min_ts IS NOT NULL AND session_min_ts > 0 " +
+        "SELECT id, username, session_min_ts FROM users WHERE session_min_ts IS NOT NULL AND session_min_ts > ? " +
           "ORDER BY session_min_ts DESC LIMIT 200",
+        [maintenant() - dureeMaxSession(auth.config())],
       );
       for (const [id, nom, ts] of lignes)
         revoques.push({
@@ -186,15 +186,13 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
   async function effacerRevocation(req: FastifyRequest): Promise<Dict> {
     const cible = cheminEntier(req, "user_id");
     try {
-      const coupureMax = maintenant() - dureeMaxSession(auth.config());
-      if (!(await effacerMinSession(base, cible, coupureMax))) {
-        const ligne = await ligneUtilisateur(base, cible);
-        const coupure = floatPy(veritePy(ligne?.session_min_ts) ? ligne?.session_min_ts : 0.0);
-        if (ligne && coupure > 0) {
-          const possible = coupure + dureeMaxSession(auth.config());
-          auditer(req, "admin.security.sessions.clear_user_revocation.denied", { target_user_id: cible });
-          throw new HttpError(409, `Levée possible à partir du ${formaterDate(possible)}.`);
-        }
+      const ligne = await ligneUtilisateur(base, cible);
+      const coupure = floatPy(veritePy(ligne?.session_min_ts) ? ligne?.session_min_ts : 0.0);
+      const protege = coupure > 0 && coupure >= maintenant() - dureeMaxSession(auth.config());
+      if (ligne && protege) {
+        const possible = coupure + dureeMaxSession(auth.config());
+        auditer(req, "admin.security.sessions.clear_user_revocation.denied", { target_user_id: cible });
+        throw new HttpError(409, `Levée possible à partir du ${formaterDate(possible)}.`);
       }
     } catch (e) {
       if (e instanceof HttpError) throw e;

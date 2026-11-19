@@ -5,14 +5,7 @@ import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  dureeMaxSession,
-  effacerMinSession,
-  estRevoquee,
-  leverMinSession,
-  purgerRevocations,
-  revoquerSid,
-} from "../src/index";
+import { dureeMaxSession, estRevoquee, leverMinSession, purgerRevocations, revoquerSid } from "../src/index";
 
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
 
@@ -56,32 +49,37 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
     expect(await estRevoquee(t.base, "c")).toBe(true);
   });
 
-  it("lève puis efface l'époque de révocation d'un compte", async () => {
+  it("lève l'époque de révocation d'un compte sans jamais la baisser", async () => {
     const uid = await t.base.insertId(
       "INSERT INTO users(username, pass_salt, pass_hash, created_at) VALUES ('alice', 's', 'h', 0)",
     );
-    expect(await leverMinSession(t.base, uid, 1234.5)).toBe(true);
-    expect((await t.base.get("SELECT session_min_ts AS v FROM users WHERE id=?", [uid]))?.v).toBe(1234.5);
-    expect(await effacerMinSession(t.base, uid)).toBe(true);
-    expect((await t.base.get("SELECT session_min_ts AS v FROM users WHERE id=?", [uid]))?.v).toBe(0);
-    expect(await leverMinSession(t.base, uid + 1, 1)).toBe(false);
-    expect(await effacerMinSession(t.base, uid + 1)).toBe(false);
-  });
-
-  it("effacement conditionnel : refusé si la coupure est récente, permis sinon, dans la requête", async () => {
-    const uid = await t.base.insertId(
-      "INSERT INTO users(username, pass_salt, pass_hash, created_at) VALUES ('carol', 's', 'h', 0)",
-    );
     const lire = async () =>
       (await t.base.get<{ v: number }>("SELECT session_min_ts AS v FROM users WHERE id=?", [uid]))?.v;
-    await leverMinSession(t.base, uid, 500);
-    expect(await effacerMinSession(t.base, uid, 500)).toBe(false);
-    expect(await effacerMinSession(t.base, uid, 400)).toBe(false);
-    expect(await lire()).toBe(500);
-    expect(await effacerMinSession(t.base, uid, 501)).toBe(true);
-    expect(await lire()).toBe(0);
-    expect(await effacerMinSession(t.base, uid, 1)).toBe(true);
-    expect(await effacerMinSession(t.base, uid + 1, 1000)).toBe(false);
+    expect(await leverMinSession(t.base, uid, 1234.5)).toBe(true);
+    expect(await lire()).toBe(1234.5);
+    expect(await leverMinSession(t.base, uid, 1000)).toBe(false);
+    expect(await leverMinSession(t.base, uid, 1234.5)).toBe(false);
+    expect(await lire()).toBe(1234.5);
+    expect(await leverMinSession(t.base, uid, 2000)).toBe(true);
+    expect(await lire()).toBe(2000);
+    expect(await leverMinSession(t.base, uid + 1, 1)).toBe(false);
+  });
+
+  it("purge par échéance : la ligne reste tant que la session n'a pas expiré, quelle que soit la durée de configuration", async () => {
+    await revoquerSid(t.base, "vivante", null, 100, 5000);
+    await revoquerSid(t.base, "expiree", null, 100, 900);
+    await revoquerSid(t.base, "sans-echeance", null, 100);
+    await revoquerSid(t.base, "sans-echeance-recente", null, 990);
+    expect(await purgerRevocations(t.base, 1_000_000, 1000, 50)).toBe(1);
+    expect(await estRevoquee(t.base, "expiree")).toBe(false);
+    expect(await estRevoquee(t.base, "vivante")).toBe(true);
+    expect(await estRevoquee(t.base, "sans-echeance")).toBe(true);
+    expect(await purgerRevocations(t.base, 100, 1000, 50)).toBe(1);
+    expect(await estRevoquee(t.base, "sans-echeance")).toBe(false);
+    expect(await estRevoquee(t.base, "sans-echeance-recente")).toBe(true);
+    expect(await estRevoquee(t.base, "vivante")).toBe(true);
+    expect(await purgerRevocations(t.base, 100, 5051, 50)).toBe(2);
+    expect(await estRevoquee(t.base, "vivante")).toBe(false);
   });
 
   it("durée de vie d'une session lue dans la configuration, 86400 par défaut", () => {

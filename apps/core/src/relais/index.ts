@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/relais/index.ts — famille du relais vers l'hôte d'outils : routes HTTP et WebSocket des préfixes relayés, registre des terminaux, arrêt. */
-import { compteSuspendu, dependancesParDefaut, estInterSite, revaliderFlux } from "@elpis/auth";
+import { compteSuspendu, dependancesParDefaut, estInterSite, metaSession, revaliderFlux } from "@elpis/auth";
+import type { MetaSession } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import type { FastifyInstance, FastifyRequest, HTTPMethods } from "fastify";
@@ -112,13 +113,19 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
   }
 
   /** `_session_valide` : session du navigateur toujours valide ? Erreur passagère → oui. */
-  async function sessionValide(uid: number, loginTs: unknown, sid: unknown): Promise<boolean> {
+  async function sessionValide(
+    uid: number,
+    loginTs: unknown,
+    sid: unknown,
+    meta: MetaSession,
+  ): Promise<boolean> {
     try {
       return await revaliderFlux(
         options.auth ?? (authParDefaut ??= dependancesParDefaut(base())),
         uid,
         loginTs,
         sid,
+        meta,
       );
     } catch {
       return true;
@@ -130,7 +137,8 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
     if (apercu) return undefined;
     const loginTs = requete.session.get("_login_ts");
     const sid = requete.session.get("_sid");
-    return () => sessionValide(uid, loginTs, sid);
+    const meta = metaSession(requete.session);
+    return () => sessionValide(uid, loginTs, sid, meta);
   }
 
   /** Ordre de `SandboxRelayASGI` : identité, hôte du compte (affectation `by_user` enregistrée au passage), jeton, puis relais. */

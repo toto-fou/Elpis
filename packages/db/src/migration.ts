@@ -11,6 +11,7 @@ export const MIGRATIONS_TS: readonly string[] = [
   "0031_remove_remote_code",
   "0032_etat_des_comptes",
   "0033_identites_externes",
+  "0034_echeance_des_revocations",
 ];
 
 /** Notes d'une migration pour le journal du démarrage (jamais de secret). */

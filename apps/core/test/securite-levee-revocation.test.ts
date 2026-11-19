@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-levee-revocation.test.ts — lever la révocation d'un compte ne fait pas revivre une session émise avant la coupure (409 tant que la coupure est plus récente que la durée de vie d'une session). */
+/** apps/core/test/securite-levee-revocation.test.ts — lever la révocation d'un compte n'écrit rien et ne fait jamais revivre une session émise avant la coupure, même si la durée de vie d'une session est allongée ensuite (409 tant que la coupure protège encore). */
 import {
   createUser,
   dependancesParDefaut,
@@ -89,15 +89,37 @@ describe.each(MOTEURS)("levée de révocation (%s)", (moteur) => {
     expect(j.de("admin.security.sessions.clear_user_revocation")).toHaveLength(0);
   });
 
-  it("coupure plus vieille que la durée de vie d'une session : levée faite et auditée", async () => {
+  it("coupure plus vieille que la durée de vie d'une session : 200 audité, la route n'écrit rien", async () => {
     await leverMinSession(t.base, uid, maintenant - MAX_AGE - 1);
     const r = await app.inject({ method: "POST", url: URL(uid) });
     expect(r.statusCode).toBe(200);
-    expect(await minCompte()).toBe(0);
+    expect(await minCompte()).toBe(maintenant - MAX_AGE - 1);
     expect(j.derniere("admin.security.sessions.clear_user_revocation").details).toEqual({
       target_user_id: uid,
     });
     expect(j.de("admin.security.sessions.clear_user_revocation.denied")).toHaveLength(0);
+  });
+
+  it("cookie d'avant la coupure, levée acceptée, durée de vie allongée : le cookie reste refusé", async () => {
+    const coupure = maintenant - MAX_AGE - 1;
+    await leverMinSession(t.base, uid, coupure);
+    expect((await app.inject({ method: "POST", url: URL(uid) })).statusCode).toBe(200);
+    const volee = () => new Session({ _login_ts: coupure - 10, _sid: "s" });
+    const longue = {
+      ...auth(t.base),
+      config: () => ({ security: { session: { max_age_sec: 100 * MAX_AGE } } }),
+    };
+    expect((await validerSession(volee(), uid, dependancesSession(longue))).valide).toBe(false);
+    await leverMinSession(t.base, uid, coupure - 500);
+    expect(await minCompte()).toBe(coupure);
+  });
+
+  it("la vue d'ensemble ne liste que les coupures qui protègent encore", async () => {
+    const autre = await createUser(t.base, "carl", "mdp-carl", { isAdmin: 0 });
+    await leverMinSession(t.base, uid, maintenant - 10);
+    await leverMinSession(t.base, autre, maintenant - MAX_AGE - 1);
+    const r = await app.inject({ method: "GET", url: "/api/admin/security/sessions" });
+    expect(r.json().revoked_users.map((u: { user_id: number }) => u.user_id)).toEqual([uid]);
   });
 
   it("coupure exactement à la limite : refusée ; une seconde plus tard : permise", async () => {
@@ -105,6 +127,7 @@ describe.each(MOTEURS)("levée de révocation (%s)", (moteur) => {
     expect((await app.inject({ method: "POST", url: URL(uid) })).statusCode).toBe(409);
     maintenant += 1;
     expect((await app.inject({ method: "POST", url: URL(uid) })).statusCode).toBe(200);
+    expect(await minCompte()).toBe(maintenant - 1 - MAX_AGE);
   });
 
   it("compte sans coupure : comportement actuel (200, audit de succès)", async () => {

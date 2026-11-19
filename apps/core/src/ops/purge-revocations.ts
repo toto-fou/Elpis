@@ -24,6 +24,7 @@ export async function purgerUnePasse(dep: DependancesAuth, journal: Journal): Pr
       dep.base,
       dureeMaxSession(dep.config()) + MARGE_PURGE_REVOCATIONS_S,
       maintenant,
+      MARGE_PURGE_REVOCATIONS_S,
     );
     if (n > 0) journal.info(`${n} révocation(s) de session périmée(s) purgée(s)`);
     return n;

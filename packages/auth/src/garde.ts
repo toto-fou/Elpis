@@ -10,7 +10,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { estLocalDirect } from "./local";
 import { estRevoquee } from "./revocations";
 import { fluxEncoreValide, validerSession } from "./session";
-import type { DependancesSession, LigneUtilisateur, Session } from "./session";
+import type { DependancesSession, LigneUtilisateur, MetaSession, Session } from "./session";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -30,6 +30,8 @@ export interface DependancesAuth {
   secret(): string;
   jetonService(): string;
   maintenant?(): number;
+  /** Méthode de connexion d'une session encore admise pour ce compte (relue à chaud par le cœur). */
+  sessionAdmise?(auth: unknown, ligne: LigneUtilisateur): boolean | Promise<boolean>;
   signalerRefus?(requete: FastifyRequest, motif: MotifRefus, details: Record<string, unknown>): void;
 }
 
@@ -61,6 +63,12 @@ export async function ligneUtilisateur(x: Executeur, uid: number): Promise<Ligne
   return x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
 }
 
+/** Porte « méthode de connexion admise » de `dep`, absente quand il n'en fournit pas. */
+function portesAdmise(dep: DependancesAuth): Pick<DependancesSession, "sessionAdmise"> {
+  const admise = dep.sessionAdmise;
+  return admise ? { sessionAdmise: (auth, ligne) => admise.call(dep, auth, ligne) } : {};
+}
+
 /** Portes de session branchées sur la base de `dep` (lecture du compte, révocation par `_sid`). */
 export function dependancesSession(dep: DependancesAuth): DependancesSession {
   return {
@@ -68,6 +76,7 @@ export function dependancesSession(dep: DependancesAuth): DependancesSession {
     utilisateur: (uid) => ligneUtilisateur(dep.base, uid),
     revoquee: (sid) => estRevoquee(dep.base, sid),
     maintenant: () => maintenant(dep),
+    ...portesAdmise(dep),
   };
 }
 
@@ -110,19 +119,27 @@ export function revaliderFlux(
   uid: number,
   loginTs: unknown,
   sid: unknown,
+  meta: MetaSession = {},
 ): Promise<boolean> {
-  return fluxEncoreValide(uid, loginTs, sid, {
-    config: () => dep.config(),
-    revoquee: (s) => estRevoquee(dep.base, s),
-    maintenant: () => maintenant(dep),
-    sessionMinTs: async (id) => {
-      const r = await dep.base.get<{ m: number | null; s: number | null }>(
-        "SELECT session_min_ts AS m, suspended_at AS s FROM users WHERE id = ?",
-        [id],
-      );
-      return r === undefined ? undefined : { min: r.m ?? null, suspended_at: r.s };
+  return fluxEncoreValide(
+    uid,
+    loginTs,
+    sid,
+    {
+      config: () => dep.config(),
+      revoquee: (s) => estRevoquee(dep.base, s),
+      maintenant: () => maintenant(dep),
+      ...portesAdmise(dep),
+      sessionMinTs: async (id) => {
+        const r = await dep.base.get<{ m: number | null; s: number | null; a: number | null }>(
+          "SELECT session_min_ts AS m, suspended_at AS s, is_admin AS a FROM users WHERE id = ?",
+          [id],
+        );
+        return r === undefined ? undefined : { min: r.m ?? null, suspended_at: r.s, is_admin: r.a };
+      },
     },
-  });
+    meta,
+  );
 }
 
 /** `_require_admin` / `_require_staff` / `_require_admin_or_mod` : rôle relu en base (`is_admin` : 1 admin, 2 modérateur). */

@@ -62,6 +62,7 @@ import {
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
 import { creerFamilleAdminIdentite } from "./familles/admin-identite";
+import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
 import { faitsParDefaut, sondesParDefaut } from "./admin/vue";
@@ -391,6 +392,7 @@ export async function composer(
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     informer: (message) => jc.info(message),
     signalerRefus: signalerRefusAuth,
+    sessionAdmise,
     ...dep,
   };
   const jr = journal.child({ domaine: "sandbox-relay" });

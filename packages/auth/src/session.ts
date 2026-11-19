@@ -6,7 +6,23 @@ import { estTableAbsente } from "@elpis/db";
 import { lire, sousObjet } from "./dict";
 import { compteSuspendu } from "./etat-compte";
 
-const CLES_RESERVEES: ReadonlySet<string> = new Set(["uid", "user", "user_id", "_sid", "_auth", "_login_ts"]);
+const CLES_RESERVEES: ReadonlySet<string> = new Set([
+  "uid",
+  "user",
+  "user_id",
+  "_sid",
+  "_auth",
+  "_login_ts",
+  "_exp",
+]);
+const CLES_PROTOTYPE: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
+
+/** Copie sans prototype des données, clés de prototype écartées. */
+function sansPrototype(donnees: Record<string, unknown>): Record<string, unknown> {
+  const copie: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const [cle, valeur] of Object.entries(donnees)) if (!CLES_PROTOTYPE.has(cle)) copie[cle] = valeur;
+  return copie;
+}
 
 /** Porte d'écriture de l'identité : exportée ici, absente de l'index du paquet, réservée à ouverture.ts. */
 export const ECRIRE_IDENTITE: unique symbol = Symbol("ecrireIdentite");
@@ -17,15 +33,16 @@ export class Session {
   modifiee = false;
 
   constructor(donnees: Record<string, unknown> = {}) {
-    this.#donnees = { ...donnees };
+    this.#donnees = sansPrototype(donnees);
   }
 
   get(cle: string): unknown {
     this.lue = true;
-    return this.#donnees[cle];
+    return CLES_PROTOTYPE.has(cle) ? undefined : this.#donnees[cle];
   }
 
   set(cle: string, valeur: unknown): void {
+    if (CLES_PROTOTYPE.has(cle)) throw new Error(`session key "${cle}" is not allowed`);
     if (CLES_RESERVEES.has(cle)) throw new Error(`session key "${cle}" is reserved to ouvrirSession`);
     this.lue = true;
     this.modifiee = true;
@@ -41,7 +58,7 @@ export class Session {
   vider(): void {
     this.lue = true;
     this.modifiee = true;
-    this.#donnees = {};
+    this.#donnees = sansPrototype({});
   }
 
   get vide(): boolean {
@@ -67,6 +84,24 @@ export interface LigneUtilisateur {
 export interface EtatMinSession {
   min: number | null;
   suspended_at?: number | null;
+  is_admin?: number | null;
+}
+
+/** Ce qu'une session porte hors de l'identité du flux : échéance figée et méthode de connexion. */
+export interface MetaSession {
+  exp?: unknown;
+  auth?: unknown;
+}
+
+/** Échéance figée et méthode de connexion d'une session. */
+export function metaSession(session: Session): MetaSession {
+  return { exp: session.get("_exp"), auth: session.get("_auth") };
+}
+
+/** Faux si l'échéance figée à l'ouverture est dépassée ; absente (session d'avant) : pas de contrainte, illisible : refus. */
+function echeanceRespectee(exp: unknown, maintenant: number): boolean {
+  if (exp === undefined) return true;
+  return typeof exp === "number" && Number.isFinite(exp) && maintenant <= exp;
 }
 
 export interface DependancesSession {
@@ -74,6 +109,8 @@ export interface DependancesSession {
   utilisateur(uid: number): Promise<LigneUtilisateur | null | undefined>;
   revoquee(sid: string): Promise<boolean>;
   maintenant(): number;
+  /** Méthode de connexion de la session encore admise pour ce compte ; une erreur refuse la session. */
+  sessionAdmise?(auth: unknown, ligne: LigneUtilisateur): boolean | Promise<boolean>;
 }
 
 function reglages(config: unknown): Record<string, unknown> {
@@ -104,6 +141,7 @@ export async function validerSession(
   if (Number.isNaN(loginTs)) return refus();
   const maintenant = dep.maintenant();
   if (maintenant - loginTs > maxAge) return refus();
+  if (!echeanceRespectee(session.get("_exp"), maintenant)) return refus();
   if (minGlobal > 0 && loginTs < minGlobal) return refus();
   let ligne: LigneUtilisateur | null | undefined;
   try {
@@ -111,6 +149,7 @@ export async function validerSession(
     if (!ligne || compteSuspendu(ligne)) return refus();
     const minCompte = floatPy(veritePy(ligne.session_min_ts) ? ligne.session_min_ts : 0.0);
     if (minCompte > 0 && loginTs < minCompte) return refus();
+    if (dep.sessionAdmise && !(await dep.sessionAdmise(session.get("_auth"), ligne))) return refus();
   } catch {
     return refus();
   }
@@ -148,6 +187,7 @@ export async function fluxEncoreValide(
   dep: Omit<DependancesSession, "utilisateur"> & {
     sessionMinTs(uid: number): Promise<EtatMinSession | number | null | undefined>;
   },
+  meta: MetaSession = {},
 ): Promise<boolean> {
   if (!veritePy(loginTs)) return false;
   let login: number;
@@ -159,7 +199,9 @@ export async function fluxEncoreValide(
   const cfg = reglages(dep.config());
   const maxAge = intPy(lire(cfg, "max_age_sec", 86400));
   const minGlobal = floatPy(lire(cfg, "global_min_ts", 0.0));
-  if (dep.maintenant() - login > maxAge) return false;
+  const maintenant = dep.maintenant();
+  if (maintenant - login > maxAge) return false;
+  if (!echeanceRespectee(meta.exp, maintenant)) return false;
   if (minGlobal > 0 && login < minGlobal) return false;
   const compteRefuse = await refusSaufPanne(async () => {
     const etat = await dep.sessionMinTs(uid);
@@ -167,7 +209,11 @@ export async function fluxEncoreValide(
     if (typeof etat === "object" && etat !== null && compteSuspendu(etat)) return true;
     const min = typeof etat === "object" && etat !== null ? etat.min : etat;
     const m = floatPy(veritePy(min) ? min : 0.0);
-    return m > 0 && login < m;
+    if (m > 0 && login < m) return true;
+    if (!dep.sessionAdmise) return false;
+    const ligne: LigneUtilisateur =
+      typeof etat === "object" && etat !== null ? { is_admin: etat.is_admin ?? 0 } : {};
+    return !(await dep.sessionAdmise(meta.auth, ligne));
   });
   if (compteRefuse) return false;
   return !(veritePy(sid) && (await refusSaufPanne(() => dep.revoquee(String(sid)))));

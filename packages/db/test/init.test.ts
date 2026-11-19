@@ -164,6 +164,7 @@ describe("registre des migrations", () => {
       "0031_remove_remote_code",
       "0032_etat_des_comptes",
       "0033_identites_externes",
+      "0034_echeance_des_revocations",
     ]);
     expect(registreMigrations(["0027_essai"]).at(-1)).toBe("0027_essai");
     expect(() => registreMigrations(["0001_avant"])).toThrow(/mal numérotée/u);

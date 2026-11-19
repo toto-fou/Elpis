@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 const RACINE = join(__dirname, "..", "..", "..");
 const AUTH = join("packages", "auth", "src") + "/";
 const OUVERTURE = join("packages", "auth", "src", "ouverture.ts");
+const SESSION = join("packages", "auth", "src", "session.ts");
+const INDEX_AUTH = join("packages", "auth", "src", "index.ts");
 const CONNEXION = join("apps", "core", "src", "comptes", "ouverture.ts");
 const FAMILLE_COMPTES = join("apps", "core", "src", "familles", "comptes.ts");
 
@@ -34,18 +36,25 @@ function fautifs(motif: RegExp, permis: string[]): string[] {
 
 const REGLES: { nom: string; motif: RegExp; permis: string[]; fautif: string; correct: string }[] = [
   {
-    nom: "ouvrirSession(",
-    motif: /(?<!this\.|async\s)\bouvrirSession\s*(\?\.)?\(/u,
-    permis: [OUVERTURE, CONNEXION],
-    fautif: "const f = ouvrirSession; f?.(s)\nouvrirSession?.(s)",
-    correct: "const x = 1;",
+    nom: "ouvrirSession (toute mention)",
+    motif: /(?<!this\.|async\s)\bouvrirSession\b/u,
+    permis: [OUVERTURE, CONNEXION, INDEX_AUTH, SESSION],
+    fautif: "import { ouvrirSession as o } from '@elpis/auth'\nconst f = ouvrirSession; f?.(s)",
+    correct: "const x = this.ouvrirSession(1); async ouvrirSession() {}",
   },
   {
-    nom: "renouvelerSession(",
-    motif: /\brenouvelerSession\s*(\?\.)?\(/u,
-    permis: [OUVERTURE, FAMILLE_COMPTES],
-    fautif: "renouvelerSession?.(s, 1)",
+    nom: "renouvelerSession (toute mention)",
+    motif: /\brenouvelerSession\b/u,
+    permis: [OUVERTURE, FAMILLE_COMPTES, INDEX_AUTH],
+    fautif: "import { renouvelerSession as r } from '@elpis/auth'\nconst g = renouvelerSession",
     correct: "// rien",
+  },
+  {
+    nom: "ECRIRE_IDENTITE (toute mention)",
+    motif: /\bECRIRE_IDENTITE\b/u,
+    permis: [OUVERTURE, SESSION],
+    fautif: "import { ECRIRE_IDENTITE as E } from './session'\ns[ECRIRE_IDENTITE]('uid', 1)",
+    correct: "const ECRIRE = 1;",
   },
   {
     nom: "new Session(",
@@ -97,5 +106,6 @@ describe("ouverture de session unique (garde textuelle)", () => {
     expect(lire(OUVERTURE)).toMatch(/export function ouvrirSession\(/u);
     expect(lire(CONNEXION)).toMatch(/\bouvrirSession\(/u);
     expect(lire(FAMILLE_COMPTES)).toMatch(/\brenouvelerSession\(/u);
+    expect(lire(SESSION)).toMatch(/export const ECRIRE_IDENTITE/u);
   });
 });

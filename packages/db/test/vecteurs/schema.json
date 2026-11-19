@@ -1046,25 +1046,27 @@
     {
       "nom": "revoked_sessions",
       "sqlite": {
-        "table": "CREATE TABLE IF NOT EXISTS \"revoked_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER,\n  \"revoked_at\" REAL NOT NULL\n)",
+        "table": "CREATE TABLE IF NOT EXISTS \"revoked_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER,\n  \"revoked_at\" REAL NOT NULL,\n  \"expires_at\" REAL DEFAULT 0\n)",
         "index": [
           "CREATE INDEX IF NOT EXISTS \"idx_revoked_sessions_at\" ON \"revoked_sessions\" (\"revoked_at\")"
         ],
         "ajout_colonnes": {
           "sid": "\"sid\" TEXT",
           "user_id": "\"user_id\" INTEGER",
-          "revoked_at": "\"revoked_at\" REAL NOT NULL"
+          "revoked_at": "\"revoked_at\" REAL NOT NULL",
+          "expires_at": "\"expires_at\" REAL DEFAULT 0"
         }
       },
       "postgres": {
-        "table": "CREATE TABLE IF NOT EXISTS \"revoked_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" BIGINT,\n  \"revoked_at\" DOUBLE PRECISION NOT NULL\n)",
+        "table": "CREATE TABLE IF NOT EXISTS \"revoked_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" BIGINT,\n  \"revoked_at\" DOUBLE PRECISION NOT NULL,\n  \"expires_at\" DOUBLE PRECISION DEFAULT 0\n)",
         "index": [
           "CREATE INDEX IF NOT EXISTS \"idx_revoked_sessions_at\" ON \"revoked_sessions\" (\"revoked_at\")"
         ],
         "ajout_colonnes": {
           "sid": "\"sid\" TEXT",
           "user_id": "\"user_id\" BIGINT",
-          "revoked_at": "\"revoked_at\" DOUBLE PRECISION NOT NULL"
+          "revoked_at": "\"revoked_at\" DOUBLE PRECISION NOT NULL",
+          "expires_at": "\"expires_at\" DOUBLE PRECISION DEFAULT 0"
         }
       }
     },

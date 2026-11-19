@@ -1224,13 +1224,14 @@ export class ServiceJobs {
     });
   }
 
-  /** Reprise poussée par le core (SPEC §3) : chaque compte qui a un job `starting`/`running` confie ses jobs à l'hôte de son placement ; une panne est journalisée, l'appel repart au tour suivant. */
+  /** Reprise poussée par le core (SPEC §3) : chaque compte actif (non suspendu) qui a un job `starting`/`running` confie ses jobs à l'hôte de son placement ; une panne est journalisée, l'appel repart au tour suivant. */
   async veiller(): Promise<void> {
     const parCompte = new Map<number, string[]>();
     for (const j of await jobsActifs(this.base))
       parCompte.set(j.userId, [...(parCompte.get(j.userId) ?? []), j.id]);
     for (const [uid, ids] of parCompte) {
       try {
+        if (compteSuspendu(await ligneUtilisateur(this.base, uid))) continue;
         await this.hote.veiller(uid, ids, await dernierSeqDuCompte(this.base, uid));
       } catch (e) {
         if (e instanceof HoteIndisponible)

@@ -5,11 +5,20 @@ import "../moteur-environnement";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
+import { createUser } from "@elpis/auth";
 import { CancelledError, pyJsonDumps } from "@elpis/commun";
+import { initialiserBase } from "@elpis/db";
+import { ouvrirBaseDeTest } from "@elpis/db/test";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { runChatMultiMcp } from "../../src/boucle/orchestrateur";
-import { installerCompteSuspendu, installerDormir, installerTokenHex } from "../../src/boucle/ports";
+import { brancherBoucle } from "../../src/boucle/branchements";
+import {
+  compteSuspenduPourBoucle,
+  installerCompteSuspendu,
+  installerDormir,
+  installerTokenHex,
+} from "../../src/boucle/ports";
 import {
   installerPortCompresseur,
   installerProfilReseau,
@@ -202,10 +211,50 @@ describe("boucle : compte suspendu relu à chaque étape, sans événement", () 
   it("suspendu pendant un lot d'outils : l'étape suivante n'a pas lieu", async () => {
     const client = new FauxClient([dit(BLOC), dit("Fait.")]);
     let n = 0;
-    installerCompteSuspendu(async () => (n++, n > 2));
+    installerCompteSuspendu(async () => (n++, n > 3));
     await expect(lancer(client)).rejects.toBeInstanceOf(CancelledError);
     expect(client.nStream).toBe(1);
     expect(lances).toEqual(["ls"]);
+  });
+
+  it("suspendu pendant un lot de trois outils : l'outil dont la relecture voit la suspension et les suivants ne sont pas lancés", async () => {
+    const trois = ["a", "b", "c"]
+      .map((c) => `<tool_call>{"name": "zeta_shell", "arguments": {"command": "${c}"}}</tool_call>`)
+      .join("");
+    const client = new FauxClient([dit(trois), dit("Fait.")]);
+    let n = 0;
+    installerCompteSuspendu(async () => (n++, n > 4));
+    await expect(lancer(client)).rejects.toBeInstanceOf(CancelledError);
+    expect(client.nStream).toBe(1);
+    expect([...lances].sort()).toEqual(["a", "b"]);
+  });
+
+  it("le vrai branchement relit la base : seule la colonne de suspension est lue, un compte inconnu est actif", async () => {
+    const t = ouvrirBaseDeTest("sqlite");
+    try {
+      await initialiserBase(t.base);
+      const uid = await createUser(t.base, "alice", "mdp-alice", { isAdmin: 0 });
+      const requetes: string[] = [];
+      const espion = new Proxy(t.base, {
+        get: (c, p) => {
+          const v = Reflect.get(c, p) as unknown;
+          if (p !== "get") return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(c) : v;
+          return (sql: string, ...r: unknown[]) => {
+            requetes.push(sql);
+            return (v as (...a: unknown[]) => unknown).call(c, sql, ...r);
+          };
+        },
+      });
+      brancherBoucle(espion as typeof t.base);
+      const lire = compteSuspenduPourBoucle();
+      expect(await lire?.(uid)).toBe(false);
+      await t.base.run("UPDATE users SET suspended_at=100 WHERE id=?", [uid]);
+      expect(await lire?.(uid)).toBe(true);
+      expect(await lire?.(uid + 99)).toBe(false);
+      expect(requetes.every((s) => /^SELECT suspended_at FROM users WHERE id\s*=\s*\?$/u.test(s))).toBe(true);
+    } finally {
+      await t.fermer();
+    }
   });
 
   it("suspendu entre la réponse du modèle et le lot d'outils : l'outil n'est pas lancé", async () => {

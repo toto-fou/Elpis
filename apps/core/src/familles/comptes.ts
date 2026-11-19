@@ -25,6 +25,7 @@ import {
   getUsernameById,
   getUsersLite,
   ipDuClient,
+  dureeMaxSession,
   leverMinSession,
   ligneUtilisateur,
   rehacherSiAncien,
@@ -402,6 +403,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
               {
                 base,
                 maintenant: () => maintenant(dep),
+                dureeMax: () => dureeMaxSession(dep.auth.config()),
                 demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
                 logMetric: dep.logMetric,
               },
@@ -440,7 +442,10 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const ua = entete(req, "user-agent") ?? null;
           try {
             const sid = req.session.get("_sid");
-            if (veritePy(sid)) await revoquerSid(base, strPy(sid), uid, maintenant(dep));
+            if (veritePy(sid)) {
+              const exp = req.session.get("_exp");
+              await revoquerSid(base, strPy(sid), uid, maintenant(dep), typeof exp === "number" ? exp : 0);
+            }
           } catch (e) {
             dep.journal.warn({ err: e }, "[auth] révocation de session au logout échouée");
           }

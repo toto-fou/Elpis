@@ -351,6 +351,7 @@ export const TABLES: readonly Table[] = [
       { name: "sid", type: "text", primary: true },
       { name: "user_id", type: "int" },
       { name: "revoked_at", type: "real", null: false },
+      { name: "expires_at", type: "real", default: 0 },
     ],
     indexes: [{"name": "idx_revoked_sessions_at", "cols": ["revoked_at"]}],
   },

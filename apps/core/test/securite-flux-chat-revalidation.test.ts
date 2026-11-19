@@ -17,7 +17,7 @@ describe("revalidation du flux de chat", () => {
   let uid = 0;
   let perte: ReturnType<typeof vi.fn<() => Promise<void>>>;
   const requete = {
-    session: { get: (cle: string) => (cle === "_login_ts" ? LOGIN : "sid-1") },
+    session: { get: (cle: string) => (cle === "_login_ts" ? LOGIN : cle === "_sid" ? "sid-1" : undefined) },
   } as unknown as FastifyRequest;
 
   const dep = (auth = dependancesParDefaut(t.base)): DependancesChat =>

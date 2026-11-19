@@ -671,7 +671,7 @@
       "table",
       "revoked_sessions",
       "revoked_sessions",
-      "CREATE TABLE \"revoked_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER,\n  \"revoked_at\" REAL NOT NULL\n)"
+      "CREATE TABLE \"revoked_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER,\n  \"revoked_at\" REAL NOT NULL,\n  \"expires_at\" REAL DEFAULT 0\n)"
     ],
     [
       "table",

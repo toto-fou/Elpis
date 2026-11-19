@@ -170,6 +170,9 @@ async function resolveEnhanceTarget(base: Base, uid: number, data: Dict): Promis
   return cible;
 }
 
+/** Surveillance de la session du tour : appelle `surPerte` si elle est perdue ; rend l'arrêt de la surveillance. */
+export type SurveillanceSession = (surPerte: () => Promise<void>) => () => void;
+
 export interface DependancesTourImage {
   readonly base: Base;
   readonly arret?: AbortSignal | undefined;
@@ -211,6 +214,7 @@ export async function imageTurn(
   data: Dict,
   uid: number,
   chatIdDemande: string,
+  surveiller?: SurveillanceSession,
 ): Promise<void> {
   const cfg = getImageConfig();
   if (!imageReady(cfg))
@@ -336,7 +340,7 @@ export async function imageTurn(
     carry: compressionCarry(existing),
     enhanceTarget,
   });
-  await tour.diffuser(rep, dep.arret);
+  await tour.diffuser(rep, dep.arret, surveiller);
 }
 
 /** Un tour « Images » : worker (génération, persistance, `final`) et flux NDJSON qui draine sa file. */
@@ -571,7 +575,7 @@ class TourImage {
   }
 
   /** Réclame le verrou réservé, lance le worker, draine sa file ; à la fermeture, attend un tour stoppé (borné) ou le détache. */
-  async diffuser(rep: FastifyReply, arret?: AbortSignal): Promise<void> {
+  async diffuser(rep: FastifyReply, arret?: AbortSignal, surveiller?: SurveillanceSession): Promise<void> {
     const { uid, chatId } = this.c;
     await this.ouvrirJournal();
     let sortie: SortieFlux;
@@ -591,9 +595,19 @@ class TourImage {
         etat.fini = true;
         if (!this.detache) await this.q.put(null);
       });
+    const coupure = new AbortController();
+    const lecture = AbortSignal.any([sortie.signal, coupure.signal]);
+    const arretSurveillance = surveiller?.(async () => {
+      this.controleur.abort();
+      coupure.abort();
+    });
     try {
       for (;;) {
-        const ev = await this.q.get(reglages.pingS, sortie.signal);
+        const ev = await this.q.get(reglages.pingS, lecture);
+        if (coupure.signal.aborted) {
+          await sortie.ecrire(ligneNdjson({ type: "session_expired" }));
+          break;
+        }
         if (ev === DELAI) {
           if (sortie.signal.aborted) break;
           await sortie.ecrire(ligneNdjson({ type: "ping" }));
@@ -614,7 +628,8 @@ class TourImage {
         if (ev["type"] === "final") break;
       }
     } finally {
-      if (!etat.fini && isChatCancelled(uid, chatId)) {
+      arretSurveillance?.();
+      if (!etat.fini && (isChatCancelled(uid, chatId) || coupure.signal.aborted)) {
         let minuterie: NodeJS.Timeout | undefined;
         await Promise.race([
           tache,

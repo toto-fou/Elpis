@@ -18,7 +18,12 @@ export const schemaCorpsReinitialisationMotDePasse = z.object({
   new_password: z.string(),
 });
 /** `propagated` faux : main n'a pas reçu l'événement, les exécutions en cours s'arrêtent à leur prochaine étape. */
-export const schemaReponseSuspension = z.object({ ok: z.literal(true), propagated: z.boolean() });
+export const schemaReponseSuspension = z.object({
+  ok: z.literal(true),
+  propagated: z.boolean(),
+  tokens_revoked: z.number().int(),
+  oauth_revoked: z.number().int(),
+});
 export const schemaReponseSuppressionCompte = z.object({
   ok: z.literal(true),
   sandbox_deleted: z.boolean(),

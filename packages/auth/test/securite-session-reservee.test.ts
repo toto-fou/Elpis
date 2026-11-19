@@ -44,7 +44,7 @@ describe("clés d'identité de la session", () => {
 describe("renouvelerSession", () => {
   it("ne remet que _login_ts d'une session ouverte", () => {
     const s = new Session();
-    const sid = ouvrirSession(s, { uid: 4, methode: "password", maintenant: 10 });
+    const sid = ouvrirSession(s, { uid: 4, methode: "password", maintenant: 10, dureeMax: 100 });
     renouvelerSession(s, 99);
     expect(s.get("_login_ts")).toBe(99);
     expect(s.get("_sid")).toBe(sid);
@@ -60,7 +60,7 @@ describe("renouvelerSession", () => {
 
 describe("ouvrirSession : méthode contrôlée à l'exécution", () => {
   const ouvrir = (methode: string) =>
-    ouvrirSession(new Session(), { uid: 1, methode: methode as "password", maintenant: 1 });
+    ouvrirSession(new Session(), { uid: 1, methode: methode as "password", maintenant: 1, dureeMax: 100 });
 
   it.each(["password", "ldap:a", "oidc:sso-1", `ldap:${"a".repeat(31)}`])("accepte %s", (m) => {
     expect(() => ouvrir(m)).not.toThrow();
@@ -78,7 +78,9 @@ describe("ouvrirSession : méthode contrôlée à l'exécution", () => {
     "password\n",
   ])("refuse %j sans toucher la session", (m) => {
     const s = new Session({ csrf: "x" });
-    expect(() => ouvrirSession(s, { uid: 1, methode: m as "password", maintenant: 1 })).toThrow();
+    expect(() =>
+      ouvrirSession(s, { uid: 1, methode: m as "password", maintenant: 1, dureeMax: 100 }),
+    ).toThrow();
     expect(s.contenu()).toEqual({ csrf: "x" });
   });
 });

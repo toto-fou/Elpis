@@ -10,12 +10,13 @@ const FORME_METHODE = /^(password|(ldap|oidc):[a-z0-9][a-z0-9-]{0,30})$/u;
 
 export type MethodeConnexion = "password" | `ldap:${string}` | `oidc:${string}`;
 
-/** Vide la session, y pose l'identité du compte et la méthode de connexion, rend le `_sid` neuf. */
+/** Vide la session, y pose l'identité du compte, la méthode de connexion et l'échéance figée (`maintenant + dureeMax`), rend le `_sid` neuf. */
 export function ouvrirSession(
   session: Session,
-  e: { uid: number; methode: MethodeConnexion; maintenant: number },
+  e: { uid: number; methode: MethodeConnexion; maintenant: number; dureeMax: number },
 ): string {
   if (!FORME_METHODE.test(e.methode)) throw new Error("invalid login method");
+  if (!Number.isFinite(e.dureeMax) || e.dureeMax <= 0) throw new Error("invalid session lifetime");
   const sid = tokenUrlsafe(18);
   session.vider();
   session[ECRIRE_IDENTITE]("uid", e.uid);
@@ -24,6 +25,7 @@ export function ouvrirSession(
   session[ECRIRE_IDENTITE]("_login_ts", e.maintenant);
   session[ECRIRE_IDENTITE]("_sid", sid);
   session[ECRIRE_IDENTITE]("_auth", e.methode);
+  session[ECRIRE_IDENTITE]("_exp", e.maintenant + e.dureeMax);
   return sid;
 }
 

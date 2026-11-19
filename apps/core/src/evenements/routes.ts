@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/evenements/routes.ts — `/api/system-events` (main et admin) et canal interne de main (`/api/internal/events`, `/status`). */
-import { exigerUtilisateur, ligneUtilisateur, revaliderFlux } from "@elpis/auth";
+import { exigerUtilisateur, ligneUtilisateur, metaSession, revaliderFlux } from "@elpis/auth";
 import type { DependancesAuth, LigneUtilisateur } from "@elpis/auth";
 import type { FastifyRequest } from "fastify";
 
@@ -37,11 +37,12 @@ export function identiteDeSession(dep: DependancesAuth): ResoudreIdentite {
     const staff = estStaff(await ligneUtilisateur(dep.base, uid));
     const loginTs = requete.session.get("_login_ts");
     const sid = requete.session.get("_sid");
+    const meta = metaSession(requete.session);
     return {
       uid,
       staff,
       encoreValide: async () => {
-        if (!(await revaliderFlux(dep, uid, loginTs, sid))) return false;
+        if (!(await revaliderFlux(dep, uid, loginTs, sid, meta))) return false;
         return !staff || estStaff(await ligneUtilisateur(dep.base, uid));
       },
     };

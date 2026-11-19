@@ -28,19 +28,12 @@ export {
 } from "./ip-client";
 export type { Reseau } from "./ip-client";
 export { estLocalDirect, MANDATAIRES_DE_CONFIANCE } from "./local";
-export {
-  dureeMaxSession,
-  effacerMinSession,
-  estRevoquee,
-  leverMinSession,
-  purgerRevocations,
-  revoquerSid,
-} from "./revocations";
+export { dureeMaxSession, estRevoquee, leverMinSession, purgerRevocations, revoquerSid } from "./revocations";
 export { compteSuspendu } from "./etat-compte";
 export { ouvrirSession, renouvelerSession } from "./ouverture";
 export type { MethodeConnexion } from "./ouverture";
-export { fluxEncoreValide, Session, validerSession } from "./session";
-export type { DependancesSession, EtatMinSession, LigneUtilisateur } from "./session";
+export { fluxEncoreValide, metaSession, Session, validerSession } from "./session";
+export type { DependancesSession, EtatMinSession, LigneUtilisateur, MetaSession } from "./session";
 export {
   creerJeton,
   ErreurJeton,

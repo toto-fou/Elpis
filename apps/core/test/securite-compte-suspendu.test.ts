@@ -104,6 +104,11 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     expect(compteSuspendu(undefined)).toBe(false);
     expect(compteSuspendu({ suspended_at: "abc" })).toBe(true);
     expect(compteSuspendu({ suspended_at: -5 })).toBe(true);
+    expect(compteSuspendu({ suspended_at: "" })).toBe(true);
+    expect(compteSuspendu({ suspended_at: " " })).toBe(true);
+    for (const actif of ["0", "0.0"]) expect(compteSuspendu({ suspended_at: actif })).toBe(false);
+    for (const suspendu of ["1", "0.5", "-0", "x0", "00"])
+      expect(compteSuspendu({ suspended_at: suspendu })).toBe(true);
   });
 
   it("1. session : refusée comme révoquée, l'autre compte passe, réactivée elle repasse", async () => {
@@ -131,7 +136,7 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     expect(await encore(alice)).toBe(true);
   });
 
-  it("4. jeton d'API : refusé (outils comme vision), l'autre compte passe, réactivé il repasse", async () => {
+  it("4. jeton d'API : refusé tant que l'état est suspendu (outils comme vision), l'autre compte passe, l'état levé à la main sans passer par suspendre le rend", async () => {
     const [jetonAlice] = await creerJeton(dep, alice, "tools", "t", ["fs"], 5);
     const [visionAlice] = await creerJeton(dep, alice, "vision");
     const [jetonBob] = await creerJeton(dep, bob, "tools", "t", ["fs"], 5);
@@ -147,7 +152,7 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     expect(await ok(visionAlice, "vision")).toBe(true);
   });
 
-  it("5. OAuth MCP : échange du code, rafraîchissement et jeton d'accès refusés (invalid_grant, null), jetons intacts", async () => {
+  it("5. OAuth MCP : échange du code, rafraîchissement et jeton d'accès refusés (invalid_grant, null), jetons non touchés par l'état seul", async () => {
     let n = 0;
     const od: DependancesOAuth = {
       base: t.base,
@@ -266,11 +271,16 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     expect(await statuts(ra)).toEqual(["skipped"]);
     const autre = await p.lancerRun(await routine(rb), { trigger: "manual" });
     expect(autre).not.toBeNull();
+    await vi.waitFor(async () => expect(lancees).toEqual([bob]));
+    await vi.waitFor(async () => expect(await statuts(rb)).not.toEqual(["running"]));
     await p.drainer();
     await reactiverSql(alice);
     expect(await p.lancerRun(await routine(ra), { trigger: "manual" })).not.toBeNull();
+    await vi.waitFor(async () => expect(lancees).toEqual([bob, alice]));
+    await vi.waitFor(async () => expect(await statuts(ra)).not.toContain("running"));
     await p.drainer();
     expect(await statuts(ra)).toHaveLength(2);
+    expect(lancees).toEqual([bob, alice]);
     expect(p.arreterCompte(alice)).toBe(0);
   });
 
@@ -285,6 +295,7 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     };
     const d = {
       base: t.base,
+      acces: dependancesParDefaut(t.base),
       maintenant: () => horloge,
       publierSuspension: async (uid: number) => {
         publies.push(uid);
@@ -323,6 +334,7 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
   it("suspendre : un bac ou une publication en échec ne bloque pas la suspension", async () => {
     const d = {
       base: t.base,
+      acces: dependancesParDefaut(t.base),
       maintenant: () => horloge,
       publierSuspension: async () => {
         throw new Error("main injoignable");
@@ -337,7 +349,11 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
       } satisfies PortBac,
       journal: journalMuet,
     };
-    expect(await suspendre(d, bob, "admin")).toEqual({ change: true, propage: false, bacArrete: false });
+    expect(await suspendre(d, bob, "admin")).toMatchObject({
+      change: true,
+      propage: false,
+      bacArrete: false,
+    });
     expect(compteSuspendu(await ligneUtilisateur(t.base, bob))).toBe(true);
   });
 });
@@ -678,7 +694,13 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
 
     it("suspend : propage, détruit le bac, audite, idempotente ; la liste rend l'état ; unsuspend rend l'accès", async () => {
       const r = await appel(chef, "suspend", alice);
-      expect([r.statusCode, r.json()]).toEqual([200, { ok: true, propagated: true }]);
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toMatchObject({
+        ok: true,
+        propagated: true,
+        tokens_revoked: expect.any(Number),
+        oauth_revoked: expect.any(Number),
+      });
       expect(suspensions).toEqual([alice]);
       expect(detruits).toEqual([alice]);
       expect(revoques).toEqual([]);
@@ -709,7 +731,13 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
     it("publication vers main en échec : la réponse et l'audit disent propagated=false, la suspension tient", async () => {
       propage = false;
       const r = await appel(chef, "suspend", alice);
-      expect([r.statusCode, r.json()]).toEqual([200, { ok: true, propagated: false }]);
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toMatchObject({
+        ok: true,
+        propagated: false,
+        tokens_revoked: expect.any(Number),
+        oauth_revoked: expect.any(Number),
+      });
       expect(compteSuspendu(await ligneUtilisateur(t.base, alice))).toBe(true);
       const ligne = lignesAuditRecentes({ actionPrefix: "admin.user.suspend" })[0];
       expect(ligne?.["details"]).toMatchObject({ propagated: false, sandbox_stopped: true });

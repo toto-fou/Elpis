@@ -23,6 +23,10 @@ export function urlMainInterne(env: Record<string, string | undefined> = process
   return (env["MAIN_INTERNAL_URL"] ?? "").trim() || "http://127.0.0.1:8001";
 }
 
+/** Un essai de publication de la suspension vers main ne dépasse pas ce délai, et l'ensemble des essais ce budget. */
+const DELAI_ESSAI_SUSPENSION_MS = 1_500;
+const BUDGET_SUSPENSION_MS = 8_000;
+
 export const RECYCLAGE: Message = { type: "worker_recycling" };
 
 interface OptionsCommunes {
@@ -215,11 +219,18 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     suspendre: async (uid) => {
       const evenement: Message = { type: "account_suspended", uid, ts: Date.now() / 1000 };
       const bilan = await applySessionRevocation(evenement, ciblesAdmin);
-      let propage = await publierVersMain(evenement, versMain);
+      const debut = Date.now();
+      const restant = (): number => BUDGET_SUSPENSION_MS - (Date.now() - debut);
+      const essai = (): Promise<boolean> =>
+        publierVersMain(evenement, {
+          ...versMain,
+          delaiMs: Math.max(200, Math.min(DELAI_ESSAI_SUSPENSION_MS, restant())),
+        });
+      let propage = await essai();
       for (const attente of canalAdmin.delaisEssaiSuspensionMs ?? [300, 1000, 2500]) {
-        if (propage) break;
+        if (propage || restant() <= attente) break;
         await dormirMs(attente);
-        propage = await publierVersMain(evenement, versMain);
+        propage = await essai();
       }
       return { bilan, propage };
     },

@@ -185,6 +185,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     const bilan = await suspendre(
       {
         base,
+        acces: auth,
         maintenant,
         publierSuspension: dep.publierSuspension ?? (async (uid) => (await dep.revoquer(uid), true)),
         bac: dep.bac,
@@ -199,8 +200,10 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
         by: utilisateur(req),
         propagated: bilan.propage,
         sandbox_stopped: bilan.bacArrete,
+        tokens_revoked: bilan.tokens,
+        oauth_revoked: bilan.oauth,
       });
-    return { ok: true, propagated: bilan.propage };
+    return { ok: true, propagated: bilan.propage, tokens_revoked: bilan.tokens, oauth_revoked: bilan.oauth };
   }
 
   async function reactiverCompte(req: FastifyRequest): Promise<Dict> {

@@ -59,6 +59,7 @@ describe.each(MOTEURS)("suspension et réactivation : écriture unique, sessions
 
   const dep = (base = t.base): Parameters<typeof suspendre>[0] => ({
     base,
+    acces: dependancesParDefaut(base),
     maintenant: () => horloge,
     publierSuspension: async () => true,
     journal: journalMuet,
@@ -152,6 +153,7 @@ describe.each(MOTEURS)("colonnes d'état ajoutées à une base existante et peup
       expect([compteSuspendu(ligne), Number(ligne?.last_login_at ?? 0)]).toEqual([false, 0]);
       const dep = {
         base: t.base,
+        acces: dependancesParDefaut(t.base),
         maintenant: () => T0,
         publierSuspension: async () => true,
         journal: journalMuet,
@@ -221,4 +223,29 @@ describe("publication de la suspension vers main : nouveaux essais bornés", () 
     expect((await muet.evt.suspendre(5)).propage).toBe(false);
     expect(muet.appels).toBe(3);
   });
+
+  it("main qui ne répond jamais : la requête de l'administrateur n'est retenue que huit secondes environ", async () => {
+    const delais: number[] = [];
+    const evt = brancherEvenements({
+      mode: "admin",
+      cycle: new CycleDeVie(journalMuet),
+      auth: { ...dependancesParDefaut(ouvrirBaseDeTest("sqlite").base, () => "secret-de-test") },
+      journal: journalMuet,
+      canal: {
+        fetch: ((_url: unknown, init?: RequestInit) =>
+          new Promise((_ok, ko) => {
+            const debut = Date.now();
+            init?.signal?.addEventListener("abort", () => {
+              delais.push(Date.now() - debut);
+              ko(new Error("délai dépassé"));
+            });
+          })) as typeof fetch,
+      },
+    });
+    const debut = Date.now();
+    expect((await evt.suspendre(5)).propage).toBe(false);
+    expect(Date.now() - debut).toBeLessThan(8_800);
+    expect(delais.length).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...delais)).toBeLessThan(1_800);
+  }, 20_000);
 });

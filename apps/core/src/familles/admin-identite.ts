@@ -13,6 +13,8 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
 import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
+import type { FabriqueConnexion } from "../identite/annuaire/client";
+import { fabriqueLdapts } from "../identite/annuaire/client";
 import { lancerTest } from "../identite/essai";
 import type { OptionsEssai } from "../identite/essai";
 import {
@@ -22,7 +24,9 @@ import {
   connexionSecurisee,
   etatFournisseur,
   champsFigesChanges,
+  enregistrerTestReussi,
   nombreIdentites,
+  secretFournisseur,
   supprimerSecretFournisseur,
 } from "../identite/fournisseurs";
 import {
@@ -36,6 +40,7 @@ import {
   validerReglagesGeneraux,
 } from "../identite/reglages";
 import type { Fournisseur } from "../identite/reglages";
+import type { OptionsSortant } from "../identite/sortant";
 import { diffConfig } from "../journal-securite/diff-config";
 import type { Journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
@@ -51,6 +56,8 @@ export interface DependancesAdminIdentite {
   readonly revoquer: (uid: number) => Promise<unknown>;
   /** Résolution, juge et bornes du test (tests seulement). */
   readonly essai?: OptionsEssai;
+  /** Fabrique de connexions d'annuaire du test (tests seulement) ; `fabriqueLdapts` par défaut. */
+  readonly fabriqueAnnuaire?: (sortant: OptionsSortant) => FabriqueConnexion;
 }
 
 const TESTS_MAX = 2;
@@ -89,6 +96,11 @@ async function identitesDeMemeAncre(x: Executeur, f: Fournisseur): Promise<boole
   );
   const ancre = ancreIdentite(f);
   return ancres.every(([a]) => ancre !== null && a === ancre);
+}
+
+/** Empreinte courte d'un identifiant pour l'audit : l'identifiant lui-même n'y figure jamais. */
+function empreinteIdentifiant(identifiant: string): string {
+  return createHash("sha256").update(identifiant, "utf8").digest("hex").slice(0, 16);
 }
 
 function positionDuFournisseur(providers: readonly unknown[], id: string): number {
@@ -353,7 +365,18 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   let testsEnCours = 0;
 
-  /** Test d'un fournisseur sous le plafond de deux à la fois pour l'instance : 429 au-delà, le créneau n'étant rendu qu'à la fin réelle du travail ; toujours 200 avec le résultat. */
+  /** Réglages réellement testés : l'empreinte n'est posée que si le fournisseur existe encore, et jamais sur un fournisseur allumé dont les réglages diffèrent. */
+  async function retenirTest(teste: Fournisseur, publique: string): Promise<void> {
+    await ecrire(async (x, cfg) => {
+      const actuel = reglagesAuthDepuis(cfg["auth"]).providers.find((p) => p.id === teste.id);
+      if (actuel === undefined) return;
+      if (actuel.enabled && empreinteFournisseur(actuel, publique) !== empreinteFournisseur(teste, publique))
+        return;
+      await enregistrerTestReussi(x, teste, publique, maintenant());
+    }, false);
+  }
+
+  /** Test d'un fournisseur sous le plafond de deux à la fois pour l'instance : 429 au-delà, le créneau n'étant rendu qu'à la fin réelle du travail ; toujours 200 avec le résultat ; seul un test complet enregistre l'empreinte des réglages testés. */
   async function tester(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
     const corps = corpsJson(req);
     if (testsEnCours >= TESTS_MAX)
@@ -361,16 +384,32 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         "Retry-After": "5",
       });
     testsEnCours += 1;
+    const {
+      test_user: utilisateur,
+      secret: secretSaisi,
+      ...reglagesTestes
+    } = estDict(corps) ? corps : ({} as Dict);
+    const reglages = estDict(corps) ? reglagesTestes : corps;
+    let publique: string;
     let lance: ReturnType<typeof lancerTest>;
     try {
+      publique = lireReglagesAuth().public_url;
       lance = lancerTest(
-        corps,
+        reglages,
         {
-          publicUrl: lireReglagesAuth().public_url,
+          publicUrl: publique,
           cookieSecure: connexionSecurisee(dep.auth.attributsCookie().https_only === true),
           adminsLocaux: await compterAdminsLocaux(base),
         },
-        dep.essai,
+        {
+          ...dep.essai,
+          annuaire: {
+            fabrique: dep.fabriqueAnnuaire ?? ((s) => fabriqueLdapts(s)),
+            secretEnregistre: (f) => secretFournisseur(base, f),
+            utilisateur,
+            secret: secretSaisi,
+          },
+        },
       );
     } catch (e) {
       testsEnCours -= 1;
@@ -380,6 +419,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       testsEnCours -= 1;
     });
     const r = await lance.resultat;
+    const teste = lance.fournisseurTeste();
+    if (r.complete && teste !== null) await retenirTest(teste, publique);
     const brut = estDict(corps) ? corps : {};
     const id = typeof brut["id"] === "string" && REGEX_ID_AUDIT.test(brut["id"]) ? brut["id"] : null;
     const type = brut["type"] === "ldap" || brut["type"] === "oidc" ? brut["type"] : null;
@@ -391,8 +432,11 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       provider_id: id,
       type,
       ok: r.ok,
+      complete: r.complete,
       failed_step: r.steps.find((e) => e.level === "fail")?.id ?? null,
       targets,
+      test_user:
+        typeof utilisateur === "string" && utilisateur !== "" ? empreinteIdentifiant(utilisateur) : null,
     });
     void rep.headers(SANS_CACHE);
     return r;

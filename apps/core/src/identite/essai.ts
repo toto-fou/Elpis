@@ -6,23 +6,20 @@ import { adresseIpOuNul, estDict, HttpError } from "@elpis/commun";
 import type { JugeHote, VerdictHote } from "@elpis/http";
 
 import { defautsFournisseur, fusionner, hotePortHttps, hotePortLdaps, validerFournisseur } from "./reglages";
-import type { Fournisseur, FournisseurOidc } from "./reglages";
+import type { Fournisseur, FournisseurLdap, FournisseurOidc } from "./reglages";
+import { etapesAnnuaire } from "./annuaire/essai";
+import type { DemandeEssaiAnnuaire } from "./annuaire/essai";
+import type { FabriqueConnexion } from "./annuaire/client";
+import { etape, PHRASES_SORTANT as PHRASES } from "./etapes";
+import type { EtapeEssai } from "./etapes";
 import { classerErreur, clientHttps, connexionTls, jugeSortant } from "./sortant";
-import type { CodeSortant, OptionsSortant } from "./sortant";
+import type { OptionsSortant } from "./sortant";
+
+export type { EtapeEssai } from "./etapes";
 
 export const DELAI_GLOBAL_MS = 20_000;
-const DETAIL_MAX = 300;
 const JOURS_ALERTE = 30;
 const ADRESSES_MAX = 5;
-
-export interface EtapeEssai {
-  id: string;
-  label: string;
-  level: "ok" | "warn" | "fail";
-  detail: string;
-  /** `hôte:port` joint par l'étape ; `null` pour une étape qui ne vise aucune adresse. */
-  target: string | null;
-}
 
 export interface ResultatEssai {
   ok: boolean;
@@ -43,6 +40,18 @@ export interface OptionsEssai {
   readonly delaiGlobalMs?: number;
   /** Adresses de cette machine ; celles de ses interfaces non bouclées par défaut. */
   readonly adressesLocales?: () => readonly string[];
+  /** Étapes propres à l'annuaire ; sans elle, un test LDAP s'arrête au TLS et reste incomplet. */
+  readonly annuaire?: ParametresAnnuaire;
+}
+
+export interface ParametresAnnuaire {
+  /** Fabrique de connexions pour les bornes du test (échéance, juge d'adresses). */
+  readonly fabrique: (sortant: OptionsSortant) => FabriqueConnexion;
+  readonly secretEnregistre: DemandeEssaiAnnuaire["secretEnregistre"];
+  /** Identifiant de l'utilisateur d'essai tel que reçu. */
+  readonly utilisateur?: unknown;
+  /** Secret saisi pour ce test seul, tel que reçu. */
+  readonly secret?: unknown;
 }
 
 export interface TestLance {
@@ -50,43 +59,13 @@ export interface TestLance {
   readonly resultat: Promise<ResultatEssai>;
   /** Fin réelle du travail (résolutions et connexions comprises), jamais rejetée. */
   readonly termine: Promise<void>;
+  /** Réglages réellement testés si le test est complet (à lire une fois `resultat` rendu), sinon `null`. */
+  readonly fournisseurTeste: () => Fournisseur | null;
 }
 
-const PHRASES: Readonly<Record<CodeSortant, string>> = {
-  ca_illisible: "L'autorité de certification collée est illisible : collez-la à nouveau au format PEM.",
-  magasin_illisible:
-    "Les autorités de certification de ce serveur sont illisibles : collez celle de votre organisation ou demandez à votre administrateur.",
-  pas_tls: "Ce port ne parle pas TLS : vérifiez le port.",
-  adresse_refusee: "Adresse refusée.",
-  resolution: "Le nom de l'hôte ne se résout pas.",
-  refusee: "Connexion refusée par la machine distante.",
-  delai: "Délai dépassé.",
-  cert_expire: "Le certificat présenté par le serveur est expiré.",
-  cert_futur:
-    "Le certificat présenté par le serveur n'est pas encore valide : vérifiez l'horloge de ce serveur et celle du serveur distant.",
-  ca_inconnue:
-    "Autorité de certification inconnue : collez l'autorité de certification de votre organisation.",
-  auto_signe:
-    "Le certificat présenté par le serveur est auto-signé : collez-le comme autorité de certification.",
-  nom_certificat: "Le nom de l'hôte ne correspond pas au certificat présenté par le serveur.",
-  version_tls: "Version de TLS refusée : TLS 1.2 au minimum est exigé.",
-  tls: "Échec de la négociation TLS.",
-  redirection: "Le serveur répond par une redirection : les redirections ne sont pas suivies.",
-  taille: "Réponse trop volumineuse (plus de 1 Mio).",
-  schema: "Adresse https attendue.",
-  reseau: "Échec de la connexion.",
-};
-
-const borner = (t: string): string => t.slice(0, DETAIL_MAX);
-
-function etape(
-  id: string,
-  label: string,
-  level: EtapeEssai["level"],
-  detail: string,
-  target: string | null = null,
-): EtapeEssai {
-  return { id, label, level, detail: borner(detail), target };
+interface Sortie {
+  teste: Fournisseur | null;
+  complet: boolean;
 }
 
 /** Juge appelé une fois par `hôte:port` (ce que l'étape « adresse » affiche est ce que les connexions utilisent), qui ne démarre ni ne rend rien une fois l'échéance levée. */
@@ -294,6 +273,7 @@ async function corps(
   contexte: ContexteEssai,
   o: OptionsEssai,
   signal: AbortSignal,
+  sortie: Sortie,
 ): Promise<void> {
   const maintenant = o.maintenant ?? Date.now;
   let f: Fournisseur;
@@ -311,12 +291,26 @@ async function corps(
   const sortant: OptionsSortant = { ...o.sortant, caPem: f.ca_pem, signal };
   const juge = jugeUnique(o.sortant?.juger ?? jugeSortant(o.sortant?.resoudre), signal);
   const locales = new Set((o.adressesLocales ?? adressesDeLaMachine)().map((a) => cleIp(a) ?? ""));
-  if (f.type === "ldap")
+  if (f.type === "ldap") {
+    let premiere: string | null = null;
     for (const u of f.urls) {
       if (signal.aborted) return;
+      const n = etapes.length;
       await etapesAdresse(etapes, hotePortLdaps(u), juge, sortant, maintenant, locales);
+      if (premiere === null && etapes.slice(n).every((e) => e.level !== "fail")) premiere = u;
     }
-  else {
+    if (premiere !== null && o.annuaire !== undefined && !signal.aborted)
+      sortie.complet = await etapesLdap(
+        etapes,
+        f,
+        premiere,
+        o.annuaire,
+        { ...sortant, juger: juge },
+        maintenant,
+        signal,
+      );
+    sortie.teste = f;
+  } else {
     const n = etapes.length;
     await etapesAdresse(etapes, hotePortHttps(f.issuer), juge, sortant, maintenant, locales);
     if (!signal.aborted && etapes.slice(n).every((e) => e.level !== "fail"))
@@ -324,7 +318,27 @@ async function corps(
   }
 }
 
-/** Lance le test d'un fournisseur sans jamais lever : `resultat` part au plus tard à l'échéance globale, qui arrête aussi le travail (plus aucune résolution ni connexion ne démarre) ; `termine` n'est tenu qu'à la fin réelle du travail. `complete` reste faux (liaison LDAP et clés OIDC viennent plus tard) : aucun test réussi n'est enregistré. */
+/** Étapes de l'annuaire sur la première adresse joignable ; vrai si elles sont toutes passées avec un utilisateur d'essai. */
+function etapesLdap(
+  etapes: EtapeEssai[],
+  f: FournisseurLdap,
+  url: string,
+  a: ParametresAnnuaire,
+  sortant: OptionsSortant,
+  maintenant: () => number,
+  signal: AbortSignal,
+): Promise<boolean> {
+  return etapesAnnuaire(etapes, f, url, {
+    fabrique: a.fabrique(sortant),
+    secretEnregistre: a.secretEnregistre,
+    utilisateur: a.utilisateur,
+    secret: a.secret,
+    maintenant: () => maintenant() / 1000,
+    signal,
+  });
+}
+
+/** Lance le test d'un fournisseur sans jamais lever : `resultat` part au plus tard à l'échéance globale, qui arrête aussi le travail (plus aucune résolution ni connexion ne démarre) ; `termine` n'est tenu qu'à la fin réelle du travail. `complete` n'est vrai que pour un annuaire dont toutes les étapes, utilisateur d'essai compris, sont passées avant l'échéance (les clés OIDC viennent plus tard). */
 export function lancerTest(
   reglages: unknown,
   contexte: ContexteEssai,
@@ -340,7 +354,9 @@ export function lancerTest(
       r("delai");
     }, global);
   });
-  const travail = corps(etapes, reglages, contexte, options, arret.signal).then(
+  const sortie: Sortie = { teste: null, complet: false };
+  let retenu: Fournisseur | null = null;
+  const travail = corps(etapes, reglages, contexte, options, arret.signal, sortie).then(
     () => "fini" as const,
     () => "erreur" as const,
   );
@@ -352,10 +368,13 @@ export function lancerTest(
       );
     if (fin === "erreur")
       steps.push(etape("internal", "Test", "fail", "Le test a échoué : demandez à votre administrateur."));
-    return { ok: steps.every((e) => e.level !== "fail"), complete: false, steps };
+    const ok = steps.every((e) => e.level !== "fail");
+    const complete = ok && fin === "fini" && sortie.complet;
+    retenu = complete ? sortie.teste : null;
+    return { ok, complete, steps };
   });
   const termine = travail.then(() => clearTimeout(minuteur));
-  return { resultat, termine };
+  return { resultat, termine, fournisseurTeste: () => retenu };
 }
 
 /** Teste les réglages d'un fournisseur et rend le résultat (voir `lancerTest`). */

@@ -397,7 +397,7 @@ Written by the console process for Administration › Users & access › Enterpr
 | `admin.auth.provider.enable`  | success | Provider switched on (public address, secure cookie, local admin, groups, secret, test hold). | `provider_id`                                     |
 | `admin.auth.provider.disable` | success | Provider switched off; the sessions of its accounts are cut.                                  | `provider_id`, `sessions_cut` (accounts)          |
 | `admin.auth.provider.secret`  | success | Service password or client secret stored or removed.                                          | `provider_id`, `action` (`set`, `delete`)         |
-| `admin.auth.provider.test`    | success | Provider settings tested; nothing is stored. At most two tests at a time. `ok` is false when a step failed. | `provider_id` (`null` if absent), `type` (`ldap`, `oidc`, `null`), `ok`, `failed_step` (first failed step, `null`), `targets` (the `host:port` pairs reached, 5 at most) |
+| `admin.auth.provider.test`    | success | Provider settings tested. Only a complete test (every step passed, test user included) records the fingerprint of the tested settings, which is what allows enabling a directory. At most two tests at a time. `ok` is false when a step failed. | `provider_id` (`null` if absent), `type` (`ldap`, `oidc`, `null`), `ok`, `complete`, `failed_step` (first failed step, `null`), `targets` (the `host:port` pairs reached, 5 at most), `test_user` (SHA-256 fingerprint of the test user identifier, 16 hex characters; `null` if none) |
 
 ### Security journal (admin)
 

@@ -111,9 +111,13 @@ export const schemaCorpsMajFournisseur = z.record(z.string(), z.unknown());
 /** Secret du fournisseur : texte vide pour le supprimer. */
 export const schemaCorpsSecretFournisseur = z.object({ secret: z.string() });
 
-/** Test d'un fournisseur : ses réglages tels que le formulaire les contient, enregistrés ou non. */
-export const schemaCorpsEssaiFournisseur = z.record(z.string(), z.unknown());
-/** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse ; `complete` reste faux tant que la liaison LDAP et les clés OIDC ne sont pas essayées. */
+/** Test d'un fournisseur : ses réglages tels que le formulaire les contient, enregistrés ou non, plus pour un annuaire `test_user` (identifiant de l'utilisateur d'essai, cherché sans jamais être lié) et `secret` (secret du compte de service pour ce test seul, jamais enregistré), tous deux facultatifs. */
+export const schemaCorpsEssaiFournisseur = z
+  .record(z.string(), z.unknown())
+  .refine((o) => ["test_user", "secret"].every((k) => o[k] === undefined || typeof o[k] === "string"), {
+    message: "test_user et secret : texte attendu",
+  });
+/** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse ; `complete` n'est vrai que pour un annuaire dont toutes les étapes, utilisateur d'essai compris, sont passées (les clés OIDC ne sont pas encore essayées). */
 export const schemaReponseEssaiFournisseur = z.object({
   ok: z.boolean(),
   complete: z.boolean(),

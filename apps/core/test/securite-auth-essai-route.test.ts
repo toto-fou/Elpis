@@ -135,8 +135,10 @@ describe("test d'un fournisseur : route (SQLite)", () => {
       provider_id: "annuaire",
       type: "ldap",
       ok: false,
+      complete: false,
       failed_step: "tls",
       targets: [`serveur-muet.invalid:${portMuet}`],
+      test_user: null,
     });
     expect(await t.base.valeurs("SELECT * FROM auth_provider_state")).toEqual([]);
   });

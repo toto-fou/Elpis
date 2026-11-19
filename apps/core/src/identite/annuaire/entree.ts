@@ -86,7 +86,7 @@ function uneChaine(entree: EntreeAnnuaire, nom: string): Lu<string | null> {
   return v.length === 1 && typeof x === "string" ? { v: x } : "invalide";
 }
 
-function tempsGeneralise(texte: string): number | null {
+export function tempsGeneralise(texte: string): number | null {
   const m = TEMPS_GENERALISE.exec(texte);
   if (m === null) return null;
   const [a, mo, j, h, mi, s] = m.slice(1).map(Number) as [number, number, number, number, number, number];

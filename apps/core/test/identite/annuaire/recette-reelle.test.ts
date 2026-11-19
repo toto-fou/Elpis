@@ -45,6 +45,8 @@ interface AnnuaireReel {
   readonly groupe_absent: string;
   readonly membre: Compte;
   readonly hors_groupe: Compte;
+  /** Code de refus attendu hors du groupe, pour un annuaire qui ne répond pas « aucune entrée » à une recherche sans correspondance (défaut : `not_in_group`). */
+  readonly refus_hors_groupe?: "not_in_group" | "groups_unknown";
   /** Groupe d'administrateurs dont `membre` fait partie et pas `autre_membre` (rôles par l'annuaire). */
   readonly groupe_admins?: string;
   readonly autre_membre?: Compte;
@@ -152,9 +154,13 @@ describe.skipIf(RECETTE === null)("recette sur annuaires réels", () => {
         expect((await auth(f, { login, mdp: a.membre.mdp })).type, login).toBe("absent");
     });
 
-    it("hors du groupe requis : refus not_in_group, aucune liaison de l'utilisateur", async () => {
+    it("hors du groupe requis : refusé (`not_in_group`, ou le code que cet annuaire fait rendre), aucune liaison de l'utilisateur", async () => {
       const f = await fournisseur(a);
-      expect(await auth(f, a.hors_groupe)).toMatchObject({ type: "refus", raison: "not_in_group" });
+      const r = await auth(f, a.hors_groupe);
+      expect(r, JSON.stringify(r)).toMatchObject({
+        type: "refus",
+        raison: a.refus_hors_groupe ?? "not_in_group",
+      });
     });
 
     it("groupe requis qui n'existe pas : refus groups_unknown (jamais « non »)", async () => {

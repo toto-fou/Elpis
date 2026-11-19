@@ -30,6 +30,8 @@ export interface Trace {
 export class AnnuaireFactice {
   personnes: Personne[] = [];
   groupesLisibles = true;
+  /** DN de groupes qui n'existent plus dans l'annuaire (un groupe requis disparu ne vaut pas « non membre »). */
+  groupesSupprimes = new Set<string>();
   injoignable = false;
   urlsInjoignables = new Set<string>();
   /** DN d'utilisateurs dont la liaison n'aboutit pas (délai dépassé). */
@@ -92,6 +94,13 @@ export class AnnuaireFactice {
       if (!this.groupesLisibles) throw new ErreurAnnuaire("protocole", { code: 50 });
       const p = this.personnes.find((x) => this.dn(x) === membre[1]);
       return p?.groupes.includes(base) ? [{ dn: base, attrs: {} }] : [];
+    }
+    if (o.portee === "base" && o.filtre === "(objectClass=*)") {
+      if (!this.groupesLisibles) throw new ErreurAnnuaire("protocole", { code: 50 });
+      const connu = this.groupesSupprimes.has(base)
+        ? false
+        : base === GROUPE || this.personnes.some((x) => x.groupes.includes(base));
+      return connu ? [{ dn: base, attrs: {} }] : [];
     }
     const uid = /^\(uid=(.*)\)$/u.exec(o.filtre);
     if (uid === null || base !== BASE) return [];

@@ -7,7 +7,7 @@ import { ancreIdentite } from "../ancre";
 import { fournisseursActifs, secretFournisseur } from "../fournisseurs";
 import type { Appartenance, ProfilIdentite } from "../provisionnement";
 import type { FournisseurLdap } from "../reglages";
-import { appartient } from "./appartenance";
+import { appartient, groupeExiste } from "./appartenance";
 import { MOT_DE_PASSE_MAX_OCTETS } from "./client";
 import type { ConnexionAnnuaire, EntreeAnnuaire, FabriqueConnexion } from "./client";
 import { compterEssai, oublierEssais } from "./echecs";
@@ -132,7 +132,17 @@ async function appartenance(
       erreur = true;
     }
   }
-  return erreur ? "inconnu" : "non";
+  if (erreur) return "inconnu";
+  // « non » suspend un compte connu : il n'est rendu que si chaque groupe requis existe bien dans l'annuaire.
+  for (const groupe of f.required_groups) {
+    try {
+      if (!(await groupeExiste(cnx, groupe))) return "inconnu";
+    } catch (e) {
+      if (!(e instanceof ErreurAnnuaire)) throw e;
+      return "inconnu";
+    }
+  }
+  return "non";
 }
 
 /** Liaison de l'utilisateur sur une connexion à elle ; vrai si l'annuaire l'accepte, faux sur « identifiants » ; toute autre erreur est propagée. */
@@ -180,11 +190,12 @@ async function interroger(
     if (trouve === "absent") return "absent";
     if (trouve === "ambigu") return refus("ambiguous", f.id);
     const sujet = cleStable(trouve, f);
+    // L'état de l'entrée est jugé avant la liaison : aucun mot de passe n'est envoyé pour une entrée qui ne peut pas se connecter.
+    const etat = etatEntree(trouve, f, dep.maintenant() * 1000);
+    if (etat !== "active") return refus(RAISON_ETAT[etat] ?? "state_unknown", f.id);
     if (await compterEssai(dep.base, f, sujet, dep.maintenant())) return refus("throttled", f.id);
     if (!(await lierUtilisateur(dep, f, url, trouve.dn, motDePasse))) return refus("bad_password", f.id);
     await oublierEssais(dep.base, f, sujet);
-    const etat = etatEntree(trouve, f, dep.maintenant() * 1000);
-    if (etat !== "active") return refus(RAISON_ETAT[etat] ?? "state_unknown", f.id);
     const externe = profilExterne(trouve, f);
     return {
       type: "ok",

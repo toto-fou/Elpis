@@ -176,7 +176,9 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
       await ouvrir([freeipa]);
       annuaire.personnes[0]!.attrs = attrs;
       expect(await auth("jean")).toEqual({ type: "refus", raison, fournisseurId: "annuaire" });
-      expect(await auth("jean", "faux")).toMatchObject({ raison: "bad_password" });
+      expect(await auth("jean", "faux")).toMatchObject({ raison });
+      // L'état est jugé avant la liaison : aucun mot de passe n'est envoyé pour cette entrée.
+      expect(annuaire.traces.flatMap((t) => t.liaisons).some((dn) => dn.includes("jean"))).toBe(false);
     });
 
     it("FreeIPA : entrée saine, ouverte", async () => {
@@ -224,6 +226,12 @@ describe.each(MOTEURS)("authentifierParAnnuaire (%s)", (moteur) => {
     it("hors du groupe : non", async () => {
       annuaire.personnes[0]!.groupes = [];
       expect(await auth("jean")).toMatchObject({ type: "ok", appartenance: "non" });
+    });
+
+    it("groupe requis disparu de l'annuaire : inconnu, jamais non (« non » suspendrait le compte)", async () => {
+      annuaire.personnes[0]!.groupes = [];
+      annuaire.groupesSupprimes.add(GROUPE);
+      expect(await auth("jean")).toMatchObject({ type: "ok", appartenance: "inconnu" });
     });
 
     it("groupes illisibles : inconnu, jamais non", async () => {

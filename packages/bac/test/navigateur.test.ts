@@ -16,6 +16,7 @@ import {
   UserSandbox,
 } from "../src/index";
 import { ENTREE_ROOT } from "../src/durcissement";
+import { empreinteDemarrage } from "../src/montages";
 import { dossierTemporaire, FauxCli } from "./aides";
 
 const [tmp, nettoyer] = dossierTemporaire("bac-nav-");
@@ -70,7 +71,12 @@ describe("conteneur du bac", () => {
       expect(bac).toContain(bac.find((x) => x.endsWith(`:${dst}:ro`)));
     expect(bac).toContain(`elpis.browser=${empreinteNavigateur()}`);
     expect(empreinteNavigateur()).toMatch(/^[0-9a-f]{12}$/u);
-    expect(bac.slice(-3)).toEqual(["elpis/sandbox:1.8.0", "sleep", "infinity"]);
+    expect(bac.slice(-4)).toEqual([
+      "elpis/sandbox:1.8.0",
+      "/opt/elpis/agent/demarrage.sh",
+      "sleep",
+      "infinity",
+    ]);
   });
 
   it("seul le bundle du service est monté : ni ses sources, ni ses données, ni ses jetons, ni ses autres dossiers ; un bundle remplacé change l'empreinte", () => {
@@ -116,8 +122,11 @@ describe("conteneur du bac", () => {
   it("étiquette absente ou ancienne : recréation ; à jour, ou navigateur non installé (étiquette non lue) : conteneur gardé", async () => {
     const cli = (nav: string): FauxCli =>
       new FauxCli([
-        { motif: ["inspect", "~elpis.browser"], out: `|7|elpis/sandbox:1.8.0||${nav}\n` },
-        { motif: ["inspect"], out: "|7|elpis/sandbox:1.8.0|\n" },
+        {
+          motif: ["inspect", "~elpis.browser"],
+          out: `|8|elpis/sandbox:1.8.0||${empreinteDemarrage()}|${nav}\n`,
+        },
+        { motif: ["inspect"], out: `|8|elpis/sandbox:1.8.0||${empreinteDemarrage()}\n` },
       ]);
     const sb = (nav: string): UserSandbox =>
       new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {

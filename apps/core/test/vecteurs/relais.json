@@ -3859,6 +3859,12 @@
     {
       "texte": "{\"network_profiles\": [{\"id\": \"lan\", \"name\": \"LAN\", \"mode\": \"allowlist_ip\", \"ips\": [\"10.0.0.0/24\", \" \", 7, \" 10.0.0.1 \", 1.5, null, false, [\"a\"], {\"k\": 1}], \"domains\": [\"GitHub.com.\", \"exemple.lan\\n.\", \"g\\u0131thub.com\", \"\\u212aelvin.lan\", \"a..b\", \"-a.com\", \"a-.com\", \"xn--bcher-kva.example\", \"a.b.c.d\", \"localhost\", \"\", \" . \", \"..\", \"A.COM...\", 5, null, \"\\u00e9t\\u00e9.fr\", \"\\u0130stanbul.tr\", \"\\u017fite.com\", \"a_b.com\", \"1.2.3.4\", \"\\u3000x.fr\\u3000\"], \"ports\": [\"443\", \" 80 \", \"4_43\", 8080.9, true, \"x\", null, [1], \"\\u0664\\u0664\\u0663\", \"1.5\", NaN, -1, \"+22\"], \"dns\": [\" 10.0.0.1 \", \"\", \"\\u2003\"]}]}",
       "avertissements": [
+        "[sandbox] profil r\u00e9seau 'lan' : ips '7' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'lan' : ips '1.5' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'lan' : ips 'None' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'lan' : ips 'False' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'lan' : ips \"['a']\" ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'lan' : ips \"{'k': 1}\" ignor\u00e9 (IPv4 attendue)",
         "[sandbox] profil r\u00e9seau 'lan' : domaine 'exemple.lan\\n' ignor\u00e9 (invalide)",
         "[sandbox] profil r\u00e9seau 'lan' : domaine 'g\u0131thub.com' ignor\u00e9 (invalide)",
         "[sandbox] profil r\u00e9seau 'lan' : domaine 'a..b' ignor\u00e9 (invalide)",
@@ -3899,13 +3905,7 @@
             "mode": "allowlist_ip",
             "ips": [
               "10.0.0.0/24",
-              "7",
-              "10.0.0.1",
-              "1.5",
-              "None",
-              "False",
-              "['a']",
-              "{'k': 1}"
+              "10.0.0.1"
             ],
             "description": "",
             "domains": [
@@ -3924,7 +3924,6 @@
               8080,
               1,
               443,
-              -1,
               22
             ],
             "dns": [
@@ -3987,7 +3986,12 @@
     },
     {
       "texte": "{\"network_profiles\": [{\"id\": \"a\", \"name\": \"A\", \"ports\": \"443\", \"ips\": \"10.1\", \"dns\": {\"x\": 1}}]}",
-      "avertissements": [],
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau 'a' : ips '1' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'a' : ips '0' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'a' : ips '.' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'a' : dns 'x' ignor\u00e9 (IPv4 attendue)"
+      ],
       "config": {
         "memory_mb": 2048,
         "cpu_quota_pct": 100,
@@ -4013,12 +4017,7 @@
             "id": "a",
             "name": "A",
             "mode": "none",
-            "ips": [
-              "1",
-              "0",
-              ".",
-              "1"
-            ],
+            "ips": [],
             "description": "",
             "domains": [],
             "ports": [
@@ -4026,9 +4025,7 @@
               4,
               3
             ],
-            "dns": [
-              "x"
-            ]
+            "dns": []
           }
         ]
       },
@@ -4557,7 +4554,10 @@
     },
     {
       "texte": "{\"network_mode\": \"bridge\", \"network_allowlist\": [\"1.2.3.4\", 5, null]}",
-      "avertissements": [],
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau 'legacy' : ips '5' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'legacy' : ips 'None' ignor\u00e9 (IPv4 attendue)"
+      ],
       "config": {
         "memory_mb": 2048,
         "cpu_quota_pct": 100,
@@ -4584,9 +4584,7 @@
             "name": "Profil migr\u00e9 (legacy)",
             "mode": "bridge",
             "ips": [
-              "1.2.3.4",
-              5,
-              null
+              "1.2.3.4"
             ],
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
@@ -4644,7 +4642,11 @@
     },
     {
       "texte": "{\"network_allowlist\": \"10.0.0.1\"}",
-      "avertissements": [],
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau 'legacy' : ips '1' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'legacy' : ips '0' ignor\u00e9 (IPv4 attendue)",
+        "[sandbox] profil r\u00e9seau 'legacy' : ips '.' ignor\u00e9 (IPv4 attendue)"
+      ],
       "config": {
         "memory_mb": 2048,
         "cpu_quota_pct": 100,
@@ -4670,16 +4672,7 @@
             "id": "legacy",
             "name": "Profil migr\u00e9 (legacy)",
             "mode": "none",
-            "ips": [
-              "1",
-              "0",
-              ".",
-              "0",
-              ".",
-              "0",
-              ".",
-              "1"
-            ],
+            "ips": [],
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
@@ -4736,7 +4729,9 @@
     },
     {
       "texte": "{\"network_mode\": null, \"network_allowlist\": [\"x\"]}",
-      "avertissements": [],
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau 'legacy' : ips 'x' ignor\u00e9 (IPv4 attendue)"
+      ],
       "config": {
         "memory_mb": 2048,
         "cpu_quota_pct": 100,
@@ -4761,10 +4756,8 @@
           {
             "id": "legacy",
             "name": "Profil migr\u00e9 (legacy)",
-            "mode": null,
-            "ips": [
-              "x"
-            ],
+            "mode": "none",
+            "ips": [],
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
@@ -4846,7 +4839,7 @@
           {
             "id": "legacy",
             "name": "Profil migr\u00e9 (legacy)",
-            "mode": 7,
+            "mode": "none",
             "ips": [],
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
@@ -4909,7 +4902,9 @@
     },
     {
       "texte": "{\"network_allowlist\": {\"a\": 1}, \"network_mode\": \"\"}",
-      "avertissements": [],
+      "avertissements": [
+        "[sandbox] profil r\u00e9seau 'legacy' : ips 'a' ignor\u00e9 (IPv4 attendue)"
+      ],
       "config": {
         "memory_mb": 2048,
         "cpu_quota_pct": 100,
@@ -4934,10 +4929,8 @@
           {
             "id": "legacy",
             "name": "Profil migr\u00e9 (legacy)",
-            "mode": "",
-            "ips": [
-              "a"
-            ],
+            "mode": "none",
+            "ips": [],
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
@@ -5021,7 +5014,7 @@
           {
             "id": "legacy",
             "name": "Profil migr\u00e9 (legacy)",
-            "mode": "x",
+            "mode": "none",
             "ips": [],
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],

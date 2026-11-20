@@ -736,7 +736,7 @@ const adm = domaineAdmin();
                         type="button"
                         :class="['np-seg__btn', adm.netPortsMode(prof) === 'list' ? 'is-on' : '']"
                         :aria-pressed="adm.netPortsMode(prof) === 'list' ? 'true' : 'false'"
-                        title="Seuls les ports TCP listés passent (image ≥ 1.6.0)"
+                        title="Seuls les ports TCP listés passent"
                         @click="adm.setPortsMode(prof, 'list')"
                       >
                         Liste

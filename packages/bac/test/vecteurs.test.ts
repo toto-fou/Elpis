@@ -33,6 +33,19 @@ import { racineDepot } from "@elpis/config";
 import { dossierTemporaire, FauxCli } from "./aides";
 import type { Regle } from "./aides";
 
+const { AGENT_VECTEURS, DEMARRAGE_FIGE } = vi.hoisted(() => ({
+  AGENT_VECTEURS: "/opt/app/shared_infra/sandbox/agent",
+  DEMARRAGE_FIGE: "#!/bin/sh\n# démarrage figé des vecteurs\n",
+}));
+
+vi.mock("node:fs", async (importOriginal) => {
+  const reel = await importOriginal<Record<string, unknown>>();
+  const original = reel["readFileSync"] as (...a: unknown[]) => unknown;
+  const lire = (p: unknown, ...r: unknown[]): unknown =>
+    String(p) === `${AGENT_VECTEURS}/demarrage.sh` ? Buffer.from(DEMARRAGE_FIGE) : original(p, ...r);
+  return { ...reel, default: { ...(reel["default"] as object), readFileSync: lire }, readFileSync: lire };
+});
+
 interface Scenario {
   nom: string;
   methode: string;

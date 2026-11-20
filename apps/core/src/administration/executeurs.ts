@@ -3,7 +3,6 @@
 import { lstatSync, readdirSync, statSync } from "node:fs";
 
 import {
-  adresseIpOuNul,
   decoderUtf8Py,
   ErreurJsonPy,
   ErreurPython,
@@ -38,11 +37,13 @@ import {
   DEFAULT_IMAGE,
   DOMAIN_RE,
   findImageArchive,
+  ipv4Canonique,
   labelFilter,
   labelTpl,
   netcfgHash,
   PROFILE_ID_RE,
   profilReseauDepuis,
+  resolveurValide,
   seuilsDisqueDepuis,
   sousVerrouDeCycle,
   which,
@@ -163,6 +164,8 @@ function validerListeBlanche(
     const net = reseauPy(ip);
     if (net === null)
       throw new HttpError(400, `Profil ${p} : IP invalide ${reprPy(ip)} (utilise IP ou CIDR)`);
+    if (net.version !== 4)
+      throw new HttpError(400, `Profil ${p} : ${reprPy(ip)} est une IPv6 (IPv4 ou CIDR IPv4 seulement)`);
     if (longueurPrefixe(net) === 0)
       avertissements.push(
         `Profil ${p} : ${ip} autorise TOUT internet — autant utiliser le mode Ouvert (bridge).`,
@@ -191,8 +194,8 @@ function validerListeBlanche(
   }
   if (ports.length > 32) throw new HttpError(400, `Profil ${p} : trop de ports (max 32)`);
   for (const ip of dns)
-    if (adresseIpOuNul(ip) === null)
-      throw new HttpError(400, `Profil ${p} : résolveur DNS invalide ${reprPy(ip)} (IP attendue)`);
+    if (resolveurValide(ip) === null)
+      throw new HttpError(400, `Profil ${p} : résolveur DNS invalide ${reprPy(ip)} (IPv4 attendue)`);
   if (dns.length > 4) throw new HttpError(400, `Profil ${p} : trop de résolveurs (max 4)`);
   return ports;
 }
@@ -229,9 +232,11 @@ export function profilsAssainis(nouveau: Dict, avertissements: string[]): Dict[]
     let dns = textesNets(getPy(p, "dns"));
     const portsBruts = iterExige(ouPy(getPy(p, "ports"), [])).filter((x) => stripPy(strPy(x)) !== "");
     let ports: number[] = [];
-    if (mode === "allowlist_ip")
+    if (mode === "allowlist_ip") {
       ports = validerListeBlanche(pid, ips, domaines, portsBruts, dns, avertissements);
-    else [ips, domaines, dns] = [[], [], []];
+      ips = ips.map((x) => ipv4Canonique(x) ?? x);
+      dns = dns.map((x) => resolveurValide(x) ?? x);
+    } else [ips, domaines, dns] = [[], [], []];
     sortie.push({
       id: pid,
       name: nom,

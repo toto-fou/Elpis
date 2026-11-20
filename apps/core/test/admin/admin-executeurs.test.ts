@@ -30,7 +30,7 @@ import { avecVerrou } from "@elpis/verrous";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { configAssainie, delaisDocker } from "../../src/administration/executeurs";
+import { configAssainie, delaisDocker, profilsAssainis } from "../../src/administration/executeurs";
 import { DEFAUTS_JOBS } from "../../src/jobs/reglages";
 import { remplacerBase } from "../../src/base";
 import { composer } from "../../src/composition";
@@ -126,6 +126,27 @@ describe("exécuteurs : fonctions pures (vecteurs)", () => {
       false,
       false,
     ]);
+  });
+});
+
+describe("exécuteurs : profils réseau, IPv4 seulement et forme canonique", () => {
+  it("un profil enregistré avec 10.0.0.7/24 est stocké 10.0.0.0/24 ; /32 sans préfixe ; résolveur rogné", () => {
+    const avertis: string[] = [];
+    const [p] = profilsAssainis(
+      {
+        network_profiles: [
+          {
+            id: "web",
+            name: "Web",
+            mode: "allowlist_ip",
+            ips: ["10.0.0.7/24", " 1.2.3.4/32 ", "192.168.1.1"],
+            dns: [" 9.9.9.9 "],
+          },
+        ],
+      },
+      avertis,
+    );
+    expect([p?.["ips"], p?.["dns"]]).toEqual([["10.0.0.0/24", "1.2.3.4", "192.168.1.1"], ["9.9.9.9"]]);
   });
 });
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/test/durcissement.test.ts — durcissement du bac : PATH du conteneur et des étapes root, entrée directe du compte, profil filtré, aucun retrait de privilèges par `setpriv`. */
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 
@@ -16,6 +17,8 @@ import {
   ExecError,
   MONTAGES_NAVIGATEUR,
   netcfgHash,
+  configBacDepuis,
+  profilReseauDepuis,
   PATH_COMPTE,
   reglagesBac,
   reglagesMontages,
@@ -32,6 +35,7 @@ import {
   PATH_SYSTEME,
   profilFiltre,
 } from "../src/durcissement";
+import { empreinteDemarrage, SCRIPT_DEMARRAGE } from "../src/montages";
 import { dossierTemporaire, FauxCli } from "./aides";
 import type { Regle } from "./aides";
 import type { EtatBac, ImageLoadState } from "../src/index";
@@ -52,7 +56,6 @@ let travail: string;
 let attente: number;
 
 beforeAll(() => {
-  reglagesMontages.agentDir = "/opt/app/shared_infra/sandbox/agent";
   reglagesNavigateurBac.playwright = "/nonexistent/ms-playwright";
 });
 
@@ -65,6 +68,9 @@ beforeEach(() => {
   [tmp, nettoyer] = dossierTemporaire("elpis-bac-dur-");
   travail = path.join(tmp, "sb", "alice", "work");
   mkdirSync(travail, { recursive: true });
+  mkdirSync(path.join(tmp, "agent"));
+  writeFileSync(path.join(tmp, "agent", "demarrage.sh"), "#!/bin/sh\n");
+  reglagesMontages.agentDir = path.join(tmp, "agent");
   restaurer = surchargerConfig({ SANDBOX_DIR: path.join(tmp, "sb") });
   vi.stubEnv("SANDBOX_READINESS_CACHE", "0");
   attente = reglagesBac.attenteCreationMs;
@@ -93,7 +99,7 @@ function bacDe(profil: string | null, executors: Record<string, unknown> = {}, r
 
 /** Règles d'un conteneur en marche, monté sur `travail`, à jour pour le profil de `sb`. */
 function reglesAJour(sb: UserSandbox, extra: Regle[] = []): Regle[] {
-  const netcfg = `${netcfgHash(sb.networkProfile)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}\n`;
+  const netcfg = `${netcfgHash(sb.networkProfile)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}\n`;
   return [
     {
       motif: ["container", "inspect"],
@@ -132,8 +138,8 @@ describe("constantes", () => {
     expect("privdrop" in bac).toBe(false);
   });
 
-  it("version des options de lancement : 7", () => {
-    expect(RUN_SPEC).toBe("7");
+  it("version des options de lancement : 8", () => {
+    expect(RUN_SPEC).toBe("8");
   });
 });
 
@@ -150,7 +156,7 @@ describe("docker run", () => {
       expect(argv[i + 3]).toBe("HOME=/work");
       expect(argv.filter((a) => a.startsWith("PATH="))).toEqual([`PATH=${SYSTEME}`]);
       expect(argv.find((a) => a.startsWith("PATH="))).not.toContain("/work");
-      expect(argv).toContain("elpis.spec=7");
+      expect(argv).toContain("elpis.spec=8");
     },
   );
 
@@ -599,11 +605,11 @@ esac
   const bacs = (): string => path.join(tmp, "sb");
   const lignes = (journal: string): string[] => readFileSync(journal, "utf8").split("\n").filter(Boolean);
 
-  it("arrête seulement : spec périmée ET de cette instance ET (illisible OU réseau modifiable sans gain)", async () => {
+  it("arrête seulement : spec périmée ET de cette instance ET (illisible OU réseau modifiable, no-new-privileges ou non)", async () => {
     const { journal } = fauxDocker({
       ps:
         `elpis-sb-vieux1\t6\nelpis-sb-vieux2\t\nelpis-sb-vieux3\t5\nelpis-sb-vieux4\t6\n` +
-        `elpis-sb-vieux5\t6\nelpis-sb-neuf\t7\nelpis-sb-autre\t6\n`,
+        `elpis-sb-vieux5\t6\nelpis-sb-neuf\t8\nelpis-sb-autre\t6\n`,
       montages: ["vieux1", "vieux2", "vieux3", "vieux4", "vieux5", "neuf"]
         .map((n) => `/elpis-sb-${n}|${bacs()}/${n}/work`)
         .concat([`/elpis-sb-autre|/srv/autre/bacs/a/work`])
@@ -611,7 +617,7 @@ esac
       entrees: {
         vieux1: NET_SANS_GAIN, // arrêté : réseau sans gain
         vieux2: "", // arrêté : illisible
-        vieux3: NET_AVEC_GAIN, // gardé : no-new-privileges
+        vieux3: NET_AVEC_GAIN, // arrêté : réseau modifiable, même avec no-new-privileges
         vieux4: SANS, // gardé : pas de NET_ADMIN
         vieux5: "pas du json", // arrêté : illisible
         neuf: NET_SANS_GAIN,
@@ -619,11 +625,17 @@ esac
       },
     });
     const arretes = await arreterBacsPerimes(bacs());
-    expect(arretes.sort()).toEqual(["elpis-sb-vieux1", "elpis-sb-vieux2", "elpis-sb-vieux5"]);
+    expect(arretes.sort()).toEqual([
+      "elpis-sb-vieux1",
+      "elpis-sb-vieux2",
+      "elpis-sb-vieux3",
+      "elpis-sb-vieux5",
+    ]);
     const l = lignes(journal);
     expect(l.filter((x) => x.startsWith("stop")).sort()).toEqual([
       "stop -t 5 elpis-sb-vieux1",
       "stop -t 5 elpis-sb-vieux2",
+      "stop -t 5 elpis-sb-vieux3",
       "stop -t 5 elpis-sb-vieux5",
     ]);
     expect(l.some((x) => x.includes("neuf") && x.includes("HostConfig"))).toBe(false);
@@ -643,5 +655,195 @@ esac
     expect(lignes(journal)[0]).toBe(
       `ps --filter label=elpis.user_id --filter label=elpis.spec=${RUN_SPEC} --format {{.Names}}`,
     );
+  });
+});
+
+describe("lot 2 : script de démarrage, étiquette elpis.entry, filtre réseau", () => {
+  const profilsDns = [
+    ...PROFILS,
+    {
+      id: "web",
+      name: "Web",
+      mode: "allowlist_ip",
+      ips: ["10.0.0.5"],
+      domains: ["absent.lan"],
+      dns: ["9.9.9.9", "10.0.0.5"],
+      ports: [443],
+    },
+    { id: "dnsseul", name: "D", mode: "allowlist_ip", dns: ["9.9.9.9"] },
+  ];
+  function argvDe(profil: string, resolus: Record<string, string[]> = {}): string[] {
+    const cfg = sandboxAdminConfigDepuis({ network_profiles: profilsDns }, () => undefined);
+    const sb = new UserSandbox(1, "alice", travail, cfg, profil, { cli: new FauxCli() });
+    return sb.buildRunArgs(sb.networkProfile, resolus);
+  }
+
+  it.each(["isolated", "open", "lan"])(
+    "profil %s : entrypoint /bin/sh juste après --no-healthcheck",
+    (profil) => {
+      const argv = argvDe(profil);
+      expect(argv.slice(argv.indexOf("--no-healthcheck"), argv.indexOf("--no-healthcheck") + 3)).toEqual([
+        "--no-healthcheck",
+        "--entrypoint",
+        "/bin/sh",
+      ]);
+    },
+  );
+
+  it("étiquette elpis.entry juste après elpis.agent, valeur = empreinte du script", () => {
+    const argv = argvDe("isolated");
+    const i = argv.findIndex((a) => a.startsWith("elpis.agent="));
+    expect(argv.slice(i + 1, i + 3)).toEqual(["--label", `elpis.entry=${empreinteDemarrage()}`]);
+    expect(empreinteDemarrage()).toMatch(/^[0-9a-f]{12}$/u);
+  });
+
+  it("l'empreinte suit le CONTENU du script et lève si le fichier manque", () => {
+    const f = path.join(tmp, "agent", "demarrage.sh");
+    const avant = empreinteDemarrage();
+    expect(avant).toBe(createHash("sha256").update("#!/bin/sh\n").digest("hex").slice(0, 12));
+    writeFileSync(f, "#!/bin/sh\nexit 1\n");
+    expect(empreinteDemarrage()).not.toBe(avant);
+    writeFileSync(f, "#!/bin/sh\n");
+    expect(empreinteDemarrage()).toBe(avant);
+    rmSync(f);
+    expect(() => empreinteDemarrage()).toThrow();
+  });
+
+  it.each([
+    ["isolated", false],
+    ["open", false],
+    ["lan", true],
+  ])("profil %s : ELPIS_NET_MODE=allowlist seulement en liste blanche (%s)", (profil, attendu) => {
+    const argv = argvDe(profil);
+    expect(argv.includes("ELPIS_NET_MODE=allowlist")).toBe(attendu);
+    if (attendu)
+      expect(argv.slice(argv.indexOf("NET_ADMIN") - 1, argv.indexOf("NET_ADMIN") + 3)).toEqual([
+        "--cap-add",
+        "NET_ADMIN",
+        "-e",
+        "ELPIS_NET_MODE=allowlist",
+      ]);
+    else expect(argv).not.toContain("NET_ADMIN");
+  });
+
+  it("résolveurs : dans ELPIS_DNS et --dns, jamais ajoutés à ELPIS_ALLOWLIST (sauf s'ils y sont déjà par leurs ips)", () => {
+    const argv = argvDe("web");
+    expect(argv).toContain("ELPIS_ALLOWLIST=10.0.0.5");
+    expect(argv).toContain("ELPIS_DNS=9.9.9.9 10.0.0.5");
+    expect(argv.filter((a) => a === "--dns")).toHaveLength(2);
+  });
+
+  it("seulement des domaines non résolus ou des résolveurs : ELPIS_ALLOWLIST= vide", () => {
+    expect(argvDe("dnsseul")).toContain("ELPIS_ALLOWLIST=");
+    expect(argvDe("dnsseul")).toContain("ELPIS_DNS=9.9.9.9");
+    expect(argvDe("dnsseul").some((a) => a.startsWith("ELPIS_ALLOWLIST=9"))).toBe(false);
+  });
+
+  it.each(["isolated", "open", "lan", "web"])(
+    "profil %s : l'argv finit par l'image, le script de démarrage, sleep infinity",
+    (profil) => {
+      const argv = argvDe(profil);
+      expect(argv.slice(-4)).toEqual([
+        expect.stringMatching(/^elpis\/sandbox:/u),
+        SCRIPT_DEMARRAGE,
+        "sleep",
+        "infinity",
+      ]);
+      expect(SCRIPT_DEMARRAGE).toBe("/opt/elpis/agent/demarrage.sh");
+    },
+  );
+
+  describe("configMatches et étiquette elpis.entry", () => {
+    function bacAvec(entree: string) {
+      const base = bacDe("isolated");
+      const netcfg = `${netcfgHash(base.sb.networkProfile)}|${RUN_SPEC}|${base.sb.cfg.image}|${agentEmpreinte()}|${entree}\n`;
+      return bacDe("isolated", {}, [{ motif: ["~elpis.netcfg"], out: netcfg }]);
+    }
+    it("étiquette à jour : conforme ; différente ou vide : recréation", async () => {
+      expect(await bacAvec(empreinteDemarrage()).sb.configMatches()).toBe(true);
+      expect(await bacAvec("0123456789ab").sb.configMatches()).toBe(false);
+      expect(await bacAvec("").sb.configMatches()).toBe(false);
+    });
+
+    it("le format d'inspection lit l'étiquette elpis.entry après elpis.agent", async () => {
+      const { sb, cli } = bacAvec(empreinteDemarrage());
+      await sb.configMatches();
+      expect(String((cli.appels[0] ?? [])[2])).toContain(
+        'elpis.agent"}}|{{index .Config.Labels "elpis.entry"}}',
+      );
+    });
+  });
+});
+
+describe("lot 2 bis : script de démarrage illisible, reconfiguration, profils", () => {
+  const SOBRE = "La sandbox ne peut pas démarrer. Demandez à votre administrateur.";
+
+  it("script manquant : ExecError sobre (sans chemin) de buildRunArgs et de configMatches", async () => {
+    const { sb } = bacEnMarche("isolated");
+    rmSync(path.join(tmp, "agent", "demarrage.sh"));
+    expect(() => sb.buildRunArgs(sb.networkProfile, {})).toThrow(SOBRE);
+    expect(() => sb.buildRunArgs(sb.networkProfile, {})).toThrow(ExecError);
+    await expect(sb.configMatches()).rejects.toThrow(SOBRE);
+    await expect(sb.configMatches()).rejects.toBeInstanceOf(ExecError);
+    try {
+      sb.buildRunArgs(sb.networkProfile, {});
+    } catch (e) {
+      expect((e as Error).message).not.toContain(tmp);
+    }
+  });
+
+  it("reconcileConfig rejeté par une erreur autre qu'une annulation : configVerified revient à faux", async () => {
+    const { sb } = bacEnMarche("isolated");
+    rmSync(path.join(tmp, "agent", "demarrage.sh"));
+    sb.mountVerified = true;
+    sb.modesVerified = true;
+    await expect(sb.ensureRunning()).rejects.toThrow(SOBRE);
+    expect(sb.configVerified).toBe(false);
+  });
+
+  const web = (p: Record<string, unknown>) =>
+    profilReseauDepuis({ id: "web", name: "W", mode: "allowlist_ip", ...p }, (m) => avis.push(m));
+  let avis: string[] = [];
+  beforeEach(() => {
+    avis = [];
+  });
+
+  it.each([[[0]], [[70000]], [["443/tcp"]], [[0, 70000]]])(
+    "ports demandés %j sans aucun valide : profil fermé (ips et domaines vidés), un avertissement",
+    (ports) => {
+      const p = web({ ips: ["10.0.0.5"], domains: ["pypi.org"], dns: ["9.9.9.9"], ports });
+      expect([p.ips, p.domains, p.ports, p.dns]).toEqual([[], [], [], ["9.9.9.9"]]);
+      expect(avis.filter((a) => a.includes("aucun port valide"))).toEqual([
+        "profil réseau 'web' : aucun port valide, aucune destination gardée",
+      ]);
+    },
+  );
+
+  it("un port valide parmi d'autres : seul l'invalide est retiré, destinations gardées", () => {
+    const p = web({ ips: ["10.0.0.5"], domains: ["pypi.org"], ports: [443, 70000] });
+    expect([p.ips, p.domains, p.ports]).toEqual([["10.0.0.5"], ["pypi.org"], [443]]);
+    expect(avis).toEqual([]);
+  });
+
+  it("aucun port demandé : toutes les destinations gardées, pas d'avertissement", () => {
+    const p = web({ ips: ["10.0.0.5"], domains: ["pypi.org"] });
+    expect([p.ips, p.domains, p.ports]).toEqual([["10.0.0.5"], ["pypi.org"], []]);
+    expect(avis).toEqual([]);
+  });
+
+  it("profil migré (legacy) : mode inconnu → none, entrées IPv6 ou douteuses retirées, forme canonique", () => {
+    const legacy = (cfg: Record<string, unknown>) => {
+      const avertis: string[] = [];
+      const c = configBacDepuis({ network_mode: "bridge", ...cfg }, (m) => avertis.push(m));
+      return { p: c.network_profiles.find((x) => x.id === "legacy"), avertis };
+    };
+    expect(legacy({ network_mode: "n'importe quoi" }).p?.mode).toBe("none");
+    expect(legacy({ network_mode: "allowlist_ip" }).p?.mode).toBe("allowlist_ip");
+    const { p, avertis } = legacy({
+      network_mode: "allowlist_ip",
+      network_allowlist: ["10.0.0.7/24", "fe80::1", "-j", "1.2.3.4/32"],
+    });
+    expect(p?.ips).toEqual(["10.0.0.0/24", "1.2.3.4"]);
+    expect(avertis.filter((a) => a.includes("ignoré"))).toHaveLength(2);
   });
 });

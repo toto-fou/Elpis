@@ -228,7 +228,11 @@ describe("core TS → hôte TS", () => {
       true,
     ]);
     expect(
-      docker.appels().some((a) => a.startsWith("run -d --init --no-healthcheck --name elpis-sb-alice")),
+      docker
+        .appels()
+        .some((a) =>
+          a.startsWith("run -d --init --no-healthcheck --entrypoint /bin/sh --name elpis-sb-alice"),
+        ),
     ).toBe(true);
   }, 30_000);
 

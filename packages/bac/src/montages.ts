@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/montages.ts — montages de l'agent et du relais Git dans le conteneur (agent_client.py), communs à l'hôte et aux services Python. */
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { pyJoin, racineDepot, realpathPy } from "@elpis/config";
 
@@ -25,4 +26,15 @@ export function agentDir(): string {
 /** `_AGENT_EMPREINTE` : 12 hex du SHA-256 du chemin de l'agent ; le changer fait recréer les conteneurs. */
 export function agentEmpreinte(): string {
   return createHash("sha256").update(agentDir(), "utf8").digest("hex").slice(0, 12);
+}
+
+/** Script de démarrage du conteneur, dans le dossier de l'agent (monté en lecture seule). */
+export const SCRIPT_DEMARRAGE = `${AGENT_MOUNT}/demarrage.sh`;
+
+/** Étiquette `elpis.entry` : 12 hex du SHA-256 du script de démarrage ; le changer fait recréer les conteneurs, son absence lève. */
+export function empreinteDemarrage(): string {
+  return createHash("sha256")
+    .update(readFileSync(pyJoin(agentDir(), "demarrage.sh")))
+    .digest("hex")
+    .slice(0, 12);
 }

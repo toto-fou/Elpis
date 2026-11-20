@@ -117,7 +117,7 @@
       {
         "version.out": "27.1.1\n",
         "image-inspect.rc": "1",
-        "ps-netcfg.out": "elpis-sb-bob\t3\tbob\tdeadbeef0000\nelpis-sb-carol\t4\tcarol\t\nelpis-sb-JeanDupont\t5\tJean.Dupont\t\nmal\tform\u00e9e\nelpis-sb-x\tabc\tx\tl\nelpis-sb-fantome\t99\t\tl\nelpis-sb-web\t3\tbob\t5c87cc195791\n"
+        "ps-netcfg.out": "elpis-sb-bob\t3\tbob\tdeadbeef0000\nelpis-sb-carol\t4\tcarol\t\nelpis-sb-JeanDupont\t5\tJean.Dupont\t\nmal\tform\u00e9e\nelpis-sb-x\tabc\tx\tl\nelpis-sb-fantome\t99\t\tl\nelpis-sb-web\t3\tbob\t9907c7d34b2a\n"
       }
     ],
     [
@@ -883,8 +883,7 @@
               "ips": [
                 " 10.1.2.3 ",
                 "0.0.0.0/0",
-                "169.254.10.0/24",
-                "fe80::1/64"
+                "169.254.10.0/24"
               ],
               "domains": [
                 " PyPI.org. ",
@@ -1495,6 +1494,66 @@
       "GET",
       "/api/admin/toolhosts",
       null
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "fe80::1/64"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "::1"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "admin",
+      "POST",
+      "/api/admin/executors",
+      {
+        "executors": {
+          "network_profiles": [
+            {
+              "id": "a",
+              "name": "A",
+              "mode": "allowlist_ip",
+              "ips": [
+                "1.2.3.4"
+              ],
+              "dns": [
+                "fe80::1"
+              ]
+            }
+          ]
+        }
+      }
     ]
   ],
   "fonctions": {
@@ -1532,7 +1591,7 @@
             "10.0.0.1"
           ]
         },
-        "5c87cc195791"
+        "9907c7d34b2a"
       ],
       [
         {
@@ -1552,7 +1611,7 @@
             null
           ]
         },
-        "716c58b0c036"
+        "62ba0d9f5617"
       ],
       [
         {
@@ -1759,7 +1818,7 @@
     },
     {
       "statut": 400,
-      "corps": "{\"detail\":\"Profil 'a' : r\u00e9solveur DNS invalide 'x.y' (IP attendue)\"}"
+      "corps": "{\"detail\":\"Profil 'a' : r\u00e9solveur DNS invalide 'x.y' (IPv4 attendue)\"}"
     },
     {
       "statut": 400,
@@ -1823,11 +1882,11 @@
     },
     {
       "statut": 200,
-      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"],\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\",\"fe80::1/64\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[\"Le profil 'isolated' est le repli de s\u00e9curit\u00e9 : son mode est forc\u00e9 \u00e0 \u00ab Tout bloquer \u00bb.\",\"Profil 'web' : 0.0.0.0/0 autorise TOUT internet \u2014 autant utiliser le mode Ouvert (bridge).\",\"Profil 'web' : 169.254.10.0/24 recouvre 169.254.0.0/16 (m\u00e9tadonn\u00e9es cloud, ex. 169.254.169.254).\"],\"stale_containers\":[{\"user_id\":3,\"username\":\"bob\",\"container\":\"elpis-sb-bob\",\"profile_id\":\"web\"},{\"user_id\":99,\"username\":null,\"container\":\"elpis-sb-fantome\",\"profile_id\":\"isolated\"}]}"
+      "corps": "{\"ok\":true,\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"],\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"image\":\"registre.lan:5000/outils/bac:2\"},\"warnings\":[\"Le profil 'isolated' est le repli de s\u00e9curit\u00e9 : son mode est forc\u00e9 \u00e0 \u00ab Tout bloquer \u00bb.\",\"Profil 'web' : 0.0.0.0/0 autorise TOUT internet \u2014 autant utiliser le mode Ouvert (bridge).\",\"Profil 'web' : 169.254.10.0/24 recouvre 169.254.0.0/16 (m\u00e9tadonn\u00e9es cloud, ex. 169.254.169.254).\"],\"stale_containers\":[{\"user_id\":3,\"username\":\"bob\",\"container\":\"elpis-sb-bob\",\"profile_id\":\"web\"},{\"user_id\":99,\"username\":null,\"container\":\"elpis-sb-fantome\",\"profile_id\":\"isolated\"}]}"
     },
     {
       "statut": 200,
-      "corps": "{\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\",\"fe80::1/64\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
+      "corps": "{\"config\":{\"limits\":{\"memory_mb\":4096,\"cpu_quota_pct\":200,\"pids_max\":64,\"timeout_s\":600},\"force_user_docker\":true,\"idle_kill_hours\":12,\"network_profiles\":[{\"id\":\"isolated\",\"name\":\"Isol\u00e9\",\"mode\":\"none\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"},{\"id\":\"web\",\"name\":\"Web\",\"mode\":\"allowlist_ip\",\"ips\":[\"10.1.2.3\",\"0.0.0.0/0\",\"169.254.10.0/24\"],\"domains\":[\"pypi.org\",\"files.pythonhosted.org\"],\"ports\":[443,80,8080,1],\"dns\":[\"10.0.0.1\"],\"description\":\"Acc\u00e8s web\"},{\"id\":\"lan\",\"name\":\"LAN\",\"mode\":\"bridge\",\"ips\":[],\"domains\":[],\"ports\":[],\"dns\":[],\"description\":\"\"}],\"exec_user\":\"1000:1000\",\"runtime\":\"runsc\",\"extra_run_args\":[\"--cap-add\",\"2.0\"]},\"image\":\"registre.lan:5000/outils/bac:2\"}"
     },
     {
       "statut": 200,
@@ -2059,6 +2118,18 @@
     {
       "statut": 200,
       "corps": "{\"ok\":true,\"hosts\":[{\"id\":\"a\",\"url\":\"{h}/a\",\"has_token\":true,\"relay\":true,\"reachable\":true,\"health\":{\"families\":[\"fs\",\"shell\"],\"tools\":12,\"uptime_s\":12.0,\"auth\":\"token\",\"service\":\"elpis-tools\"},\"accounts\":2},{\"id\":\"b\",\"url\":\"{h}/b\",\"has_token\":true,\"relay\":true,\"reachable\":false,\"health\":null,\"accounts\":1},{\"id\":\"l\",\"url\":\"{h}/l\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"'list' object has no attribute 'get'\",\"accounts\":0},{\"id\":\"t\",\"url\":\"{h}/t\",\"has_token\":false,\"relay\":\"oui\",\"reachable\":false,\"health\":null,\"error\":\"Expecting value: line 1 column 1 (char 0)\",\"accounts\":0},{\"id\":\"mort\",\"url\":\"http://127.0.0.1:1\",\"has_token\":false,\"relay\":true,\"reachable\":false,\"health\":null,\"error\":\"All connection attempts failed\",\"accounts\":0},{\"id\":\"vide\",\"url\":\"\",\"has_token\":true,\"relay\":null,\"reachable\":null,\"health\":null,\"accounts\":0}],\"placement\":{\"strategy\":\"by_user\",\"host\":\"a\"},\"placements\":[{\"user_id\":3,\"host_id\":\"b\",\"created_at\":1700000000.5,\"updated_at\":1700000001.25,\"username\":\"bob\"},{\"user_id\":5,\"host_id\":\"a\",\"created_at\":1700000002.0,\"updated_at\":1700000003.0,\"username\":\"Jean.Dupont\"},{\"user_id\":99,\"host_id\":\"a\",\"created_at\":1800001020.5,\"updated_at\":1800001020.5,\"username\":\"\"}]}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : 'fe80::1/64' est une IPv6 (IPv4 ou CIDR IPv4 seulement)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : '::1' est une IPv6 (IPv4 ou CIDR IPv4 seulement)\"}"
+    },
+    {
+      "statut": 400,
+      "corps": "{\"detail\":\"Profil 'a' : r\u00e9solveur DNS invalide 'fe80::1' (IPv4 attendue)\"}"
     }
   ],
   "config_finale": "{\n  \"executors\": {\n    \"idle_kill_hours\": 1\n  }\n}",

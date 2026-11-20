@@ -109,6 +109,39 @@ export const CHAMPS_RESEAU: readonly ChampReseau[] = Object.freeze([
   },
 ]);
 
+/** Règle Git d'un profil : ce que le relais Git joint pour ses sandboxes, quel que soit le mode réseau. */
+export const ACCES_GIT: readonly { key: string; label: string; title: string }[] = Object.freeze([
+  { key: "all", label: "Tous", title: "Tous les dépôts que le relais Git peut joindre (par défaut)." },
+  {
+    key: "servers",
+    label: "Serveurs choisis",
+    title:
+      "Seuls les serveurs listés, entiers (git.exemple.lan) ou limités à une organisation (github.com/acme).",
+  },
+  {
+    key: "accounts",
+    label: "Comptes Git",
+    title:
+      "Seuls les dépôts que couvrent les comptes Git de chaque utilisateur (Paramètres › Secrets › Comptes Git).",
+  },
+]);
+const SERVEUR_GIT =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::[1-9][0-9]{0,4})?(?:\/[A-Za-z0-9._~-]+)*$/;
+
+/** Serveur Git saisi, en forme (`https://` et `.git` retirés, hôte sans la casse, chemin tel quel) ; `null` s'il ne se lit pas. */
+function serveurGitSaisi(brut: string): string | null {
+  let s = brut
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/, "");
+  if (s.toLowerCase().endsWith(".git")) s = s.slice(0, -4);
+  const barre = s.indexOf("/");
+  s = barre < 0 ? s.toLowerCase() : s.slice(0, barre).toLowerCase() + s.slice(barre);
+  const port = /^[^/]*:([0-9]+)(?:\/|$)/.exec(s)?.[1];
+  if (port !== undefined && Number(port) > 65535) return null;
+  return SERVEUR_GIT.test(s) && !s.split("/").some((x) => x === "." || x === "..") ? s : null;
+}
+
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 const DOMAINE = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 
@@ -202,8 +235,8 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       _uid: `np${++compteurProfils}`,
       _open: false,
       _portsMode: (p.ports || []).length ? "list" : "all",
-      _draft: { ips: "", domains: "", ports: "", dns: "" },
-      _err: { ips: "", domains: "", ports: "", dns: "" },
+      _draft: { ips: "", domains: "", ports: "", dns: "", git_servers: (p.git_servers || []).join("\n") },
+      _err: { ips: "", domains: "", ports: "", dns: "", git_servers: "" },
     };
   }
 
@@ -238,7 +271,10 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   }
   /** À la fermeture d'une carte, les brouillons encore en cours de frappe sont validés (ils seraient perdus). */
   function toggleProfile(prof: ProfilReseauEdite): void {
-    if (prof._open) for (const f of CHAMPS_RESEAU) commitNetValue(prof, f.key);
+    if (prof._open) {
+      for (const f of CHAMPS_RESEAU) commitNetValue(prof, f.key);
+      if (prof.git_access === "servers") commitGitServers(prof);
+    }
     prof._open = !prof._open;
   }
 
@@ -289,6 +325,23 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     prof._draft[cle] = refusees.join(" ");
     prof._err[cle] = refusees.length ? premiereErreur : "";
   }
+  /** Serveurs Git du brouillon, un par ligne : les illisibles restent dans le champ avec le motif. */
+  function commitGitServers(prof: ProfilReseauEdite): void {
+    const gardes: string[] = [];
+    const refus: string[] = [];
+    for (const part of String(prof._draft["git_servers"] || "")
+      .split(/[\s,;]+/)
+      .filter(Boolean)) {
+      const v = serveurGitSaisi(part);
+      if (v === null) refus.push(part);
+      else if (!gardes.includes(v)) gardes.push(v);
+    }
+    prof.git_servers = gardes;
+    prof._draft["git_servers"] = [...gardes, ...refus].join("\n");
+    prof._err["git_servers"] = refus.length
+      ? `Serveur illisible : ${refus.join(", ")} (hôte[:port] ou hôte/organisation)`
+      : "";
+  }
   function removeNetValue(prof: ProfilReseauEdite, cle: CleListe, idx: number): void {
     prof[cle].splice(idx, 1);
     prof._err[cle] = "";
@@ -311,6 +364,13 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     p._open = true;
     execConfig.value.network_profiles.push(p);
   }
+  /** Règle Git du profil de repli, telle qu'éditée : le message de suppression la nomme. */
+  function regleGitIsole(): string {
+    const iso = execConfig.value.network_profiles.find((q) => q.id === "isolated");
+    const acces = ACCES_GIT.find((x) => x.key === (iso?.git_access || "all"));
+    return (acces?.label ?? "Tous").toLowerCase();
+  }
+
   async function removeNetworkProfile(idx: number): Promise<void> {
     const p = execConfig.value.network_profiles[idx];
     if (p && p.id === "isolated") {
@@ -319,7 +379,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     }
     const ok = await openConfirm(
       "Supprimer le profil ?",
-      `Le profil "${p?.name}" sera retiré. Les utilisateurs qui l'avaient sélectionné repasseront en "isolated".`,
+      `Le profil "${p?.name}" sera retiré. Les utilisateurs qui l'avaient sélectionné repasseront en "isolated" : aucune sortie réseau, et la règle Git de ce profil (${regleGitIsole()}).`,
       true,
       "Supprimer",
     );
@@ -429,6 +489,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     try {
       // Un brouillon encore dans un champ serait perdu : validé d'abord, comme si l'opérateur avait appuyé sur Entrée.
       for (const p of execConfig.value.network_profiles || []) {
+        if (p._draft && p.git_access === "servers") commitGitServers(p);
         if (p.mode !== "allowlist_ip" || !p._draft) continue;
         for (const f of CHAMPS_RESEAU) commitNetValue(p, f.key);
       }
@@ -526,6 +587,8 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     etatDomaines,
     domainesNonResolus,
     netProtections: PROTECTIONS_RESEAU,
+    accesGit: ACCES_GIT,
+    commitGitServers,
     addNetworkProfile,
     removeNetworkProfile,
     netFields: CHAMPS_RESEAU,

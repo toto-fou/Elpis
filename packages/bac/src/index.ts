@@ -107,6 +107,7 @@ export {
   supprimerInstantanesDuNom,
 } from "./suppression";
 export {
+  ACCES_GIT,
   chargerConfigBac,
   configBacDepuis,
   DOMAIN_RE,
@@ -121,10 +122,12 @@ export {
   profilParId,
   profilReseauDepuis,
   protectionsDe,
+  regleGitDepuis,
   resolveurValide,
+  serveurGitCanonique,
   signalerUneFois,
 } from "./profils";
-export type { Avertir, ConfigBac, ProfilReseau } from "./profils";
+export type { AccesGit, Avertir, ConfigBac, ProfilReseau } from "./profils";
 export {
   agentFor,
   bacDeLOutil,

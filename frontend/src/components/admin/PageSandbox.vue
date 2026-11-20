@@ -878,6 +878,47 @@ const adm = domaineAdmin();
                 </div>
               </div>
 
+              <div class="mt-3">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[11px] font-semibold text-slate-500">Git</span>
+                  <div class="np-seg np-seg--xs" role="group" aria-label="Dépôts Git joignables">
+                    <button
+                      v-for="g in adm.accesGit"
+                      :key="g.key"
+                      type="button"
+                      :class="['np-seg__btn', (prof.git_access || 'all') === g.key ? 'is-on' : '']"
+                      :aria-pressed="(prof.git_access || 'all') === g.key ? 'true' : 'false'"
+                      :title="g.title"
+                      @click="prof.git_access = g.key"
+                    >
+                      {{ g.label }}
+                    </button>
+                  </div>
+                </div>
+                <template v-if="prof.git_access === 'servers'">
+                  <textarea
+                    v-model="prof._draft.git_servers"
+                    rows="2"
+                    placeholder="git.exemple.lan&#10;github.com/acme"
+                    aria-label="Serveurs Git autorisés, un par ligne"
+                    title="Un serveur entier (git.exemple.lan, git.exemple.lan:3000) ou un serveur et une organisation (github.com/acme), un par ligne."
+                    class="set-input set-control--sm font-mono w-full"
+                    @blur="adm.commitGitServers(prof)"
+                  ></textarea>
+                  <p
+                    v-if="prof._err.git_servers"
+                    role="alert"
+                    class="mt-1 text-[11px] text-red-600 flex items-center gap-1"
+                  >
+                    <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i
+                    >{{ prof._err.git_servers }}
+                  </p>
+                  <p v-else-if="!(prof.git_servers || []).length" class="mt-1 text-[11px] text-slate-500">
+                    Aucun serveur : Git refusé pour ce profil.
+                  </p>
+                </template>
+              </div>
+
               <p
                 v-if="adm.domainesNonResolus(prof).length"
                 class="mt-2 text-[11px] text-amber-700 flex items-center gap-1.5"

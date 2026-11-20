@@ -18,6 +18,7 @@ import type { CodeErreurSecret } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
 import type { auditEvent } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
+import { cleServeurGit } from "@elpis/fichiers";
 import type { FastifyRequest } from "fastify";
 
 import { textePy } from "../comptes/aides";
@@ -38,6 +39,7 @@ import type { ChampsConnecteur, ContexteGit, LigneConnecteur } from "../git/conn
 import { defaultProviderType, detectProvider, normalizeHost } from "../git/detection";
 import { getProvider } from "../git/fournisseurs";
 import { gardeGit } from "../git/garde";
+import { serveurPermis, serveursDuProfil } from "../git/regle";
 import type { Fournisseur, Http } from "../git/fournisseurs";
 import { httpJson } from "../git/http";
 import type { OptionsHttp } from "../git/http";
@@ -132,6 +134,33 @@ function depotsCouverts(depots: unknown, l: LigneConnecteur): unknown {
       (typeof url === "string" ? cheminDeLUrl(url) : null) ??
       (typeof nom === "string" ? cheminDepot(nom) || null : null);
     return cheminCouvre(chemin, lu === null ? null : cheminPourType(lu, l.provider_type));
+  });
+}
+
+/** Compte Git refusé sur un serveur que la règle du profil n'autorise pas (le relais n'y irait pas). */
+async function exigerServeurPermis(base: Base, uid: number, hote: string): Promise<void> {
+  if (!(await serveurPermis(base, uid, hote)))
+    throw new HttpError(
+      403,
+      "Ce serveur Git n'est pas autorisé pour votre compte. Demandez à votre administrateur.",
+    );
+}
+
+/** Dépôts d'une liste que les serveurs choisis couvrent pour l'hôte du compte (chemin parent ou égal, avec sa casse). */
+function depotsPermis(
+  depots: unknown,
+  l: LigneConnecteur,
+  serveurs: readonly { host: string; path: string }[],
+): unknown {
+  const portees = serveurs.filter((s) => cleServeurGit(s.host) === cleServeurGit(l.host)).map((s) => s.path);
+  if (!Array.isArray(depots)) return depots;
+  return depots.filter((d) => {
+    const url = getPy(d, "clone_url");
+    const nom = getPy(d, "full_name");
+    const lu =
+      (typeof url === "string" ? cheminDeLUrl(url) : null) ??
+      (typeof nom === "string" ? cheminDepot(nom) || null : null);
+    return portees.some((p) => cheminCouvre(p, lu));
   });
 }
 
@@ -233,6 +262,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
           );
         if (!host) throw new HttpError(400, "host requis (ex. github.com, gitlab.acme.internal)");
         if (!token) throw new HttpError(400, "token requis");
+        await exigerServeurPermis(base, uid, host);
         const id = await avecCoffre(() =>
           createConnector(
             base,
@@ -264,6 +294,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         }
         if (champs.provider_type && !PROVIDER_TYPES.includes(champs.provider_type))
           throw new HttpError(400, "provider_type invalide");
+        if (champs.host) await exigerServeurPermis(base, uid, champs.host);
         if (inPy("path", data) && getPy(data, "path") !== null)
           champs.path = porteeSaisie(getPy(data, "path"));
         if (inPy("token", data) && stripPy(textePy(getPy(data, "token"))))
@@ -294,6 +325,8 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         poserSiAbsent(res, "host", ligne.host);
         poserSiAbsent(res, "repos", []);
         poserCle(res, "repos", depotsCouverts(res["repos"], ligne));
+        const serveurs = await serveursDuProfil(base, uid);
+        if (serveurs !== null) poserCle(res, "repos", depotsPermis(res["repos"], ligne, serveurs));
         const depots = res["repos"];
         auditer(req, uid, "git.connector.list_repos", {
           connector_id: id,

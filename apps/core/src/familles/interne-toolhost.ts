@@ -12,6 +12,7 @@ import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { estDict, getPy, HttpError, intPy, lowerPy, ouPy, stripPy, strPy, texteNet } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { config } from "@elpis/config";
+import { regleCouvre } from "@elpis/fichiers";
 import { corpsJson, entrees, premierEntete, py } from "@elpis/http";
 import { toolhostEntry } from "@elpis/mcp";
 import { IDENTITY_HEADER, verify } from "@elpis/securite";
@@ -23,11 +24,13 @@ import {
   hoteEnregistre,
   identifiantGitDisponible,
   listConnectorHosts,
+  listConnectorScopes,
   resolveGitCredential,
 } from "../git/connecteurs";
 import type { ContexteGit } from "../git/connecteurs";
 import { detectProvider, normalizeHost } from "../git/detection";
 import { ouvrirPrPourHote } from "../git/pr";
+import { regleGitDuCompte, serveurPermis } from "../git/regle";
 import { importLegacyGitCredentials, saveGitCredential } from "../git/resolveur";
 import type { Journal } from "../journal";
 import { createNotification } from "../notifications/stockage";
@@ -267,12 +270,15 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         traiter: async (req) => {
           const { uid } = await compteSigne(dep, req);
           let hosts: string[];
+          let scopes: { host: string; path: string }[];
           try {
             hosts = await listConnectorHosts(base, uid);
+            scopes = await listConnectorScopes(base, uid);
           } catch {
             hosts = [];
+            scopes = [];
           }
-          return { ok: true, hosts };
+          return { ok: true, hosts, scopes };
         },
       },
       {
@@ -283,6 +289,16 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         traiter: async (req) => {
           const { uid, username, identite } = await compteSigne(dep, req);
           const d = entrees(req, { body: DEMANDE_PR }).body;
+          // La règle Git du profil borne aussi les PR : jamais sur un dépôt que le relais refuserait.
+          if (!regleCouvre(await regleGitDuCompte(base, uid), d.remote_url))
+            return {
+              ok: true,
+              result: {
+                outcome: "error",
+                message: "git_rule_refused",
+                hint: "The repository is not allowed by the Git rule of the sandbox network profile: PR not opened; only the administrator can change the rule.",
+              },
+            };
           const result = await ouvrirPrPourHote(base, uid, d, {
             contexte: contexteSigne(uid, username, identite),
             signaler: (e) =>
@@ -412,7 +428,8 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
               donnees,
               { userId: uid, username, ip: null },
               {
-                admis: (hote) => hoteEnregistre(base, uid, hote),
+                admis: async (hote) =>
+                  (await hoteEnregistre(base, uid, hote)) && serveurPermis(base, uid, hote),
                 refus: () => void (refuses += 1),
               },
             ),

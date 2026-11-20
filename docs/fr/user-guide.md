@@ -1950,6 +1950,7 @@ Ce qu'il faut savoir :
 - Un compte marqué **inactif** ne sert à aucun dépôt : modifiez-le pour choisir à quoi il s'applique.
 - Un compte marqué **à vérifier** porte un jeton repris d'un ancien fichier de votre sandbox. Il ne sert pas tant que vous ne l'avez pas vérifié dans **Secrets web**, ou ressaisi ici.
 - L'assistant ne peut pas recevoir de jeton dans le chat. Quand un dépôt en demande un, il vous invite à ajouter le compte ici.
+- Votre administrateur peut limiter les serveurs Git que joint votre sandbox. Un compte Git sur un autre serveur est alors refusé : demandez à votre administrateur. Quand seuls vos comptes Git sont permis, un dépôt qu'aucun ne couvre est refusé tant que vous n'en ajoutez pas un.
 
 ### Pour en tirer le maximum
 

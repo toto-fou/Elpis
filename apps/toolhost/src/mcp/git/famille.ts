@@ -37,7 +37,11 @@ export type RappelGit = SourceGit &
     identifiantGitDisponible?(compte: CompteRappel, remoteUrl: string): Promise<boolean>;
   };
 
-const SANS_RAPPEL: SourceGit = { gitCredential: async () => null, connectorHosts: async () => [] };
+const SANS_RAPPEL: SourceGit = {
+  gitCredential: async () => null,
+  connectorHosts: async () => [],
+  connectorScopes: async () => [],
+};
 
 const textes = (): ReturnType<typeof py.list> => py.list(py.str()).fabrique(() => []);
 

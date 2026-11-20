@@ -20,7 +20,7 @@ import { enregistrerSecret, enregistrerTestReussi, secretFournisseur } from "../
 import { ancreIdentite } from "../../src/identite/ancre";
 import { preparerRattachement } from "../../src/identite/rattachement";
 import { validerFournisseur } from "../../src/identite/reglages";
-import type { FournisseurOidc } from "../../src/identite/reglages";
+import type { Fournisseur } from "../../src/identite/reglages";
 import { appTest, journalMuet } from "../aides";
 import { cleCoffreDeTest, configDeTest, oidcValide } from "./aides";
 import type { ConfigDeTest } from "./aides";
@@ -125,7 +125,7 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect ré
   let cfg: ConfigDeTest;
   let main: FastifyInstance;
   let dossier: string;
-  let fournisseur: FournisseurOidc;
+  let fournisseur: Fournisseur;
   let adresses = 0;
   const adresse = (): string => `10.77.0.${(adresses += 1)}`;
 
@@ -144,7 +144,7 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect ré
         required_groups: [recette.groupe],
         ...extra,
       }),
-    ) as FournisseurOidc;
+    ) as Fournisseur;
     await enregistrerSecret(t.base, fournisseur, secret, ACTEUR);
     await enregistrerTestReussi(t.base, fournisseur, recette.public_url);
     cfg.ecrire({ auth: { public_url: recette.public_url, providers: [fournisseur] } });

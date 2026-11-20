@@ -49,6 +49,7 @@ import {
   localReserveDe,
 } from "./etat-compte";
 import type { PorteFraicheur } from "./etat-compte";
+import { ligneAcces } from "./garde";
 import { politique } from "./jetons";
 
 export const ACCESS_PREFIX = "eoa_";
@@ -135,8 +136,6 @@ export interface ClientDuRelais {
   grant_id: string;
   resource: string;
 }
-
-const COMPTE_ACCES = `SELECT u.suspended_at, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`;
 
 function maintenant(dep: DependancesOAuth): number {
   return dep.maintenant ? dep.maintenant() : Date.now() / 1000;
@@ -807,7 +806,7 @@ export async function exchangeCode(dep: DependancesOAuth, e: Echange): Promise<D
     if (!pkceOk(e.codeVerifier, r["code_challenge"]))
       return [new ErreurOAuth("invalid_grant", "Vérification PKCE refusée."), {}];
     if (cible !== null) return [cible, {}];
-    const compte = await tx.get(COMPTE_ACCES, [Number(r["user_id"])]);
+    const compte = await ligneAcces(tx, Number(r["user_id"]));
     if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
     if (compteSuspendu(compte) || accesPerime(compte, fraicheurs, t, reserve))
       return [new ErreurOAuth("invalid_grant", "Code inconnu."), {}];
@@ -878,7 +877,7 @@ export async function refresh(dep: DependancesOAuth, f: Rafraichissement): Promi
     if (Number(r["expires_at"]) < t)
       return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement expiré."), {}];
     if (cible !== null) return [cible, {}];
-    const compte = await tx.get(COMPTE_ACCES, [Number(r["user_id"])]);
+    const compte = await ligneAcces(tx, Number(r["user_id"]));
     if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
     if (compteSuspendu(compte) || accesPerime(compte, fraicheurs, t, reserve))
       return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement inconnu."), {}];

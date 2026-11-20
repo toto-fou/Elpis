@@ -16,7 +16,7 @@ import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { composer } from "../../src/composition";
 import { enregistrerSecret, enregistrerTestReussi } from "../../src/identite/fournisseurs";
 import { validerFournisseur } from "../../src/identite/reglages";
-import type { FournisseurOidc } from "../../src/identite/reglages";
+import type { Fournisseur } from "../../src/identite/reglages";
 import { appTest, journalMuet } from "../aides";
 import { cleCoffreDeTest, configDeTest, oidcValide } from "./aides";
 import type { ConfigDeTest } from "./aides";
@@ -151,9 +151,9 @@ export interface BancRecette {
   readonly main: FastifyInstance;
   readonly hote: string;
   /** Fournisseur courant, tel qu'il est enregistré. */
-  fournisseur(): FournisseurOidc;
+  fournisseur(): Fournisseur;
   /** Enregistre le fournisseur (réglages, secret, test réussi) et l'écrit dans la configuration. */
-  installer(reglages: Record<string, unknown>, secret: string): Promise<FournisseurOidc>;
+  installer(reglages: Record<string, unknown>, secret: string): Promise<Fournisseur>;
   adresse(): string;
   /** Départ SSO : adresse d'autorisation et témoin de liaison. */
   demarrer(id: string, ip: string): Promise<{ url: string; liaison: string }>;
@@ -210,7 +210,7 @@ export async function ouvrirBancRecette(publicUrl: string, ca: string): Promise<
   });
   audit();
   const hote = new URL(publicUrl).host;
-  let courant: FournisseurOidc | undefined;
+  let courant: Fournisseur | undefined;
   let adresses = 0;
   let ecoute: Server | undefined;
   const banc: BancRecette = {
@@ -222,7 +222,7 @@ export async function ouvrirBancRecette(publicUrl: string, ca: string): Promise<
       return courant;
     },
     async installer(reglages, secret) {
-      const f = validerFournisseur(oidcValide({ enabled: true, ca_pem: ca, ...reglages })) as FournisseurOidc;
+      const f = validerFournisseur(oidcValide({ enabled: true, ca_pem: ca, ...reglages })) as Fournisseur;
       await enregistrerSecret(t.base, f, secret, ACTEUR);
       await enregistrerTestReussi(t.base, f, publicUrl);
       cfg.ecrire({ auth: { public_url: publicUrl, providers: [f] } });

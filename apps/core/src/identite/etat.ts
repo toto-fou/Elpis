@@ -14,6 +14,23 @@ export async function compterAdminsLocaux(x: Executeur, sauf?: number): Promise<
   return Number(r[0]?.[0] ?? 0);
 }
 
+/** Vrai si ce compte est le dernier administrateur local actif : le retirer, le rétrograder ou le rattacher laisserait l'instance sans accès local. */
+export async function dernierAdminLocal(x: Executeur, uid: number): Promise<boolean> {
+  try {
+    await exigerAdminLocal(x, { sauf: uid });
+    return false;
+  } catch (e) {
+    if (e instanceof HttpError && e.statusCode === 409) return true;
+    throw e;
+  }
+}
+
+/** Comptage des administrateurs locaux actifs fait au premier appel, rendu tel quel aux suivants. */
+export function adminsLocauxUneFois(x: Executeur): () => Promise<number> {
+  let compte: Promise<number> | undefined;
+  return () => (compte ??= compterAdminsLocaux(x));
+}
+
 /** 409 s'il ne resterait aucun administrateur local actif ; avec `sauf`, seulement si ce compte en est un aujourd'hui (l'action en retire un). */
 export async function exigerAdminLocal(x: Executeur, options: { sauf?: number } = {}): Promise<void> {
   const { sauf } = options;

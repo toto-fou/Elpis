@@ -897,19 +897,26 @@ doctor_coffre() {
     if [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
         info "coffre (Secrets) : non vérifié (core non construit ou config.json absent)"; return 0
     fi
+    lignes_doctor "coffre (Secrets)" vault_core vault doctor
+}
+
+# Lignes « niveau<TAB>texte » d'une commande de diagnostic du core, rendues par ok / warn / info ; toute autre ligne compte comme un défaut.
+lignes_doctor() {
+    local libelle="$1" niveau texte
+    shift
     while IFS=$'\t' read -r niveau texte; do
         case "$niveau" in
             ok) ok "$texte" ;;
             warn) warn "$texte"; bad=$((bad+1)) ;;
             info) info "$texte" ;;
-            *) [ -n "$niveau$texte" ] && { warn "coffre (Secrets) : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
+            *) [ -n "$niveau$texte" ] && { warn "$libelle : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
         esac
-    done < <(vault_core vault doctor 2>&1)
+    done < <("$@" 2>&1)
 }
 
 # Connexion d'entreprise vue par le core (lecture seule, sans réseau) : une ligne « niveau<TAB>texte » par contrôle ; rien si le core ou config.json manque.
 doctor_connexion() {
-    local niveau texte illisible=0 dossier="${VAULT_KEY_SYS%/*}"
+    local illisible=0 dossier="${VAULT_KEY_SYS%/*}"
     # Même garde que doctor_coffre : sous un compte qui ne lit pas la clé, le core ne lit aucun secret (aucune ligne de journal dans la sortie).
     if [ "$(id -u)" -ne 0 ] && [ -z "${ELPIS_VAULT_KEY:-}${ELPIS_VAULT_KEY_PATH:-}" ] && [ -d "$dossier" ] \
             && { [ ! -x "$dossier" ] || { [ -e "$VAULT_KEY_SYS" ] && [ ! -r "$VAULT_KEY_SYS" ]; }; }; then
@@ -918,14 +925,7 @@ doctor_connexion() {
     if [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
         info "connexion d'entreprise : non vérifiée (core non construit ou config.json absent)"; return 0
     fi
-    while IFS=$'\t' read -r niveau texte; do
-        case "$niveau" in
-            ok) ok "$texte" ;;
-            warn) warn "$texte"; bad=$((bad+1)) ;;
-            info) info "$texte" ;;
-            *) [ -n "$niveau$texte" ] && { warn "connexion d'entreprise : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
-        esac
-    done < <(ELPIS_DOCTOR_COFFRE_ILLISIBLE="$illisible" vault_core auth doctor 2>&1)
+    ELPIS_DOCTOR_COFFRE_ILLISIBLE="$illisible" lignes_doctor "connexion d'entreprise" vault_core auth doctor
 }
 
 # Pilotes cités par les règles rsyslog d'Elpis, lignes commentées exclues (gtls : rsyslog-gnutls, omrelp : rsyslog-relp) : rsyslogd -N1 ne signale pas leur absence.

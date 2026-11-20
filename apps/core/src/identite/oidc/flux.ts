@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/flux.ts — flux de connexion SSO en base : création plafonnée (au plafond par adresse, le plus ancien flux de l'adresse est évincé), consommation à usage unique, lien au navigateur, sessions du fournisseur, purge. */
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
-import { cleAdresse, cleAdresseExacte } from "@elpis/auth";
+import { cleAdresse, cleAdresseExacte, valeurCookie } from "@elpis/auth";
 import type { Base, Executeur } from "@elpis/db";
 import { chiffrerSecret, compareDigest } from "@elpis/securite";
 
@@ -46,9 +46,15 @@ export interface FluxLu {
 
 export const empreinte = (texte: string): string => createHash("sha256").update(texte, "utf8").digest("hex");
 
-/** Secret de liaison lu du cookie : seule la forme exacte d'un secret émis par ce serveur est admise. */
-export function secretLiaisonValide(brut: string | undefined): string | null {
+/** Secret de liaison lu de l'en-tête `cookie` : seule la forme exacte d'un secret émis par ce serveur est admise. */
+export function secretLiaisonDe(cookie: string | undefined): string | null {
+  const brut = valeurCookie(cookie, COOKIE_LIAISON);
   return brut !== undefined && FORME_SECRET.test(brut) ? brut : null;
+}
+
+/** Secret de liaison du cookie, ou un secret neuf quand il manque ou n'a pas la forme exacte. */
+export function secretLiaisonOuNeuf(cookie: string | undefined): string {
+  return secretLiaisonDe(cookie) ?? randomBytes(32).toString("base64url");
 }
 
 /** Vrai si les deux empreintes hexadécimales sont égales (temps constant). */
@@ -213,9 +219,8 @@ export async function noterSessionExterne(
     idpSid: string | null;
     subject: string;
     idToken: string | null;
-    maintenant: number;
     expire: number;
-    avertir?: (message: string) => void;
+    avertir: (message: string) => void;
   },
 ): Promise<void> {
   let enc: string | null = null;
@@ -223,12 +228,12 @@ export async function noterSessionExterne(
     try {
       enc = chiffrerSecret(e.idToken, `auth-ext-session:${e.sid}`);
     } catch {
-      e.avertir?.(`connexion SSO ${e.providerId} : jeton d'identité non gardé (clé du coffre indisponible)`);
+      e.avertir(`connexion SSO ${e.providerId} : jeton d'identité non gardé (clé du coffre indisponible)`);
     }
   }
   await x.run(
-    "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, idp_sid, subject, id_token_enc, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
-    [e.sid, e.uid, e.providerId, e.idpSid, e.subject, enc, e.maintenant, e.expire],
+    "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, idp_sid, subject, id_token_enc, expires_at) VALUES(?,?,?,?,?,?,?)",
+    [e.sid, e.uid, e.providerId, e.idpSid, e.subject, enc, e.expire],
   );
 }
 

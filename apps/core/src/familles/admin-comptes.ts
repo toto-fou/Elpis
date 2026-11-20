@@ -123,11 +123,6 @@ function validerMotDePasseRecu(v: unknown, config: unknown): void {
       throw new ErreurPython("TypeError", "expected string or bytes-like object, got '" + nomTypePy(v) + "'");
 }
 
-/** Niveau `is_admin` en rôle lisible. */
-function nomDuRole(niveau: number): string {
-  return niveau === 1 ? "admin" : niveau === 2 ? "moderator" : "user";
-}
-
 export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille {
   const { base, auth } = dep;
   const maintenant = (): number => (auth.maintenant ? auth.maintenant() : Date.now() / 1000);
@@ -257,7 +252,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     auditer(req, "admin.user.create", {
       target_user_id: cree,
       target_username: username,
-      role: nomDuRole(niveau),
+      role: roleDuNiveau(niveau),
     });
     return { ok: true };
   }
@@ -289,8 +284,8 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     invaliderAccesRag(base);
     auditer(req, "admin.user.role", {
       target_user_id: cible,
-      before: nomDuRole(Number(avant.is_admin)),
-      after: nomDuRole(niveau),
+      before: roleDuNiveau(Number(avant.is_admin)),
+      after: roleDuNiveau(niveau),
       ...(gere ? { role_managed: true } : {}),
     });
     return reponseJsonPy(rep, { ok: true, role });
@@ -348,8 +343,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
           user_id: number;
           provider_id: string;
           ext_username: string | null;
-          linked_at: number;
-        }>("SELECT user_id, provider_id, ext_username, linked_at FROM user_identities")
+        }>("SELECT user_id, provider_id, ext_username FROM user_identities")
       ).map((i) => [Number(i.user_id), i]),
     );
     const sansMotDePasse = new Set(
@@ -371,7 +365,6 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
         ? {
             provider_id: identite.provider_id,
             ext_username: identite.ext_username,
-            linked_at: versFlottantPy(Number(identite.linked_at)),
           }
         : null;
       u["has_local_password"] = !sansMotDePasse.has(id);

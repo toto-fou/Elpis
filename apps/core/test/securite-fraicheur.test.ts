@@ -29,7 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { creerFamilleWebhooks } from "../src/familles/webhooks";
 import { ancreIdentite } from "../src/identite/ancre";
-import { lecteurFraicheurs } from "../src/identite/fraicheur";
+import { fraicheursDe, lecteurActifs } from "../src/identite/fraicheur";
 import { supprimerSecretFournisseur } from "../src/identite/fournisseurs";
 import { createRoutine, setRoutineWebhook } from "../src/routines/magasin";
 import { Planificateur } from "../src/routines/planificateur";
@@ -109,10 +109,12 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
   const auth = () => ({
     ...dependancesParDefaut(b.t.base),
     maintenant: () => b.horloge,
-    fraicheursFournisseurs: lecteurFraicheurs(
-      b.t.base,
-      () => true,
-      () => (tic += 5000),
+    fraicheursFournisseurs: fraicheursDe(
+      lecteurActifs(
+        b.t.base,
+        () => true,
+        () => (tic += 5000),
+      ),
     ),
   });
   const externe = async (nom: string, n: number, vu: number): Promise<number> => {
@@ -205,10 +207,12 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
 
     it("la table des fraîcheurs est gardée une seconde par process", async () => {
       let ms = 1000;
-      const lire = lecteurFraicheurs(
-        b.t.base,
-        () => true,
-        () => ms,
+      const lire = fraicheursDe(
+        lecteurActifs(
+          b.t.base,
+          () => true,
+          () => ms,
+        ),
       );
       expect([...(await lire())]).toEqual([["sso", 14]]);
       eteindre();

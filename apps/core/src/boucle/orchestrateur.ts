@@ -48,7 +48,7 @@ import { emit } from "./evenements";
 import type { SurEvenement } from "./evenements";
 import { llamaChatWithToolsStream } from "./flux-llm";
 import {
-  compteSuspenduPourBoucle,
+  compteSuspenduLu,
   portTodos,
   portVisionBureau,
   recordTurnUsage,
@@ -488,15 +488,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
 
   /** Compte suspendu (état relu en base) : arrêt propre comme une annulation ; une lecture en échec est journalisée, le contrôle suivant tranchera. */
   const arretSiSuspendu = async (): Promise<void> => {
-    const lire = compteSuspenduPourBoucle();
-    if (!o.userId || lire === null) return;
-    let suspendu = false;
-    try {
-      suspendu = await lire(o.userId);
-    } catch (e) {
-      log.warn(`[run_chat_multi_mcp] état du compte illisible (user=${o.userId}) : ${String(e)}`);
-    }
-    if (!suspendu) return;
+    if (!(await compteSuspenduLu(o.userId, (m) => log.warn(m)))) return;
     log.info(`[run_chat_multi_mcp] compte suspendu (user=${o.userId}) → arrêt`);
     await rec.emitPartialSnapshot(onEvent);
     throw new CancelledError("compte suspendu");

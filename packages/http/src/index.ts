@@ -12,7 +12,6 @@ export type { PreparationFlux } from "./entetes";
 export {
   agentEpingle,
   CODE_REFUS,
-  connecteurEpingle,
   ConnexionRefusee,
   fetchPar,
   MESSAGE_REFUS,
@@ -59,7 +58,7 @@ export {
 } from "./reponse-fichier";
 export type { OptionsFichier } from "./reponse-fichier";
 export { nonFinisEnNul, repondreAnnote, reponseJsonPy, serialiserReponse } from "./reponses";
-export { entete, parametreRequete, premierEntete } from "./requete";
+export { entete, parametreChemin, parametreRequete, premierEntete } from "./requete";
 export { estRouteWs, monterFamilles } from "./routes";
 export type {
   AccesConnus,

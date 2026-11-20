@@ -38,7 +38,7 @@ export function rechercheEpinglee(adresses: readonly string[]): LookupFunction {
 }
 
 /** Connecteur dont chaque connexion passe par `juger` puis rejoint les seules adresses validées ; `connexion` : options TLS et délai. */
-export function connecteurEpingle(
+function connecteurEpingle(
   juger: JugeHote,
   connexion: buildConnector.BuildOptions = {},
 ): buildConnector.connector {

@@ -1,21 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/provisionnement.ts — profil externe vérifié → compte Elpis, en une écriture exclusive : identité connue (appartenance, suspension, mise à jour) ou compte créé sans mot de passe local ; jamais de rattachement par nom ou e-mail. */
-import {
-  compteSuspendu,
-  createExternalUser,
-  ErreurNomUtilisateur,
-  getAllUsers,
-  getUsernameById,
-  nomCanonique,
-} from "@elpis/auth";
-import { HttpError } from "@elpis/commun";
+import { compteSuspendu, createExternalUser, ErreurNomUtilisateur, getUsernameById } from "@elpis/auth";
 import { ErreurIntegrite } from "@elpis/db";
 import { auditEvent } from "@elpis/securite";
 
 import { couperAcces, poserReactivation, poserSuspension } from "../comptes/etat";
 import type { DependancesEtat } from "../comptes/etat";
-import { compterAdminsLocaux, exigerAdminLocal } from "./etat";
-import { nomDerive } from "./nom";
+import { compterAdminsLocaux, dernierAdminLocal } from "./etat";
+import { nomDerive, nomPris } from "./nom";
 import {
   auditerRattachement,
   ligneConvient,
@@ -36,13 +28,11 @@ export interface ProfilIdentite {
   readonly subject: string;
   readonly issuer: string;
   readonly extUsername: string;
-  readonly extEmail: string;
-  readonly extName: string;
   /** Faux si l'identifiant ne peut pas servir à une correspondance (e-mail non vérifié, plus de 255 caractères) ; absent : fiable. */
   readonly identifiantFiable?: boolean;
 }
 
-export type RaisonRefusIdentite =
+type RaisonRefusIdentite =
   | "issuer_mismatch"
   | "groups_unknown"
   | "not_in_group"
@@ -71,13 +61,10 @@ type LigneIdentite = {
   suspended_by: string | null;
 };
 
-type LignePrepare = LigneRattachementPrepare;
-
 interface Effets {
   suspendre: number | null;
-  revoquer: number | null;
   username: string | null;
-  oauth: number | null;
+  rattache: number | null;
   oauthRevoques: number;
 }
 
@@ -86,18 +73,6 @@ const LIRE_IDENTITE =
 
 const refus = (raison: RaisonRefusIdentite, uid?: number): Resolution =>
   uid === undefined ? { type: "refus", raison } : { type: "refus", raison, uid };
-
-/** Forme comparée des noms : casse ignorée, toute suite de `.`, `-`, `_` vaut un seul `-`. */
-const cleHomonyme = (nom: string): string => nom.toLowerCase().replace(/[._-]+/gu, "-");
-
-/** Compte déjà portant ce nom, à la casse et aux séparateurs `.`, `-`, `_` près, forme canonique comprise. */
-async function nomPris(x: DependancesEtat["base"], nom: string): Promise<boolean> {
-  const cle = cleHomonyme(nom);
-  return (await getAllUsers(x)).some((u) => {
-    const autre = String(u.username ?? "");
-    return cleHomonyme(autre) === cle || cleHomonyme(nomCanonique(autre)) === cle;
-  });
-}
 
 type Contexte = {
   readonly dep: DependancesProvisionnement;
@@ -132,17 +107,13 @@ async function identiteConnue(c: Contexte, l: LigneIdentite): Promise<Resolution
       c.audits.push(() => auditCompte(c, "auth.account.reactivate", uid, l.username, String(par)));
   }
   if (profil.identifiantFiable === false)
-    await dep.base.run("UPDATE user_identities SET ext_email=?, ext_name=?, checked_at=? WHERE id=?", [
-      profil.extEmail,
-      profil.extName,
+    await dep.base.run("UPDATE user_identities SET checked_at=? WHERE id=?", [maintenant, l.id]);
+  else
+    await dep.base.run("UPDATE user_identities SET ext_username=?, checked_at=? WHERE id=?", [
+      profil.extUsername,
       maintenant,
       l.id,
     ]);
-  else
-    await dep.base.run(
-      "UPDATE user_identities SET ext_username=?, ext_email=?, ext_name=?, checked_at=? WHERE id=?",
-      [profil.extUsername, profil.extEmail, profil.extName, maintenant, l.id],
-    );
   return { type: "compte", uid, cree: false };
 }
 
@@ -156,19 +127,8 @@ async function poserSuspensionDuFournisseur(c: Contexte, uid: number, origine: s
   }
 }
 
-/** Vrai si ce compte est le dernier administrateur local actif : sa preuve ne pourrait jamais aboutir. */
-async function dernierAdminLocal(x: DependancesEtat["base"], uid: number): Promise<boolean> {
-  try {
-    await exigerAdminLocal(x, { sauf: uid });
-    return false;
-  } catch (e) {
-    if (e instanceof HttpError && e.statusCode === 409) return true;
-    throw e;
-  }
-}
-
 /** Rattachement préparé d'un fournisseur OIDC pour cette identité inconnue : preuve à faire, ou rattachement tout de suite si la preuve est dispensée (simple utilisateur seulement) ; jamais de compte créé. */
-async function rattachementPrepare(c: Contexte, l: LignePrepare): Promise<Resolution> {
+async function rattachementPrepare(c: Contexte, l: LigneRattachementPrepare): Promise<Resolution> {
   const { dep, fournisseur, profil, effets } = c;
   const uid = Number(l.user_id);
   const ancre = ancreIdentite(fournisseur);
@@ -196,18 +156,14 @@ async function rattachementPrepare(c: Contexte, l: LignePrepare): Promise<Resolu
       subject: profil.subject,
       issuer: ancre,
       extUsername: profil.extUsername,
-      extEmail: profil.extEmail,
-      extName: profil.extName,
     },
     { par, confirmeAdmin: false, t },
   );
-  if (obstacle !== null)
-    return refus(raisonDeRefus(obstacle), obstacle === "account_not_found" ? undefined : uid);
+  if (obstacle !== null) return refus(raisonDeRefus(obstacle), uid);
   const tokens = await supprimerJetonsDuCompte(dep.base, uid);
   const nom = await getUsernameById(dep.base, uid);
   effets.username = nom;
-  effets.revoquer = uid;
-  effets.oauth = uid;
+  effets.rattache = uid;
   c.audits.push(() =>
     auditerRattachement(
       {
@@ -242,15 +198,13 @@ async function creerCompte(c: Contexte): Promise<Resolution> {
     const uid = await dep.base.transaction(async (tx) => {
       const cree = await createExternalUser(dep.base, nom, { maintenant });
       await tx.run(
-        "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, ext_email, ext_name, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?,?)",
         [
           cree,
           fournisseur.id,
           profil.subject,
           profil.issuer,
           profil.extUsername,
-          profil.extEmail,
-          profil.extName,
           "auto",
           maintenant,
           maintenant,
@@ -293,13 +247,13 @@ export async function resoudreIdentite(
     readonly ip?: string | null;
   },
 ): Promise<Resolution> {
-  const effets: Effets = { suspendre: null, revoquer: null, username: null, oauth: null, oauthRevoques: 0 };
+  const effets: Effets = { suspendre: null, username: null, rattache: null, oauthRevoques: 0 };
   const c: Contexte = { dep, ...e, effets, audits: [], ip: e.ip ?? null };
   const r = await dep.base.ecriture(async (x) => {
     const l = await x.get<LigneIdentite>(LIRE_IDENTITE, [e.fournisseur.id, e.profil.subject]);
     return l ? identiteConnue(c, l) : creerCompte(c);
   });
-  if (effets.oauth !== null) effets.oauthRevoques = await revoquerOauthRattachement(dep, effets.oauth);
+  if (effets.rattache !== null) effets.oauthRevoques = await revoquerOauthRattachement(dep, effets.rattache);
   for (const audit of c.audits) audit();
   if (r.type === "refus")
     auditEvent({
@@ -314,6 +268,6 @@ export async function resoudreIdentite(
     couperAcces(dep, effets.suspendre, { revoquerAcces: false }).catch((e: unknown) =>
       dep.journal.error({ err: e }, "[auth] coupure d'accès du compte sorti du groupe échouée"),
     );
-  if (effets.revoquer !== null) await revoquerFlux(dep, effets.revoquer);
+  if (effets.rattache !== null) await revoquerFlux(dep, effets.rattache);
   return r;
 }

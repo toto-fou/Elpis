@@ -20,9 +20,9 @@ import {
   supprimerSecret,
 } from "../secrets/stockage";
 import type { Acteur } from "../secrets/stockage";
-import { compterAdminsLocaux } from "./etat";
+import { adminsLocauxUneFois, compterAdminsLocaux } from "./etat";
 import { hotePortHttps, lireReglagesAuth } from "./reglages";
-import type { Fournisseur, ReglagesAuthLus } from "./reglages";
+import type { Fournisseur } from "./reglages";
 
 const log = journal("identite");
 const POLITIQUE_SECRET = {
@@ -37,11 +37,8 @@ const signales = new Map<string, string>();
 export const nomSecret = (id: string): string => `auth-${id}`;
 
 /** Réglages relus à chaud ; fournisseur valide d'identifiant donné. */
-export function fournisseurParId(
-  id: string,
-  reglages: ReglagesAuthLus = lireReglagesAuth(),
-): Fournisseur | undefined {
-  return reglages.providers.find((p) => p.id === id);
+export function fournisseurParId(id: string): Fournisseur | undefined {
+  return lireReglagesAuth().providers.find((p) => p.id === id);
 }
 
 function canonique(v: unknown): unknown {
@@ -85,7 +82,6 @@ export async function enregistrerTestReussi(
   x: Executeur,
   f: Fournisseur,
   publicUrl: string,
-  maintenant: number = Date.now() / 1000,
   secret?: string | null,
 ): Promise<void> {
   const employe = secret === undefined ? await secretFournisseur(x, f) : secret;
@@ -94,9 +90,9 @@ export async function enregistrerTestReussi(
     s: employe === null ? null : hmacCoffre(contexteSecretTeste(f.id), employe),
   });
   await x.run(
-    "INSERT INTO auth_provider_state(provider_id, tested_hash, tested_at) VALUES(?,?,?) " +
-      "ON CONFLICT(provider_id) DO UPDATE SET tested_hash=excluded.tested_hash, tested_at=excluded.tested_at",
-    [f.id, valeur, maintenant],
+    "INSERT INTO auth_provider_state(provider_id, tested_hash) VALUES(?,?) " +
+      "ON CONFLICT(provider_id) DO UPDATE SET tested_hash=excluded.tested_hash",
+    [f.id, valeur],
   );
 }
 
@@ -221,31 +217,47 @@ export function connexionSecurisee(cookieSecure: boolean): boolean {
   return cookieSecure && liveConfigValue("security.https.enabled", false) === true;
 }
 
+/** Écart que révèlent l'adresse publique, le cookie, les administrateurs locaux et les groupes requis (`null` : aucun) ; le comptage des administrateurs n'a lieu que s'il reste à décider. */
+async function ecartPrealable(
+  f: Fournisseur,
+  publicUrl: string,
+  securise: boolean,
+  admins: () => Promise<number>,
+): Promise<string | null> {
+  if (publicUrl === "") return "adresse publique absente ou invalide";
+  if (!securise) return "cookie de session non sécurisé";
+  if ((await admins()) === 0) return "aucun administrateur local actif";
+  return f.required_groups.length === 0 ? "aucun groupe requis" : null;
+}
+
+/** Secret et test du fournisseur, avec l'écart qu'ils entraînent (`null` : aucun) ; le secret n'est lu qu'une fois. */
+async function lecturesCoffre(
+  x: Executeur,
+  f: Fournisseur,
+  publicUrl: string,
+): Promise<{ has_secret: boolean; tested: boolean; ecart: string | null }> {
+  const secret = await secretFournisseur(x, f);
+  const has_secret = secret !== null;
+  const tested = await testReussiCourant(x, f, publicUrl, secret);
+  const ecart = !tested
+    ? "pas de test réussi pour les réglages courants"
+    : !has_secret
+      ? "secret absent ou hors de portée"
+      : null;
+  return { has_secret, tested, ecart };
+}
+
 /** Secret et test du fournisseur, et la raison pour laquelle un fournisseur allumé n'est pas actif (`null` s'il l'est) ; la console, l'activation et la connexion s'y fient. */
 export async function etatFournisseur(
   x: Executeur,
   f: Fournisseur,
   publicUrl: string,
   cookieSecure: boolean,
+  admins: () => Promise<number> = () => compterAdminsLocaux(x),
 ): Promise<{ has_secret: boolean; tested: boolean; ecart: string | null }> {
-  const secret = await secretFournisseur(x, f);
-  const has_secret = secret !== null;
-  const tested = await testReussiCourant(x, f, publicUrl, secret);
-  const ecart =
-    publicUrl === ""
-      ? "adresse publique absente ou invalide"
-      : !connexionSecurisee(cookieSecure)
-        ? "cookie de session non sécurisé"
-        : (await compterAdminsLocaux(x)) === 0
-          ? "aucun administrateur local actif"
-          : f.required_groups.length === 0
-            ? "aucun groupe requis"
-            : !tested
-              ? "pas de test réussi pour les réglages courants"
-              : !has_secret
-                ? "secret absent ou hors de portée"
-                : null;
-  return { has_secret, tested, ecart };
+  const { ecart, ...lu } = await lecturesCoffre(x, f, publicUrl);
+  const prealable = await ecartPrealable(f, publicUrl, connexionSecurisee(cookieSecure), admins);
+  return { ...lu, ecart: prealable ?? ecart };
 }
 
 /** Comptes rattachés à ces fournisseurs, dont `session_min_ts` passe à `t` : leurs sessions ouvertes sont refusées ; rend leurs identifiants. */
@@ -262,10 +274,10 @@ export async function couperSessionsDesFournisseurs(
       [...ids],
     )
   ).map(([u]) => Number(u));
-  for (const uid of comptes)
+  if (comptes.length > 0)
     await x.run(
-      "UPDATE users SET session_min_ts=? WHERE id=? AND (session_min_ts IS NULL OR session_min_ts<?)",
-      [t, uid, t],
+      `UPDATE users SET session_min_ts=? WHERE id IN (SELECT user_id FROM user_identities WHERE provider_id IN (${marques})) AND (session_min_ts IS NULL OR session_min_ts<?)`,
+      [t, ...ids, t],
     );
   return comptes;
 }
@@ -280,19 +292,29 @@ function signaler(id: string, raison: string | null): void {
   log.warn(`fournisseur d'identité ${id} allumé mais écarté : ${raison}`);
 }
 
-/** Fournisseurs allumés dont tous les invariants de lecture tiennent, quoi que le fichier contienne ; `cookieSecure` est la valeur figée du cookie du processus appelant ; chaque écart est signalé une fois au journal. */
-export async function fournisseursActifs(x: Executeur, cookieSecure: () => boolean): Promise<Fournisseur[]> {
+/** Fournisseurs allumés (ou le seul `id` demandé) dont tous les invariants de lecture tiennent, quoi que le fichier contienne ; `cookieSecure` est la valeur figée du cookie du processus appelant ; chaque écart est signalé une fois au journal. */
+export async function fournisseursActifs(
+  x: Executeur,
+  cookieSecure: () => boolean,
+  id?: string,
+): Promise<Fournisseur[]> {
   const r = lireReglagesAuth();
+  const securise = connexionSecurisee(cookieSecure());
+  const admins = adminsLocauxUneFois(x);
   const actifs: Fournisseur[] = [];
   for (const f of r.providers) {
     if (!f.enabled) {
       signales.delete(f.id);
       continue;
     }
-    const raison = (await etatFournisseur(x, f, r.public_url, cookieSecure())).ecart;
+    if (id !== undefined && f.id !== id) continue;
+    const raison =
+      (await ecartPrealable(f, r.public_url, securise, admins)) ??
+      (await lecturesCoffre(x, f, r.public_url)).ecart;
     signaler(f.id, raison);
     if (raison === null) actifs.push(f);
   }
-  for (const i of r.invalides) if (i.enabled) signaler(i.id ?? "?", "réglages invalides");
+  if (id === undefined)
+    for (const i of r.invalides) if (i.enabled) signaler(i.id ?? "?", "réglages invalides");
   return actifs;
 }

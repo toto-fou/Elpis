@@ -14,7 +14,7 @@ import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { composer } from "../../src/composition";
 import { enregistrerSecret, enregistrerTestReussi } from "../../src/identite/fournisseurs";
 import { validerFournisseur } from "../../src/identite/reglages";
-import type { FournisseurOidc } from "../../src/identite/reglages";
+import type { Fournisseur } from "../../src/identite/reglages";
 import { appTest, journalMuet } from "../aides";
 import { cleCoffreDeTest, configDeTest, oidcValide } from "./aides";
 import type { ConfigDeTest } from "./aides";
@@ -46,14 +46,14 @@ export interface BancOidc {
   readonly t: BaseDeTest;
   readonly cfg: ConfigDeTest;
   readonly idp: OidcFactice;
-  readonly fournisseur: FournisseurOidc;
+  readonly fournisseur: Fournisseur;
   readonly chef: number;
   readonly main: FastifyInstance;
   readonly console: FastifyInstance;
   /** Second fournisseur actif sur le même fournisseur factice (autre identifiant). */
-  ajouter(id: string, extra?: Record<string, unknown>): Promise<FournisseurOidc>;
+  ajouter(id: string, extra?: Record<string, unknown>): Promise<Fournisseur>;
   /** Réécrit config.json avec ce fournisseur (réglages modifiés, test et secret conservés). */
-  reglages(extra: Record<string, unknown>): Promise<FournisseurOidc>;
+  reglages(extra: Record<string, unknown>): Promise<Fournisseur>;
   /** Départ du flux depuis le navigateur (POST start). */
   demarrer(o?: {
     id?: string;
@@ -128,7 +128,7 @@ export async function ouvrirBancOidc(
     auditDir: join(dossier, "audit"),
     hmacKeyPath: join(dossier, "sans-cle"),
   });
-  const autres: FournisseurOidc[] = [];
+  const autres: Fournisseur[] = [];
   let fournisseur = validerFournisseur(
     oidcValide({
       id: "sso",
@@ -142,7 +142,7 @@ export async function ouvrirBancOidc(
       required_groups: [GROUPE],
       ...o.extra,
     }),
-  ) as FournisseurOidc;
+  ) as Fournisseur;
   await enregistrerSecret(t.base, fournisseur, idp.clientSecret, ACTEUR);
   await enregistrerTestReussi(t.base, fournisseur, URL_PUBLIQUE);
   const ecrire = (): void =>
@@ -188,7 +188,7 @@ export async function ouvrirBancOidc(
     main,
     console,
     async ajouter(id, extra = {}) {
-      const f = validerFournisseur({ ...fournisseur, id, label: `Autre ${id}`, ...extra }) as FournisseurOidc;
+      const f = validerFournisseur({ ...fournisseur, id, label: `Autre ${id}`, ...extra }) as Fournisseur;
       await enregistrerSecret(t.base, f, idp.clientSecret, ACTEUR);
       await enregistrerTestReussi(t.base, f, URL_PUBLIQUE);
       autres.push(f);
@@ -196,7 +196,7 @@ export async function ouvrirBancOidc(
       return f;
     },
     async reglages(extra) {
-      fournisseur = validerFournisseur({ ...fournisseur, ...extra }) as FournisseurOidc;
+      fournisseur = validerFournisseur({ ...fournisseur, ...extra }) as Fournisseur;
       await enregistrerTestReussi(t.base, fournisseur, URL_PUBLIQUE);
       ecrire();
       return fournisseur;

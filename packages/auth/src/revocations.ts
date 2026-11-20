@@ -30,13 +30,22 @@ export async function estRevoquee(x: Executeur, sid: string): Promise<boolean> {
   return (await x.get("SELECT 1 AS un FROM revoked_sessions WHERE sid=?", [sid128(sid)])) !== undefined;
 }
 
-/** Supprime les révocations dont la session a expiré (échéance + marge) ; une ligne sans échéance connue n'est jamais purgée. */
-export async function purgerRevocations(x: Executeur, maintenant: number, margeS = 0): Promise<number> {
-  return (
-    await x.run("DELETE FROM revoked_sessions WHERE expires_at > 0 AND expires_at < ?", [
-      maintenant - Math.max(0, margeS),
-    ])
-  ).changes;
+/** Supprime les révocations dont la session a expiré (échéance + marge) ; une ligne sans échéance connue part quand sa révocation date de plus que `dureeMaxS` (aucune session n'a pu lui survivre), jamais si `dureeMaxS` est absent. */
+export async function purgerRevocations(
+  x: Executeur,
+  maintenant: number,
+  margeS = 0,
+  dureeMaxS?: number,
+): Promise<number> {
+  const marge = Math.max(0, margeS);
+  const connues = await x.run("DELETE FROM revoked_sessions WHERE expires_at > 0 AND expires_at < ?", [
+    maintenant - marge,
+  ]);
+  if (dureeMaxS === undefined) return connues.changes;
+  const inconnues = await x.run("DELETE FROM revoked_sessions WHERE expires_at = 0 AND revoked_at < ?", [
+    maintenant - marge - dureeMaxS,
+  ]);
+  return connues.changes + inconnues.changes;
 }
 
 /** `bump_session_min_ts` : toute session ouverte avant `ts` est refusée et leurs lignes de session du fournisseur d'identité sont supprimées ; la coupure ne baisse jamais (condition dans la requête). */

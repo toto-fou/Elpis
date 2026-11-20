@@ -3,8 +3,11 @@
 import type { ServerMetadata } from "openid-client";
 
 /** Points visités par le serveur, exigés sur la même origine que l'émetteur (le point d'autorisation, visité par le navigateur, doit seulement être en https). */
-const POINTS_SERVEUR = ["token_endpoint", "jwks_uri"] as const;
-const POINTS_SERVEUR_FACULTATIFS = ["pushed_authorization_request_endpoint"] as const;
+const POINTS_SERVEUR = [
+  ["token_endpoint", true],
+  ["jwks_uri", true],
+  ["pushed_authorization_request_endpoint", false],
+] as const;
 
 /** Clé interne des métadonnées retenues : le point d'information annoncé est hors origine, donc ignoré. */
 export const USERINFO_HORS_ORIGINE = "elpis_userinfo_hors_origine";
@@ -37,20 +40,12 @@ export function lireMetadonnees(doc: unknown, issuer: string): VerdictMetadonnee
   if (adresseHttps(lire("authorization_endpoint")) === null)
     return echec("Le champ authorization_endpoint est absent ou n'est pas une adresse https.");
   const m: Record<string, unknown> = { issuer, authorization_endpoint: lire("authorization_endpoint") };
-  for (const nom of POINTS_SERVEUR) {
-    const u = adresseHttps(lire(nom));
-    if (u === null) return echec(`Le champ ${nom} est absent ou n'est pas une adresse https.`);
-    if (u.origin !== origine)
-      return echec(
-        `Le champ ${nom} n'est pas sur la même origine que l'émetteur : le fournisseur est mal configuré.`,
-      );
-    m[nom] = lire(nom);
-  }
-  for (const nom of POINTS_SERVEUR_FACULTATIFS) {
+  for (const [nom, requis] of POINTS_SERVEUR) {
     const v = lire(nom);
-    if (v === undefined) continue;
+    if (v === undefined && !requis) continue;
     const u = adresseHttps(v);
-    if (u === null) return echec(`Le champ ${nom} n'est pas une adresse https.`);
+    if (u === null)
+      return echec(`Le champ ${nom} ${requis ? "est absent ou n'est pas" : "n'est pas"} une adresse https.`);
     if (u.origin !== origine)
       return echec(
         `Le champ ${nom} n'est pas sur la même origine que l'émetteur : le fournisseur est mal configuré.`,
@@ -67,13 +62,10 @@ export function lireMetadonnees(doc: unknown, issuer: string): VerdictMetadonnee
   const fin = adresseHttps(lire("end_session_endpoint"));
   if (fin !== null && fin.origin === origine && fin.hash === "")
     m["end_session_endpoint"] = lire("end_session_endpoint");
-  if (typeof lire("backchannel_logout_supported") === "boolean")
-    m["backchannel_logout_supported"] = lire("backchannel_logout_supported");
   for (const nom of [
     "id_token_signing_alg_values_supported",
     "token_endpoint_auth_methods_supported",
     "code_challenge_methods_supported",
-    "scopes_supported",
   ]) {
     const l = listeTextes(lire(nom));
     if (l !== undefined) m[nom] = l;

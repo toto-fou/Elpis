@@ -310,6 +310,16 @@ export function installerCompteSuspendu(f: ((uid: number) => Promise<boolean>) |
   compteSuspenduPort = f;
 }
 
-export function compteSuspenduPourBoucle(): ((uid: number) => Promise<boolean>) | null {
-  return compteSuspenduPort;
+/** Vrai si le compte est suspendu ; faux sans port ni compte, et faux avec avertissement si la lecture échoue (le contrôle suivant tranchera). */
+export async function compteSuspenduLu(
+  userId: number | null | undefined,
+  avertir: (message: string) => void,
+): Promise<boolean> {
+  if (!userId || compteSuspenduPort === null) return false;
+  try {
+    return await compteSuspenduPort(userId);
+  } catch (e) {
+    avertir(`[run_chat_multi_mcp] état du compte illisible (user=${userId}) : ${String(e)}`);
+    return false;
+  }
 }

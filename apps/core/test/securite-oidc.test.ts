@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { enregistrerSecret, enregistrerTestReussi } from "../src/identite/fournisseurs";
 import { empreinteAdresses } from "../src/identite/oidc/flux";
-import { CODES_REFUS } from "../src/identite/oidc/refus";
 import { lignesAuditRecentes, lignesJournal } from "./aides";
 import {
   adresseNeuve,
@@ -45,7 +44,7 @@ function refus(r: LightMyRequestResponse): Refus {
   const m = /^\/\?auth_error=([a-z_]+)&ref=([A-Za-z0-9_-]{8})$/u.exec(l);
   expect(m, l).not.toBeNull();
   expect(String(r.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session");
-  expect(CODES_REFUS as readonly string[]).toContain(m?.[1]);
+  expect(CODES_ERREUR_CONNEXION as readonly string[]).toContain(m?.[1]);
   return { code: m?.[1] ?? "", ref: m?.[2] ?? "" };
 }
 
@@ -124,7 +123,6 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
     it("l'adresse d'autorisation porte PKCE S256, state, nonce, portée et l'adresse de retour de la configuration", async () => {
       const d = await b.demarrer({ hote: HOTE_PUBLIC });
       expect(schemaReponseDepartOidc.safeParse(d.reponse.json()).success).toBe(true);
-      expect([...CODES_ERREUR_CONNEXION]).toEqual([...CODES_REFUS]);
       const p = new URL(d.url ?? "").searchParams;
       expect(p.get("redirect_uri")).toBe(`${URL_PUBLIQUE}/api/auth/oidc/sso/callback`);
       expect(p.get("response_type")).toBe("code");
@@ -411,22 +409,6 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       b.idp.pieges = { sans: ["groups"] };
       expect((await b.connecter(ELPIS("sub-ui"))).retour.statusCode).toBe(200);
       expect(await b.utilisateurs()).toEqual(["chef", "sub-ui"]);
-    });
-  });
-
-  describe("e-mail et nom", () => {
-    it("e-mail gardé seulement s'il est vérifié", async () => {
-      await b.connecter(ELPIS("sub-v"));
-      await b.connecter(ELPIS("sub-nv", { email_verified: false, email: "faux@exemple.lan" }));
-      await b.connecter(ELPIS("sub-sans", { email_verified: undefined }));
-      const l = await b.t.base.valeurs<[string, string | null]>(
-        "SELECT subject, ext_email FROM user_identities ORDER BY id",
-      );
-      expect(l).toEqual([
-        ["sub-v", "sub-v@exemple.lan"],
-        ["sub-nv", ""],
-        ["sub-sans", ""],
-      ]);
     });
   });
 
@@ -1026,9 +1008,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
     it("éteindre le fournisseur supprime ses flux, ses sessions et son résultat d'essai", async () => {
       await b.connecter(ELPIS("sub-ext"));
       await b.demarrer();
-      await b.t.base.run(
-        "INSERT INTO auth_trials(provider_id, admin_id, result_json, created_at) VALUES('sso', 1, '{}', 1)",
-      );
+      await b.t.base.run("INSERT INTO auth_trials(provider_id, result_json) VALUES('sso', '{}')");
       const { effacerEtatOidc } = await import("../src/identite/oidc/flux");
       await b.t.base.ecriture((x) => effacerEtatOidc(x, "sso"));
       for (const t of ["auth_flows", "auth_ext_sessions", "auth_trials"])

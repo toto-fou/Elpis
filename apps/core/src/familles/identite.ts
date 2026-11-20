@@ -2,32 +2,25 @@
 /** apps/core/src/familles/identite.ts — connexion par SSO OpenID Connect : départ du flux (main et console) et retour du fournisseur (main) ; 404 tant que le fournisseur n'est pas actif, tout refus mène à un code d'une liste fermée ; la frontière de confiance du cookie de liaison est le nom d'hôte (tout port). */
 import { randomBytes } from "node:crypto";
 
-import {
-  cleAdresse,
-  cleAdresseExacte,
-  compteSuspendu,
-  dureeMaxSession,
-  ipDuClient,
-  valeurCookie,
-} from "@elpis/auth";
+import { cleAdresse, cleAdresseExacte, compteSuspendu, dureeMaxSession, ipDuClient } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
 import { estDict, HttpError } from "@elpis/commun";
+import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import { auditEvent } from "@elpis/securite";
-import { corpsJson, corpsLu, entete } from "@elpis/http";
+import { corpsJson, corpsLu, entete, parametreChemin } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { DebitConnexion } from "../comptes/debit-connexion";
 import { ConnexionRefusee } from "../comptes/ouverture";
 import type { PortBac } from "../admin/bac";
 import { ligneUtilisateur } from "@elpis/auth";
-import { decouperHotePort } from "../interface/urls-publiques";
 import { groupesUtiles } from "../identite/correspondance";
 import { empreinteFournisseur, fournisseursActifs, enregistrerTestReussi } from "../identite/fournisseurs";
 import type { Journal } from "../journal";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { auditerRefusPreuve, prouverEtRattacher } from "../identite/rattachement";
-import { connecterParOidc } from "../identite/oidc/connexion";
-import { lireFluxPreuve, ouvrirFluxPreuve, ouvrirSessionApresPreuve } from "../identite/oidc/preuve";
+import { connecterParOidc, ouvrirSessionOidc } from "../identite/oidc/connexion";
+import { lireFluxPreuve, ouvrirFluxPreuve } from "../identite/oidc/preuve";
 import type { DependancesConnexionOidc } from "../identite/oidc/connexion";
 import { verifierRetour, requeteBrute } from "../identite/oidc/echange";
 import {
@@ -46,19 +39,26 @@ import {
   resultatEssaiEchoue,
   ranger,
 } from "../identite/oidc/essai-blanc";
-import type { ResultatEssaiBlanc } from "../identite/oidc/essai-blanc";
 import {
-  COOKIE_LIAISON,
   consommerFlux,
   empreinte,
   lireFlux,
   memeEmpreinte,
-  secretLiaisonValide,
+  secretLiaisonDe,
+  secretLiaisonOuNeuf,
 } from "../identite/oidc/flux";
-import { cibleDeRetour, ENTETES_RETOUR, enteteLiaison, pageRetour, pageSimple } from "../identite/oidc/page";
+import {
+  cibleDeRetour,
+  ENTETES_RETOUR,
+  enteteLiaison,
+  HOTE_NON_CANONIQUE,
+  hoteNonCanonique,
+  pageRetour,
+  pageSimple,
+} from "../identite/oidc/page";
 import { RefusOidc } from "../identite/oidc/refus";
 import { lireReglagesAuth } from "../identite/reglages";
-import type { FournisseurOidc } from "../identite/reglages";
+import type { Fournisseur } from "../identite/reglages";
 import type { Famille } from "../routes";
 
 export interface DependancesIdentite {
@@ -84,13 +84,7 @@ const REFUS_DEBIT = "Trop de tentatives de connexion : réessayez dans quelques 
 const INDISPONIBLE =
   "La connexion par le service d'identité est indisponible : demandez à votre administrateur.";
 const SANS_CACHE = { "cache-control": "no-store" } as const;
-const HOTE_NON_CANONIQUE = "Utilisez l'adresse publique du service.";
 const ENTETES_REFUS = { "cache-control": "no-store", "referrer-policy": "no-referrer" } as const;
-
-function idDuChemin(req: FastifyRequest): string {
-  const brut = (req.params as Record<string, unknown> | undefined)?.["id"];
-  return typeof brut === "string" ? brut : "";
-}
 
 export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   const base = dep.auth.base;
@@ -118,8 +112,8 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   };
 
   /** Fournisseur OIDC actif d'identifiant donné ; 404 sinon, sans rien dire de plus. */
-  async function actif(id: string): Promise<FournisseurOidc> {
-    const f = (await fournisseursActifs(base, cookieSecure)).find((p) => p.id === id);
+  async function actif(id: string): Promise<Fournisseur> {
+    const [f] = await fournisseursActifs(base, cookieSecure, id);
     if (f === undefined) throw new HttpError(404, "Not Found");
     return f;
   }
@@ -137,20 +131,17 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   }
 
   async function depart(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
-    const f = await actif(idDuChemin(req));
+    const f = await actif(parametreChemin(req));
     const corps = corpsJson(req);
     const cible = estDict(corps) ? corps["target"] : undefined;
     if (cible !== "app" && cible !== "console")
       throw new HttpError(400, "Champ « target » : app ou console.");
     const publicUrl = lireReglagesAuth().public_url;
-    const hoteRequete = decouperHotePort((req.host ?? "").toLowerCase())[0];
-    if (hoteRequete !== new URL(publicUrl).hostname.toLowerCase())
+    if (hoteNonCanonique(req, publicUrl))
       return rep.code(409).headers(ENTETES_REFUS).send({ detail: HOTE_NON_CANONIQUE, canonical: publicUrl });
     const ip = ipDuClient(req, dep.mandataires);
     limiter(ip);
-    const secret =
-      secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON)) ??
-      randomBytes(32).toString("base64url");
+    const secret = secretLiaisonOuNeuf(req.headers.cookie);
     let r: Awaited<ReturnType<typeof preparerDepart>>;
     try {
       r = await preparerDepart(
@@ -237,11 +228,11 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   }
 
   async function retour(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
-    const id = idDuChemin(req);
+    const id = parametreChemin(req);
     const f = lireReglagesAuth().providers.find((p) => p.id === id);
     if (f === undefined) throw new HttpError(404, "Not Found");
-    const estActif = (await fournisseursActifs(base, cookieSecure)).some((p) => p.id === id);
-    const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
+    const estActif = (await fournisseursActifs(base, cookieSecure, id)).length > 0;
+    const secret = secretLiaisonDe(req.headers.cookie);
     const ip = ipDuClient(req, dep.mandataires);
     const cle = cleAdresse(ip);
     const exacte = cleAdresseExacte(ip);
@@ -282,17 +273,21 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
       if (!memeEmpreinte(flux.browserHash, empreinte(secret)))
         throw new RefusOidc("failed", "browser_mismatch");
       if (flux.etape !== "auth") throw new RefusOidc("failed", "stage_unexpected");
-      if (flux.essaiAdmin !== null && !(await administrateurDeLEssai(flux.essaiAdmin)))
-        throw new RefusOidc("failed", "trial_admin_invalid");
       if (flux.essaiAdmin !== null) {
         const admin = flux.essaiAdmin;
+        if (!(await administrateurDeLEssai(admin))) throw new RefusOidc("failed", "trial_admin_invalid");
         let resultat: ResultatEssaiBlanc;
-        let verifie = null;
         try {
           if (flux.empreinteReglages !== empreinteFournisseur(f, publicUrl))
             throw new RefusOidc("failed", RAISON_REGLAGES_CHANGES);
           ouverte = await dep.configurations.ouvrir(f, publicUrl);
-          verifie = await verifierRetour(ouverte, f, { publicUrl, flux, state, requete, maintenant: t });
+          const verifie = await verifierRetour(ouverte, f, {
+            publicUrl,
+            flux,
+            state,
+            requete,
+            maintenant: t,
+          });
           resultat = await resultatEssaiBlanc(base, f, verifie, t);
         } catch (e) {
           if (!(e instanceof RefusOidc)) throw e;
@@ -300,8 +295,8 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
           resultat = resultatEssaiEchoue(e, t);
         }
         await base.ecriture(async (x) => {
-          await ranger(x, f.id, admin, resultat);
-          if (verifie !== null && resultat.ok) await enregistrerTestReussi(x, f, publicUrl, t);
+          await ranger(x, f.id, resultat);
+          if (resultat.ok) await enregistrerTestReussi(x, f, publicUrl);
         });
         auditEvent({
           userId: admin,
@@ -338,8 +333,8 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
             providerId: f.id,
             secretLiaison: secret,
             prelinkId: issue.prelinkId,
-            profil: issue.profil,
-            appartenance: issue.appartenance,
+            profil: verifie.profil,
+            appartenance: verifie.appartenance,
             sub: verifie.sub,
             idpSid: verifie.idpSid,
             idToken: verifie.idToken,
@@ -380,7 +375,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
 
   /** Déconnexion par canal arrière : jeton signé du fournisseur ; 200 sans corps s'il est valide, 400 sinon, jamais rien du jeton en retour. */
   async function canalArriere(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
-    const f = await actif(idDuChemin(req));
+    const f = await actif(parametreChemin(req));
     if (!f.logout.backchannel) throw new HttpError(404, "Not Found");
     void rep.headers(SANS_CACHE);
     const t = maintenant();
@@ -411,23 +406,23 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     } catch (e) {
       return refuser(e instanceof RefusOidc ? e.cause_ : "invalid");
     }
-    if (jeton.jti !== null && vus.dejaVu(f.id, jeton.jti, t)) return rep.code(200).send();
-    const bilan = await appliquerDeconnexion(base, f, jeton, t);
-    if (jeton.jti !== null) vus.noter(f.id, jeton.jti, jeton.iat + DUREE_REJEU_S, t);
+    if (vus.dejaVu(f.id, jeton.jti, t)) return rep.code(200).send();
+    const fermees = await appliquerDeconnexion(base, f, jeton, t);
+    vus.noter(f.id, jeton.jti, jeton.iat + DUREE_REJEU_S, t);
     const cibles =
       jeton.sid !== null
-        ? bilan.fermees.map((s) => ({ uid: s.uid, sid: s.sid }))
-        : bilan.comptes.map((uid) => ({ uid, sid: undefined }));
+        ? fermees
+        : [...new Set(fermees.map((s) => s.uid))].map((uid) => ({ uid, sid: undefined }));
     for (const c of cibles) {
       try {
-        await dep.revoquer?.(c.uid, c.sid);
+        await dep.revoquer(c.uid, c.sid);
       } catch (e) {
         dep.journal.warn({ err: e }, `déconnexion SSO ${f.id} : flux non fermés`);
       }
     }
     auditerRequete(req, "auth.oidc.backchannel_logout", {
       provider_id: f.id,
-      sessions: bilan.sessions,
+      sessions: fermees.length,
       by: jeton.sid !== null ? "sid" : "sub",
     });
     return rep.code(200).send();
@@ -437,16 +432,12 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   async function preuveEnCours(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
     await exigerOidcActif();
     void rep.headers(ENTETES_REFUS);
-    const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
+    const secret = secretLiaisonDe(req.headers.cookie);
     const aucune = { pending: false, username: null };
     if (secret === null) return aucune;
     const flux = await lireFluxPreuve(base, secret, maintenant());
     if (flux === null) return aucune;
-    const compte = await base.get<{ username: string }>(
-      "SELECT u.username FROM auth_prelinks p JOIN users u ON u.id=p.user_id WHERE p.id=?",
-      [flux.prelinkId],
-    );
-    return compte === undefined ? aucune : { pending: true, username: compte.username };
+    return { pending: true, username: flux.username };
   }
 
   /** Ancien mot de passe du compte visé : preuve du titulaire, rattachement, session `oidc:<id>`. */
@@ -457,23 +448,18 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     const motDePasse = estDict(corps) ? corps["password"] : undefined;
     if (typeof motDePasse !== "string" || motDePasse === "" || motDePasse.length > 1024)
       throw new HttpError(400, "Champ « password » : texte attendu.");
-    const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
+    const secret = secretLiaisonDe(req.headers.cookie);
     const t = maintenant();
     const flux = secret === null ? null : await lireFluxPreuve(base, secret, t);
     if (flux === null) throw new HttpError(409, PREUVE_PERIMEE);
-    const compte = await base.get<{ username: string }>(
-      "SELECT u.username FROM auth_prelinks p JOIN users u ON u.id=p.user_id WHERE p.id=?",
-      [flux.prelinkId],
-    );
-    if (compte === undefined) throw new HttpError(409, PREUVE_PERIMEE);
-    const f = (await fournisseursActifs(base, cookieSecure)).find((p) => p.id === flux.providerId);
+    const [f] = await fournisseursActifs(base, cookieSecure, flux.providerId);
     if (f === undefined) throw new HttpError(409, PREUVE_PERIMEE);
     const ip = ipDuClient(req, dep.mandataires);
     limiter(ip);
     const cle = cleAdresse(ip);
-    const attente = debit.attenteS(compte.username, cle, t);
+    const attente = debit.attenteS(flux.username, cle, t);
     if (attente > 0) throw new HttpError(429, REFUS_DEBIT, { "Retry-After": String(Math.ceil(attente)) });
-    const essai = debit.prendre(compte.username, cle, t);
+    const essai = debit.prendre(flux.username, cle, t);
     const agent = entete(req, "user-agent") ?? null;
     const r = await prouverEtRattacher(connexion.provisionnement, {
       fournisseur: f,
@@ -488,7 +474,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
       if (essai.epuise)
         auditerRefusPreuve(
           { fournisseur: f, profil: flux.profil, ip, userAgent: agent },
-          { uid: null, username: compte.username, action: "auth.login.denied", raison: "rate_limited" },
+          { uid: null, username: flux.username, action: "auth.login.denied", raison: "rate_limited" },
         );
       if (essai.delaiMs > 0) await new Promise((fin) => setTimeout(fin, essai.delaiMs));
       throw new HttpError(401, "invalid credentials");
@@ -499,7 +485,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         { fournisseur: f, profil: flux.profil, ip, userAgent: agent },
         {
           uid: r.type === "refus" ? (r.uid ?? null) : null,
-          username: compte.username,
+          username: flux.username,
           action: "auth.identity.link.denied",
           raison: r.type === "refus" ? r.raison : r.type,
         },
@@ -507,17 +493,17 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
       throw new HttpError(409, PREUVE_PERIMEE);
     }
     try {
-      await ouvrirSessionApresPreuve(connexion, {
+      await ouvrirSessionOidc(connexion, {
         fournisseur: f,
         uid: r.uid,
-        username: compte.username,
+        username: flux.username,
+        mode: "retrait",
         sub: flux.sub,
         idpSid: flux.idpSid,
         idToken: flux.idToken,
         groupes: flux.groupes,
         secondFacteur: flux.secondFacteur,
         session: req.session,
-        maintenant: t,
         ip,
         userAgent: agent,
       });
@@ -529,7 +515,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
       dep.journal.error({ err: e }, "[auth] ouverture de session échouée après la preuve du titulaire");
       auditerRefusPreuve(
         { fournisseur: f, profil: flux.profil, ip, userAgent: agent },
-        { uid: r.uid, username: compte.username, action: "auth.login.denied", raison: "session_open_failed" },
+        { uid: r.uid, username: flux.username, action: "auth.login.denied", raison: "session_open_failed" },
       );
       debit.annulation(essai, maintenant());
       throw new HttpError(409, PREUVE_PERIMEE);

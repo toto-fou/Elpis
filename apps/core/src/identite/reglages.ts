@@ -3,7 +3,7 @@
 import { createHash, X509Certificate } from "node:crypto";
 
 import { estDict, FlottantPy, HttpError } from "@elpis/commun";
-import { liveConfigValue } from "@elpis/config";
+import { configView, gelerProfond } from "@elpis/config";
 
 export const FOURNISSEURS_MAX = 5;
 export const CA_PEM_MAX = 64 * 1024;
@@ -12,7 +12,7 @@ const CONTROLE = /\p{Cc}/u;
 const REGEX_REVENDICATION = /^[A-Za-z0-9_.:-]{1,64}$/u;
 const REGEX_JETON_SCOPE = /^[\x21\x23-\x5b\x5d-\x7e]+$/u;
 const REGEX_PEM = /^\s*(?:-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/u;
-const BLOC_PEM = /-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----/gu;
+export const BLOC_PEM = /-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----/gu;
 
 export const ALGORITHMES_JETON = [
   "RS256",
@@ -35,21 +35,16 @@ export interface CorrespondanceGroupe {
   group_id: number;
 }
 
-export interface FournisseurCommun {
+export interface Fournisseur {
   id: string;
   type: "oidc";
   label: string;
   enabled: boolean;
-  preset: string;
   ca_pem: string;
   required_groups: string[];
   roles: { enabled: boolean; admin_groups: string[]; moderator_groups: string[] };
   group_map: { enabled: boolean; map: CorrespondanceGroupe[] };
   freshness_days: number;
-}
-
-export interface FournisseurOidc extends FournisseurCommun {
-  type: "oidc";
   issuer: string;
   client_id: string;
   client_auth: "basic" | "post";
@@ -68,8 +63,6 @@ export interface FournisseurOidc extends FournisseurCommun {
   logout: { rp_initiated: boolean; backchannel: boolean };
 }
 
-export type Fournisseur = FournisseurOidc;
-
 export interface ReglagesAuth {
   public_url: string;
   local: { mode: ModeLocal };
@@ -82,9 +75,7 @@ export interface ReglagesAuthLus extends ReglagesAuth {
 }
 
 export const BORNES_AUTH = {
-  providers_max: FOURNISSEURS_MAX,
   label: { min: 1, max: 40 },
-  ca_pem_max: CA_PEM_MAX,
   required_groups_max: 20,
   freshness_days: { min: 1, max: 90, default: 14 },
   clock_skew_sec: { min: 0, max: 300, default: 60 },
@@ -233,19 +224,36 @@ function correspondances(v: unknown): CorrespondanceGroupe[] {
   });
 }
 
-const CLES_COMMUNES = [
+function portees(v: unknown): string[] {
+  if (!Array.isArray(v) || v.length < 1 || v.length > 20)
+    return refus("scopes", "1 à 20 portées dont openid");
+  const scopes = v.map((p) => {
+    if (typeof p !== "string" || p.length > 128 || !REGEX_JETON_SCOPE.test(p))
+      return refus("scopes", "portée invalide");
+    return p;
+  });
+  if (!scopes.includes("openid")) refus("scopes", "la portée openid est obligatoire");
+  return [...new Set(scopes)];
+}
+
+function deconnexion(v: unknown): Fournisseur["logout"] {
+  const o = objet(v, "logout", ["rp_initiated", "backchannel"]);
+  return {
+    rp_initiated: booleen(o["rp_initiated"], "logout.rp_initiated"),
+    backchannel: booleen(o["backchannel"], "logout.backchannel"),
+  };
+}
+
+const CLES_FOURNISSEUR = [
   "id",
   "type",
   "label",
   "enabled",
-  "preset",
   "ca_pem",
   "required_groups",
   "roles",
   "group_map",
   "freshness_days",
-] as const;
-const CLES_OIDC = [
   "issuer",
   "client_id",
   "client_auth",
@@ -264,20 +272,17 @@ const CLES_OIDC = [
   "logout",
 ] as const;
 
-function communs(o: Record<string, unknown>): FournisseurCommun {
+function fournisseurDe(o: Record<string, unknown>): Fournisseur {
   const roles = objet(o["roles"], "roles", ["enabled", "admin_groups", "moderator_groups"]);
   const carte = objet(o["group_map"], "group_map", ["enabled", "map"]);
   const id = o["id"];
   if (typeof id !== "string" || !REGEX_ID.test(id))
     return refus("id", "minuscules, chiffres et tirets, 31 caractères au plus");
-  const preset = texte(o["preset"], "preset", 0, 40);
-  if (!/^[A-Za-z0-9_.-]*$/u.test(preset)) refus("preset", "lettres, chiffres, point, tiret ou soulignement");
   return {
     id,
     type: choix(o["type"], "type", ["oidc"] as const),
     label: texte(typeof o["label"] === "string" ? o["label"].trim() : o["label"], "label", 1, 40),
     enabled: booleen(o["enabled"], "enabled"),
-    preset,
     ca_pem: certificats(o["ca_pem"]),
     required_groups: listeTextes(o["required_groups"], "required_groups", 20, 512),
     roles: {
@@ -290,28 +295,11 @@ function communs(o: Record<string, unknown>): FournisseurCommun {
       map: correspondances(carte["map"]),
     },
     freshness_days: entier(o["freshness_days"], "freshness_days", 1, 90),
-  };
-}
-
-function oidc(o: Record<string, unknown>, c: FournisseurCommun): FournisseurOidc {
-  const portees = o["scopes"];
-  if (!Array.isArray(portees) || portees.length < 1 || portees.length > 20)
-    return refus("scopes", "1 à 20 portées dont openid");
-  const scopes = portees.map((p) => {
-    if (typeof p !== "string" || p.length > 128 || !REGEX_JETON_SCOPE.test(p))
-      return refus("scopes", "portée invalide");
-    return p;
-  });
-  if (!scopes.includes("openid")) refus("scopes", "la portée openid est obligatoire");
-  const deconnexion = objet(o["logout"], "logout", ["rp_initiated", "backchannel"]);
-  return {
-    ...c,
-    type: "oidc",
     issuer: adresseIssuer(o["issuer"]),
     client_id: texte(o["client_id"], "client_id", 1, 256),
     client_auth: choix(o["client_auth"], "client_auth", ["basic", "post"] as const),
     id_token_alg: choix(o["id_token_alg"], "id_token_alg", ALGORITHMES_JETON),
-    scopes: [...new Set(scopes)],
+    scopes: portees(o["scopes"]),
     subject_claim: nomRevendication(o["subject_claim"], "subject_claim"),
     username_claim: nomRevendication(o["username_claim"], "username_claim"),
     email_claim: nomRevendication(o["email_claim"], "email_claim"),
@@ -322,33 +310,25 @@ function oidc(o: Record<string, unknown>, c: FournisseurCommun): FournisseurOidc
     max_age_sec: entier(o["max_age_sec"], "max_age_sec", 0, 604_800),
     clock_skew_sec: entier(o["clock_skew_sec"], "clock_skew_sec", 0, 300),
     session_max_age_sec: entier(o["session_max_age_sec"], "session_max_age_sec", 0, 2_592_000),
-    logout: {
-      rp_initiated: booleen(deconnexion["rp_initiated"], "logout.rp_initiated"),
-      backchannel: booleen(deconnexion["backchannel"], "logout.backchannel"),
-    },
+    logout: deconnexion(o["logout"]),
   };
 }
 
 /** Fournisseur complet validé strictement (toute clé inconnue, valeur fausse ou hors borne : 400) ; un champ absent n'a pas de défaut ici. */
 export function validerFournisseur(brut: unknown): Fournisseur {
-  const o = objet(brut, "fournisseur", [...CLES_COMMUNES, ...CLES_OIDC]);
-  return oidc(o, communs(o));
+  return fournisseurDe(objet(brut, "fournisseur", CLES_FOURNISSEUR));
 }
 
 /** Valeurs de départ d'un fournisseur créé : un champ qu'elles fixent peut être omis de la requête. */
 export function defautsFournisseur(): Record<string, unknown> {
-  const commun = {
+  return {
     type: "oidc",
     enabled: false,
-    preset: "",
     ca_pem: "",
     required_groups: [],
     roles: { enabled: false, admin_groups: [], moderator_groups: [] },
     group_map: { enabled: false, map: [] },
     freshness_days: BORNES_AUTH.freshness_days.default,
-  };
-  return {
-    ...commun,
     client_auth: "basic",
     id_token_alg: "RS256",
     scopes: ["openid", "profile", "email"],
@@ -419,6 +399,13 @@ export function validerReglagesGeneraux(
   return { public_url: publicUrl, local: { mode } };
 }
 
+/** Fournisseur du fichier sans l'ancien champ `preset`, que le lecteur ignore. */
+function sansPreset(brut: unknown): unknown {
+  if (!estDict(brut)) return brut;
+  const { preset: _ancien, ...reste } = brut;
+  return reste;
+}
+
 /** Réglages lus d'une section : tolérant (section absente ou corrompue : réglages d'aujourd'hui), fournisseurs invalides mis à part. */
 export function reglagesAuthDepuis(section: unknown): ReglagesAuthLus {
   const d = estDict(section) ? section : {};
@@ -432,7 +419,7 @@ export function reglagesAuthDepuis(section: unknown): ReglagesAuthLus {
   };
   for (const brut of liste.slice(0, FOURNISSEURS_MAX + 20)) {
     try {
-      const f = validerFournisseur(brut);
+      const f = validerFournisseur(sansPreset(brut));
       if (lus.providers.some((p) => p.id === f.id)) throw new HttpError(400, "doublon");
       lus.providers.push(f);
     } catch (e) {
@@ -449,7 +436,15 @@ export function reglagesAuthDepuis(section: unknown): ReglagesAuthLus {
   return lus;
 }
 
-/** Réglages `auth` relus à chaud de config.json. */
+const lus = new WeakMap<object, ReglagesAuthLus>();
+
+/** Réglages `auth` relus à chaud de config.json, validés une fois par instantané de la configuration (gelés). */
 export function lireReglagesAuth(): ReglagesAuthLus {
-  return reglagesAuthDepuis(liveConfigValue("auth", {}));
+  const vue = configView();
+  let r = lus.get(vue);
+  if (r === undefined) {
+    r = gelerProfond(reglagesAuthDepuis(vue["auth"] ?? {}));
+    lus.set(vue, r);
+  }
+  return r;
 }

@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ancreIdentite } from "../src/identite/ancre";
 import {
-  attenduDeRecu,
   attenduValide,
   detacher,
   prouverEtRattacher,
@@ -24,7 +23,7 @@ import type { EntreePreuve } from "../src/identite/rattachement";
 import { resoudreIdentite } from "../src/identite/provisionnement";
 import type { DependancesProvisionnement, ProfilIdentite } from "../src/identite/provisionnement";
 import { validerFournisseur } from "../src/identite/reglages";
-import type { FournisseurOidc } from "../src/identite/reglages";
+import type { Fournisseur } from "../src/identite/reglages";
 import { journalMuet, lignesAuditRecentes } from "./aides";
 import { oidcValide } from "./identite/aides";
 import { MOTEURS } from "./identite/banc";
@@ -38,8 +37,6 @@ function profil(extra: Partial<ProfilIdentite> = {}): ProfilIdentite {
     subject: "sub-1",
     issuer: ISSUER,
     extUsername: "Jean.Dupont",
-    extEmail: "jean.dupont@exemple.lan",
-    extName: "Jean Dupont",
     ...extra,
   };
 }
@@ -63,7 +60,7 @@ describe("identifiant attendu : alphabet sûr, minuscules ASCII", () => {
   });
 
   it("réception : un identifiant hors de l'alphabet ne correspond jamais", () => {
-    expect(attenduDeRecu("Jean.DUPONT")).toBe("jean.dupont");
+    expect(attenduValide("Jean.DUPONT")).toBe("jean.dupont");
     for (const sosie of [
       "jean․dupont",
       "ｊean.dupont",
@@ -74,7 +71,7 @@ describe("identifiant attendu : alphabet sûr, minuscules ASCII", () => {
       "jean\n",
       "",
     ])
-      expect(attenduDeRecu(sosie), JSON.stringify(sosie)).toBeNull();
+      expect(attenduValide(sosie), JSON.stringify(sosie)).toBeNull();
   });
 });
 
@@ -87,7 +84,7 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
   let chef: number;
   const oidc = validerFournisseur(
     oidcValide({ id: "sso", required_groups: ["elpis"], issuer: ISSUER_URL }),
-  ) as FournisseurOidc;
+  ) as Fournisseur;
   const ancre = ancreIdentite(oidc);
 
   const preparer = async (
@@ -373,8 +370,6 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
             subject: "cle",
             issuer: "oidc:https://autre.exemple.lan",
             extUsername: "jean",
-            extEmail: "",
-            extName: "",
           },
           { par: "admin:1", confirmeAdmin: false, t: T },
         ),
@@ -465,7 +460,7 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
       const id = await preparer(jean, "jean.dupont");
       const autre = validerFournisseur(
         oidcValide({ id: "autre", required_groups: ["elpis"] }),
-      ) as FournisseurOidc;
+      ) as Fournisseur;
       for (const e of [
         { profil: profil({ extUsername: "jean․dupont" }) },
         { profil: profil({ extUsername: "jean.dupont2" }) },

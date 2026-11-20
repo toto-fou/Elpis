@@ -58,11 +58,6 @@ describe("découverte : points de fin de session", () => {
     ])
       expect(lire({ end_session_endpoint: v })["end_session_endpoint"], String(v)).toBeUndefined();
   });
-
-  it("`backchannel_logout_supported` gardé seulement s'il est booléen", () => {
-    expect(lire({ backchannel_logout_supported: true })["backchannel_logout_supported"]).toBe(true);
-    expect(lire({ backchannel_logout_supported: "oui" })["backchannel_logout_supported"]).toBeUndefined();
-  });
 });
 
 describe("journal agrégé des refus", () => {

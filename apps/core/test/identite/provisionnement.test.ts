@@ -30,8 +30,6 @@ function profil(extra: Partial<ProfilIdentite> = {}): ProfilIdentite {
     subject: "cle-1",
     issuer: ANCRE,
     extUsername: "jdupont",
-    extEmail: "jdupont@exemple.lan",
-    extName: "Jean Dupont",
     ...extra,
   };
 }
@@ -85,8 +83,6 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
       subject: "cle-1",
       issuer: ANCRE,
       ext_username: "Jean.Dupont",
-      ext_email: "jdupont@exemple.lan",
-      ext_name: "Jean Dupont",
       linked_by: "auto",
     });
     const ev = lignesAuditRecentes({ actionPrefix: "auth.identity.create" })[0];
@@ -94,16 +90,12 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     expect(ev?.["details"]).toMatchObject({ provider_id: "sso", linked_by: "auto" });
   });
 
-  it("seconde connexion : même compte, nom affiché et e-mail mis à jour, aucun doublon", async () => {
+  it("seconde connexion : même compte, date de vérification mise à jour, aucun doublon", async () => {
     const a = await resoudre(profil(), "oui");
-    const b = await resoudre(profil({ extName: "J. Dupont", extEmail: "j@exemple.lan" }), "oui", T + 60);
+    const b = await resoudre(profil(), "oui", T + 60);
     expect(a.type === "compte" && b.type === "compte" && a.uid === b.uid && !b.cree).toBe(true);
     expect(await comptes()).toEqual([["chef"], ["jdupont"]]);
-    expect(await t.base.get("SELECT ext_name, ext_email, checked_at FROM user_identities")).toEqual({
-      ext_name: "J. Dupont",
-      ext_email: "j@exemple.lan",
-      checked_at: T + 60,
-    });
+    expect(await t.base.get("SELECT checked_at FROM user_identities")).toEqual({ checked_at: T + 60 });
   });
 
   it("identifiant externe rebaptisé : même clé stable, même compte, nom Elpis inchangé", async () => {
@@ -130,12 +122,9 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     },
   );
 
-  it("jamais de rattachement par e-mail ni par nom affiché : un compte du même nom d'affichage reste intact", async () => {
+  it("jamais de rattachement par nom ni par e-mail : un compte du même nom reste intact", async () => {
     await createUser(t.base, "jean", "mdp-jean-1");
-    const r = await resoudre(
-      profil({ extUsername: "jdupont", extEmail: "jean@exemple.lan", extName: "jean" }),
-      "oui",
-    );
+    const r = await resoudre(profil({ extUsername: "jdupont" }), "oui");
     expect(r).toMatchObject({ type: "compte", cree: true });
     expect(await comptes()).toEqual([["chef"], ["jean"], ["jdupont"]]);
     expect(await t.base.valeurs("SELECT user_id FROM user_identities")).not.toContainEqual([
@@ -210,7 +199,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     it("groupes illisibles : refus sans rien modifier (ni suspension, ni mise à jour, ni coupure)", async () => {
       const avant = await t.base.all("SELECT * FROM user_identities");
       const u = await t.base.all("SELECT * FROM users ORDER BY id");
-      expect(await resoudre(profil({ extName: "Autre" }), "inconnu", T + 10)).toEqual({
+      expect(await resoudre(profil({ extUsername: "autre" }), "inconnu", T + 10)).toEqual({
         type: "refus",
         raison: "groups_unknown",
         uid,

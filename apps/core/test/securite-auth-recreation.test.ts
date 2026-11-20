@@ -25,11 +25,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
       "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?,?,?,?,?,?)",
       [b.alice, "sso", "s-alice", "i", "admin", 1],
     );
-    await b.t.base.run("INSERT INTO auth_provider_state(provider_id, tested_hash, tested_at) VALUES(?,?,?)", [
-      "sso",
-      "h",
-      1,
-    ]);
+    await b.t.base.run("INSERT INTO auth_provider_state(provider_id, tested_hash) VALUES(?,?)", ["sso", "h"]);
     const r = await b.appeler("POST", "/api/admin/auth/providers", oidcValide());
     expect(r.statusCode).toBe(409);
     expect(b.lireConfig()["auth"]).toEqual({ public_url: URL_PUBLIQUE, providers: [] });
@@ -100,11 +96,7 @@ describe.each(MOTEURS)("recréation d'un fournisseur (%s)", (moteur) => {
       (await b.appeler("PUT", "/api/admin/auth/providers/sso/secret", { secret: "ancien-secret-1" }))
         .statusCode,
     ).toBe(200);
-    await b.t.base.run("INSERT INTO auth_provider_state(provider_id, tested_hash, tested_at) VALUES(?,?,?)", [
-      "sso",
-      "h",
-      1,
-    ]);
+    await b.t.base.run("INSERT INTO auth_provider_state(provider_id, tested_hash) VALUES(?,?)", ["sso", "h"]);
     b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [] } });
     expect(await lignes("SELECT 1 FROM vault_secrets WHERE name='auth-sso'")).toHaveLength(1);
     const r = await b.appeler(

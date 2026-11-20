@@ -5,7 +5,7 @@ import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import { schemaCorpsDetachement, schemaCorpsRattachementPrepare } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
-import { corpsJson, entrees, py } from "@elpis/http";
+import { corpsJson, entrees, parametreChemin, py } from "@elpis/http";
 import type { FastifyRequest } from "fastify";
 import type { ZodType } from "zod";
 
@@ -18,10 +18,9 @@ import {
   detacher,
   revoquerOauthRattachement,
   preparerRattachement,
-  purgerRattachementsPerimes,
 } from "../identite/rattachement";
 import type { LigneRattachementPrepare, RaisonRefusPrepare } from "../identite/rattachement";
-import type { FournisseurOidc } from "../identite/reglages";
+import type { Fournisseur } from "../identite/reglages";
 import type { Journal } from "../journal";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
@@ -57,11 +56,6 @@ function corpsValide<T>(req: FastifyRequest, schema: ZodType<T>): T {
   return r.data;
 }
 
-function idDuChemin(req: FastifyRequest, nom: string): string {
-  const brut = (req.params as Record<string, unknown> | undefined)?.[nom];
-  return typeof brut === "string" ? brut : "";
-}
-
 function entierDuChemin(req: FastifyRequest, nom: string): number {
   return (entrees(req, { path: { [nom]: py.int() } }).path as Record<string, number>)[nom] as number;
 }
@@ -70,8 +64,8 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
   const { base, auth } = dep;
   const maintenant = (): number => (auth.maintenant ? auth.maintenant() : Date.now() / 1000);
   /** Fournisseur OIDC de l'identifiant du chemin (allumé ou non) ; 404 s'il n'existe pas. */
-  function fournisseurOidc(req: FastifyRequest): FournisseurOidc {
-    const f = fournisseurParId(idDuChemin(req, "id"));
+  function fournisseurOidc(req: FastifyRequest): Fournisseur {
+    const f = fournisseurParId(parametreChemin(req));
     if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
     return f;
   }
@@ -99,25 +93,22 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
     return { ok: true };
   }
 
-  const vuePrepare = (
-    l: LigneRattachementPrepare & { username?: string | null },
-  ): Record<string, unknown> => ({
+  type LigneVue = Pick<LigneRattachementPrepare, "id" | "expected" | "waiver" | "expires_at"> & {
+    username: string | null;
+  };
+  const vuePrepare = (l: LigneVue): Record<string, unknown> => ({
     id: Number(l.id),
-    user_id: Number(l.user_id),
     username: l.username ?? null,
     expected: l.expected,
     waiver: Number(l.waiver) === 1,
-    created_by: Number(l.created_by),
-    created_at: Number(l.created_at),
     expires_at: Number(l.expires_at),
   });
 
   async function listerPrepares(req: FastifyRequest): Promise<unknown> {
     const id = fournisseurOidc(req).id;
-    await base.ecriture((x) => purgerRattachementsPerimes(x, maintenant()));
-    const lignes = await base.all<LigneRattachementPrepare & { username: string | null }>(
-      "SELECT p.id, p.user_id, p.provider_id, p.expected, p.waiver, p.created_by, p.created_at, p.expires_at, u.username FROM auth_prelinks p LEFT JOIN users u ON u.id=p.user_id WHERE p.provider_id=? ORDER BY p.created_at DESC, p.id DESC",
-      [id],
+    const lignes = await base.all<LigneVue>(
+      "SELECT p.id, p.expected, p.waiver, p.expires_at, u.username FROM auth_prelinks p LEFT JOIN users u ON u.id=p.user_id WHERE p.provider_id=? AND p.expires_at>? ORDER BY p.created_at DESC, p.id DESC",
+      [id, maintenant()],
     );
     return { items: lignes.map(vuePrepare) };
   }
@@ -153,8 +144,8 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
       waiver: corps.waiver,
       by: `admin:${operateur}`,
     });
-    const ligne = await base.get<LigneRattachementPrepare & { username: string | null }>(
-      "SELECT p.id, p.user_id, p.provider_id, p.expected, p.waiver, p.created_by, p.created_at, p.expires_at, u.username FROM auth_prelinks p LEFT JOIN users u ON u.id=p.user_id WHERE p.id=?",
+    const ligne = await base.get<LigneVue>(
+      "SELECT p.id, p.expected, p.waiver, p.expires_at, u.username FROM auth_prelinks p LEFT JOIN users u ON u.id=p.user_id WHERE p.id=?",
       [r.id],
     );
     if (ligne === undefined) throw new HttpError(409, "Rattachement préparé introuvable.");

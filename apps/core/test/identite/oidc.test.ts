@@ -15,11 +15,11 @@ import {
   sujetDe,
 } from "../../src/identite/oidc/revendications";
 import { validerFournisseur } from "../../src/identite/reglages";
-import type { FournisseurOidc } from "../../src/identite/reglages";
+import type { Fournisseur } from "../../src/identite/reglages";
 import { oidcValide } from "./aides";
 
-const f = (extra: Record<string, unknown> = {}): FournisseurOidc =>
-  validerFournisseur(oidcValide({ required_groups: ["elpis"], ...extra })) as FournisseurOidc;
+const f = (extra: Record<string, unknown> = {}): Fournisseur =>
+  validerFournisseur(oidcValide({ required_groups: ["elpis"], ...extra })) as Fournisseur;
 
 describe("revendications", () => {
   it("ne lisent que des propriétés propres, jamais celles du prototype", () => {

@@ -1,25 +1,20 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/oidc/preuve.ts — étape « preuve du titulaire » d'une première connexion SSO : flux `proof` lié au navigateur (profil vérifié rangé côté serveur) et session ouverte une fois la preuve faite. */
+/** apps/core/src/identite/oidc/preuve.ts — étape « preuve du titulaire » d'une première connexion SSO : flux `proof` lié au navigateur, profil vérifié rangé côté serveur. */
 import { randomBytes } from "node:crypto";
 
-import type { Session } from "@elpis/auth";
 import type { Base } from "@elpis/db";
 import { chiffrerSecret, dechiffrerSecret } from "@elpis/securite";
 
-import { etablirConnexion } from "../../comptes/ouverture";
-import type { EffetsConnexion } from "../../comptes/ouverture";
-import { lectureOidc } from "../correspondance";
-import { appliquerDroits } from "../droits";
-import type { Appartenance, DependancesProvisionnement, ProfilIdentite } from "../provisionnement";
-import type { FournisseurOidc } from "../reglages";
-import { dureeDeSession } from "./connexion";
-import { DUREE_FLUX_S, empreinte, empreinteAdresses, noterSessionExterne } from "./flux";
+import type { Appartenance, ProfilIdentite } from "../provisionnement";
+import { DUREE_FLUX_S, empreinte, empreinteAdresses } from "./flux";
 import type { CibleFlux } from "./flux";
 
 export interface FluxPreuve {
   readonly stateHash: string;
   readonly providerId: string;
   readonly prelinkId: number;
+  /** Nom du compte visé par le rattachement préparé. */
+  readonly username: string;
   readonly profil: ProfilIdentite;
   readonly appartenance: Appartenance;
   /** `sub` du jeton d'identité d'où vient le profil. */
@@ -39,6 +34,7 @@ type LignePreuve = {
   state_hash: string;
   provider_id: string;
   prelink_id: number | null;
+  username: string;
   profile_json: string | null;
   target: string;
   oauth_next: string | null;
@@ -52,15 +48,10 @@ const contexteJeton = (stateHash: string): string => `auth-proof-flow:${stateHas
 function profilDe(
   json: string | null,
   stateHash: string,
-): {
-  profil: ProfilIdentite;
-  appartenance: Appartenance;
-  sub: string;
-  idpSid: string | null;
-  idToken: string | null;
-  groupes: string[] | null;
-  secondFacteur: boolean;
-} | null {
+): Pick<
+  FluxPreuve,
+  "profil" | "appartenance" | "sub" | "idpSid" | "idToken" | "groupes" | "secondFacteur"
+> | null {
   if (json === null) return null;
   let v: unknown;
   try {
@@ -70,10 +61,9 @@ function profilDe(
   }
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
-  const { subject, issuer, extUsername, extEmail, extName, appartenance, sub, idpSid, idTokenEnc, groupes } =
-    o;
-  if (!texte(subject) || !texte(issuer) || !texte(extUsername) || !texte(extEmail) || !texte(extName))
-    return null;
+  const { subject, issuer, extUsername, appartenance, sub, idpSid, idTokenEnc, groupes } = o;
+  if (!texte(subject) || !texte(issuer) || !texte(extUsername)) return null;
+  if (!texte(sub)) return null;
   if (appartenance !== "oui" && appartenance !== "non" && appartenance !== "inconnu") return null;
   let idToken: string | null = null;
   if (texte(idTokenEnc)) {
@@ -88,12 +78,10 @@ function profilDe(
       subject,
       issuer,
       extUsername,
-      extEmail,
-      extName,
       ...(o["identifiantFiable"] === false ? { identifiantFiable: false } : {}),
     },
     appartenance,
-    sub: texte(sub) ? sub : subject,
+    sub,
     idpSid: texte(idpSid) ? idpSid : null,
     idToken,
     groupes: Array.isArray(groupes) && groupes.every(texte) ? (groupes as string[]) : null,
@@ -104,19 +92,8 @@ function profilDe(
 /** Flux d'étape `proof` du navigateur (état neuf, même empreinte de navigateur, dix minutes) ; un flux `proof` antérieur du même navigateur est remplacé. */
 export async function ouvrirFluxPreuve(
   base: Base,
-  e: {
-    readonly providerId: string;
+  e: Omit<FluxPreuve, "stateHash" | "username"> & {
     readonly secretLiaison: string;
-    readonly prelinkId: number;
-    readonly profil: ProfilIdentite;
-    readonly appartenance: Appartenance;
-    readonly sub: string;
-    readonly idpSid: string | null;
-    readonly idToken: string | null;
-    readonly groupes: readonly string[] | null;
-    readonly secondFacteur: boolean;
-    readonly cible: CibleFlux;
-    readonly oauthNext: string | null;
     readonly adresse: string;
   },
   maintenant: number,
@@ -170,7 +147,7 @@ export async function lireFluxPreuve(
   maintenant: number,
 ): Promise<FluxPreuve | null> {
   const l = await base.get<LignePreuve>(
-    "SELECT state_hash, provider_id, prelink_id, profile_json, target, oauth_next FROM auth_flows WHERE browser_hash=? AND stage='proof' AND expires_at>? ORDER BY created_at DESC",
+    "SELECT f.state_hash, f.provider_id, f.prelink_id, f.profile_json, f.target, f.oauth_next, u.username FROM auth_flows f JOIN auth_prelinks p ON p.id=f.prelink_id JOIN users u ON u.id=p.user_id WHERE f.browser_hash=? AND f.stage='proof' AND f.expires_at>? ORDER BY f.created_at DESC",
     [empreinte(secretLiaison), maintenant],
   );
   if (l === undefined || l.prelink_id === null) return null;
@@ -180,69 +157,9 @@ export async function lireFluxPreuve(
     stateHash: l.state_hash,
     providerId: l.provider_id,
     prelinkId: Number(l.prelink_id),
+    username: l.username,
     ...p,
     cible: l.target === "console" ? "console" : "app",
     oauthNext: l.oauth_next,
   };
-}
-
-/** Droits appliqués en baisse seulement (la montée attend la connexion suivante), puis session `oidc:<id>` du compte dont la preuve vient d'aboutir, et ligne de session du fournisseur avec le `sid` et le jeton d'identité du retour vérifié (une session SSO complète). */
-export async function ouvrirSessionApresPreuve(
-  dep: {
-    readonly base: Base;
-    readonly provisionnement: DependancesProvisionnement;
-    readonly effets: Omit<EffetsConnexion, "dureeMax">;
-    readonly dureeGlobale: () => number;
-  },
-  e: {
-    readonly fournisseur: FournisseurOidc;
-    readonly uid: number;
-    readonly username: string;
-    readonly sub: string;
-    readonly idpSid: string | null;
-    readonly idToken: string | null;
-    readonly groupes: readonly string[] | null;
-    readonly secondFacteur: boolean;
-    readonly session: Session;
-    readonly maintenant: number;
-    readonly ip: string;
-    readonly userAgent: string | null;
-  },
-): Promise<void> {
-  await appliquerDroits(dep.provisionnement, {
-    fournisseur: e.fournisseur,
-    uid: e.uid,
-    lecture: lectureOidc(e.fournisseur, e.groupes),
-    mode: "retrait",
-    secondFacteur: e.secondFacteur,
-    ip: e.ip,
-  });
-  await etablirConnexion(
-    { ...dep.effets, dureeMax: () => dureeDeSession(e.fournisseur, dep.dureeGlobale()) },
-    {
-      session: e.session,
-      uid: e.uid,
-      username: e.username,
-      methode: `oidc:${e.fournisseur.id}`,
-      ip: e.ip,
-      userAgent: e.userAgent,
-      avantEffets: async () => {
-        const sid = e.session.get("_sid");
-        const expire = e.session.get("_exp");
-        if (typeof sid !== "string" || typeof expire !== "number")
-          throw new Error("session sans identifiant");
-        await noterSessionExterne(dep.base, {
-          sid,
-          uid: e.uid,
-          providerId: e.fournisseur.id,
-          idpSid: e.idpSid,
-          subject: e.sub,
-          idToken: e.idToken,
-          maintenant: e.maintenant,
-          expire,
-          avertir: (m) => dep.provisionnement.journal.warn(m),
-        });
-      },
-    },
-  );
 }

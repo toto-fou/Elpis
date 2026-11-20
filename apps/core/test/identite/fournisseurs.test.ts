@@ -74,6 +74,24 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     expect(await actifs()).toEqual([id]);
   });
 
+  it("avec un identifiant demandé : seul ce fournisseur est évalué, les autres ne sont ni lus ni signalés", async () => {
+    const a = await pret();
+    const brutB = oidcValide({ id: `sso${++compteur}`, enabled: true, required_groups: ["cn=elpis"] });
+    cfg.ecrire({
+      auth: {
+        public_url: URL_PUBLIQUE,
+        providers: [...(JSON.parse(readFileSync(cfg.chemin, "utf8")).auth.providers as unknown[]), brutB],
+      },
+    });
+    const filtre = async (id: string): Promise<string[]> =>
+      (await fournisseursActifs(t.base, () => true, id)).map((f) => f.id);
+    expect(await filtre(a)).toEqual([a]);
+    expect(await filtre(String(brutB["id"]))).toEqual([]);
+    expect(await filtre("inconnu")).toEqual([]);
+    expect(lignes.join("\n")).toContain(String(brutB["id"]));
+    expect(lignes.join("\n")).not.toContain(`${a} allumé mais écarté`);
+  });
+
   it("cookie de session sans l'attribut Secure : plus aucun fournisseur actif, signalé au journal", async () => {
     const id = await pret();
     expect(await actifs(false)).toEqual([]);
@@ -219,7 +237,6 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     expect(empreinteFournisseur(f, "https://autre.lan")).not.toBe(e);
     for (const modif of [
       { client_id: "x" },
-      { preset: "keycloak" },
       { ca_pem: "", required_groups: ["cn=a"] },
       { clock_skew_sec: 61 },
     ])

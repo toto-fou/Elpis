@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/correspondance.ts — correspondance exacte groupes du jeton → rôle et groupes Elpis, en lecture seule : une appartenance illisible n'est jamais un « non » et suspend toute décision. */
+/** apps/core/src/identite/correspondance.ts — correspondance exacte groupes du jeton → rôle et groupes Elpis, en lecture seule : des groupes illisibles ne sont jamais un « non » et suspendent toute décision. */
+import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import type { Executeur } from "@elpis/db";
 
-import type { Appartenance } from "./provisionnement";
 import type { Fournisseur } from "./reglages";
 
 export type RoleElpis = "user" | "moderator" | "admin";
 
-/** Appartenance lue de chaque groupe externe de la correspondance, par sa valeur exacte (valeur de la revendication). */
-export type Lecture = ReadonlyMap<string, Appartenance>;
-
-export interface Decision {
+interface Decision {
   /** `null` : l'option des rôles est éteinte ou sans groupe utilisable. */
   readonly role: RoleElpis | null;
   /** Par groupe Elpis cité dans la correspondance : le compte doit-il en être membre ; `null` si l'option est éteinte. */
@@ -69,7 +66,7 @@ export function rolesActifs(f: Fournisseur): boolean {
 }
 
 /** L'option des groupes agit : allumée et avec au moins une correspondance. */
-export function groupesActifs(f: Fournisseur): boolean {
+function groupesActifs(f: Fournisseur): boolean {
   return f.group_map.enabled && f.group_map.map.length > 0;
 }
 
@@ -89,16 +86,6 @@ export function groupesALire(f: Fournisseur): string[] {
   return [...vus];
 }
 
-/** Lecture d'un jeton SSO : valeur exacte de la revendication ; `null` (groupes illisibles) rend tout « inconnu ». */
-export function lectureOidc(f: Fournisseur, groupes: readonly string[] | null): Lecture {
-  return new Map(
-    groupesALire(f).map((g): [string, Appartenance] => [
-      g,
-      groupes === null ? "inconnu" : groupes.includes(g) ? "oui" : "non",
-    ]),
-  );
-}
-
 /** Seuls les groupes du jeton que le fournisseur lit sont gardés ; `null` reste `null` (groupes illisibles). */
 export function groupesUtiles(f: Fournisseur, groupes: readonly string[] | null): string[] | null {
   if (groupes === null) return null;
@@ -106,14 +93,11 @@ export function groupesUtiles(f: Fournisseur, groupes: readonly string[] | null)
   return groupes.filter((g) => lus.has(g));
 }
 
-/** Décision d'après la lecture ; `null` si l'appartenance à un seul groupe à lire est inconnue ou absente de la lecture : rien ne doit alors être modifié. */
-export function decider(f: Fournisseur, lecture: Lecture): Decision | null {
-  const oui = new Set<string>();
-  for (const g of groupesALire(f)) {
-    const a = lecture.get(g);
-    if (a !== "oui" && a !== "non") return null;
-    if (a === "oui") oui.add(g);
-  }
+/** Décision d'après les groupes du jeton (valeur exacte de la revendication) ; `null` si les groupes sont illisibles alors qu'il y en a à lire : rien ne doit alors être modifié. */
+export function decider(f: Fournisseur, groupes: readonly string[] | null): Decision | null {
+  const lus = groupesALire(f);
+  if (groupes === null && lus.length > 0) return null;
+  const oui = new Set(lus.filter((g) => groupes?.includes(g) === true));
   let role: RoleElpis | null = null;
   if (rolesActifs(f)) {
     const g = groupesDeRoles(f);
@@ -123,32 +107,25 @@ export function decider(f: Fournisseur, lecture: Lecture): Decision | null {
         ? "moderator"
         : "user";
   }
-  let groupes: Map<number, boolean> | null = null;
+  let membres: Map<number, boolean> | null = null;
   if (groupesActifs(f)) {
-    groupes = new Map();
+    membres = new Map();
     for (const m of f.group_map.map)
-      groupes.set(m.group_id, (groupes.get(m.group_id) ?? false) || oui.has(m.external));
+      membres.set(m.group_id, (membres.get(m.group_id) ?? false) || oui.has(m.external));
   }
-  return { role, groupes };
+  return { role, groupes: membres };
 }
 
 /** Ce qu'un compte obtiendrait, tel que l'essai le montre. */
-export interface ApercuDroits {
-  readonly roles_enabled: boolean;
-  readonly groups_enabled: boolean;
-  /** Faux : une appartenance est illisible, aucun droit ne serait modifié. */
-  readonly readable: boolean;
-  readonly role: RoleElpis | null;
-  readonly groups: readonly { id: number; name: string }[];
-  /** Groupes Elpis cités dans la correspondance qui n'existent plus (ignorés). */
-  readonly missing_group_ids: readonly number[];
-  /** Groupes d'administrateurs ignorés faute de second facteur exigé. */
-  readonly admin_ignored: boolean;
-}
+export type ApercuDroits = NonNullable<ResultatEssaiBlanc["rights"]>;
 
 /** Aperçu des droits d'une lecture : lecture seule de la base, jamais d'écriture. */
-export async function apercuDroits(x: Executeur, f: Fournisseur, lecture: Lecture): Promise<ApercuDroits> {
-  const d = decider(f, lecture);
+export async function apercuDroits(
+  x: Executeur,
+  f: Fournisseur,
+  groupes: readonly string[] | null,
+): Promise<ApercuDroits> {
+  const d = decider(f, groupes);
   const ids = groupesActifs(f) ? [...new Set(f.group_map.map.map((m) => m.group_id))] : [];
   const connus = new Map<number, string>();
   if (ids.length > 0)

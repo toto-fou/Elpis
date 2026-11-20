@@ -7,13 +7,13 @@ import { estDict, HttpError, poserCle } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { sousVerrouConfigJson, writeConfigJson } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
-import { corpsJson } from "@elpis/http";
+import { corpsJson, parametreChemin } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
 import { exigerConfirmationAdmin } from "../identite/droits";
-import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
+import { adminsLocauxUneFois, compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
 import { lancerTest } from "../identite/essai";
 import { effacerEtatOidc } from "../identite/oidc/flux";
 import type { OptionsEssai } from "../identite/essai";
@@ -40,12 +40,11 @@ import {
   validerModification,
   validerReglagesGeneraux,
 } from "../identite/reglages";
-import type { Fournisseur, FournisseurOidc } from "../identite/reglages";
+import type { Fournisseur } from "../identite/reglages";
 import { diffConfig } from "../journal-securite/diff-config";
 import type { Journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
-import type { Acteur } from "../secrets/stockage";
-import { ipDeRequete } from "../journal-securite/auditer";
+import { acteurDe } from "./secrets";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 
 export interface DependancesAdminIdentite {
@@ -70,11 +69,6 @@ function route(
   traiter: Traitement,
 ): DefinitionRoute {
   return { methode, chemin, processus: ["admin"], acces: "admin", traiter };
-}
-
-function idDuChemin(req: FastifyRequest): string {
-  const brut = (req.params as Record<string, unknown> | undefined)?.["id"];
-  return typeof brut === "string" ? brut : "";
 }
 
 /** Section `auth` du fichier (créée vide si absente) rangée dans `cfg`, `providers` toujours une liste. */
@@ -127,21 +121,14 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   const { base } = dep;
   const maintenant = (): number => (dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000);
 
-  function acteur(req: FastifyRequest): Acteur {
-    return {
-      userId: req.utilisateur?.id ?? null,
-      username: req.utilisateur?.username ?? null,
-      ip: ipDeRequete(req),
-    };
-  }
-
   /** Réglages, état de chaque fournisseur et prérequis, tels que la console les lit. */
   async function vue(x: Executeur): Promise<Record<string, unknown>> {
     const r = lireReglagesAuth();
     const securise = connexionSecurisee(dep.auth.attributsCookie().https_only === true);
+    const admins = adminsLocauxUneFois(x);
     const providers = [];
     for (const f of r.providers) {
-      const e = await etatFournisseur(x, f, r.public_url, securise);
+      const e = await etatFournisseur(x, f, r.public_url, securise, admins);
       providers.push({
         ...f,
         has_secret: e.has_secret,
@@ -158,18 +145,31 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       prerequisites: {
         public_url_https: r.public_url !== "",
         cookie_secure: securise,
-        local_admins: await compterAdminsLocaux(x),
+        local_admins: await admins(),
       },
       bounds: {
         providers_max: FOURNISSEURS_MAX,
         label_max: BORNES_AUTH.label.max,
-        ca_pem_max: BORNES_AUTH.ca_pem_max,
         required_groups_max: BORNES_AUTH.required_groups_max,
         secret_max: BORNES_AUTH.secret_max,
         freshness_days: BORNES_AUTH.freshness_days,
         clock_skew_sec: BORNES_AUTH.clock_skew_sec,
       },
     };
+  }
+
+  /** Publie la coupure de ces comptes huit par huit, après la réponse : la coupure elle-même est déjà écrite. */
+  async function publierCoupures(uids: readonly number[]): Promise<void> {
+    for (let i = 0; i < uids.length; i += 8)
+      await Promise.all(
+        uids.slice(i, i + 8).map(async (uid) => {
+          try {
+            await dep.revoquer(uid);
+          } catch (e) {
+            dep.journal.error({ err: e }, "[admin] publication session_revoked (fournisseur éteint) échouée");
+          }
+        }),
+      );
   }
 
   /** Écriture sous le verrou d'écriture de la base puis celui de config.json : l'invariant gardé et l'action se décident au même instant. */
@@ -255,7 +255,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         throw new HttpError(409, "Cet identifiant est déjà pris.");
       if (!(await identitesDeMemeAncre(x, f)))
         throw new HttpError(409, "Cet identifiant est encore lié à des comptes : choisissez-en un autre.");
-      await supprimerSecretFournisseur(base, f.id, acteur(req));
+      await supprimerSecretFournisseur(base, f.id, acteurDe(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [f.id]);
       await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [f.id]);
       providers.push(f);
@@ -269,7 +269,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   }
 
   async function modifier(req: FastifyRequest): Promise<unknown> {
-    const id = idDuChemin(req);
+    const id = parametreChemin(req);
     const { corps, confirme } = sansConfirmation(req);
     const [avant, apres] = await ecrire<[Fournisseur, Fournisseur]>(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
@@ -300,7 +300,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   }
 
   async function supprimer(req: FastifyRequest): Promise<unknown> {
-    const id = idDuChemin(req);
+    const id = parametreChemin(req);
     const type = await ecrire(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
       const i = positionDuFournisseur(providers, id);
@@ -318,7 +318,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
           "Des comptes sont rattachés à ce fournisseur : il ne peut pas être supprimé.",
         );
       providers.splice(i, 1);
-      await supprimerSecretFournisseur(base, id, acteur(req));
+      await supprimerSecretFournisseur(base, id, acteurDe(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [id]);
       await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
       await effacerEtatOidc(x, id);
@@ -329,7 +329,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   }
 
   async function secret(req: FastifyRequest): Promise<unknown> {
-    const id = idDuChemin(req);
+    const id = parametreChemin(req);
     const corps = corpsJson(req);
     const valeur = estDict(corps) ? corps["secret"] : undefined;
     if (typeof valeur !== "string" || Object.keys(corps as Dict).length !== 1)
@@ -340,8 +340,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       await ecrire(async (_x, cfg) => {
         const f = reglagesAuthDepuis(cfg["auth"]).providers.find((p) => p.id === id);
         if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
-        if (valeur === "") await supprimerSecretFournisseur(base, id, acteur(req));
-        else await enregistrerSecret(base, f, valeur, acteur(req));
+        if (valeur === "") await supprimerSecretFournisseur(base, id, acteurDe(req));
+        else await enregistrerSecret(base, f, valeur, acteurDe(req));
       }, false);
     } catch (e) {
       if (e instanceof ErreurSecret) throw new HttpError(e.statut === 409 ? 409 : 400, "Secret refusé.");
@@ -352,7 +352,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   }
 
   async function activer(req: FastifyRequest): Promise<unknown> {
-    const id = idDuChemin(req);
+    const id = parametreChemin(req);
     await ecrire(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
       const { f, i } = fournisseurDuFichier(providers, id);
@@ -373,7 +373,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   }
 
   async function desactiver(req: FastifyRequest): Promise<unknown> {
-    const id = idDuChemin(req);
+    const id = parametreChemin(req);
     const comptes = await ecrire(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
       const i = positionDuFournisseur(providers, id);
@@ -382,12 +382,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       await effacerEtatOidc(x, id);
       return couperSessionsDesFournisseurs(x, [id], maintenant());
     });
-    for (const uid of comptes)
-      try {
-        await dep.revoquer(uid);
-      } catch (e) {
-        dep.journal.error({ err: e }, "[admin] publication session_revoked (fournisseur éteint) échouée");
-      }
+    void publierCoupures(comptes);
     auditer(req, "admin.auth.provider.disable", { provider_id: id, sessions_cut: comptes.length });
     return vue(base);
   }
@@ -395,7 +390,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   let testsEnCours = 0;
 
   /** Secret enregistré d'un SSO pour un test : seulement sous les adresses et l'autorité de certification du fournisseur ENREGISTRÉ. */
-  async function secretOidcEnregistre(f: FournisseurOidc): Promise<string | null> {
+  async function secretOidcEnregistre(f: Fournisseur): Promise<string | null> {
     const enregistre = lireReglagesAuth().providers.find((p) => p.id === f.id);
     if (enregistre === undefined || enregistre.ca_pem !== f.ca_pem) return null;
     if (hoteDuFournisseur(f) !== hoteDuFournisseur(enregistre)) return null;

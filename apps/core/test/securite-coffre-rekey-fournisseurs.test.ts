@@ -48,7 +48,7 @@ describe.each(MOTEURS)("changement de clé du coffre et fournisseurs (%s)", (mot
     ];
     for (const f of [a, b, c]) {
       await enregistrerSecret(t.base, f, "meme-secret", ACTEUR);
-      await enregistrerTestReussi(t.base, f, URL_PUBLIQUE, 1000);
+      await enregistrerTestReussi(t.base, f, URL_PUBLIQUE);
     }
     await enregistrerSecret(t.base, c, "autre-secret", ACTEUR);
     const rangees = async (): Promise<string[]> =>

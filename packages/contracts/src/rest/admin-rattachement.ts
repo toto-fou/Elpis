@@ -9,12 +9,9 @@ export const schemaCorpsDetachement = z.object({ new_password: z.string().min(1)
 
 export const schemaRattachementPrepare = z.object({
   id: entier,
-  user_id: entier,
   username: z.string().nullable(),
   expected: z.string(),
   waiver: z.boolean(),
-  created_by: entier,
-  created_at: horodatage,
   expires_at: horodatage,
 });
 export type RattachementPrepare = z.infer<typeof schemaRattachementPrepare>;
@@ -31,6 +28,5 @@ export const schemaCorpsRattachementPrepare = z.object({
 export const schemaIdentiteCompte = z.object({
   provider_id: z.string(),
   ext_username: z.string().nullable(),
-  linked_at: horodatage,
 });
 export type IdentiteCompte = z.infer<typeof schemaIdentiteCompte>;

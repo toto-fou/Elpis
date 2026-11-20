@@ -421,8 +421,7 @@ returns them.
 | `providers` | `[]` | Five providers at most |
 
 Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at most, never changed),
-`type` (`oidc`, never changed), `label` (1 to 40 characters), `enabled`, `preset` (40 characters at
-most), `ca_pem` (PEM certificates, 64 KiB at most; when present, the only trust anchor of this provider),
+`type` (`oidc`, never changed), `label` (1 to 40 characters), `enabled`, `ca_pem` (PEM certificates, 64 KiB at most; when present, the only trust anchor of this provider),
 `required_groups` (0 to 20 entries of 512 characters at most; at least one is needed to switch on), `roles`,
 `group_map` and `freshness_days` (1 to 90, default 14). Texts contain no control character (the pasted certificate authority aside).
 

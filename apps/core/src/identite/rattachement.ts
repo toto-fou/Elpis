@@ -7,23 +7,21 @@ import {
   revoquerTousAcces,
   verifyUser,
 } from "@elpis/auth";
-import { HttpError } from "@elpis/commun";
 import type { Executeur } from "@elpis/db";
 import { auditEvent, empreinteIdentifiant, tokenHex } from "@elpis/securite";
 
 import { ancreIdentite } from "./ancre";
-import { exigerAdminLocal } from "./etat";
+import { dernierAdminLocal } from "./etat";
 import type { Appartenance, DependancesProvisionnement, ProfilIdentite, Resolution } from "./provisionnement";
-import type { FournisseurOidc } from "./reglages";
+import type { Fournisseur } from "./reglages";
 
 /** Durée de validité d'un rattachement préparé avec preuve. */
-export const DUREE_RATTACHEMENT_PREPARE_S = 30 * 86_400;
+const DUREE_RATTACHEMENT_PREPARE_S = 30 * 86_400;
 /** Durée de validité d'un rattachement préparé dispensé de preuve. */
-export const DUREE_RATTACHEMENT_DISPENSE_S = 72 * 3600;
+const DUREE_RATTACHEMENT_DISPENSE_S = 72 * 3600;
 /** Échecs de mot de passe tolérés sur une ligne préparée avant qu'elle soit supprimée. */
-export const ECHECS_PREUVE_MAX = 5;
+const ECHECS_PREUVE_MAX = 5;
 const FORME_ATTENDU = /^[a-z0-9._@-]{1,255}$/u;
-const FORME_RECU = /^[A-Za-z0-9._@-]{1,255}$/u;
 
 export type RaisonRefusRattachement =
   | "account_not_found"
@@ -33,13 +31,11 @@ export type RaisonRefusRattachement =
   | "last_local_admin"
   | "entry_already_linked";
 
-export interface IdentiteARattacher {
+interface IdentiteARattacher {
   readonly fournisseurId: string;
   readonly subject: string;
   readonly issuer: string;
   readonly extUsername: string;
-  readonly extEmail: string;
-  readonly extName: string;
 }
 
 export type LigneRattachementPrepare = {
@@ -68,11 +64,6 @@ export function attenduValide(brut: unknown): string | null {
   return FORME_ATTENDU.test(n) ? n : null;
 }
 
-/** Forme comparée d'un identifiant reçu du fournisseur : `[A-Za-z0-9._@-]{1,255}` en minuscules ASCII ; `null` pour tout autre identifiant (aucune correspondance). */
-export function attenduDeRecu(recu: string): string | null {
-  return typeof recu === "string" && FORME_RECU.test(recu) ? minusculesAscii(recu) : null;
-}
-
 type LigneCompte = { is_admin: number | null; suspended_at: unknown };
 
 /** Premier obstacle à rattacher ce compte (relu dans l'écriture en cours), `null` si rien ne s'y oppose. */
@@ -91,13 +82,7 @@ async function obstacleCompte(
   if (role !== 1 && role !== 2) return null;
   if (!confirmeAdmin) return "admin_confirmation_required";
   if (role !== 1) return null;
-  try {
-    await exigerAdminLocal(x, { sauf: uid });
-  } catch (e) {
-    if (e instanceof HttpError && e.statusCode === 409) return "last_local_admin";
-    throw e;
-  }
-  return null;
+  return (await dernierAdminLocal(x, uid)) ? "last_local_admin" : null;
 }
 
 /** Rattache le compte dans l'écriture de l'appelant (`t` pris dans cette écriture) : refus sans rien écrire, ou identité insérée, mot de passe local retiré, rattachements préparés du compte supprimés, sessions d'avant coupées. */
@@ -117,8 +102,8 @@ export async function rattacher(
   )
     return "entry_already_linked";
   await x.run(
-    "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, ext_email, ext_name, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
-    [uid, i.fournisseurId, i.subject, i.issuer, i.extUsername, i.extEmail, i.extName, o.par, o.t, o.t],
+    "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?,?)",
+    [uid, i.fournisseurId, i.subject, i.issuer, i.extUsername, o.par, o.t, o.t],
   );
   await x.run("UPDATE users SET pass_hash=?, pass_salt=?, must_change_pwd=0 WHERE id=?", [
     MARQUEUR_SANS_MOT_DE_PASSE,
@@ -248,13 +233,7 @@ export async function preparerRattachement(
     if (e.dispense) return { raison: "waiver_forbidden_for_admin" };
     if (!e.confirmeAdmin) return { raison: "admin_confirmation_required" };
   }
-  if (role === 1)
-    try {
-      await exigerAdminLocal(x, { sauf: e.uid });
-    } catch (err) {
-      if (err instanceof HttpError && err.statusCode === 409) return { raison: "last_local_admin" };
-      throw err;
-    }
+  if (role === 1 && (await dernierAdminLocal(x, e.uid))) return { raison: "last_local_admin" };
   const duree = e.dispense ? DUREE_RATTACHEMENT_DISPENSE_S : DUREE_RATTACHEMENT_PREPARE_S;
   const id = await x.insertId(
     "INSERT INTO auth_prelinks(user_id, provider_id, expected, waiver, created_by, created_at, expires_at, issuer, admin_confirmed, attempts) VALUES(?,?,?,?,?,?,?,?,?,0)",
@@ -280,7 +259,7 @@ export async function rattachementPrepareDe(
   identifiantExterne: string,
   t: number,
 ): Promise<LigneRattachementPrepare | undefined> {
-  const attendu = attenduDeRecu(identifiantExterne);
+  const attendu = attenduValide(identifiantExterne);
   if (attendu === null) return undefined;
   return x.get<LigneRattachementPrepare>(
     `SELECT ${COLONNES_PREPARE} FROM auth_prelinks WHERE provider_id=? AND expected=? AND expires_at>?`,
@@ -293,12 +272,9 @@ type Refus = Extract<Resolution, { type: "refus" }>;
 const refus = (raison: Refus["raison"], uid?: number): Resolution =>
   uid === undefined ? { type: "refus", raison } : { type: "refus", raison, uid };
 
-/** Raison de refus d'identité d'un obstacle de rattachement. */
+/** Raison de refus d'identité d'un obstacle au rattachement dispensé de preuve (les rôles privilégiés y sont refusés avant). */
 export function raisonDeRefus(r: RaisonRefusRattachement): Refus["raison"] {
-  if (r === "account_suspended") return "suspended";
-  if (r === "last_local_admin") return "no_local_admin";
-  if (r === "admin_confirmation_required") return "prelink_invalid";
-  return "account_conflict";
+  return r === "account_suspended" ? "suspended" : "account_conflict";
 }
 
 /** Vrai si la ligne préparée est celle de ce fournisseur, de cette ancre et de cet identifiant fiable (égalité stricte), non périmée. */
@@ -306,7 +282,7 @@ export function ligneConvient(
   l: LigneRattachementPrepare,
   e: { fournisseurId: string; ancre: string; profil: ProfilIdentite; t: number },
 ): boolean {
-  const attendu = attenduDeRecu(e.profil.extUsername);
+  const attendu = attenduValide(e.profil.extUsername);
   return (
     attendu !== null &&
     attendu === l.expected &&
@@ -322,7 +298,7 @@ export function ligneConvient(
 export type ResultatPreuve = Resolution | { readonly type: "mot_de_passe"; readonly verrouille: boolean };
 
 export interface EntreePreuve {
-  readonly fournisseur: FournisseurOidc;
+  readonly fournisseur: Fournisseur;
   readonly prelinkId: number;
   readonly profil: ProfilIdentite;
   readonly appartenance: Appartenance;
@@ -393,13 +369,7 @@ async function lireEtControler(
     return refus("account_conflict", uid);
   const role = Number(c.is_admin);
   if ((role === 1 || role === 2) && Number(l.admin_confirmed) !== 1) return refus("prelink_invalid", uid);
-  if (role === 1)
-    try {
-      await exigerAdminLocal(x, { sauf: uid });
-    } catch (err) {
-      if (err instanceof HttpError && err.statusCode === 409) return refus("no_local_admin", uid);
-      throw err;
-    }
+  if (role === 1 && (await dernierAdminLocal(x, uid))) return refus("no_local_admin", uid);
   return { ligne: l, compte: c };
 }
 
@@ -476,8 +446,6 @@ export async function prouverEtRattacher(
         subject: e.profil.subject,
         issuer: ancre,
         extUsername: e.profil.extUsername,
-        extEmail: e.profil.extEmail,
-        extName: e.profil.extName,
       },
       { par: "proof", confirmeAdmin: Number(relu.ligne.admin_confirmed) === 1, t },
     );

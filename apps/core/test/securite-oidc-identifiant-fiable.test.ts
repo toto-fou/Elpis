@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/securite-oidc-identifiant-fiable.test.ts — aucun compte n'est créé ni son identifiant affiché réécrit d'après un identifiant non fiable (e-mail non vérifié), et l'essai à blanc annonce le même refus (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+import { createUser } from "@elpis/auth";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { lignesJournal } from "./aides";
@@ -53,8 +54,6 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("identifiant non fiable (%s)"
           subject: "sub-essai",
           issuer: `oidc:${b.idp.issuer}`,
           extUsername: "patron@exemple.lan",
-          extEmail: "",
-          extName: "",
           identifiantFiable: fiable,
         },
         vue: {
@@ -75,5 +74,17 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("identifiant non fiable (%s)"
     expect(non.decision).toEqual({ outcome: "refuse", username: null, reason: "name_invalid" });
     const oui = await resultatEssaiBlanc(b.t.base, b.fournisseur, vue(true), 1);
     expect(oui.decision.outcome).toBe("create");
+  });
+
+  it("l'essai à blanc refuse un nom qui ne diffère d'un compte existant que par les séparateurs, comme la vraie connexion", async () => {
+    await createUser(b.t.base, "jean_dupont", "mdp-jean-123");
+    const vue = {
+      appartenance: "oui",
+      profil: { subject: "sub-homonyme", issuer: `oidc:${b.idp.issuer}`, extUsername: "jean-dupont" },
+      vue: { sujetEstIdentifiant: false },
+      groupesComplets: [],
+    } as unknown as RetourVerifie;
+    const r = await resultatEssaiBlanc(b.t.base, b.fournisseur, vue, 1);
+    expect(r.decision).toEqual({ outcome: "refuse", username: null, reason: "account_conflict" });
   });
 });

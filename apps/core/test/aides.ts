@@ -112,8 +112,6 @@ export const ACTIONS_PROPRES_AU_TS: ReadonlySet<string> = new Set([
   "admin.oauth_client.delete",
   "admin.security.https",
   "admin.security.listen",
-  "admin.security.sessions.clear_user_revocation",
-  "admin.security.sessions.clear_user_revocation.denied",
   "admin.config.patch",
   "admin.config.file_save",
   "admin.config.compression",

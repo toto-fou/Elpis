@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/page.ts — page de retour sans script (rafraîchissement immédiat et lien), ses en-têtes, le cookie de liaison et l'adresse de la console calculée depuis la configuration. */
 import { httpsPorts } from "@elpis/config";
+import type { FastifyRequest } from "fastify";
 
+import { decouperHotePort } from "../../interface/urls-publiques";
 import { COOKIE_LIAISON, DUREE_FLUX_S } from "./flux";
 import type { CibleFlux } from "./flux";
+
+export const HOTE_NON_CANONIQUE = "Utilisez l'adresse publique du service.";
+
+/** Vrai si le nom d'hôte de la requête n'est pas celui de l'adresse publique réglée. */
+export function hoteNonCanonique(req: FastifyRequest, publicUrl: string): boolean {
+  return decouperHotePort((req.host ?? "").toLowerCase())[0] !== new URL(publicUrl).hostname.toLowerCase();
+}
 
 /** Politique de la page : aucune ressource, aucun script, aucun cadre ; le rafraîchissement par `meta` n'est pas régi par elle. */
 export const ENTETES_RETOUR = {

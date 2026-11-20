@@ -353,7 +353,7 @@ export const TABLES: readonly Table[] = [
       { name: "revoked_at", type: "real", null: false },
       { name: "expires_at", type: "real", default: 0 },
     ],
-    indexes: [{"name": "idx_revoked_sessions_at", "cols": ["revoked_at"]}],
+    indexes: [{"name": "idx_revoked_sessions_expires", "cols": ["expires_at"]}],
   },
   {
     name: "runs",
@@ -782,8 +782,6 @@ export const TABLES: readonly Table[] = [
       { name: "subject", type: "text", null: false },
       { name: "issuer", type: "text", null: false, default: "" },
       { name: "ext_username", type: "text", default: null },
-      { name: "ext_email", type: "text", default: null },
-      { name: "ext_name", type: "text", default: null },
       { name: "linked_by", type: "text", null: false, default: "" },
       { name: "linked_at", type: "real", null: false },
       { name: "checked_at", type: "real", default: 0 },
@@ -796,7 +794,6 @@ export const TABLES: readonly Table[] = [
     cols: [
       { name: "provider_id", type: "text", primary: true },
       { name: "tested_hash", type: "text", default: null },
-      { name: "tested_at", type: "real", default: 0 },
     ],
   },
   {
@@ -846,7 +843,6 @@ export const TABLES: readonly Table[] = [
       { name: "idp_sid", type: "text", default: null },
       { name: "subject", type: "text", null: false },
       { name: "id_token_enc", type: "text", default: null },
-      { name: "created_at", type: "real", null: false },
       { name: "expires_at", type: "real", null: false },
     ],
     fks: [{"cols": ["user_id"], "table": "users", "refCols": ["id"], "onDelete": "CASCADE"}],
@@ -856,9 +852,7 @@ export const TABLES: readonly Table[] = [
     name: "auth_trials",
     cols: [
       { name: "provider_id", type: "text", primary: true },
-      { name: "admin_id", type: "int", null: false },
       { name: "result_json", type: "text", null: false },
-      { name: "created_at", type: "real", null: false },
     ],
   },
   {

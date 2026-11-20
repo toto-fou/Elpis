@@ -84,10 +84,6 @@ function clientLocal(requete: FastifyRequest): boolean {
   }
 }
 
-function formaterDate(secondes: number): string {
-  return new Date(secondes * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-}
-
 export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famille {
   const { base, auth } = dep;
   const maintenant = (): number => (auth.maintenant ? auth.maintenant() : Date.now() / 1000);
@@ -181,25 +177,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       dep.journal.error({ err: e }, "revoke-user failed");
       throw new HttpError(500, "Échec de la révocation");
     }
-  }
-
-  async function effacerRevocation(req: FastifyRequest): Promise<Dict> {
-    const cible = cheminEntier(req, "user_id");
-    try {
-      const ligne = await ligneUtilisateur(base, cible);
-      const coupure = floatPy(veritePy(ligne?.session_min_ts) ? ligne?.session_min_ts : 0.0);
-      const protege = coupure > 0 && coupure >= maintenant() - dureeMaxSession(auth.config());
-      if (ligne && protege) {
-        const possible = coupure + dureeMaxSession(auth.config());
-        auditer(req, "admin.security.sessions.clear_user_revocation.denied", { target_user_id: cible });
-        throw new HttpError(409, `Levée possible à partir du ${formaterDate(possible)}.`);
-      }
-    } catch (e) {
-      if (e instanceof HttpError) throw e;
-      dep.journal.error({ err: e }, "clear-user-revocation failed");
-      throw new HttpError(500, "Échec du reset");
-    }
-    return { ok: true, user_id: cible };
   }
 
   async function etatHttps(req: FastifyRequest): Promise<Dict> {
@@ -307,7 +284,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       route("GET", "/api/admin/security/sessions", sessions),
       route("POST", "/api/admin/security/sessions/revoke-all", revoquerTout),
       route("POST", "/api/admin/security/sessions/revoke-user/:user_id", revoquerCompte),
-      route("POST", "/api/admin/security/sessions/clear-user-revocation/:user_id", effacerRevocation),
       route("GET", "/api/admin/security/https", etatHttps),
       route("POST", "/api/admin/security/https", basculerHttps),
       route("POST", "/api/admin/security/listen", changerEcoute),

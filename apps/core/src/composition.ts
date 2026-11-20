@@ -72,7 +72,7 @@ import { FabriqueConfigurations } from "./identite/oidc/configuration";
 import { adresseDeFinDeSession } from "./identite/oidc/deconnexion";
 import { methodesPubliques } from "./identite/oidc/publique";
 import type { OptionsSortant } from "./identite/sortant";
-import { lecteurFraicheurs } from "./identite/fraicheur";
+import { fraicheursDe, lecteurActifs } from "./identite/fraicheur";
 import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
@@ -413,7 +413,8 @@ export async function composer(
   installerPortsBureau(base);
   const jc = journal.child({ domaine: "comptes" });
   const localReserveAuxAdmins = (): boolean => lireReglagesAuth().local.mode === "admins";
-  const fraicheurs = lecteurFraicheurs(base, () => dep.attributsCookie().https_only === true);
+  const fournisseursActifsGardes = lecteurActifs(base, () => dep.attributsCookie().https_only === true);
+  const fraicheurs = fraicheursDe(fournisseursActifsGardes);
   const auth: DependancesAuth & DependancesJetons = {
     fraicheursFournisseurs: fraicheurs,
     localReserveAuxAdmins,
@@ -535,9 +536,7 @@ export async function composer(
     ],
     gardes: creerGardes(auth),
     familles: [
-      ...famillesParDefaut(mode, () =>
-        methodesPubliques(base, () => auth.attributsCookie().https_only === true),
-      ),
+      ...famillesParDefaut(mode, async () => methodesPubliques(await fournisseursActifsGardes())),
       creerFamilleIdentite({
         auth,
         mandataires: comptes.mandataires,

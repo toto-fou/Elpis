@@ -605,12 +605,6 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     "/api/admin/security/sessions/revoke-user/:user_id",
     adminSecurite.schemaReponseRevocationCompte,
   ),
-  c(
-    "admin-securite",
-    "POST",
-    "/api/admin/security/sessions/clear-user-revocation/:user_id",
-    adminSecurite.schemaReponseFinRevocation,
-  ),
   c("admin-securite", "GET", "/api/admin/security/https", adminSecurite.schemaReponseEtatHttps),
   c(
     "admin-securite",

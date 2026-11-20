@@ -135,16 +135,6 @@
     },
     {
       "m": "POST",
-      "u": "/api/admin/security/sessions/clear-user-revocation/2",
-      "compte": "alice"
-    },
-    {
-      "m": "POST",
-      "u": "/api/admin/security/sessions/clear-user-revocation/99",
-      "compte": "alice"
-    },
-    {
-      "m": "POST",
       "u": "/api/admin/security/sessions/revoke-all",
       "compte": "alice"
     },
@@ -825,28 +815,6 @@
     {
       "statut": 200,
       "corps": "{\"session_cfg\":{\"max_age_sec\":3600,\"idle_timeout_sec\":0,\"cookie_name\":\"ck\",\"same_site\":\"lax\",\"https_only\":false,\"global_min_ts\":12.5},\"revoked_user_count\":2,\"revoked_users\":[{\"user_id\":2,\"username\":\"bob\",\"session_min_ts\":1800000000.0},{\"user_id\":4,\"username\":\"dave\",\"session_min_ts\":1800000000.0}]}",
-      "entetes": {
-        "content-type": "application/json"
-      },
-      "audit": [],
-      "evenements": [],
-      "config": null,
-      "bak": null
-    },
-    {
-      "statut": 200,
-      "corps": "{\"ok\":true,\"user_id\":2}",
-      "entetes": {
-        "content-type": "application/json"
-      },
-      "audit": [],
-      "evenements": [],
-      "config": null,
-      "bak": null
-    },
-    {
-      "statut": 200,
-      "corps": "{\"ok\":true,\"user_id\":99}",
       "entetes": {
         "content-type": "application/json"
       },

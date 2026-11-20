@@ -297,9 +297,9 @@
     ],
     [
       "index",
-      "idx_revoked_sessions_at",
+      "idx_revoked_sessions_expires",
       "revoked_sessions",
-      "CREATE INDEX \"idx_revoked_sessions_at\" ON \"revoked_sessions\" (\"revoked_at\")"
+      "CREATE INDEX \"idx_revoked_sessions_expires\" ON \"revoked_sessions\" (\"expires_at\")"
     ],
     [
       "index",
@@ -485,7 +485,7 @@
       "table",
       "auth_ext_sessions",
       "auth_ext_sessions",
-      "CREATE TABLE \"auth_ext_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"idp_sid\" TEXT DEFAULT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"id_token_enc\" TEXT DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+      "CREATE TABLE \"auth_ext_sessions\" (\n  \"sid\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"idp_sid\" TEXT DEFAULT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"id_token_enc\" TEXT DEFAULT NULL,\n  \"expires_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
     ],
     [
       "table",
@@ -503,13 +503,13 @@
       "table",
       "auth_provider_state",
       "auth_provider_state",
-      "CREATE TABLE \"auth_provider_state\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"tested_hash\" TEXT DEFAULT NULL,\n  \"tested_at\" REAL DEFAULT 0\n)"
+      "CREATE TABLE \"auth_provider_state\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"tested_hash\" TEXT DEFAULT NULL\n)"
     ],
     [
       "table",
       "auth_trials",
       "auth_trials",
-      "CREATE TABLE \"auth_trials\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"admin_id\" INTEGER NOT NULL,\n  \"result_json\" TEXT NOT NULL,\n  \"created_at\" REAL NOT NULL\n)"
+      "CREATE TABLE \"auth_trials\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"result_json\" TEXT NOT NULL\n)"
     ],
     [
       "table",
@@ -863,7 +863,7 @@
       "table",
       "user_identities",
       "user_identities",
-      "CREATE TABLE \"user_identities\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"issuer\" TEXT NOT NULL DEFAULT '',\n  \"ext_username\" TEXT DEFAULT NULL,\n  \"ext_email\" TEXT DEFAULT NULL,\n  \"ext_name\" TEXT DEFAULT NULL,\n  \"linked_by\" TEXT NOT NULL DEFAULT '',\n  \"linked_at\" REAL NOT NULL,\n  \"checked_at\" REAL DEFAULT 0,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+      "CREATE TABLE \"user_identities\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"user_id\" INTEGER NOT NULL,\n  \"provider_id\" TEXT NOT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"issuer\" TEXT NOT NULL DEFAULT '',\n  \"ext_username\" TEXT DEFAULT NULL,\n  \"linked_by\" TEXT NOT NULL DEFAULT '',\n  \"linked_at\" REAL NOT NULL,\n  \"checked_at\" REAL DEFAULT 0,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
     ],
     [
       "table",

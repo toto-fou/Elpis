@@ -18,7 +18,7 @@ import { preparerRattachement, prouverEtRattacher } from "../src/identite/rattac
 import type { ResultatPreuve } from "../src/identite/rattachement";
 import type { DependancesProvisionnement } from "../src/identite/provisionnement";
 import { validerFournisseur } from "../src/identite/reglages";
-import type { FournisseurOidc } from "../src/identite/reglages";
+import type { Fournisseur } from "../src/identite/reglages";
 import { journalMuet } from "./aides";
 import { oidcValide } from "./identite/aides";
 import { MOTEURS } from "./identite/banc";
@@ -34,13 +34,11 @@ describe.each(MOTEURS)("preuve : deux connexions réelles à la base (%s)", (mot
   let dep2: DependancesProvisionnement;
   const fournisseur = validerFournisseur(
     oidcValide({ id: "sso", required_groups: ["elpis"] }),
-  ) as FournisseurOidc;
+  ) as Fournisseur;
   const profil = {
     subject: "sub-1",
     issuer: ancreIdentite(fournisseur),
     extUsername: "jean.dupont",
-    extEmail: "",
-    extName: "",
   };
 
   beforeEach(async () => {

@@ -2,7 +2,7 @@
 /** apps/core/src/identite/oidc/revendications.ts — lecture des revendications vérifiées d'un jeton d'identité : toujours par `Object.hasOwn`, sujet, groupes (chemin pointé), `acr` et `amr` requis, e-mail vérifié seulement. */
 import { ACR_FAIBLES, droitsActifs, FAMILLES_AMR } from "../correspondance";
 import type { Appartenance } from "../provisionnement";
-import type { FournisseurOidc } from "../reglages";
+import type { Fournisseur } from "../reglages";
 
 export type Revendications = Readonly<Record<string, unknown>>;
 
@@ -27,7 +27,7 @@ export function lireRevendication(claims: Revendications, nom: string): unknown 
 }
 
 /** Sujet : chaîne non vide de 255 caractères au plus ; `null` sinon. */
-export function sujetDe(claims: Revendications, f: FournisseurOidc): string | null {
+export function sujetDe(claims: Revendications, f: Fournisseur): string | null {
   const v = lireRevendication(claims, f.subject_claim);
   return typeof v === "string" && v !== "" && v.length <= SUJET_MAX && v.isWellFormed() ? v : null;
 }
@@ -39,7 +39,7 @@ export function texteDe(claims: Revendications, nom: string): string {
 }
 
 /** Vrai si l'identifiant lu peut servir à une correspondance : 255 caractères au plus, et `email_verified` vrai dans la même source quand la revendication désigne l'e-mail. */
-export function identifiantFiable(source: Revendications, f: FournisseurOidc): boolean {
+export function identifiantFiable(source: Revendications, f: Fournisseur): boolean {
   const v = lireRevendication(source, f.username_claim);
   if (typeof v !== "string" || v.length > TEXTE_MAX) return false;
   const email = f.username_claim === "email" || f.username_claim === f.email_claim;
@@ -57,7 +57,7 @@ function marqueDepassement(claims: Revendications, nomGroupes: string): boolean 
 }
 
 /** Groupes du jeton : tableau de chaînes, ou `null` (absent, d'un autre type, ou marqueur de dépassement : inconnu). */
-export function groupesDe(claims: Revendications, f: FournisseurOidc): string[] | null {
+export function groupesDe(claims: Revendications, f: Fournisseur): string[] | null {
   if (marqueDepassement(claims, f.groups_claim)) return null;
   const v = lireRevendication(claims, f.groups_claim);
   if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) return null;
@@ -65,20 +65,20 @@ export function groupesDe(claims: Revendications, f: FournisseurOidc): string[] 
 }
 
 /** Groupe requis reçu en chaîne unique (certains fournisseurs rendent ainsi un seul groupe) : il prouve l'appartenance, rien d'autre ; `null` pour toute autre chaîne, et dès que les rôles ou les groupes suivent le fournisseur (une liste est alors exigée). */
-export function groupeRequisSeulDe(claims: Revendications, f: FournisseurOidc): string | null {
+export function groupeRequisSeulDe(claims: Revendications, f: Fournisseur): string | null {
   if (droitsActifs(f) || marqueDepassement(claims, f.groups_claim)) return null;
   const v = lireRevendication(claims, f.groups_claim);
   return typeof v === "string" && v !== "" && f.required_groups.includes(v) ? v : null;
 }
 
 /** Appartenance à l'un des groupes requis : `inconnu` si les groupes ne se lisent pas. */
-export function appartenanceDe(groupes: readonly string[] | null, f: FournisseurOidc): Appartenance {
+export function appartenanceDe(groupes: readonly string[] | null, f: Fournisseur): Appartenance {
   if (groupes === null) return "inconnu";
   return f.required_groups.some((g) => groupes.includes(g)) ? "oui" : "non";
 }
 
 /** Vrai si `acr` et `amr` satisfont les réglages (liste vide : rien d'exigé). */
-export function secondFacteurSatisfait(claims: Revendications, f: FournisseurOidc): boolean {
+export function secondFacteurSatisfait(claims: Revendications, f: Fournisseur): boolean {
   if (f.required_acr.length > 0) {
     const acr = proprieteDe(claims, "acr");
     if (typeof acr !== "string" || !f.required_acr.includes(acr)) return false;
@@ -92,7 +92,7 @@ export function secondFacteurSatisfait(claims: Revendications, f: FournisseurOid
 }
 
 /** Vrai si le jeton prouve un second facteur : `amr` avec `mfa` / `mca` ou deux familles (RFC 8176), ou `acr` exigé par le fournisseur et non faible. */
-export function secondFacteurProuve(claims: Revendications, f: FournisseurOidc): boolean {
+export function secondFacteurProuve(claims: Revendications, f: Fournisseur): boolean {
   const amr = proprieteDe(claims, "amr");
   if (Array.isArray(amr)) {
     const m = amr.filter((x): x is string => typeof x === "string").map((x) => x.trim().toLowerCase());
@@ -104,7 +104,7 @@ export function secondFacteurProuve(claims: Revendications, f: FournisseurOidc):
 }
 
 /** E-mail gardé seulement si `email_verified` est vrai (booléen) dans la même source. */
-export function emailVerifieDe(claims: Revendications, f: FournisseurOidc): string {
+export function emailVerifieDe(claims: Revendications, f: Fournisseur): string {
   if (proprieteDe(claims, "email_verified") !== true) return "";
   return texteDe(claims, f.email_claim);
 }

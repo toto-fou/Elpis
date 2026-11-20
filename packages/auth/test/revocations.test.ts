@@ -74,8 +74,8 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
       ["s3", b],
     ] as const)
       await t.base.run(
-        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, subject, created_at, expires_at) VALUES(?,?,?,?,?,?)",
-        [sid, uid, "sso", "x", 1, 9999],
+        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, subject, expires_at) VALUES(?,?,?,?,?)",
+        [sid, uid, "sso", "x", 9999],
       );
     await leverMinSession(t.base, a, 10);
     expect(await t.base.valeurs("SELECT sid FROM auth_ext_sessions")).toEqual([["s3"]]);
@@ -94,6 +94,14 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
     expect(await purgerRevocations(t.base, 5051, 50)).toBe(1);
     expect(await estRevoquee(t.base, "vivante")).toBe(false);
     expect(await estRevoquee(t.base, "sans-echeance")).toBe(true);
+  });
+
+  it("échéance inconnue : la ligne part quand la révocation dépasse la durée maximale d'une session, plus tôt jamais", async () => {
+    await revoquerSid(t.base, "ancienne", null, 100);
+    await revoquerSid(t.base, "recente", null, 600);
+    expect(await purgerRevocations(t.base, 1000, 50, 400)).toBe(1);
+    expect(await estRevoquee(t.base, "ancienne")).toBe(false);
+    expect(await estRevoquee(t.base, "recente")).toBe(true);
   });
 
   it("durée de vie d'une session lue dans la configuration, 86400 par défaut", () => {

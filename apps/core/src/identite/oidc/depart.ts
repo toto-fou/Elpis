@@ -16,7 +16,7 @@ import { creerFlux, empreinte } from "./flux";
 import type { CibleFlux } from "./flux";
 import { RefusOidc } from "./refus";
 import { empreinteFournisseur } from "../fournisseurs";
-import type { FournisseurOidc } from "../reglages";
+import type { Fournisseur } from "../reglages";
 
 const OAUTH_NEXT_MAX = 2000;
 const CARACTERES_INTERDITS = /[\p{Cc}\\\s]/u;
@@ -35,7 +35,7 @@ export function oauthNextAdmis(brut: unknown): string | null {
 }
 
 export interface DemandeDepart {
-  readonly fournisseur: FournisseurOidc;
+  readonly fournisseur: Fournisseur;
   readonly publicUrl: string;
   readonly cible: CibleFlux;
   readonly oauthNext: string | null;
@@ -88,9 +88,8 @@ export async function preparerDepart(
           ? buildAuthorizationUrl(ouverte.config, parametres)
           : await buildAuthorizationUrlWithPAR(ouverte.config, parametres);
       return { url: url.href };
-    } catch (e) {
+    } catch {
       await dep.base.run("DELETE FROM auth_flows WHERE state_hash=?", [empreinte(state)]);
-      if (e instanceof RefusOidc) throw e;
       throw new RefusOidc("unavailable", "authorization_url");
     }
   } finally {

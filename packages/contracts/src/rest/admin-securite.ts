@@ -23,7 +23,6 @@ export const schemaReponseRevocationCompte = z.object({
   session_min_ts: horodatage,
   username: z.string(),
 });
-export const schemaReponseFinRevocation = z.object({ ok: z.literal(true), user_id: entier });
 
 const schemaPortsHttps = z.record(z.string(), z.unknown());
 export const schemaReponseEtatHttps = z.object({

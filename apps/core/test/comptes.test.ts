@@ -533,18 +533,8 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
       }
       const lier = (uid: number, fournisseur: string, ext: string) =>
         t.base.run(
-          "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, ext_email, ext_name, linked_by, linked_at) VALUES (?,?,?,?,?,?,?,?,?)",
-          [
-            uid,
-            fournisseur,
-            `cle-${ext}`,
-            "https://emetteur.invalide",
-            ext,
-            `${ext}@exemple.lan`,
-            "Nom Secret",
-            "admin",
-            1,
-          ],
+          "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, linked_by, linked_at) VALUES (?,?,?,?,?,?,?)",
+          [uid, fournisseur, `cle-${ext}`, "https://emetteur.invalide", ext, "admin", 1],
         );
       await lier(2, "ipa", "bob.martin");
       await lier(3, "disparu", "carol.durand");

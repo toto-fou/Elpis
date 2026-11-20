@@ -2487,7 +2487,7 @@ Console routes: see [Administration](#administration-api).
 | `GET/POST/PUT/DELETE /api/admin/llm/connectors[/{id}]` · `POST /{id}/test` | Shared connectors |
 | `GET/PUT /api/admin/llm/allowed-providers` | Provider types allowed for users |
 | `GET/POST /api/admin/security/https` | HTTPS toggle (with anti-lockout guard) |
-| `GET /api/admin/security/sessions` · `POST /revoke-all` · `/revoke-user/{id}` · `/clear-user-revocation/{id}` | Sessions |
+| `GET /api/admin/security/sessions` · `POST /revoke-all` · `/revoke-user/{id}` | Sessions |
 | `POST /api/admin/rag-service/test` | RAG extractor health (URL and token from the form or saved) |
 | `GET /api/admin/rag/etat` · `POST /api/admin/rag/essai/{service}` | State and test of the RAG services (extractor, Qdrant, embeddings, reranking, OCR) |
 | `GET /api/admin/rag/collections` · `DELETE /{id}` | Metadata of all collections; deletion (never the content) |

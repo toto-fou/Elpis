@@ -287,7 +287,7 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
   it("suspendre : les lignes de session du fournisseur du compte sont supprimées dans la même écriture, celles des autres comptes restent", async () => {
     const ligne = (sid: string, uid: number): Promise<unknown> =>
       t.base.run(
-        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, idp_sid, subject, id_token_enc, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, idp_sid, subject, id_token_enc, expires_at) VALUES(?,?,?,?,?,?,?)",
         [sid, uid, "sso", null, `sub-${sid}`, null, 1, 9e9],
       );
     await ligne("s-alice", alice);

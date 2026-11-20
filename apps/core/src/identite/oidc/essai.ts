@@ -5,7 +5,7 @@ import type { ServerMetadata } from "openid-client";
 import { etape, PHRASES_SORTANT } from "../etapes";
 import type { EtapeEssai } from "../etapes";
 import { hotePortHttps } from "../reglages";
-import type { FournisseurOidc } from "../reglages";
+import type { Fournisseur } from "../reglages";
 import { classerErreur } from "../sortant";
 import { USERINFO_HORS_ORIGINE } from "./metadonnees";
 
@@ -16,7 +16,7 @@ const COURBE: Readonly<Record<string, string>> = { ES256: "P-256", ES384: "P-384
 
 export interface ContexteEtapesOidc {
   readonly fetch: typeof globalThis.fetch;
-  readonly secretEnregistre: (f: FournisseurOidc) => Promise<string | null>;
+  readonly secretEnregistre: (f: Fournisseur) => Promise<string | null>;
 }
 
 /** Clé que la bibliothèque acceptera pour cet algorithme : type, courbe, taille RSA d'au moins 2048 bits, usage. */
@@ -46,7 +46,7 @@ function clesDeSignature(jeu: unknown, alg: string): number {
 }
 
 async function etapeCles(
-  f: FournisseurOidc,
+  f: Fournisseur,
   m: ServerMetadata,
   c: ContexteEtapesOidc,
   cible: string,
@@ -76,7 +76,7 @@ async function etapeCles(
   }
 }
 
-function etapeAlgorithmes(f: FournisseurOidc, m: ServerMetadata, cible: string): EtapeEssai {
+function etapeAlgorithmes(f: Fournisseur, m: ServerMetadata, cible: string): EtapeEssai {
   const annonces = m.id_token_signing_alg_values_supported;
   if (annonces === undefined || !annonces.includes(f.id_token_alg))
     return etape(
@@ -127,7 +127,7 @@ function etapeUserinfo(m: ServerMetadata, cible: string): EtapeEssai | null {
     : null;
 }
 
-function etapeAuthentification(f: FournisseurOidc, m: ServerMetadata, cible: string): EtapeEssai {
+function etapeAuthentification(f: Fournisseur, m: ServerMetadata, cible: string): EtapeEssai {
   const methode = f.client_auth === "basic" ? "client_secret_basic" : "client_secret_post";
   const annonces = m.token_endpoint_auth_methods_supported;
   if (annonces === undefined)
@@ -152,7 +152,7 @@ function etapeAuthentification(f: FournisseurOidc, m: ServerMetadata, cible: str
 /** Étapes OIDC après une découverte valide ; les clés se lisent par le `fetch` borné du test. */
 export async function etapesOidc(
   etapes: EtapeEssai[],
-  f: FournisseurOidc,
+  f: Fournisseur,
   m: ServerMetadata,
   c: ContexteEtapesOidc,
 ): Promise<void> {

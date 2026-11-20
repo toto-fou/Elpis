@@ -354,12 +354,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     const poser = async (): Promise<void> => {
       await b.demarrer({ id: "sso" });
       await b.t.base.run(
-        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, subject, created_at, expires_at) SELECT 'sid-' || id, id, 'sso', 's', 1, 4000000000 FROM users WHERE username='alice'",
+        "INSERT INTO auth_ext_sessions(sid, user_id, provider_id, subject, expires_at) SELECT 'sid-' || id, id, 'sso', 's', 4000000000 FROM users WHERE username='alice'",
       );
       await b.t.base.run("DELETE FROM auth_trials");
-      await b.t.base.run(
-        "INSERT INTO auth_trials(provider_id, admin_id, result_json, created_at) VALUES('sso', 1, '{}', 1)",
-      );
+      await b.t.base.run("INSERT INTO auth_trials(provider_id, result_json) VALUES('sso', '{}')");
     };
     const vide = async (): Promise<void> => {
       for (const t of ["auth_flows", "auth_ext_sessions", "auth_trials"])

@@ -8,9 +8,8 @@ import { resultatEssaiBlanc } from "../src/identite/oidc/essai-blanc";
 import { RefusOidc } from "../src/identite/oidc/refus";
 import { secondFacteurProuve } from "../src/identite/oidc/revendications";
 import { validerFournisseur } from "../src/identite/reglages";
-import type { FournisseurOidc } from "../src/identite/reglages";
+import type { Fournisseur } from "../src/identite/reglages";
 import { appliquerDroits } from "../src/identite/droits";
-import { lectureOidc } from "../src/identite/correspondance";
 import { ELPIS, ouvrirBancOidc } from "./identite/banc-oidc";
 import type { BancOidc } from "./identite/banc-oidc";
 import { MOTEURS } from "./identite/banc";
@@ -18,8 +17,8 @@ import { oidcValide } from "./identite/aides";
 import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 
 const ROLES = { roles: { enabled: true, admin_groups: ["admins"], moderator_groups: [] } };
-const f = (extra: Record<string, unknown> = {}): FournisseurOidc =>
-  validerFournisseur(oidcValide({ required_groups: ["elpis"], ...ROLES, ...extra })) as FournisseurOidc;
+const f = (extra: Record<string, unknown> = {}): Fournisseur =>
+  validerFournisseur(oidcValide({ required_groups: ["elpis"], ...ROLES, ...extra })) as Fournisseur;
 
 describe("second facteur prouvé par le jeton", () => {
   it("le jeton prouve un second facteur avec `mfa` / `mca`, deux familles RFC 8176 différentes, ou un `acr` exigé et non faible", () => {
@@ -83,7 +82,7 @@ describe("second facteur prouvé par le jeton", () => {
     const g = f({ required_acr: ["urn:gold"] });
     const retour = (secondFacteur: boolean) =>
       ({
-        profil: { subject: "s", issuer: "i", extUsername: "s", extEmail: "", extName: "" },
+        profil: { subject: "s", issuer: "i", extUsername: "s" },
         appartenance: "oui",
         vue: {
           iss: "",
@@ -111,12 +110,11 @@ describe("second facteur prouvé par le jeton", () => {
 
   it("les droits ne bougent pas quand le jeton reçu liste un groupe d'administrateurs sans preuve", async () => {
     const g = f({ required_acr: ["urn:gold"] });
-    const lecture = lectureOidc(g, ["elpis", "admins"]);
     const dep = { base: {} } as never;
     const r = await appliquerDroits(dep, {
       fournisseur: g,
       uid: 1,
-      lecture,
+      groupes: ["elpis", "admins"],
       mode: "connexion",
       secondFacteur: false,
     });

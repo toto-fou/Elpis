@@ -62,7 +62,7 @@ import { emit } from "./evenements";
 import { executeToolBatch } from "./execution-outils";
 import type { RappelsOutil } from "./execution-outils";
 import {
-  compteSuspenduPourBoucle,
+  compteSuspenduLu,
   executionEnCours,
   metriqueOutil,
   portJobsBoucle,
@@ -1085,15 +1085,7 @@ function contexteParent(rec: RunRecord): ContexteParent {
 
 /** Relit l'état du compte avant un outil : suspendu = arrêt comme une annulation ; une lecture en échec est journalisée, le contrôle suivant tranchera. */
 async function arretSiCompteSuspendu(userId: number | null | undefined): Promise<void> {
-  const lire = compteSuspenduPourBoucle();
-  if (!userId || lire === null) return;
-  let suspendu = false;
-  try {
-    suspendu = await lire(userId);
-  } catch (e) {
-    log.warn(`[run_chat_multi_mcp] état du compte illisible (user=${userId}) : ${String(e)}`);
-  }
-  if (suspendu) throw new CancelledError("compte suspendu");
+  if (await compteSuspenduLu(userId, (m) => log.warn(m))) throw new CancelledError("compte suspendu");
 }
 
 /** Noyau commun aux deux canaux : annulation, `tool_call`, exécution (série ou parallèle), post-traitement dans l'ordre du modèle, anti-boucle. */

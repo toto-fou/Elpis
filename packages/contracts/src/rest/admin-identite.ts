@@ -15,18 +15,15 @@ const carteGroupes = z.object({
   map: z.array(z.object({ external: z.string(), group_id: entier })),
 });
 
-const champsCommuns = {
+const champsFournisseur = {
   id: z.string(),
   label: z.string(),
   enabled: z.boolean(),
-  preset: z.string(),
   ca_pem: z.string(),
   required_groups: z.array(z.string()),
   roles,
   group_map: carteGroupes,
   freshness_days: entier,
-};
-const champsOidc = {
   issuer: z.string(),
   client_id: z.string(),
   client_auth: z.enum(["basic", "post"]),
@@ -56,8 +53,7 @@ const etatFournisseur = {
 
 export const schemaFournisseurAuth = z.object({
   type: z.literal("oidc"),
-  ...champsCommuns,
-  ...champsOidc,
+  ...champsFournisseur,
   ...etatFournisseur,
 });
 export type FournisseurAuth = z.infer<typeof schemaFournisseurAuth>;
@@ -80,7 +76,6 @@ export const schemaReglagesAuth = z.object({
   bounds: z.object({
     providers_max: entier,
     label_max: entier,
-    ca_pem_max: entier,
     required_groups_max: entier,
     secret_max: entier,
     freshness_days: z.object({ min: entier, max: entier, default: entier }),

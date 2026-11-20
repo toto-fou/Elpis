@@ -306,7 +306,6 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("correctifs du SSO OIDC (%s)"
         idpSid: null,
         subject: "s",
         idToken: "JETON-SECRET",
-        maintenant: 1,
         expire: 2,
         avertir: (m) => avis.push(m),
       });

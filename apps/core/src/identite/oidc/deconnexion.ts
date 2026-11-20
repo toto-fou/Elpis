@@ -10,7 +10,7 @@ import { dechiffrerSecret } from "@elpis/securite";
 
 import { fournisseursActifs } from "../fournisseurs";
 import { lireReglagesAuth } from "../reglages";
-import type { FournisseurOidc } from "../reglages";
+import type { Fournisseur } from "../reglages";
 import type { FabriqueConfigurations } from "./configuration";
 import { RefusOidc } from "./refus";
 
@@ -25,7 +25,7 @@ const JTI_MAX = 2000;
 export interface JetonDeconnexion {
   readonly sid: string | null;
   readonly sub: string | null;
-  readonly jti: string | null;
+  readonly jti: string;
   readonly iat: number;
 }
 
@@ -40,7 +40,6 @@ function raisonJose(e: unknown): string {
   const claim = (e as { claim?: unknown } | null)?.claim;
   if (code === "ERR_JWT_EXPIRED") return "expired";
   if (code === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED") return "bad_signature";
-  if (code === "ERR_JOSE_ALG_NOT_ALLOWED") return "bad_alg";
   if (code === "ERR_JWKS_NO_MATCHING_KEY" || code === "ERR_JWKS_MULTIPLE_MATCHING_KEYS") return "no_key";
   if (code === "ERR_JWT_CLAIM_VALIDATION_FAILED") {
     if (claim === "iss") return "bad_issuer";
@@ -54,11 +53,11 @@ function raisonJose(e: unknown): string {
 /** Jeton de déconnexion vérifié (avec `sansReseau`, sur les seules clés déjà gardées en mémoire) : signature avec l'algorithme et les clés réglés du fournisseur, émetteur, public, validité, événement, absence de `nonce`, `sid` ou `sub` présent. */
 export async function verifierJetonDeconnexion(
   fabrique: FabriqueConfigurations,
-  f: FournisseurOidc,
+  f: Fournisseur,
   publicUrl: string,
   jeton: string,
   t: number,
-  sansReseau = false,
+  sansReseau: boolean,
 ): Promise<JetonDeconnexion> {
   const refus = (raison: string): RefusOidc => new RefusOidc("failed", raison);
   if (jeton === "" || jeton.length > CORPS_DECONNEXION_MAX) throw refus("malformed");
@@ -183,11 +182,7 @@ export class JetonsVus {
 type LigneSession = { sid: string; user_id: number; expires_at: number };
 
 /** Sessions de CE fournisseur visées par le jeton : par `sid` (et `sub` s'il est donné, avec les sessions de ce sujet sans `sid` rangé), sinon par `sub` seul. */
-async function sessionsVisees(
-  x: Executeur,
-  f: FournisseurOidc,
-  j: JetonDeconnexion,
-): Promise<LigneSession[]> {
+async function sessionsVisees(x: Executeur, f: Fournisseur, j: JetonDeconnexion): Promise<LigneSession[]> {
   if (j.sid !== null) {
     if (j.sub !== null)
       return x.all<LigneSession>(
@@ -224,19 +219,13 @@ async function supprimerPreuvesDuSujet(x: Executeur, providerId: string, sub: st
   }
 }
 
-export interface BilanDeconnexion {
-  readonly sessions: number;
-  readonly comptes: readonly number[];
-  readonly fermees: readonly { readonly sid: string; readonly uid: number }[];
-}
-
-/** Révoque les sessions de ce fournisseur visées par le jeton et supprime leurs lignes ; rend leur nombre et les comptes touchés. */
+/** Révoque les sessions de ce fournisseur visées par le jeton et supprime leurs lignes ; rend celles qui ont été fermées. */
 export async function appliquerDeconnexion(
   base: Base,
-  f: FournisseurOidc,
+  f: Fournisseur,
   j: JetonDeconnexion,
   t: number,
-): Promise<BilanDeconnexion> {
+): Promise<readonly { readonly sid: string; readonly uid: number }[]> {
   const lignes = await base.ecriture(async (x) => {
     const visees = await sessionsVisees(x, f, j);
     for (const l of visees) {
@@ -246,11 +235,7 @@ export async function appliquerDeconnexion(
     if (j.sub !== null) await supprimerPreuvesDuSujet(x, f.id, j.sub);
     return visees;
   });
-  return {
-    sessions: lignes.length,
-    comptes: [...new Set(lignes.map((l) => Number(l.user_id)))],
-    fermees: lignes.map((l) => ({ sid: l.sid, uid: Number(l.user_id) })),
-  };
+  return lignes.map((l) => ({ sid: l.sid, uid: Number(l.user_id) }));
 }
 
 export interface DependancesFinDeSession {
@@ -273,7 +258,7 @@ export async function adresseDeFinDeSession(
     return l;
   });
   if (ligne === undefined) return null;
-  const f = (await fournisseursActifs(dep.base, dep.cookieSecure)).find((p) => p.id === ligne.provider_id);
+  const [f] = await fournisseursActifs(dep.base, dep.cookieSecure, ligne.provider_id);
   if (f === undefined || !f.logout.rp_initiated) return null;
   const publicUrl = lireReglagesAuth().public_url;
   const metadonnees = dep.configurations.metadonneesGardees(f, publicUrl);

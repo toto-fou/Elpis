@@ -7,7 +7,7 @@ import type { JugeHote, VerdictHote } from "@elpis/http";
 import type { ServerMetadata } from "openid-client";
 
 import { defautsFournisseur, fusionner, hotePortHttps, validerFournisseur } from "./reglages";
-import type { FournisseurOidc } from "./reglages";
+import type { Fournisseur } from "./reglages";
 import { etapesOidc } from "./oidc/essai";
 import type { ContexteEtapesOidc } from "./oidc/essai";
 import { adresseDecouverte, lireMetadonnees } from "./oidc/metadonnees";
@@ -15,8 +15,6 @@ import { etape, PHRASES_SORTANT as PHRASES } from "./etapes";
 import type { EtapeEssai } from "./etapes";
 import { classerErreur, clientHttps, connexionTls, jugeSortant, sansNomAlternatif } from "./sortant";
 import type { OptionsSortant } from "./sortant";
-
-export type { EtapeEssai } from "./etapes";
 
 export const DELAI_GLOBAL_MS = 20_000;
 const JOURS_ALERTE = 30;
@@ -162,7 +160,7 @@ async function etapesAdresse(
 /** Découverte OIDC, écart d'horloge d'après l'en-tête `Date` de la même réponse, puis les étapes OIDC propres au fournisseur. */
 async function etapesDecouverte(
   etapes: EtapeEssai[],
-  f: FournisseurOidc,
+  f: Fournisseur,
   juge: JugeHote,
   sortant: OptionsSortant,
   maintenant: () => number,
@@ -195,7 +193,7 @@ async function etapesDecouverte(
 }
 
 function decouverte(
-  f: FournisseurOidc,
+  f: Fournisseur,
   statut: number,
   texte: string,
   cible: string,
@@ -219,12 +217,7 @@ function decouverte(
   };
 }
 
-function horloge(
-  f: FournisseurOidc,
-  date: string | null,
-  maintenant: () => number,
-  cible: string,
-): EtapeEssai {
+function horloge(f: Fournisseur, date: string | null, maintenant: () => number, cible: string): EtapeEssai {
   const t = date === null ? NaN : Date.parse(date);
   if (!Number.isFinite(t))
     return etape("clock", "Horloge", "warn", "Le serveur n'indique pas son heure : écart non mesuré.", cible);
@@ -267,7 +260,7 @@ async function corps(
   signal: AbortSignal,
 ): Promise<void> {
   const maintenant = o.maintenant ?? Date.now;
-  let f: FournisseurOidc;
+  let f: Fournisseur;
   try {
     f = validerFournisseur(reglagesDuFormulaire(reglages));
     etapes.push(etape("settings", "Réglages", "ok", "Réglages valides."));

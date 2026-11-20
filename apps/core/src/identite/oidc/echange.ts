@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/echange.ts — retour du fournisseur : code échangé, jeton d'identité vérifié (signature, émetteur, public, nonce, validité), revendications lues, `acr` et `amr` exigés ; ne crée ni compte ni session. */
-import {
-  authorizationCodeGrant,
-  AuthorizationResponseError,
-  fetchUserInfo,
-  ResponseBodyError,
-} from "openid-client";
+import { authorizationCodeGrant, fetchUserInfo, ResponseBodyError } from "openid-client";
 
 import type { ConfigurationOuverte } from "./configuration";
 import type { FluxLu } from "./flux";
@@ -24,7 +19,7 @@ import {
 } from "./revendications";
 import type { Revendications } from "./revendications";
 import type { Appartenance, ProfilIdentite } from "../provisionnement";
-import type { FournisseurOidc } from "../reglages";
+import type { Fournisseur } from "../reglages";
 import { ancreIdentite } from "../ancre";
 import { ErreurSortant } from "../sortant";
 
@@ -72,7 +67,6 @@ function causeDe(e: unknown): string {
   if (sortant !== null) return `sortant:${sortant.code}`;
   if (e instanceof ResponseBodyError)
     return `token_endpoint:${ERREUR_FOURNISSEUR.test(e.error) ? e.error : "autre"}`;
-  if (e instanceof AuthorizationResponseError) return "authorization_response";
   const code = (e as { code?: unknown } | null)?.code;
   return `lib:${typeof code === "string" && /^[A-Z0-9_]{1,64}$/u.test(code) ? code : ((e as Error | null)?.name ?? "inconnu")}`;
 }
@@ -106,7 +100,7 @@ function liste(v: unknown): string[] {
 /** Échange le code du retour et rend le profil vérifié ; toute anomalie est un `RefusOidc` dont le code est d'une liste fermée. */
 export async function verifierRetour(
   ouverte: ConfigurationOuverte,
-  f: FournisseurOidc,
+  f: Fournisseur,
   e: { publicUrl: string; flux: FluxLu; state: string; requete: string; maintenant: number },
 ): Promise<RetourVerifie> {
   if (e.requete.length > REQUETE_MAX) throw new RefusOidc("failed", "query_too_long");
@@ -172,8 +166,6 @@ export async function verifierRetour(
       subject: sujet,
       issuer: ancreIdentite(f),
       extUsername: identifiant,
-      extEmail: email,
-      extName: nom,
       identifiantFiable: identifiantFiable(sourceIdentifiant, f),
     },
     appartenance: groupes === null && requisSeul !== null ? "oui" : appartenanceDe(groupes, f),

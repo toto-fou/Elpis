@@ -13,6 +13,5 @@ export function sessionAdmise(auth: unknown, ligne: LigneUtilisateur): boolean {
     const id = auth.slice(auth.indexOf(":") + 1);
     return reglages.providers.some((p) => p.id === id && p.enabled);
   }
-  if (auth !== undefined && auth !== null && auth !== "password") return false;
   return reglages.local.mode !== "admins" || Number(ligne.is_admin) === 1;
 }

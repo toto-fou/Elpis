@@ -18,8 +18,8 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { creerFamilleAdminComptes } from "../src/familles/admin-comptes";
-import { decider, lectureOidc } from "../src/identite/correspondance";
-import { appliquerDroits } from "../src/identite/droits";
+import { decider } from "../src/identite/correspondance";
+import { appliquerDroits, fournisseursAuRoleGere } from "../src/identite/droits";
 import type { BilanDroits, DependancesDroits } from "../src/identite/droits";
 import { resultatEssaiBlanc } from "../src/identite/oidc/essai-blanc";
 import { validerFournisseur } from "../src/identite/reglages";
@@ -73,22 +73,21 @@ describe.each(MOTEURS)("rôles et groupes du fournisseur : décisions communes (
   const regler = (extra: Record<string, unknown>): void => {
     courant = validerFournisseur({ ...courant, ...extra });
   };
-  const dep = (suspension = true): DependancesDroits => ({
+  const dep = (): DependancesDroits => ({
     base: b.t.base,
     maintenant: () => b.horloge,
     journal: journalMuet,
-    revoquer: async () => void appels.push("revocation"),
-    ...(suspension ? { publierSuspension: async () => void appels.push("suspension") } : {}),
+    publierSuspension: async () => void appels.push("suspension"),
   });
   const appliquer = (
     uid: number,
     groupes: string[] | null,
-    o: { mode?: "connexion" | "retrait"; suspension?: boolean } = {},
+    o: { mode?: "connexion" | "retrait" } = {},
   ): Promise<BilanDroits> =>
-    appliquerDroits(dep(o.suspension), {
+    appliquerDroits(dep(), {
       fournisseur: courant,
       uid,
-      lecture: lectureOidc(courant, groupes),
+      groupes,
       mode: o.mode ?? "connexion",
     });
   const compte = (nom: string, niveau: number = NIVEAU.user): Promise<number> =>
@@ -140,12 +139,41 @@ describe.each(MOTEURS)("rôles et groupes du fournisseur : décisions communes (
       expect(appels).toEqual([]);
     });
 
-    it("sans publication de suspension possible, la révocation du compte est utilisée", async () => {
-      regler(roles(["admins"]));
-      const jean = await compte("jean", NIVEAU.admin);
-      await appliquer(jean, ["elpis"], { suspension: false });
-      expect(await niveauDe(b.t.base, "jean")).toBe(NIVEAU.user);
-      expect(appels).toEqual(["revocation"]);
+    it("rien à changer : aucune écriture exclusive n'est ouverte, avec ou sans groupes gérés", async () => {
+      regler({
+        ...roles(["admins"]),
+        group_map: { enabled: true, map: [{ external: "equipe", group_id: gEquipe }] },
+      });
+      const jean = await compte("jean");
+      await appliquer(jean, ["equipe"]);
+      const ecriture = b.t.base.ecriture.bind(b.t.base);
+      let ouvertes = 0;
+      b.t.base.ecriture = ((f: never) => {
+        ouvertes += 1;
+        return ecriture(f);
+      }) as typeof b.t.base.ecriture;
+      expect(await appliquer(jean, ["equipe"])).toEqual(rien);
+      expect(ouvertes).toBe(0);
+      expect(await appliquer(jean, [])).toMatchObject({ retires: [gEquipe] });
+      expect(ouvertes).toBe(1);
+    });
+
+    it("un rôle n'est dit géré que si l'option agit : allumée sans groupe utilisable, il reste modifiable à la main", () => {
+      const brut = (extra: Record<string, unknown>): Record<string, unknown> => ({
+        ...(b.fournisseurs[0] as Fournisseur),
+        ...extra,
+      });
+      b.cfg.ecrire({
+        auth: {
+          public_url: "https://elpis.exemple.lan",
+          providers: [
+            brut({ id: "vide", roles: { enabled: true, admin_groups: [], moderator_groups: [] } }),
+            brut({ id: "agit", roles: { enabled: true, admin_groups: [], moderator_groups: ["mods"] } }),
+          ],
+        },
+        security: { https: { enabled: true } },
+      });
+      expect([...fournisseursAuRoleGere()]).toEqual(["agit"]);
     });
 
     it("administrateur avant modérateur ; l'audit n'écrit que les changements", async () => {
@@ -226,6 +254,9 @@ describe.each(MOTEURS)("rôles et groupes du fournisseur : décisions communes (
       expect(await b.t.base.get('SELECT 1 AS un FROM "groups" WHERE id=9999')).toBeUndefined();
       expect(lignesJournal.some((l) => l.includes("n'existe plus"))).toBe(true);
       expect(audits("auth.groups.sync")).toEqual([]);
+      lignesJournal.length = 0;
+      await appliquer(jean, ["elpis", "equipe"]);
+      expect(lignesJournal.filter((l) => l.includes("n'existe plus"))).toEqual([]);
     });
 
     it("deux valeurs externes pour un même groupe Elpis : l'appartenance à l'une suffit, le retrait exige de n'avoir ni l'une ni l'autre", async () => {
@@ -275,50 +306,15 @@ describe.each(MOTEURS)("rôles et groupes du fournisseur : décisions communes (
       expect(lignesJournal.some((l) => l.includes("appartenance illisible"))).toBe(true);
     });
 
-    it("aucune lecture, ou une lecture sans l'un des groupes à lire, ou avec un seul « inconnu » : aucune décision", async () => {
-      const jean = await preparer();
-      for (const lecture of [
-        null,
-        new Map(),
-        new Map([
-          ["admins", "non" as const],
-          ["mods", "non" as const],
-        ]),
-        new Map([
-          ["admins", "non" as const],
-          ["mods", "inconnu" as const],
-          ["equipe", "oui" as const],
-        ]),
-      ]) {
-        const bilan = await appliquerDroits(dep(), {
-          fournisseur: courant,
-          uid: jean,
-          lecture,
-          mode: "connexion",
-        });
-        expect(bilan).toEqual(rien);
-      }
-      await inchange(jean);
-    });
-
-    it("la décision pure : « inconnu » ou lecture incomplète rendent aucune décision, « non » partout rend utilisateur et retrait", () => {
+    it("la décision pure : des groupes illisibles rendent aucune décision, aucun groupe lu rend utilisateur et retrait", () => {
       const f = validerFournisseur({
         ...courant,
         ...roles(["admins"], ["mods"]),
         group_map: { enabled: true, map: [{ external: "equipe", group_id: gEquipe }] },
       });
-      const lue = new Map([
-        ["admins", "non" as const],
-        ["mods", "inconnu" as const],
-        ["equipe", "oui" as const],
-      ]);
-      expect(decider(f, lue)).toBeNull();
-      expect(decider(f, new Map([["admins", "non" as const]]))).toBeNull();
-      expect(decider(f, new Map([...lue, ["mods", "non" as const]]))).toEqual({
-        role: "user",
-        groupes: new Map([[gEquipe, true]]),
-      });
-      expect(decider(f, lectureOidc(f, null))).toBeNull();
+      expect(decider(f, null)).toBeNull();
+      expect(decider(f, ["equipe"])).toEqual({ role: "user", groupes: new Map([[gEquipe, true]]) });
+      expect(decider(f, [])).toEqual({ role: "user", groupes: new Map([[gEquipe, false]]) });
     });
   });
 
@@ -477,7 +473,7 @@ describe.each(MOTEURS)("console : rôle géré et enregistrement de la correspon
       await rattacherA(local, "sso");
       const vue = await listeComptes();
       expect(vue["externe"]).toMatchObject({
-        identity: { provider_id: "sso", ext_username: `ext-${ext}`, linked_at: 1_800_000_000.5 },
+        identity: { provider_id: "sso", ext_username: `ext-${ext}` },
         has_local_password: false,
         role_managed: true,
       });
@@ -814,7 +810,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("rôles et groupes par le SSO
     const f = b.fournisseur;
     const retour = (groupes: string[] | null, secondFacteur = true) =>
       ({
-        profil: { subject: "s", issuer: `oidc:${f.issuer}`, extUsername: "s", extEmail: "", extName: "" },
+        profil: { subject: "s", issuer: `oidc:${f.issuer}`, extUsername: "s" },
         appartenance: "oui",
         vue: {
           iss: f.issuer,
@@ -862,7 +858,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("rôles et groupes par le SSO
       b.t.base,
       b.fournisseur,
       {
-        profil: { subject: "s", issuer: "i", extUsername: "s", extEmail: "", extName: "" },
+        profil: { subject: "s", issuer: "i", extUsername: "s" },
         appartenance: "oui",
         vue: {
           iss: "",

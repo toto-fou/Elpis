@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/conformite/aides-oidc.ts — aides communes des tests de conformité OIDC : code d'un refus de retour, ouverture d'un banc sur un profil de produit, claims de jeton. */
+import { CODES_ERREUR_CONNEXION } from "@elpis/contracts";
 import { expect } from "vitest";
 import type { LightMyRequestResponse } from "fastify";
 
-import { CODES_REFUS } from "../../src/identite/oidc/refus";
 import { lignesAuditRecentes } from "../aides";
 import { ouvrirBancOidc } from "../identite/banc-oidc";
 import type { ProfilProduit } from "./profils-oidc";
@@ -17,7 +17,7 @@ export function codeRefus(r: LightMyRequestResponse): string {
   const m = /^\/\?auth_error=([a-z_]+)&ref=([A-Za-z0-9_-]{8})$/u.exec(l);
   expect(m, l).not.toBeNull();
   expect(String(r.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session");
-  expect(CODES_REFUS as readonly string[]).toContain(m?.[1]);
+  expect(CODES_ERREUR_CONNEXION as readonly string[]).toContain(m?.[1]);
   return m?.[1] ?? "";
 }
 

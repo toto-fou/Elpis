@@ -4,6 +4,7 @@ import { HttpError } from "@elpis/commun";
 import { describe, expect, it } from "vitest";
 
 import {
+  lireReglagesAuth,
   reglagesAuthDepuis,
   validerCreation,
   validerFournisseur,
@@ -11,7 +12,7 @@ import {
   validerReglagesGeneraux,
 } from "../../src/identite/reglages";
 import { empreinteFournisseur, porteeDuFournisseur } from "../../src/identite/fournisseurs";
-import { CA_PEM, oidcValide } from "./aides";
+import { CA_PEM, configDeTest, oidcValide } from "./aides";
 
 function refus(f: () => unknown): string {
   try {
@@ -72,6 +73,15 @@ describe("lecteur tolérant", () => {
       { id: null, label: null, enabled: false },
       { id: "autre", label: "SSO", enabled: true },
     ]);
+  });
+
+  it("l'ancien champ `preset` d'un fournisseur écrit à la main est ignoré à la lecture et refusé à l'écriture", () => {
+    const r = reglagesAuthDepuis({ providers: [{ ...oidcValide(), preset: "keycloak" }] });
+    expect(r.providers.map((p) => p.id)).toEqual(["sso"]);
+    expect(r.invalides).toEqual([]);
+    expect(refus(() => validerFournisseur({ ...oidcValide(), preset: "keycloak" }))).toBe(
+      "400 Champ « fournisseur.preset » : champ inconnu.",
+    );
   });
 
   it("nombres écrits à la main : entier flottant accepté, texte refusé", () => {
@@ -227,5 +237,22 @@ describe("adresse du fournisseur : l'émetteur OIDC se compare exactement", () =
     expect(porteeDuFournisseur(a)).toEqual(porteeDuFournisseur(b));
     expect(porteeDuFournisseur(a)).toEqual({ host: "idp.exemple.lan:443", ca: "system" });
     expect(empreinteFournisseur(a, "https://elpis.lan")).toBe(empreinteFournisseur(b, "https://elpis.lan"));
+  });
+});
+
+describe("réglages lus à chaud", () => {
+  it("validés une fois par instantané du fichier, gelés, relus dès que le fichier change", () => {
+    const cfg = configDeTest();
+    try {
+      cfg.ecrire({ auth: { public_url: "https://elpis.lan", providers: [oidcValide()] } });
+      const a = lireReglagesAuth();
+      expect(lireReglagesAuth()).toBe(a);
+      expect(Object.isFrozen(a)).toBe(true);
+      expect(Object.isFrozen(a.providers[0])).toBe(true);
+      cfg.ecrire({ auth: { public_url: "https://autre.lan", providers: [oidcValide()] } });
+      expect(lireReglagesAuth().public_url).toBe("https://autre.lan");
+    } finally {
+      cfg.fermer();
+    }
   });
 });

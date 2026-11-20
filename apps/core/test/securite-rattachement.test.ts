@@ -109,8 +109,6 @@ describe.each(MOTEURS)("rattachement et détachement des comptes (%s)", (moteur)
           subject: sujet,
           issuer: ancreIdentite(b.fournisseurs[0] as never),
           extUsername: sujet,
-          extEmail: "",
-          extName: "",
         },
         { par: "auto", confirmeAdmin, t: Date.now() / 1000 },
       ),
@@ -260,13 +258,12 @@ describe.each(MOTEURS)("rattachement et détachement des comptes (%s)", (moteur)
       const r = await preparer(alice, "Alice.Dupont@Exemple.LAN");
       expect(r.statusCode).toBe(200);
       expect(r.json()).toMatchObject({
-        user_id: alice,
         username: "alice",
         expected: "alice.dupont@exemple.lan",
         waiver: false,
-        created_by: chef,
       });
       const [l] = await lignes();
+      expect(l).toMatchObject({ user_id: alice, created_by: chef });
       expect(Number(l?.["expires_at"]) - Number(l?.["created_at"])).toBe(30 * 86_400);
       expect(Number(l?.["created_at"])).toBeGreaterThanOrEqual(avant - 1);
       expect(audits("auth.prelink.create")[0]).toMatchObject({
@@ -321,13 +318,12 @@ describe.each(MOTEURS)("rattachement et détachement des comptes (%s)", (moteur)
         expect((await preparer(alice, attendu)).statusCode, JSON.stringify(attendu)).toBe(400);
     });
 
-    it("une ligne périmée est purgée à la lecture et ne bloque plus l'identifiant", async () => {
+    it("une ligne périmée n'est plus listée et ne bloque plus l'identifiant", async () => {
       const alice = await createUser(b.t.base, "alice", "mdp-alice-1");
       const bob = await createUser(b.t.base, "bob", "mdp-bob-123");
       await preparer(alice, "alice");
       await b.t.base.run("UPDATE auth_prelinks SET expires_at=1.0");
       expect(((await appeler("GET", prelinks)).json() as { items: unknown[] }).items).toEqual([]);
-      expect(await lignes()).toEqual([]);
       await preparer(alice, "alice");
       await b.t.base.run("UPDATE auth_prelinks SET expires_at=1.0");
       expect((await preparer(bob, "alice")).statusCode).toBe(200);

@@ -14,7 +14,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { runChatMultiMcp } from "../../src/boucle/orchestrateur";
 import { brancherBoucle } from "../../src/boucle/branchements";
 import {
-  compteSuspenduPourBoucle,
+  compteSuspenduLu,
   installerCompteSuspendu,
   installerDormir,
   installerTokenHex,
@@ -246,11 +246,11 @@ describe("boucle : compte suspendu relu à chaque étape, sans événement", () 
         },
       });
       brancherBoucle(espion as typeof t.base);
-      const lire = compteSuspenduPourBoucle();
-      expect(await lire?.(uid)).toBe(false);
+      const lire = (u: number): Promise<boolean> => compteSuspenduLu(u, () => undefined);
+      expect(await lire(uid)).toBe(false);
       await t.base.run("UPDATE users SET suspended_at=100 WHERE id=?", [uid]);
-      expect(await lire?.(uid)).toBe(true);
-      expect(await lire?.(uid + 99)).toBe(false);
+      expect(await lire(uid)).toBe(true);
+      expect(await lire(uid + 99)).toBe(false);
       expect(requetes.every((s) => /^SELECT suspended_at FROM users WHERE id\s*=\s*\?$/u.test(s))).toBe(true);
     } finally {
       await t.fermer();

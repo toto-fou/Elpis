@@ -15,7 +15,7 @@ import type { ExportedJWKSCache, JWK, ServerMetadata } from "openid-client";
 import type { Base } from "@elpis/db";
 
 import { empreinteFournisseur, secretFournisseur } from "../fournisseurs";
-import type { FournisseurOidc } from "../reglages";
+import type { Fournisseur } from "../reglages";
 import { clientHttps, ErreurSortant } from "../sortant";
 import type { ClientHttps, OptionsSortant } from "../sortant";
 import { adresseDecouverte, lireMetadonnees } from "./metadonnees";
@@ -59,6 +59,18 @@ export interface OptionsConfigurations {
   readonly sortant?: OptionsSortant;
 }
 
+/** Relance l'échec gardé de ces réglages tant qu'il n'est pas périmé. */
+function echecGarde(
+  echecs: ReadonlyMap<string, EchecDecouverte>,
+  id: string,
+  empreinte: string,
+  t: number,
+): void {
+  const echec = echecs.get(id);
+  if (echec !== undefined && echec.empreinte === empreinte && echec.jusqua > t)
+    throw new RefusOidc("unavailable", echec.cause);
+}
+
 /** Fabrique des configurations d'un process : une découverte et un cache de clés par fournisseur (jamais partagés avec l'autre process). */
 export class FabriqueConfigurations {
   private readonly decouvertes = new Map<string, Decouverte>();
@@ -72,31 +84,29 @@ export class FabriqueConfigurations {
   }
 
   /** Métadonnées de la dernière découverte (mêmes réglages), même périmées, sans aucun appel ; `null` si rien n'est gardé. */
-  metadonneesGardees(f: FournisseurOidc, publicUrl: string): ServerMetadata | null {
+  metadonneesGardees(f: Fournisseur, publicUrl: string): ServerMetadata | null {
     const c = this.decouvertes.get(f.id);
     return c !== undefined && c.empreinte === empreinteFournisseur(f, publicUrl) ? c.metadonnees : null;
   }
 
   /** Clés de signature déjà gardées en mémoire (mêmes réglages), même anciennes, sans aucun appel ; `null` si rien n'est gardé. */
-  clesEnMemoire(f: FournisseurOidc, publicUrl: string): JWK[] | null {
+  clesEnMemoire(f: Fournisseur, publicUrl: string): JWK[] | null {
     return this.clesGardees(f, publicUrl)?.jwks.keys ?? null;
   }
 
   /** Clés de signature du fournisseur, dans le cache de la connexion : relues si le cache a plus de cinq minutes, ou, une fois par minute au plus, si la clé `kid` y manque. */
-  async clesDeSignature(f: FournisseurOidc, publicUrl: string, kid: string | undefined): Promise<JWK[]> {
+  async clesDeSignature(f: Fournisseur, publicUrl: string, kid: string | undefined): Promise<JWK[]> {
     const client = this.client(f);
+    const empreinte = empreinteFournisseur(f, publicUrl);
     try {
-      const metadonnees = await this.decouvrir(f, publicUrl, client);
+      const metadonnees = await this.decouvrir(f, publicUrl, client, empreinte);
       const t = this.o.maintenant();
-      const gardees = this.clesGardees(f, publicUrl);
+      const gardees = this.clesGardees(f, publicUrl, empreinte);
       const age = gardees === undefined ? Infinity : t - gardees.uat;
       const absente = kid !== undefined && !(gardees?.jwks.keys ?? []).some((k) => k.kid === kid);
       if (gardees !== undefined && age < CLES_FRAICHES_S && !(absente && age >= CLES_RELECTURE_S))
         return gardees.jwks.keys;
-      const empreinte = empreinteFournisseur(f, publicUrl);
-      const echec = this.echecsCles.get(f.id);
-      if (echec !== undefined && echec.empreinte === empreinte && echec.jusqua > t)
-        throw new RefusOidc("unavailable", echec.cause);
+      echecGarde(this.echecsCles, f.id, empreinte, t);
       let liste: unknown[];
       try {
         liste = await this.lireCles(client, metadonnees);
@@ -107,39 +117,44 @@ export class FabriqueConfigurations {
       }
       this.echecsCles.delete(f.id);
       const keys = liste.filter((k): k is JWK => k !== null && typeof k === "object" && !Array.isArray(k));
-      this.cles.set(f.id, {
-        empreinte: empreinteFournisseur(f, publicUrl),
-        cache: { jwks: { keys }, uat: t },
-      });
+      this.cles.set(f.id, { empreinte, cache: { jwks: { keys }, uat: t } });
       return keys;
     } finally {
       await client.fermer().catch(() => undefined);
     }
   }
 
-  /** Liste `keys` du document de clés du fournisseur ; `unavailable` si la lecture échoue. */
-  private async lireCles(client: ClientHttps, metadonnees: ServerMetadata): Promise<unknown[]> {
+  /** Document JSON lu en GET ; `unavailable` (`<préfixe>:<cause>`) s'il manque, répond autrement que 200 ou n'est pas du JSON. */
+  private async lireJson(client: ClientHttps, url: string, prefixe: string): Promise<unknown> {
     let rep: Response;
     let texte: string;
     try {
-      rep = await client.fetch(String(metadonnees.jwks_uri), { headers: { accept: "application/json" } });
+      rep = await client.fetch(url, { headers: { accept: "application/json" } });
       texte = await rep.text();
     } catch (e) {
-      throw new RefusOidc("unavailable", `jwks:${e instanceof ErreurSortant ? e.code : "reseau"}`);
+      throw new RefusOidc("unavailable", `${prefixe}:${e instanceof ErreurSortant ? e.code : "reseau"}`);
     }
-    if (rep.status !== 200) throw new RefusOidc("unavailable", `jwks:status_${rep.status}`);
-    let liste: unknown;
+    if (rep.status !== 200) throw new RefusOidc("unavailable", `${prefixe}:status_${rep.status}`);
     try {
-      liste = (JSON.parse(texte) as { keys?: unknown } | null)?.keys;
+      return JSON.parse(texte);
     } catch {
-      throw new RefusOidc("unavailable", "jwks:json");
+      throw new RefusOidc("unavailable", `${prefixe}:json`);
     }
+  }
+
+  /** Liste `keys` du document de clés du fournisseur ; `unavailable` si la lecture échoue. */
+  private async lireCles(client: ClientHttps, metadonnees: ServerMetadata): Promise<unknown[]> {
+    const liste = (
+      (await this.lireJson(client, String(metadonnees.jwks_uri), "jwks")) as {
+        keys?: unknown;
+      } | null
+    )?.keys;
     if (!Array.isArray(liste) || liste.length > CLES_MAX) throw new RefusOidc("unavailable", "jwks:invalid");
     return liste;
   }
 
   /** Découverte du fournisseur gardée chaude (sans toucher aux clés) ; un échec reste dans le cache d'échec. */
-  async rechauffer(f: FournisseurOidc, publicUrl: string): Promise<void> {
+  async rechauffer(f: Fournisseur, publicUrl: string): Promise<void> {
     const client = this.client(f);
     try {
       await this.decouvrir(f, publicUrl, client);
@@ -149,29 +164,31 @@ export class FabriqueConfigurations {
   }
 
   /** Clés gardées de ce fournisseur, seulement si elles viennent des mêmes réglages. */
-  private clesGardees(f: FournisseurOidc, publicUrl: string): ExportedJWKSCache | undefined {
+  private clesGardees(
+    f: Fournisseur,
+    publicUrl: string,
+    empreinte = empreinteFournisseur(f, publicUrl),
+  ): ExportedJWKSCache | undefined {
     const g = this.cles.get(f.id);
-    return g !== undefined && g.empreinte === empreinteFournisseur(f, publicUrl) ? g.cache : undefined;
+    return g !== undefined && g.empreinte === empreinte ? g.cache : undefined;
   }
 
   /** Client sortant des réglages du fournisseur (autorités du fournisseur, adresses jugées et épinglées). */
-  client(f: FournisseurOidc, sortant: OptionsSortant = {}): ClientHttps {
-    return clientHttps({ ...this.o.sortant, ...sortant, caPem: f.ca_pem });
+  private client(f: Fournisseur): ClientHttps {
+    return clientHttps({ ...this.o.sortant, caPem: f.ca_pem });
   }
 
   private async decouvrir(
-    f: FournisseurOidc,
+    f: Fournisseur,
     publicUrl: string,
     client: ClientHttps,
+    empreinte = empreinteFournisseur(f, publicUrl),
   ): Promise<ServerMetadata> {
-    const empreinte = empreinteFournisseur(f, publicUrl);
     const t = this.o.maintenant();
     const connue = this.decouvertes.get(f.id);
     if (connue !== undefined && connue.empreinte === empreinte && connue.expire > t)
       return connue.metadonnees;
-    const echec = this.echecs.get(f.id);
-    if (echec !== undefined && echec.empreinte === empreinte && echec.jusqua > t)
-      throw new RefusOidc("unavailable", echec.cause);
+    echecGarde(this.echecs, f.id, empreinte, t);
     let metadonnees: ServerMetadata;
     try {
       metadonnees = await this.lireDecouverte(f, client);
@@ -186,29 +203,17 @@ export class FabriqueConfigurations {
   }
 
   /** Document de découverte lu et vérifié ; `unavailable` s'il manque ou s'il est faux. */
-  private async lireDecouverte(f: FournisseurOidc, client: ClientHttps): Promise<ServerMetadata> {
-    let rep: Response;
-    let texte: string;
-    try {
-      rep = await client.fetch(adresseDecouverte(f.issuer), { headers: { accept: "application/json" } });
-      texte = await rep.text();
-    } catch (e) {
-      throw new RefusOidc("unavailable", `discovery:${e instanceof ErreurSortant ? e.code : "reseau"}`);
-    }
-    if (rep.status !== 200) throw new RefusOidc("unavailable", `discovery:status_${rep.status}`);
-    let doc: unknown;
-    try {
-      doc = JSON.parse(texte);
-    } catch {
-      throw new RefusOidc("unavailable", "discovery:json");
-    }
-    const v = lireMetadonnees(doc, f.issuer);
+  private async lireDecouverte(f: Fournisseur, client: ClientHttps): Promise<ServerMetadata> {
+    const v = lireMetadonnees(
+      await this.lireJson(client, adresseDecouverte(f.issuer), "discovery"),
+      f.issuer,
+    );
     if (!v.ok) throw new RefusOidc("unavailable", "discovery:invalid");
     return v.metadonnees;
   }
 
   /** Configuration prête pour un appel : secret du coffre, signature du jeton d'identité vérifiée avec l'algorithme réglé, tolérance d'horloge du fournisseur, `fetch` borné ; `unavailable` si le secret manque ou si la découverte échoue. */
-  async ouvrir(f: FournisseurOidc, publicUrl: string): Promise<ConfigurationOuverte> {
+  async ouvrir(f: Fournisseur, publicUrl: string): Promise<ConfigurationOuverte> {
     const secret = await secretFournisseur(this.o.base, f);
     if (secret === null) throw new RefusOidc("unavailable", "client_secret_missing");
     const client = this.client(f);

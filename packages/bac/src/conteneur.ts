@@ -58,8 +58,10 @@ import {
   AGENT_SOCKET,
   agentDir,
   agentEmpreinte,
+  empreinteDemarrage,
   RELAY_DIR,
   RELAY_MOUNT,
+  SCRIPT_DEMARRAGE,
 } from "./montages";
 import {
   empreinteNavigateur,
@@ -381,7 +383,13 @@ export class UserSandbox implements BacPourAgent {
     const profil = this.networkProfile;
     // Navigateur installé : son étiquette doit suivre les montages (sinon, rien à comparer).
     const navigateur = empreinteNavigateur();
-    const champs = [labelTpl("netcfg"), labelTpl("spec"), "{{.Config.Image}}", labelTpl("agent")];
+    const champs = [
+      labelTpl("netcfg"),
+      labelTpl("spec"),
+      "{{.Config.Image}}",
+      labelTpl("agent"),
+      labelTpl("entry"),
+    ];
     if (navigateur) champs.push(labelTpl("browser"));
     const [rc, out] = await this.appel(
       ["inspect", "--format", champs.join("|"), this.containerName],
@@ -389,8 +397,9 @@ export class UserSandbox implements BacPourAgent {
       signal,
     );
     if (rc !== 0) return !profilFiltre(profil);
-    const [cur = "", spec = "", image = "", agent = "", nav = ""] = [
+    const [cur = "", spec = "", image = "", agent = "", entree = "", nav = ""] = [
       ...stripPy(decoderRemplace(out)).split("|"),
+      "",
       "",
       "",
       "",
@@ -398,9 +407,20 @@ export class UserSandbox implements BacPourAgent {
     ];
     if (spec !== RUN_SPEC || (image && image !== this.cfg.image) || !["", agentEmpreinte()].includes(agent))
       return false;
+    if (entree !== this.empreinteEntree()) return false;
     if (navigateur && nav !== navigateur) return false;
     if (!cur || cur === "<no value>") return !profilFiltre(profil);
     return cur === netcfgHash(profil);
+  }
+
+  /** Empreinte du script de démarrage ; illisible (installation incomplète) : détail au journal, refus sobre. */
+  private empreinteEntree(): string {
+    try {
+      return empreinteDemarrage();
+    } catch (e) {
+      journalDe("sandbox").warn(`[sandbox] script de démarrage illisible : ${(e as Error).message}`);
+      throw new ExecError("La sandbox ne peut pas démarrer. Demandez à votre administrateur.");
+    }
   }
 
   /** `_stale` : à recréer, et l'image configurée disponible ; sinon recréation reportée (message gardé). */
@@ -434,7 +454,7 @@ export class UserSandbox implements BacPourAgent {
     try {
       if (!(await this.stale(signal))) return st;
     } catch (e) {
-      if (estAnnulation(e, signal)) this.configVerified = false;
+      this.configVerified = false;
       throw e;
     }
     journalDe("sandbox").info(
@@ -613,6 +633,8 @@ export class UserSandbox implements BacPourAgent {
       "-d",
       "--init",
       "--no-healthcheck",
+      "--entrypoint",
+      "/bin/sh",
       "--name",
       this.containerName,
       "--label",
@@ -665,10 +687,12 @@ export class UserSandbox implements BacPourAgent {
       label("spec", RUN_SPEC),
       "--label",
       label("agent", agentEmpreinte()),
+      "--label",
+      label("entry", this.empreinteEntree()),
     );
     if (profil.mode === "none") args.push("--network", "none");
     else if (profil.mode === "allowlist_ip") {
-      args.push("--cap-add", "NET_ADMIN");
+      args.push("--cap-add", "NET_ADMIN", "-e", "ELPIS_NET_MODE=allowlist");
       const r = resolus ?? {};
       const permis: string[] = profil.ips.map((x) => x as string);
       for (const dom of profil.domains) {
@@ -676,7 +700,6 @@ export class UserSandbox implements BacPourAgent {
         permis.push(...ips);
         if (ips.length > 0) args.push("--add-host", `${dom}:${ips[0]}`);
       }
-      permis.push(...profil.dns);
       const vus = new Set<string>();
       const uniques = permis.filter((x) => !vus.has(x) && vus.add(x) !== undefined);
       args.push("-e", `ELPIS_ALLOWLIST=${uniques.join(" ")}`);
@@ -689,7 +712,7 @@ export class UserSandbox implements BacPourAgent {
     const navigateur = montagesNavigateur();
     if (navigateur !== null) args.push(...navigateur, "--label", label("browser", empreinteNavigateur()));
     for (const a of this.cfg.extra_run_args) args.push(a);
-    args.push(this.cfg.image, "sleep", "infinity");
+    args.push(this.cfg.image, SCRIPT_DEMARRAGE, "sleep", "infinity");
     return args;
   }
 

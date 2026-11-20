@@ -8,6 +8,13 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: startup script from the installation, allowlist closed by default.** Every sandbox
+  now starts with `sandbox-agent/demarrage.sh`, mounted read-only from the installation (no image
+  to rebuild; a third-party image needs `/bin/sh`, `setpriv` and, for allowlist profiles,
+  `iptables`). An allowlist profile refuses everything first, then sets its rules in one go: with no destination left (no domain resolved, entries ignored), the network stays
+  closed instead of open. Addresses and DNS resolvers of a profile are IPv4 only (an IPv6 entry
+  stopped the sandbox from starting): refused by the console, ignored when read, stored in
+  canonical form. Resolvers are reachable on port 53 only. `elpis.spec` 8.
 - **Sandbox: an account's commands no longer go through a root step.** Commands, the container
   agent, the browser service and the terminal enter the container directly under the account's
   UID. The container's own `PATH` holds system folders only; the account's folders in `/work` are

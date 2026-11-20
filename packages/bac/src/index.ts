@@ -98,11 +98,13 @@ export {
   chargerConfigBac,
   configBacDepuis,
   DOMAIN_RE,
+  ipv4Canonique,
   netcfgHash,
   oublierSignalements,
   PROFILE_ID_RE,
   profilParId,
   profilReseauDepuis,
+  resolveurValide,
   signalerUneFois,
 } from "./profils";
 export type { Avertir, ConfigBac, ProfilReseau } from "./profils";

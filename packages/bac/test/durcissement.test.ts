@@ -128,20 +128,24 @@ describe("constantes", () => {
     expect(PATH_SYSTEME).not.toContain("/work");
   });
 
-  it("profil filtré : liste blanche IP seule", () => {
-    expect(["none", "bridge", "allowlist_ip"].map((mode) => profilFiltre({ mode: mode as never }))).toEqual([
-      false,
-      false,
-      true,
-    ]);
+  it("profil filtré : liste blanche, ou profil ouvert avec une protection cochée", () => {
+    const p = (mode: string, coche = false) => ({
+      mode: mode as never,
+      block_metadata: false,
+      block_lan: coche,
+      block_host: false,
+    });
+    expect(
+      [p("none"), p("bridge"), p("allowlist_ip"), p("bridge", true), p("none", true)].map(profilFiltre),
+    ).toEqual([false, false, true, true, false]);
   });
 
   it("plus d'export privdrop", () => {
     expect("privdrop" in bac).toBe(false);
   });
 
-  it("version des options de lancement : 12", () => {
-    expect(RUN_SPEC).toBe("12");
+  it("version des options de lancement : 13", () => {
+    expect(RUN_SPEC).toBe("13");
   });
 });
 

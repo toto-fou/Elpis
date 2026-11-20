@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   CONTRATS_REST,
   schemaReponseConteneurs,
+  schemaReponseEtatExecuteurs,
   schemaReponseHotesOutils,
   schemaReponseSanteDocker,
 } from "../../src";
@@ -54,6 +55,16 @@ describe("contrats REST : exécuteurs de la console (core réel)", () => {
     ).toMatchObject({
       daemon_ok: false,
     });
+    expect(
+      schemaReponseEtatExecuteurs.parse(await core.appeler("GET", "/api/admin/executors/status", { cookie })),
+    ).toEqual({ ok: true, domains_status: {}, stale_containers: [] });
+    await core.appeler("GET", "/api/admin/executors/status", { cookie: cookieLou });
+    const etat = {
+      ok: true,
+      domains_status: { web: { "pypi.org": ["192.0.2.7"], "absent.test": [], "lent.test": null } },
+      stale_containers: [{ user_id: 1, username: "zoe", container: "elpis-sb-zoe", profile_id: "web" }],
+    };
+    expect(schemaReponseEtatExecuteurs.parse(etat)).toEqual(etat);
     await core.appeler("GET", "/api/admin/sandbox/containers", { cookie });
     await core.appeler("POST", "/api/admin/sandbox/containers/99/stop", { cookie });
     expect(await core.appeler("POST", "/api/admin/sandbox/containers/1/stop", { cookie })).toEqual({

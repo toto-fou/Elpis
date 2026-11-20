@@ -31,6 +31,8 @@ import {
   suffixePy,
 } from "@elpis/commun";
 import { config, configView, pyJoin, pyParent, pyPath, realpathPy, safeSandboxName } from "@elpis/config";
+import { hostAddressesRecent } from "@elpis/securite";
+import type { HoteMachine } from "@elpis/securite";
 
 import { erreurAgent, fabriqueAgent } from "./agent";
 import type { AgentBac, BacPourAgent, EtatBac } from "./agent";
@@ -76,8 +78,23 @@ import {
   SCRIPT_NAVIGATEUR,
 } from "./navigateur";
 import { verifierMontages } from "./options-run";
-import { configBacDepuis, netcfgHash, profilParId } from "./profils";
-import { argvCreationReseau, DNS_DE_GARDE, FORMAT_RESEAU, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
+import {
+  configBacDepuis,
+  etiquetteDomaines,
+  etiquetteNetcfg,
+  netcfgHash,
+  profilParId,
+  protectionsDe,
+} from "./profils";
+import {
+  adressesEpinglables,
+  argvCreationReseau,
+  DNS_DE_GARDE,
+  FORMAT_RESEAU,
+  plagesRefusees,
+  RESEAU_BACS,
+  RESEAU_CONFORME,
+} from "./reseau";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
 import { MODES_MARKER, PERMS_MARKER_LEGACY } from "./travail";
 
@@ -186,6 +203,8 @@ export interface OptionsUserSandbox {
   readonly cli?: CliDocker;
   readonly chargerImage?: ChargeurImage;
   readonly resoudreDomaines?: ResolveurDomaines;
+  /** Relevé des adresses de la machine (protection « hôte »). */
+  readonly machine?: () => Promise<HoteMachine>;
 }
 
 function etat(champs: Partial<EtatBac> & { exists: boolean; running: boolean }): EtatBac {
@@ -207,13 +226,18 @@ function erreurOs(e: unknown): boolean {
   return typeof (e as { syscall?: unknown } | null)?.syscall === "string";
 }
 
+/** Adresses IPv4 d'un nom, sans doublon et triées (forme relevée à la création du conteneur). */
+export async function resoudreIpv4(dom: string): Promise<string[]> {
+  const adresses = await lookup(dom, { family: 4, all: true });
+  return [...new Set(adresses.map((a) => a.address))].sort(comparePointsDeCode);
+}
+
 /** `resolve_profile_domains` : domaines du profil en IPv4 triées (au mieux : un domaine irrésoluble est ignoré). */
 export async function resolveProfileDomains(profil: ProfilReseau): Promise<Record<string, string[]>> {
   const resolus: Record<string, string[]> = {};
   for (const dom of profil.domains) {
     try {
-      const adresses = await lookup(dom, { family: 4, all: true });
-      const ips = [...new Set(adresses.map((a) => a.address))].sort(comparePointsDeCode);
+      const ips = await resoudreIpv4(dom);
       if (ips.length > 0) resolus[dom] = ips;
     } catch (e) {
       journalDe("sandbox").warn(
@@ -264,6 +288,7 @@ export class UserSandbox implements BacPourAgent {
   readonly cli: CliDocker;
   private readonly chargerImage: ChargeurImage;
   private readonly resoudreDomaines: ResolveurDomaines;
+  private readonly machine: () => Promise<HoteMachine>;
 
   constructor(
     userId: number,
@@ -281,6 +306,7 @@ export class UserSandbox implements BacPourAgent {
     this.cli = options.cli ?? new DockerCli();
     this.chargerImage = options.chargerImage ?? ensureImageLoaded;
     this.resoudreDomaines = options.resoudreDomaines ?? resolveProfileDomains;
+    this.machine = options.machine ?? (() => hostAddressesRecent());
   }
 
   get containerName(): string {
@@ -419,7 +445,29 @@ export class UserSandbox implements BacPourAgent {
     if (entree !== this.empreinteEntree() || durci !== (this.durci(profil) ? "1" : "0")) return false;
     if (navigateur && nav !== navigateur) return false;
     if (!cur || cur === "<no value>") return !this.durci(profil);
-    return cur === netcfgHash(profil);
+    return cur === (await this.netcfgAttendu(profil)) || (await this.refuseDeja(profil, cur, signal));
+  }
+
+  /** Profil protégé dont seules les plages de la machine ont changé : à jour tant que le conteneur refuse déjà toutes celles du moment (une adresse disparue ne le fait pas recréer). */
+  private async refuseDeja(profil: ProfilReseau, etiquette: string, signal?: AbortSignal): Promise<boolean> {
+    if (protectionsDe(profil).length === 0 || !etiquette.startsWith(`${netcfgHash(profil)}-`)) return false;
+    let voulues: string[];
+    try {
+      voulues = await this.plagesDuProfil(profil);
+    } catch {
+      return false;
+    }
+    const [rc, out] = await this.appel(
+      ["inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", this.containerName],
+      5,
+      signal,
+    );
+    if (rc !== 0) return false;
+    const ligne = decoderRemplace(out)
+      .split("\n")
+      .find((l) => l.startsWith("ELPIS_BLOCKED="));
+    const posees = new Set((ligne ?? "").slice("ELPIS_BLOCKED=".length).split(" ").filter(Boolean));
+    return voulues.every((r) => posees.has(r));
   }
 
   /** Empreinte du script de démarrage ; illisible (installation incomplète) : détail au journal, refus sobre. */
@@ -459,8 +507,9 @@ export class UserSandbox implements BacPourAgent {
   }
 
   private async reconcileConfig(st: EtatBac, signal?: AbortSignal): Promise<EtatBac> {
+    const attendu = await this.attente();
     this.configVerified = true;
-    this.verifiePour = this.attente();
+    this.verifiePour = attendu;
     try {
       if (!(await this.stale(signal))) {
         if (this.inspectionDouteuse) {
@@ -558,7 +607,7 @@ export class UserSandbox implements BacPourAgent {
 
   /** `ensure_running` : en marche, créé ou redémarré ; création sérialisée par compte (verrou de cycle de vie). */
   async ensureRunning(signal?: AbortSignal): Promise<EtatBac> {
-    if (this.configVerified && this.verifiePour !== this.attente()) this.oublierVerifications();
+    if (this.configVerified && this.verifiePour !== (await this.attente())) this.oublierVerifications();
     const cache = getReadinessCache();
     if (this.mountVerified && this.configVerified && cache.confirmedRunning(this.containerName))
       return etat({ exists: true, running: true, container_name: this.containerName });
@@ -659,18 +708,33 @@ export class UserSandbox implements BacPourAgent {
     this.entreesVerifiees.clear();
   }
 
-  /** Ce qui décide des options et des entrées du conteneur : durcissement, réseau, image, utilisateur. */
-  private attente(): string {
+  /** Ce qui décide des options et des entrées du conteneur : durcissement, réseau (plages refusées relues), image, utilisateur. */
+  private async attente(): Promise<string> {
     const profil = this.networkProfile;
-    return [this.durci(profil) ? "1" : "0", netcfgHash(profil), this.cfg.image, this.utilisateurExec()].join(
-      "|",
-    );
+    const reseau = await this.netcfgAttendu(profil);
+    return [this.durci(profil) ? "1" : "0", reseau, this.cfg.image, this.utilisateurExec()].join("|");
   }
 
-  /** `_build_run_args` : argv de `docker run`, pur (les domaines sont résolus par l'appelant). */
+  /** Plages refusées par les protections du profil, relevées à l'instant ; erreur si la machine ne se lit pas. */
+  private plagesDuProfil(profil: ProfilReseau): Promise<string[]> {
+    return plagesRefusees(protectionsDe(profil), this.machine);
+  }
+
+  /** Étiquette `elpis.netcfg` qu'aurait un conteneur créé à l'instant ; machine illisible pour un profil protégé : `"!"` (jamais à jour). */
+  private async netcfgAttendu(profil: ProfilReseau): Promise<string> {
+    if (protectionsDe(profil).length === 0) return netcfgHash(profil);
+    try {
+      return etiquetteNetcfg(profil, await this.plagesDuProfil(profil));
+    } catch {
+      return "!";
+    }
+  }
+
+  /** `_build_run_args` : argv de `docker run`, pur (domaines résolus et plages refusées par les protections fournis par l'appelant). */
   buildRunArgs(
     profil: ProfilReseau,
     resolus: Readonly<Record<string, readonly string[]>> | null = null,
+    refusees: readonly string[] = [],
   ): string[] {
     const durci = this.durci(profil);
     const args = [
@@ -738,7 +802,7 @@ export class UserSandbox implements BacPourAgent {
     if (this.cfg.runtime) args.splice(2, 0, "--runtime", this.cfg.runtime);
     args.push(
       "--label",
-      label("netcfg", netcfgHash(profil)),
+      label("netcfg", etiquetteNetcfg(profil, refusees)),
       "--label",
       label("spec", RUN_SPEC),
       "--label",
@@ -767,7 +831,16 @@ export class UserSandbox implements BacPourAgent {
         args.push("-e", `ELPIS_DNS=${profil.dns.join(" ")}`);
         for (const ip of profil.dns) args.push("--dns", ip);
       } else args.push("--dns", DNS_DE_GARDE);
-    }
+      if (profil.domains.length > 0) args.push("--label", label("resolved", etiquetteDomaines(r)));
+    } else if (protectionsDe(profil).length > 0)
+      args.push(
+        "--cap-add",
+        "NET_ADMIN",
+        "-e",
+        "ELPIS_NET_MODE=blocklist",
+        "-e",
+        `ELPIS_BLOCKED=${refusees.join(" ")}`,
+      );
     const navigateur = montagesNavigateur();
     if (navigateur !== null) args.push(...navigateur, "--label", label("browser", empreinteNavigateur()));
     for (const a of this.cfg.extra_run_args) args.push(a);
@@ -815,6 +888,24 @@ export class UserSandbox implements BacPourAgent {
   }
 
   /** `_create` : idempotent face à une création concurrente ; journaux du conteneur rendus si l'entrypoint plante. */
+  /** Adresses résolues réduites à celles que la sandbox peut épingler (`adressesEpinglables`) ; les autres sont signalées au journal. */
+  private async epinglables(
+    profil: ProfilReseau,
+    resolus: Record<string, string[]>,
+  ): Promise<Record<string, string[]>> {
+    const h = await this.machine().catch(() => null);
+    const gardes: Record<string, string[]> = {};
+    for (const [dom, ips] of Object.entries(resolus)) {
+      const { gardees, ecartees } = adressesEpinglables(ips, profil.ips, h);
+      if (ecartees.length > 0)
+        journalDe("sandbox").warn(
+          `[sandbox] profil ${profil.id} : domaine '${dom}' : ${ecartees.join(", ")} non épinglée(s) (${h === null ? "machine illisible" : "adresse locale, de la machine ou de métadonnées"}) ; à ajouter aux adresses du profil pour l'autoriser`,
+        );
+      if (gardees.length > 0) gardes[dom] = gardees;
+    }
+    return gardes;
+  }
+
   private async create(signal?: AbortSignal): Promise<void> {
     const pre = await this.status(signal);
     if (pre.running) return;
@@ -847,9 +938,19 @@ export class UserSandbox implements BacPourAgent {
           `[sandbox] résolution domaines profil ${profil.id} KO : ${(e as Error).message}`,
         );
       }
+      resolus = await this.epinglables(profil, resolus);
     }
     if (profil.mode !== "none") await this.ensureReseau(signal);
-    const lancement = await verifierMontages(this.buildRunArgs(profil, resolus));
+    let refusees: string[];
+    try {
+      refusees = await this.plagesDuProfil(profil);
+    } catch (e) {
+      journalDe("sandbox").warn(
+        `[sandbox] profil ${profil.id} : protection « hôte » inapplicable (${(e as Error).message})`,
+      );
+      throw new ExecError("La sandbox ne peut pas démarrer. Demandez à votre administrateur.");
+    }
+    const lancement = await verifierMontages(this.buildRunArgs(profil, resolus, refusees));
     for (const r of lancement.refus)
       journalDe("sandbox").warn(
         `[sandbox] ${this.containerName} : montage d'executors.extra_run_args écarté : ${r}`,

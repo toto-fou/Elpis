@@ -9,10 +9,11 @@ import type { AdresseIp, Reseau } from "@elpis/commun";
 /** Interfaces de conteneurs et de machines virtuelles : leurs réseaux sont internes à la machine. */
 export const INTERFACES_CONTENEURS = /^(docker|br-|veth|virbr|cni|flannel|podman|lxc|lxd|incus|vnet|kube)/u;
 
-/** Adresses de la machine et sous-réseaux de ses interfaces de conteneurs. */
+/** Adresses de la machine, sous-réseaux de ses interfaces de conteneurs et adresses de diffusion de ses sous-réseaux. */
 export interface HoteMachine {
   adresses: readonly AdresseIp[];
   reseaux: readonly Reseau[];
+  diffusions?: readonly AdresseIp[];
 }
 
 /** Crochets et zone retirés, IPv4 encapsulée rendue en IPv4. */
@@ -47,6 +48,7 @@ function ipv4Proc(hex: string): string {
 export async function hostAddresses(): Promise<HoteMachine> {
   const adresses: AdresseIp[] = [];
   const reseaux: Reseau[] = [];
+  const diffusions: AdresseIp[] = [];
   const ajouter = (texte: string, nom: string, prefixe: string | null): void => {
     const ip = ipLue(texte);
     if (ip === null) return;
@@ -66,6 +68,10 @@ export async function hostAddresses(): Promise<HoteMachine> {
     const feuille = /^\s*\|-- (\S+)$/u.exec(ligne);
     if (feuille) derniere = feuille[1] ?? "";
     else if (/^\s*\/32 host LOCAL$/u.test(ligne) && derniere) ajouter(derniere, "", null);
+    else if (/^\s*\/32 link BROADCAST$/u.test(ligne) && derniere) {
+      const ip = ipLue(derniere);
+      if (ip !== null) diffusions.push(ip);
+    }
   }
   for (const ligne of (await lire("/proc/net/route")).split("\n").slice(1)) {
     const [nom, dest, passerelle, , , , , masque] = ligne.trim().split(/\s+/u);
@@ -74,7 +80,17 @@ export async function hostAddresses(): Promise<HoteMachine> {
     const r = reseauPy(`${ipv4Proc(dest)}/${ipv4Proc(masque)}`);
     if (r !== null) reseaux.push(r);
   }
-  return { adresses, reseaux };
+  return { adresses, reseaux, diffusions };
+}
+
+let releveRecent: { t: number; v: Promise<HoteMachine> } | null = null;
+
+/** Relevé de la machine gardé `ttlMs` : un bac protégé le relit avant chaque usage sans relire /proc à chaque appel. */
+export function hostAddressesRecent(ttlMs = 5000): Promise<HoteMachine> {
+  const t = performance.now();
+  if (releveRecent !== null && t - releveRecent.t < ttlMs) return releveRecent.v;
+  releveRecent = { t, v: hostAddresses() };
+  return releveRecent.v;
 }
 
 /** Ce qu'est l'adresse pour la machine (une IPv4 encapsulée est jugée par son IPv4) : une de ses adresses, une adresse d'un réseau de ses conteneurs. */

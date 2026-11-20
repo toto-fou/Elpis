@@ -11,6 +11,7 @@ import {
   utimesSync,
   writeFileSync,
 } from "node:fs";
+import type * as Dns from "node:dns/promises";
 import type { ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -21,13 +22,15 @@ import {
   configuredImage,
   DEFAUTS_DISQUE,
   DOMAIN_RE,
+  etiquetteNetcfg,
   netcfgHash,
+  plagesRefusees,
   profilReseauDepuis,
   RUN_SPEC,
 } from "@elpis/bac";
 import { pyJsonDumps, pyJsonLoads } from "@elpis/commun";
 import { DEFAUTS_SEUILS_DISQUE } from "@elpis/contracts";
-import { surchargerConfig } from "@elpis/config";
+import { invalidateConfigCache, surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
@@ -41,6 +44,7 @@ import {
   conteneursPerimes,
   configAssainie,
   delaisDocker,
+  oublierEtatDomaines,
   profilsAssainis,
   vueExecuteurs,
 } from "../../src/administration/executeurs";
@@ -54,6 +58,19 @@ import { FauxServeur } from "../llm/faux-serveur";
 import type { RequeteRecue } from "../llm/faux-serveur";
 
 type Dict = Record<string, unknown>;
+
+/** Noms résolus par le test (documentation IPv4) ; les autres passent par le vrai résolveur. */
+const noms = vi.hoisted(() => ({ table: {} as Record<string, string[]> }));
+vi.mock("node:dns/promises", async (original) => {
+  const reel = await original<typeof Dns>();
+  return {
+    ...reel,
+    lookup: (nom: string, ...reste: unknown[]) =>
+      nom in noms.table
+        ? Promise.resolve(noms.table[nom]?.map((address) => ({ address, family: 4 })))
+        : (reel.lookup as (...a: unknown[]) => unknown)(nom, ...reste),
+  };
+});
 
 /** Écarts propres au TS (tâches de fond `shell_job`, seuils disque du harnais N-08) : la vue GET des exécuteurs porte les sections `jobs` et `disk`, défauts compris. */
 function avecSectionJobs(
@@ -324,7 +341,7 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     rmSync(d, { recursive: true, force: true });
   });
 
-  it("inventaire : 11 routes du process admin sous la garde admin, rien dans main ; anonyme = 401", async () => {
+  it("inventaire : 11 routes du process admin (plus l'état des exécuteurs, propre au TS) sous la garde admin, rien dans main ; anonyme = 401", async () => {
     const inventaire = JSON.parse(
       readFileSync(new URL("../../../../migration-kit/routes.inventory.json", import.meta.url), "utf-8"),
     ) as { routes: { methodes: string[]; chemin: string; process: string[]; module: string }[] };
@@ -333,7 +350,10 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     );
     expect(attendues).toHaveLength(11);
     const montees = app.elpis.routes.filter((r) => r.famille === "admin-executeurs");
-    expect(montees).toHaveLength(11);
+    expect(montees).toHaveLength(12);
+    const etat = montees.find((x) => x.chemin === "/api/admin/executors/status");
+    expect([etat?.methodes, etat?.acces]).toEqual([["GET"], "admin"]);
+    expect((await app.inject({ method: "GET", url: "/api/admin/executors/status" })).statusCode).toBe(401);
     for (const r of attendues) {
       const chemin = r.chemin.replace("{user_id}", ":user_id");
       const m = montees.find((x) => x.chemin === chemin && x.methodes[0] === r.methodes[0]);
@@ -582,6 +602,166 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
           `elpis-sb-c\t1\tc\t\t${RUN_SPEC}\t1`,
         ]),
       ).toEqual(["elpis-sb-a"]);
+    });
+  });
+
+  describe("conteneurs périmés selon les protections et les domaines", () => {
+    const profils: Dict[] = [
+      { id: "isolated", name: "Isolé", mode: "none" },
+      { id: "web", name: "Web", mode: "allowlist_ip", ips: ["192.0.2.0/24"], domains: ["a.example"] },
+      { id: "garde", name: "Gardé", mode: "bridge", block_metadata: true, block_lan: true },
+      { id: "libre", name: "Libre", mode: "bridge" },
+    ];
+    const profil = (id: string) => profilReseauDepuis(profils.find((p) => p["id"] === id) as Dict);
+    const chez: Record<number, string> = { 1: "web", 2: "garde", 3: "libre" };
+    const perimesDe = async (
+      lignes: string[],
+      domaines: Record<string, Record<string, string[] | null>> = {},
+      sudo = true,
+    ): Promise<string[]> => {
+      preparer("DOCKER", { "ps-netcfg.out": `${lignes.join("\n")}\n` });
+      const r = await conteneursPerimes(
+        profils,
+        async (uid) => ({ profil: chez[uid] ?? "isolated" }),
+        (reglages) => String(reglages["profil"]),
+        sudo,
+        domaines,
+      );
+      return r.map((c) => String(c["container"]));
+    };
+    const protege = async (): Promise<string> =>
+      etiquetteNetcfg(profil("garde"), await plagesRefusees(["metadata", "lan"]));
+    const web = (resolu: string, durci = "1"): string =>
+      `elpis-sb-web\t1\tw\t${netcfgHash(profil("web"))}\t${RUN_SPEC}\t${durci}\t${resolu}`;
+
+    it("profil ouvert protégé : à jour avec l'empreinte du profil suivie de celle de ses plages (la sandbox relit la machine) ; périmé avec l'empreinte seule, sans étiquette ou non durci", async () => {
+      expect(
+        await perimesDe([
+          `elpis-sb-g\t2\tg\t${await protege()}\t${RUN_SPEC}\t1\t`,
+          `elpis-sb-autre\t2\tb\t${netcfgHash(profil("garde"))}-000000000000\t${RUN_SPEC}\t1\t`,
+        ]),
+      ).toEqual([]);
+      expect(
+        await perimesDe([
+          `elpis-sb-ancien\t2\ta\t${netcfgHash(profil("garde"))}\t${RUN_SPEC}\t1\t`,
+          `elpis-sb-vide\t2\tc\t\t${RUN_SPEC}\t1\t`,
+          `elpis-sb-clair\t2\td\t${await protege()}\t${RUN_SPEC}\t0\t`,
+        ]),
+      ).toEqual(["elpis-sb-ancien", "elpis-sb-vide", "elpis-sb-clair"]);
+    });
+
+    it("profil ouvert sans protection : étiquette absente ou égale à l'empreinte, à jour ; non durci", async () => {
+      expect(
+        await perimesDe([
+          `elpis-sb-l1\t3\tl\t\t${RUN_SPEC}\t0\t`,
+          `elpis-sb-l2\t3\tl\t${netcfgHash(profil("libre"))}\t${RUN_SPEC}\t0\t`,
+        ]),
+      ).toEqual([]);
+    });
+
+    it("domaines : à jour si une adresse épinglée est encore rendue, périmé sinon ou si le domaine n'était pas épinglé", async () => {
+      const epingle = '{"a.example":["198.51.100.1"]}';
+      const cas = async (resolu: string, actuels: string[] | null | undefined): Promise<string[]> =>
+        perimesDe([web(resolu)], actuels === undefined ? {} : { web: { "a.example": actuels } });
+      expect(await cas(epingle, ["198.51.100.1", "198.51.100.2"])).toEqual([]);
+      expect(await cas(epingle, ["198.51.100.9"])).toEqual(["elpis-sb-web"]);
+      expect(await cas(epingle, null)).toEqual([]);
+      expect(await cas(epingle, [])).toEqual([]);
+      expect(await cas(epingle, undefined)).toEqual([]);
+      expect(await cas("{}", ["198.51.100.9"])).toEqual(["elpis-sb-web"]);
+      expect(await cas("", ["198.51.100.9"])).toEqual(["elpis-sb-web"]);
+      expect(await cas("<no value>", ["198.51.100.9"])).toEqual(["elpis-sb-web"]);
+      expect(await cas("{}", [])).toEqual([]);
+    });
+
+    it("l'état des domaines d'un autre profil, ou d'un profil non filtré, est sans effet", async () => {
+      expect(
+        await perimesDe([web('{"a.example":["198.51.100.1"]}'), `elpis-sb-l\t3\tl\t\t${RUN_SPEC}\t0\t`], {
+          libre: { "a.example": ["198.51.100.9"] },
+          autre: { "a.example": ["198.51.100.9"] },
+        }),
+      ).toEqual([]);
+    });
+  });
+
+  describe("GET /api/admin/executors/status", () => {
+    const etat = async (): Promise<{ statut: number; corps: Dict }> => {
+      const r = await appel(1, "GET", "/api/admin/executors/status");
+      return { statut: r.statusCode, corps: r.json() as Dict };
+    };
+    const ecrire = (cfg: unknown): void => {
+      writeFileSync(path.join(d, "config.json"), JSON.stringify(cfg));
+      invalidateConfigCache();
+    };
+    const config = (): void =>
+      ecrire({
+        executors: {
+          network_profiles: [
+            { id: "isolated", name: "Isolé", mode: "none" },
+            { id: "web", name: "Web", mode: "allowlist_ip", ips: ["192.0.2.0/24"], domains: ["web.example"] },
+          ],
+        },
+      });
+    const hashWeb = (): string =>
+      netcfgHash(
+        profilReseauDepuis({
+          id: "web",
+          name: "Web",
+          mode: "allowlist_ip",
+          ips: ["192.0.2.0/24"],
+          domains: ["web.example"],
+        }),
+      );
+
+    beforeEach(() => {
+      noms.table = { "web.example": ["198.51.100.1"] };
+    });
+    afterEach(() => {
+      noms.table = {};
+      oublierEtatDomaines();
+    });
+
+    it("adresses du moment des domaines et conteneurs à recréer ; vide sans conteneur", async () => {
+      config();
+      preparer("DOCKER", { "ps-netcfg.out": "" });
+      expect(await etat()).toEqual({
+        statut: 200,
+        corps: {
+          ok: true,
+          domains_status: { web: { "web.example": ["198.51.100.1"] } },
+          stale_containers: [],
+        },
+      });
+    });
+
+    it("conteneur dont les adresses épinglées ne sont plus rendues : listé ; encore rendues : absent", async () => {
+      config();
+      const ligne = (resolu: string): string =>
+        `elpis-sb-bob\t3\tbob\t${hashWeb()}\t${RUN_SPEC}\t1\t${resolu}`;
+      preparer("DOCKER", { "ps-netcfg.out": `${ligne('{"web.example":["10.9.9.9"]}')}\n` });
+      expect((await etat()).corps["stale_containers"]).toEqual([
+        { user_id: 3, username: "bob", container: "elpis-sb-bob", profile_id: "web" },
+      ]);
+      preparer("DOCKER", { "ps-netcfg.out": `${ligne('{"web.example":["198.51.100.1"]}')}\n` });
+      expect((await etat()).corps["stale_containers"]).toEqual([]);
+    });
+
+    it("sudo refusé dans la config : les conteneurs non durcis sont listés aussi", async () => {
+      writeFileSync(
+        path.join(d, "config.json"),
+        JSON.stringify({
+          executors: { allow_sudo: false, network_profiles: [{ id: "isolated", name: "I", mode: "none" }] },
+        }),
+      );
+      preparer("DOCKER", { "ps-netcfg.out": `elpis-sb-bob\t3\tbob\t\t${RUN_SPEC}\t0\t\n` });
+      const r = await etat();
+      expect(r.corps["domains_status"]).toEqual({});
+      expect((r.corps["stale_containers"] as Dict[]).map((c) => c["container"])).toEqual(["elpis-sb-bob"]);
+    });
+
+    it("réservé à l'administrateur", async () => {
+      const r = await appel(2, "GET", "/api/admin/executors/status");
+      expect(r.statusCode).toBe(403);
     });
   });
 });

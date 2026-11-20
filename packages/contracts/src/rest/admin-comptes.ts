@@ -41,6 +41,10 @@ export const schemaProfilReseau = z.object({
   domains: z.array(z.string()),
   ports: z.array(z.unknown()),
   dns: z.array(z.string()),
+  /** Protections d'un profil ouvert (métadonnées, réseau local, hôte) ; absentes : non cochées. */
+  block_metadata: z.boolean().optional(),
+  block_lan: z.boolean().optional(),
+  block_host: z.boolean().optional(),
 });
 export const schemaMachineBureau = z.object({
   name: z.string(),

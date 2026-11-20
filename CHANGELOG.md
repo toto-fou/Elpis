@@ -8,6 +8,18 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: an open network profile can refuse cloud metadata, the local network and the
+  host.** Three boxes in the profile editor (Admin console › Sandbox › network profiles,
+  *Refuse*); metadata and host are ticked on a new profile, existing profiles are unchanged and
+  `./elpis doctor` lists those left without protection. The host protection also refuses
+  broadcast and multicast; the machine's addresses are read again before each use, and a
+  sandbox that does not refuse a new address yet is recreated. A profile with a protection runs its sandboxes
+  without `sudo`, and the browser relay applies the same protections, with no IPv6. The console
+  also shows the allowlist domains that have no address at the moment, and lists the running
+  containers none of whose pinned addresses for a domain are still returned, ready to be
+  recreated. An allowlist domain no longer opens a loopback, link-local, multicast or cloud
+  metadata address, nor the host's own addresses: such an address is left out, with a warning
+  in the server journal, unless the profile lists it among its addresses.
 - **`./elpis doctor`: sandbox isolation.** It now reports the startup script, the sandbox network
   (exactly as Elpis creates it) and bridged-traffic filtering, Docker older than 26 (counted:
   traffic between sandboxes is not fully cut there), a kernel without container swap limits, a

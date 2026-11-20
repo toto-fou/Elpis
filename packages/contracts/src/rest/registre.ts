@@ -890,6 +890,7 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminExecuteurs.schemaCorpsExecuteurs,
   ),
   c("admin-executeurs", "GET", "/api/admin/executors/healthcheck", adminExecuteurs.schemaReponseSanteDocker),
+  c("admin-executeurs", "GET", "/api/admin/executors/status", adminExecuteurs.schemaReponseEtatExecuteurs),
   // Propre au TS : sous-agents (lecture seule par type, sous-agents simultanés), section `agents` de config.json.
   c("admin-agents", "GET", "/api/admin/agents", adminAgents.schemaReponseReglagesAgents),
   c(

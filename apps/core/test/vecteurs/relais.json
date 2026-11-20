@@ -3089,7 +3089,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3163,7 +3166,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3237,7 +3243,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3311,7 +3320,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3385,7 +3397,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3474,7 +3489,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3556,7 +3574,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3655,7 +3676,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3732,7 +3756,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3811,7 +3838,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -3904,7 +3934,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "lan",
@@ -3935,7 +3968,10 @@
             ],
             "dns": [
               "10.0.0.1"
-            ]
+            ],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4019,7 +4055,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "a",
@@ -4033,7 +4072,10 @@
               4,
               3
             ],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4122,7 +4164,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "a",
@@ -4132,7 +4177,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4217,7 +4265,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "lan",
@@ -4227,7 +4278,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -4237,7 +4291,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "5",
@@ -4247,7 +4304,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "lan",
@@ -4257,7 +4317,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "a",
@@ -4267,7 +4330,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "web",
@@ -4277,7 +4343,10 @@
             "description": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00x",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4351,7 +4420,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "z",
@@ -4361,7 +4433,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4435,7 +4510,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4509,7 +4587,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4591,7 +4672,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "legacy",
@@ -4603,7 +4687,10 @@
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4681,7 +4768,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "legacy",
@@ -4691,7 +4781,10 @@
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4767,7 +4860,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "legacy",
@@ -4777,7 +4873,10 @@
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4851,7 +4950,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "legacy",
@@ -4861,7 +4963,10 @@
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -4942,7 +5047,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "legacy",
@@ -4952,7 +5060,10 @@
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -5028,7 +5139,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "legacy",
@@ -5038,7 +5152,10 @@
             "description": "Migr\u00e9 automatiquement depuis l'ancienne config.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -5112,7 +5229,10 @@
             "description": "Aucun acc\u00e8s r\u00e9seau. S\u00e9curit\u00e9 maximale.",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "ok",
@@ -5122,7 +5242,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true
@@ -5196,7 +5319,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "isolated",
@@ -5206,7 +5332,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           },
           {
             "id": "lan",
@@ -5216,7 +5345,10 @@
             "description": "",
             "domains": [],
             "ports": [],
-            "dns": []
+            "dns": [],
+            "block_metadata": false,
+            "block_lan": false,
+            "block_host": false
           }
         ],
         "allow_sudo": true

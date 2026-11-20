@@ -119,3 +119,33 @@ def test_sudo_permis_refuse_ou_illisible(tmp_path, config, attendu):
     assert attendu in out + err
     assert bad == 0
     assert sum(m in out + err for m in ("sudo permis", "bacs durcis", "non lu")) == 1
+
+
+def _profil(pid, mode, **extra):
+    return {"id": pid, "name": pid, "mode": mode, **extra}
+
+
+@pytest.mark.parametrize("profils,cites", [
+    ([], ""),
+    ([_profil("isolated", "none"), _profil("lan", "allowlist_ip", ips=["192.0.2.1"])], ""),
+    ([_profil("libre", "bridge")], "libre"),
+    ([_profil("libre", "bridge"), _profil("b", "bridge", block_lan=False)], "libre b"),
+    ([_profil("garde", "bridge", block_metadata=True)], ""),
+    ([_profil("garde", "bridge", block_host=True), _profil("libre", "bridge")], "libre"),
+    ([_profil("vrai", "bridge", block_lan="oui")], ""),
+    ([_profil("vrai", "bridge", block_lan=1)], ""),
+    ([_profil("faux", "bridge", block_lan=0, block_host="")], "faux"),
+])
+def test_profils_ouverts_sans_protection_listes(tmp_path, profils, cites):
+    bad, out, err = _jouer(tmp_path, reseau="", config={"executors": {"network_profiles": profils}})
+    assert bad == 0
+    if cites:
+        assert f"profils réseau ouverts sans protection ({cites})" in out
+    else:
+        assert "profils réseau ouverts sans protection" not in out
+
+
+def test_profils_illisibles_ou_mal_formes_sans_conseil(tmp_path):
+    for config in ("{pas du json", {"executors": {"network_profiles": "abc"}}, {"executors": {"network_profiles": ["x", 5]}}):
+        bad, out, err = _jouer(tmp_path / str(abs(hash(str(config)))), reseau="", config=config)
+        assert bad == 0 and "profils réseau ouverts sans protection" not in out

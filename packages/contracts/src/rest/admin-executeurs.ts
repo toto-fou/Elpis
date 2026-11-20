@@ -50,6 +50,12 @@ export const schemaConfigExecuteurs = z.object({
 });
 export type ConfigExecuteurs = z.infer<typeof schemaConfigExecuteurs>;
 export const schemaReponseExecuteurs = z.object({ config: schemaConfigExecuteurs, image: z.string() });
+/** `GET /api/admin/executors/status` : résolution actuelle des domaines des profils en liste blanche (par profil puis par domaine : IPv4, vide si le nom ne se résout pas, `null` sans réponse à temps) et conteneurs en marche à recréer. */
+export const schemaReponseEtatExecuteurs = z.object({
+  ok: z.literal(true),
+  domains_status: z.record(z.string(), z.record(z.string(), z.array(z.string()).nullable())),
+  stale_containers: z.array(z.unknown()),
+});
 export const schemaCorpsExecuteurs = z.object({ executors: dictionnaire });
 /** `stale_containers` : conteneurs dont le profil réseau enregistré ne correspond plus au profil du compte. */
 export const schemaReponseExecuteursEcrits = z.object({

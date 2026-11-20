@@ -373,3 +373,117 @@ describe("demarrage.sh : étape root sous un environnement propre", () => {
     ]);
   });
 });
+
+describe("demarrage.sh : mode blocklist (profil ouvert protégé)", () => {
+  const refus = (net: string): string => `-A OUTPUT -d ${net} -j REJECT --reject-with icmp-host-unreachable`;
+  const blocage = (blocked: string, env: Record<string, string> = {}): Record<string, string> => ({
+    ELPIS_NET_MODE: "blocklist",
+    ELPIS_BLOCKED: blocked,
+    ...env,
+  });
+
+  it("fermé d'abord, plages refusées, tout le reste permis, IPv6 fermé ; ordre des appels", () => {
+    const { rc, appels, regles, err } = jouer(blocage("169.254.0.0/16 192.0.2.7/32 224.0.0.0/4"));
+    expect(rc).toBe(0);
+    expect(regles).toEqual([
+      ...ENTETE,
+      refus("169.254.0.0/16"),
+      refus("192.0.2.7/32"),
+      refus("224.0.0.0/4"),
+      "-A OUTPUT -j ACCEPT",
+      "COMMIT",
+    ]);
+    expect(appels).toEqual([
+      "iptables -P OUTPUT DROP",
+      "ip6tables -P OUTPUT DROP",
+      "iptables-restore",
+      ...V6,
+      SETPRIV,
+    ]);
+    expect(err).toContain("protections appliquées");
+  });
+
+  it("résolveurs : acceptés avant les refus ; la liste blanche et ses ports sont sans effet", () => {
+    const { rc, regles } = jouer(
+      blocage("10.0.0.0/8", {
+        ELPIS_DNS: "9.9.9.9",
+        ELPIS_ALLOWLIST: "198.51.100.1",
+        ELPIS_ALLOWLIST_PORTS: "443",
+      }),
+    );
+    expect(rc).toBe(0);
+    expect(regles).toEqual([
+      ...ENTETE,
+      ...dns("9.9.9.9"),
+      refus("10.0.0.0/8"),
+      "-A OUTPUT -j ACCEPT",
+      "COMMIT",
+    ]);
+  });
+
+  it("plage illisible : arrêt 65 avant toute règle, ni restauration ni setpriv", () => {
+    for (const mauvaise of ["host.lan", "300.1.1.1", "10.0.0.0/33", "fe80::1", "10.0.0.0/8 -j", "*"]) {
+      const { rc, appels, err } = jouer(blocage(mauvaise));
+      expect(rc, mauvaise).toBe(65);
+      expect(
+        appels.some((a) => a === "iptables-restore" || a.startsWith("setpriv")),
+        mauvaise,
+      ).toBe(false);
+      expect(err).toContain("plage refusée illisible");
+    }
+  });
+
+  it("une plage lisible suivie d'une illisible : tout est refusé, rien n'est posé", () => {
+    const { rc, appels, regles } = jouer(blocage("10.0.0.0/8 n'importe quoi"));
+    expect(rc).toBe(65);
+    expect(regles).toEqual([]);
+    expect(appels).toEqual(["iptables -P OUTPUT DROP", "ip6tables -P OUTPUT DROP"]);
+  });
+
+  it("liste vide ou absente : arrêt 65, réseau fermé", () => {
+    for (const env of [blocage(""), { ELPIS_NET_MODE: "blocklist" }, blocage("   ")]) {
+      const { rc, appels, err } = jouer(env);
+      expect(rc).toBe(65);
+      expect(appels.some((a) => a === "iptables-restore" || a.startsWith("setpriv"))).toBe(false);
+      expect(err).toContain("liste de refus vide");
+    }
+  });
+
+  it("IPv6 : ip6tables en échec avec un noyau IPv6 : arrêt 65 ; sans IPv6 : règles IPv4 posées", () => {
+    expect(jouer(blocage("10.0.0.0/8", { STUB_ECHEC: "ip6tables" })).rc).toBe(65);
+    rmSync(inet6);
+    const { rc, regles } = jouer(blocage("10.0.0.0/8", { STUB_ECHEC: "ip6tables" }));
+    expect(rc).toBe(0);
+    expect(regles).toContain(refus("10.0.0.0/8"));
+  });
+
+  it("politique ou restauration en échec : sortie non nulle, setpriv jamais atteint", () => {
+    for (const echec of ["iptables-P", "iptables-restore"]) {
+      const { rc, appels } = jouer(blocage("10.0.0.0/8", { STUB_ECHEC: echec }));
+      expect(rc, echec).not.toBe(0);
+      expect(appels.some((a) => a.startsWith("setpriv"))).toBe(false);
+    }
+  });
+
+  it("ELPIS_BLOCKED traverse l'environnement propre ; une variable étrangère n'y passe pas", () => {
+    for (const nom of ["iptables", "iptables-restore"]) {
+      writeFileSync(
+        path.join(tmp, "bin", nom),
+        `#!/bin/sh\necho "${nom} $*" >> "${journal}"\nenv > "${path.join(tmp, `env-${nom}`)}"\n[ "${nom}" = iptables-restore ] && cat > "${ruleset}"\nexit 0\n`,
+      );
+      chmodSync(path.join(tmp, "bin", nom), 0o755);
+    }
+    const { rc } = jouer(
+      blocage("10.0.0.0/8", { LD_PRELOAD: "/etranger/x.so", XTABLES_LIBDIR: "/etranger" }),
+    );
+    expect(rc).toBe(0);
+    const env = readFileSync(path.join(tmp, "env-iptables-restore"), "utf8").split("\n");
+    expect(env).toEqual(expect.arrayContaining(["ELPIS_BLOCKED=10.0.0.0/8", "ELPIS_NET_MODE=blocklist"]));
+    expect(env.some((l) => l.startsWith("LD_PRELOAD") || l.startsWith("XTABLES_LIBDIR"))).toBe(false);
+  });
+
+  it("liste blanche : ELPIS_BLOCKED sans mode blocklist n'a aucun effet", () => {
+    const { regles } = jouer(liste({ ELPIS_ALLOWLIST: "10.0.0.5", ELPIS_BLOCKED: "10.0.0.0/8" }));
+    expect(regles).toEqual([...ENTETE, "-A OUTPUT -d 10.0.0.5 -j ACCEPT", ...FIN]);
+  });
+});

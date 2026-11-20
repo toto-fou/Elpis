@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/contexte/assemblage.ts — message système de tête byte-stable : socle, runtime_context, manifeste et fragments de capacité ; mémoire AX rendue à part (suffixe de la question). */
-import { chargerConfigBac, profilFiltre } from "@elpis/bac";
+import { chargerConfigBac } from "@elpis/bac";
 import { comparePointsDeCode, estErreurAnnulation, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 import { neutraliserMarqueursTour } from "@elpis/securite";
@@ -18,8 +18,8 @@ const log = journal("uvicorn.error");
 const SEP = "\n\n---\n\n";
 
 /** Ligne « pas de root » quand le bac du compte est durci (sudo refusé, ou profil filtré), `""` sinon ; réglage relu à chaque appel. */
-function ligneSansRoot(mode: unknown): string {
-  if (chargerConfigBac().allow_sudo && !profilFiltre({ mode })) return "";
+function ligneSansRoot(mode: unknown, filtre: boolean | undefined): string {
+  if (chargerConfigBac().allow_sudo && !(filtre ?? mode === "allowlist_ip")) return "";
   return (
     "\n  • No root in this container: sudo is disabled and system folders are read-only. Install with pip " +
     "(user site), `npm install -g` (kept under /work) or a virtual environment; for a system package, tell the " +
@@ -30,17 +30,17 @@ function ligneSansRoot(mode: unknown): string {
 /** État réseau réel du bac à sable du compte ; phrase neutre si la résolution échoue. */
 export async function networkStatusLine(username: string): Promise<string> {
   try {
-    const { id, mode } = await portProfilReseau().profilReseau(username);
+    const { id, mode, filtre } = await portProfilReseau().profilReseau(username);
     if (mode === "none") {
       return (
         `  • Network: NONE this session (profile '${id}') — every outbound connection fails (expected, not a bug).` +
-        ligneSansRoot(mode)
+        ligneSansRoot(mode, filtre)
       );
     }
     return (
       `  • Network: OPEN via profile '${id}' (mode: ${strPy(mode)}) — a refused connection means that destination is ` +
       "outside the profile, not a tool bug." +
-      ligneSansRoot(mode)
+      ligneSansRoot(mode, filtre)
     );
   } catch {
     return (

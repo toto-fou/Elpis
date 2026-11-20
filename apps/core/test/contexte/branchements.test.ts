@@ -17,7 +17,11 @@ import type { BaseDeTest } from "@elpis/db/test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { networkStatusLine } from "../../src/contexte/assemblage";
-import { brancherContexte, compresseurDuProcess } from "../../src/contexte/branchements";
+import {
+  brancherContexte,
+  compresseurDuProcess,
+  profilReseauDuProcess,
+} from "../../src/contexte/branchements";
 import {
   installerMemoireAx,
   installerPortCompresseur,
@@ -120,6 +124,59 @@ describe.each(MOTEURS)("ports du contexte branchés (%s)", (moteur) => {
     expect(await networkStatusLine("inconnu")).toContain(SANS_ROOT);
     ecrireConfig({});
     expect(await networkStatusLine("inconnu")).not.toContain(SANS_ROOT);
+  });
+
+  it("ligne « pas de root » : un profil filtré (liste blanche ou protection) l'ajoute même si sudo est permis", async () => {
+    const SANS_ROOT = "No root in this container";
+    ecrireConfig({ executors: { allow_sudo: true } });
+    const ligne = async (profil: { id: string; mode: unknown; filtre?: boolean }): Promise<string> => {
+      installerProfilReseau({ profilReseau: async () => profil });
+      return networkStatusLine("inconnu");
+    };
+    try {
+      expect(await ligne({ id: "libre", mode: "bridge", filtre: false })).not.toContain(SANS_ROOT);
+      expect(await ligne({ id: "garde", mode: "bridge", filtre: true })).toContain(SANS_ROOT);
+      expect(await ligne({ id: "liste", mode: "allowlist_ip", filtre: true })).toContain(SANS_ROOT);
+      expect(await ligne({ id: "liste", mode: "allowlist_ip" })).toContain(SANS_ROOT);
+      expect(await ligne({ id: "libre", mode: "bridge" })).not.toContain(SANS_ROOT);
+      expect(await ligne({ id: "ferme", mode: "none", filtre: false })).not.toContain(SANS_ROOT);
+    } finally {
+      brancherContexte(t.base);
+    }
+  });
+
+  it("profil du process : filtre vrai pour une liste blanche ou un profil ouvert protégé, faux sinon", async () => {
+    ecrireConfig({
+      executors: {
+        network_profiles: [
+          { id: "isolated", name: "I", mode: "none" },
+          { id: "libre", name: "L", mode: "bridge" },
+          { id: "garde", name: "G", mode: "bridge", block_lan: true },
+          { id: "liste", name: "W", mode: "allowlist_ip", ips: ["192.0.2.1"] },
+        ],
+      },
+    });
+    const port = profilReseauDuProcess(t.base);
+    const rendus: unknown[] = [];
+    const avant = (await t.base.valeurs("SELECT settings_json FROM users WHERE username=?", ["bob"]))[0]?.[0];
+    try {
+      for (const id of ["libre", "garde", "liste", "isolated"]) {
+        await t.base.run("UPDATE users SET settings_json=? WHERE username=?", [
+          JSON.stringify({ network_profile_id: id }),
+          "bob",
+        ]);
+        const { filtre, mode } = await port.profilReseau("bob");
+        rendus.push([id, mode, filtre]);
+      }
+    } finally {
+      await t.base.run("UPDATE users SET settings_json=? WHERE username=?", [avant as Valeur, "bob"]);
+    }
+    expect(rendus).toEqual([
+      ["libre", "bridge", false],
+      ["garde", "bridge", true],
+      ["liste", "allowlist_ip", true],
+      ["isolated", "none", false],
+    ]);
   });
 
   it("mémoire AX : sites du texte, signal, rendu contextuel et ciblé", async () => {

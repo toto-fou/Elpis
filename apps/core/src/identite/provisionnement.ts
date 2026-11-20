@@ -131,10 +131,18 @@ async function identiteConnue(c: Contexte, l: LigneIdentite): Promise<Resolution
     if (await poserReactivation(dep.base, uid, maintenant))
       c.audits.push(() => auditCompte(c, "auth.account.reactivate", uid, l.username, String(par)));
   }
-  await dep.base.run(
-    "UPDATE user_identities SET ext_username=?, ext_email=?, ext_name=?, checked_at=? WHERE id=?",
-    [profil.extUsername, profil.extEmail, profil.extName, maintenant, l.id],
-  );
+  if (profil.identifiantFiable === false)
+    await dep.base.run("UPDATE user_identities SET ext_email=?, ext_name=?, checked_at=? WHERE id=?", [
+      profil.extEmail,
+      profil.extName,
+      maintenant,
+      l.id,
+    ]);
+  else
+    await dep.base.run(
+      "UPDATE user_identities SET ext_username=?, ext_email=?, ext_name=?, checked_at=? WHERE id=?",
+      [profil.extUsername, profil.extEmail, profil.extName, maintenant, l.id],
+    );
   return { type: "compte", uid, cree: false };
 }
 
@@ -227,6 +235,7 @@ async function creerCompte(c: Contexte): Promise<Resolution> {
     const prepare = await rattachementPrepareDe(dep.base, fournisseur.id, profil.extUsername, maintenant);
     if (prepare !== undefined) return rattachementPrepare(c, prepare);
   }
+  if (profil.identifiantFiable === false) return refus("name_invalid");
   const nom = nomDerive(profil.extUsername);
   if (nom === null) return refus("name_invalid");
   if (await nomPris(dep.base, nom)) return refus("account_conflict");

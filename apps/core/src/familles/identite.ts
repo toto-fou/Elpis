@@ -5,10 +5,9 @@ import { randomBytes } from "node:crypto";
 import {
   cleAdresse,
   cleAdresseExacte,
-  dependancesSession,
+  compteSuspendu,
   dureeMaxSession,
   ipDuClient,
-  validerSession,
   valeurCookie,
 } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
@@ -52,6 +51,7 @@ import {
   COOKIE_LIAISON,
   consommerFlux,
   empreinte,
+  lireFlux,
   memeEmpreinte,
   secretLiaisonValide,
 } from "../identite/oidc/flux";
@@ -124,6 +124,12 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     return f;
   }
 
+  /** 404 tant qu'aucun fournisseur OIDC n'est actif. */
+  async function exigerOidcActif(): Promise<void> {
+    if (!(await fournisseursActifs(base, cookieSecure)).some((p) => p.type === "oidc"))
+      throw new HttpError(404, "Not Found");
+  }
+
   function limiter(ip: string): void {
     const t = maintenant();
     const attente = debit.attenteSsoS(cleAdresseExacte(ip), cleAdresse(ip), t);
@@ -179,14 +185,31 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     }
   }
 
-  /** Refus d'un retour : référence aléatoire, cause réelle au journal et à l'audit, code fermé dans l'adresse de redirection. */
+  const refusDuRetour = new RefusAgreges((raison, n) =>
+    dep.journal.warn(`connexion SSO refusée : ${raison} (${n} sur la dernière minute)`),
+  );
+
+  /** Refus d'un retour : référence aléatoire ; avant qu'un flux du navigateur soit retrouvé, journal et audit agrégés (le débit n'est pas audité), sinon cause réelle au journal et à l'audit. */
   async function refuser(
     req: FastifyRequest,
     rep: FastifyReply,
     id: string,
     refus: RefusOidc,
+    fluxLie: boolean,
   ): Promise<unknown> {
     const ref = randomBytes(6).toString("base64url");
+    const redirection = (): unknown =>
+      rep.headers(ENTETES_REFUS).redirect(`/?auth_error=${refus.code}&ref=${ref}`, 302);
+    if (!fluxLie) {
+      refusDuRetour.noter(refus.cause_);
+      if (refus.cause_ !== "rate_limited")
+        auditerRefus(req, "auth.login.denied", {
+          reason: refus.cause_,
+          login_method: `oidc:${id}`,
+          ref,
+        });
+      return redirection();
+    }
     dep.journal.warn(`connexion SSO ${id} refusée (réf. ${ref}) : ${refus.cause_}`);
     const username = refus.uid === null ? null : await nomDe(refus.uid);
     auditEvent({
@@ -201,16 +224,14 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         ref,
       },
     });
-    return rep.headers(ENTETES_REFUS).redirect(`/?auth_error=${refus.code}&ref=${ref}`, 302);
+    return redirection();
   }
 
-  /** Session d'administrateur de l'essai : celle de l'administrateur qui l'a lancé, encore valide. */
-  async function administrateurDeLEssai(req: FastifyRequest, attendu: number): Promise<boolean> {
-    const brut = req.session.get("user_id");
-    if (typeof brut !== "number" || brut !== attendu) return false;
+  /** Vrai si l'administrateur de l'essai existe encore, est administrateur et n'est pas suspendu. */
+  async function administrateurDeLEssai(attendu: number): Promise<boolean> {
     try {
-      const v = await validerSession(req.session, brut, dependancesSession(dep.auth));
-      return v.valide && Number(v.ligne?.is_admin) === 1;
+      const l = await ligneUtilisateur(base, attendu);
+      return l !== undefined && l !== null && Number(l.is_admin) === 1 && !compteSuspendu(l);
     } catch {
       return false;
     }
@@ -222,30 +243,48 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     if (f === undefined || f.type !== "oidc") throw new HttpError(404, "Not Found");
     const estActif = (await fournisseursActifs(base, cookieSecure)).some((p) => p.id === id);
     const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
-    if (!estActif && secret === null) throw new HttpError(404, "Not Found");
     const ip = ipDuClient(req, dep.mandataires);
     const cle = cleAdresse(ip);
     const exacte = cleAdresseExacte(ip);
     const publicUrl = lireReglagesAuth().public_url;
     const t = maintenant();
-    let ouverte: Awaited<ReturnType<FabriqueConfigurations["ouvrir"]>> | null = null;
-    try {
+    const requete = requeteBrute(req.url);
+    const state = new URLSearchParams(requete).get("state") ?? "";
+    const etatLisible = state !== "" && state.length <= STATE_MAX;
+    const vu = secret !== null && etatLisible ? await lireFlux(base, state) : null;
+    const lie =
+      vu !== null &&
+      secret !== null &&
+      vu.providerId === f.id &&
+      memeEmpreinte(vu.browserHash, empreinte(secret));
+    if (!estActif && !(lie && vu.essaiAdmin !== null)) throw new HttpError(404, "Not Found");
+    let jetonPris = false;
+    const prendreJeton = (): void => {
       if (debit.attenteSsoS(exacte, cle, t) > 0) throw new RefusOidc("unavailable", "rate_limited");
       debit.prendreSso(exacte, cle, t);
+      jetonPris = true;
+    };
+    let fluxLie = false;
+    let ouverte: Awaited<ReturnType<FabriqueConfigurations["ouvrir"]>> | null = null;
+    try {
+      if (!(lie && vu.expiresAt >= t && vu.etape === "auth")) prendreJeton();
       if (secret === null) throw new RefusOidc("expired", "binding_cookie_missing");
-      const requete = requeteBrute(req.url);
-      const state = new URLSearchParams(requete).get("state") ?? "";
-      if (state === "" || state.length > STATE_MAX) throw new RefusOidc("expired", "state_missing");
+      if (!etatLisible) throw new RefusOidc("expired", "state_missing");
       const flux = await consommerFlux(base, state);
       if (!estActif && (flux === null || flux.essaiAdmin === null)) throw new HttpError(404, "Not Found");
-      if (flux === null) throw new RefusOidc("expired", "state_unknown");
+      if (flux === null) {
+        if (!jetonPris) prendreJeton();
+        throw new RefusOidc("expired", "state_unknown");
+      }
+      fluxLie = flux.providerId === f.id && memeEmpreinte(flux.browserHash, empreinte(secret));
+      if (!fluxLie && !jetonPris) prendreJeton();
       if (flux.expiresAt < t) throw new RefusOidc("expired", "flow_expired");
       if (flux.providerId !== f.id) throw new RefusOidc("failed", "provider_mismatch");
       if (!memeEmpreinte(flux.browserHash, empreinte(secret)))
         throw new RefusOidc("failed", "browser_mismatch");
       if (flux.etape !== "auth") throw new RefusOidc("failed", "stage_unexpected");
-      if (flux.essaiAdmin !== null && !(await administrateurDeLEssai(req, flux.essaiAdmin)))
-        throw new RefusOidc("failed", "trial_admin_session_missing");
+      if (flux.essaiAdmin !== null && !(await administrateurDeLEssai(flux.essaiAdmin)))
+        throw new RefusOidc("failed", "trial_admin_invalid");
       if (flux.essaiAdmin !== null) {
         const admin = flux.essaiAdmin;
         let resultat: ResultatEssaiBlanc;
@@ -277,7 +316,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
             reason: resultat.decision.reason,
           },
         });
-        if (resultat.ok) debit.rendreSso(exacte, cle, t);
+        if (resultat.ok && jetonPris) debit.rendreSso(exacte, cle, t);
         return rep
           .headers(ENTETES_RETOUR)
           .type("text/html; charset=utf-8")
@@ -319,16 +358,16 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
           .send(pageRetour("/?auth_link=1"));
       }
       debit.rendreSso(exacte, cle, t);
-      debit.rendreSso(exacte, cle, t);
+      if (jetonPris) debit.rendreSso(exacte, cle, t);
       return rep
         .headers(ENTETES_RETOUR)
         .type("text/html; charset=utf-8")
         .send(pageRetour(cibleDeRetour(publicUrl, flux.cible, flux.oauthNext)));
     } catch (e) {
       if (e instanceof HttpError) throw e;
-      if (e instanceof RefusOidc) return refuser(req, rep, id, e);
+      if (e instanceof RefusOidc) return refuser(req, rep, id, e, fluxLie);
       dep.journal.error({ err: e }, `connexion SSO ${id} : erreur interne`);
-      return refuser(req, rep, id, new RefusOidc("failed", "internal"));
+      return refuser(req, rep, id, new RefusOidc("failed", "internal"), fluxLie);
     } finally {
       await ouverte?.terminer();
     }
@@ -397,6 +436,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
 
   /** Demande de preuve en cours du navigateur : `pending` et le compte visé, ou rien. */
   async function preuveEnCours(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
+    await exigerOidcActif();
     void rep.headers(ENTETES_REFUS);
     const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
     const aucune = { pending: false, username: null };
@@ -412,6 +452,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
 
   /** Ancien mot de passe du compte visé : preuve du titulaire, rattachement, session `oidc:<id>`. */
   async function prouverLien(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
+    await exigerOidcActif();
     void rep.headers(ENTETES_REFUS);
     const corps = corpsJson(req);
     const motDePasse = estDict(corps) ? corps["password"] : undefined;

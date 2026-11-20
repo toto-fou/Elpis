@@ -369,10 +369,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("preuve du titulaire au retou
     expect(limites[0]).toMatchObject({ details: { login_method: "oidc:sso", subject: "sub-jd" } });
   });
 
-  it("fournisseur éteint depuis le retour : refus", async () => {
+  it("fournisseur éteint depuis le retour : 404", async () => {
     const { cookie } = await retourDeJean();
     await b.reglages({ enabled: false });
-    expect((await prouver({ password: "mdp-local-1" }, cookie)).statusCode).toBe(409);
+    expect((await prouver({ password: "mdp-local-1" }, cookie)).statusCode).toBe(404);
     expect(await identites()).toEqual([]);
   });
 

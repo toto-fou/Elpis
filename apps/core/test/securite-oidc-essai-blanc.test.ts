@@ -10,7 +10,14 @@ import { secretFournisseur, testReussiCourant } from "../src/identite/fournisseu
 import { lignesAuditRecentes, lignesJournal } from "./aides";
 import { CA_PEM } from "./identite/aides";
 import { MOTEURS } from "./identite/banc";
-import { cookies, ELPIS, HOTE_PUBLIC, ouvrirBancOidc, URL_PUBLIQUE } from "./identite/banc-oidc";
+import {
+  cookies,
+  COOKIE_LIAISON,
+  ELPIS,
+  HOTE_PUBLIC,
+  ouvrirBancOidc,
+  URL_PUBLIQUE,
+} from "./identite/banc-oidc";
 import type { BancOidc } from "./identite/banc-oidc";
 import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 
@@ -165,28 +172,23 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     await sansCompte();
   });
 
-  it("la session de l'administrateur qui l'a lancé est exigée au retour", async () => {
-    await createUser(b.t.base, "chef2", "mdp-chef-2", { isAdmin: 1 });
-    await createUser(b.t.base, "alice", "mdp-alice-1");
-    const autre = await connexionLocale("chef2", "mdp-chef-2");
-    const simple = await b.main.inject({
-      method: "POST",
-      url: "/api/login-lite",
-      headers: { host: HOTE_PUBLIC, "sec-fetch-site": "same-origin" },
-      payload: { username: "alice", password: "mdp-alice-1" },
-    });
-    const refusees: [string, (c: string) => string][] = [
-      ["sans session", (c) => c],
-      ["autre administrateur", (c) => `${c}; ${autre}`],
-      ["compte ordinaire", (c) => `${c}; ${cookies(simple)}`],
-    ];
-    for (const [nom, cookie] of refusees) {
-      const { retour } = await parcours(ELPIS("sub-essai"), cookie);
-      expect(retour.statusCode, nom).toBe(302);
-      expect(String(retour.headers.location), nom).toMatch(/^\/\?auth_error=failed&ref=/u);
-      expect((await lire()).json<{ result: unknown }>().result, nom).toBeNull();
-    }
-    expect(await b.utilisateurs()).toEqual(["chef", "chef2", "alice"]);
+  it("l'essai se termine avec le seul cookie de liaison du navigateur de l'administrateur : sans session, rien ne s'ouvre ; un autre navigateur ou un administrateur retiré ne le termine pas", async () => {
+    const sansSession = await parcours(ELPIS("sub-essai"), (c) => c);
+    expect(sansSession.retour.statusCode, sansSession.retour.body).toBe(200);
+    expect(String(sansSession.retour.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session");
+    expect((await lire()).json<{ result: { ok: boolean } | null }>().result?.ok).toBe(true);
+    await b.t.base.run("DELETE FROM auth_trials");
+    const autreNavigateur = await parcours(ELPIS("sub-essai"), () => `${COOKIE_LIAISON}=${"b".repeat(43)}`);
+    expect(autreNavigateur.retour.statusCode).toBe(404);
+    expect((await lire()).json<{ result: unknown }>().result).toBeNull();
+    const l = await lancer();
+    const { retour } = b.idp.autoriser(l.json<Lancement>().url ?? "", ELPIS("sub-essai"));
+    await b.t.base.run("UPDATE users SET is_admin=0 WHERE id=?", [b.chef]);
+    const retire = await b.retourner(retour, { cookie: cookies(l) });
+    expect(retire.statusCode).toBe(302);
+    expect(String(retire.headers.location)).toMatch(/^\/\?auth_error=failed&ref=/u);
+    expect(await lignes("SELECT COUNT(*) FROM auth_trials")).toEqual([[0]]);
+    await sansCompte();
     expect(await lignes("SELECT COUNT(*) FROM auth_ext_sessions")).toEqual([[0]]);
     expect(await lignes("SELECT COUNT(*) FROM user_identities")).toEqual([[0]]);
   });

@@ -71,6 +71,7 @@ async function decider(
     return connu.issuer === r.profil.issuer
       ? { outcome: "login", username: String(connu.username), reason: null }
       : refuse("issuer_mismatch");
+  if (r.profil.identifiantFiable === false) return refuse("name_invalid");
   const nom = nomDerive(r.profil.extUsername);
   if (nom === null) return refuse("name_invalid");
   if (await nomPris(x, nom)) return refuse("account_conflict");

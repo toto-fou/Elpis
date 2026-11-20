@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/oidc/flux.ts — flux de connexion SSO en base : création plafonnée, consommation à usage unique, lien au navigateur, sessions du fournisseur, purge. */
+/** apps/core/src/identite/oidc/flux.ts — flux de connexion SSO en base : création plafonnée (au plafond par adresse, le plus ancien flux de l'adresse est évincé), consommation à usage unique, lien au navigateur, sessions du fournisseur, purge. */
 import { createHash } from "node:crypto";
 
 import { cleAdresse, cleAdresseExacte } from "@elpis/auth";
@@ -104,7 +104,14 @@ export async function creerFlux(base: Base, f: FluxCree, maintenant: number): Pr
       "SELECT COUNT(*) FROM auth_flows WHERE ip_hash=? AND expires_at>?",
       [ip, maintenant],
     );
-    if (Number(adresse[0]?.[0] ?? 0) >= FLUX_PAR_ADRESSE_MAX) return false;
+    if (Number(adresse[0]?.[0] ?? 0) >= FLUX_PAR_ADRESSE_MAX) {
+      const ancien = await x.valeurs<[string]>(
+        "SELECT state_hash FROM auth_flows WHERE ip_hash=? AND expires_at>? AND stage='auth' AND trial_admin IS NULL ORDER BY created_at, state_hash LIMIT 1",
+        [ip, maintenant],
+      );
+      if (ancien[0] === undefined) return false;
+      await x.run("DELETE FROM auth_flows WHERE state_hash=?", [ancien[0][0]]);
+    }
     const groupe = await x.valeurs<[number]>(
       "SELECT COUNT(*) FROM auth_flows WHERE ip_hash LIKE ? AND expires_at>?",
       [`${prefixe}:%`, maintenant],
@@ -159,18 +166,10 @@ function empreinteDuFlux(json: string | null): string | null {
   }
 }
 
-/** Flux retrouvé par l'empreinte du `state` et supprimé dans la même écriture (usage unique) ; `null` s'il est inconnu. */
-export async function consommerFlux(base: Base, state: string): Promise<FluxLu | null> {
-  const cle = empreinte(state);
-  const l = await base.ecriture(async (x) => {
-    const ligne = await x.get<LigneFlux>(
-      "SELECT provider_id, browser_hash, nonce, code_verifier, target, oauth_next, trial_admin, stage, profile_json, expires_at FROM auth_flows WHERE state_hash=?",
-      [cle],
-    );
-    if (ligne !== undefined) await x.run("DELETE FROM auth_flows WHERE state_hash=?", [cle]);
-    return ligne;
-  });
-  if (l === undefined) return null;
+const COLONNES_FLUX =
+  "provider_id, browser_hash, nonce, code_verifier, target, oauth_next, trial_admin, stage, profile_json, expires_at";
+
+function fluxLu(l: LigneFlux): FluxLu {
   return {
     providerId: l.provider_id,
     browserHash: l.browser_hash,
@@ -183,6 +182,25 @@ export async function consommerFlux(base: Base, state: string): Promise<FluxLu |
     expiresAt: Number(l.expires_at),
     empreinteReglages: empreinteDuFlux(l.profile_json),
   };
+}
+
+/** Flux retrouvé par l'empreinte du `state`, sans le consommer ; `null` s'il est inconnu. */
+export async function lireFlux(base: Base, state: string): Promise<FluxLu | null> {
+  const l = await base.get<LigneFlux>(`SELECT ${COLONNES_FLUX} FROM auth_flows WHERE state_hash=?`, [
+    empreinte(state),
+  ]);
+  return l === undefined ? null : fluxLu(l);
+}
+
+/** Flux retrouvé par l'empreinte du `state` et supprimé dans la même écriture (usage unique) ; `null` s'il est inconnu. */
+export async function consommerFlux(base: Base, state: string): Promise<FluxLu | null> {
+  const cle = empreinte(state);
+  const l = await base.ecriture(async (x) => {
+    const ligne = await x.get<LigneFlux>(`SELECT ${COLONNES_FLUX} FROM auth_flows WHERE state_hash=?`, [cle]);
+    if (ligne !== undefined) await x.run("DELETE FROM auth_flows WHERE state_hash=?", [cle]);
+    return ligne;
+  });
+  return l === undefined ? null : fluxLu(l);
 }
 
 /** Ligne de session du fournisseur écrite à l'ouverture de la session (`subject` : le `sub` du jeton) ; le jeton d'identité est chiffré par le coffre, ou laissé nul s'il n'y a pas de clé. */

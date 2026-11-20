@@ -96,12 +96,16 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("correctifs du SSO OIDC (%s)"
   });
 
   describe("disponibilité de la connexion pour tous", () => {
-    it("25 départs d'une même adresse IPv6 : 20 passent ; 25 adresses d'un même /64 passent toutes ; un autre /64 reste servi", async () => {
+    it("25 départs d'une même adresse IPv6 : tous passent, 20 flux gardés ; 25 adresses d'un même /64 passent toutes ; un autre /64 reste servi", async () => {
       const statuts: number[] = [];
       for (let i = 1; i <= 25; i++)
         statuts.push((await b.demarrer({ adresse: "2001:db8:0:1::1" })).reponse.statusCode);
-      expect(statuts.filter((s) => s === 200)).toHaveLength(20);
-      expect(statuts.slice(20)).toEqual([429, 429, 429, 429, 429]);
+      expect(statuts.filter((s) => s === 200)).toHaveLength(25);
+      expect(
+        await b.t.base.valeurs("SELECT COUNT(*) FROM auth_flows WHERE ip_hash LIKE ?", [
+          `${empreinteAdresses("2001:db8:0:1::1").slice(0, 64)}:%`,
+        ]),
+      ).toEqual([[20]]);
       for (let i = 1; i <= 25; i++)
         expect((await b.demarrer({ adresse: `2001:db8:0:2::${i.toString(16)}` })).reponse.statusCode).toBe(
           200,

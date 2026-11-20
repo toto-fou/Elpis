@@ -138,6 +138,11 @@ and for the settings that started it: a refusal, an error or a later change of t
 provider untested. Read the decision line. When roles or groups follow the provider, the result also reports
 the role and the Elpis groups the person would get.
 
+The trial ends in the browser that started it, with the binding cookie alone: the administrator's session
+cookie is not needed on the way back, so a strict `same_site` setting does not prevent the trial. The result
+is stored, read in the console under the administrator's session, and the trial is refused if that account is
+no longer an active administrator.
+
 ## Directory (LDAP)
 
 Choose a **Préréglage** (Preset: FreeIPA, Active Directory, OpenLDAP or **Autre**): it fills the fields that
@@ -246,9 +251,15 @@ Then in the drawer: **Autorité** (issuer address, exactly as the provider annou
 | **Session (s)** (`session_max_age_sec`)                               | `0`                    | Session length for this provider, 0 to 2592000; 0 follows the global session length            |
 
 Starting a sign-in is limited per client address (in IPv6, per /64 prefix), and the number of sign-ins in
-progress is capped per address and per provider. Behind a reverse proxy, declare it as a trusted proxy
+progress is capped per address and per provider; at the per-address cap the oldest sign-in in progress of the
+address is dropped instead of refusing the new one. On the way back, a request takes an allowance token only
+when it carries no live sign-in of the browser. Behind a reverse proxy, declare it as a trusted proxy
 (`ACCESS_LOG_TRUSTED_PROXIES`, see [configuration.md](configuration.md#environment-variables)): otherwise
 every person appears to come from the address of the proxy and shares one allowance.
+
+A login name drawn from the email claim (or from the claim that holds the email) only creates an account, or
+updates the name shown, when `email_verified` is true; otherwise the sign-in is refused (`name_invalid`) and the
+trial says so.
 
 The **subject** is what ties an account to the provider: choose a claim that is unique to the person and
 never changes. The trial warns when the subject equals the login name.

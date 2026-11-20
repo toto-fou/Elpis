@@ -240,6 +240,7 @@ export async function ouvrirSessionApresPreuve(
           idToken: e.idToken,
           maintenant: e.maintenant,
           expire,
+          avertir: (m) => dep.provisionnement.journal.warn(m),
         });
       },
     },

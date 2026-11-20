@@ -54,14 +54,11 @@ describe("contrats REST : session et comptes (core réel)", () => {
     ).toMatchObject({ detail: expect.any(String) as unknown });
   });
 
-  it("preuve du titulaire : rien en attente sans flux de ce navigateur, et aucune preuve acceptée", async () => {
-    expect(await core.appeler("GET", "/api/auth/oidc/link-proof")).toEqual({
-      pending: false,
-      username: null,
-    });
+  it("preuve du titulaire : 404 tant qu'aucun fournisseur OIDC n'est actif, en lecture comme en écriture", async () => {
+    expect(await core.appeler("GET", "/api/auth/oidc/link-proof")).toEqual({ detail: "Not Found" });
     expect(
       await core.appeler("POST", "/api/auth/oidc/link-proof", { corps: { password: "mdp-quelconque-1" } }),
-    ).toMatchObject({ detail: expect.any(String) as unknown });
+    ).toEqual({ detail: "Not Found" });
   });
 
   it("modérateur : `is_admin` vrai, `role` moderator ; mot de passe à changer puis changé", async () => {

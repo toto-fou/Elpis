@@ -645,12 +645,19 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       expect(await lignes("SELECT COUNT(*) FROM auth_flows")).toEqual([[0]]);
     });
 
-    it("plafond de 20 flux en cours par adresse, un seul compte du côté de chaque adresse", async () => {
+    it("au plafond de 20 flux en cours par adresse, le plus ancien flux de l'adresse est évincé et le départ passe", async () => {
       const adresse = adresseNeuve();
-      for (let i = 0; i < 20; i++) expect((await b.demarrer({ adresse })).reponse.statusCode).toBe(200);
-      const r = await b.demarrer({ adresse });
-      expect(r.reponse.statusCode).toBe(429);
-      expect(r.reponse.json()).not.toHaveProperty("canonical");
+      const departs = [];
+      for (let i = 0; i < 21; i++) {
+        const d = await b.demarrer({ adresse });
+        expect(d.reponse.statusCode).toBe(200);
+        departs.push(d);
+      }
+      expect(await lignes("SELECT COUNT(*) FROM auth_flows")).toEqual([[20]]);
+      const premier = b.idp.autoriser(departs[0]?.url ?? "", ELPIS("sub-evince"));
+      expect(refus(await b.retourner(premier.retour, { cookie: departs[0]?.cookie })).code).toBe("expired");
+      const dernier = b.idp.autoriser(departs[20]?.url ?? "", ELPIS("sub-dernier"));
+      expect((await b.retourner(dernier.retour, { cookie: departs[20]?.cookie })).statusCode).toBe(200);
       expect((await b.demarrer()).reponse.statusCode).toBe(200);
     });
 
@@ -705,7 +712,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       expect(codes.indexOf("unavailable")).toBeGreaterThanOrEqual(50);
       expect(
         denies().some((e) => (e["details"] as Record<string, unknown>)["reason"] === "rate_limited"),
-      ).toBe(true);
+      ).toBe(false);
     });
   });
 

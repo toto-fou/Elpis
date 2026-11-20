@@ -3,7 +3,7 @@
 import { getAllUsers, nomCanonique } from "@elpis/auth";
 import type { Executeur } from "@elpis/db";
 
-import { apercuDroits, lectureOidc } from "../correspondance";
+import { adminSansPreuve, apercuDroits, lectureOidc } from "../correspondance";
 import type { ApercuDroits } from "../correspondance";
 import { nomDerive } from "../nom";
 import type { FournisseurOidc } from "../reglages";
@@ -62,6 +62,7 @@ async function decider(
   });
   if (r.appartenance === "inconnu") return refuse("groups_unknown");
   if (r.appartenance === "non") return refuse("not_in_group");
+  if (adminSansPreuve(f, r.groupesComplets, r.secondFacteur)) return refuse("mfa_required");
   const connu = await x.get<{ username: string; issuer: string }>(
     "SELECT u.username, i.issuer FROM user_identities i JOIN users u ON u.id=i.user_id WHERE i.provider_id=? AND i.subject=?",
     [f.id, r.profil.subject],

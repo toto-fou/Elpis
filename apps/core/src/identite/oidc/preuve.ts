@@ -29,6 +29,8 @@ export interface FluxPreuve {
   readonly idToken: string | null;
   /** Groupes du jeton que le fournisseur lit ; `null` s'ils étaient illisibles. */
   readonly groupes: readonly string[] | null;
+  /** Le jeton du retour prouvait un second facteur. */
+  readonly secondFacteur: boolean;
   readonly cible: CibleFlux;
   readonly oauthNext: string | null;
 }
@@ -57,6 +59,7 @@ function profilDe(
   idpSid: string | null;
   idToken: string | null;
   groupes: string[] | null;
+  secondFacteur: boolean;
 } | null {
   if (json === null) return null;
   let v: unknown;
@@ -94,6 +97,7 @@ function profilDe(
     idpSid: texte(idpSid) ? idpSid : null,
     idToken,
     groupes: Array.isArray(groupes) && groupes.every(texte) ? (groupes as string[]) : null,
+    secondFacteur: o["secondFacteur"] === true,
   };
 }
 
@@ -110,6 +114,7 @@ export async function ouvrirFluxPreuve(
     readonly idpSid: string | null;
     readonly idToken: string | null;
     readonly groupes: readonly string[] | null;
+    readonly secondFacteur: boolean;
     readonly cible: CibleFlux;
     readonly oauthNext: string | null;
     readonly adresse: string;
@@ -149,6 +154,7 @@ export async function ouvrirFluxPreuve(
           idpSid: e.idpSid,
           idTokenEnc,
           groupes: e.groupes,
+          secondFacteur: e.secondFacteur,
         }),
         maintenant,
         maintenant + DUREE_FLUX_S,
@@ -196,6 +202,7 @@ export async function ouvrirSessionApresPreuve(
     readonly idpSid: string | null;
     readonly idToken: string | null;
     readonly groupes: readonly string[] | null;
+    readonly secondFacteur: boolean;
     readonly session: Session;
     readonly maintenant: number;
     readonly ip: string;
@@ -207,6 +214,7 @@ export async function ouvrirSessionApresPreuve(
     uid: e.uid,
     lecture: lectureOidc(e.fournisseur, e.groupes),
     mode: "passe",
+    secondFacteur: e.secondFacteur,
     ip: e.ip,
   });
   await etablirConnexion(

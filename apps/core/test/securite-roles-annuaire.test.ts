@@ -846,10 +846,10 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
       ecrireFournisseur({}, "oidc");
       const avant = sansEtatEcrit();
       const refus = await modifier("sso", { ...admins, confirm_admin_mapping: true });
-      expect(refus.statusCode).toBe(409);
+      expect(refus.statusCode).toBe(400);
       expect(refus.json<{ detail: string }>().detail).toContain("second facteur");
       expect(sansEtatEcrit()).toEqual(avant);
-      for (const second of [{ required_acr: ["mfa"] }, { required_amr: ["otp"] }]) {
+      for (const second of [{ required_acr: ["mfa"] }, { required_amr: ["mfa"] }]) {
         ecrireFournisseur({}, "oidc");
         const sansConfirmation = await modifier("sso", { ...admins, ...second });
         expect(sansConfirmation.statusCode).toBe(409);
@@ -868,7 +868,7 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
       const avant = sansEtatEcrit();
       expect((await cree("ldap", admins)).statusCode).toBe(409);
       expect((await cree("ldap", { ...admins, confirm_admin_mapping: false })).statusCode).toBe(409);
-      expect((await cree("oidc", { ...admins, confirm_admin_mapping: true })).statusCode).toBe(409);
+      expect((await cree("oidc", { ...admins, confirm_admin_mapping: true })).statusCode).toBe(400);
       expect(sansEtatEcrit()).toEqual(avant);
       const ok = await cree("ldap", { ...admins, confirm_admin_mapping: true });
       expect(ok.statusCode, ok.body).toBe(200);
@@ -903,7 +903,7 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
       for (const change of [
         { groups_claim: "roles" },
         { required_acr: ["mfa", "hw"] },
-        { required_amr: ["otp"] },
+        { required_amr: ["mfa"] },
       ]) {
         expect((await modifier("sso", change)).statusCode, JSON.stringify(change)).toBe(409);
         expect((await modifier("sso", { ...change, confirm_admin_mapping: true })).statusCode).toBe(200);
@@ -911,13 +911,23 @@ describe.each(MOTEURS)("console : rôle géré, enregistrement de la corresponda
       ecrireFournisseur({}, "oidc");
       for (const amr of [["pwd"], ["pwd", "PIN", "kba"]]) {
         const r = await modifier("sso", { ...admins, required_amr: amr, confirm_admin_mapping: true });
-        expect(r.statusCode, amr.join()).toBe(409);
+        expect(r.statusCode, amr.join()).toBe(400);
         expect(r.json<{ detail: string }>().detail).toContain("second facteur");
       }
-      expect(
-        (await modifier("sso", { ...admins, required_amr: ["pwd", "otp"], confirm_admin_mapping: true }))
-          .statusCode,
-      ).toBe(200);
+      for (const refuse of [
+        { required_amr: ["pwd", "otp"] },
+        { required_amr: ["pwd", "mfa"] },
+        { required_acr: ["1"] },
+        { required_acr: ["mfa", "0"] },
+      ]) {
+        const r = await modifier("sso", { ...admins, ...refuse, confirm_admin_mapping: true });
+        expect(r.statusCode, JSON.stringify(refuse)).toBe(400);
+      }
+      for (const accepte of [{ required_amr: ["mfa", "mca"] }, { required_acr: ["urn:mfa"] }]) {
+        const r = await modifier("sso", { ...admins, ...accepte, confirm_admin_mapping: true });
+        expect(r.statusCode, JSON.stringify(accepte)).toBe(200);
+        ecrireFournisseur({}, "oidc");
+      }
     });
 
     it("une correspondance de groupes vers un groupe Elpis inexistant est refusée ; un groupe déjà cité reste enregistrable", async () => {
@@ -1125,6 +1135,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("rôles et groupes par le SSO
           sujetEstIdentifiant: true,
         },
         groupesComplets: groupes,
+        secondFacteur: true,
         idToken: null,
         idpSid: null,
         sub: "s",

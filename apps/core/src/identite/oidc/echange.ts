@@ -17,6 +17,7 @@ import {
   groupesDe,
   identifiantFiable,
   lireRevendication,
+  secondFacteurProuve,
   secondFacteurSatisfait,
   sujetDe,
   texteDe,
@@ -39,6 +40,8 @@ export interface RetourVerifie {
   /** Groupes du jeton en entier (la vue en garde 50) ; `null` quand ils ne se lisent pas. */
   readonly groupesComplets: readonly string[] | null;
   readonly idToken: string | null;
+  /** Le jeton prouve un second facteur (condition pour devenir administrateur). */
+  readonly secondFacteur: boolean;
   readonly idpSid: string | null;
   /** `sub` du jeton d'identité, rangé avec la session pour la déconnexion par canal arrière. */
   readonly sub: string;
@@ -187,6 +190,7 @@ export async function verifierRetour(
       sujetEstIdentifiant: identifiant !== "" && identifiant === sujet,
     },
     groupesComplets: groupes,
+    secondFacteur: secondFacteurProuve(claims, f),
     sub: claims.sub,
     idToken: jetons.id_token ?? null,
     idpSid: typeof sid === "string" && sid !== "" && sid.length <= SID_MAX && sid.isWellFormed() ? sid : null,

@@ -68,8 +68,8 @@ export function exigerConfirmationAdmin(
   if (!donneAdmin(nouveau)) return;
   if (!adminAdmis(nouveau))
     throw new HttpError(
-      409,
-      "Un groupe d'administrateurs exige que ce fournisseur impose un second facteur.",
+      400,
+      "Un groupe d'administrateurs exige que ce fournisseur impose un second facteur : « mfa » ou « mca » en méthodes (amr), ou un niveau (acr) autre que 0 ou 1.",
     );
   const identique = actuel !== null && donneAdmin(actuel) && sensAdmin(actuel) === sensAdmin(nouveau);
   if (!identique && !confirme)
@@ -84,11 +84,17 @@ export async function appliquerDroits(
     readonly uid: number;
     readonly lecture: Lecture | null;
     readonly mode: "connexion" | "passe";
+    /** Faux : le jeton reçu ne prouve pas de second facteur ; un groupe d'administrateurs reçu ne change alors rien. */
+    readonly secondFacteur?: boolean;
     readonly ip?: string | null;
   },
 ): Promise<BilanDroits> {
   const f = e.fournisseur;
   if (!droitsActifs(f) || e.lecture === null) return RIEN;
+  if (e.secondFacteur === false) {
+    const admins = f.roles.admin_groups.filter((g) => e.lecture?.get(g) === "oui");
+    if (adminAdmis(f) && admins.length > 0) return RIEN;
+  }
   const decision = decider(f, e.lecture);
   if (decision === null) {
     dep.journal.warn(`fournisseur ${f.id} : appartenance illisible, rôle et groupes du compte inchangés`);

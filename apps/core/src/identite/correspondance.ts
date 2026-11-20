@@ -30,14 +30,15 @@ export function estPlusHaut(a: RoleElpis, b: RoleElpis): boolean {
   return RANG[a] > RANG[b];
 }
 
-const METHODES_A_UN_FACTEUR: ReadonlySet<string> = new Set(["pwd", "pin", "kba", "geo"]);
+const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
 
-/** Les groupes d'administrateurs ne comptent en SSO que si le fournisseur impose un `acr` ou un `amr` qui prouve plus qu'un seul facteur ; un annuaire est confirmé à l'enregistrement. */
+/** Les groupes d'administrateurs ne comptent en SSO que si le fournisseur exige `mfa` / `mca` seuls en `amr`, ou un `acr` sans niveau faible ; un annuaire est confirmé à l'enregistrement. */
 export function adminAdmis(f: Fournisseur): boolean {
+  if (f.type === "ldap") return true;
+  const amr = f.required_amr.map((m) => m.trim().toLowerCase());
   return (
-    f.type === "ldap" ||
-    f.required_acr.length > 0 ||
-    f.required_amr.some((m) => !METHODES_A_UN_FACTEUR.has(m.trim().toLowerCase()))
+    (amr.length > 0 && amr.every((m) => m === "mfa" || m === "mca")) ||
+    (f.required_acr.length > 0 && f.required_acr.every((a) => !ACR_FAIBLES.has(a.trim())))
   );
 }
 
@@ -46,6 +47,12 @@ function groupesDeRoles(f: Fournisseur): { admin: readonly string[]; moderateur:
     admin: adminAdmis(f) ? f.roles.admin_groups : [],
     moderateur: f.roles.moderator_groups,
   };
+}
+
+/** Vrai si les groupes du jeton contiennent un groupe d'administrateurs agissant alors que le jeton ne prouve pas de second facteur. */
+export function adminSansPreuve(f: Fournisseur, groupes: readonly string[] | null, prouve: boolean): boolean {
+  if (prouve || groupes === null || !rolesActifs(f)) return false;
+  return groupesDeRoles(f).admin.some((g) => groupes.includes(g));
 }
 
 /** L'option des rôles agit : allumée et avec au moins un groupe utilisable (sinon elle rétrograderait tout le monde). */

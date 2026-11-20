@@ -91,6 +91,25 @@ export function secondFacteurSatisfait(claims: Revendications, f: FournisseurOid
   return true;
 }
 
+const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
+  ...["pwd", "pin", "kba"].map((m): [string, string] => [m, "connaissance"]),
+  ...["otp", "hwk", "swk", "sms", "tel", "sc"].map((m): [string, string] => [m, "possession"]),
+  ...["face", "fpt", "iris", "retina", "vbm"].map((m): [string, string] => [m, "inherence"]),
+]);
+const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
+
+/** Vrai si le jeton prouve un second facteur : `amr` avec `mfa` / `mca` ou deux familles (RFC 8176), ou `acr` exigé par le fournisseur et non faible. */
+export function secondFacteurProuve(claims: Revendications, f: FournisseurOidc): boolean {
+  const amr = proprieteDe(claims, "amr");
+  if (Array.isArray(amr)) {
+    const m = amr.filter((x): x is string => typeof x === "string").map((x) => x.trim().toLowerCase());
+    if (m.includes("mfa") || m.includes("mca")) return true;
+    if (new Set(m.map((x) => FAMILLES_AMR.get(x)).filter((x) => x !== undefined)).size >= 2) return true;
+  }
+  const acr = proprieteDe(claims, "acr");
+  return typeof acr === "string" && f.required_acr.includes(acr) && !ACR_FAIBLES.has(acr.trim());
+}
+
 /** E-mail gardé seulement si `email_verified` est vrai (booléen) dans la même source. */
 export function emailVerifieDe(claims: Revendications, f: FournisseurOidc): string {
   if (proprieteDe(claims, "email_verified") !== true) return "";

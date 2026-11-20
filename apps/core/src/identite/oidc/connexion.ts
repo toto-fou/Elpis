@@ -6,7 +6,7 @@ import type { Base } from "@elpis/db";
 
 import { ConnexionRefusee, etablirConnexion } from "../../comptes/ouverture";
 import type { EffetsConnexion } from "../../comptes/ouverture";
-import { lectureOidc } from "../correspondance";
+import { adminSansPreuve, lectureOidc } from "../correspondance";
 import { appliquerDroits } from "../droits";
 import { resoudreIdentite } from "../provisionnement";
 import type {
@@ -69,6 +69,8 @@ export async function connecterParOidc(
   },
 ): Promise<number | PreuveAttendue> {
   const f = e.fournisseur;
+  if (adminSansPreuve(f, e.retour.groupesComplets, e.retour.secondFacteur))
+    throw new RefusOidc("mfa_required", "admin_without_mfa");
   const res = await resoudreIdentite(dep.provisionnement, {
     fournisseur: f,
     profil: e.retour.profil,
@@ -89,6 +91,7 @@ export async function connecterParOidc(
     uid: res.uid,
     lecture: lectureOidc(f, e.retour.groupesComplets),
     mode: "connexion",
+    secondFacteur: e.retour.secondFacteur,
     ip: e.ip,
   });
   const ligne = await ligneUtilisateur(dep.base, res.uid);

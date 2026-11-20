@@ -535,7 +535,10 @@ const titre = computed(() => {
                       v-model="f.required_amr"
                       class="set-input font-mono text-xs"
                       :disabled="!!general"
-                      :title="general || 'Séparées par des espaces ; vide : aucune exigence.'"
+                      :title="
+                        general ||
+                        'Séparées par des espaces ; l\'une d\'elles suffit pour se connecter ; vide : aucune exigence.'
+                      "
                     />
                   </label>
                   <p

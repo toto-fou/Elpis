@@ -258,9 +258,12 @@ never changes. The trial warns when the subject equals the login name.
 Set the second factor at the provider, then make Elpis require it: **Niveaux d'authentification (acr)**
 (`required_acr`) and **Méthodes d'authentification (amr)** (`required_amr`), space-separated lists. A sign-in
 is accepted when the identity token carries one of the listed `acr` values and, if set, one of the listed
-`amr` methods; the `acr` values are also sent in the request. Empty means no requirement, and the drawer says
-that no two-step check is then guaranteed by Elpis. For an administrator group, a `required_amr` made only of single-factor methods (`pwd`, `pin`, `kba`,
-`geo`) is not enough. A refusal shows "Une vérification en deux étapes est
+`amr` methods (any one of them is enough to sign in); the `acr` values are also sent in the request. Empty means no requirement, and the drawer says
+that no two-step check is then guaranteed by Elpis. Becoming an administrator through a group is judged on what the received token proves, not on the setting:
+the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
+`pin` `kba`; possession `otp` `hwk` `swk` `sms` `tel` `sc`; inherence `face` `fpt` `iris` `retina` `vbm`), or an
+`acr` listed in `required_acr` that is not `0` or `1`. A sign-in whose token lists an administrator group without
+such a proof is refused. A refusal shows "Une vérification en deux étapes est
 exigée".
 
 ### Keycloak
@@ -420,8 +423,8 @@ provider with administrator groups, when you create it or change them, the save 
 explicitly that their members become administrators: the drawer asks you to type **administrateur**. The
 confirmation is asked again when the way the groups are read changes: the **Appartenance** (Membership)
 mode of a directory, or, for single sign-on, the groups claim, `required_acr` or `required_amr`. For single
-sign-on the provider must also require a second factor (`required_acr`, or a `required_amr` that lists at
-least one method proving more than a single factor; `pwd`, `pin`, `kba` and `geo` do not, see
+sign-on the provider must also require a second factor (a `required_acr` without the weak levels `0` and `1`,
+or a `required_amr` made only of `mfa` / `mca`; see
 [Requiring a second factor](#requiring-a-second-factor)), otherwise the settings are refused; administrator
 groups of a single sign-on provider that does not require one are ignored, and `./elpis doctor` warns about
 it. A mapping to an Elpis group that does not exist is refused when you save.

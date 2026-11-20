@@ -305,7 +305,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       b.idp.userinfo = (u) => ({ sub: u.sub, groups: "elpis" });
       expect((await b.connecter(ELPIS("sub-deux", { groups: undefined }))).retour.statusCode).toBe(200);
     });
-    const OTP = ["pwd", "otp"];
+    const OTP = ["mfa"];
     it("rôles ou groupes suivis par le fournisseur : une chaîne n'est plus lue, une liste est exigée (ni rôle donné, ni rôle gardé sur une chaîne)", async () => {
       const niveau = async (nom: string): Promise<number> =>
         Number(
@@ -315,7 +315,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
       await b.reglages({
         required_groups: ["elpis", "admins"],
         roles: { enabled: true, admin_groups: ["admins"], moderator_groups: ["mods"] },
-        required_amr: ["otp"],
+        required_amr: ["mfa"],
       });
       await refuse(ELPIS("sub-chaine", { groups: "admins", amr: OTP }), "groups_unknown");
       await refuse(ELPIS("sub-chaine", { groups: "elpis", amr: OTP }), "groups_unknown");
@@ -337,7 +337,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
         ).searchParams.get("auth_error");
       await b.reglages({
         roles: { enabled: true, admin_groups: ["admins"], moderator_groups: ["mods"] },
-        required_amr: ["otp"],
+        required_amr: ["mfa"],
       });
       expect(
         (await b.connecter(ELPIS("sub-chef", { groups: ["elpis", "admins"], amr: OTP }))).retour.statusCode,

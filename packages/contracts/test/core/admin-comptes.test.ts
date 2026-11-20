@@ -62,9 +62,10 @@ describe("contrats REST : comptes de la console (core réel)", () => {
     );
     expect(liste.users.map((u) => u.username).sort()).toEqual(["bob", "lou", "zoe"]);
     await core.appeler("GET", "/api/admin/users-with-groups", { cookie: cookieLou });
+    // Compte sans espace de travail : rien à supprimer.
     expect(await core.appeler("DELETE", "/api/admin/users/3?delete_sandbox=true", { cookie })).toEqual({
       ok: true,
-      sandbox_deleted: true,
+      sandbox_deleted: false,
     });
     await core.appeler("DELETE", "/api/admin/users/3", { cookie });
     await core.appeler("DELETE", "/api/admin/users/1", { cookie });

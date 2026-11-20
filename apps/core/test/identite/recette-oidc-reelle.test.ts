@@ -429,8 +429,9 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect ré
   }, 60_000);
 
   it.skipIf(RECETTE?.acr === undefined)(
-    "rôles d'après les groupes : administrateur pour le groupe désigné, simple utilisateur sinon",
+    "rôles d'après les groupes : un niveau `acr` à un seul facteur ne donne jamais le rôle administrateur",
     async () => {
+      // Le niveau de la recette (« 1 », mot de passe seul) ne prouve aucun second facteur : groupes d'administrateurs ignorés.
       await installer({
         required_acr: [recette.acr],
         roles: { enabled: true, admin_groups: [recette.autre_groupe], moderator_groups: [] },
@@ -447,18 +448,11 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect ré
             })
           ).json<{ role?: string }>().role;
         };
-        expect(await role(recette.membre)).toBe("admin");
+        expect(await role(recette.membre)).toBe("user");
         expect(await role(recette.autre_membre)).toBe("user");
       } finally {
         await installer();
       }
-      // Options éteintes : le rôle donné reste (il n'est plus géré), rien n'est recalculé.
-      const { session } = await connecter(recette.membre);
-      expect(
-        (
-          await main.inject({ method: "GET", url: "/api/me-lite", headers: { host: hote, cookie: session } })
-        ).json<{ role?: string }>().role,
-      ).toBe("admin");
     },
     60_000,
   );

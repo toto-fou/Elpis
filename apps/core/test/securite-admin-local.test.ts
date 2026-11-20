@@ -63,7 +63,6 @@ describe.each(MOTEURS)("administrateur local (%s)", (moteur) => {
           revoquer: async () => undefined,
           publierSuspension: async (uid) => suspensions.push(uid) > 0,
           bac: {
-            supprimerSurHote: async () => null,
             retirerConteneur: async () => undefined,
             purgerTravail: async () => undefined,
             detruireConteneur: async () => undefined,
@@ -143,7 +142,7 @@ describe.each(MOTEURS)("administrateur local (%s)", (moteur) => {
               journal: journalMuet,
             },
             chef,
-            "directory:x",
+            "provider:x",
           ),
         ),
       ).toBe(409);

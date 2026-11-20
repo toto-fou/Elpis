@@ -10,7 +10,7 @@ import { configurerCoffre } from "@elpis/securite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ErreurSecret } from "../../src/secrets/erreurs";
-import { hotes, nomReserveAuth, normaliserPortee } from "../../src/secrets/portee";
+import { hote, nomReserveAuth, normaliserPortee } from "../../src/secrets/portee";
 import { creerSecret, modifierSecret, rotation, supprimerSecret } from "../../src/secrets/stockage";
 
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
@@ -28,25 +28,23 @@ async function code(p: Promise<unknown>): Promise<string> {
 }
 
 describe("portée par hôtes (sans base)", () => {
-  it("hôtes normalisés avec port explicite, dédoublonnés, trois au plus", () => {
-    const p = normaliserPortee(
-      "token",
-      { hosts: ["IDP.Exemple.lan:443", "idp.exemple.lan:443", "[::1]:8443"] },
-      INSTANCE,
+  it("hôte normalisé avec port explicite", () => {
+    expect(hote(normaliserPortee("token", { host: "IDP.Exemple.lan:443" }, INSTANCE))).toBe(
+      "idp.exemple.lan:443",
     );
-    expect(hotes(p)).toEqual(["idp.exemple.lan:443", "[::1]:8443"]);
+    expect(hote(normaliserPortee("token", { host: "[::1]:8443" }, INSTANCE))).toBe("[::1]:8443");
   });
 
   it.each([
-    ["sans port", { hosts: ["idp.exemple.lan"] }],
-    ["vide", { hosts: [] }],
+    ["sans port", { host: "idp.exemple.lan" }],
+    ["liste d'hôtes", { host: ["a.lan:443"] }],
+    ["ancienne clé", { hosts: ["a.lan:443"] }],
     ["origines à la place", { origins: ["https://idp.lan"] }],
-    ["clé en plus", { hosts: ["a.lan:443"], x: 1 }],
-    ["DN de liaison", { hosts: ["a.lan:443"], bind_dn: "uid=x,dc=y" }],
-    ["chemin", { hosts: ["a.lan:443/x"] }],
-    ["adresse complète", { hosts: ["https://a.lan:443"] }],
-    ["port nul", { hosts: ["a.lan:0"] }],
-    ["quatre hôtes", { hosts: ["a:1", "b:1", "c:1", "d:1"] }],
+    ["clé en plus", { host: "a.lan:443", x: 1 }],
+    ["DN de liaison", { host: "a.lan:443", bind_dn: "uid=x,dc=y" }],
+    ["chemin", { host: "a.lan:443/x" }],
+    ["adresse complète", { host: "https://a.lan:443" }],
+    ["port nul", { host: "a.lan:0" }],
     ["objet vide", {}],
   ])("refusée : %s", (_nom, brut) => {
     expect(() => normaliserPortee("token", brut, INSTANCE)).toThrow(ErreurSecret);
@@ -54,7 +52,7 @@ describe("portée par hôtes (sans base)", () => {
 
   it("un secret de compte nommé `auth-x` n'a pas de portée par hôtes ; un jeton ordinaire reste sans portée", () => {
     expect(() =>
-      normaliserPortee("token", { hosts: ["a.lan:443"] }, { proprietaire: 3, nom: "auth-x" }),
+      normaliserPortee("token", { host: "a.lan:443" }, { proprietaire: 3, nom: "auth-x" }),
     ).toThrow(ErreurSecret);
     expect(normaliserPortee("token", {}, { proprietaire: 3, nom: "perso" })).toEqual({});
     expect(nomReserveAuth("auth-x")).toBe(true);
@@ -87,10 +85,10 @@ describe.each(MOTEURS)("noms réservés (%s)", (moteur) => {
     const s = await creerSecret(
       t.base,
       null,
-      { name: "auth-sso", kind: "token", scope: { hosts: ["idp.lan:443"] }, value: "v" },
+      { name: "auth-sso", kind: "token", scope: { host: "idp.lan:443" }, value: "v" },
       ACTEUR,
     );
-    expect(s.scope).toEqual({ hosts: ["idp.lan:443"] });
+    expect(s.scope).toEqual({ host: "idp.lan:443" });
     expect(await code(rotation(t.base, null, s.id, "autre", ACTEUR, { refuserGeres: true }))).toBe(
       "404 secret_unknown",
     );

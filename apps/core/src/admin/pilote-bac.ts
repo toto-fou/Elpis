@@ -51,7 +51,7 @@ export async function appelerHote(
   }
 }
 
-/** Compte supprimé purgé sur chaque hôte d'outils déclaré (sa base peut être distincte de celle du core) ; un échec par hôte nommé, jamais levé. */
+/** Compte supprimé purgé sur chaque hôte d'outils déclaré avec une URL et un jeton de service (les autres ne détiennent rien) ; un échec par hôte nommé, jamais levé. */
 export async function purgerCompteSurHotes(uid: number, username: string): Promise<string[]> {
   let declares: [string, SandboxHost | null][];
   try {
@@ -60,8 +60,7 @@ export async function purgerCompteSurHotes(uid: number, username: string): Promi
     return [`manifeste des hôtes illisible : ${e instanceof Error ? e.message : String(e)}`];
   }
   const essais = declares.map(async ([id, hote]): Promise<string | null> => {
-    if (hote === null) return `hôte d'outils ${id} : sans URL`;
-    if (!hote.token) return `hôte d'outils ${id} : sans jeton de service`;
+    if (hote === null || !hote.token) return null;
     try {
       await appelerHote(hote, uid, username, "POST", "/api/internal/account/purge", {
         delaiS: 15,
@@ -76,24 +75,29 @@ export async function purgerCompteSurHotes(uid: number, username: string): Promi
   return (await Promise.all(essais)).filter((m): m is string => m !== null);
 }
 
-/** PortBac de la console : `P` d'un hôte distant supprimé par l'hôte, conteneur et purge locaux par @elpis/bac. */
+/** PortBac de la console : `P` d'un hôte distant mis de côté, remis ou supprimé par l'hôte, conteneur et purge locaux par @elpis/bac. */
 export function piloteBac(): PortBac {
   return {
-    async supprimerSurHote(uid, username) {
-      const hote = await hoteDistant(uid);
-      if (hote === null) return null;
-      const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/delete", {
-        tolererSuspension: true,
-      });
-      return getOu(r, "deleted", false) === true;
-    },
-    async mettreDeCoteSurHote(uid, username) {
-      const hote = await hoteDistant(uid);
-      if (hote === null) return null;
+    hoteDistantDuCompte: hoteDistant,
+    async mettreDeCoteSurHote(hote, uid, username, horodatage) {
       const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/set-aside", {
         tolererSuspension: true,
+        json: { stamp: horodatage },
       });
       return getOu(r, "renamed", false) === true;
+    },
+    async remettreSurHote(hote, uid, username, horodatage) {
+      await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/restore", {
+        tolererSuspension: true,
+        json: { stamp: horodatage },
+      });
+    },
+    async supprimerMisDeCoteSurHote(hote, uid, username, horodatage) {
+      const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/discard", {
+        tolererSuspension: true,
+        json: { stamp: horodatage },
+      });
+      return getOu(r, "deleted", false) === true;
     },
     async retirerConteneur(uid, username, travail) {
       if (which("docker") === null) return;

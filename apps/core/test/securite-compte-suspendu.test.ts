@@ -307,7 +307,6 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     const publies: number[] = [];
     const appels: unknown[][] = [];
     const bac: PortBac = {
-      supprimerSurHote: async () => null,
       retirerConteneur: async () => undefined,
       purgerTravail: async () => undefined,
       detruireConteneur: async (uid, nom) => void appels.push([uid, nom]),
@@ -325,7 +324,7 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
     };
     expect((await suspendre(d, alice, "admin")).change).toBe(true);
     horloge += 100;
-    expect((await suspendre(d, alice, "directory:x")).change).toBe(false);
+    expect((await suspendre(d, alice, "provider:x")).change).toBe(false);
     const ligne = await ligneUtilisateur(t.base, alice);
     expect([Number(ligne?.suspended_at), ligne?.suspended_by, Number(ligne?.session_min_ts) > 0]).toEqual([
       T0,
@@ -359,7 +358,6 @@ describe.each(MOTEURS)("compte suspendu : chemins d'accès (%s)", (moteur) => {
         throw new Error("main injoignable");
       },
       bac: {
-        supprimerSurHote: async () => null,
         retirerConteneur: async () => undefined,
         purgerTravail: async () => undefined,
         detruireConteneur: async () => {
@@ -672,7 +670,6 @@ describe("compte suspendu : routes et hôtes (SQLite)", () => {
               return propage;
             },
             bac: {
-              supprimerSurHote: async () => null,
               retirerConteneur: async () => undefined,
               purgerTravail: async () => undefined,
               detruireConteneur: async (uid) => void detruits.push(uid),

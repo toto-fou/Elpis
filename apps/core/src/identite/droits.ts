@@ -70,7 +70,7 @@ export function exigerConfirmationAdmin(
   if (!adminAdmis(nouveau))
     throw new HttpError(
       400,
-      "Un groupe d'administrateurs exige que ce fournisseur impose un second facteur : « mfa » ou « mca » en méthodes (amr), ou un niveau (acr) autre que 0 ou 1.",
+      "Un groupe d'administrateurs exige que ce fournisseur impose un second facteur : une méthode de possession ou d'inhérence (par exemple « otp »), « mfa » ou « mca » en méthodes (amr), ou un niveau (acr) autre que 0 ou 1.",
     );
   const identique = actuel !== null && donneAdmin(actuel) && sensAdmin(actuel) === sensAdmin(nouveau);
   if (!identique && !confirme)

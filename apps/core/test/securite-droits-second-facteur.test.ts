@@ -37,20 +37,25 @@ describe("second facteur prouvé par le jeton", () => {
       expect(secondFacteurProuve(claims, g), JSON.stringify(claims)).toBe(false);
   });
 
-  it("les groupes d'administrateurs ne sont admis qu'avec `mfa` / `mca` seuls en `amr` ou un `acr` sans niveau faible", () => {
+  it("les groupes d'administrateurs ne sont admis que si le fournisseur est invité à un second facteur : possession, inhérence, `mfa` / `mca` en `amr`, ou un `acr` autre que 0 ou 1", () => {
     for (const ok of [
       { required_amr: ["mfa"] },
       { required_amr: ["MFA", "mca"] },
+      { required_amr: ["pwd", "otp"] },
+      { required_amr: ["otp"] },
+      { required_amr: ["pwd", "mfa"] },
+      { required_amr: ["face"] },
       { required_acr: ["urn:gold"] },
+      { required_acr: ["0", "urn:gold"] },
     ])
       expect(adminAdmis(f(ok)), JSON.stringify(ok)).toBe(true);
     for (const non of [
       {},
-      { required_amr: ["pwd", "otp"] },
-      { required_amr: ["otp"] },
-      { required_amr: ["pwd", "mfa"] },
+      { required_amr: ["pwd"] },
+      { required_amr: ["pwd", "pin", "kba"] },
+      { required_amr: ["geo"] },
       { required_acr: ["1"] },
-      { required_acr: ["0", "urn:gold"] },
+      { required_acr: ["0", "1"] },
     ])
       expect(adminAdmis(f(non)), JSON.stringify(non)).toBe(false);
   });
@@ -136,17 +141,34 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       await b.fermer();
     });
 
-    it("réglage `pwd otp` et jeton `amr` `pwd` : pas administrateur", async () => {
+    const refuseMfa = async (nom: string, claims: { groups: string[]; amr?: string[]; acr?: string }) => {
+      const r = await b.connecter(ELPIS(nom, claims));
+      expect(String(r.retour.headers.location)).toMatch(/^\/\?auth_error=mfa_required&ref=/u);
+      expect(String(r.retour.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session");
+      expect(await b.t.base.all("SELECT id FROM users WHERE username=?", [nom])).toEqual([]);
+    };
+
+    it("réglage `pwd otp` et jeton `amr` `pwd` : refusé `mfa_required`, aucun compte", async () => {
       await b.reglages({ ...ROLES, required_amr: ["pwd", "otp"] });
-      const r = await b.connecter(ELPIS("sub-a", { groups: ["elpis", "admins"], amr: ["pwd"] }));
-      expect(r.retour.statusCode).toBe(200);
-      expect(await niveau("sub-a")).toBe(0);
+      await refuseMfa("sub-a", { groups: ["elpis", "admins"], amr: ["pwd"] });
     });
 
-    it("réglage `otp` seul et jeton `otp` : pas administrateur", async () => {
+    it("réglage `pwd otp` et jeton `amr` `pwd` `otp` : administrateur", async () => {
+      await b.reglages({ ...ROLES, required_amr: ["pwd", "otp"] });
+      await b.connecter(ELPIS("sub-f", { groups: ["elpis", "admins"], amr: ["pwd", "otp"] }));
+      expect(await niveau("sub-f")).toBe(1);
+    });
+
+    it("réglage `otp` seul et jeton `otp` : refusé `mfa_required` (un seul facteur), aucun compte", async () => {
       await b.reglages({ ...ROLES, required_amr: ["otp"] });
-      await b.connecter(ELPIS("sub-b", { groups: ["elpis", "admins"], amr: ["otp"] }));
-      expect(await niveau("sub-b")).toBe(0);
+      await refuseMfa("sub-b", { groups: ["elpis", "admins"], amr: ["otp"] });
+    });
+
+    it("réglage `pwd` seul : le fournisseur n'est pas invité à un second facteur, groupes d'administrateurs ignorés", async () => {
+      await b.reglages({ ...ROLES, required_amr: ["pwd"] });
+      const r = await b.connecter(ELPIS("sub-g", { groups: ["elpis", "admins"], amr: ["pwd"] }));
+      expect(r.retour.statusCode).toBe(200);
+      expect(await niveau("sub-g")).toBe(0);
     });
 
     it("réglage `acr` `1` et jeton `acr` `1` : pas administrateur", async () => {

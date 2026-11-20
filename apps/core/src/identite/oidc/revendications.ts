@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/revendications.ts — lecture des revendications vérifiées d'un jeton d'identité : toujours par `Object.hasOwn`, sujet, groupes (chemin pointé), `acr` et `amr` requis, e-mail vérifié seulement. */
-import { droitsActifs } from "../correspondance";
+import { ACR_FAIBLES, droitsActifs, FAMILLES_AMR } from "../correspondance";
 import type { Appartenance } from "../provisionnement";
 import type { FournisseurOidc } from "../reglages";
 
@@ -90,13 +90,6 @@ export function secondFacteurSatisfait(claims: Revendications, f: FournisseurOid
   }
   return true;
 }
-
-const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
-  ...["pwd", "pin", "kba"].map((m): [string, string] => [m, "connaissance"]),
-  ...["otp", "hwk", "swk", "sms", "tel", "sc"].map((m): [string, string] => [m, "possession"]),
-  ...["face", "fpt", "iris", "retina", "vbm"].map((m): [string, string] => [m, "inherence"]),
-]);
-const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
 
 /** Vrai si le jeton prouve un second facteur : `amr` avec `mfa` / `mca` ou deux familles (RFC 8176), ou `acr` exigé par le fournisseur et non faible. */
 export function secondFacteurProuve(claims: Revendications, f: FournisseurOidc): boolean {

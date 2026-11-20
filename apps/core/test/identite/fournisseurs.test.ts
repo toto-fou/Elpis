@@ -17,7 +17,7 @@ import {
   etatFournisseur,
   fournisseurParId,
   fournisseursActifs,
-  hotesDuFournisseur,
+  hoteDuFournisseur,
   secretFournisseur,
   supprimerSecretFournisseur,
   testReussiCourant,
@@ -194,7 +194,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
     const f = validerFournisseur(
       oidcValide({ id: `sso${++compteur}`, issuer: "https://IdP.exemple.lan/realms/a" }),
     );
-    expect(hotesDuFournisseur(f)).toEqual(["idp.exemple.lan:443"]);
+    expect(hoteDuFournisseur(f)).toBe("idp.exemple.lan:443");
     await enregistrerSecret(t.base, f, "x", ACTEUR);
     const meme = validerFournisseur({ ...f, issuer: "https://idp.exemple.lan:443/realms/a" });
     expect(await secretFournisseur(t.base, meme)).toBe("x");

@@ -73,14 +73,26 @@ async function existe(chemin: string): Promise<boolean> {
   }
 }
 
-/** `P` et les instantanés du nom sûr renommés en `.supprime-<uid>-<horodatage>` (aucun nom de compte ne commence par un point), contenu intact ; un échec remet en place ce qui l'était déjà ; liste des `[origine, destination]` faits (vide sans rien). */
+/** Nom, hors de portée des noms de comptes, sous lequel `P` et les instantanés d'un compte supprimé sont gardés. */
+export function nomMisDeCote(uid: number, horodatageMs: number): string {
+  return `.supprime-${uid}-${horodatageMs}`;
+}
+
+/** Un nom sûr commençant par `_` ou `.` désigne un dossier réservé (instantanés, bacs mis de côté) : jamais mis de côté ni remis. */
+function exigerNomSurOrdinaire(nomSur: string): void {
+  if (nomSur === "" || nomSur.startsWith("_") || nomSur.startsWith("."))
+    throw new Error(`nom de bac réservé : ${reprPy(nomSur)}`);
+}
+
+/** `P` et les instantanés du nom sûr renommés en `.supprime-<uid>-<horodatage>` (aucun nom de compte ne commence par un point ni un tiret bas), contenu intact ; un échec remet en place ce qui l'était déjà ; liste des `[origine, destination]` faits (vide sans rien). */
 export async function mettreBacDeCote(
   racine: string,
   nomSur: string,
   uid: number,
   horodatageMs: number,
 ): Promise<[string, string][]> {
-  const nom = `.supprime-${uid}-${horodatageMs}`;
+  exigerNomSurOrdinaire(nomSur);
+  const nom = nomMisDeCote(uid, horodatageMs);
   const faits: [string, string][] = [];
   try {
     for (const dossier of [racine, join(racine, INSTANTANES_SUBDIR)]) {
@@ -98,6 +110,26 @@ export async function mettreBacDeCote(
   return faits;
 }
 
+/** `P` et les instantanés mis de côté sous cet horodatage remis sous le nom sûr (un des deux échoue : l'autre est tenté quand même, la première erreur est levée). */
+export async function remettreBacMisDeCote(
+  racine: string,
+  nomSur: string,
+  uid: number,
+  horodatageMs: number,
+): Promise<void> {
+  exigerNomSurOrdinaire(nomSur);
+  const nom = nomMisDeCote(uid, horodatageMs);
+  const erreurs: unknown[] = [];
+  for (const dossier of [join(racine, INSTANTANES_SUBDIR), racine]) {
+    try {
+      if (await existe(join(dossier, nom))) await rename(join(dossier, nom), join(dossier, nomSur));
+    } catch (e) {
+      erreurs.push(e);
+    }
+  }
+  if (erreurs.length > 0) throw erreurs[0];
+}
+
 /** Instantanés du nom sûr supprimés (arbre par descripteurs) ; `null` si tout va bien ou s'il n'y en a pas, sinon la raison. */
 export async function supprimerInstantanesDuNom(racine: string, nomSur: string): Promise<string | null> {
   const dossier = join(racine, INSTANTANES_SUBDIR, nomSur);
@@ -108,4 +140,17 @@ export async function supprimerInstantanesDuNom(racine: string, nomSur: string):
   } catch (e) {
     return messageSuppression(e);
   }
+}
+
+/** `P` et instantanés mis de côté sous cet horodatage supprimés (/work vidé par `purger` si l'hôte n'en a pas le droit) ; les deux sont tentés, `[P supprimé, première erreur]`. */
+export async function supprimerBacMisDeCote(
+  racine: string,
+  uid: number,
+  horodatageMs: number,
+  purger?: (travail: string) => Promise<void>,
+): Promise<[boolean, string | null]> {
+  const nom = nomMisDeCote(uid, horodatageMs);
+  const [supprime, erreur] = await supprimerDossierBac(join(racine, nom), purger);
+  const erreurInstantanes = await supprimerInstantanesDuNom(racine, nom);
+  return [supprime, erreur ?? erreurInstantanes];
 }

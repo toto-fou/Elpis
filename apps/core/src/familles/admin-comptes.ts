@@ -53,14 +53,8 @@ import type { Base, Executeur } from "@elpis/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, entierBase, entierPy, exigerTexte, niveauDuRole } from "../admin/aides";
-import {
-  mettreBacDeCoteDuCompte,
-  racineBac,
-  sandboxUsageBytes,
-  supprimerBac,
-  travailBac,
-} from "../admin/bac";
-import type { PortBac } from "../admin/bac";
+import { mettreBacDeCoteDuCompte, sandboxUsageBytes, travailBac } from "../admin/bac";
+import type { BacMisDeCote, PortBac } from "../admin/bac";
 import { purgerCompteSurHotes } from "../admin/pilote-bac";
 import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } from "../admin/comptes";
 import { validerMotDePasse } from "../comptes/aides";
@@ -144,47 +138,44 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (uid === cible) throw new HttpError(400, "Vous ne pouvez pas vous supprimer vous-même.");
     await exigerAdminLocal(base, { sauf: cible });
     const avecBac = (parametreRequete(req, "delete_sandbox") ?? "false").toLowerCase() === "true";
-    let dossier: string | null = null;
-    if (avecBac) {
-      try {
-        dossier = racineBac(await getUsernameById(base, cible), cible);
-      } catch {
-        dossier = null;
-      }
-      const nom = await getUsernameById(base, cible);
-      if (nom && !(await bacDuNomMisDeCote(base, cible, nom))) dossier = null;
-    }
-    let remettreBac: (() => Promise<void>) | null = null;
-    if (!avecBac) {
-      const nom = await getUsernameById(base, cible);
-      try {
-        if (nom && (await bacDuNomMisDeCote(base, cible, nom)))
-          remettreBac = await mettreBacDeCoteDuCompte(cible, nom, dep.bac);
-      } catch (e) {
-        dep.journal.error(
-          { err: e },
-          "[admin] espace de travail du compte non mis de côté, suppression refusée",
-        );
-        throw new HttpError(502, "Suppression impossible pour le moment : demandez à votre administrateur.");
-      }
-    }
+    const parti = await getUsernameById(base, cible);
     try {
       await dep.revoquer(cible);
     } catch (e) {
       dep.journal.error({ err: e }, "[admin] publication session_revoked (delete) échouée");
     }
-    const parti = await getUsernameById(base, cible);
-    let supprimeDeLaBase = false;
+    let misDeCote: BacMisDeCote | null = null;
     try {
-      supprimeDeLaBase = await deleteUserFull(base, cible);
-    } finally {
-      if (!supprimeDeLaBase)
-        await remettreBac?.().catch((e: unknown) =>
+      if (parti && (await bacDuNomMisDeCote(base, cible, parti)))
+        misDeCote = await mettreBacDeCoteDuCompte(cible, parti, dep.bac);
+    } catch (e) {
+      dep.journal.error(
+        { err: e },
+        "[admin] espace de travail du compte non mis de côté, suppression refusée",
+      );
+      throw new HttpError(502, "Suppression impossible pour le moment : demandez à votre administrateur.");
+    }
+    const remettre = async (): Promise<void> => {
+      await misDeCote
+        ?.remettre()
+        .catch((e: unknown) =>
           dep.journal.error({ err: e }, "[admin] espace de travail mis de côté non remis en place"),
         );
+    };
+    const echecsHotes = parti ? await purgerCompteSurHotes(cible, parti) : [];
+    if (echecsHotes.length) {
+      for (const echec of echecsHotes) dep.journal.error(`[admin] purge du compte échouée : ${echec}`);
+      await remettre();
+      throw new HttpError(502, "Suppression impossible pour le moment : demandez à votre administrateur.");
+    }
+    let supprimeDeLaBase: boolean;
+    try {
+      supprimeDeLaBase = await deleteUserFull(base, cible);
+    } catch (e) {
+      await remettre();
+      throw e;
     }
     if (!supprimeDeLaBase) throw new HttpError(404, "Utilisateur introuvable");
-    const purgeHotes: Promise<string[]> = parti ? purgerCompteSurHotes(cible, parti) : Promise.resolve([]);
     if (parti) {
       try {
         await definirAccesBureau(parti, new Set());
@@ -194,14 +185,10 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     }
     let supprime = false;
     let erreur: string | null = null;
-    if (avecBac && dossier !== null)
-      [supprime, erreur] = await supprimerBac(cible, parti ?? "", dossier, dep.bac);
+    if (avecBac && misDeCote !== null) [supprime, erreur] = await misDeCote.supprimer();
     auditer(req, "admin.user.delete", { target_user_id: cible, target_username: parti });
-    const echecsHotes = await purgeHotes;
-    for (const echec of echecsHotes) dep.journal.error(`[admin] purge du compte échouée : ${echec}`);
     const reponse: Dict = { ok: true, sandbox_deleted: supprime };
     if (erreur) reponse["sandbox_error"] = erreur;
-    if (echecsHotes.length) reponse["hosts_purge_errors"] = echecsHotes;
     return reponse;
   }
 

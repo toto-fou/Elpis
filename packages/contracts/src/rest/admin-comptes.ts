@@ -30,7 +30,6 @@ export const schemaReponseSuppressionCompte = z.object({
   sandbox_deleted: z.boolean(),
   sandbox_error: z.string().optional(),
   /** Hôtes d'outils où les identifiants de sites du compte n'ont pas été purgés. */
-  hosts_purge_errors: z.array(z.string()).optional(),
 });
 
 export const schemaProfilReseau = z.object({

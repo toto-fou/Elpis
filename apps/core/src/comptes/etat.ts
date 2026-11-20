@@ -32,7 +32,7 @@ export interface BilanSuspension {
   readonly tokens: number;
   /** Accès OAuth révoqués. */
   readonly oauth: number;
-  /** Origine `directory:*` ou `stale:*` remplacée par `admin`, `null` sinon. */
+  /** Origine `provider:*` ou `stale:*` remplacée par `admin`, `null` sinon. */
   readonly remplace: string | null;
 }
 
@@ -41,7 +41,7 @@ export interface OptionsCoupure {
   readonly revoquerAcces?: boolean;
 }
 
-const ORIGINE_FOURNISSEUR = /^(directory|stale):/u;
+const ORIGINE_FOURNISSEUR = /^(provider|stale):/u;
 
 /** Pose la suspension (voir `poserSuspension`) ; `remplace` rend l'origine posée par un fournisseur qu'une suspension d'administrateur a prise à sa place. */
 export async function poserSuspensionDetaillee(

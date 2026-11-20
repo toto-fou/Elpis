@@ -30,14 +30,22 @@ export function estPlusHaut(a: RoleElpis, b: RoleElpis): boolean {
   return RANG[a] > RANG[b];
 }
 
-const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
+export const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
 
-/** Les groupes d'administrateurs ne comptent en SSO que si le fournisseur exige `mfa` / `mca` seuls en `amr`, ou un `acr` sans niveau faible. */
+export const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
+  ...["pwd", "pin", "kba"].map((m): [string, string] => [m, "connaissance"]),
+  ...["otp", "hwk", "swk", "sms", "tel", "sc"].map((m): [string, string] => [m, "possession"]),
+  ...["face", "fpt", "iris", "retina", "vbm"].map((m): [string, string] => [m, "inherence"]),
+]);
+
+/** Le fournisseur est invité à un second facteur : `amr` exigé avec une méthode de possession ou d'inhérence, `mfa` ou `mca`, ou `acr` exigé avec un niveau autre que 0 ou 1 ; la preuve du jeton décide ensuite à la connexion. */
 export function adminAdmis(f: Fournisseur): boolean {
   const amr = f.required_amr.map((m) => m.trim().toLowerCase());
+  const famille = (m: string): string | undefined => FAMILLES_AMR.get(m);
   return (
-    (amr.length > 0 && amr.every((m) => m === "mfa" || m === "mca")) ||
-    (f.required_acr.length > 0 && f.required_acr.every((a) => !ACR_FAIBLES.has(a.trim())))
+    amr.some(
+      (m) => m === "mfa" || m === "mca" || (famille(m) !== undefined && famille(m) !== "connaissance"),
+    ) || f.required_acr.some((a) => !ACR_FAIBLES.has(a.trim()))
   );
 }
 

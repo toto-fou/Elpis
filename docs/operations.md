@@ -487,12 +487,28 @@ therefore needs the core bundle, which `./install.sh` builds before configuring.
 
 ## Deleted accounts and their sandbox folder
 
-Deleting an account without its sandbox (the console default) keeps its folder on the host but renames it
-`.supprime-<account id>-<timestamp>` in the sandbox directory (`user_sandboxes/`), so that an account created
-later under the same name never finds its files; its snapshots (`user_sandboxes/_snapshots/<name>`) get the same new name, and deleting the account with its sandbox deletes them too. The container is removed first. When the sandbox lives on a
-remote tool host, that host renames its own folder the same way. An administrator can recover files from the
-renamed folder on the host (or delete it); it is not listed anywhere in the console. If the rename fails, the
-account is not deleted and the console reports a failure: retry once the host answers.
+Deleting an account, with or without its sandbox, always runs in the same order, so that an account created later
+under the same name never inherits anything of the old one:
+
+1. Access is cut (sessions revoked, container removed).
+2. The sandbox folder and its snapshots (`user_sandboxes/_snapshots/<name>`) are renamed
+   `.supprime-<account id>-<timestamp>` in the sandbox directory (`user_sandboxes/`), locally and on the remote
+   tool host of the account. If a rename fails, the account is not deleted, everything is put back and the console
+   reports a failure: retry once the host answers.
+3. The site credentials of the account are removed on every declared tool host that has a URL and a service token
+   (a host without them holds none and is skipped). If a host cannot be reached or fails, the account is not deleted, everything is put back and the failing host is named in the
+   server log: fix it, or remove the host from the manifest, then retry.
+4. The account is deleted from the database. If that fails, the renamed folders are put back; if the account was
+   already deleted by a concurrent request, nothing is put back.
+5. With the sandbox (`delete_sandbox=true`), the renamed folders are then deleted, locally and on the remote host.
+   A failure here does not bring the account back: the console reports the reason (`sandbox_error`) and the
+   renamed folders stay out of reach of any account name until an administrator deletes them on the host.
+
+Without the sandbox (the console default), the renamed folders are kept: an administrator can recover files from
+them on the host (or delete them); they are not listed anywhere in the console.
+
+Account names cannot start with `_` (the sandbox directory keeps `_snapshots` there); an older account whose name
+does, when deleted, never has its folders renamed or deleted.
 
 ## Backing up and restoring
 

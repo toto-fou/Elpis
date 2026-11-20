@@ -454,7 +454,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("connexion par SSO OIDC (%s)"
         "not_in_group",
       );
       expect(await lignes("SELECT suspended_by FROM users WHERE username='sub-jean'")).toEqual([
-        ["directory:sso"],
+        ["provider:sso"],
       ]);
     });
 

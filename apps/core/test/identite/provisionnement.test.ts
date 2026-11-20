@@ -185,13 +185,13 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
         [uid],
       );
 
-    it("retiré du groupe : refus et compte suspendu `directory:<id>`, coupure propagée", async () => {
+    it("retiré du groupe : refus et compte suspendu `provider:<id>`, coupure propagée", async () => {
       expect(await resoudre(profil(), "non", T + 10)).toEqual({ type: "refus", raison: "not_in_group", uid });
-      expect(await etat()).toMatchObject({ suspended_at: T + 10, suspended_by: "directory:sso" });
+      expect(await etat()).toMatchObject({ suspended_at: T + 10, suspended_by: "provider:sso" });
       await vi.waitFor(() => expect(publiees).toEqual([uid]));
       const ev = lignesAuditRecentes({ actionPrefix: "auth.account.suspend" })[0];
       expect(ev).toMatchObject({ user_id: uid, username: "jdupont" });
-      expect(ev?.["details"]).toMatchObject({ origin: "directory:sso", provider_id: "sso" });
+      expect(ev?.["details"]).toMatchObject({ origin: "provider:sso", provider_id: "sso" });
     });
 
     it("la coupure d'accès n'est pas attendue : une panne de publication ne change pas la réponse et est journalisée", async () => {
@@ -204,7 +204,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
         new Promise<string>((ok) => setTimeout(() => ok("bloque"), 3000)),
       ]);
       expect(r).toEqual({ type: "refus", raison: "not_in_group", uid });
-      expect(await etat()).toMatchObject({ suspended_by: "directory:sso" });
+      expect(await etat()).toMatchObject({ suspended_by: "provider:sso" });
     });
 
     it("groupes illisibles : refus sans rien modifier (ni suspension, ni mise à jour, ni coupure)", async () => {
@@ -229,7 +229,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
         session_min_ts: T + 20,
       });
       const ev = lignesAuditRecentes({ actionPrefix: "auth.account.reactivate" })[0];
-      expect(ev?.["details"]).toMatchObject({ origin: "directory:sso" });
+      expect(ev?.["details"]).toMatchObject({ origin: "provider:sso" });
     });
 
     it("suspension par péremption du même fournisseur (`stale:<id>`) : levée", async () => {
@@ -238,7 +238,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
       expect(Number((await etat())?.suspended_at)).toBe(0);
     });
 
-    it.each(["admin", "directory:autre", "stale:autre", ""])(
+    it.each(["admin", "provider:autre", "stale:autre", ""])(
       "suspendu par `%s` : refus suspended, l'état reste",
       async (par) => {
         await t.base.run("UPDATE users SET suspended_at=?, suspended_by=? WHERE id=?", [T, par, uid]);

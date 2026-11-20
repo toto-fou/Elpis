@@ -10,7 +10,7 @@ import type { CleCoffre } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
-import { autoriteDePortee, empreinteAutorite, hoteExact, hotes } from "../secrets/portee";
+import { autoriteDePortee, empreinteAutorite, hote, hoteExact } from "../secrets/portee";
 import {
   creerSecret,
   dechiffrerLigne,
@@ -130,16 +130,16 @@ export async function testReussiCourant(
   return attendu !== null && test.s === attendu;
 }
 
-/** Hôtes `hôte:port` du fournisseur, sous la forme de la portée de son secret. */
-export function hotesDuFournisseur(f: Fournisseur): string[] {
+/** Hôte `hôte:port` du fournisseur, sous la forme de la portée de son secret. */
+export function hoteDuFournisseur(f: Fournisseur): string {
   const h = hotePortHttps(f.issuer);
-  return [hoteExact(h) ?? h];
+  return hoteExact(h) ?? h;
 }
 
 /** Portée du secret d'un fournisseur : adresse et autorité de certification. */
-export function porteeDuFournisseur(f: Fournisseur): { hosts: string[]; ca: string } {
+export function porteeDuFournisseur(f: Fournisseur): { host: string; ca: string } {
   return {
-    hosts: hotesDuFournisseur(f),
+    host: hoteDuFournisseur(f),
     ca: empreinteAutorite(f.ca_pem),
   };
 }
@@ -150,8 +150,7 @@ export async function secretFournisseur(x: Executeur, f: Fournisseur): Promise<s
   if (l === null || l.kind !== "token") return null;
   const rangee = porteeDe(l);
   const attendue = porteeDuFournisseur(f);
-  const hotesRanges = hotes(rangee);
-  if (!attendue.hosts.every((h) => hotesRanges.includes(h))) return null;
+  if (hote(rangee) !== attendue.host) return null;
   if (autoriteDePortee(rangee) !== attendue.ca) return null;
   try {
     const v = dechiffrerLigne(l);

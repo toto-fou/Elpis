@@ -124,7 +124,6 @@ function jetonAOrigines(t: Titulaire | undefined): boolean {
 
 /** Préfixe réservé aux secrets des fournisseurs d'identité (secrets d'instance `auth-<id>`). */
 export const PREFIXE_SECRET_AUTH = "auth-";
-const HOTES_AUTH_MAX = 3;
 
 /** Nom réservé aux fournisseurs d'identité : jamais créé, lu, modifié ni supprimé par les routes du coffre. */
 export function nomReserveAuth(nom: string): boolean {
@@ -136,10 +135,10 @@ function jetonAHotes(t: Titulaire | undefined): boolean {
   return t !== undefined && t.proprietaire === null && nomReserveAuth(t.nom);
 }
 
-/** Hôtes `hôte:port` d'une portée de fournisseur d'identité. */
-export function hotes(p: PorteeSecret): string[] {
-  const h = (p as { hosts?: unknown }).hosts;
-  return Array.isArray(h) ? h.filter((x): x is string => typeof x === "string") : [];
+/** Hôte `hôte:port` d'une portée de fournisseur d'identité, `null` s'il manque. */
+export function hote(p: PorteeSecret): string | null {
+  const h = (p as { host?: unknown }).host;
+  return typeof h === "string" ? h : null;
 }
 
 /** Autorité de certification d'une portée de fournisseur : « system » ou une empreinte SHA-256 en hexadécimal. */
@@ -156,29 +155,19 @@ export function autoriteDePortee(p: PorteeSecret): string | null {
   return typeof a === "string" ? a : null;
 }
 
-/** Portée par hôtes : `{hosts: ["hôte:port", …], ca?}`, port explicite, 3 hôtes au plus. */
-function porteeHotes(p: Record<string, unknown>): PorteeSecret {
-  const brutes = p["hosts"];
+/** Portée par hôte : `{host: "hôte:port", ca?}`, port explicite. */
+function porteeHote(p: Record<string, unknown>): PorteeSecret {
+  const brut = p["host"];
   const ca = p["ca"];
-  if (Object.keys(p).some((k) => k !== "hosts" && k !== "ca"))
-    throw refusPortee("Invalid scope: only 'hosts' and 'ca' are allowed.");
+  if (Object.keys(p).some((k) => k !== "host" && k !== "ca"))
+    throw refusPortee("Invalid scope: only 'host' and 'ca' are allowed.");
   if (ca !== undefined && (typeof ca !== "string" || !RE_AUTORITE.test(ca)))
     throw refusPortee("Invalid scope: 'ca' is 'system' or a SHA-256 fingerprint.");
-  if (!Array.isArray(brutes) || brutes.length === 0)
-    throw refusPortee("Invalid scope: 'hosts' must list one or more host:port entries.");
-  const hotesNormalises: string[] = [];
-  for (const h of brutes) {
-    const n = typeof h === "string" ? hoteExact(h) : null;
-    if (n === null || !/:\d{1,5}$/u.test(n))
-      throw refusPortee("Invalid scope: each host is host:port with an explicit port.");
-    if (!hotesNormalises.includes(n)) hotesNormalises.push(n);
-  }
-  if (hotesNormalises.length > HOTES_AUTH_MAX)
-    throw refusPortee(`Invalid scope: ${HOTES_AUTH_MAX} hosts at most.`);
-  return {
-    hosts: hotesNormalises,
-    ...(ca === undefined ? {} : { ca }),
-  } as unknown as PorteeSecret;
+  if (typeof brut !== "string") throw refusPortee("Invalid scope: 'host' must be a host:port entry.");
+  const n = hoteExact(brut);
+  if (n === null || !/:\d{1,5}$/u.test(n))
+    throw refusPortee("Invalid scope: the host is host:port with an explicit port.");
+  return { host: n, ...(ca === undefined ? {} : { ca }) } as unknown as PorteeSecret;
 }
 
 /** Portée validée et normalisée selon le genre ; un jeton n'a pas de portée, sauf la clé du moteur d'images (origines exactes) et les secrets `auth-*` (hôtes et ports). */
@@ -188,7 +177,7 @@ export function normaliserPortee(genre: GenreSecret, brut: unknown, titulaire?: 
     throw refusPortee("Invalid scope: an object is expected.");
   const p = objet as Record<string, unknown>;
   const cles = Object.keys(p);
-  if (genre === "token" && jetonAHotes(titulaire)) return porteeHotes(p);
+  if (genre === "token" && jetonAHotes(titulaire)) return porteeHote(p);
   if (parOrigines(genre) || (genre === "token" && cles.length > 0 && jetonAOrigines(titulaire))) {
     const brutes = p["origins"];
     if (cles.length !== 1 || !Array.isArray(brutes) || brutes.length === 0)

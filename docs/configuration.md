@@ -429,7 +429,7 @@ most), `ca_pem` (PEM certificates, 64 KiB at most; when present, the only trust 
 - `roles` (all three keys required; see [enterprise-sign-in.md](enterprise-sign-in.md#roles-and-groups-from-the-provider)):
   `enabled` (default `false`), `admin_groups` and `moderator_groups` (0 to 20 entries of 512 characters at
   most each, no duplicate). The role of the accounts of the provider follows these groups; administrator groups
-  of a provider count only when it sets `required_acr` or `required_amr`.
+  of a provider count only when it invites a second factor (`required_amr` with a method of possession or inherence, `mfa` or `mca`, or `required_acr` with a level other than `0` and `1`), and a sign-in only gives the role when the received token proves it.
 - `group_map`: `enabled` (default `false`) and `map`, 0 to 50 pairs `{external, group_id}` (`external`: 1 to 512
   characters, the exact claim value; `group_id`: identifier of an Elpis group, 1 or more; no
   duplicate pair).
@@ -1284,15 +1284,15 @@ be taken). Routes:
 ``GET /api/admin/toolhosts``, ``POST /api/admin/toolhosts/placements/{uid}``
 (``{host_id}``), ``…/migrate``, ``DELETE …``. Adding a host = one
 ``sandboxHosts`` entry in ``mcp.json`` + ``toolhost.json`` on the machine.
-Deleting an account with its sandbox (``DELETE /api/admin/users/{id}?delete_sandbox=true``)
-also deletes the one on a remote host, through that host's internal route
-``POST /api/internal/sandbox/delete`` (signed envelope, never relayed),
-before the local folder; an enforced network profile destroys the container on the account's host.
+Deleting an account (``DELETE /api/admin/users/{id}``, with or without ``?delete_sandbox=true``) renames
+the sandbox of a remote host out of reach of account names through that host's internal routes
+``POST /api/internal/sandbox/set-aside``, ``…/restore`` (the deletion failed) and, with the sandbox,
+``…/discard`` (signed envelope, never relayed), all given the same timestamp by the console; an enforced network profile destroys the container on the account's host.
 Every account deletion also calls ``POST /api/internal/account/purge`` on
-each declared host (same signed envelope): the site credentials in the account's AX memory
-are removed from the host's database. A host that is unreachable or has no token is
-flagged in the response's ``hosts_purge_errors`` and in the log: its credentials
-must then be removed before recreating an account with the same name.
+each declared host that has a URL and a service token (same signed envelope), before the account is deleted: the site credentials in the account's AX memory
+are removed from the host's database. A host that is unreachable or fails refuses the deletion
+(it is named in the log): fix it, or remove it from the manifest, then retry. See
+[operations.md](operations.md#deleted-accounts-and-their-sandbox-folder).
 
 
 | Variable | Default | Description |

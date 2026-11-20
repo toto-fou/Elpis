@@ -25,7 +25,7 @@ import {
   etatFournisseur,
   champsFigesChanges,
   revendicationIdentifiantChangee,
-  hotesDuFournisseur,
+  hoteDuFournisseur,
   nombreIdentites,
   secretFournisseur,
   supprimerSecretFournisseur,
@@ -398,8 +398,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   async function secretOidcEnregistre(f: FournisseurOidc): Promise<string | null> {
     const enregistre = lireReglagesAuth().providers.find((p) => p.id === f.id);
     if (enregistre === undefined || enregistre.ca_pem !== f.ca_pem) return null;
-    const permis = new Set(hotesDuFournisseur(enregistre));
-    if (!hotesDuFournisseur(f).every((h) => permis.has(h))) return null;
+    if (hoteDuFournisseur(f) !== hoteDuFournisseur(enregistre)) return null;
     return secretFournisseur(base, f);
   }
 

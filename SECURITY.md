@@ -80,7 +80,7 @@ run Elpis on a dedicated machine or VM. Details below.
   configured. The person's password never goes through Elpis.
   Optionally (off by default), the role and some Elpis groups follow the provider's groups: exact matches
   only, a membership that cannot be read changes nothing, and administrator groups need an explicit
-  confirmation and, for single sign-on, a required second factor. Provider-side sign-out and back-channel
+  confirmation and a second factor proven by the token. Provider-side sign-out and back-channel
   logout end the sessions of that provider only, on a signed logout token.
   See [docs/enterprise-sign-in.md](docs/enterprise-sign-in.md).
 - Driven browser: it runs inside each account's sandbox; its traffic

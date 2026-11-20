@@ -201,11 +201,10 @@ Set the second factor at the provider, then make Elpis require it: **Niveaux d'a
 (`required_acr`) and **Méthodes d'authentification (amr)** (`required_amr`), space-separated lists. A sign-in
 is accepted when the identity token carries one of the listed `acr` values and, if set, one of the listed
 `amr` methods (any one of them is enough to sign in); the `acr` values are also sent in the request. Empty means no requirement, and the drawer says
-that no two-step check is then guaranteed by Elpis. Becoming an administrator through a group is judged on what the received token proves, not on the setting:
-the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
+that no two-step check is then guaranteed by Elpis. Becoming an administrator through a group is judged on what the received token proves. The settings only have to invite the provider to a second factor: `required_amr` lists at least one method of possession or inherence (for example `pwd otp`), `mfa` or `mca`, or `required_acr` lists a level other than `0` and `1`; `pwd` alone or `acr` `1` alone is refused when you save. Then, at each sign-in, the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
 `pin` `kba`; possession `otp` `hwk` `swk` `sms` `tel` `sc`; inherence `face` `fpt` `iris` `retina` `vbm`), or an
 `acr` listed in `required_acr` that is not `0` or `1`. A sign-in whose token lists an administrator group without
-such a proof is refused. A refusal shows "Une vérification en deux étapes est
+such a proof is refused (`mfa_required`, cause `admin_without_mfa`), even when it satisfies the settings: with `required_amr` set to `pwd otp`, a token carrying only `pwd` is refused. A refusal shows "Une vérification en deux étapes est
 exigée".
 
 ### Keycloak
@@ -263,6 +262,13 @@ exigée".
   another host and is not called, so the login name and the groups must be in the identity token.
 - A person in too many groups for the token gets no groups claim and is refused (`groups_unknown`): limit the
   claim to the groups assigned to the application.
+- **The v2.0 identity token may carry neither `amr` nor `acr`.** Microsoft's public reference of the identity
+  token claims lists neither of them. If you set `required_amr` or `required_acr`, everybody is then refused
+  (`mfa_required`) and administrator groups cannot be used. Run the sign-in trial first to see what your tenant
+  really sends; if nothing usable arrives, require the second factor in Entra ID (conditional access) and keep
+  the administrators as local accounts.
+- **Entra ID is a cloud service**: the Elpis server must reach the Internet (`login.microsoftonline.com`) for
+  discovery, keys and token exchange.
 
 ## Accounts
 
@@ -344,11 +350,11 @@ When the decision is applied:
 **Administrator groups.** Giving the administrator role through groups is a deliberate step. When you save a
 provider with administrator groups, when you create it or change them, the save is refused until you confirm
 explicitly that their members become administrators: the drawer asks you to type **administrateur**. The
-confirmation is asked again when the way the groups are read changes: the groups claim, `required_acr` or `required_amr`. The provider must also require a second factor (a `required_acr` without the weak levels `0` and `1`,
-or a `required_amr` made only of `mfa` / `mca`; see
+confirmation is asked again when the way the groups are read changes: the groups claim, `required_acr` or `required_amr`. The provider must also be invited to a second factor (a `required_acr` with a level other than `0` and `1`,
+or a `required_amr` with a method of possession or inherence, `mfa` or `mca`; see
 [Requiring a second factor](#requiring-a-second-factor)), otherwise the settings are refused; administrator
 groups of a provider that does not require one are ignored, and `./elpis doctor` warns about
-it. A mapping to an Elpis group that does not exist is refused when you save.
+it. At sign-in the received token must prove the second factor, or the sign-in is refused. A mapping to an Elpis group that does not exist is refused when you save.
 
 **In the drawer.** The section **Rôles et groupes** (Roles and groups) is folded by default. Its first box,
 **Donner les rôles d'après les groupes du fournisseur** (Give roles from the provider groups), turns on the
@@ -418,7 +424,7 @@ account. Elpis never deletes an account by itself.
 
 What people see after a single sign-on failure is a message and a short **Référence** (reference). Search it in
 `./elpis logs main` (a line `connexion SSO <id> refusée (réf. …) : <cause>`) or in Supervision › Journaux ›
-Sécurité (`auth.login.denied`, `details.ref`). All the
+Sécurité (`auth.login.denied`, `details.ref`). Repeated refusals from the same address are summarized: only the first one of a minute keeps its reference in the journal, so a reference may be missing there. All the
 reasons are listed in [audit-events.md](audit-events.md#authentication).
 
 | Message shown                                                                        | Code (`auth_error`) | Probable cause                                                                                                                           |
@@ -467,6 +473,11 @@ Commands on the host, described in [operations.md](operations.md#enterprise-sign
   alternative names only, and only forward-secret, authenticated cipher suites are accepted.
 - **Trust.** The provider is trusted to say who a person is and which groups they belong to.
   The host name of Elpis is its trust boundary: dedicated to it, in HTTPS. See [SECURITY.md](../SECURITY.md).
+- **Behind a NAT.** Starting a sign-in shares the rate of the client address (a bucket of 50, refilled every
+  15 seconds), and when the number of flows in progress for an address reaches its ceiling the oldest flow of that
+  address is evicted. Behind one shared address (NAT, proxy), a hostile host can therefore exhaust the bucket and
+  make colleagues' starts fail (429), or cut the flow of a colleague who starts at the same moment, who then
+  simply starts again. The return of the provider is not affected.
 - **The settings are written only by the console** (and `./elpis auth off`): neither the raw editor nor the
   configuration API can create or overwrite the `auth` section.
 
@@ -474,8 +485,7 @@ Commands on the host, described in [operations.md](operations.md#enterprise-sign
 
 What follows comes from two kinds of proof. **Played on a real server**: the whole journey (test, sign-in,
 refusals, sign-out) ran against that product in a container. **Played on its profile**: the automated tests
-replay what the product documents (discovery, token shapes, group formats) against a local provider or
-directory. A product that is not listed has not been looked at; one that follows the standards below should
+replay what the product documents (discovery, token shapes, group formats) against a local provider. A product that is not listed has not been looked at; one that follows the standards below should
 work, and **Tester** then **Essayer la connexion** will say so.
 
 ### What Elpis expects from any server

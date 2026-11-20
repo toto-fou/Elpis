@@ -116,7 +116,7 @@ async function identiteConnue(c: Contexte, l: LigneIdentite): Promise<Resolution
   effets.username = l.username;
   if (l.issuer !== profil.issuer) return refus("issuer_mismatch", uid);
   if (appartenance === "inconnu") return refus("groups_unknown", uid);
-  const origine = `directory:${fournisseur.id}`;
+  const origine = `provider:${fournisseur.id}`;
   if (appartenance === "non") {
     if (await poserSuspensionDuFournisseur(c, uid, origine)) {
       await dep.base.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);

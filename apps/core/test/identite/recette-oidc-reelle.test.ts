@@ -290,7 +290,7 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect ré
       expect((await moi(session)).username).toBeUndefined();
       const e = await etat();
       expect(Number(e?.suspended_at)).toBeGreaterThan(0);
-      expect(e?.suspended_by).toBe("directory:sso");
+      expect(e?.suspended_by).toBe("provider:sso");
     } finally {
       await installer();
     }

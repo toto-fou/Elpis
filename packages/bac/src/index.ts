@@ -88,6 +88,9 @@ export * as privdrop from "./privdrop";
 export {
   messageSuppression,
   mettreBacDeCote,
+  nomMisDeCote,
+  remettreBacMisDeCote,
+  supprimerBacMisDeCote,
   supprimerDossierBac,
   supprimerInstantanesDuNom,
 } from "./suppression";

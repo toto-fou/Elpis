@@ -225,7 +225,7 @@ describe("adresse du fournisseur : l'émetteur OIDC se compare exactement", () =
     const a = validerFournisseur(oidcValide());
     const b = validerFournisseur(oidcValide());
     expect(porteeDuFournisseur(a)).toEqual(porteeDuFournisseur(b));
-    expect(porteeDuFournisseur(a)).toEqual({ hosts: ["idp.exemple.lan:443"], ca: "system" });
+    expect(porteeDuFournisseur(a)).toEqual({ host: "idp.exemple.lan:443", ca: "system" });
     expect(empreinteFournisseur(a, "https://elpis.lan")).toBe(empreinteFournisseur(b, "https://elpis.lan"));
   });
 });

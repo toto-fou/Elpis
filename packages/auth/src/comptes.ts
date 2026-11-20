@@ -95,6 +95,8 @@ export async function validerNomUtilisateur(x: Executeur, username: string): Pro
       "username invalide : seuls les caractères A-Z a-z 0-9 _ - sont autorisés (pas d'espace ni d'accent — ils créeraient une collision de dossier avec un autre compte).",
     );
   }
+  if (username.startsWith("_"))
+    throw new ErreurNomUtilisateur("username invalide : il ne peut pas commencer par _.");
   for (const u of await getAllUsers(x)) {
     const autre = u.username || "";
     if (autre !== username && nomCanonique(autre) === username) {

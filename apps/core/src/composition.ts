@@ -68,6 +68,7 @@ import { creerFamilleAdminIdentiteBalayage } from "./familles/admin-identite-bal
 import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
 import { creerFamilleAdminIdentiteOidc } from "./familles/admin-identite-oidc";
 import { creerFamilleIdentite } from "./familles/identite";
+import { lireReglagesAuth } from "./identite/reglages";
 import { maintenirDecouvertesChaudes } from "./identite/oidc/rechauffement";
 import { FabriqueConfigurations } from "./identite/oidc/configuration";
 import { adresseDeFinDeSession } from "./identite/oidc/deconnexion";
@@ -344,12 +345,14 @@ export function brancherPlanificateur(
   base: Base,
   cycle: CycleDeVie,
   fraicheurs?: () => Promise<Fraicheurs>,
+  localReserve?: () => boolean,
 ): Planificateur {
   const meneur = new Meneur({ arret: cycle.signalArret });
   const planificateur = new Planificateur({
     base,
     meneur,
     ...(fraicheurs === undefined ? {} : { fraicheurs }),
+    ...(localReserve === undefined ? {} : { localReserve }),
   });
   if (mode !== "main") return planificateur;
   installerMeneur(meneur);
@@ -416,9 +419,11 @@ export async function composer(
   installerPortsSkills(base);
   installerPortsBureau(base);
   const jc = journal.child({ domaine: "comptes" });
+  const localReserveAuxAdmins = (): boolean => lireReglagesAuth().local.mode === "admins";
   const fraicheurs = lecteurFraicheurs(base, () => dep.attributsCookie().https_only === true);
   const auth: DependancesAuth & DependancesJetons = {
     fraicheursFournisseurs: fraicheurs,
+    localReserveAuxAdmins,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     informer: (message) => jc.info(message),
     signalerRefus: signalerRefusAuth,
@@ -436,7 +441,13 @@ export async function composer(
     demarrerHistoriqueFichiers: async (uid) => void (await ouvrirSessionHistorique(uid, { journal: jr })),
   };
   const cycle = options.cycle ?? new CycleDeVie(journal.child({ domaine: "cycle" }));
-  const planificateur = brancherPlanificateur(mode, base, cycle, async () => lireFraicheurs(auth));
+  const planificateur = brancherPlanificateur(
+    mode,
+    base,
+    cycle,
+    async () => lireFraicheurs(auth),
+    localReserveAuxAdmins,
+  );
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
   brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
@@ -493,7 +504,12 @@ export async function composer(
     diffuser: (message) => evenements.diffuserPartout(message),
     meneur: mode === "main" ? meneur() : null,
   });
-  const jobs = mode === "main" ? brancherJobs(base, cycle, (m) => evenements.diffuserPartout(m)) : null;
+  const jobs =
+    mode === "main"
+      ? brancherJobs(base, cycle, (m) => evenements.diffuserPartout(m), {
+          acces: { fraicheursFournisseurs: async () => lireFraicheurs(auth), localReserveAuxAdmins },
+        })
+      : null;
   brancherHistoriqueJournal((niveau, message, date) =>
     evenements.systemEvents.noterLigneJournal(niveau, message, date),
   );
@@ -512,6 +528,7 @@ export async function composer(
     base,
     config: () => auth.config(),
     fraicheursFournisseurs: async () => lireFraicheurs(auth),
+    localReserveAuxAdmins,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
   };

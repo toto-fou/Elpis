@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/suppression.ts — suppression du dossier `P` d'un compte (`_supprimer_sandbox`) : /work par descripteurs, vidé par le root du conteneur si l'hôte n'en a pas le droit, puis le reste. */
-import { lstat, readdir, stat } from "node:fs/promises";
+import { lstat, readdir, rename, stat } from "node:fs/promises";
+import { join } from "node:path";
 
 import { messageErreurOs, reprPy } from "@elpis/commun";
 import { pyJoin } from "@elpis/config";
@@ -56,5 +57,55 @@ export async function supprimerDossierBac(
     return [true, null];
   } catch (e) {
     return [false, messageSuppression(e)];
+  }
+}
+
+/** Dossier des instantanés de l'hôte, sous la racine des bacs. */
+const INSTANTANES_SUBDIR = "_snapshots";
+
+async function existe(chemin: string): Promise<boolean> {
+  try {
+    await lstat(chemin);
+    return true;
+  } catch (e) {
+    if ((e as { code?: unknown }).code === "ENOENT") return false;
+    throw e;
+  }
+}
+
+/** `P` et les instantanés du nom sûr renommés en `.supprime-<uid>-<horodatage>` (aucun nom de compte ne commence par un point), contenu intact ; un échec remet en place ce qui l'était déjà ; liste des `[origine, destination]` faits (vide sans rien). */
+export async function mettreBacDeCote(
+  racine: string,
+  nomSur: string,
+  uid: number,
+  horodatageMs: number,
+): Promise<[string, string][]> {
+  const nom = `.supprime-${uid}-${horodatageMs}`;
+  const faits: [string, string][] = [];
+  try {
+    for (const dossier of [racine, join(racine, INSTANTANES_SUBDIR)]) {
+      const origine = join(dossier, nomSur);
+      if (!(await existe(origine))) continue;
+      const destination = join(dossier, nom);
+      await rename(origine, destination);
+      faits.push([origine, destination]);
+    }
+  } catch (e) {
+    for (const [origine, destination] of faits.reverse())
+      await rename(destination, origine).catch(() => undefined);
+    throw e;
+  }
+  return faits;
+}
+
+/** Instantanés du nom sûr supprimés (arbre par descripteurs) ; `null` si tout va bien ou s'il n'y en a pas, sinon la raison. */
+export async function supprimerInstantanesDuNom(racine: string, nomSur: string): Promise<string | null> {
+  const dossier = join(racine, INSTANTANES_SUBDIR, nomSur);
+  try {
+    if (!(await existe(dossier))) return null;
+    await rmtree(dossier);
+    return null;
+  } catch (e) {
+    return messageSuppression(e);
   }
 }

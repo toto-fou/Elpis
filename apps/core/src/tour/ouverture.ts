@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/tour/ouverture.ts — ouverture d'un tour, par la route de chat ou par le réveilleur des jobs : admission (409 compression ou génération en cours), préparation, verrou de présence et passation (chatbot_app/routes/chats.py). */
-import { compteSuspendu, ligneUtilisateur } from "@elpis/auth";
+import { accesPerimeDe, compteSuspendu, ligneAcces, ligneUtilisateur } from "@elpis/auth";
+import type { PorteFraicheur } from "@elpis/auth";
 import { HttpError, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -26,6 +27,8 @@ export interface DependancesOuverture {
   readonly base: Base;
   /** Attente entre deux sondes d'une génération en cours (tests). */
   readonly dormir?: (s: number) => Promise<void>;
+  /** Fraîcheurs et mode local : un réveil d'un compte à l'accès périmé est refusé. */
+  readonly acces?: PorteFraicheur;
 }
 
 /** Tour ouvert : préparé, verrou de présence pris et réservé jusqu'à sa réclamation par le tour. */
@@ -60,6 +63,11 @@ export async function ouvrirTour(
   data: Dict,
   reveil: OrigineReveil | null = null,
 ): Promise<TourOuvert> {
+  if (
+    reveil !== null &&
+    (await accesPerimeDe(dep.acces ?? {}, await ligneAcces(dep.base, uid), Date.now() / 1000))
+  )
+    throw new HttpError(403, "account_recheck");
   const chatId = await admettreTour(dep, uid, data);
   const [plan, res, base] = await prepareTurn({ base: dep.base }, data, uid, chatId, reveil);
   try {

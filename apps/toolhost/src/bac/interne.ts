@@ -4,8 +4,10 @@ import {
   forgetPreviewIp,
   getUserSandbox,
   messageSuppression,
+  mettreBacDeCote,
   resetUserSandboxCache,
   supprimerDossierBac,
+  supprimerInstantanesDuNom,
   WORK_SUBDIR,
 } from "@elpis/bac";
 import { HttpError } from "@elpis/commun";
@@ -19,7 +21,7 @@ import { baseHote } from "../base-hote";
 import { reponseJson } from "../socle";
 import { uidDe } from "./routes-me";
 
-/** Conteneur du compte de l'enveloppe retiré, puis `P` supprimé ici comme sur la console (/work vidé par le root du conteneur si l'hôte n'en a pas le droit) ; refus → 502 avec la raison. */
+/** Conteneur du compte de l'enveloppe retiré, puis `P` et les instantanés du nom supprimés ici comme sur la console (/work vidé par le root du conteneur si l'hôte n'en a pas le droit) ; refus → 502 avec la raison. */
 async function supprimerBac(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
   const uid = uidDe(requete);
   const username = await usernameFor(uid);
@@ -32,6 +34,11 @@ async function supprimerBac(requete: FastifyRequest, reponse: FastifyReply): Pro
     });
     const [supprime, erreur] = await supprimerDossierBac(dossier, () => sb.purge());
     if (erreur !== null) throw new HttpError(502, erreur);
+    const echecInstantanes = await supprimerInstantanesDuNom(
+      realpathPy(config.SANDBOX_DIR),
+      safeSandboxName(username),
+    );
+    if (echecInstantanes !== null) throw new HttpError(502, echecInstantanes);
     auditEvent({
       userId: uid,
       username,
@@ -39,6 +46,37 @@ async function supprimerBac(requete: FastifyRequest, reponse: FastifyReply): Pro
       details: { container: sb.containerName, deleted: supprime },
     });
     return reponseJson(reponse, { ok: true, deleted: supprime });
+  } finally {
+    resetUserSandboxCache(uid);
+  }
+}
+
+/** Conteneur retiré, puis `P` et les instantanés renommés hors de portée des noms de comptes (récupérable par l'administrateur de l'hôte) ; refus → 502 avec la raison. */
+async function mettreBacDeCoteDuCompte(
+  requete: FastifyRequest,
+  reponse: FastifyReply,
+): Promise<FastifyReply> {
+  const uid = uidDe(requete);
+  const username = await usernameFor(uid);
+  forgetPreviewIp(uid);
+  const racine = realpathPy(config.SANDBOX_DIR);
+  const sb = getUserSandbox(uid, username, pyJoin(pyJoin(racine, safeSandboxName(username)), WORK_SUBDIR));
+  try {
+    await sb.destroy().catch((e: unknown) => {
+      throw new HttpError(502, messageSuppression(e));
+    });
+    const mis = await mettreBacDeCote(racine, safeSandboxName(username), uid, Date.now()).catch(
+      (e: unknown) => {
+        throw new HttpError(502, messageSuppression(e));
+      },
+    );
+    auditEvent({
+      userId: uid,
+      username,
+      action: "user.sandbox.set_aside",
+      details: { container: sb.containerName, renamed: mis.length > 0 },
+    });
+    return reponseJson(reponse, { ok: true, renamed: mis.length > 0 });
   } finally {
     resetUserSandboxCache(uid);
   }
@@ -63,6 +101,13 @@ export function routesInternes(): DefinitionRoute[] {
       processus: ["toolhost"],
       acces: "enveloppe",
       traiter: supprimerBac,
+    },
+    {
+      methode: "POST",
+      chemin: "/api/internal/sandbox/set-aside",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: mettreBacDeCoteDuCompte,
     },
     {
       methode: "POST",

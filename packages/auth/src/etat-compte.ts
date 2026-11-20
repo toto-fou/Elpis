@@ -21,10 +21,13 @@ export type Fraicheurs = ReadonlyMap<string, number>;
 /** Dépendance qui rend les fraîcheurs des fournisseurs actifs (fournie par le cœur) ; sans elle, tout compte externe est périmé. */
 export interface PorteFraicheur {
   fraicheursFournisseurs?(): Promise<Fraicheurs>;
+  /** Vrai quand le mode local « administrateurs seulement » est actif : les accès non interactifs d'un compte local non administrateur sont périmés. */
+  localReserveAuxAdmins?(): boolean;
 }
 
 /** Colonnes et jointure qui rendent l'identité externe d'un compte (alias `u` = users) à côté de la ligne qui sert `accesPerime`. */
-export const COLONNES_IDENTITE = "i.provider_id AS ident_provider_id, i.checked_at AS ident_checked_at";
+export const COLONNES_IDENTITE =
+  "i.provider_id AS ident_provider_id, i.checked_at AS ident_checked_at, u.is_admin AS ident_is_admin";
 export const JOINTURE_IDENTITE = "LEFT JOIN user_identities i ON i.user_id = u.id";
 
 /** Fraîcheurs des fournisseurs actifs ; une panne ou l'absence de la dépendance rend une table vide (comptes externes périmés). */
@@ -36,26 +39,39 @@ export async function lireFraicheurs(dep: PorteFraicheur): Promise<Fraicheurs> {
   }
 }
 
-/** Vrai si un accès sans session interactive est refusé faute de vérification récente : compte externe dont l'identité n'a pas été vue depuis la fraîcheur de son fournisseur (fournisseur inconnu, éteint ou inactif : périmé tout de suite) ; un compte local n'est jamais concerné. */
+/** Mode local « administrateurs seulement » lu auprès de la dépendance ; faux sans elle. */
+export function localReserveDe(dep: PorteFraicheur): boolean {
+  try {
+    return dep.localReserveAuxAdmins?.() === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Vrai si un accès sans session interactive est refusé faute de vérification récente : compte externe dont l'identité n'a pas été vue depuis la fraîcheur de son fournisseur (fournisseur inconnu, éteint ou inactif : périmé tout de suite) ; un compte local n'est concerné que s'il n'est pas administrateur en mode local réservé aux administrateurs. */
 export function accesPerime(
-  ligne: { ident_provider_id?: unknown; ident_checked_at?: unknown } | null | undefined,
+  ligne:
+    { ident_provider_id?: unknown; ident_checked_at?: unknown; ident_is_admin?: unknown } | null | undefined,
   fraicheurs: Fraicheurs,
   maintenant: number,
+  localReserve = false,
 ): boolean {
-  const id = ligne?.ident_provider_id;
-  if (id === null || id === undefined) return false;
+  if (ligne === null || ligne === undefined) return false;
+  const id = ligne.ident_provider_id;
+  if (id === null || id === undefined) return localReserve && Number(ligne.ident_is_admin) !== 1;
   const jours = typeof id === "string" ? fraicheurs.get(id) : undefined;
   if (jours === undefined || !(jours >= FRAICHEUR_MIN_JOURS && jours <= FRAICHEUR_MAX_JOURS)) return true;
   const vu = Number(ligne?.ident_checked_at);
   return !Number.isFinite(vu) || vu <= 0 || maintenant - vu > jours * JOUR_S;
 }
 
-/** `accesPerime` avec les fraîcheurs lues auprès de la dépendance, seulement pour un compte externe. */
+/** `accesPerime` avec les fraîcheurs et le mode local lus auprès de la dépendance (fraîcheurs lues pour un compte externe seulement). */
 export async function accesPerimeDe(
   dep: PorteFraicheur,
-  ligne: { ident_provider_id?: unknown; ident_checked_at?: unknown } | null | undefined,
+  ligne:
+    { ident_provider_id?: unknown; ident_checked_at?: unknown; ident_is_admin?: unknown } | null | undefined,
   maintenant: number,
 ): Promise<boolean> {
-  if (ligne?.ident_provider_id === null || ligne?.ident_provider_id === undefined) return false;
-  return accesPerime(ligne, await lireFraicheurs(dep), maintenant);
+  const externe = ligne?.ident_provider_id !== null && ligne?.ident_provider_id !== undefined;
+  return accesPerime(ligne, externe ? await lireFraicheurs(dep) : new Map(), maintenant, localReserveDe(dep));
 }

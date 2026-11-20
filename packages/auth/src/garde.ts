@@ -82,7 +82,10 @@ export async function ligneSession(x: Executeur, uid: number): Promise<LigneUtil
 export async function ligneAcces(
   x: Executeur,
   uid: number,
-): Promise<{ suspended_at: unknown; ident_provider_id: unknown; ident_checked_at: unknown } | undefined> {
+): Promise<
+  | { suspended_at: unknown; ident_provider_id: unknown; ident_checked_at: unknown; ident_is_admin: unknown }
+  | undefined
+> {
   return x.get(`SELECT u.suspended_at, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`, [
     uid,
   ]);

@@ -33,7 +33,7 @@ export {
 export type { Reseau } from "./ip-client";
 export { estLocalDirect, MANDATAIRES_DE_CONFIANCE } from "./local";
 export { dureeMaxSession, estRevoquee, leverMinSession, purgerRevocations, revoquerSid } from "./revocations";
-export { accesPerime, accesPerimeDe, compteSuspendu, lireFraicheurs } from "./etat-compte";
+export { accesPerime, accesPerimeDe, compteSuspendu, lireFraicheurs, localReserveDe } from "./etat-compte";
 export type { Fraicheurs, PorteFraicheur } from "./etat-compte";
 export { ouvrirSession, renouvelerSession } from "./ouverture";
 export type { MethodeConnexion } from "./ouverture";

@@ -510,6 +510,13 @@ scheduled runs of routines) is refused for an account whose identity was not con
 (jours)** (`freshness_days`, 14 by default, 1 to 90). A directory confirms identities at every check; with
 single sign-on, a person confirms theirs by signing in, so a person who relies on tokens signs in at least
 that often. A provider that is off or deleted confirms nothing: the access of its accounts is refused.
+Background wake-ups of conversations (the turns a finished job starts on its own) follow the same rule as
+scheduled routines: no wake-up and no watch for an account whose access is stale.
+
+**Local accounts when the local mode is "Administrateurs seulement".** The same non-interactive accesses
+(personal tokens, OAuth grants, routines, webhooks, wake-ups) of a local account that is not an administrator are
+refused as stale. Nothing is deleted: they work again as soon as the mode is back to "Tous les comptes". The
+console says so when the mode is switched.
 
 **Disabling is not deleting.** Suspension and detaching keep the conversations, files and settings of the
 account. Elpis never deletes an account by itself.

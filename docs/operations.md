@@ -485,6 +485,15 @@ connector (`connecteur`, API key encrypted by the core); `admin` and `connecteur
 a JSON request on stdin, so no secret goes on a command line. The configuration
 therefore needs the core bundle, which `./install.sh` builds before configuring.
 
+## Deleted accounts and their sandbox folder
+
+Deleting an account without its sandbox (the console default) keeps its folder on the host but renames it
+`.supprime-<account id>-<timestamp>` in the sandbox directory (`user_sandboxes/`), so that an account created
+later under the same name never finds its files; its snapshots (`user_sandboxes/_snapshots/<name>`) get the same new name, and deleting the account with its sandbox deletes them too. The container is removed first. When the sandbox lives on a
+remote tool host, that host renames its own folder the same way. An administrator can recover files from the
+renamed folder on the host (or delete it); it is not listed anywhere in the console. If the rename fails, the
+account is not deleted and the console reports a failure: retry once the host answers.
+
 ## Backing up and restoring
 
 | Method | Use |

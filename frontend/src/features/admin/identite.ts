@@ -583,7 +583,7 @@ export function creerIdentite(b: BaseAdmin) {
     if (corps["local"] && authMode.value === "admins") {
       const ok = await ctx.openConfirm(
         "Connexion locale réservée aux administrateurs",
-        "Seuls les administrateurs pourront encore se connecter avec un mot de passe local. Les autres comptes devront passer par un fournisseur d'entreprise actif.",
+        "Seuls les administrateurs pourront encore se connecter avec un mot de passe local. Les autres comptes devront passer par un fournisseur d'entreprise actif. Les jetons, accès d'outils et routines de leurs comptes locaux seront aussi suspendus ; ils reprendront au retour au mode « Tous les comptes ».",
         true,
         "Confirmer",
       );

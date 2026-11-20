@@ -378,6 +378,7 @@ text and is not logged.
 | --------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `user.sandbox.mode`                           | success | Account switched sandbox mode.                                                                | `mode`, `network_profile_id`                                                                                  |
 | `user.sandbox.restart`, `.destroy`, `.delete` | success | Account's sandbox container restarted, destroyed or deleted.                                  | `container` (and `deleted` for delete)                                                                        |
+| `user.sandbox.set_aside` | success | Tool host: the folder of an account deleted without its sandbox renamed `.supprime-<uid>-<timestamp>` (container removed first). | `container`, `renamed` |
 | `user.toolhost.purge`                         | success | Account's data purged from a toolhost.                                                        | `credentials`                                                                                                 |
 | `code.exec.<kind>`                            | success | Command or code run in a sandbox. Kinds: `tools.shell`, `tools.shell_job`, `tools.skill_run`. | `code_sha256`, `code_len`, `pipeline_id`, `run_id`, `node_id`, `executor`, plus `cmd_argv` for shell commands |
 

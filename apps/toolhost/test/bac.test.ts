@@ -311,6 +311,8 @@ describe("/api/internal/sandbox/delete (suppression d'un compte par la console)"
 
   it("conteneur retiré, /work vidé par le root du conteneur recréé, P supprimé, nom de l'enveloppe, audit", async () => {
     const { dossier } = await bacGarni();
+    mkdirSync(path.join(tmp, "sb", "_snapshots", "pbacfaux"), { recursive: true });
+    writeFileSync(path.join(tmp, "sb", "_snapshots", "pbacfaux", "g"), "y");
     const avant = docker.appels().length;
     const r = await requete("POST", "/api/internal/sandbox/delete", undefined, FAUX);
     expect([r.statusCode, r.json()]).toEqual([200, { ok: true, deleted: true }]);
@@ -333,6 +335,7 @@ describe("/api/internal/sandbox/delete (suppression d'un compte par la console)"
     expect(audit.join("")).toContain('"action":"user.sandbox.delete"');
     const absent = await requete("POST", "/api/internal/sandbox/delete", undefined, FAUX);
     expect([absent.statusCode, absent.json()]).toEqual([200, { ok: true, deleted: false }]);
+    expect(existsSync(path.join(tmp, "sb", "_snapshots", "pbacfaux"))).toBe(false);
   });
 
   it("purge impossible : 502 avec la raison, rien de supprimé ; sans enveloppe : refusé", async () => {
@@ -350,6 +353,33 @@ describe("/api/internal/sandbox/delete (suppression d'un compte par la console)"
     const sans = await h.app.inject({ method: "POST", url: "/api/internal/sandbox/delete" });
     expect(sans.statusCode).toBe(401);
     expect(existsSync(dossier)).toBe(true);
+  });
+});
+
+describe("/api/internal/sandbox/set-aside (compte supprimé, bac gardé)", () => {
+  const FAUX = entetesId({ nom: "pbacfaux" });
+
+  it("conteneur retiré, P renommé hors de portée des noms de comptes, contenu intact ; sans enveloppe : refusé", async () => {
+    await requete("GET", "/api/sandbox/me", undefined, FAUX);
+    const dossier = path.join(tmp, "sb", "pbacfaux");
+    writeFileSync(path.join(dossier, "work", "f"), "x");
+    mkdirSync(path.join(tmp, "sb", "_snapshots", "pbacfaux", "s1"), { recursive: true });
+    writeFileSync(path.join(tmp, "sb", "_snapshots", "pbacfaux", "s1", "g"), "y");
+    const sans = await h.app.inject({ method: "POST", url: "/api/internal/sandbox/set-aside" });
+    expect(sans.statusCode).toBe(401);
+    const r = await requete("POST", "/api/internal/sandbox/set-aside", undefined, FAUX);
+    expect([r.statusCode, r.json()]).toEqual([200, { ok: true, renamed: true }]);
+    expect(existsSync(dossier)).toBe(false);
+    expect(existsSync(path.join(docker.etat, "elpis-sb-pbacfaux.run"))).toBe(false);
+    const gardes = readdirSync(path.join(tmp, "sb")).filter((n) => /^\.supprime-\d+-\d+$/u.test(n));
+    expect(gardes).toHaveLength(1);
+    expect(readFileSync(path.join(tmp, "sb", gardes[0] as string, "work", "f"), "utf-8")).toBe("x");
+    expect(readdirSync(path.join(tmp, "sb", "_snapshots"))).toEqual([gardes[0]]);
+    expect(readFileSync(path.join(tmp, "sb", "_snapshots", gardes[0] as string, "s1", "g"), "utf-8")).toBe(
+      "y",
+    );
+    const absent = await requete("POST", "/api/internal/sandbox/set-aside", undefined, FAUX);
+    expect([absent.statusCode, absent.json()]).toEqual([200, { ok: true, renamed: false }]);
   });
 });
 

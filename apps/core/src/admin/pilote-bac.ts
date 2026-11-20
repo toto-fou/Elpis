@@ -87,6 +87,14 @@ export function piloteBac(): PortBac {
       });
       return getOu(r, "deleted", false) === true;
     },
+    async mettreDeCoteSurHote(uid, username) {
+      const hote = await hoteDistant(uid);
+      if (hote === null) return null;
+      const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/set-aside", {
+        tolererSuspension: true,
+      });
+      return getOu(r, "renamed", false) === true;
+    },
     async retirerConteneur(uid, username, travail) {
       if (which("docker") === null) return;
       try {

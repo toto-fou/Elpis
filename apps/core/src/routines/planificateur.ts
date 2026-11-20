@@ -344,6 +344,8 @@ export interface DependancesPlanificateur {
   readonly llmJoignable?: () => Promise<boolean>;
   /** Fraîcheurs des fournisseurs actifs ; sans elle, un compte externe est périmé. */
   readonly fraicheurs?: () => Promise<Fraicheurs>;
+  /** Vrai quand le mode local est réservé aux administrateurs : les routines d'un compte local ordinaire s'arrêtent. */
+  readonly localReserve?: () => boolean;
 }
 
 export interface Lancement {
@@ -380,6 +382,7 @@ export class Planificateur {
   private readonly runner: (o: OptionsRun) => Promise<SortieRun>;
   private readonly sonde: () => Promise<boolean>;
   private readonly fraicheurs: () => Promise<Fraicheurs>;
+  private readonly localReserve: () => boolean;
   private readonly runs = new Map<number, RunActif>();
   private readonly annulations = new Map<string, number>();
   private dernierTick: number | null = null;
@@ -392,6 +395,7 @@ export class Planificateur {
     this.runner = dep.runner ?? runChatMultiMcp;
     this.sonde = dep.llmJoignable ?? llmJoignable;
     this.fraicheurs = dep.fraicheurs ?? (async () => new Map());
+    this.localReserve = dep.localReserve ?? (() => false);
   }
 
   /** `scheduler_alive` : leader ET boucle qui a tické récemment (une boucle morte garde le verrou mais cesse de ticker). */
@@ -508,7 +512,11 @@ export class Planificateur {
     const acces = await ligneAcces(this.base, uid);
     if (
       o.trigger !== "manual" &&
-      (await accesPerimeDe({ fraicheursFournisseurs: this.fraicheurs }, acces, Date.now() / 1000))
+      (await accesPerimeDe(
+        { fraicheursFournisseurs: this.fraicheurs, localReserveAuxAdmins: this.localReserve },
+        acces,
+        Date.now() / 1000,
+      ))
     ) {
       await this.sauterPourPeremption(rid, uid, o.trigger);
       return null;

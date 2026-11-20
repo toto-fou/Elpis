@@ -37,6 +37,14 @@ async function dossiersAPurger(base: Base, nom: string): Promise<boolean> {
   return !comptes.some((u) => safeSandboxName(u.username) === sur);
 }
 
+/** Vrai si le dossier du bac de ce nom n'appartient à aucun autre compte (ni repli sur « guest », ni nom sûr partagé) : il peut être mis de côté. */
+export async function bacDuNomMisDeCote(base: Base, uid: number, nom: string): Promise<boolean> {
+  if (!nomCanonique(nom)) return false;
+  const sur = safeSandboxName(nom);
+  const autres = await base.all<{ username: string | null }>("SELECT username FROM users WHERE id<>?", [uid]);
+  return !autres.some((u) => safeSandboxName(u.username) === sur);
+}
+
 /** Magasins rangés par nom de compte (skills perso et leur miroir hors /work, mémoire, cache des graphiques) : purgés, sinon un compte recréé sous ce nom en hériterait. */
 async function purgerDossiersDuNom(nom: string): Promise<void> {
   const sur = safeSandboxName(nom);

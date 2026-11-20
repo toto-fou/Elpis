@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-fraicheur.test.ts — un accès sans session interactive d'un compte externe exige une vérification récente (jeton d'API, OAuth MCP, routine, webhook) ; un compte local n'est jamais gêné, ni un compte externe que l'annuaire confirme à chaque passe (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/securite-fraicheur.test.ts — un accès sans session interactive d'un compte externe exige une vérification récente (jeton d'API, OAuth MCP, routine, webhook) ; un compte local n'est jamais gêné (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,16 +31,12 @@ import { creerFamilleWebhooks } from "../src/familles/webhooks";
 import { ancreIdentite } from "../src/identite/ancre";
 import { lecteurFraicheurs } from "../src/identite/fraicheur";
 import { supprimerSecretFournisseur } from "../src/identite/fournisseurs";
-import { balayerAnnuaire } from "../src/identite/annuaire/balayage";
-import type { DependancesBalayage } from "../src/identite/annuaire/balayage";
 import { createRoutine, setRoutineWebhook } from "../src/routines/magasin";
 import { Planificateur } from "../src/routines/planificateur";
-import { appTest, journalMuet } from "./aides";
-import { AnnuaireFactice, GROUPE, UUID } from "./identite/annuaire/annuaire-factice";
-import type { Personne } from "./identite/annuaire/annuaire-factice";
-import { ouvrirBancAnnuaire } from "./identite/annuaire/banc-annuaire";
-import type { BancAnnuaire } from "./identite/annuaire/banc-annuaire";
+import { appTest } from "./aides";
 import { MOTEURS } from "./identite/banc";
+import { ouvrirBancFournisseur } from "./identite/banc-fournisseur";
+import type { BancFournisseur } from "./identite/banc-fournisseur";
 
 const JOUR = 86_400;
 configurerCoffre({
@@ -56,28 +52,28 @@ describe("accesPerime : fonction pure", () => {
     ident_checked_at: vu,
   });
   const T = 1_800_000_000;
-  const ldap = table(["a", 3]);
+  const frais = table(["a", 3]);
 
   it("compte local (sans identité) : jamais concerné, quelle que soit la table", () => {
-    expect(accesPerime(ligne(null, null), ldap, T)).toBe(false);
+    expect(accesPerime(ligne(null, null), frais, T)).toBe(false);
     expect(accesPerime(ligne(undefined, undefined), table(), T)).toBe(false);
     expect(accesPerime(undefined, table(), T)).toBe(false);
     expect(accesPerime(null, table(), T)).toBe(false);
   });
 
   it("frais jusqu'à la fraîcheur du fournisseur incluse, périmé au-delà", () => {
-    expect(accesPerime(ligne("a", T - 3 * JOUR), ldap, T)).toBe(false);
-    expect(accesPerime(ligne("a", T - 3 * JOUR - 1), ldap, T)).toBe(true);
+    expect(accesPerime(ligne("a", T - 3 * JOUR), frais, T)).toBe(false);
+    expect(accesPerime(ligne("a", T - 3 * JOUR - 1), frais, T)).toBe(true);
   });
 
   it("jamais vérifiée (0, nul, illisible) : périmé", () => {
-    for (const vu of [0, null, undefined, "x", -5]) expect(accesPerime(ligne("a", vu), ldap, T)).toBe(true);
+    for (const vu of [0, null, undefined, "x", -5]) expect(accesPerime(ligne("a", vu), frais, T)).toBe(true);
   });
 
   it("fournisseur absent de la table (supprimé, éteint, invalide, inactif, inconnu) : périmé tout de suite", () => {
     expect(accesPerime(ligne("a", T), table(), T)).toBe(true);
     expect(accesPerime(ligne("a", T), table(["b", 3]), T)).toBe(true);
-    expect(accesPerime(ligne(12, T), ldap, T)).toBe(true);
+    expect(accesPerime(ligne(12, T), frais, T)).toBe(true);
   });
 
   it("durée hors de 1 à 90 jours dans la table : périmé", () => {
@@ -99,15 +95,13 @@ describe("accesPerime : fonction pure", () => {
       ),
     ).toBe(true);
     expect(await accesPerimeDe({}, ligne(null, null), T)).toBe(false);
-    expect(await accesPerimeDe({ fraicheursFournisseurs: async () => ldap }, ext, T)).toBe(false);
+    expect(await accesPerimeDe({ fraicheursFournisseurs: async () => frais }, ext, T)).toBe(false);
   });
 });
 
 describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) => {
-  let b: BancAnnuaire;
-  let annuaire: AnnuaireFactice;
+  let b: BancFournisseur;
   let audit: string;
-  let verrous: string;
   let maintenant: number;
   let dep: ReturnType<typeof dependancesParDefaut>;
 
@@ -121,37 +115,24 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
       () => (tic += 5000),
     ),
   });
-  const externe = async (
-    nom: string,
-    n: number,
-    vu: number,
-    extra: Partial<Personne> = {},
-  ): Promise<number> => {
-    const p = annuaire.ajouter({ uid: nom, cle: UUID(n), mdp: "x", groupes: [GROUPE], ...extra });
+  const externe = async (nom: string, n: number, vu: number): Promise<number> => {
     const uid = await createExternalUser(b.t.base, nom, { maintenant: b.horloge - 100 * JOUR });
     await b.t.base.run(
       "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?)",
-      [uid, "annuaire", p.cle, ancreIdentite(b.fournisseurs[0] as never), "auto", b.horloge - 100 * JOUR, vu],
+      [
+        uid,
+        "sso",
+        `sujet-${n}`,
+        ancreIdentite(b.fournisseurs[0] as never),
+        "auto",
+        b.horloge - 100 * JOUR,
+        vu,
+      ],
     );
     return uid;
   };
   const verifier = (uid: number, vu: number): Promise<unknown> =>
     b.t.base.run("UPDATE user_identities SET checked_at=? WHERE user_id=?", [vu, uid]);
-  const balayage = (): DependancesBalayage => ({
-    base: b.t.base,
-    fabrique: annuaire.fabrique,
-    maintenant: () => b.horloge,
-    cookieSecure: () => true,
-    journal: journalMuet,
-    cheminVerrou: (id) => join(verrous, `${id}.lock`),
-    etat: {
-      base: b.t.base,
-      acces: dep,
-      maintenant: () => b.horloge,
-      publierSuspension: async () => true,
-      journal: journalMuet,
-    },
-  });
   const eteindre = (): void =>
     b.cfg.ecrire({
       auth: {
@@ -161,19 +142,16 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
     });
 
   beforeEach(async () => {
-    annuaire = new AnnuaireFactice();
-    b = await ouvrirBancAnnuaire(moteur, [{}], annuaire);
+    b = await ouvrirBancFournisseur(moteur);
     maintenant = Math.floor(Date.now() / 1000);
     b.horloge = maintenant;
     dep = auth();
     audit = mkdtempSync(join(tmpdir(), "elpis-audit-fraicheur-"));
-    verrous = mkdtempSync(join(tmpdir(), "elpis-verrous-fraicheur-"));
     configureAudit({ service: "main", auditDir: audit, hmacKeyPath: join(audit, "sans-cle") });
   });
   afterEach(async () => {
     oublierConfigurationAudit();
     rmSync(audit, { recursive: true, force: true });
-    rmSync(verrous, { recursive: true, force: true });
     await b.fermer();
   });
 
@@ -221,7 +199,7 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
       expect(await ok(j as string)).toBe(false);
       b.cfg.ecrire({ auth: { public_url: "https://elpis.exemple.lan", providers: [b.fournisseurs[0]] } });
       expect(await ok(j as string)).toBe(true);
-      await supprimerSecretFournisseur(b.t.base, "annuaire", { userId: null, username: null, ip: null });
+      await supprimerSecretFournisseur(b.t.base, "sso", { userId: null, username: null, ip: null });
       expect(await ok(j as string)).toBe(false);
     });
 
@@ -232,10 +210,10 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
         () => true,
         () => ms,
       );
-      expect([...(await lire())]).toEqual([["annuaire", 14]]);
+      expect([...(await lire())]).toEqual([["sso", 14]]);
       eteindre();
       ms += 999;
-      expect([...(await lire())]).toEqual([["annuaire", 14]]);
+      expect([...(await lire())]).toEqual([["sso", 14]]);
       ms += 2;
       expect([...(await lire())]).toEqual([]);
     });
@@ -449,46 +427,6 @@ describe.each(MOTEURS)("fraîcheur des accès non interactifs (%s)", (moteur) =>
       const r = await routine(await createRoutine(b.t.base, uid, champs));
       eteindre();
       expect(await p.lancerRun(r, { trigger: "schedule" })).toBeNull();
-    });
-  });
-
-  describe("le balayage rafraîchit la vérification", () => {
-    it("passe réussie : un compte périmé redevient frais, ses jetons repartent", async () => {
-      const uid = await externe("jean", 1, maintenant - 40 * JOUR);
-      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
-      expect(await resoudreJeton(dep, j as string, ["tools"], false)).toBeNull();
-      const r = await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
-      expect(r).toMatchObject({ type: "bilan", etat: { aborted: null, seen: 1 } });
-      expect(await resoudreJeton(dep, j as string, ["tools"], false)).not.toBeNull();
-    });
-
-    it("annuaire qui répond chaque jour : le compte n'est jamais gêné pendant 40 jours", async () => {
-      const uid = await externe("jean", 1, maintenant);
-      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
-      for (let i = 0; i < 40; i++) {
-        b.horloge += JOUR;
-        await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
-        expect(await resoudreJeton(dep, j as string, ["tools"], false)).not.toBeNull();
-      }
-    });
-
-    it("annuaire injoignable plus de freshness_days : les accès non interactifs s'arrêtent d'eux-mêmes, sans suspension", async () => {
-      const uid = await externe("jean", 1, maintenant);
-      const [j] = await creerJeton(dep, uid, "tools", "t", ["fs"], 90);
-      annuaire.injoignable = true;
-      for (let i = 0; i < 13; i++) {
-        b.horloge += JOUR;
-        await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
-      }
-      expect(await resoudreJeton(dep, j as string, ["tools"], false)).not.toBeNull();
-      for (let i = 0; i < 2; i++) {
-        b.horloge += JOUR;
-        await balayerAnnuaire(balayage(), b.fournisseurs[0] as never);
-      }
-      expect(await resoudreJeton(dep, j as string, ["tools"], false)).toBeNull();
-      expect(await b.t.base.get("SELECT suspended_at FROM users WHERE id=?", [uid])).toMatchObject({
-        suspended_at: 0,
-      });
     });
   });
 });

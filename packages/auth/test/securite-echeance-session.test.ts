@@ -21,7 +21,7 @@ function deps(
   };
 }
 
-function ouverte(maintenant: number, dureeMax: number, methode: "password" | "ldap:a" = "password"): Session {
+function ouverte(maintenant: number, dureeMax: number, methode: "password" | "oidc:a" = "password"): Session {
   const s = new Session();
   ouvrirSession(s, { uid: 1, methode, maintenant, dureeMax });
   return s;
@@ -105,7 +105,7 @@ describe("méthode de connexion encore admise", () => {
 
   it("transmet _auth et la ligne du compte", async () => {
     const vus: unknown[] = [];
-    const s = ouverte(1000, 500, "ldap:a");
+    const s = ouverte(1000, 500, "oidc:a");
     await validerSession(
       s,
       1,
@@ -120,7 +120,7 @@ describe("méthode de connexion encore admise", () => {
         },
       ),
     );
-    expect(vus).toEqual(["ldap:a", 0]);
+    expect(vus).toEqual(["oidc:a", 0]);
   });
 
   it("flux : refus quand la méthode n'est plus admise, flux gardé sur erreur", async () => {
@@ -128,7 +128,7 @@ describe("méthode de connexion encore admise", () => {
       ...deps({}, { now: 1100 }),
       sessionMinTs: async () => ({ min: 0, suspended_at: 0, is_admin: 1 }),
     };
-    const meta = metaSession(ouverte(1000, 500, "ldap:a"));
+    const meta = metaSession(ouverte(1000, 500, "oidc:a"));
     expect(await fluxEncoreValide(1, 1000, "x", { ...base, sessionAdmise: admise(true) }, meta)).toBe(false);
     expect(await fluxEncoreValide(1, 1000, "x", { ...base, sessionAdmise: admise(false) }, meta)).toBe(true);
     const panne = async () => {

@@ -39,7 +39,7 @@ import {
   validerSession,
   verifyUser,
 } from "@elpis/auth";
-import type { DependancesAuth, DependancesJetons, MethodeConnexion, Reseau } from "@elpis/auth";
+import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
 import { decoderUtf8Py, HttpError, intPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
@@ -65,16 +65,9 @@ import {
   validerMotDePasse,
 } from "../comptes/aides";
 import { DebitConnexion } from "../comptes/debit-connexion";
-import type { PortBac } from "../admin/bac";
 import { ConnexionRefusee, etablirConnexion } from "../comptes/ouverture";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
-import { connecterParAnnuaire } from "../comptes/voie-annuaire";
-import { fabriqueLdapts } from "../identite/annuaire/client";
-import type { FabriqueConnexion } from "../identite/annuaire/client";
-import { annuairesActifs, PorteAnnuaire } from "../identite/annuaire/connexion";
-import { cleComparee, cleIdentifiant } from "../identite/cle-identifiant";
 import { lireReglagesAuth } from "../identite/reglages";
-import type { FournisseurLdap } from "../identite/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
 import type { Journal } from "../journal";
@@ -107,37 +100,15 @@ export interface DependancesComptes {
   readonly mode: ModeApp;
   /** Fin de session chez le fournisseur OIDC qui a ouvert ce `_sid` : adresse de déconnexion, ou `null` ; sans appel sortant. */
   readonly finDeSessionSso?: (sid: string) => Promise<string | null>;
-  /** Connexion par l'annuaire : fabrique des connexions (LDAPS vérifié par défaut) et ports de la suspension d'un compte sorti de son groupe. */
-  readonly annuaire?: {
-    readonly fabrique?: FabriqueConnexion;
-    readonly publierSuspension?: (uid: number) => Promise<boolean>;
-    /** Flux ouverts d'un compte rattaché coupés dans tous les process. */
-    readonly revoquer: (uid: number) => Promise<unknown>;
-    readonly bac?: PortBac;
-  };
 }
 
 const SANS_CACHE = { "cache-control": "no-cache" };
 const ROLES: Readonly<Record<number, string>> = { 0: "user", 1: "admin", 2: "moderator" };
 /** Corps de `login-lite` : identifiant et mot de passe, lus avant toute session (Python sans limite). */
 const CORPS_CONNEXION_MAX = 64 * 1024;
-/** Aucune réponse de refus avant ce délai depuis l'arrivée quand un annuaire est actif (la voie suivie ne se lit pas au temps de réponse). */
-const PLANCHER_REFUS_MS = 500;
 const REFUS_DEBIT_CONNEXION = "Trop de tentatives de connexion : réessayez dans quelques minutes.";
 const REFUS_AVATAR_ASSISTANT =
   "L'avatar de l'assistant est le logo de l'application, réglé par l'administrateur dans la console.";
-
-/** Un annuaire est allumé dans la configuration (lecture mémoire, sans base ni coffre). */
-function annuaireEnvisage(): boolean {
-  return lireReglagesAuth().providers.some((f) => f.type === "ldap" && f.enabled);
-}
-
-/** Prédicat « un compte local à mot de passe local porte ce nom » (forme comparée en JavaScript) : l'annuaire ne reçoit jamais ce mot de passe ; une seule lecture par tentative. */
-async function predicatCompteLocal(base: Base): Promise<(nom: string) => boolean> {
-  const lignes = await base.all<Record<string, unknown>>("SELECT username, pass_hash FROM users");
-  const noms = new Set(lignes.filter((l) => aMotDePasseLocal(l)).map((l) => cleComparee(String(l.username))));
-  return (nom) => noms.has(cleComparee(nom));
-}
 
 function maintenant(dep: DependancesComptes): number {
   return dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000;
@@ -298,27 +269,6 @@ async function enregistrerAvatar(
 export function creerFamilleComptes(dep: DependancesComptes): Famille {
   const base = dep.auth.base;
   const debitConnexion = new DebitConnexion();
-  const porte = new PorteAnnuaire();
-  const cookieSecure = (): boolean => dep.auth.attributsCookie().https_only === true;
-  const voieAnnuaire = {
-    annuaire: {
-      base,
-      fabrique: dep.annuaire?.fabrique ?? fabriqueLdapts(),
-      maintenant: () => maintenant(dep),
-      cookieSecure,
-      journal: dep.journal,
-      porte,
-    },
-    provisionnement: {
-      base,
-      acces: dep.auth,
-      maintenant: () => maintenant(dep),
-      publierSuspension: dep.annuaire?.publierSuspension ?? (async () => false),
-      revoquer: dep.annuaire?.revoquer ?? (async () => undefined),
-      bac: dep.annuaire?.bac,
-      journal: dep.journal,
-    },
-  };
   return {
     nom: "comptes",
     routes: [
@@ -389,133 +339,59 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const ip = adresseClient(req, dep);
           const ua = entete(req, "user-agent") ?? null;
           const arrivee = maintenant(dep);
-          const depart = performance.now();
-          const envisage = annuaireEnvisage();
-          const cle = envisage ? cleIdentifiant(username) : null;
-          const nomNormalise = cle ?? username.normalize("NFKC").toLowerCase();
-          let actifs: FournisseurLdap[] = [];
-          let lus = false;
-          if (envisage) {
-            const attNormalise = debitConnexion.attenteS(nomNormalise, ip, arrivee);
-            const attBrut = debitConnexion.attenteS(username, ip, arrivee);
-            const attMin = Math.min(attNormalise, attBrut);
-            if (attMin > 0)
-              throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attMin)) });
-            // Une seule clé épuisée ne dit pas laquelle s'applique : les annuaires actifs sont lus avant tout jeton.
-            if (attNormalise > 0 || attBrut > 0) {
-              actifs = await annuairesActifs(voieAnnuaire.annuaire);
-              lus = true;
-            }
-          }
-          let nomLimiteur = envisage && (!lus || actifs.length > 0) ? nomNormalise : username;
-          const attente = debitConnexion.attenteS(nomLimiteur, ip, arrivee);
+          const attente = debitConnexion.attenteS(username, ip, arrivee);
           if (attente > 0)
             throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
-          let essai = debitConnexion.prendre(nomLimiteur, ip, arrivee);
-          if (envisage && !lus) {
-            try {
-              actifs = await annuairesActifs(voieAnnuaire.annuaire);
-            } catch (e) {
-              debitConnexion.annulation(essai, maintenant(dep));
-              throw e;
-            }
-            if (actifs.length === 0) {
-              debitConnexion.annulation(essai, maintenant(dep));
-              nomLimiteur = username;
-              const reprise = debitConnexion.attenteS(nomLimiteur, ip, arrivee);
-              if (reprise > 0)
-                throw new HttpError(429, REFUS_DEBIT_CONNEXION, {
-                  "Retry-After": String(Math.ceil(reprise)),
-                });
-              essai = debitConnexion.prendre(nomLimiteur, ip, arrivee);
-            }
-          }
+          const essai = debitConnexion.prendre(username, ip, arrivee);
           const plancher = async (): Promise<void> => {
-            if (actifs.length > 0)
-              await attendre(Math.max(0, PLANCHER_REFUS_MS - (performance.now() - depart)));
             if (essai.delaiMs > 0) await attendre(essai.delaiMs);
           };
           let uid: number | null;
-          let verifieParMotDePasse: number | null = null;
-          let methode: MethodeConnexion = "password";
-          let nomDuCompte = username;
-          let indisponible = false;
-          let payerCout = false;
+          let verifieParMotDePasse: number | null;
           try {
-            const refuse = actifs.length > 0 && cle === null;
-            const compteLocal = actifs.length > 0 && cle !== null ? await predicatCompteLocal(base) : null;
-            const parAnnuaire = compteLocal !== null && cle !== null && !compteLocal(cle);
-            if (refuse) {
-              uid = null;
-              payerCout = true;
-              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "unknown_user" });
-            } else if (parAnnuaire && cle !== null) {
-              payerCout = true;
-              try {
-                const issue = await connecterParAnnuaire(voieAnnuaire, {
-                  identifiant: cle,
-                  motDePasse: secret,
-                  actifs,
-                  maintenant: maintenant(dep),
-                  client: { ip, userAgent: ua },
-                  compteLocal: compteLocal ?? undefined,
-                });
-                uid = issue.type === "ok" ? issue.uid : null;
-                if (issue.type === "ok") {
-                  methode = issue.methode;
-                  nomDuCompte = issue.username;
+            const compte =
+              lireReglagesAuth().local.mode === "admins" ? await getUser(base, username) : undefined;
+            const refuseParMode = compte !== undefined && Number(compte.is_admin) !== 1;
+            if (refuseParMode) {
+              if (secret.isWellFormed()) await completerCoutRefus(secret, null);
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
+            }
+            uid = refuseParMode ? null : await verifyUser(base, username, secret);
+            verifieParMotDePasse = uid;
+            if (uid === null && !refuseParMode) {
+              uid = await sousVerrouAmorcage(async () => {
+                const comptes = await getAllUsers(base);
+                const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
+                const mode = amorcage ? await modeAmorcage(req, motDePasse, dep) : null;
+                if (amorcage && mode) {
+                  const cree = await createUser(base, username, secret, {
+                    isAdmin: 1,
+                    mustChangePwd: mode === "file" ? 1 : 0,
+                  });
+                  await rm(join(dep.racine, "user_db", ".bootstrap_admin"), { force: true });
+                  auditEvent({
+                    userId: cree,
+                    username,
+                    action: "auth.bootstrap",
+                    ip,
+                    details: { mode, target_user_id: cree, must_change: mode === "file" },
+                  });
+                  return cree;
                 }
-                indisponible = issue.type === "indisponible";
-              } catch (e) {
-                dep.journal.warn({ err: e }, "[auth] connexion par l'annuaire : erreur interne");
-                uid = null;
-              }
-            } else {
-              const compte =
-                lireReglagesAuth().local.mode === "admins" ? await getUser(base, username) : undefined;
-              const refuseParMode = compte !== undefined && Number(compte.is_admin) !== 1;
-              if (refuseParMode) {
-                if (secret.isWellFormed()) await completerCoutRefus(secret, null);
-                await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
-              }
-              uid = refuseParMode ? null : await verifyUser(base, username, secret);
-              verifieParMotDePasse = uid;
-              if (uid === null && !refuseParMode) {
-                uid = await sousVerrouAmorcage(async () => {
-                  const comptes = await getAllUsers(base);
-                  const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
-                  const mode = amorcage ? await modeAmorcage(req, motDePasse, dep) : null;
-                  if (amorcage && mode) {
-                    const cree = await createUser(base, username, secret, {
-                      isAdmin: 1,
-                      mustChangePwd: mode === "file" ? 1 : 0,
-                    });
-                    await rm(join(dep.racine, "user_db", ".bootstrap_admin"), { force: true });
-                    auditEvent({
-                      userId: cree,
-                      username,
-                      action: "auth.bootstrap",
-                      ip,
-                      details: { mode, target_user_id: cree, must_change: mode === "file" },
-                    });
-                    return cree;
-                  }
-                  const raison = amorcage
-                    ? "bootstrap_locked"
-                    : comptes.length === 0 && username.toLowerCase() !== "admin"
-                      ? "bootstrap_denied"
-                      : "bad_password";
-                  await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison });
-                  return null;
-                });
-              }
+                const raison = amorcage
+                  ? "bootstrap_locked"
+                  : comptes.length === 0 && username.toLowerCase() !== "admin"
+                    ? "bootstrap_denied"
+                    : "bad_password";
+                await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison });
+                return null;
+              });
             }
           } catch (e) {
             debitConnexion.annulation(essai, maintenant(dep));
             throw e;
           }
-          if (indisponible) debitConnexion.annulation(essai, maintenant(dep));
-          if (uid !== null && methode === "password" && lireReglagesAuth().local.mode === "admins") {
+          if (uid !== null && lireReglagesAuth().local.mode === "admins") {
             const verifie = await ligneUtilisateur(base, uid);
             if (Number(verifie?.is_admin) !== 1) {
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
@@ -525,7 +401,6 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           if (uid === null) {
             if (essai.epuise)
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "rate_limited" });
-            if (payerCout && secret.isWellFormed()) await completerCoutRefus(secret, null);
             await plancher();
             throw new HttpError(401, "invalid credentials");
           }
@@ -539,7 +414,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
                 demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
                 logMetric: dep.logMetric,
               },
-              { session: req.session, uid, username: nomDuCompte, methode, ip, userAgent: ua },
+              { session: req.session, uid, username, methode: "password", ip, userAgent: ua },
             );
           } catch (e) {
             if (e instanceof ConnexionRefusee) await plancher();
@@ -550,12 +425,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
               );
               auditLogin({
                 userId: uid,
-                username: nomDuCompte,
+                username,
                 ip,
                 userAgent: ua,
                 success: false,
                 reason: "session_open_failed",
-                loginMethod: methode,
+                loginMethod: "password",
               });
               await plancher();
               throw new HttpError(401, "invalid credentials");

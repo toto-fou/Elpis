@@ -53,7 +53,7 @@ export const schemaCompteLite = z.object({
   id: entier,
   username: z.string(),
   groups: z.string(),
-  /** Identité d'annuaire d'un compte rattaché ; les deux champs sont absents pour un compte local. */
+  /** Identité externe d'un compte rattaché ; les deux champs sont absents pour un compte local. */
   ext_username: z.string().nullable().optional(),
   provider_label: z.string().nullable().optional(),
 });

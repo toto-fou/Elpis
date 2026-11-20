@@ -319,8 +319,6 @@ describe.skipIf(RECETTE === null)("recette sur un fournisseur OpenID Connect ré
         "secret",
       ]),
     );
-    // Seul l'essai de connexion d'un administrateur valide un fournisseur SSO.
-    expect(r.complete).toBe(false);
   }, 60_000);
 
   it("secret client faux : le fournisseur refuse le client, aucune connexion possible", async () => {

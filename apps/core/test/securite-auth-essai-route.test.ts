@@ -18,7 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { creerFamilleAdminIdentite } from "../src/familles/admin-identite";
 import { appTest, journalMuet, lignesAuditRecentes } from "./aides";
-import { cleCoffreDeTest, configDeTest, ldapValide } from "./identite/aides";
+import { cleCoffreDeTest, configDeTest, oidcValide } from "./identite/aides";
 import type { ConfigDeTest } from "./identite/aides";
 
 const URL_TEST = "/api/admin/auth/providers/test";
@@ -111,7 +111,7 @@ describe("test d'un fournisseur : route (SQLite)", () => {
       payload: corps as object,
     });
   const lent = (): Record<string, unknown> =>
-    ldapValide({ urls: [`ldaps://serveur-muet.invalid:${portMuet}`] });
+    oidcValide({ issuer: `https://serveur-muet.invalid:${portMuet}/realms/x` });
 
   it("modérateur 403, sans session 401", async () => {
     expect((await tester(modo, lent())).statusCode).toBe(403);
@@ -123,30 +123,24 @@ describe("test d'un fournisseur : route (SQLite)", () => {
     expect(r.statusCode, r.body).toBe(200);
     const j = r.json<{
       ok: boolean;
-      complete: boolean;
       steps: { id: string; level: string; target: string | null }[];
     }>();
     expect(j.ok).toBe(false);
-    expect(j.complete).toBe(false);
     expect(j.steps.map((s) => s.id)).toEqual(["settings", "prerequisites", "resolve", "address", "tls"]);
     expect(j.steps.at(-1)).toMatchObject({ level: "fail", target: `serveur-muet.invalid:${portMuet}` });
     const ev = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.test" })[0];
     expect(ev?.["details"]).toEqual({
-      provider_id: "annuaire",
-      type: "ldap",
+      provider_id: "sso",
+      type: "oidc",
       ok: false,
-      complete: false,
       failed_step: "tls",
       targets: [`serveur-muet.invalid:${portMuet}`],
-      bind_dn: expect.any(String),
-      secret_origin: "none",
-      test_user: null,
     });
     expect(await t.base.valeurs("SELECT * FROM auth_provider_state")).toEqual([]);
   });
 
   it("corps invalide : 200, échec sur les réglages, rien d'enregistré", async () => {
-    const r = await tester(chef, { type: "ldap", id: "x", verify_tls: false });
+    const r = await tester(chef, { type: "oidc", id: "x", verify_tls: false });
     expect(r.statusCode).toBe(200);
     expect(r.json<{ ok: boolean; steps: { id: string }[] }>()).toMatchObject({
       ok: false,
@@ -204,9 +198,9 @@ describe("test d'un fournisseur : route (SQLite)", () => {
     }
   });
 
-  it("les cibles visées sont dans l'audit : un balayage se reconstitue", async () => {
-    await tester(chef, ldapValide({ urls: ["ldaps://a.invalid:1", "ldaps://b.invalid:2"] }));
+  it("la cible visée est dans l'audit", async () => {
+    await tester(chef, oidcValide({ issuer: "https://a.invalid:1/realms/x" }));
     const ev = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.test" })[0];
-    expect((ev?.["details"] as { targets: string[] }).targets).toEqual(["a.invalid:1", "b.invalid:2"]);
+    expect((ev?.["details"] as { targets: string[] }).targets).toEqual(["a.invalid:1"]);
   });
 });

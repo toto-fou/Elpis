@@ -652,7 +652,7 @@ export function auditLogin(e: {
   userAgent?: string | null;
   success?: boolean;
   reason?: string | null;
-  /** Méthode d'une connexion réussie (`password`, `ldap:<id>`, `oidc:<id>`). */
+  /** Méthode d'une connexion réussie (`password`, `oidc:<id>`). */
   loginMethod?: string | null;
   /** Empreinte du compte saisi quand il n'existe pas (voir `empreinteIdentifiant`). */
   identifierHash?: string | null;

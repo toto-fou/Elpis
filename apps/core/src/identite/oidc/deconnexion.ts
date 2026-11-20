@@ -274,7 +274,7 @@ export async function adresseDeFinDeSession(
   });
   if (ligne === undefined) return null;
   const f = (await fournisseursActifs(dep.base, dep.cookieSecure)).find((p) => p.id === ligne.provider_id);
-  if (f === undefined || f.type !== "oidc" || !f.logout.rp_initiated) return null;
+  if (f === undefined || !f.logout.rp_initiated) return null;
   const publicUrl = lireReglagesAuth().public_url;
   const metadonnees = dep.configurations.metadonneesGardees(f, publicUrl);
   if (metadonnees?.end_session_endpoint === undefined) return null;

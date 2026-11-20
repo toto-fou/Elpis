@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-oidc-essai.test.ts — le bouton « Tester » d'un fournisseur OIDC lit les clés, vérifie les algorithmes annoncés, l'origine des points d'accès, l'authentification du client et le secret, avertit sur un sujet inhabituel et ne vaut jamais test complet. */
+/** apps/core/test/securite-oidc-essai.test.ts — le bouton « Tester » d'un fournisseur OIDC lit les clés, vérifie les algorithmes annoncés, l'origine des points d'accès, l'authentification du client et le secret, avertit sur un sujet inhabituel. */
 import { generateKeyPairSync } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 
@@ -41,10 +41,9 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur OIDC", () => {
     return { ...r, par: Object.fromEntries(r.steps.map((e) => [e.id, e.level])) };
   };
 
-  it("fournisseur conforme : toutes les étapes vertes, mais jamais un test complet", async () => {
+  it("fournisseur conforme : toutes les étapes vertes", async () => {
     const r = await tester();
     expect(r.ok).toBe(true);
-    expect(r.complete).toBe(false);
     expect(r.par).toMatchObject({
       settings: "ok",
       discovery: "ok",

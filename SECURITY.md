@@ -71,13 +71,13 @@ run Elpis on a dedicated machine or VM. Details below.
   the administrator, and revoked along with the account's sessions. The relay
   never passes the client's token to the tool service (signed
   delegation) and refuses undeclared browser origins.
-- Enterprise sign-in (optional, off by default): an LDAP directory over LDAPS or an OpenID Connect provider
+- Enterprise sign-in (optional, off by default): an OpenID Connect provider
   decides who a person is and which groups they belong to; Elpis only signs in members of the required
   groups, never links a person to an existing account by name or email, and keeps the secrets of the
-  providers in the vault. In scope: the sign-in and linking flows, the directory check, the provider
-  settings. Assumed: the directory and the identity provider are trusted and well run, the host name of
+  providers in the vault. In scope: the sign-in and linking flows, the provider
+  settings. Assumed: the identity provider (and any directory behind it) is trusted and well run, the host name of
   Elpis is dedicated to it, HTTPS is in force, and the certificate authority of the provider is the one
-  configured. A directory sign-in sends the directory password through Elpis; single sign-on does not.
+  configured. The person's password never goes through Elpis.
   Optionally (off by default), the role and some Elpis groups follow the provider's groups: exact matches
   only, a membership that cannot be read changes nothing, and administrator groups need an explicit
   confirmation and, for single sign-on, a required second factor. Provider-side sign-out and back-channel

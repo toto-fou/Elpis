@@ -15,7 +15,7 @@ export async function methodesPubliques(
   x: Executeur,
   cookieSecure: () => boolean,
 ): Promise<MethodesPubliques> {
-  const actifs = (await fournisseursActifs(x, cookieSecure)).filter((f) => f.type === "oidc");
+  const actifs = await fournisseursActifs(x, cookieSecure);
   if (actifs.length === 0) return {};
   return {
     login_methods: actifs.map((f) => ({ id: f.id, label: f.label })),

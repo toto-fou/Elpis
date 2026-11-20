@@ -63,7 +63,7 @@ export const schemaCompteConsole = z.object({
   network_profile_id: z.string(),
   forced_network_profile_id: z.string(),
   sandbox_used_mb: z.number(),
-  /** Identité d'annuaire rattachée, `null` pour un compte local. */
+  /** Identité externe rattachée, `null` pour un compte local. */
   identity: schemaIdentiteCompte.nullable().default(null),
   /** Faux pour un compte sans mot de passe local (il se connecte par son fournisseur). */
   has_local_password: z.boolean().default(true),

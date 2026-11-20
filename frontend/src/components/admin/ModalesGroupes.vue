@@ -104,7 +104,7 @@ const adm = domaineAdmin();
               <span
                 v-if="u.ext_username"
                 class="text-xs text-slate-400 truncate"
-                data-testid="identite-annuaire"
+                data-testid="identite-externe"
                 >{{ u.ext_username
                 }}<template v-if="u.provider_label"> · {{ u.provider_label }}</template></span
               >

@@ -293,7 +293,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (gere && estPlusHaut(roleDuNiveau(niveau), roleDuNiveau(Number(avant.is_admin))))
       throw new HttpError(
         409,
-        "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+        "Le rôle de ce compte est donné par votre fournisseur d'identité : vous pouvez seulement le rétrograder.",
       );
     await base.ecriture(async (x) => {
       if (niveau !== 1) await exigerAdminLocal(x, { sauf: cible });

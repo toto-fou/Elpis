@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { testerFournisseur } from "../src/identite/essai";
 import type { ContexteEssai, ResultatEssai } from "../src/identite/essai";
 import { installerCrochetJournal } from "../src/journal";
-import { ldapValide, oidcValide } from "./identite/aides";
+import { oidcValide } from "./identite/aides";
 import { creerAutorite, creerFeuille, effacer, OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 import type { Autorite, Feuille } from "./identite/pki-openssl";
 
@@ -81,51 +81,22 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur : étapes", () => {
   });
   const oidc = (extra: Record<string, unknown> = {}): Record<string, unknown> =>
     oidcValide({ issuer: issuer(), ca_pem: ca.cert, ...extra });
-  const ldap = (extra: Record<string, unknown> = {}): Record<string, unknown> =>
-    ldapValide({ urls: [`ldaps://${NOM}:${port}`], ca_pem: ca.cert, ...extra });
   const tester = (r: unknown, c: ContexteEssai = BON, magasin: string[] = []): Promise<ResultatEssai> =>
     testerFournisseur(r, c, { sortant: { juger: VERS_BOUCLE, magasin } });
   const etape = (r: ResultatEssai, id: string): ResultatEssai["steps"][number] | undefined =>
     r.steps.find((s) => s.id === id);
 
-  it("LDAP : réglages, prérequis, résolution, adresse, certificat ; jamais complet", async () => {
-    const r = await tester(ldap());
-    expect(r.steps.map((s) => [s.id, s.level])).toEqual([
-      ["settings", "ok"],
-      ["prerequisites", "ok"],
-      ["resolve", "ok"],
-      ["address", "ok"],
-      ["tls", "ok"],
-    ]);
-    expect(r.ok).toBe(true);
-    expect(r.complete).toBe(false);
-    const tls = etape(r, "tls");
-    expect(tls?.target).toBe(`${NOM}:${port}`);
-    expect(tls?.detail).toMatch(
-      /TLSv1\.[23].*sujet elpis-test\.invalid.*émis par Test CA essai \d+.*jours restants/u,
-    );
-  });
-
-  it("chaque adresse LDAP a ses étapes", async () => {
-    const r = await tester(ldap({ urls: [`ldaps://${NOM}:${port}`, `ldaps://${NOM}:${port + 1}`] }));
-    expect(r.steps.filter((s) => s.id === "tls").map((s) => [s.target, s.level])).toEqual([
-      [`${NOM}:${port}`, "ok"],
-      [`${NOM}:${port + 1}`, "fail"],
-    ]);
-    expect(r.ok).toBe(false);
-  });
-
   it("réglages invalides : échec dit en clair, rien d'autre n'est tenté ; l'état du formulaire est toléré", async () => {
-    const r = await tester({ ...ldap(), verify_tls: false });
+    const r = await tester({ ...oidc(), verify_tls: false });
     expect(r.ok).toBe(false);
     expect(r.steps.map((s) => s.id)).toEqual(["settings", "prerequisites"]);
     expect((await tester("pas un objet")).steps[0]?.level).toBe("fail");
-    const forme = await tester({ ...ldap(), has_secret: true, tested: true, active: false, identities: 2 });
+    const forme = await tester({ ...oidc(), has_secret: true, tested: true, active: false, identities: 2 });
     expect(etape(forme, "settings")?.level).toBe("ok");
   });
 
   it("prérequis manquants : échec, sans effet sur les autres étapes", async () => {
-    const r = await tester(ldap(), { publicUrl: "", cookieSecure: false, adminsLocaux: 0 });
+    const r = await tester(oidc(), { publicUrl: "", cookieSecure: false, adminsLocaux: 0 });
     const p = etape(r, "prerequisites");
     expect(p?.level).toBe("fail");
     expect(p?.detail).toMatch(/adresse publique.*connexion sécurisée.*administrateur/u);
@@ -133,19 +104,19 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur : étapes", () => {
   });
 
   it("autorité inconnue : phrase utile à l'administrateur", async () => {
-    const r = await tester(ldap({ ca_pem: autre.cert }));
+    const r = await tester(oidc({ ca_pem: autre.cert }));
     expect(etape(r, "tls")).toMatchObject({ level: "fail" });
     expect(etape(r, "tls")?.detail).toContain("collez l'autorité de certification de votre organisation");
-    const sans = await tester(ldap({ ca_pem: "" }));
+    const sans = await tester(oidc({ ca_pem: "" }));
     expect(etape(sans, "tls")?.detail).toContain("Autorité de certification inconnue");
   });
 
   it("adresse refusée par le juge réel : étape adresse en échec, aucune connexion", async () => {
-    const r = await testerFournisseur(ldap(), BON, { sortant: { resoudre: async () => ["127.0.0.1"] } });
+    const r = await testerFournisseur(oidc(), BON, { sortant: { resoudre: async () => ["127.0.0.1"] } });
     expect(etape(r, "address")).toMatchObject({ level: "fail" });
     expect(etape(r, "address")?.detail).toContain("127.0.0.1");
     expect(etape(r, "tls")).toBeUndefined();
-    const nu = await testerFournisseur(ldap(), BON, {
+    const nu = await testerFournisseur(oidc(), BON, {
       sortant: {
         resoudre: async () => {
           throw new Error("ENOTFOUND");
@@ -169,7 +140,11 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur : étapes", () => {
         ["discovery", "ok"],
         ["clock", "ok"],
       ]);
-      expect(r.complete).toBe(false);
+      const tls = etape(r, "tls");
+      expect(tls?.target).toBe(`${NOM}:${port}`);
+      expect(tls?.detail).toMatch(
+        /TLSv1\.[23].*sujet elpis-test\.invalid.*émis par Test CA essai \d+.*jours restants/u,
+      );
     });
 
     it("émetteur différent d'un caractère : échec", async () => {
@@ -244,7 +219,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur : étapes", () => {
       ];
       for (const c of cas) {
         reponse = c;
-        const sortie = JSON.stringify([await tester(oidc()), await tester(ldap())]);
+        const sortie = JSON.stringify([await tester(oidc())]);
         expect(sortie, JSON.stringify(c)).not.toContain(MARQUEUR);
       }
       expect(lignes.join("\n")).not.toContain(MARQUEUR);
@@ -262,7 +237,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur : étapes", () => {
 
   it("délai global : étape en échec, le test rend la main", async () => {
     const t0 = Date.now();
-    const r = await testerFournisseur(ldap(), BON, {
+    const r = await testerFournisseur(oidc(), BON, {
       delaiGlobalMs: 50,
       sortant: {
         juger: async () => {

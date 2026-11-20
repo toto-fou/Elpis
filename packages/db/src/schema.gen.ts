@@ -797,21 +797,7 @@ export const TABLES: readonly Table[] = [
       { name: "provider_id", type: "text", primary: true },
       { name: "tested_hash", type: "text", default: null },
       { name: "tested_at", type: "real", default: 0 },
-      { name: "sweep_at", type: "real", default: 0 },
-      { name: "sweep_result", type: "text", default: null },
     ],
-  },
-  {
-    name: "auth_failures",
-    cols: [
-      { name: "id", type: "id" },
-      { name: "provider_id", type: "text", null: false },
-      { name: "subject", type: "text", null: false },
-      { name: "count", type: "int", null: false, default: 0 },
-      { name: "window_start", type: "real", null: false, default: 0 },
-      { name: "last_at", type: "real", null: false, default: 0 },
-    ],
-    indexes: [{"name": "idx_auth_failures_entry", "cols": ["provider_id", "subject"], "unique": true}],
   },
   {
     name: "auth_prelinks",

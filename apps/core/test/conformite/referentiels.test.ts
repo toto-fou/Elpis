@@ -94,7 +94,6 @@ describe("matrice des référentiels de sécurité", () => {
       "OWASP ASVS 5.0",
       "ANSSI TLS SDE-NT-35 v1.2",
       "ANSSI-PG-078",
-      "RFC 4513",
     ])
       expect(presents.has(r), r).toBe(true);
   });

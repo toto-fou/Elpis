@@ -12,7 +12,7 @@ import { enregistrerSecret, enregistrerTestReussi, testReussiCourant } from "../
 import { validerFournisseur } from "../src/identite/reglages";
 import type { Fournisseur } from "../src/identite/reglages";
 import { rechiffrerCoffre } from "../src/secrets/cle";
-import { ldapValide } from "./identite/aides";
+import { oidcValide } from "./identite/aides";
 import { MOTEURS, URL_PUBLIQUE } from "./identite/banc";
 
 const ACTEUR = { userId: null, username: null };
@@ -35,7 +35,7 @@ describe.each(MOTEURS)("changement de clé du coffre et fournisseurs (%s)", (mot
     await t.fermer();
   });
 
-  const fournisseur = (id: string): Fournisseur => validerFournisseur(ldapValide({ id }));
+  const fournisseur = (id: string): Fournisseur => validerFournisseur(oidcValide({ id }));
 
   it("le test reste valable pour un secret inchangé, et jamais pour un autre secret", async () => {
     poserCle();

@@ -61,7 +61,6 @@ Ce qu'il faut savoir :
 Si votre administrateur a branché les comptes de votre organisation, vous vous connectez avec eux, et non avec un mot de passe créé dans Elpis.
 
 - **Authentification unique (SSO)** : la page de connexion propose un bouton **Se connecter avec** suivi du nom du service de votre organisation. Cliquez dessus, connectez-vous là-bas comme d'habitude, et vous revenez dans Elpis connecté.
-- **Annuaire** : saisissez l'identifiant et le mot de passe de votre organisation dans les champs habituels.
 - **Compte local** : quand la page montre les boutons d'authentification unique, **Compte local** ouvre le formulaire d'un compte créé dans Elpis.
 - **Votre mot de passe est géré par votre organisation.** Dans Paramètres › **Profil**, le message **Votre mot de passe est géré par votre organisation** remplace le changement de mot de passe. Changez-le ou réinitialisez-le là où votre organisation le fait.
 - **Première connexion.** Si vous appartenez au groupe autorisé, votre compte est créé automatiquement ; son nom est dérivé de votre identifiant.
@@ -2459,7 +2458,7 @@ Ce qu'il faut savoir :
 - **Vue d'ensemble** : **À traiter**, l'état des **Services** avec **Tout tester**, les chiffres des **Dernières 24 h** et l'**Installation**.
 - **Supervision** : **Métriques** (widgets au choix, export CSV, collecte Prometheus), **Rapport** (digest quotidien archivé, aperçu avant impression), **Activité** (onglets **Exécutions** et **Appels d'outils**, avec recherche, tri et filtres des erreurs), **Journaux** (onglet **Technique**, et onglet **Sécurité** pour les administrateurs).
 - **Modèles & services** : **Inférence** (moteurs, planification des requêtes), **Compression**, **RAG**, **Vision & machines** (annotation, machines cibles du Studio), **Voix**, **Images**, **Outils MCP**, **Prompts** (prompts système par catégorie), **Secrets** (ceux de l'instance).
-- **Utilisateurs & accès** : **Comptes**, **Groupes**, **Droits par défaut** (fonctionnalités, fournisseurs ouverts aux comptes), **Mots de passe & sessions**, **Connexion d'entreprise** (annuaires et fournisseurs d'authentification unique, comptes à rattacher).
+- **Utilisateurs & accès** : **Comptes**, **Groupes**, **Droits par défaut** (fonctionnalités, fournisseurs ouverts aux comptes), **Mots de passe & sessions**, **Connexion d'entreprise** (fournisseurs d'authentification unique, comptes à rattacher).
 - **Sandbox** : **Limites & politique** (mémoire, processeur, processus, durée d'une commande, arrêt d'inactivité), **Réseau** (profils), **Hôtes d'outils**, **Conteneurs**, **Sous-agents**.
 - **Système** : **Instance** (identité, écran d'accueil, page de connexion), **Apparence** (habillages proposés), **Accès HTTPS**, **Données** (sauvegarde, base de données, restauration), **Journalisation**, **Entretien** (entretien périodique, redémarrage, purge des métriques).
 

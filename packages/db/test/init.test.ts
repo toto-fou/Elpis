@@ -165,9 +165,8 @@ describe("registre des migrations", () => {
       "0032_etat_des_comptes",
       "0033_identites_externes",
       "0034_echeance_des_revocations",
-      "0035_echecs_annuaire",
-      "0036_rattachements_prepares",
-      "0037_flux_oidc",
+      "0035_rattachements_prepares",
+      "0036_flux_oidc",
     ]);
     expect(registreMigrations(["0027_essai"]).at(-1)).toBe("0027_essai");
     expect(() => registreMigrations(["0001_avant"])).toThrow(/mal numérotée/u);

@@ -26,9 +26,9 @@ export function aMotDePasseLocal(ligne: Record<string, unknown> | null | undefin
   return String(ligne?.pass_hash ?? "") !== MARQUEUR_SANS_MOT_DE_PASSE;
 }
 
-/** Vrai si la méthode de connexion d'une session est encore celle du compte : mot de passe local pour `password` (ou méthode absente), identité de CE fournisseur pour `ldap:<id>` / `oidc:<id>`. */
+/** Vrai si la méthode de connexion d'une session est encore celle du compte : mot de passe local pour `password` (ou méthode absente), identité de CE fournisseur pour `oidc:<id>`. */
 export function methodeDuCompte(auth: unknown, ligne: Record<string, unknown> | null | undefined): boolean {
-  if (typeof auth === "string" && /^(ldap|oidc):/u.test(auth))
+  if (typeof auth === "string" && /^oidc:/u.test(auth))
     return ligne?.ident_provider_id === auth.slice(auth.indexOf(":") + 1);
   if (auth === undefined || auth === null || auth === "password") return aMotDePasseLocal(ligne);
   return false;
@@ -46,7 +46,7 @@ export type CompteLite = {
   id: number;
   username: string;
   groups: string;
-  /** Identifiant d'annuaire du compte rattaché ; absent pour un compte local. */
+  /** Identifiant externe du compte rattaché ; absent pour un compte local. */
   ext_username?: string | null;
   /** Libellé du fournisseur du compte rattaché, `null` s'il a disparu ; absent pour un compte local. */
   provider_label?: string | null;
@@ -256,7 +256,7 @@ export async function getUsersLite(
     id: Number(r.id),
     username: r.username,
     groups: r.groups || "",
-    // Identité d'annuaire présente seulement pour un compte rattaché : la ligne d'un compte local ne change pas.
+    // Identité externe présente seulement pour un compte rattaché : la ligne d'un compte local ne change pas.
     ...(r.provider_id == null
       ? {}
       : { ext_username: r.ext_username ?? null, provider_label: libelle(String(r.provider_id)) }),

@@ -243,7 +243,7 @@ def auth_eteinte(auth: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def refuse_https_off_with_providers() -> None:
-    """Refuse de couper HTTPS tant qu'un fournisseur d'identité est allumé dans config.json (les mots de passe d'annuaire circuleraient en clair)."""
+    """Refuse de couper HTTPS tant qu'un fournisseur d'identité est allumé dans config.json (les échanges avec le fournisseur circuleraient en clair)."""
     auth = auth_section_of(read_config_strict(CONFIG) if CONFIG.exists() else None)
     allumes = [str(p.get("id") or "?") for p in (auth or {}).get("providers") or []
                if isinstance(p, dict) and p.get("enabled")]

@@ -12,9 +12,8 @@ export const MIGRATIONS_TS: readonly string[] = [
   "0032_etat_des_comptes",
   "0033_identites_externes",
   "0034_echeance_des_revocations",
-  "0035_echecs_annuaire",
-  "0036_rattachements_prepares",
-  "0037_flux_oidc",
+  "0035_rattachements_prepares",
+  "0036_flux_oidc",
 ];
 
 /** Notes d'une migration pour le journal du démarrage (jamais de secret). */

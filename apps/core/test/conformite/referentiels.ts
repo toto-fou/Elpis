@@ -1492,10 +1492,6 @@ export const EXIGENCES: readonly Exigence[] = [
         "apps/core/test/securite-connexion-debit.test.ts",
         "échecs ralentis, puis 429 avec Retry-After, sans PBKDF2",
       ],
-      [
-        "apps/core/test/securite-connexion-annuaire.test.ts",
-        "seuil d'échecs de l'entrée atteint : l'annuaire n'est plus contacté, depuis une autre adresse comme depuis un autre process",
-      ],
     ],
   ),
   ex(
@@ -1548,12 +1544,12 @@ export const EXIGENCES: readonly Exigence[] = [
     null,
     [
       [
-        "apps/core/test/securite-connexion-indiscernable.test.ts",
-        "temps réel : nom inconnu, mauvais mot de passe d'annuaire et compte local à mot de passe se recouvrent (8 requêtes simultanées chacun)",
+        "apps/core/test/securite-connexion-locale.test.ts",
+        "un non-administrateur suit le chemin d'un compte inconnu : même réponse, même nombre de hachages, aucune vérification du mot de passe",
       ],
       [
-        "apps/core/test/securite-connexion-annuaire.test.ts",
-        "mêmes réponses, même audit, aucun appel à l'annuaire, aucun délai ajouté",
+        "apps/core/test/securite-connexion-debit.test.ts",
+        "mot de passe non textuel : même statut pour un nom inconnu et un compte, sans essai compté",
       ],
     ],
   ),
@@ -2412,10 +2408,7 @@ export const EXIGENCES: readonly Exigence[] = [
     "an encrypted protocol such as TLS is used for all inbound and outbound connections to and from the application, including ...",
     true,
     null,
-    [
-      ["apps/core/test/conformite/securite-tls-sortant.test.ts", "ASVS 5.0 V12.2.1 et V12.3.1"],
-      ["apps/core/test/identite/reglages.test.ts", "`ldap://` reste refusé quelle que soit la casse"],
-    ],
+    [["apps/core/test/conformite/securite-tls-sortant.test.ts", "ASVS 5.0 V12.2.1 et V12.3.1"]],
   ),
   ex(
     "OWASP ASVS 5.0",
@@ -2482,10 +2475,6 @@ export const EXIGENCES: readonly Exigence[] = [
         "jetons, secret client, messages d'erreur et revendications brutes absents des réponses, du journal et de l'audit",
       ],
       ["apps/core/test/conformite/securite-parcours.test.ts", "ASVS 5.0 V16.3.1 et V16.2.1"],
-      [
-        "apps/core/test/securite-connexion-annuaire.test.ts",
-        "aucun mot de passe dans une ligne d'audit, un journal ou une réponse",
-      ],
     ],
   ),
   ex(
@@ -2522,10 +2511,6 @@ export const EXIGENCES: readonly Exigence[] = [
         "suspendre : état posé une fois (premier auteur gardé), min de session levé, bac détruit, publication faite ; réactiver ne baisse pas le min",
       ],
       ["apps/core/test/securite-auth-reglages.test.ts", "réglages généraux : section créée et journalisée"],
-      [
-        "apps/core/test/securite-roles-annuaire.test.ts",
-        "monte et rétrograde ; l'audit n'écrit que les changements ; la rétrogradation coupe les anciennes sessions",
-      ],
     ],
   ),
   ex(
@@ -2561,13 +2546,7 @@ export const EXIGENCES: readonly Exigence[] = [
     "the application fails gracefully and securely, including when an exception occurs, preventing fail-open conditions such as ...",
     true,
     null,
-    [
-      ["packages/auth/test/python.test.ts", "compte illisible : refus et session vidée (fail-closed)"],
-      [
-        "apps/core/test/securite-connexion-indiscernable.test.ts",
-        "une erreur de base APRÈS une liaison réussie : le même 401, jamais un 500 qui dirait que le mot de passe était bon",
-      ],
-    ],
+    [["packages/auth/test/python.test.ts", "compte illisible : refus et session vidée (fail-closed)"]],
   ),
   ex(
     "ANSSI TLS SDE-NT-35 v1.2",
@@ -2975,10 +2954,6 @@ export const EXIGENCES: readonly Exigence[] = [
       "apps/core/test/securite-connexion-debit.test.ts",
       "échecs ralentis, puis 429 avec Retry-After, sans PBKDF2",
     ],
-    [
-      "apps/core/test/securite-connexion-annuaire.test.ts",
-      "seuil d'échecs de l'entrée atteint : l'annuaire n'est plus contacté, depuis une autre adresse comme depuis un autre process",
-    ],
   ]),
   ex(
     "ANSSI-PG-078",
@@ -3016,12 +2991,12 @@ export const EXIGENCES: readonly Exigence[] = [
   ]),
   ex("ANSSI-PG-078", "R14", "Ne pas donner d'information sur l'échec de l'authentification", true, null, [
     [
-      "apps/core/test/securite-connexion-indiscernable.test.ts",
-      "temps réel : nom inconnu, mauvais mot de passe d'annuaire et compte local à mot de passe se recouvrent (8 requêtes simultanées chacun)",
+      "apps/core/test/securite-connexion-locale.test.ts",
+      "un non-administrateur suit le chemin d'un compte inconnu : même réponse, même nombre de hachages, aucune vérification du mot de passe",
     ],
     [
-      "apps/core/test/securite-connexion-annuaire.test.ts",
-      "mêmes réponses, même audit, aucun appel à l'annuaire, aucun délai ajouté",
+      "apps/core/test/securite-connexion-debit.test.ts",
+      "mot de passe non textuel : même statut pour un nom inconnu et un compte, sans essai compté",
     ],
   ]),
   ex(
@@ -3243,92 +3218,6 @@ export const EXIGENCES: readonly Exigence[] = [
     "Favoriser une rencontre en présence lors de l'enregistrement d'un facteur inhérent",
     false,
     "Elpis n'utilise ni facteur de possession ni facteur inhérent : l'authentification multifacteur est déléguée au fournisseur d'identité",
-    [],
-  ),
-  ex(
-    "RFC 4513",
-    "§6.1",
-    "Clients and servers should provide the ability to be configured to require [data integrity and privacy] protections",
-    true,
-    null,
-    [
-      ["apps/core/test/identite/reglages.test.ts", "`ldap://` reste refusé quelle que soit la casse"],
-      [
-        "apps/core/test/securite-auth-sortant-bornes.test.ts",
-        "un ldaps:// pointé sur un port en clair : « ce port ne parle pas TLS », au client https comme à la connexion brute et au bouton Tester",
-      ],
-    ],
-  ),
-  ex(
-    "RFC 4513",
-    "§6.2",
-    "Clients MUST either warn the user when the security level achieved does not provide an acceptable level ... or be configurable to refuse to proceed without an acceptable level of security",
-    true,
-    null,
-    [
-      ["apps/core/test/identite/reglages.test.ts", "`ldap://` reste refusé quelle que soit la casse"],
-      ["apps/core/test/conformite/securite-tls-sortant.test.ts", "ANSSI TLS R4 et ASVS 5.0 V12.1.1"],
-      ["apps/core/test/identite/annuaire/client-reel.test.ts", "un certificat auto-signé n'est pas accepté"],
-    ],
-  ),
-  ex(
-    "RFC 4513",
-    "§6.3.1",
-    "Clients that use the results from a simple Bind operation to make authorization decisions should actively detect unauthenticated Bind requests (by verifying that the supplied password is not empty)",
-    true,
-    null,
-    [
-      [
-        "apps/core/test/securite-connexion-annuaire.test.ts",
-        "mot de passe vide : 400 comme avant, annuaire intact",
-      ],
-    ],
-    "refus du mot de passe vide à la connexion par annuaire",
-  ),
-  ex(
-    "RFC 4513",
-    "§6.3.2",
-    "The name/password authentication mechanism of the simple Bind method discloses the password to the server",
-    true,
-    null,
-    [
-      ["apps/core/test/identite/reglages.test.ts", "`ldap://` reste refusé quelle que soit la casse"],
-      [
-        "apps/core/test/identite/annuaire/client-reel.test.ts",
-        "une autorité inconnue : « injoignable », jamais une liaison",
-      ],
-    ],
-  ),
-  ex(
-    "RFC 4513",
-    "§6.3.3",
-    "LDAP implementations SHOULD NOT by default support authentication methods using clear text passwords ... unless the data on the session is protected using TLS",
-    true,
-    null,
-    [["apps/core/test/identite/reglages.test.ts", "`ldap://` reste refusé quelle que soit la casse"]],
-  ),
-  ex(
-    "RFC 4513",
-    "§6.3.4",
-    "Some authentication mechanisms (e.g., DIGEST-MD5) transmit a hash of the password value that may be vulnerable to offline dictionary attacks",
-    false,
-    "Elpis n'utilise que la liaison simple, jamais de mécanisme SASL à empreinte",
-    [],
-  ),
-  ex(
-    "RFC 4513",
-    "§6.4",
-    "Until data integrity service is installed on an LDAP session, an attacker can modify the transmitted values of the 'supportedSASLMechanisms' attribute",
-    false,
-    "Elpis n'utilise aucun mécanisme SASL",
-    [],
-  ),
-  ex(
-    "RFC 4513",
-    "§6.5",
-    "Additional security considerations relating to the various authentication methods and mechanisms discussed in this document apply",
-    false,
-    "renvoi vers d'autres documents (SASL, SASLprep) : Elpis n'utilise pas SASL",
     [],
   ),
 ];

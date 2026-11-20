@@ -30,7 +30,7 @@ const FILTRES = [
 const ariaTri = (champ: string): "ascending" | "descending" | "none" =>
   adm.usersSort.field !== champ ? "none" : adm.usersSort.dir > 0 ? "ascending" : "descending";
 
-/** Libellé de connexion : « Locale », ou le fournisseur (son libellé, à défaut son identifiant) et l'identifiant d'annuaire. */
+/** Libellé de connexion : « Locale », ou le fournisseur (son libellé, à défaut son identifiant) et l'identifiant externe. */
 function connexion(u: CompteConsole): { fournisseur: string; identifiant: string } {
   const i = u.identity;
   if (!i) return { fournisseur: "Locale", identifiant: "" };
@@ -385,8 +385,8 @@ function ajouterAuGroupe(ev: Event): void {
                               <span v-else>{{ adm.admRoleLabel(u) }}</span>
                               <span
                                 class="adm-pill"
-                                title="Le rôle de ce compte est donné par un groupe de votre annuaire. Vous pouvez seulement le rétrograder ; il sera recalculé à sa prochaine connexion."
-                                >géré par l'annuaire</span
+                                title="Le rôle de ce compte est donné par un groupe de votre fournisseur d'identité. Vous pouvez seulement le rétrograder ; il sera recalculé à sa prochaine connexion."
+                                >géré par le fournisseur</span
                               >
                             </div>
                           </div>

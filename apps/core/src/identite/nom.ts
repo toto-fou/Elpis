@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/nom.ts — nom Elpis dérivé de l'identifiant d'annuaire : forme stricte, noms réservés refusés, jamais de suffixe. */
+/** apps/core/src/identite/nom.ts — nom Elpis dérivé de l'identifiant externe : forme stricte, noms réservés refusés, jamais de suffixe. */
 
 const FORME_FINALE = /^[a-z0-9][a-z0-9_-]{1,63}$/u;
 const RESERVES = new Set(["admin", "root", "system", "elpis", "guest"]);

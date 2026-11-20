@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-auth-https.test.ts — tant qu'un fournisseur d'identité est allumé, la console refuse de repasser en HTTP (les mots de passe d'annuaire circuleraient en clair) ; éteint, le retour reste possible. */
+/** apps/core/test/securite-auth-https.test.ts — tant qu'un fournisseur d'identité est allumé, la console refuse de repasser en HTTP (les échanges avec le fournisseur circuleraient en clair) ; éteint, le retour reste possible. */
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { creerFamilleAdminSecurite } from "../src/familles/admin-securite";
 import { appTest, journalMuet } from "./aides";
-import { ldapValide, oidcValide } from "./identite/aides";
+import { oidcValide } from "./identite/aides";
 
 describe("retour à HTTP et fournisseurs allumés", () => {
   let t: BaseDeTest;
@@ -90,8 +90,8 @@ describe("retour à HTTP et fournisseurs allumés", () => {
   };
 
   it.each([
-    ["fournisseur allumé", [ldapValide({ enabled: true })]],
-    ["un fournisseur OIDC allumé parmi d'autres", [ldapValide(), oidcValide({ enabled: true })]],
+    ["fournisseur allumé", [oidcValide({ enabled: true })]],
+    ["un fournisseur allumé parmi d'autres", [oidcValide({ id: "autre" }), oidcValide({ enabled: true })]],
     ["fournisseur illisible mais allumé", [{ id: "casse", enabled: true }]],
   ])("%s : repasser en HTTP est refusé (409), rien n'est écrit", async (_nom, providers) => {
     const base = {
@@ -110,13 +110,13 @@ describe("retour à HTTP et fournisseurs allumés", () => {
   it("fournisseurs éteints ou absents : le retour à HTTP reste possible ; activer HTTPS l'est toujours", async () => {
     ecrire({
       security: { https: { enabled: true }, session: { https_only: true } },
-      auth: { providers: [ldapValide()] },
+      auth: { providers: [oidcValide()] },
     });
     expect((await basculer(false)).statusCode).toBe(200);
     expect(https(lire())).toEqual({ enabled: false, https_only: false });
     ecrire({ security: { https: { enabled: true }, session: { https_only: true } } });
     expect((await basculer(false)).statusCode).toBe(200);
-    ecrire({ auth: { providers: [ldapValide({ enabled: true })] } });
+    ecrire({ auth: { providers: [oidcValide({ enabled: true })] } });
     expect((await basculer(true)).statusCode).toBe(200);
     expect(https(lire())).toEqual({ enabled: true, https_only: true });
   });

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/admin-identite.ts — console › connexion d'entreprise : réglages `auth`, fournisseurs d'identité (LDAP, OIDC), secret et activation. */
+/** packages/contracts/src/rest/admin-identite.ts — console › connexion d'entreprise : réglages `auth`, fournisseurs d'identité (OIDC), secret et activation. */
 import { z } from "zod";
 
-import { schemaEtatBalayage } from "./admin-identite-balayage";
 import { entier } from "./commun";
 
 const modeLocal = z.enum(["all", "admins"]);
@@ -26,17 +25,6 @@ const champsCommuns = {
   roles,
   group_map: carteGroupes,
   freshness_days: entier,
-};
-const champsLdap = {
-  urls: z.array(z.string()),
-  bind_dn: z.string(),
-  user_base_dn: z.string(),
-  user_filter: z.string(),
-  attrs: z.object({ id: z.string(), username: z.string(), email: z.string(), name: z.string() }),
-  groups: z.object({ mode: z.enum(["memberof", "chain", "member"]) }),
-  max_failures: entier,
-  failure_window_sec: entier,
-  timeout_sec: entier,
 };
 const champsOidc = {
   issuer: z.string(),
@@ -64,14 +52,14 @@ const etatFournisseur = {
   tested: z.boolean(),
   active: z.boolean(),
   identities: entier,
-  /** Dernière passe de l'annuaire (`null` : aucune, ou fournisseur sans balayage). */
-  sweep: schemaEtatBalayage.nullable().optional(),
 };
 
-export const schemaFournisseurAuth = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("ldap"), ...champsCommuns, ...champsLdap, ...etatFournisseur }),
-  z.object({ type: z.literal("oidc"), ...champsCommuns, ...champsOidc, ...etatFournisseur }),
-]);
+export const schemaFournisseurAuth = z.object({
+  type: z.literal("oidc"),
+  ...champsCommuns,
+  ...champsOidc,
+  ...etatFournisseur,
+});
 export type FournisseurAuth = z.infer<typeof schemaFournisseurAuth>;
 
 export const schemaReglagesAuth = z.object({
@@ -94,12 +82,8 @@ export const schemaReglagesAuth = z.object({
     label_max: entier,
     ca_pem_max: entier,
     required_groups_max: entier,
-    ldap_urls_max: entier,
     secret_max: entier,
     freshness_days: z.object({ min: entier, max: entier, default: entier }),
-    max_failures: z.object({ min: entier, max: entier, default: entier }),
-    failure_window_sec: z.object({ min: entier, max: entier, default: entier }),
-    timeout_sec: z.object({ min: entier, max: entier, default: entier }),
     clock_skew_sec: z.object({ min: entier, max: entier, default: entier }),
   }),
 });
@@ -112,21 +96,16 @@ export const schemaCorpsReglagesAuth = z.object({
 
 /** Création : `type`, `id`, `label` et les champs sans valeur par défaut ; le fournisseur est toujours créé éteint. */
 export const schemaCorpsCreationFournisseur = z.record(z.string(), z.unknown());
-/** Modification : les champs à changer (les objets imbriqués sont fusionnés clé à clé, les listes remplacées) ; `id`, `type` et `enabled` ne se modifient pas ; `confirm_admin_mapping: true` (booléen, jamais enregistré) confirme qu'un groupe d'annuaire donne le rôle d'administrateur. */
+/** Modification : les champs à changer (les objets imbriqués sont fusionnés clé à clé, les listes remplacées) ; `id`, `type` et `enabled` ne se modifient pas ; `confirm_admin_mapping: true` (booléen, jamais enregistré) confirme qu'un groupe du fournisseur donne le rôle d'administrateur. */
 export const schemaCorpsMajFournisseur = z.record(z.string(), z.unknown());
 /** Secret du fournisseur : texte vide pour le supprimer. */
 export const schemaCorpsSecretFournisseur = z.object({ secret: z.string() });
 
-/** Test d'un fournisseur : ses réglages tels que le formulaire les contient, enregistrés ou non, plus pour un annuaire `test_user` (identifiant de l'utilisateur d'essai, cherché sans jamais être lié) et `secret` (secret du compte de service pour ce test seul, jamais enregistré), tous deux facultatifs. */
-export const schemaCorpsEssaiFournisseur = z
-  .record(z.string(), z.unknown())
-  .refine((o) => ["test_user", "secret"].every((k) => o[k] === undefined || typeof o[k] === "string"), {
-    message: "test_user et secret : texte attendu",
-  });
-/** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse ; `complete` n'est vrai que pour un annuaire dont toutes les étapes, utilisateur d'essai compris, sont passées (un fournisseur OIDC n'est jamais complet : son essai à blanc le valide). */
+/** Test d'un fournisseur : ses réglages tels que le formulaire les contient, enregistrés ou non. */
+export const schemaCorpsEssaiFournisseur = z.record(z.string(), z.unknown());
+/** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse . */
 export const schemaReponseEssaiFournisseur = z.object({
   ok: z.boolean(),
-  complete: z.boolean(),
   steps: z.array(
     z.object({
       id: z.string(),

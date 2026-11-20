@@ -63,7 +63,7 @@ export function creerFamilleAdminIdentiteOidc(dep: DependancesAdminIdentiteOidc)
 
   function enregistre(id: string): FournisseurOidc {
     const f = fournisseurParId(id);
-    if (f === undefined || f.type !== "oidc") throw new HttpError(404, "Fournisseur introuvable.");
+    if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
     return f;
   }
 

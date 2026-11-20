@@ -10,24 +10,10 @@ import { configurerCoffre } from "@elpis/securite";
 
 import { defautsFournisseur } from "../../src/identite/reglages";
 
-/** Fournisseur LDAP complet et valide, éteint, sans groupe requis ; `extra` écrase ses champs. */
-export function ldapValide(extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    ...defautsFournisseur("ldap"),
-    id: "annuaire",
-    label: "Annuaire",
-    urls: ["ldaps://ldap.exemple.lan"],
-    bind_dn: "uid=svc,cn=users,dc=exemple,dc=lan",
-    user_base_dn: "cn=users,dc=exemple,dc=lan",
-    user_filter: "(uid={username})",
-    ...extra,
-  };
-}
-
 /** Fournisseur OIDC complet et valide, éteint, sans groupe requis. */
 export function oidcValide(extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    ...defautsFournisseur("oidc"),
+    ...defautsFournisseur(),
     id: "sso",
     label: "SSO",
     issuer: "https://idp.exemple.lan/realms/elpis",

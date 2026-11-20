@@ -29,7 +29,6 @@ import { blockRemoteUrlReason, configureAudit, defaultAuditDir, defaultAuditKeyP
 
 import type { Extension } from "./app";
 import { CycleDeVie } from "./cycle";
-import { brancherBalayageAnnuaire } from "./ops/balayage-annuaire";
 import { brancherPurgeRevocations } from "./ops/purge-revocations";
 import { installerRefusGeneriques, signalerRefusAuth } from "./journal-securite/auditer";
 import { etatJournalSecurite } from "./journal-securite/etat";
@@ -64,7 +63,6 @@ import {
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
 import { creerFamilleAdminIdentite } from "./familles/admin-identite";
-import { creerFamilleAdminIdentiteBalayage } from "./familles/admin-identite-balayage";
 import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
 import { creerFamilleAdminIdentiteOidc } from "./familles/admin-identite-oidc";
 import { creerFamilleIdentite } from "./familles/identite";
@@ -74,9 +72,6 @@ import { FabriqueConfigurations } from "./identite/oidc/configuration";
 import { adresseDeFinDeSession } from "./identite/oidc/deconnexion";
 import { methodesPubliques } from "./identite/oidc/publique";
 import type { OptionsSortant } from "./identite/sortant";
-import type { FabriqueConnexion } from "./identite/annuaire/client";
-import { fabriqueLdapts } from "./identite/annuaire/client";
-import type { DependancesBalayage } from "./identite/annuaire/balayage";
 import { lecteurFraicheurs } from "./identite/fraicheur";
 import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
@@ -178,8 +173,6 @@ export interface Composition {
 export interface OptionsComposition {
   /** Cycle de vie du process : arrêt des flux, empreinte de main et abonnement de l'admin au démarrage, fermeture du relais ; absent, un cycle jamais démarré. */
   readonly cycle?: CycleDeVie;
-  /** Connexions à l'annuaire (LDAPS vérifié par défaut) ; les essais y glissent une fabrique factice. */
-  readonly fabriqueAnnuaire?: FabriqueConnexion;
   /** Résolution, juge et autorités du client sortant des fournisseurs SSO ; les essais y glissent leur fournisseur factice. */
   readonly sortantOidc?: OptionsSortant;
 }
@@ -482,23 +475,6 @@ export async function composer(
     evenements,
     journal: journal.child({ domaine: "metrics" }),
   });
-  const horloge = (): number => (auth.maintenant ? auth.maintenant() : Date.now() / 1000);
-  const balayage: DependancesBalayage = {
-    base,
-    fabrique: options.fabriqueAnnuaire ?? fabriqueLdapts(),
-    maintenant: horloge,
-    cookieSecure: () => auth.attributsCookie().https_only === true,
-    journal: journal.child({ domaine: "annuaire" }),
-    etat: {
-      base,
-      acces: auth,
-      maintenant: horloge,
-      publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
-      bac: piloteBac(),
-      journal: journal.child({ domaine: "annuaire" }),
-    },
-  };
-  brancherBalayageAnnuaire(mode, cycle, balayage);
   installerPublicationNotifications(async (message) => void (await evenements.diffuserPartout(message)));
   brancherIndexationRag(mode, base, cycle, {
     diffuser: (message) => evenements.diffuserPartout(message),
@@ -584,12 +560,6 @@ export async function composer(
             },
             sid,
           ),
-        annuaire: {
-          ...(options.fabriqueAnnuaire === undefined ? {} : { fabrique: options.fabriqueAnnuaire }),
-          publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
-          revoquer: (uid) => evenements.revoquer(uid),
-          bac: piloteBac(),
-        },
       }),
       creerFamilleJetons(comptes),
       creerFamilleOAuth({ auth, oauth }),
@@ -644,13 +614,11 @@ export async function composer(
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
       }),
-      creerFamilleAdminIdentiteBalayage(balayage),
       creerFamilleAdminRattachement({
         base,
         auth,
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
-        ...(options.fabriqueAnnuaire === undefined ? {} : { fabrique: options.fabriqueAnnuaire }),
       }),
       creerFamilleAdminIdentiteOidc({
         base,

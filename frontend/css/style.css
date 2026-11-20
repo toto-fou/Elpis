@@ -2327,12 +2327,6 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
 }
 /* Connexion d'entreprise : prérequis non satisfait. */
 .ent-ko .adm-row__label { color: var(--danger-text); }
-/* Connexion d'entreprise : suspensions retenues, passe abandonnée. */
-.ent-alerte {
-    border: 1px solid var(--danger-border); border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem; font-size: 0.75rem; line-height: 1.125rem;
-    color: var(--danger-text);
-}
 .adm-row__hint {
     margin-top: 0.125rem;
     font-size: 0.75rem;

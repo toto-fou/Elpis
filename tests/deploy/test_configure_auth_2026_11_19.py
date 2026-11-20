@@ -13,7 +13,7 @@ REPO = Path(__file__).resolve().parents[2]
 AUTH = {
     "public_url": "https://elpis.exemple.lan",
     "local": {"mode": "admins"},
-    "providers": [{"id": "annuaire", "enabled": True}, {"id": "sso", "enabled": False}, "bizarre"],
+    "providers": [{"id": "idp", "enabled": True}, {"id": "sso", "enabled": False}, "bizarre"],
 }
 
 
@@ -54,7 +54,7 @@ def test_force_reprend_auth_eteinte(conf, tmp_path):
     auth = ecrit(tmp_path)["auth"]
     assert auth["local"]["mode"] == "all"
     assert auth["public_url"] == AUTH["public_url"]
-    assert auth["providers"] == [{"id": "annuaire", "enabled": False}, {"id": "sso", "enabled": False}, "bizarre"]
+    assert auth["providers"] == [{"id": "idp", "enabled": False}, {"id": "sso", "enabled": False}, "bizarre"]
     assert AUTH["providers"][0]["enabled"] is True  # la copie lue n'est pas modifiée
 
 

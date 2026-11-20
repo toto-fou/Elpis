@@ -118,7 +118,7 @@ async function identiteConnue(c: Contexte, l: LigneIdentite): Promise<Resolution
   if (appartenance === "inconnu") return refus("groups_unknown", uid);
   const origine = `directory:${fournisseur.id}`;
   if (appartenance === "non") {
-    if (await poserSuspensionDeLAnnuaire(c, uid, origine)) {
+    if (await poserSuspensionDuFournisseur(c, uid, origine)) {
       await dep.base.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
       effets.suspendre = uid;
       c.audits.push(() => auditCompte(c, "auth.account.suspend", uid, l.username, origine));
@@ -146,8 +146,8 @@ async function identiteConnue(c: Contexte, l: LigneIdentite): Promise<Resolution
   return { type: "compte", uid, cree: false };
 }
 
-/** Suspension posée par l'annuaire ; le dernier administrateur local garde son accès (la suspension est alors sans effet). */
-async function poserSuspensionDeLAnnuaire(c: Contexte, uid: number, origine: string): Promise<boolean> {
+/** Suspension posée par le fournisseur (groupe requis) ; le dernier administrateur local garde son accès (la suspension est alors sans effet). */
+async function poserSuspensionDuFournisseur(c: Contexte, uid: number, origine: string): Promise<boolean> {
   try {
     return await poserSuspension(c.dep.base, uid, origine, c.maintenant);
   } catch (e) {
@@ -231,10 +231,8 @@ async function creerCompte(c: Contexte): Promise<Resolution> {
   const { dep, fournisseur, profil, appartenance, maintenant, effets } = c;
   if (appartenance === "non") return refus("not_in_group");
   if (appartenance === "inconnu") return refus("groups_unknown");
-  if (fournisseur.type === "oidc") {
-    const prepare = await rattachementPrepareDe(dep.base, fournisseur.id, profil.extUsername, maintenant);
-    if (prepare !== undefined) return rattachementPrepare(c, prepare);
-  }
+  const prepare = await rattachementPrepareDe(dep.base, fournisseur.id, profil.extUsername, maintenant);
+  if (prepare !== undefined) return rattachementPrepare(c, prepare);
   if (profil.identifiantFiable === false) return refus("name_invalid");
   const nom = nomDerive(profil.extUsername);
   if (nom === null) return refus("name_invalid");
@@ -284,7 +282,7 @@ function auditCompte(
   auditEvent({ userId: uid, username, action, ip: c.ip, details });
 }
 
-/** Profil vérifié par l'annuaire → compte, en une écriture exclusive ; coupure des flux et du bac après la validation. */
+/** Profil vérifié par le fournisseur → compte, en une écriture exclusive ; coupure des flux et du bac après la validation. */
 export async function resoudreIdentite(
   dep: DependancesProvisionnement,
   e: {

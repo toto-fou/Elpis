@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/admin/connexion-entreprise.test.ts — console › Connexion d'entreprise : page vide, création LDAP et OIDC, secret en écriture seule, préréglage sans écrasement, Activer grisé, erreurs du serveur, champs figés, confirmations. */
+/** frontend/test/admin/connexion-entreprise.test.ts — console › Connexion d'entreprise : page vide, création d'un SSO, secret en écriture seule, Activer grisé, erreurs du serveur, champs figés, confirmations. */
 import * as Vue from "vue";
 import { createApp, defineComponent, h, reactive, ref } from "vue";
 import type { App } from "vue";
@@ -20,12 +20,8 @@ const BORNES = {
   label_max: 40,
   ca_pem_max: 65536,
   required_groups_max: 20,
-  ldap_urls_max: 3,
   secret_max: 16384,
   freshness_days: { min: 1, max: 90, default: 14 },
-  max_failures: { min: 1, max: 20, default: 4 },
-  failure_window_sec: { min: 60, max: 86400, default: 900 },
-  timeout_sec: { min: 2, max: 30, default: 10 },
   clock_skew_sec: { min: 0, max: 300, default: 60 },
 };
 
@@ -41,21 +37,6 @@ const COMMUN = {
   tested: false,
   active: false,
   identities: 0,
-};
-const LDAP = {
-  ...COMMUN,
-  type: "ldap" as const,
-  id: "ipa",
-  label: "Annuaire siège",
-  urls: ["ldaps://ipa.example.lan"],
-  bind_dn: "uid=elpis,cn=users",
-  user_base_dn: "cn=users,dc=example",
-  user_filter: "(uid={username})",
-  attrs: { id: "ipaUniqueID", username: "uid", email: "mail", name: "displayName" },
-  groups: { mode: "memberof" as const },
-  max_failures: 4,
-  failure_window_sec: 900,
-  timeout_sec: 10,
 };
 const OIDC = {
   ...COMMUN,
@@ -214,48 +195,11 @@ describe("Connexion d'entreprise : page vide", () => {
 });
 
 describe("Connexion d'entreprise : création", () => {
-  it("annuaire LDAP : corps à plat, puis secret rangé à part et jamais affiché", async () => {
-    const m = monter();
-    m.reponses["POST /api/admin/auth/providers"] = [
-      json(etat({ providers: [{ ...LDAP, has_secret: false }] })),
-    ];
-    m.reponses["PUT /api/admin/auth/providers/ipa/secret"] = [json(etat({ providers: [LDAP] }))];
-    await ouvrir(m);
-    await clic("ent-ajouter");
-    await clic("ent-ajouter-ldap");
-    await saisir("ent-id", "ipa");
-    await saisir("ent-label", "Annuaire siège");
-    await saisir("ent-urls", "ldaps://ipa.example.lan");
-    await saisir("ent-bind", "uid=elpis,cn=users");
-    await saisir("ent-base", "cn=users,dc=example");
-    await saisir("ent-filtre", "(uid={username})");
-    await saisir("ent-secret", "s3cr3t-valeur");
-    expect(el<HTMLInputElement>("ent-secret")?.type).toBe("password");
-    await clic("ent-enregistrer-fournisseur");
-    const [creation] = m.corps["POST /api/admin/auth/providers"] ?? [];
-    expect(creation).toMatchObject({
-      id: "ipa",
-      type: "ldap",
-      label: "Annuaire siège",
-      urls: ["ldaps://ipa.example.lan"],
-      bind_dn: "uid=elpis,cn=users",
-      user_base_dn: "cn=users,dc=example",
-      user_filter: "(uid={username})",
-    });
-    expect(creation).not.toHaveProperty("enabled");
-    expect(creation).not.toHaveProperty("secret");
-    expect(m.corps["PUT /api/admin/auth/providers/ipa/secret"]).toEqual([{ secret: "s3cr3t-valeur" }]);
-    expect(m.A.authTiroir.value).toBeNull();
-    expect(document.body.innerHTML).not.toContain("s3cr3t-valeur");
-    expect(m.hote.textContent).toContain("Annuaire siège");
-  });
-
   it("SSO OpenID Connect : corps, adresses à déclarer et Copier", async () => {
     const m = monter();
     m.reponses["POST /api/admin/auth/providers"] = [json(etat({ providers: [OIDC] }))];
     await ouvrir(m);
     await clic("ent-ajouter");
-    await clic("ent-ajouter-oidc");
     expect(el("ent-retour")).toBeNull();
     await saisir("ent-id", "sso");
     await saisir("ent-label", "SSO siège");
@@ -280,7 +224,6 @@ describe("Connexion d'entreprise : création", () => {
     const m = monter(etat({ public_url: "" }));
     await ouvrir(m);
     await clic("ent-ajouter");
-    await clic("ent-ajouter-oidc");
     await saisir("ent-id", "sso");
     expect(el("ent-retour")).toBeNull();
   });
@@ -289,65 +232,49 @@ describe("Connexion d'entreprise : création", () => {
     const m = monter();
     await ouvrir(m);
     await clic("ent-ajouter");
-    await clic("ent-ajouter-ldap");
     await clic("ent-enregistrer-fournisseur");
     expect(m.appels.some((a) => a.startsWith("POST"))).toBe(false);
     expect(document.body.textContent).toContain("à renseigner");
-  });
-
-  it("le préréglage remplit les champs vides sans écraser une saisie", async () => {
-    const m = monter();
-    await ouvrir(m);
-    await clic("ent-ajouter");
-    await clic("ent-ajouter-ldap");
-    await saisir("ent-filtre", "(&(uid={username})(memberOf=x))");
-    await saisir("ent-preset", "freeipa");
-    expect(m.A.authTiroir.value?.user_filter).toBe("(&(uid={username})(memberOf=x))");
-    expect(m.A.authTiroir.value?.attr_id).toBe("ipaUniqueID");
-    expect(m.A.authTiroir.value?.groups_mode).toBe("memberof");
-    await saisir("ent-preset", "active-directory");
-    expect(m.A.authTiroir.value?.attr_id).toBe("ipaUniqueID");
-    expect(m.A.authTiroir.value?.user_filter).toBe("(&(uid={username})(memberOf=x))");
   });
 });
 
 describe("Connexion d'entreprise : fournisseur existant", () => {
   it("le secret enregistré n'est jamais réaffiché ni renvoyé à l'enregistrement", async () => {
-    const m = monter(etat({ providers: [LDAP] }));
-    m.reponses["PUT /api/admin/auth/providers/ipa"] = [json(etat({ providers: [LDAP] }))];
+    const m = monter(etat({ providers: [OIDC] }));
+    m.reponses["PUT /api/admin/auth/providers/sso"] = [json(etat({ providers: [OIDC] }))];
     await ouvrir(m);
-    m.hote.querySelector<HTMLButtonElement>('button[aria-label="Modifier Annuaire siège"]')?.click();
+    m.hote.querySelector<HTMLButtonElement>('button[aria-label="Modifier SSO siège"]')?.click();
     await vider();
     const champ = el<HTMLInputElement>("ent-secret");
     expect(champ?.value).toBe("");
     expect(champ?.placeholder).toBe("Inchangé");
     expect(el("ent-secret-etat")?.textContent).toContain("Enregistré");
     await clic("ent-enregistrer-fournisseur");
-    expect(m.corps["PUT /api/admin/auth/providers/ipa"]?.[0]).not.toHaveProperty("secret");
-    expect(m.appels).not.toContain("PUT /api/admin/auth/providers/ipa/secret");
-    expect(m.corps["PUT /api/admin/auth/providers/ipa"]?.[0]).not.toHaveProperty("id");
-    expect(m.corps["PUT /api/admin/auth/providers/ipa"]?.[0]).not.toHaveProperty("enabled");
+    expect(m.corps["PUT /api/admin/auth/providers/sso"]?.[0]).not.toHaveProperty("secret");
+    expect(m.appels).not.toContain("PUT /api/admin/auth/providers/sso/secret");
+    expect(m.corps["PUT /api/admin/auth/providers/sso"]?.[0]).not.toHaveProperty("id");
+    expect(m.corps["PUT /api/admin/auth/providers/sso"]?.[0]).not.toHaveProperty("enabled");
   });
 
   it("Activer est grisé tant que le fournisseur n'est pas testé", async () => {
-    const m = monter(etat({ providers: [LDAP] }));
+    const m = monter(etat({ providers: [OIDC] }));
     await ouvrir(m);
-    m.A.authModifier("ipa");
+    m.A.authModifier("sso");
     await vider();
     const b = el<HTMLButtonElement>("ent-activer");
     expect(b?.disabled).toBe(true);
-    expect(b?.title).toBe("Testez d'abord ce fournisseur.");
+    expect(b?.title).toBe("Lancez d'abord un essai de connexion.");
     await clic("ent-activer");
     expect(m.appels.some((a) => a.includes("/enable"))).toBe(false);
   });
 
   it("le message d'un 409 du serveur est affiché tel quel", async () => {
-    const m = monter(etat({ providers: [LDAP] }));
-    m.reponses["PUT /api/admin/auth/providers/ipa"] = [
+    const m = monter(etat({ providers: [OIDC] }));
+    m.reponses["PUT /api/admin/auth/providers/sso"] = [
       json({ detail: "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur." }, 409),
     ];
     await ouvrir(m);
-    m.A.authModifier("ipa");
+    m.A.authModifier("sso");
     await vider();
     await clic("ent-enregistrer-fournisseur");
     expect(document.body.textContent).toContain("des comptes sont rattachés à ce fournisseur");
@@ -355,14 +282,7 @@ describe("Connexion d'entreprise : fournisseur existant", () => {
   });
 
   it("des comptes rattachés figent l'autorité et l'identifiant client avec leur raison", async () => {
-    const m = monter(
-      etat({
-        providers: [
-          { ...OIDC, identities: 3 },
-          { ...LDAP, identities: 2 },
-        ],
-      }),
-    );
+    const m = monter(etat({ providers: [{ ...OIDC, identities: 3 }] }));
     await ouvrir(m);
     m.A.authModifier("sso");
     await vider();
@@ -372,19 +292,15 @@ describe("Connexion d'entreprise : fournisseur existant", () => {
     expect(el<HTMLInputElement>("ent-client")?.disabled).toBe(true);
     expect(el<HTMLInputElement>("ent-label")?.disabled).toBe(false);
     expect(el<HTMLInputElement>("ent-id")?.disabled).toBe(true);
-    m.A.authFermer();
-    await vider();
-    m.A.authModifier("ipa");
-    await vider();
-    expect(m.A.authFige("attrs.id")).toContain("des comptes sont rattachés");
-    expect(m.A.authFige("user_filter")).toBe("");
+    expect(m.A.authFige("subject_claim")).toContain("des comptes sont rattachés");
+    expect(m.A.authFige("label")).toBe("");
   });
 
   it("un fournisseur actif a tous ses réglages grisés et propose Désactiver", async () => {
-    const m = monter(etat({ providers: [{ ...LDAP, enabled: true, active: true, tested: true }] }));
+    const m = monter(etat({ providers: [{ ...OIDC, enabled: true, active: true, tested: true }] }));
     await ouvrir(m);
     expect(m.hote.textContent).toContain("Connexion d'entreprise active");
-    m.A.authModifier("ipa");
+    m.A.authModifier("sso");
     await vider();
     expect(el<HTMLInputElement>("ent-label")?.disabled).toBe(true);
     expect(el("ent-activer")).toBeNull();
@@ -393,41 +309,41 @@ describe("Connexion d'entreprise : fournisseur existant", () => {
   });
 
   it("désactiver demande une confirmation qui dit que les sessions seront fermées", async () => {
-    const m = monter(etat({ providers: [{ ...LDAP, enabled: true, active: true, tested: true }] }));
-    m.reponses["POST /api/admin/auth/providers/ipa/disable"] = [json(etat({ providers: [LDAP] }))];
+    const m = monter(etat({ providers: [{ ...OIDC, enabled: true, active: true, tested: true }] }));
+    m.reponses["POST /api/admin/auth/providers/sso/disable"] = [json(etat({ providers: [OIDC] }))];
     await ouvrir(m);
-    m.A.authModifier("ipa");
+    m.A.authModifier("sso");
     await vider();
     m.refuser();
     await clic("ent-desactiver");
     expect(m.confirmations).toEqual(["Désactiver ce fournisseur"]);
-    expect(m.appels).not.toContain("POST /api/admin/auth/providers/ipa/disable");
+    expect(m.appels).not.toContain("POST /api/admin/auth/providers/sso/disable");
     expect(m.A.authFournisseur.value?.active).toBe(true);
   });
 
   it("désactiver confirmé envoie la demande et reprend l'état rendu", async () => {
-    const m = monter(etat({ providers: [{ ...LDAP, enabled: true, active: true, tested: true }] }));
-    m.reponses["POST /api/admin/auth/providers/ipa/disable"] = [json(etat({ providers: [LDAP] }))];
+    const m = monter(etat({ providers: [{ ...OIDC, enabled: true, active: true, tested: true }] }));
+    m.reponses["POST /api/admin/auth/providers/sso/disable"] = [json(etat({ providers: [OIDC] }))];
     await ouvrir(m);
-    m.A.authModifier("ipa");
+    m.A.authModifier("sso");
     await vider();
     await clic("ent-desactiver");
-    expect(m.appels).toContain("POST /api/admin/auth/providers/ipa/disable");
+    expect(m.appels).toContain("POST /api/admin/auth/providers/sso/disable");
     expect(m.A.authActifs.value).toHaveLength(0);
     expect(el("ent-activer")).not.toBeNull();
   });
 
   it("supprimer demande de taper l'identifiant, puis recharge", async () => {
-    const m = monter(etat({ providers: [LDAP] }));
-    m.reponses["DELETE /api/admin/auth/providers/ipa"] = [json({ ok: true })];
-    m.reponses["GET /api/admin/auth"] = [json(etat({ providers: [LDAP] })), json(etat())];
+    const m = monter(etat({ providers: [OIDC] }));
+    m.reponses["DELETE /api/admin/auth/providers/sso"] = [json({ ok: true })];
+    m.reponses["GET /api/admin/auth"] = [json(etat({ providers: [OIDC] })), json(etat())];
     await ouvrir(m);
-    m.A.authModifier("ipa");
+    m.A.authModifier("sso");
     await vider();
     m.refuser();
     await clic("ent-supprimer");
-    expect(m.mots).toEqual(["ipa"]);
-    expect(m.appels).not.toContain("DELETE /api/admin/auth/providers/ipa");
+    expect(m.mots).toEqual(["sso"]);
+    expect(m.appels).not.toContain("DELETE /api/admin/auth/providers/sso");
   });
 
   it("un fournisseur illisible est listé, jamais actif, et seulement supprimable", async () => {

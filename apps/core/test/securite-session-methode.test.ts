@@ -19,7 +19,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { creerCompte, demarrerCore } from "../../../packages/contracts/test/core/aides";
 import type { CoreDeTest } from "../../../packages/contracts/test/core/aides";
 import { sessionAdmise } from "../src/identite/session";
-import { configDeTest, ldapValide, oidcValide } from "./identite/aides";
+import { configDeTest, oidcValide } from "./identite/aides";
 import type { ConfigDeTest } from "./identite/aides";
 
 describe("méthode de connexion relue à chaud (sessions et flux)", () => {
@@ -71,29 +71,23 @@ describe("méthode de connexion relue à chaud (sessions et flux)", () => {
     expect(await valide(ancienne, simple)).toBe(true);
   });
 
-  it.each([
-    ["ldap:annuaire", ldapValide()],
-    ["oidc:sso", oidcValide()],
-  ] as const)(
-    "%s : éteint dans le fichier, la session et le flux sont refusés à la requête suivante",
-    async (methode, f) => {
-      const ext = await compteExterne("ext", methode);
-      cfg.ecrire({ auth: { providers: [{ ...f, enabled: true }] } });
-      expect(await valide(ouvrir(ext, methode), ext)).toBe(true);
-      expect(await fluxGarde(ouvrir(ext, methode), ext)).toBe(true);
-      cfg.ecrire({ auth: { providers: [{ ...f, enabled: false }] } });
-      expect(await valide(ouvrir(ext, methode), ext)).toBe(false);
-      expect(await fluxGarde(ouvrir(ext, methode), ext)).toBe(false);
-    },
-  );
+  it("oidc:sso : éteint dans le fichier, la session et le flux sont refusés à la requête suivante", async () => {
+    const ext = await compteExterne("ext", "oidc:sso");
+    cfg.ecrire({ auth: { providers: [{ ...oidcValide(), enabled: true }] } });
+    expect(await valide(ouvrir(ext, "oidc:sso"), ext)).toBe(true);
+    expect(await fluxGarde(ouvrir(ext, "oidc:sso"), ext)).toBe(true);
+    cfg.ecrire({ auth: { providers: [{ ...oidcValide(), enabled: false }] } });
+    expect(await valide(ouvrir(ext, "oidc:sso"), ext)).toBe(false);
+    expect(await fluxGarde(ouvrir(ext, "oidc:sso"), ext)).toBe(false);
+  });
 
   it("fournisseur retiré du fichier : session et flux refusés ; autre fournisseur actif sans effet", async () => {
-    cfg.ecrire({ auth: { providers: [{ ...oidcValide(), enabled: true }] } });
-    const ldap = await compteExterne("ext-ldap", "ldap:annuaire");
-    const oidc = await compteExterne("ext-oidc", "oidc:sso");
-    expect(await valide(ouvrir(ldap, "ldap:annuaire"), ldap)).toBe(false);
-    expect(await fluxGarde(ouvrir(ldap, "ldap:annuaire"), ldap)).toBe(false);
-    expect(await valide(ouvrir(oidc, "oidc:sso"), oidc)).toBe(true);
+    cfg.ecrire({ auth: { providers: [{ ...oidcValide({ id: "autre" }), enabled: true }] } });
+    const retire = await compteExterne("ext-retire", "oidc:sso");
+    const present = await compteExterne("ext-present", "oidc:autre");
+    expect(await valide(ouvrir(retire, "oidc:sso"), retire)).toBe(false);
+    expect(await fluxGarde(ouvrir(retire, "oidc:sso"), retire)).toBe(false);
+    expect(await valide(ouvrir(present, "oidc:autre"), present)).toBe(true);
   });
 
   it("mode admins : session par mot de passe d'un non-administrateur refusée, celle d'un administrateur gardée ; retour au mode all", async () => {
@@ -108,28 +102,28 @@ describe("méthode de connexion relue à chaud (sessions et flux)", () => {
   });
 
   it("une session d'un fournisseur n'est pas touchée par le mode local", async () => {
-    cfg.ecrire({ auth: { local: { mode: "admins" }, providers: [{ ...ldapValide(), enabled: true }] } });
-    const ext = await compteExterne("ext", "ldap:annuaire");
-    expect(await valide(ouvrir(ext, "ldap:annuaire"), ext)).toBe(true);
+    cfg.ecrire({ auth: { local: { mode: "admins" }, providers: [{ ...oidcValide(), enabled: true }] } });
+    const ext = await compteExterne("ext", "oidc:sso");
+    expect(await valide(ouvrir(ext, "oidc:sso"), ext)).toBe(true);
   });
 
   it("la méthode doit rester celle du compte : mot de passe local retiré, ou identité d'un autre fournisseur ou absente", async () => {
     cfg.ecrire({
       auth: {
         providers: [
-          { ...ldapValide(), enabled: true },
           { ...oidcValide(), enabled: true },
+          { ...oidcValide({ id: "autre" }), enabled: true },
         ],
       },
     });
-    const ext = await compteExterne("ext", "ldap:annuaire");
-    expect(await valide(ouvrir(ext, "ldap:annuaire"), ext)).toBe(true);
-    expect(await valide(ouvrir(ext, "oidc:sso"), ext)).toBe(false);
-    expect(await fluxGarde(ouvrir(ext, "oidc:sso"), ext)).toBe(false);
+    const ext = await compteExterne("ext", "oidc:sso");
+    expect(await valide(ouvrir(ext, "oidc:sso"), ext)).toBe(true);
+    expect(await valide(ouvrir(ext, "oidc:autre"), ext)).toBe(false);
+    expect(await fluxGarde(ouvrir(ext, "oidc:autre"), ext)).toBe(false);
     expect(await valide(ouvrir(ext, "password"), ext)).toBe(false);
     expect(await fluxGarde(ouvrir(ext, "password"), ext)).toBe(false);
     expect(await valide(new Session({ user_id: ext, _login_ts: Date.now() / 1000 }), ext)).toBe(false);
-    expect(await valide(ouvrir(simple, "ldap:annuaire"), simple)).toBe(false);
+    expect(await valide(ouvrir(simple, "oidc:autre"), simple)).toBe(false);
     expect(await fluxGarde(ouvrir(simple, "oidc:sso"), simple)).toBe(false);
     expect(await valide(ouvrir(simple, "password"), simple)).toBe(true);
     expect(await fluxGarde(ouvrir(simple, "password"), simple)).toBe(true);

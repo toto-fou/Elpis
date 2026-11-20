@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/correspondance.ts — correspondance exacte groupes d'annuaire → rôle et groupes Elpis, en lecture seule : une appartenance illisible n'est jamais un « non » et suspend toute décision. */
+/** apps/core/src/identite/correspondance.ts — correspondance exacte groupes du jeton → rôle et groupes Elpis, en lecture seule : une appartenance illisible n'est jamais un « non » et suspend toute décision. */
 import type { Executeur } from "@elpis/db";
 
 import type { Appartenance } from "./provisionnement";
@@ -7,7 +7,7 @@ import type { Fournisseur } from "./reglages";
 
 export type RoleElpis = "user" | "moderator" | "admin";
 
-/** Appartenance lue de chaque groupe externe de la correspondance, par sa valeur exacte (DN complet ou valeur de la revendication). */
+/** Appartenance lue de chaque groupe externe de la correspondance, par sa valeur exacte (valeur de la revendication). */
 export type Lecture = ReadonlyMap<string, Appartenance>;
 
 export interface Decision {
@@ -32,9 +32,8 @@ export function estPlusHaut(a: RoleElpis, b: RoleElpis): boolean {
 
 const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
 
-/** Les groupes d'administrateurs ne comptent en SSO que si le fournisseur exige `mfa` / `mca` seuls en `amr`, ou un `acr` sans niveau faible ; un annuaire est confirmé à l'enregistrement. */
+/** Les groupes d'administrateurs ne comptent en SSO que si le fournisseur exige `mfa` / `mca` seuls en `amr`, ou un `acr` sans niveau faible. */
 export function adminAdmis(f: Fournisseur): boolean {
-  if (f.type === "ldap") return true;
   const amr = f.required_amr.map((m) => m.trim().toLowerCase());
   return (
     (amr.length > 0 && amr.every((m) => m === "mfa" || m === "mca")) ||

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-auth-sortant-bornes.test.ts — le test d'un fournisseur et le client sortant sont bornés : une résolution de nom ne dépasse ni son délai ni son nombre de fils, l'échéance arrête le travail, le créneau n'est rendu qu'à la fin réelle, ldaps n'annonce aucun ALPN, les messages TLS disent la vraie cause. */
+/** apps/core/test/securite-auth-sortant-bornes.test.ts — le test d'un fournisseur et le client sortant sont bornés : une résolution de nom ne dépasse ni son délai ni son nombre de fils, l'échéance arrête le travail, le créneau n'est rendu qu'à la fin réelle, la connexion TLS du test n'annonce aucun ALPN, les messages TLS disent la vraie cause. */
 import { createServer as serveurHttps } from "node:https";
 import { createServer as serveurTcp } from "node:net";
 import type { AddressInfo, Server as ServeurTcp, Socket } from "node:net";
@@ -17,7 +17,7 @@ import {
   ErreurSortant,
   nomCourt,
 } from "../src/identite/sortant";
-import { ldapValide, oidcValide } from "./identite/aides";
+import { oidcValide } from "./identite/aides";
 import { creerAutorite, creerFeuille, effacer, OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 import type { Autorite, Feuille } from "./identite/pki-openssl";
 
@@ -99,11 +99,10 @@ describe("échéance globale du test d'un fournisseur", () => {
       return { motif: null, adresses: ["127.0.0.1"] };
     };
     const t0 = Date.now();
-    const lance = lancerTest(
-      ldapValide({ urls: [`ldaps://serveur.invalid:${port}`, `ldaps://autre.invalid:${port}`] }),
-      BON,
-      { delaiGlobalMs: 100, sortant: { juger: lent } },
-    );
+    const lance = lancerTest(oidcValide({ issuer: `https://serveur.invalid:${port}/realms/x` }), BON, {
+      delaiGlobalMs: 100,
+      sortant: { juger: lent },
+    });
     const r = await lance.resultat;
     expect(Date.now() - t0).toBeLessThan(350);
     expect(r.ok).toBe(false);
@@ -115,7 +114,7 @@ describe("échéance globale du test d'un fournisseur", () => {
     await lance.termine;
     await dormir(100);
     expect(connexions, "aucune connexion après l'échéance").toBe(0);
-    expect(jugements, "la deuxième adresse n'est même pas jugée").toBe(1);
+    expect(jugements, "le juge n'est appelé qu'une fois").toBe(1);
   });
 
   it("testerFournisseur rend la même échéance", async () => {
@@ -123,17 +122,21 @@ describe("échéance globale du test d'un fournisseur", () => {
       await dormir(300);
       return { motif: null, adresses: ["127.0.0.1"] };
     };
-    const r = await testerFournisseur(ldapValide({ urls: [`ldaps://serveur.invalid:${port}`] }), BON, {
-      delaiGlobalMs: 80,
-      sortant: { juger: lent },
-    });
+    const r = await testerFournisseur(
+      oidcValide({ issuer: `https://serveur.invalid:${port}/realms/x` }),
+      BON,
+      {
+        delaiGlobalMs: 80,
+        sortant: { juger: lent },
+      },
+    );
     expect(r.steps.at(-1)?.id).toBe("timeout");
     await dormir(400);
     expect(connexions).toBe(0);
   });
 
   it("connexion en cours à l'échéance : abandonnée, socket détruite", async () => {
-    const r = await lancerTest(ldapValide({ urls: [`ldaps://muet.invalid:${port}`] }), BON, {
+    const r = await lancerTest(oidcValide({ issuer: `https://muet.invalid:${port}/realms/x` }), BON, {
       delaiGlobalMs: 150,
       sortant: { juger: VERS_BOUCLE },
     }).resultat;
@@ -144,7 +147,7 @@ describe("échéance globale du test d'un fournisseur", () => {
   });
 });
 
-describe("messages TLS et connexion ldaps", () => {
+describe("messages TLS et connexion TLS brute", () => {
   let ca: Autorite;
   let feuille: Feuille;
   const fermer: (() => Promise<void>)[] = [];
@@ -186,13 +189,13 @@ describe("messages TLS et connexion ldaps", () => {
     expect(code("ERR_SSL_TLSV1_ALERT_UNKNOWN_CA")).toBe("tls");
   });
 
-  it("un ldaps:// pointé sur un port en clair : « ce port ne parle pas TLS », au client https comme à la connexion brute et au bouton Tester", async () => {
+  it("une adresse https:// pointée sur un port en clair : « ce port ne parle pas TLS », au client https comme à la connexion brute et au bouton Tester", async () => {
     const port = await clair();
     expect(await echec(connexionTls(NOM, port, { juger: VERS_BOUCLE, magasin: [] }))).toBe("pas_tls");
     const c = clientHttps({ juger: VERS_BOUCLE, magasin: [] });
     expect(await echec(c.fetch(`https://${NOM}:${port}/`))).toBe("pas_tls");
     await c.fermer();
-    const r = await testerFournisseur(ldapValide({ urls: [`ldaps://${NOM}:${port}`] }), BON, {
+    const r = await testerFournisseur(oidcValide({ issuer: `https://${NOM}:${port}/realms/x` }), BON, {
       sortant: { juger: VERS_BOUCLE, magasin: [] },
     });
     expect(r.steps.at(-1)?.detail).toContain("Ce port ne parle pas TLS");
@@ -206,7 +209,7 @@ describe("messages TLS et connexion ldaps", () => {
       expect(await echec(connexionTls(NOM, 1, { juger: VERS_BOUCLE, caPem: "pas un certificat" }))).toBe(
         "ca_illisible",
       );
-      const r = await testerFournisseur(ldapValide({ urls: [`ldaps://${NOM}:1`] }), BON, {
+      const r = await testerFournisseur(oidcValide({ issuer: `https://${NOM}:1/realms/x` }), BON, {
         sortant: { juger: VERS_BOUCLE },
       });
       const detail = r.steps.at(-1)?.detail ?? "";
@@ -219,7 +222,7 @@ describe("messages TLS et connexion ldaps", () => {
   });
 
   it.skipIf(!OPENSSL_DISPONIBLE)(
-    "ldaps n'annonce aucun protocole ALPN (le client https annonce http/1.1 seul, même si le serveur préfère h2)",
+    "la connexion TLS brute n'annonce aucun protocole ALPN (le client https annonce http/1.1 seul, même si le serveur préfère h2)",
     async () => {
       const vus: (string | false | null | undefined)[] = [];
       const s = serveurHttps(
@@ -269,22 +272,14 @@ describe("adresses saisies", () => {
     );
   });
 
-  it("hôte entre crochets : seulement une adresse IPv6 valide", () => {
-    for (const hote of ["[abc]", "[1.2.3.4]", "[zz::1]", "[:::]", "[1:2:3]", "[::g]"])
-      expect(() => validerFournisseur(ldapValide({ urls: [`ldaps://${hote}`] })), hote).toThrow();
-    for (const hote of ["[::1]", "[2001:db8::10]:6360"])
-      expect(validerFournisseur(ldapValide({ urls: [`ldaps://${hote}`] })).type, hote).toBe("ldap");
-  });
-
   it("l'étape « adresse » reconnaît une adresse littérale avec l'analyseur d'adresses, pas avec une expression régulière", async () => {
     const detailResolve = async (hote: string): Promise<string | undefined> =>
       (
-        await testerFournisseur(ldapValide({ urls: [`ldaps://${hote}:1`] }), BON, {
+        await testerFournisseur(oidcValide({ issuer: `https://${hote}:1/realms/x` }), BON, {
           sortant: { juger: async () => ({ motif: "blocked_ip", adresses: [] }) },
         })
       ).steps.find((s) => s.id === "resolve")?.detail;
-    expect(await detailResolve("1234")).toBe("Nom résolu.");
-    expect(await detailResolve("1.2.3")).toBe("Nom résolu.");
+    expect(await detailResolve("idp.exemple.lan")).toBe("Nom résolu.");
     expect(await detailResolve("10.1.2.3")).toBe("Adresse IP donnée telle quelle.");
     expect(await detailResolve("[2001:db8::10]")).toBe("Adresse IP donnée telle quelle.");
   });

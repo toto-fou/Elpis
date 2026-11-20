@@ -120,14 +120,13 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   /** Fournisseur OIDC actif d'identifiant donné ; 404 sinon, sans rien dire de plus. */
   async function actif(id: string): Promise<FournisseurOidc> {
     const f = (await fournisseursActifs(base, cookieSecure)).find((p) => p.id === id);
-    if (f === undefined || f.type !== "oidc") throw new HttpError(404, "Not Found");
+    if (f === undefined) throw new HttpError(404, "Not Found");
     return f;
   }
 
   /** 404 tant qu'aucun fournisseur OIDC n'est actif. */
   async function exigerOidcActif(): Promise<void> {
-    if (!(await fournisseursActifs(base, cookieSecure)).some((p) => p.type === "oidc"))
-      throw new HttpError(404, "Not Found");
+    if ((await fournisseursActifs(base, cookieSecure)).length === 0) throw new HttpError(404, "Not Found");
   }
 
   function limiter(ip: string): void {
@@ -240,7 +239,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
   async function retour(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
     const id = idDuChemin(req);
     const f = lireReglagesAuth().providers.find((p) => p.id === id);
-    if (f === undefined || f.type !== "oidc") throw new HttpError(404, "Not Found");
+    if (f === undefined) throw new HttpError(404, "Not Found");
     const estActif = (await fournisseursActifs(base, cookieSecure)).some((p) => p.id === id);
     const secret = secretLiaisonValide(valeurCookie(req.headers.cookie, COOKIE_LIAISON));
     const ip = ipDuClient(req, dep.mandataires);
@@ -468,7 +467,7 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
     );
     if (compte === undefined) throw new HttpError(409, PREUVE_PERIMEE);
     const f = (await fournisseursActifs(base, cookieSecure)).find((p) => p.id === flux.providerId);
-    if (f === undefined || f.type !== "oidc") throw new HttpError(409, PREUVE_PERIMEE);
+    if (f === undefined) throw new HttpError(409, PREUVE_PERIMEE);
     const ip = ipDuClient(req, dep.mandataires);
     limiter(ip);
     const cle = cleAdresse(ip);

@@ -22,7 +22,6 @@ export * from "./rest/admin-skins";
 export * from "./rest/admin-cycle";
 export * from "./rest/admin-audit";
 export * from "./rest/admin-identite";
-export * from "./rest/admin-identite-balayage";
 export * from "./rest/admin-rattachement";
 export * from "./rest/admin-identite-oidc";
 export * from "./rest/identite";

@@ -21,7 +21,7 @@ export interface DependancesRechauffement {
 export async function rechaufferDecouvertes(dep: DependancesRechauffement): Promise<void> {
   const publicUrl = lireReglagesAuth().public_url;
   for (const f of await fournisseursActifs(dep.base, dep.cookieSecure)) {
-    if (f.type !== "oidc" || !f.logout.rp_initiated) continue;
+    if (!f.logout.rp_initiated) continue;
     try {
       await dep.configurations.rechauffer(f, publicUrl);
     } catch {

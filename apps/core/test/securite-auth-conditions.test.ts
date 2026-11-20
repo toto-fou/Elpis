@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { enregistrerTestReussi, fournisseursActifs } from "../src/identite/fournisseurs";
 import { validerFournisseur } from "../src/identite/reglages";
-import { ldapValide } from "./identite/aides";
+import { oidcValide } from "./identite/aides";
 import { MOTEURS, ouvrirBanc, URL_PUBLIQUE } from "./identite/banc";
 import type { Banc } from "./identite/banc";
 
@@ -18,7 +18,7 @@ describe.each(MOTEURS)("conditions de lecture d'un fournisseur allumé (%s)", (m
   });
 
   const allume = (extra: Record<string, unknown> = {}) =>
-    validerFournisseur(ldapValide({ required_groups: ["cn=elpis"], enabled: true, ...extra }));
+    validerFournisseur(oidcValide({ required_groups: ["cn=elpis"], enabled: true, ...extra }));
   const ids = async (secure = true): Promise<string[]> =>
     (await fournisseursActifs(b.t.base, () => secure)).map((f) => f.id);
 
@@ -26,12 +26,12 @@ describe.each(MOTEURS)("conditions de lecture d'un fournisseur allumé (%s)", (m
     const f = allume();
     b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [{ ...f, enabled: false }] } });
     expect(
-      (await b.appeler("PUT", "/api/admin/auth/providers/annuaire/secret", { secret: "secret-de-service-1" }))
+      (await b.appeler("PUT", "/api/admin/auth/providers/sso/secret", { secret: "secret-de-service-1" }))
         .statusCode,
     ).toBe(200);
     await enregistrerTestReussi(b.t.base, f, URL_PUBLIQUE);
     b.cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [f] } });
-    expect(await ids()).toEqual(["annuaire"]);
+    expect(await ids()).toEqual(["sso"]);
 
     expect(await ids(false), "cookie non sécurisé").toEqual([]);
 
@@ -44,7 +44,7 @@ describe.each(MOTEURS)("conditions de lecture d'un fournisseur allumé (%s)", (m
     b.cfg.ecrire({
       auth: {
         public_url: URL_PUBLIQUE,
-        providers: [allume({ label: "Autre", bind_dn: "uid=autre,dc=exemple,dc=lan" })],
+        providers: [allume({ label: "Autre", client_id: "autre" })],
       },
     });
     expect(await ids(), "test réussi sur les réglages courants").toEqual([]);
@@ -53,9 +53,9 @@ describe.each(MOTEURS)("conditions de lecture d'un fournisseur allumé (%s)", (m
     await b.t.base.run("UPDATE users SET suspended_at=1 WHERE id=?", [b.chef]);
     expect(await ids(), "administrateur local actif").toEqual([]);
     await b.t.base.run("UPDATE users SET suspended_at=0 WHERE id=?", [b.chef]);
-    expect(await ids()).toEqual(["annuaire"]);
+    expect(await ids()).toEqual(["sso"]);
 
-    await b.t.base.run("DELETE FROM vault_secrets WHERE name='auth-annuaire'");
+    await b.t.base.run("DELETE FROM vault_secrets WHERE name='auth-sso'");
     expect(await ids(), "secret").toEqual([]);
   });
 
@@ -68,7 +68,7 @@ describe.each(MOTEURS)("conditions de lecture d'un fournisseur allumé (%s)", (m
       });
     ecrire(true, false);
     expect(
-      (await b.appeler("PUT", "/api/admin/auth/providers/annuaire/secret", { secret: "secret-de-service-1" }))
+      (await b.appeler("PUT", "/api/admin/auth/providers/sso/secret", { secret: "secret-de-service-1" }))
         .statusCode,
     ).toBe(200);
     await enregistrerTestReussi(b.t.base, f, URL_PUBLIQUE);
@@ -77,12 +77,12 @@ describe.each(MOTEURS)("conditions de lecture d'un fournisseur allumé (%s)", (m
       prerequisites: { cookie_secure: boolean };
     }>();
     expect(vue.prerequisites.cookie_secure).toBe(false);
-    const refus = await b.appeler("POST", "/api/admin/auth/providers/annuaire/enable");
+    const refus = await b.appeler("POST", "/api/admin/auth/providers/sso/enable");
     expect(refus.statusCode).toBe(409);
     ecrire(false, true);
     expect(await ids(), "allumé à la main sans HTTPS").toEqual([]);
     ecrire(true, false);
-    expect((await b.appeler("POST", "/api/admin/auth/providers/annuaire/enable")).statusCode).toBe(200);
-    expect(await ids()).toEqual(["annuaire"]);
+    expect((await b.appeler("POST", "/api/admin/auth/providers/sso/enable")).statusCode).toBe(200);
+    expect(await ids()).toEqual(["sso"]);
   });
 });

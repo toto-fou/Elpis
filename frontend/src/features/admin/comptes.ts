@@ -98,7 +98,7 @@ function chargeAcces(m: FormulaireAcces): {
 }
 
 const MENTION_SUPPRESSION =
-  "Supprimer n'est pas bannir : le compte sera recréé à la prochaine connexion par l'annuaire. Pour interdire l'accès, désactivez-le.";
+  "Supprimer n'est pas bannir : le compte sera recréé à la prochaine connexion par le fournisseur d'identité. Pour interdire l'accès, désactivez-le.";
 
 const roleDe = (u: CompteConsole): string =>
   u.is_admin === 1 ? "admin" : u.is_admin === 2 ? "moderator" : "user";

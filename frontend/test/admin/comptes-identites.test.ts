@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { reinitialiserSuiviChargement } from "../../src/features/admin/suivi-chargement";
 import { json } from "../aides";
 import {
-  LDAP,
+  OIDC,
   clic,
   compteConsole,
   demonter,
@@ -22,7 +22,7 @@ afterEach(() => {
   reinitialiserSuiviChargement();
 });
 
-const IDENTITE = { provider_id: "ipa", ext_username: "alice.martin", linked_at: 1 };
+const IDENTITE = { provider_id: "sso", ext_username: "alice.martin", linked_at: 1 };
 const UTIL = [
   compteConsole(1, "root", { is_admin: 1 }),
   compteConsole(2, "alice", { identity: IDENTITE, has_local_password: false }),
@@ -32,7 +32,7 @@ const UTIL = [
 const DETACH = "POST /api/admin/users/2/identity/detach";
 
 async function ouvrir(accepter = true) {
-  const m = monter(etat([LDAP]), { page: "accounts", utilisateurs: UTIL, accepter });
+  const m = monter(etat([OIDC]), { page: "accounts", utilisateurs: UTIL, accepter });
   await m.A.loadEnterpriseAuth();
   await m.A.loadUsers();
   await vider();
@@ -43,11 +43,11 @@ const ligne = (nom: string): HTMLElement | null =>
   null;
 
 describe("page Comptes : identités", () => {
-  it("la colonne Connexion dit Locale, ou le fournisseur et l'identifiant d'annuaire", async () => {
+  it("la colonne Connexion dit Locale, ou le fournisseur et l'identifiant externe", async () => {
     await ouvrir();
     expect(ligne("bob")?.querySelector("[data-connexion]")?.textContent?.trim()).toBe("Locale");
     const alice = ligne("alice")?.querySelector("[data-connexion]")?.textContent ?? "";
-    expect(alice).toContain("Annuaire siège");
+    expect(alice).toContain("SSO siège");
     expect(alice).toContain("alice.martin");
     expect(ligne("carole")?.querySelector("[data-connexion]")?.textContent).toContain("disparu");
     expect(tous("thead th").some((th) => th.textContent?.trim() === "Connexion")).toBe(true);
@@ -107,7 +107,7 @@ describe("page Comptes : identités", () => {
   it("supprimer un compte à identité rappelle que ce n'est pas bannir", async () => {
     const m = await ouvrir();
     const mention =
-      "Supprimer n'est pas bannir : le compte sera recréé à la prochaine connexion par l'annuaire. Pour interdire l'accès, désactivez-le.";
+      "Supprimer n'est pas bannir : le compte sera recréé à la prochaine connexion par le fournisseur d'identité. Pour interdire l'accès, désactivez-le.";
     expect(ligne("alice")?.querySelector('[aria-label="Supprimer alice"]')?.getAttribute("title")).toContain(
       mention,
     );

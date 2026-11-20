@@ -201,7 +201,6 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | jpeg-js | 0.4.4 | BSD-3-Clause AND Apache-2.0 |
 | json-schema-ref-resolver | 3.0.0 | MIT |
 | json-schema-traverse | 1.0.0 | MIT |
-| ldapts | 9.3.1 | MIT |
 | libwebp | 1.6.0 | BSD-3-Clause AND MIT AND Apache-2.0 WITH LLVM-exception |
 | light-my-request | 6.6.0 | BSD-3-Clause |
 | mime | 3.0.0 | MIT |

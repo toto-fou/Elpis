@@ -11,14 +11,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type * as AdminConfig from "../src/admin/config";
 import { creerFamilleAdminConfig } from "../src/familles/admin-config";
 import { appTest, journalMuet } from "./aides";
-import { configDeTest, ldapValide } from "./identite/aides";
+import { configDeTest, oidcValide } from "./identite/aides";
 import type { ConfigDeTest } from "./identite/aides";
 
-const AUTH = { public_url: "https://elpis.exemple.lan", local: { mode: "all" }, providers: [ldapValide()] };
+const AUTH = { public_url: "https://elpis.exemple.lan", local: { mode: "all" }, providers: [oidcValide()] };
 const AUTH_HOSTILE = {
   public_url: "https://elpis.exemple.lan",
   local: { mode: "admins" },
-  providers: [ldapValide({ enabled: true })],
+  providers: [oidcValide({ enabled: true })],
 };
 
 const fusionEnPanne = vi.hoisted(() => ({ actif: false }));

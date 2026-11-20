@@ -35,7 +35,7 @@ import {
 import { composer } from "../src/composition";
 import { appTest, effacementUnifie, journalMuet, lignesAuditRecentes, lignesJournal } from "./aides";
 import { REFUS_AVATAR_ASSISTANT } from "./ecart-avatar-assistant";
-import { configDeTest, ldapValide } from "./identite/aides";
+import { configDeTest, oidcValide } from "./identite/aides";
 
 type Dict = Record<string, unknown>;
 const V = JSON.parse(readFileSync(new URL("./vecteurs/comptes.json", import.meta.url), "utf-8")) as {
@@ -519,10 +519,10 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     expect(vu.my_groups.map((x) => x.name)).toEqual(["dev"]);
   });
 
-  it("liste « lite » : identifiant d'annuaire et libellé du fournisseur pour un compte rattaché, aucun autre champ d'identité, 401 sans session", async () => {
+  it("liste « lite » : identifiant externe et libellé du fournisseur pour un compte rattaché, aucun autre champ d'identité, 401 sans session", async () => {
     const cfg = configDeTest();
     try {
-      cfg.ecrire({ auth: { providers: [ldapValide({ id: "ipa", label: "Annuaire IPA" })] } });
+      cfg.ecrire({ auth: { providers: [oidcValide({ id: "ipa", label: "SSO IPA" })] } });
       await login("admin", "a", "127.0.0.1");
       const admin = cookie(await login("admin", "a"));
       for (const nom of ["bob", "carol", "dave"]) {
@@ -555,7 +555,7 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
         }>().users;
       const vue = await voir(admin);
       expect(vue).toEqual([
-        { id: 2, username: "bob", groups: "", ext_username: "bob.martin", provider_label: "Annuaire IPA" },
+        { id: 2, username: "bob", groups: "", ext_username: "bob.martin", provider_label: "SSO IPA" },
         { id: 3, username: "carol", groups: "", ext_username: "carol.durand", provider_label: null },
         { id: 4, username: "dave", groups: "" },
       ]);

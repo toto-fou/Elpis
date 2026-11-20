@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/droits.ts — application du rôle et des groupes Elpis d'après l'annuaire ou le SSO, en une écriture : montée à la connexion seulement, rétrogradation et retrait aussi par la passe, sessions coupées à la rétrogradation, audit des changements. */
+/** apps/core/src/identite/droits.ts — application du rôle et des groupes Elpis d'après les groupes du jeton SSO, en une écriture à la connexion, sessions coupées à la rétrogradation, audit des changements. */
 import { leverMinSession } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -54,12 +54,13 @@ const trier = (l: readonly string[]): string[] => [...l].sort();
 
 /** Ce qui fait le sens d'une correspondance d'administrateurs : les groupes et la façon de les lire. */
 function sensAdmin(f: Fournisseur): string {
-  const lecture =
-    f.type === "ldap" ? [f.groups.mode] : [f.groups_claim, trier(f.required_acr), trier(f.required_amr)];
-  return JSON.stringify([trier(f.roles.admin_groups), lecture]);
+  return JSON.stringify([
+    trier(f.roles.admin_groups),
+    [f.groups_claim, trier(f.required_acr), trier(f.required_amr)],
+  ]);
 }
 
-/** 409 si l'enregistrement donne le rôle d'administrateur sans second facteur exigé (SSO) ou, quand le sens de la correspondance d'administrateurs est nouveau ou changé, sans confirmation explicite. */
+/** 409 si l'enregistrement donne le rôle d'administrateur sans second facteur exigé ou, quand le sens de la correspondance d'administrateurs est nouveau ou changé, sans confirmation explicite. */
 export function exigerConfirmationAdmin(
   actuel: Fournisseur | null,
   nouveau: Fournisseur,
@@ -76,19 +77,20 @@ export function exigerConfirmationAdmin(
     throw new HttpError(409, "Confirmez que les membres de ces groupes deviennent administrateurs.");
 }
 
-/** Applique la lecture au compte `uid` rattaché au fournisseur ; `connexion` peut monter et ajouter, `passe` seulement rétrograder et retirer ; une lecture absente ou incomplète ne change rien. */
+/** Applique la lecture au compte `uid` rattaché au fournisseur ; `connexion` peut monter et ajouter, `retrait` seulement rétrograder et retirer (première connexion d'un compte rattaché par preuve) ; une lecture absente ou incomplète ne change rien. */
 export async function appliquerDroits(
   dep: DependancesDroits,
   e: {
     readonly fournisseur: Fournisseur;
     readonly uid: number;
     readonly lecture: Lecture | null;
-    readonly mode: "connexion" | "passe";
+    readonly mode: "connexion" | "retrait";
     /** Faux : le jeton reçu ne prouve pas de second facteur ; un groupe d'administrateurs reçu ne change alors rien. */
     readonly secondFacteur?: boolean;
     readonly ip?: string | null;
   },
 ): Promise<BilanDroits> {
+  const montee = e.mode === "connexion";
   const f = e.fournisseur;
   if (!droitsActifs(f) || e.lecture === null) return RIEN;
   if (e.secondFacteur === false) {
@@ -100,7 +102,6 @@ export async function appliquerDroits(
     dep.journal.warn(`fournisseur ${f.id} : appartenance illisible, rôle et groupes du compte inchangés`);
     return RIEN;
   }
-  const montee = e.mode === "connexion";
   const t = dep.maintenant();
   const { bilan, nom } = await dep.base.ecriture(async (x) => {
     const l = await x.get<{ is_admin: unknown; username: string }>(

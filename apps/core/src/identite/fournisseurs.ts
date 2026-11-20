@@ -10,7 +10,7 @@ import type { CleCoffre } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
-import { autoriteDePortee, dnDePortee, empreinteAutorite, hoteExact, hotes } from "../secrets/portee";
+import { autoriteDePortee, empreinteAutorite, hoteExact, hotes } from "../secrets/portee";
 import {
   creerSecret,
   dechiffrerLigne,
@@ -20,9 +20,8 @@ import {
   supprimerSecret,
 } from "../secrets/stockage";
 import type { Acteur } from "../secrets/stockage";
-import { dnNormalise } from "./annuaire/dn";
 import { compterAdminsLocaux } from "./etat";
-import { hotePortHttps, hotePortLdaps, lireReglagesAuth } from "./reglages";
+import { hotePortHttps, lireReglagesAuth } from "./reglages";
 import type { Fournisseur, ReglagesAuthLus } from "./reglages";
 
 const log = journal("identite");
@@ -133,20 +132,19 @@ export async function testReussiCourant(
 
 /** Hôtes `hôte:port` du fournisseur, sous la forme de la portée de son secret. */
 export function hotesDuFournisseur(f: Fournisseur): string[] {
-  const bruts = f.type === "ldap" ? f.urls.map(hotePortLdaps) : [hotePortHttps(f.issuer)];
-  return bruts.map((h) => hoteExact(h) ?? h);
+  const h = hotePortHttps(f.issuer);
+  return [hoteExact(h) ?? h];
 }
 
-/** Portée du secret d'un fournisseur : adresses, autorité de certification et, pour un annuaire, DN de liaison normalisé. */
-export function porteeDuFournisseur(f: Fournisseur): { hosts: string[]; ca: string; bind_dn?: string } {
+/** Portée du secret d'un fournisseur : adresse et autorité de certification. */
+export function porteeDuFournisseur(f: Fournisseur): { hosts: string[]; ca: string } {
   return {
     hosts: hotesDuFournisseur(f),
     ca: empreinteAutorite(f.ca_pem),
-    ...(f.type === "ldap" ? { bind_dn: dnNormalise(f.bind_dn) } : {}),
   };
 }
 
-/** Mot de passe ou secret client du fournisseur ; `null` s'il est absent, hors de portée des adresses, de l'autorité ou du DN courants, ou illisible, jamais une chaîne vide. */
+/** Mot de passe ou secret client du fournisseur ; `null` s'il est absent, hors de portée de l'adresse ou de l'autorité courantes, ou illisible, jamais une chaîne vide. */
 export async function secretFournisseur(x: Executeur, f: Fournisseur): Promise<string | null> {
   const l = await lireLigneParNom(x, null, nomSecret(f.id));
   if (l === null || l.kind !== "token") return null;
@@ -155,7 +153,6 @@ export async function secretFournisseur(x: Executeur, f: Fournisseur): Promise<s
   const hotesRanges = hotes(rangee);
   if (!attendue.hosts.every((h) => hotesRanges.includes(h))) return null;
   if (autoriteDePortee(rangee) !== attendue.ca) return null;
-  if ((dnDePortee(rangee) ?? null) !== (attendue.bind_dn ?? null)) return null;
   try {
     const v = dechiffrerLigne(l);
     return v === "" ? null : v;
@@ -168,7 +165,7 @@ export async function secretFournisseur(x: Executeur, f: Fournisseur): Promise<s
   }
 }
 
-/** Secret rangé ou remplacé, portée = adresses, autorité et DN de liaison courants du fournisseur ; nom pris par un autre genre : 409. */
+/** Secret rangé ou remplacé, portée = adresse et autorité courantes du fournisseur ; nom pris par un autre genre : 409. */
 export async function enregistrerSecret(
   base: Base,
   f: Fournisseur,
@@ -210,26 +207,14 @@ export async function nombreIdentites(x: Executeur, id: string): Promise<number>
   return Number(r[0]?.[0] ?? 0);
 }
 
-const hoteSeul = (url: string): string => hotePortLdaps(url).replace(/:\d+$/u, "");
-
 /** Vrai si la revendication d'identifiant d'un fournisseur OIDC change (les rattachements préparés qui l'attendent ne valent plus). */
 export function revendicationIdentifiantChangee(avant: Fournisseur, apres: Fournisseur): boolean {
-  return avant.type === "oidc" && apres.type === "oidc" && avant.username_claim !== apres.username_claim;
+  return avant.username_claim !== apres.username_claim;
 }
 
-/** Champs figés tant que des identités existent, parmi ceux que `apres` change (pour `urls` : plus aucun hôte d'origine ne demeure). */
+/** Champs figés tant que des identités existent, parmi ceux que `apres` change. */
 export function champsFigesChanges(avant: Fournisseur, apres: Fournisseur): string[] {
-  if (avant.type === "oidc" && apres.type === "oidc")
-    return (["issuer", "client_id", "subject_claim"] as const).filter((k) => avant[k] !== apres[k]);
-  if (avant.type === "ldap" && apres.type === "ldap") {
-    const restants = new Set(apres.urls.map(hoteSeul));
-    const figes: string[] = [];
-    if (avant.attrs.id !== apres.attrs.id) figes.push("attrs.id");
-    if (avant.user_base_dn !== apres.user_base_dn) figes.push("user_base_dn");
-    if (!avant.urls.some((u) => restants.has(hoteSeul(u)))) figes.push("urls");
-    return figes;
-  }
-  return ["type"];
+  return (["issuer", "client_id", "subject_claim"] as const).filter((k) => avant[k] !== apres[k]);
 }
 
 /** Vrai si le cookie de session émis par le processus est `Secure` ET que HTTPS est en service dans la configuration (`security.https.enabled`) : `same_site: none` ne suffit jamais. */

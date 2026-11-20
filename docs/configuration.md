@@ -404,14 +404,14 @@ includes it only if `backup.remote.include_audit` is `true`.
 
 Setup guide: [enterprise-sign-in.md](enterprise-sign-in.md).
 
-Directory (LDAP, FreeIPA) and single sign-on (OIDC) providers. The section is read from disk on every
+Single sign-on (OpenID Connect) providers. A directory is connected through an identity provider that federates it, see [enterprise-sign-in.md](enterprise-sign-in.md#connecting-a-directory). The section is read from disk on every
 use, with no restart, and is written only by Administration › Users & access › Enterprise sign-in and
 by `./elpis auth off`: the raw editor and `PATCH /api/admin/config` can neither create nor overwrite
 it. `./elpis configure` re-reads it from disk just before writing and keeps it as it is; `--force` starts again from the example file (the old one is kept as `config.json.bak`) but carries the section over with every provider switched off and the local password open to everyone. Without the section nothing changes: no new route
-answers, no outgoing call is made, the login page is the same. Passwords and client secrets are
+answers, no outgoing call is made, the login page is the same. Client secrets are
 never in `config.json`: they live in the secrets vault as the instance secrets `auth-<id>`, bound
-to the provider's addresses, its certificate authority and, for a directory, its service account
-(changing any of them asks for the secret again), and no route
+to the provider's address and its certificate authority
+(changing either asks for the secret again), and no route
 returns them.
 
 | Key | Default | Description |
@@ -421,26 +421,19 @@ returns them.
 | `providers` | `[]` | Five providers at most |
 
 Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at most, never changed),
-`type` (`ldap` or `oidc`, never changed), `label` (1 to 40 characters), `enabled`, `preset` (40 characters at
+`type` (`oidc`, never changed), `label` (1 to 40 characters), `enabled`, `preset` (40 characters at
 most), `ca_pem` (PEM certificates, 64 KiB at most; when present, the only trust anchor of this provider),
 `required_groups` (0 to 20 entries of 512 characters at most; at least one is needed to switch on), `roles`,
 `group_map` and `freshness_days` (1 to 90, default 14). Texts contain no control character (the pasted certificate authority aside).
 
-- `roles` (all three keys required; see [enterprise-sign-in.md](enterprise-sign-in.md#roles-and-groups-from-the-directory)):
+- `roles` (all three keys required; see [enterprise-sign-in.md](enterprise-sign-in.md#roles-and-groups-from-the-provider)):
   `enabled` (default `false`), `admin_groups` and `moderator_groups` (0 to 20 entries of 512 characters at
   most each, no duplicate). The role of the accounts of the provider follows these groups; administrator groups
-  of an `oidc` provider count only when it sets `required_acr` or `required_amr`.
+  of a provider count only when it sets `required_acr` or `required_amr`.
 - `group_map`: `enabled` (default `false`) and `map`, 0 to 50 pairs `{external, group_id}` (`external`: 1 to 512
-  characters, the group DN or the exact claim value; `group_id`: identifier of an Elpis group, 1 or more; no
+  characters, the exact claim value; `group_id`: identifier of an Elpis group, 1 or more; no
   duplicate pair).
-- LDAP: `urls` (one to three `ldaps://host[:port]`, never plain `ldap://`, no duplicate host and port),
-  `bind_dn` and `user_base_dn` (512 characters at most), `user_filter` (starts with `(`, ends with `)`, contains
-  `{username}` exactly once, 512 characters at most), `attrs` (`id`, `username`, `email`, `name`: attribute
-  names; `id` is the stable key and must be a server-generated identifier: `entryUUID`, `ipaUniqueID`,
-  `objectGUID` or `nsUniqueId`, different from the other three), `groups.mode` (`memberof`, `chain`,
-  `member`), `max_failures` (1 to 20, default 4), `failure_window_sec` (60 to 86400, default 900),
-  `timeout_sec` (2 to 30, default 10).
-- OIDC: `issuer` (`https`, no credentials, query or fragment, 512 characters at most), `client_id` (1 to 256
+- `issuer` (`https`, no credentials, query or fragment, 512 characters at most), `client_id` (1 to 256
   characters), `client_auth` (`basic`, `post`; default `basic`), `id_token_alg` (`RS256`, `RS384`, `RS512`,
   `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512` or `EdDSA`; default `RS256`; symmetric and unsigned
   algorithms are not accepted), `scopes` (1 to 20, must contain `openid`; default `openid profile email`),

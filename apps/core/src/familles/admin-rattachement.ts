@@ -1,31 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/admin-rattachement.ts — console (admins seulement) : rattachement des comptes locaux à une identité d'annuaire, détachement, rattachements préparés des fournisseurs OIDC. */
+/** apps/core/src/familles/admin-rattachement.ts — console (admins seulement) : détachement d'un compte de son identité externe, rattachements préparés des fournisseurs OIDC. */
 import { ligneUtilisateur } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
-import {
-  schemaCorpsDetachement,
-  schemaCorpsRattachement,
-  schemaCorpsRattachementPrepare,
-  schemaCorpsRechercheMigration,
-} from "@elpis/contracts";
+import { schemaCorpsDetachement, schemaCorpsRattachementPrepare } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
-import { corpsJson, entrees, parametreRequete, py } from "@elpis/http";
+import { corpsJson, entrees, py } from "@elpis/http";
 import type { FastifyRequest } from "fastify";
 import type { ZodType } from "zod";
 
 import { auditer } from "../admin/aides";
 import { validerMotDePasse } from "../comptes/aides";
-import { fabriqueLdapts } from "../identite/annuaire/client";
-import type { FabriqueConnexion } from "../identite/annuaire/client";
-import { annuairesActifs, PorteAnnuaire } from "../identite/annuaire/connexion";
-import type { DependancesAnnuaire } from "../identite/annuaire/connexion";
-import {
-  chercherEntrees,
-  comptesAMigrer,
-  COMPTES_PAR_PAGE_MAX,
-  rattacherComptes,
-} from "../identite/annuaire/rattachement-annuaire";
 import { fournisseurParId } from "../identite/fournisseurs";
 import { ancreIdentite } from "../identite/ancre";
 import {
@@ -36,8 +21,7 @@ import {
   purgerRattachementsPerimes,
 } from "../identite/rattachement";
 import type { LigneRattachementPrepare, RaisonRefusPrepare } from "../identite/rattachement";
-import type { FournisseurLdap, FournisseurOidc } from "../identite/reglages";
-import { ipDeRequete } from "../journal-securite/auditer";
+import type { FournisseurOidc } from "../identite/reglages";
 import type { Journal } from "../journal";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
@@ -48,13 +32,10 @@ export interface DependancesAdminRattachement {
   readonly journal: Journal;
   /** Flux ouverts d'un compte coupés dans tous les process (`session_revoked`). */
   readonly revoquer: (uid: number) => Promise<unknown>;
-  /** Connexions à l'annuaire (LDAPS vérifié par défaut) ; les essais y glissent une fabrique factice. */
-  readonly fabrique?: FabriqueConnexion;
 }
 
 const SANS_CACHE = { "cache-control": "no-store" };
 const REQUETE_INVALIDE = "Requête invalide.";
-const ENTIER = /^\d{1,9}$/u;
 
 const REFUS_PREPARE: Readonly<Record<RaisonRefusPrepare, [number, string]>> = {
   account_not_found: [404, "Utilisateur introuvable."],
@@ -85,73 +66,14 @@ function entierDuChemin(req: FastifyRequest, nom: string): number {
   return (entrees(req, { path: { [nom]: py.int() } }).path as Record<string, number>)[nom] as number;
 }
 
-function entierDeRequete(req: FastifyRequest, nom: string, defaut: number, max: number, min = 0): number {
-  const brut = parametreRequete(req, nom);
-  if (brut === null) return defaut;
-  const n = ENTIER.test(brut) ? Number(brut) : Number.NaN;
-  if (!(n >= min && n <= max)) throw new HttpError(400, REQUETE_INVALIDE);
-  return n;
-}
-
 export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement): Famille {
   const { base, auth } = dep;
   const maintenant = (): number => (auth.maintenant ? auth.maintenant() : Date.now() / 1000);
-  const annuaire: DependancesAnnuaire = {
-    base,
-    fabrique: dep.fabrique ?? fabriqueLdapts(),
-    maintenant,
-    cookieSecure: () => auth.attributsCookie().https_only === true,
-    journal: dep.journal,
-    porte: new PorteAnnuaire(),
-  };
-
-  /** Annuaire LDAP actif de l'identifiant du chemin ; 404 s'il n'existe pas, 409 s'il n'est pas un annuaire actif. */
-  async function annuaireActif(req: FastifyRequest): Promise<FournisseurLdap> {
-    const id = idDuChemin(req, "id");
-    const f = fournisseurParId(id);
-    if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
-    if (f.type !== "ldap") throw new HttpError(409, "Ce fournisseur ne se rattache pas par cet assistant.");
-    const actif = (await annuairesActifs(annuaire)).find((a) => a.id === id);
-    if (actif === undefined) throw new HttpError(409, "Cet annuaire n'est pas actif.");
-    return actif;
-  }
-
-  /** Fournisseur OIDC de l'identifiant du chemin (allumé ou non) ; 404 s'il n'existe pas, 409 s'il n'est pas OIDC. */
+  /** Fournisseur OIDC de l'identifiant du chemin (allumé ou non) ; 404 s'il n'existe pas. */
   function fournisseurOidc(req: FastifyRequest): FournisseurOidc {
     const f = fournisseurParId(idDuChemin(req, "id"));
     if (f === undefined) throw new HttpError(404, "Fournisseur introuvable.");
-    if (f.type !== "oidc")
-      throw new HttpError(409, "Un annuaire se rattache par l'assistant de rattachement.");
     return f;
-  }
-
-  async function lireMigration(req: FastifyRequest): Promise<unknown> {
-    const f = await annuaireActif(req);
-    const offset = entierDeRequete(req, "offset", 0, 100_000);
-    const limit = entierDeRequete(req, "limit", COMPTES_PAR_PAGE_MAX, COMPTES_PAR_PAGE_MAX, 1);
-    return { ...(await comptesAMigrer(annuaire, f, { offset, limit })), offset, limit };
-  }
-
-  async function chercherMigration(req: FastifyRequest): Promise<unknown> {
-    const f = await annuaireActif(req);
-    const { query } = corpsValide(req, schemaCorpsRechercheMigration);
-    if (!query.isWellFormed() || /\p{Cc}/u.test(query)) throw new HttpError(400, REQUETE_INVALIDE);
-    return { items: await chercherEntrees(annuaire, f, query) };
-  }
-
-  async function rattacherLot(req: FastifyRequest): Promise<unknown> {
-    const f = await annuaireActif(req);
-    const corps = corpsValide(req, schemaCorpsRattachement);
-    const operateur = utilisateur(req);
-    const resultats = await rattacherComptes(
-      { ...annuaire, revoquer: dep.revoquer, acces: auth },
-      f,
-      corps.links,
-      new Set(corps.confirm_admins),
-      { id: operateur, username: req.utilisateur?.username ?? null, ip: ipDeRequete(req) },
-      { garderJetons: corps.keep_tokens },
-    );
-    return { results: resultats, kept_tokens: corps.keep_tokens };
   }
 
   async function detacherCompte(req: FastifyRequest): Promise<unknown> {
@@ -270,9 +192,6 @@ export function creerFamilleAdminRattachement(dep: DependancesAdminRattachement)
   return {
     nom: "admin-rattachement",
     routes: [
-      route("GET", "/api/admin/auth/providers/:id/migration", sansCache(lireMigration)),
-      route("POST", "/api/admin/auth/providers/:id/migration/search", sansCache(chercherMigration)),
-      route("POST", "/api/admin/auth/providers/:id/migration/link", sansCache(rattacherLot)),
       route("POST", "/api/admin/users/:target_id/identity/detach", detacherCompte),
       route("GET", "/api/admin/auth/providers/:id/prelinks", sansCache(listerPrepares)),
       route("POST", "/api/admin/auth/providers/:id/prelinks", creerPrepare),

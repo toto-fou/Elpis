@@ -41,9 +41,9 @@ export interface OptionsCoupure {
   readonly revoquerAcces?: boolean;
 }
 
-const ORIGINE_ANNUAIRE = /^(directory|stale):/u;
+const ORIGINE_FOURNISSEUR = /^(directory|stale):/u;
 
-/** Pose la suspension (voir `poserSuspension`) ; `remplace` rend l'origine d'annuaire qu'une suspension d'administrateur a prise à sa place. */
+/** Pose la suspension (voir `poserSuspension`) ; `remplace` rend l'origine posée par un fournisseur qu'une suspension d'administrateur a prise à sa place. */
 export async function poserSuspensionDetaillee(
   x: Executeur,
   uid: number,
@@ -62,7 +62,7 @@ export async function poserSuspensionDetaillee(
   if (par !== "admin") return { change: false, remplace: null };
   const l = await x.get<{ suspended_by: string | null }>("SELECT suspended_by FROM users WHERE id=?", [uid]);
   const origine = String(l?.suspended_by ?? "");
-  if (!ORIGINE_ANNUAIRE.test(origine)) return { change: false, remplace: null };
+  if (!ORIGINE_FOURNISSEUR.test(origine)) return { change: false, remplace: null };
   const remplace = await x.run(
     "UPDATE users SET suspended_by=? WHERE id=? AND suspended_by=? AND suspended_at IS NOT NULL AND suspended_at<>0",
     [par, uid, origine],
@@ -77,7 +77,7 @@ export async function poserSuspension(x: Executeur, uid: number, par: string, t:
   return (await poserSuspensionDetaillee(x, uid, par, t)).change;
 }
 
-/** Pose la suspension en UNE écriture, puis coupe les accès seulement si l'état a changé ; la suspension d'un administrateur remplace l'origine d'annuaire. */
+/** Pose la suspension en UNE écriture, puis coupe les accès seulement si l'état a changé ; la suspension d'un administrateur remplace l'origine posée par un fournisseur. */
 export async function suspendre(
   dep: DependancesEtat,
   uid: number,

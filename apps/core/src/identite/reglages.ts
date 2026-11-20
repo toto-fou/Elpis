@@ -2,21 +2,15 @@
 /** apps/core/src/identite/reglages.ts — réglages `config.json › auth` : types, lecteur tolérant lu à chaud et validateur strict des écritures. */
 import { createHash, X509Certificate } from "node:crypto";
 
-import { adresseIpOuNul, estDict, FlottantPy, HttpError } from "@elpis/commun";
+import { estDict, FlottantPy, HttpError } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
-
-import { gabaritEnEgalite } from "./annuaire/client";
-import { dnUsuel, dnValide } from "./annuaire/dn";
 
 export const FOURNISSEURS_MAX = 5;
 export const CA_PEM_MAX = 64 * 1024;
 export const REGEX_ID = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const CONTROLE = /\p{Cc}/u;
-const REGEX_ATTRIBUT = /^[A-Za-z][A-Za-z0-9.;-]{0,63}$/u;
 const REGEX_REVENDICATION = /^[A-Za-z0-9_.:-]{1,64}$/u;
 const REGEX_JETON_SCOPE = /^[\x21\x23-\x5b\x5d-\x7e]+$/u;
-const REGEX_URL_LDAPS = /^ldaps:\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9._-]*)(?::(\d{1,5}))?$/u;
-const REGEX_ASCII_IMPRIMABLE = /^[\x21-\x7e]+$/u;
 const REGEX_PEM = /^\s*(?:-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/u;
 const BLOC_PEM = /-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+?-----END CERTIFICATE-----/gu;
 
@@ -35,7 +29,6 @@ export const ALGORITHMES_JETON = [
 export type AlgorithmeJeton = (typeof ALGORITHMES_JETON)[number];
 
 export type ModeLocal = "all" | "admins";
-export type ModeGroupes = "memberof" | "chain" | "member";
 
 export interface CorrespondanceGroupe {
   external: string;
@@ -44,7 +37,7 @@ export interface CorrespondanceGroupe {
 
 export interface FournisseurCommun {
   id: string;
-  type: "ldap" | "oidc";
+  type: "oidc";
   label: string;
   enabled: boolean;
   preset: string;
@@ -53,19 +46,6 @@ export interface FournisseurCommun {
   roles: { enabled: boolean; admin_groups: string[]; moderator_groups: string[] };
   group_map: { enabled: boolean; map: CorrespondanceGroupe[] };
   freshness_days: number;
-}
-
-export interface FournisseurLdap extends FournisseurCommun {
-  type: "ldap";
-  urls: string[];
-  bind_dn: string;
-  user_base_dn: string;
-  user_filter: string;
-  attrs: { id: string; username: string; email: string; name: string };
-  groups: { mode: ModeGroupes };
-  max_failures: number;
-  failure_window_sec: number;
-  timeout_sec: number;
 }
 
 export interface FournisseurOidc extends FournisseurCommun {
@@ -88,7 +68,7 @@ export interface FournisseurOidc extends FournisseurCommun {
   logout: { rp_initiated: boolean; backchannel: boolean };
 }
 
-export type Fournisseur = FournisseurLdap | FournisseurOidc;
+export type Fournisseur = FournisseurOidc;
 
 export interface ReglagesAuth {
   public_url: string;
@@ -107,10 +87,6 @@ export const BORNES_AUTH = {
   ca_pem_max: CA_PEM_MAX,
   required_groups_max: 20,
   freshness_days: { min: 1, max: 90, default: 14 },
-  ldap_urls_max: 3,
-  max_failures: { min: 1, max: 20, default: 4 },
-  failure_window_sec: { min: 60, max: 86_400, default: 900 },
-  timeout_sec: { min: 2, max: 30, default: 10 },
   clock_skew_sec: { min: 0, max: 300, default: 60 },
   secret_max: 16_384,
 } as const;
@@ -196,26 +172,6 @@ function adresseIssuer(v: unknown): string {
   return t;
 }
 
-function adresseLdaps(v: unknown): string {
-  const t = texte(v, "urls", 1, 300);
-  const bas = REGEX_ASCII_IMPRIMABLE.test(t) ? t.toLowerCase() : "";
-  const m = REGEX_URL_LDAPS.exec(bas);
-  if (m === null) return refus("urls", "adresses ldaps://hôte[:port] seulement");
-  const crochets = /^\[(.*)\]$/u.exec(m[1] ?? "")?.[1];
-  if (crochets !== undefined && (!crochets.includes(":") || adresseIpOuNul(crochets) === null))
-    return refus("urls", "adresse IPv6 invalide");
-  const port = m[2];
-  if (port !== undefined && (Number(port) < 1 || Number(port) > 65_535 || port.startsWith("0")))
-    return refus("urls", "port invalide");
-  return bas;
-}
-
-/** Hôte et port (636 par défaut) d'une adresse `ldaps://` validée, en minuscules. */
-export function hotePortLdaps(url: string): string {
-  const m = REGEX_URL_LDAPS.exec(url);
-  return `${(m?.[1] ?? "").toLowerCase()}:${m?.[2] ?? "636"}`;
-}
-
 /** Hôte et port (443 par défaut) de l'adresse https d'un fournisseur OIDC. */
 export function hotePortHttps(url: string): string {
   const u = new URL(url);
@@ -255,12 +211,6 @@ function nomDePrototype(v: string): boolean {
   return [v, ...v.split(".")].some((segment) => segment in Object.prototype);
 }
 
-function nomAttribut(v: unknown, nom: string): string {
-  if (typeof v !== "string" || !REGEX_ATTRIBUT.test(v) || nomDePrototype(v))
-    return refus(nom, "nom d'attribut attendu");
-  return v;
-}
-
 function nomRevendication(v: unknown, nom: string): string {
   if (typeof v !== "string" || !REGEX_REVENDICATION.test(v) || nomDePrototype(v))
     return refus(nom, "nom de revendication attendu (lettres, chiffres, _, -, . ou :)");
@@ -295,17 +245,6 @@ const CLES_COMMUNES = [
   "group_map",
   "freshness_days",
 ] as const;
-const CLES_LDAP = [
-  "urls",
-  "bind_dn",
-  "user_base_dn",
-  "user_filter",
-  "attrs",
-  "groups",
-  "max_failures",
-  "failure_window_sec",
-  "timeout_sec",
-] as const;
 const CLES_OIDC = [
   "issuer",
   "client_id",
@@ -335,7 +274,7 @@ function communs(o: Record<string, unknown>): FournisseurCommun {
   if (!/^[A-Za-z0-9_.-]*$/u.test(preset)) refus("preset", "lettres, chiffres, point, tiret ou soulignement");
   return {
     id,
-    type: choix(o["type"], "type", ["ldap", "oidc"] as const),
+    type: choix(o["type"], "type", ["oidc"] as const),
     label: texte(typeof o["label"] === "string" ? o["label"].trim() : o["label"], "label", 1, 40),
     enabled: booleen(o["enabled"], "enabled"),
     preset,
@@ -351,59 +290,6 @@ function communs(o: Record<string, unknown>): FournisseurCommun {
       map: correspondances(carte["map"]),
     },
     freshness_days: entier(o["freshness_days"], "freshness_days", 1, 90),
-  };
-}
-
-const CLES_STABLES = ["entryuuid", "ipauniqueid", "objectguid", "nsuniqueid"];
-
-function ldap(o: Record<string, unknown>, c: FournisseurCommun): FournisseurLdap {
-  const urls = o["urls"];
-  if (!Array.isArray(urls) || urls.length < 1 || urls.length > 3)
-    return refus("urls", "1 à 3 adresses ldaps://");
-  const adresses = urls.map(adresseLdaps);
-  if (new Set(adresses.map(hotePortLdaps)).size !== adresses.length) refus("urls", "adresses en double");
-  const filtre = texte(o["user_filter"], "user_filter", 1, 512);
-  if (filtre.split("{username}").length !== 2 || !filtre.startsWith("(") || !filtre.endsWith(")"))
-    refus("user_filter", "filtre entre parenthèses contenant une fois {username}");
-  if (!gabaritEnEgalite(filtre))
-    refus("user_filter", "{username} doit être la valeur entière d'une égalité, hors de tout « non »");
-  for (const [champ, groupes] of [
-    ["required_groups", c.required_groups],
-    ["roles.admin_groups", c.roles.admin_groups],
-    ["roles.moderator_groups", c.roles.moderator_groups],
-    ["group_map.map", c.group_map.map.map((m) => m.external)],
-  ] as const)
-    if (!groupes.every(dnValide)) refus(champ, "noms distinctifs (DN) valides attendus");
-  const attrs = objet(o["attrs"], "attrs", ["id", "username", "email", "name"]);
-  const groupes = objet(o["groups"], "groups", ["mode"]);
-  const cle = nomAttribut(attrs["id"], "attrs.id");
-  if (!CLES_STABLES.includes(cle.toLowerCase()))
-    refus("attrs.id", "identifiant généré par le serveur : entryUUID, ipaUniqueID, objectGUID ou nsUniqueId");
-  for (const autre of ["username", "email", "name"])
-    if (cle.toLowerCase() === nomAttribut(attrs[autre], `attrs.${autre}`).toLowerCase())
-      refus("attrs.id", `différent de attrs.${autre}`);
-  const bindDn = texte(o["bind_dn"], "bind_dn", 1, 512);
-  if (!dnUsuel(bindDn))
-    refus("bind_dn", "écrivez le nom distinctif avec les noms d'attribut usuels (cn, uid, ou, dc…)");
-  const baseDn = texte(o["user_base_dn"], "user_base_dn", 1, 512);
-  if (!dnValide(baseDn)) refus("user_base_dn", "nom distinctif (DN) valide attendu");
-  return {
-    ...c,
-    type: "ldap",
-    urls: adresses,
-    bind_dn: bindDn,
-    user_base_dn: baseDn,
-    user_filter: filtre,
-    attrs: {
-      id: cle,
-      username: nomAttribut(attrs["username"], "attrs.username"),
-      email: nomAttribut(attrs["email"], "attrs.email"),
-      name: nomAttribut(attrs["name"], "attrs.name"),
-    },
-    groups: { mode: choix(groupes["mode"], "groups.mode", ["memberof", "chain", "member"] as const) },
-    max_failures: entier(o["max_failures"], "max_failures", 1, 20),
-    failure_window_sec: entier(o["failure_window_sec"], "failure_window_sec", 60, 86_400),
-    timeout_sec: entier(o["timeout_sec"], "timeout_sec", 2, 30),
   };
 }
 
@@ -445,17 +331,14 @@ function oidc(o: Record<string, unknown>, c: FournisseurCommun): FournisseurOidc
 
 /** Fournisseur complet validé strictement (toute clé inconnue, valeur fausse ou hors borne : 400) ; un champ absent n'a pas de défaut ici. */
 export function validerFournisseur(brut: unknown): Fournisseur {
-  const type = estDict(brut) ? brut["type"] : undefined;
-  if (type !== "ldap" && type !== "oidc") return refus("type", "ldap ou oidc");
-  const o = objet(brut, "fournisseur", [...CLES_COMMUNES, ...(type === "ldap" ? CLES_LDAP : CLES_OIDC)]);
-  const c = communs(o);
-  return type === "ldap" ? ldap(o, c) : oidc(o, c);
+  const o = objet(brut, "fournisseur", [...CLES_COMMUNES, ...CLES_OIDC]);
+  return oidc(o, communs(o));
 }
 
 /** Valeurs de départ d'un fournisseur créé : un champ qu'elles fixent peut être omis de la requête. */
-export function defautsFournisseur(type: "ldap" | "oidc"): Record<string, unknown> {
+export function defautsFournisseur(): Record<string, unknown> {
   const commun = {
-    type,
+    type: "oidc",
     enabled: false,
     preset: "",
     ca_pem: "",
@@ -464,15 +347,6 @@ export function defautsFournisseur(type: "ldap" | "oidc"): Record<string, unknow
     group_map: { enabled: false, map: [] },
     freshness_days: BORNES_AUTH.freshness_days.default,
   };
-  if (type === "ldap")
-    return {
-      ...commun,
-      attrs: { id: "entryUUID", username: "uid", email: "mail", name: "cn" },
-      groups: { mode: "memberof" },
-      max_failures: BORNES_AUTH.max_failures.default,
-      failure_window_sec: BORNES_AUTH.failure_window_sec.default,
-      timeout_sec: BORNES_AUTH.timeout_sec.default,
-    };
   return {
     ...commun,
     client_auth: "basic",
@@ -508,11 +382,10 @@ export function fusionner(
 /** Corps de création validé : le fournisseur est toujours éteint ; 400 sur tout autre état demandé. */
 export function validerCreation(corps: unknown): Fournisseur {
   if (!estDict(corps)) return refus("corps", "objet attendu");
-  const type = corps["type"];
-  if (type !== "ldap" && type !== "oidc") return refus("type", "ldap ou oidc");
+  if (corps["type"] !== "oidc") return refus("type", "oidc");
   if (Object.hasOwn(corps, "enabled") && corps["enabled"] !== false)
     throw new HttpError(400, "Un fournisseur est créé éteint.");
-  return validerFournisseur(fusionner(defautsFournisseur(type), corps));
+  return validerFournisseur(fusionner(defautsFournisseur(), corps));
 }
 
 /** Modification validée : champs de la requête fusionnés sur le fournisseur actuel, `id` et `type` jamais changés ; `enabled` ne passe que par les routes d'activation. */

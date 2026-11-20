@@ -1996,10 +1996,6 @@
           "source": 0,
           "dropped_columns": []
         },
-        "auth_failures": {
-          "source": 0,
-          "dropped_columns": []
-        },
         "auth_prelinks": {
           "source": 0,
           "dropped_columns": []
@@ -2420,15 +2416,6 @@
           "sample_ok": true
         },
         "auth_provider_state": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
-        "auth_failures": {
           "source": 0,
           "copied": 0,
           "orphans": 0,
@@ -2928,7 +2915,6 @@
       },
       "_tables": [
         "auth_ext_sessions",
-        "auth_failures",
         "auth_flows",
         "auth_prelinks",
         "auth_provider_state",
@@ -3429,15 +3415,6 @@
           "target": 0,
           "sample_ok": true
         },
-        "auth_failures": {
-          "source": 0,
-          "copied": 0,
-          "orphans": 0,
-          "rejected": 0,
-          "dropped_columns": [],
-          "target": 0,
-          "sample_ok": true
-        },
         "auth_prelinks": {
           "source": 0,
           "copied": 0,
@@ -3882,7 +3859,6 @@
       },
       "_tables": [
         "auth_ext_sessions",
-        "auth_failures",
         "auth_flows",
         "auth_prelinks",
         "auth_provider_state",

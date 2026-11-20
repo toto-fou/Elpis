@@ -13,16 +13,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
 import { exigerConfirmationAdmin } from "../identite/droits";
-import { etatBalayage, viderObservations } from "../identite/annuaire/balayage";
-import { memeDn } from "../identite/annuaire/dn";
-import {
-  liaisonDeTestRefusee,
-  noterEchecLiaisonDeTest,
-  oublierEchecsLiaisonDeTest,
-} from "../identite/annuaire/echecs";
 import { compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
-import type { FabriqueConnexion } from "../identite/annuaire/client";
-import { fabriqueLdapts } from "../identite/annuaire/client";
 import { lancerTest } from "../identite/essai";
 import { effacerEtatOidc } from "../identite/oidc/flux";
 import type { OptionsEssai } from "../identite/essai";
@@ -34,8 +25,6 @@ import {
   etatFournisseur,
   champsFigesChanges,
   revendicationIdentifiantChangee,
-  enregistrerTestReussi,
-  hmacCoffre,
   hotesDuFournisseur,
   nombreIdentites,
   secretFournisseur,
@@ -51,8 +40,7 @@ import {
   validerModification,
   validerReglagesGeneraux,
 } from "../identite/reglages";
-import type { Fournisseur, FournisseurLdap, FournisseurOidc } from "../identite/reglages";
-import type { OptionsSortant } from "../identite/sortant";
+import type { Fournisseur, FournisseurOidc } from "../identite/reglages";
 import { diffConfig } from "../journal-securite/diff-config";
 import type { Journal } from "../journal";
 import { ErreurSecret } from "../secrets/erreurs";
@@ -68,8 +56,6 @@ export interface DependancesAdminIdentite {
   readonly revoquer: (uid: number) => Promise<unknown>;
   /** Résolution, juge et bornes du test (tests seulement). */
   readonly essai?: OptionsEssai;
-  /** Fabrique de connexions d'annuaire du test (tests seulement) ; `fabriqueLdapts` par défaut. */
-  readonly fabriqueAnnuaire?: (sortant: OptionsSortant) => FabriqueConnexion;
 }
 
 const TESTS_MAX = 2;
@@ -108,11 +94,6 @@ async function identitesDeMemeAncre(x: Executeur, f: Fournisseur): Promise<boole
   );
   const ancre = ancreIdentite(f);
   return ancres.every(([a]) => a === ancre);
-}
-
-/** Empreinte courte d'un identifiant pour l'audit : HMAC à clé dérivée du coffre, `null` sans clé ; l'identifiant n'y figure jamais. */
-function empreinteIdentifiant(identifiant: string): string | null {
-  return hmacCoffre("elpis.auth.test-user.v1", identifiant)?.slice(0, 16) ?? null;
 }
 
 function positionDuFournisseur(providers: readonly unknown[], id: string): number {
@@ -167,7 +148,6 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         tested: e.tested,
         active: f.enabled && e.ecart === null,
         identities: await nombreIdentites(x, f.id),
-        sweep: f.type === "ldap" ? await etatBalayage(x, f.id) : null,
       });
     }
     return {
@@ -185,12 +165,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         label_max: BORNES_AUTH.label.max,
         ca_pem_max: BORNES_AUTH.ca_pem_max,
         required_groups_max: BORNES_AUTH.required_groups_max,
-        ldap_urls_max: BORNES_AUTH.ldap_urls_max,
         secret_max: BORNES_AUTH.secret_max,
         freshness_days: BORNES_AUTH.freshness_days,
-        max_failures: BORNES_AUTH.max_failures,
-        failure_window_sec: BORNES_AUTH.failure_window_sec,
-        timeout_sec: BORNES_AUTH.timeout_sec,
         clock_skew_sec: BORNES_AUTH.clock_skew_sec,
       },
     };
@@ -281,7 +257,6 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         throw new HttpError(409, "Cet identifiant est encore lié à des comptes : choisissez-en un autre.");
       await supprimerSecretFournisseur(base, f.id, acteur(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [f.id]);
-      await x.run("DELETE FROM auth_failures WHERE provider_id=?", [f.id]);
       await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [f.id]);
       providers.push(f);
     });
@@ -316,7 +291,6 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       if (champsFigesChanges(actuel, nouveau).length > 0 || revendicationIdentifiantChangee(actuel, nouveau))
         await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
       await x.run("DELETE FROM auth_flows WHERE provider_id=? AND trial_admin IS NOT NULL", [id]);
-      await viderObservations(x, id);
       providers[i] = nouveau;
       return [actuel, nouveau];
     });
@@ -392,7 +366,6 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       const e = await etatFournisseur(x, f, publique, true);
       if (!e.has_secret) throw new HttpError(409, "Le secret du fournisseur est absent.");
       if (!e.tested) throw new HttpError(409, "Un test réussi sur les réglages courants est requis.");
-      await viderObservations(x, id);
       providers[i] = { ...f, enabled: true };
     });
     auditer(req, "admin.auth.provider.enable", { provider_id: id });
@@ -407,7 +380,6 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       if (i < 0) throw new HttpError(404, "Fournisseur introuvable.");
       providers[i] = { ...(providers[i] as Dict), enabled: false };
       await effacerEtatOidc(x, id);
-      await viderObservations(x, id);
       return couperSessionsDesFournisseurs(x, [id], maintenant());
     });
     for (const uid of comptes)
@@ -422,37 +394,16 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   let testsEnCours = 0;
 
-  /** Secret enregistré d'un annuaire pour un test : seulement si le test vise le DN de liaison, les adresses et l'autorité de certification du fournisseur ENREGISTRÉ, et que le coffre l'y autorise. */
-  async function secretDuFournisseurEnregistre(f: FournisseurLdap): Promise<string | null> {
-    const enregistre = lireReglagesAuth().providers.find((p) => p.id === f.id);
-    if (enregistre === undefined || enregistre.type !== "ldap") return null;
-    if (!memeDn(enregistre.bind_dn, f.bind_dn) || enregistre.ca_pem !== f.ca_pem) return null;
-    const permis = new Set(hotesDuFournisseur(enregistre));
-    if (!hotesDuFournisseur(f).every((h) => permis.has(h))) return null;
-    return secretFournisseur(base, f);
-  }
-
   /** Secret enregistré d'un SSO pour un test : seulement sous les adresses et l'autorité de certification du fournisseur ENREGISTRÉ. */
   async function secretOidcEnregistre(f: FournisseurOidc): Promise<string | null> {
     const enregistre = lireReglagesAuth().providers.find((p) => p.id === f.id);
-    if (enregistre === undefined || enregistre.type !== "oidc" || enregistre.ca_pem !== f.ca_pem) return null;
+    if (enregistre === undefined || enregistre.ca_pem !== f.ca_pem) return null;
     const permis = new Set(hotesDuFournisseur(enregistre));
     if (!hotesDuFournisseur(f).every((h) => permis.has(h))) return null;
     return secretFournisseur(base, f);
   }
 
-  /** Réglages réellement testés : l'empreinte n'est posée que si le fournisseur existe encore, et jamais sur un fournisseur allumé dont les réglages diffèrent. */
-  async function retenirTest(teste: Fournisseur, publique: string, secret: string | null): Promise<void> {
-    await ecrire(async (x, cfg) => {
-      const actuel = reglagesAuthDepuis(cfg["auth"]).providers.find((p) => p.id === teste.id);
-      if (actuel === undefined) return;
-      if (actuel.enabled && empreinteFournisseur(actuel, publique) !== empreinteFournisseur(teste, publique))
-        return;
-      await enregistrerTestReussi(x, teste, publique, maintenant(), secret);
-    }, false);
-  }
-
-  /** Test d'un fournisseur sous le plafond de deux à la fois pour l'instance : 429 au-delà, le créneau n'étant rendu qu'à la fin réelle du travail ; toujours 200 avec le résultat ; seul un test complet enregistre l'empreinte des réglages testés. */
+  /** Test d'un fournisseur sous le plafond de deux à la fois pour l'instance : 429 au-delà, le créneau n'étant rendu qu'à la fin réelle du travail ; toujours 200 avec le résultat. */
   async function tester(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
     const corps = corpsJson(req);
     if (testsEnCours >= TESTS_MAX)
@@ -460,42 +411,16 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         "Retry-After": "5",
       });
     testsEnCours += 1;
-    const {
-      test_user: utilisateur,
-      secret: secretSaisi,
-      ...reglagesTestes
-    } = estDict(corps) ? corps : ({} as Dict);
-    const reglages = estDict(corps) ? reglagesTestes : corps;
-    let publique: string;
     let lance: ReturnType<typeof lancerTest>;
-    let employe: { origine: "typed" | "stored"; valeur: string } | null = null;
     try {
-      publique = lireReglagesAuth().public_url;
       lance = lancerTest(
-        reglages,
+        corps,
         {
-          publicUrl: publique,
+          publicUrl: lireReglagesAuth().public_url,
           cookieSecure: connexionSecurisee(dep.auth.attributsCookie().https_only === true),
           adminsLocaux: await compterAdminsLocaux(base),
         },
-        {
-          ...dep.essai,
-          annuaire: {
-            fabrique: dep.fabriqueAnnuaire ?? ((s) => fabriqueLdapts(s)),
-            secretEnregistre: secretDuFournisseurEnregistre,
-            utilisateur,
-            secret: secretSaisi,
-            limiteur: {
-              refuse: (dn) => liaisonDeTestRefusee(base, dn, maintenant()),
-              echec: (dn) => noterEchecLiaisonDeTest(base, dn, maintenant()),
-              succes: (dn) => oublierEchecsLiaisonDeTest(base, dn),
-            },
-            secretEmploye: (origine, valeur) => {
-              employe = { origine, valeur };
-            },
-          },
-          oidc: { secretEnregistre: secretOidcEnregistre },
-        },
+        { ...dep.essai, oidc: { secretEnregistre: secretOidcEnregistre } },
       );
     } catch (e) {
       testsEnCours -= 1;
@@ -505,12 +430,9 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       testsEnCours -= 1;
     });
     const r = await lance.resultat;
-    const teste = lance.fournisseurTeste();
-    const secretUtilise = (employe as { origine: string; valeur: string } | null)?.valeur ?? null;
-    if (r.complete && teste !== null) await retenirTest(teste, publique, secretUtilise);
     const brut = estDict(corps) ? corps : {};
     const id = typeof brut["id"] === "string" && REGEX_ID_AUDIT.test(brut["id"]) ? brut["id"] : null;
-    const type = brut["type"] === "ldap" || brut["type"] === "oidc" ? brut["type"] : null;
+    const type = brut["type"] === "oidc" ? "oidc" : null;
     const targets = [...new Set(r.steps.flatMap((e) => (e.target === null ? [] : [e.target])))].slice(
       0,
       CIBLES_AUDIT_MAX,
@@ -519,16 +441,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       provider_id: id,
       type,
       ok: r.ok,
-      complete: r.complete,
       failed_step: r.steps.find((e) => e.level === "fail")?.id ?? null,
       targets,
-      bind_dn:
-        typeof brut["bind_dn"] === "string"
-          ? brut["bind_dn"].replace(/[\p{Cc}\p{Cf}]/gu, "").slice(0, 256)
-          : null,
-      secret_origin: (employe as { origine: string } | null)?.origine ?? "none",
-      test_user:
-        typeof utilisateur === "string" && utilisateur !== "" ? empreinteIdentifiant(utilisateur) : null,
     });
     void rep.headers(SANS_CACHE);
     return r;

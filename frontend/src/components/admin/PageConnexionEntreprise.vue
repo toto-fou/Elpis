@@ -1,19 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/admin/PageConnexionEntreprise.vue — page Utilisateurs & accès › Connexion d'entreprise : état, prérequis, réglages généraux et fournisseurs d'identité (LDAP, OIDC), admins. -->
+<!-- frontend/src/components/admin/PageConnexionEntreprise.vue — page Utilisateurs & accès › Connexion d'entreprise : état, prérequis, réglages généraux et fournisseurs d'identité OpenID Connect, admins. -->
 <script setup lang="ts">
-import type { EtatBalayageConsole } from "@elpis/contracts";
-
 import { domaineAdmin } from "../../features/admin/domaine";
-import {
-  dateRelative,
-  phraseAbandon,
-  phraseObserves,
-  phraseRetenue,
-  retenuesAffichees,
-} from "../../features/admin/rattachement";
-import { heureLocale } from "../../features/admin/horodatage";
 import TiroirFournisseurAuth from "./TiroirFournisseurAuth.vue";
-import TiroirRattachement from "./TiroirRattachement.vue";
 
 const adm = domaineAdmin();
 
@@ -22,22 +11,7 @@ const MODES = [
   { id: "admins", label: "Administrateurs seulement" },
 ] as const;
 
-const TYPES = { ldap: "Annuaire LDAP", oidc: "SSO OpenID Connect" } as const;
-
 const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché${n > 1 ? "s" : ""}`;
-
-const pluriel = (n: number, mot: string, accord = ""): string => `${n} ${mot}${n > 1 ? "s" : ""}${accord}`;
-
-function resumeBalayage(s: EtatBalayageConsole): string {
-  const vus = `${pluriel(s.seen, "compte")} vu${s.seen > 1 ? "s" : ""}`;
-  if (s.aborted) return vus;
-  return [
-    vus,
-    pluriel(s.suspended, "suspendu"),
-    pluriel(s.reactivated, "réactivé"),
-    pluriel(s.unknown, "non lisible"),
-  ].join(" · ");
-}
 
 function etat(p: { enabled: boolean; active: boolean }): { libelle: string; alerte: boolean } {
   if (p.active) return { libelle: "Actif", alerte: false };
@@ -197,42 +171,18 @@ function etat(p: { enabled: boolean; active: boolean }): { libelle: string; aler
               id="ent-ajouter"
               type="button"
               class="adm-btn adm-tool adm-btn--sm"
-              aria-haspopup="true"
-              :aria-expanded="adm.authAjoutOuvert ? 'true' : 'false'"
               :disabled="adm.authEtat.providers.length >= adm.authEtat.bounds.providers_max"
               :title="
                 adm.authEtat.providers.length >= adm.authEtat.bounds.providers_max
                   ? `${adm.authEtat.bounds.providers_max} fournisseurs au plus.`
                   : ''
               "
-              @click="adm.authAjoutOuvert = !adm.authAjoutOuvert"
+              @click="adm.authNouveau()"
             >
               <i class="ph ph-plus" aria-hidden="true"></i> Ajouter
             </button>
           </div>
         </header>
-        <div v-if="adm.authAjoutOuvert" class="adm-rows" role="group" aria-label="Type de fournisseur">
-          <div class="adm-row adm-row--full">
-            <div class="flex gap-2 flex-wrap">
-              <button
-                id="ent-ajouter-ldap"
-                type="button"
-                class="adm-btn adm-tool adm-btn--sm"
-                @click="adm.authNouveau('ldap')"
-              >
-                <i class="ph ph-address-book" aria-hidden="true"></i> {{ TYPES.ldap }}
-              </button>
-              <button
-                id="ent-ajouter-oidc"
-                type="button"
-                class="adm-btn adm-tool adm-btn--sm"
-                @click="adm.authNouveau('oidc')"
-              >
-                <i class="ph ph-key" aria-hidden="true"></i> {{ TYPES.oidc }}
-              </button>
-            </div>
-          </div>
-        </div>
         <ul
           v-if="adm.authEtat.providers.length || adm.authEtat.invalid_providers.length"
           class="adm-rows"
@@ -242,7 +192,7 @@ function etat(p: { enabled: boolean; active: boolean }): { libelle: string; aler
             <div class="flex items-center gap-3 min-w-0">
               <div class="min-w-0 flex-1">
                 <div class="font-medium text-sm truncate">{{ p.label }}</div>
-                <div class="adm-card__hint">{{ TYPES[p.type] }} · {{ comptes(p.identities) }}</div>
+                <div class="adm-card__hint">SSO OpenID Connect · {{ comptes(p.identities) }}</div>
               </div>
               <span class="adm-pill" :class="{ 'adm-pill--warn': etat(p).alerte }">{{
                 etat(p).libelle
@@ -255,91 +205,6 @@ function etat(p: { enabled: boolean; active: boolean }): { libelle: string; aler
               >
                 <i class="ph ph-pencil-simple" aria-hidden="true"></i> Modifier
               </button>
-            </div>
-            <div v-if="p.type === 'ldap' && p.active" class="space-y-2 min-w-0" data-balayage>
-              <div class="flex items-center gap-2 flex-wrap">
-                <p class="adm-card__hint min-w-0 flex-1" data-balayage-etat>
-                  Dernière vérification de l'annuaire :
-                  <template v-if="!p.sweep">Jamais</template>
-                  <template v-else>
-                    <span :title="heureLocale(p.sweep.at)">{{ dateRelative(p.sweep.at) }}</span>
-                    · {{ resumeBalayage(p.sweep) }}
-                  </template>
-                </p>
-                <button
-                  type="button"
-                  class="adm-btn adm-tool adm-btn--sm"
-                  data-balayage-lancer
-                  :disabled="adm.balayageEnCours !== null"
-                  @click="adm.balayageLancer(p.id)"
-                >
-                  <i
-                    class="ph"
-                    :class="
-                      adm.balayageEnCours === p.id ? 'ph-spinner-gap animate-spin' : 'ph-arrows-clockwise'
-                    "
-                    aria-hidden="true"
-                  ></i>
-                  Vérifier maintenant
-                </button>
-                <button
-                  type="button"
-                  class="adm-btn adm-tool adm-btn--sm"
-                  data-rattacher
-                  @click="adm.assistantOuvrir(p.id)"
-                >
-                  <i class="ph ph-link" aria-hidden="true"></i> Rattacher les comptes existants
-                </button>
-              </div>
-              <p v-if="p.sweep?.aborted" class="ent-alerte" role="alert" data-balayage-abandon>
-                <span class="adm-pill adm-pill--warn mr-1">Abandonnée</span
-                >{{ phraseAbandon(p.sweep.aborted) }}
-              </p>
-              <div
-                v-if="p.sweep && retenuesAffichees(p.sweep).total > 0"
-                class="ent-alerte space-y-2"
-                role="alert"
-                data-balayage-retenues
-              >
-                <p>
-                  {{ pluriel(retenuesAffichees(p.sweep).total, "compte") }}
-                  {{ retenuesAffichees(p.sweep).total > 1 ? "ne sont plus" : "n'est plus" }} dans l'annuaire
-                  ou dans un groupe requis. Par précaution, aucun n'a été désactivé.
-                </p>
-                <ul class="text-xs space-y-0.5" data-balayage-liste>
-                  <li v-for="c in retenuesAffichees(p.sweep).comptes" :key="c.user_id" data-balayage-compte>
-                    <span class="font-medium">{{ c.username }}</span> · {{ phraseRetenue(c.reason) }}
-                  </li>
-                  <li v-if="retenuesAffichees(p.sweep).autres > 0" data-balayage-autres>
-                    et {{ retenuesAffichees(p.sweep).autres }} autres
-                  </li>
-                </ul>
-                <p v-if="!retenuesAffichees(p.sweep).complet" data-balayage-trop>
-                  Trop de comptes pour une confirmation ici : vérifiez l'annuaire, puis relancez la
-                  vérification.
-                </p>
-                <button
-                  v-else
-                  type="button"
-                  class="adm-btn adm-btn--danger adm-btn--sm"
-                  data-balayage-confirmer
-                  :disabled="adm.balayageEnCours !== null"
-                  @click="adm.balayageConfirmer(p.id, p.sweep)"
-                >
-                  Désactiver
-                  {{
-                    retenuesAffichees(p.sweep).total > 1
-                      ? "ces " + retenuesAffichees(p.sweep).total + " comptes"
-                      : "ce compte"
-                  }}
-                </button>
-              </div>
-              <p v-if="p.sweep && p.sweep.observed.length" class="adm-card__hint" data-balayage-observes>
-                {{ phraseObserves(p.sweep.observed.length) }}
-              </p>
-              <p v-if="adm.balayageMessage[p.id]" class="adm-field__warn" role="alert" data-balayage-message>
-                {{ adm.balayageMessage[p.id] }}
-              </p>
             </div>
           </li>
           <li
@@ -375,7 +240,6 @@ function etat(p: { enabled: boolean; active: boolean }): { libelle: string; aler
       </section>
 
       <TiroirFournisseurAuth />
-      <TiroirRattachement />
     </div>
   </div>
 </template>

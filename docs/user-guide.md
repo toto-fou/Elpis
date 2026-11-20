@@ -61,7 +61,6 @@ What to know:
 If your administrator connected the accounts of your organization, you sign in with them and not with a password created in Elpis.
 
 - **Single sign-on**: the login page offers a **Se connecter avec** (Sign in with) button named after your organization's service. Click it, sign in there as usual, and you come back to Elpis signed in.
-- **Directory**: enter your organization's username and password in the usual fields.
 - **Local account**: if the page shows the single sign-on buttons, **Compte local** (Local account) opens the username and password form of an account created in Elpis.
 - **Your password is managed by your organization.** In Paramètres › **Profil**, the message **Votre mot de passe est géré par votre organisation** (Your password is managed by your organization) replaces the password change. Change or reset it where your organization does it.
 - **First sign-in.** If you belong to the authorized group, your account is created automatically; its name is derived from your username.

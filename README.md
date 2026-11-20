@@ -35,7 +35,7 @@ server:
 - **RAG**: per-account document collections, shared with groups, searched by
   the chat with cited sources and a viewer; OCR.
 - **Administration**: users and groups, LLM connectors, metrics.
-- **Enterprise sign-in**: LDAP directory (LDAPS) or OpenID Connect single sign-on, off by default
+- **Enterprise sign-in**: OpenID Connect single sign-on, off by default
   ([guide](docs/enterprise-sign-in.md)).
 
 The core is written in TypeScript and runs on Node.js 24. It talks to
@@ -244,7 +244,7 @@ Most of these documents are still in French.
 - [CHANGELOG.md](CHANGELOG.md): change log.
 - [User guide](docs/user-guide.md) ([French](docs/fr/user-guide.md))
 - [Installation and configuration](docs/configuration.md)
-- [Enterprise sign-in](docs/enterprise-sign-in.md): directory (LDAP) and single sign-on (OpenID Connect)
+- [Enterprise sign-in](docs/enterprise-sign-in.md): single sign-on (OpenID Connect)
 - [Operations](docs/operations.md): offline installation, upgrades,
   rolling back to the Python version (tag `python-final`), backups,
   monitoring.

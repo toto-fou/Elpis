@@ -16,7 +16,7 @@ const JOUR = 86_400;
 let b: Banc;
 let reserve = false;
 const acces = {
-  fraicheursFournisseurs: async (): Promise<ReadonlyMap<string, number>> => new Map([["annuaire", 3]]),
+  fraicheursFournisseurs: async (): Promise<ReadonlyMap<string, number>> => new Map([["sso", 3]]),
   localReserveAuxAdmins: (): boolean => reserve,
 };
 
@@ -49,7 +49,7 @@ afterEach(async () => {
 const identite = (uid: number, vuIlYAJours: number): Promise<unknown> =>
   b.t.base.run(
     "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?)",
-    [uid, "annuaire", `s${uid}`, "i", "auto", 0, Math.floor(b.horloge.t - vuIlYAJours * JOUR)],
+    [uid, "sso", `s${uid}`, "i", "auto", 0, Math.floor(b.horloge.t - vuIlYAJours * JOUR)],
   );
 
 it("réveil d'un compte externe non revu depuis plus que la fraîcheur : écarté `account_recheck`, aucun tour, événement gardé", async () => {

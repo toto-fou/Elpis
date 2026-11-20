@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-auth-sortant-nom.test.ts — le nom du serveur se vérifie selon RFC 9525 (subjectAltName seul, joker entier à gauche, adresse IP comparée à une entrée iPAddress) pour LDAPS comme pour le client HTTPS. */
+/** apps/core/test/securite-auth-sortant-nom.test.ts — le nom du serveur se vérifie selon RFC 9525 (subjectAltName seul, joker entier à gauche, adresse IP comparée à une entrée iPAddress) pour la connexion TLS du test comme pour le client HTTPS. */
 import { createServer } from "node:https";
 import type { Server } from "node:https";
 import type { AddressInfo } from "node:net";
@@ -43,7 +43,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("nom du serveur sortant : RFC 9525", () => 
     return (s.address() as AddressInfo).port;
   };
   const options = { juger: VERS_BOUCLE, caPem: "", magasin: [] as string[] };
-  const ldaps = async (port: number, hote: string): Promise<ErreurSortant | null> => {
+  const tls = async (port: number, hote: string): Promise<ErreurSortant | null> => {
     try {
       const { socket } = await connexionTls(hote, port, { ...options, caPem: ca.cert });
       socket.destroy();
@@ -65,23 +65,23 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("nom du serveur sortant : RFC 9525", () => 
   };
   const verdict = async (f: Feuille, hote: string): Promise<[string, string]> => {
     const port = await servir(f);
-    const l = await ldaps(port, hote);
+    const l = await tls(port, hote);
     return [l === null ? "accepte" : l.code, await https(port, hote)];
   };
 
-  it("RFC 9525 §2 : certificat sans subjectAltName refusé même si le CN est le nom demandé, en LDAPS et en HTTPS", async () => {
-    const f = creerFeuilleSpeciale(ca, { cn: "ldap.exemple.lan", san: null, eku: "serverAuth" });
+  it("RFC 9525 §2 : certificat sans subjectAltName refusé même si le CN est le nom demandé, en TLS brut et en HTTPS", async () => {
+    const f = creerFeuilleSpeciale(ca, { cn: "idp.exemple.lan", san: null, eku: "serverAuth" });
     const port = await servir(f);
-    const l = await ldaps(port, "ldap.exemple.lan");
+    const l = await tls(port, "idp.exemple.lan");
     expect(l?.code).toBe("nom_certificat");
     expect(sansNomAlternatif(l)).toBe(true);
-    expect(await https(port, "ldap.exemple.lan")).toBe("nom_certificat");
+    expect(await https(port, "idp.exemple.lan")).toBe("nom_certificat");
   });
 
   it("RFC 9525 §6.3 : joker partiel refusé, joker hors de l'étiquette de gauche refusé, `*` seul et `*.lan` refusés", async () => {
-    for (const nom of ["l*.exemple.lan", "ldap.*.lan", "*", "*.lan", "*.*.lan"]) {
+    for (const nom of ["i*.exemple.lan", "idp.*.lan", "*", "*.lan", "*.*.lan"]) {
       const f = creerFeuille(ca, { noms: [nom] });
-      expect(await verdict(f, "ldap.exemple.lan"), nom).toEqual(["nom_certificat", "nom_certificat"]);
+      expect(await verdict(f, "idp.exemple.lan"), nom).toEqual(["nom_certificat", "nom_certificat"]);
     }
   });
 
@@ -93,19 +93,19 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("nom du serveur sortant : RFC 9525", () => 
   });
 
   it("RFC 9525 §6.3 : un joker ignoré n'empêche pas un nom exact du même certificat", async () => {
-    const f = creerFeuille(ca, { noms: ["l*.exemple.lan", "ldap.exemple.lan"] });
-    expect(await verdict(f, "ldap.exemple.lan")).toEqual(["accepte", "accepte"]);
+    const f = creerFeuille(ca, { noms: ["i*.exemple.lan", "idp.exemple.lan"] });
+    expect(await verdict(f, "idp.exemple.lan")).toEqual(["accepte", "accepte"]);
   });
 
   it("RFC 9525 §6.3 : nom DNS exact du subjectAltName accepté, autre nom refusé", async () => {
-    const f = creerFeuille(ca, { noms: ["ldap.exemple.lan"] });
-    expect(await verdict(f, "ldap.exemple.lan")).toEqual(["accepte", "accepte"]);
+    const f = creerFeuille(ca, { noms: ["idp.exemple.lan"] });
+    expect(await verdict(f, "idp.exemple.lan")).toEqual(["accepte", "accepte"]);
     expect(await verdict(f, "intrus.exemple.lan")).toEqual(["nom_certificat", "nom_certificat"]);
   });
 
   it("RFC 9525 §6.2 : adresse IP acceptée avec une entrée iPAddress, refusée avec le seul nom DNS « 127.0.0.1 »", async () => {
     expect(
-      await verdict(creerFeuille(ca, { noms: ["ldap.exemple.lan"], ips: ["127.0.0.1"] }), "127.0.0.1"),
+      await verdict(creerFeuille(ca, { noms: ["idp.exemple.lan"], ips: ["127.0.0.1"] }), "127.0.0.1"),
     ).toEqual(["accepte", "accepte"]);
     expect(await verdict(creerFeuille(ca, { noms: ["127.0.0.1"] }), "127.0.0.1")).toEqual([
       "nom_certificat",

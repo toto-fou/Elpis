@@ -19,10 +19,10 @@ import type {
 } from "../../src/identite/provisionnement";
 import { validerFournisseur } from "../../src/identite/reglages";
 import { journalMuet, lignesAuditRecentes } from "../aides";
-import { ldapValide } from "./aides";
+import { oidcValide } from "./aides";
 import { MOTEURS } from "./banc";
 
-const ANCRE = "ldap:cn=users,dc=exemple,dc=lan#entryuuid";
+const ANCRE = "oidc:https://idp.exemple.lan/realms/elpis";
 const T = 1_800_000_000;
 
 function profil(extra: Partial<ProfilIdentite> = {}): ProfilIdentite {
@@ -41,7 +41,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
   let dossier: string;
   let publiees: number[];
   let dep: DependancesProvisionnement;
-  const fournisseur = validerFournisseur(ldapValide({ required_groups: ["cn=elpis"] }));
+  const fournisseur = validerFournisseur(oidcValide({ required_groups: ["elpis"] }));
 
   const resoudre = (p: ProfilIdentite, appartenance: Appartenance, maintenant = T) =>
     resoudreIdentite(dep, { fournisseur, profil: p, appartenance, maintenant });
@@ -81,7 +81,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     const i = await t.base.get<Record<string, unknown>>("SELECT * FROM user_identities");
     expect(i).toMatchObject({
       user_id: u?.["id"],
-      provider_id: "annuaire",
+      provider_id: "sso",
       subject: "cle-1",
       issuer: ANCRE,
       ext_username: "Jean.Dupont",
@@ -91,7 +91,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     });
     const ev = lignesAuditRecentes({ actionPrefix: "auth.identity.create" })[0];
     expect(ev).toMatchObject({ username: "jean-dupont", outcome: "success" });
-    expect(ev?.["details"]).toMatchObject({ provider_id: "annuaire", linked_by: "auto" });
+    expect(ev?.["details"]).toMatchObject({ provider_id: "sso", linked_by: "auto" });
   });
 
   it("seconde connexion : même compte, nom affiché et e-mail mis à jour, aucun doublon", async () => {
@@ -106,7 +106,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     });
   });
 
-  it("identifiant d'annuaire rebaptisé : même clé stable, même compte, nom Elpis inchangé", async () => {
+  it("identifiant externe rebaptisé : même clé stable, même compte, nom Elpis inchangé", async () => {
     const a = await resoudre(profil(), "oui");
     const b = await resoudre(profil({ extUsername: "jean.dupont" }), "oui");
     expect(b).toEqual({ type: "compte", uid: a.type === "compte" ? a.uid : -1, cree: false });
@@ -170,7 +170,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     expect(await identites()).toEqual([]);
     const ev = lignesAuditRecentes({ actionPrefix: "auth.identity.refused" })[0];
     expect(ev).toMatchObject({ outcome: "failure" });
-    expect(ev?.["details"]).toEqual({ provider_id: "annuaire", reason: raison });
+    expect(ev?.["details"]).toEqual({ provider_id: "sso", reason: raison });
   });
 
   describe("identité connue", () => {
@@ -187,11 +187,11 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
 
     it("retiré du groupe : refus et compte suspendu `directory:<id>`, coupure propagée", async () => {
       expect(await resoudre(profil(), "non", T + 10)).toEqual({ type: "refus", raison: "not_in_group", uid });
-      expect(await etat()).toMatchObject({ suspended_at: T + 10, suspended_by: "directory:annuaire" });
+      expect(await etat()).toMatchObject({ suspended_at: T + 10, suspended_by: "directory:sso" });
       await vi.waitFor(() => expect(publiees).toEqual([uid]));
       const ev = lignesAuditRecentes({ actionPrefix: "auth.account.suspend" })[0];
       expect(ev).toMatchObject({ user_id: uid, username: "jdupont" });
-      expect(ev?.["details"]).toMatchObject({ origin: "directory:annuaire", provider_id: "annuaire" });
+      expect(ev?.["details"]).toMatchObject({ origin: "directory:sso", provider_id: "sso" });
     });
 
     it("la coupure d'accès n'est pas attendue : une panne de publication ne change pas la réponse et est journalisée", async () => {
@@ -204,7 +204,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
         new Promise<string>((ok) => setTimeout(() => ok("bloque"), 3000)),
       ]);
       expect(r).toEqual({ type: "refus", raison: "not_in_group", uid });
-      expect(await etat()).toMatchObject({ suspended_by: "directory:annuaire" });
+      expect(await etat()).toMatchObject({ suspended_by: "directory:sso" });
     });
 
     it("groupes illisibles : refus sans rien modifier (ni suspension, ni mise à jour, ni coupure)", async () => {
@@ -220,7 +220,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
       expect(publiees).toEqual([]);
     });
 
-    it("remis dans le groupe : suspension de l'annuaire levée, `session_min_ts` remonté, audit de réactivation", async () => {
+    it("remis dans le groupe : suspension du fournisseur levée, `session_min_ts` remonté, audit de réactivation", async () => {
       await resoudre(profil(), "non", T + 10);
       expect(await resoudre(profil(), "oui", T + 20)).toEqual({ type: "compte", uid, cree: false });
       expect(await etat()).toMatchObject({ suspended_by: null });
@@ -229,15 +229,11 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
         session_min_ts: T + 20,
       });
       const ev = lignesAuditRecentes({ actionPrefix: "auth.account.reactivate" })[0];
-      expect(ev?.["details"]).toMatchObject({ origin: "directory:annuaire" });
+      expect(ev?.["details"]).toMatchObject({ origin: "directory:sso" });
     });
 
     it("suspension par péremption du même fournisseur (`stale:<id>`) : levée", async () => {
-      await t.base.run("UPDATE users SET suspended_at=?, suspended_by=? WHERE id=?", [
-        T,
-        "stale:annuaire",
-        uid,
-      ]);
+      await t.base.run("UPDATE users SET suspended_at=?, suspended_by=? WHERE id=?", [T, "stale:sso", uid]);
       expect(await resoudre(profil(), "oui", T + 5)).toMatchObject({ type: "compte" });
       expect(Number((await etat())?.suspended_at)).toBe(0);
     });
@@ -261,7 +257,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     it("ancre différente (fournisseur repointé) : refus issuer_mismatch, rien n'est modifié", async () => {
       const avant = await t.base.all("SELECT * FROM user_identities");
       expect(
-        await resoudre(profil({ issuer: "ldap:ou=autre,dc=exemple,dc=lan#entryuuid" }), "oui", T + 5),
+        await resoudre(profil({ issuer: "oidc:https://autre.exemple.lan/realms/elpis" }), "oui", T + 5),
       ).toEqual({ type: "refus", raison: "issuer_mismatch", uid });
       expect(await t.base.all("SELECT * FROM user_identities")).toEqual(avant);
       expect(await etat()).toMatchObject({ suspended_by: null });
@@ -272,7 +268,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
       expect(Number((await etat())?.suspended_at)).toBe(0);
     });
 
-    it("clé stable seule : un autre sujet avec le même nom d'annuaire est une autre personne (refus homonyme)", async () => {
+    it("clé stable seule : un autre sujet avec le même nom externe est une autre personne (refus homonyme)", async () => {
       expect(await resoudre(profil({ subject: "cle-2" }), "oui")).toEqual({
         type: "refus",
         raison: "account_conflict",
@@ -289,7 +285,7 @@ describe.each(MOTEURS)("provisionnement (%s)", (moteur) => {
     expect(await identites()).toHaveLength(1);
   });
 
-  it("deux personnes d'annuaire qui donnent le même nom, simultanément : un compte, un refus account_conflict", async () => {
+  it("deux personnes du fournisseur qui donnent le même nom, simultanément : un compte, un refus account_conflict", async () => {
     const rs = await Promise.all([
       resoudre(profil({ subject: "cle-1", extUsername: "jean.dupont" }), "oui"),
       resoudre(profil({ subject: "cle-2", extUsername: "jean-dupont" }), "oui"),

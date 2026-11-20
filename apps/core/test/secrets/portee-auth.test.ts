@@ -14,7 +14,7 @@ import { hotes, nomReserveAuth, normaliserPortee } from "../../src/secrets/porte
 import { creerSecret, modifierSecret, rotation, supprimerSecret } from "../../src/secrets/stockage";
 
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
-const INSTANCE = { proprietaire: null, nom: "auth-annuaire" };
+const INSTANCE = { proprietaire: null, nom: "auth-sso" };
 const ACTEUR = { userId: null, username: null, ip: null };
 
 async function code(p: Promise<unknown>): Promise<string> {
@@ -31,19 +31,20 @@ describe("portée par hôtes (sans base)", () => {
   it("hôtes normalisés avec port explicite, dédoublonnés, trois au plus", () => {
     const p = normaliserPortee(
       "token",
-      { hosts: ["LDAP.Exemple.lan:636", "ldap.exemple.lan:636", "[::1]:6360"] },
+      { hosts: ["IDP.Exemple.lan:443", "idp.exemple.lan:443", "[::1]:8443"] },
       INSTANCE,
     );
-    expect(hotes(p)).toEqual(["ldap.exemple.lan:636", "[::1]:6360"]);
+    expect(hotes(p)).toEqual(["idp.exemple.lan:443", "[::1]:8443"]);
   });
 
   it.each([
-    ["sans port", { hosts: ["ldap.exemple.lan"] }],
+    ["sans port", { hosts: ["idp.exemple.lan"] }],
     ["vide", { hosts: [] }],
     ["origines à la place", { origins: ["https://idp.lan"] }],
-    ["clé en plus", { hosts: ["a.lan:636"], x: 1 }],
-    ["chemin", { hosts: ["a.lan:636/x"] }],
-    ["adresse complète", { hosts: ["ldaps://a.lan:636"] }],
+    ["clé en plus", { hosts: ["a.lan:443"], x: 1 }],
+    ["DN de liaison", { hosts: ["a.lan:443"], bind_dn: "uid=x,dc=y" }],
+    ["chemin", { hosts: ["a.lan:443/x"] }],
+    ["adresse complète", { hosts: ["https://a.lan:443"] }],
     ["port nul", { hosts: ["a.lan:0"] }],
     ["quatre hôtes", { hosts: ["a:1", "b:1", "c:1", "d:1"] }],
     ["objet vide", {}],
@@ -53,7 +54,7 @@ describe("portée par hôtes (sans base)", () => {
 
   it("un secret de compte nommé `auth-x` n'a pas de portée par hôtes ; un jeton ordinaire reste sans portée", () => {
     expect(() =>
-      normaliserPortee("token", { hosts: ["a.lan:636"] }, { proprietaire: 3, nom: "auth-x" }),
+      normaliserPortee("token", { hosts: ["a.lan:443"] }, { proprietaire: 3, nom: "auth-x" }),
     ).toThrow(ErreurSecret);
     expect(normaliserPortee("token", {}, { proprietaire: 3, nom: "perso" })).toEqual({});
     expect(nomReserveAuth("auth-x")).toBe(true);
@@ -77,8 +78,8 @@ describe.each(MOTEURS)("noms réservés (%s)", (moteur) => {
   it("un compte garde le droit de nommer un secret `auth-*` ; celui de l'instance reste hors des routes : rotation et suppression refusées", async () => {
     const uid = await createUser(t.base, "alice", "mdp-alice-1");
     const compte = { value: "v", kind: "token" };
-    const propre = await creerSecret(t.base, uid, { name: "auth-annuaire", ...compte }, ACTEUR);
-    expect(propre.name).toBe("auth-annuaire");
+    const propre = await creerSecret(t.base, uid, { name: "auth-sso", ...compte }, ACTEUR);
+    expect(propre.name).toBe("auth-sso");
     const perso = await creerSecret(t.base, uid, { name: "perso", ...compte }, ACTEUR);
     expect((await modifierSecret(t.base, uid, perso.id, { name: "auth-perso" }, ACTEUR)).name).toBe(
       "auth-perso",
@@ -86,10 +87,10 @@ describe.each(MOTEURS)("noms réservés (%s)", (moteur) => {
     const s = await creerSecret(
       t.base,
       null,
-      { name: "auth-annuaire", kind: "token", scope: { hosts: ["ldap.lan:636"] }, value: "v" },
+      { name: "auth-sso", kind: "token", scope: { hosts: ["idp.lan:443"] }, value: "v" },
       ACTEUR,
     );
-    expect(s.scope).toEqual({ hosts: ["ldap.lan:636"] });
+    expect(s.scope).toEqual({ hosts: ["idp.lan:443"] });
     expect(await code(rotation(t.base, null, s.id, "autre", ACTEUR, { refuserGeres: true }))).toBe(
       "404 secret_unknown",
     );

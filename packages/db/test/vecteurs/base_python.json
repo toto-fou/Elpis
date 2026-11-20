@@ -27,12 +27,6 @@
     ],
     [
       "index",
-      "idx_auth_failures_entry",
-      "auth_failures",
-      "CREATE UNIQUE INDEX \"idx_auth_failures_entry\" ON \"auth_failures\" (\"provider_id\", \"subject\")"
-    ],
-    [
-      "index",
       "idx_auth_flows_expires",
       "auth_flows",
       "CREATE INDEX \"idx_auth_flows_expires\" ON \"auth_flows\" (\"expires_at\")"
@@ -495,12 +489,6 @@
     ],
     [
       "table",
-      "auth_failures",
-      "auth_failures",
-      "CREATE TABLE \"auth_failures\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"provider_id\" TEXT NOT NULL,\n  \"subject\" TEXT NOT NULL,\n  \"count\" INTEGER NOT NULL DEFAULT 0,\n  \"window_start\" REAL NOT NULL DEFAULT 0,\n  \"last_at\" REAL NOT NULL DEFAULT 0\n)"
-    ],
-    [
-      "table",
       "auth_flows",
       "auth_flows",
       "CREATE TABLE \"auth_flows\" (\n  \"state_hash\" TEXT PRIMARY KEY,\n  \"provider_id\" TEXT NOT NULL,\n  \"browser_hash\" TEXT NOT NULL,\n  \"ip_hash\" TEXT NOT NULL DEFAULT '',\n  \"nonce\" TEXT NOT NULL DEFAULT '',\n  \"code_verifier\" TEXT NOT NULL DEFAULT '',\n  \"target\" TEXT NOT NULL DEFAULT 'app',\n  \"oauth_next\" TEXT DEFAULT NULL,\n  \"trial_admin\" INTEGER DEFAULT NULL,\n  \"stage\" TEXT NOT NULL DEFAULT 'auth',\n  \"prelink_id\" INTEGER DEFAULT NULL,\n  \"profile_json\" TEXT DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL\n)"
@@ -515,7 +503,7 @@
       "table",
       "auth_provider_state",
       "auth_provider_state",
-      "CREATE TABLE \"auth_provider_state\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"tested_hash\" TEXT DEFAULT NULL,\n  \"tested_at\" REAL DEFAULT 0,\n  \"sweep_at\" REAL DEFAULT 0,\n  \"sweep_result\" TEXT DEFAULT NULL\n)"
+      "CREATE TABLE \"auth_provider_state\" (\n  \"provider_id\" TEXT PRIMARY KEY,\n  \"tested_hash\" TEXT DEFAULT NULL,\n  \"tested_at\" REAL DEFAULT 0\n)"
     ],
     [
       "table",

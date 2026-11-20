@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/conformite/securite-tls-sortant.test.ts — les connexions sortantes vers l'annuaire (LDAPS) et le fournisseur d'identité suivent le guide TLS de l'ANSSI et OWASP ASVS 5.0 V12 : TLS 1.2 au moins et 1.3 préféré, suites à confidentialité persistante et chiffrement authentifié seulement, certificat et nom vérifiés, aucun repli en clair. */
+/** apps/core/test/conformite/securite-tls-sortant.test.ts — les connexions sortantes vers le fournisseur d'identité suivent le guide TLS de l'ANSSI et OWASP ASVS 5.0 V12 : TLS 1.2 au moins et 1.3 préféré, suites à confidentialité persistante et chiffrement authentifié seulement, certificat et nom vérifiés, aucun repli en clair. */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer as serveurHttps } from "node:https";

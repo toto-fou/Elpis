@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/sortant.ts — client sortant des fournisseurs d'identité (https et ldaps) : adresses jugées puis épinglées, ancres de confiance, TLS 1.2 au moins, ni redirection ni proxy, tailles et délais bornés. */
+/** apps/core/src/identite/sortant.ts — client sortant des fournisseurs d'identité (https) : adresses jugées puis épinglées, ancres de confiance, TLS 1.2 au moins, ni redirection ni proxy, tailles et délais bornés. */
 import { lookup } from "node:dns/promises";
 import { checkServerIdentity, connect as tlsConnect } from "node:tls";
 import type { PeerCertificate, TLSSocket } from "node:tls";
@@ -462,7 +462,7 @@ function ouvrirTls(
   });
 }
 
-/** Connexion TLS brute (ldaps), sans ALPN : même juge, mêmes adresses épinglées, mêmes ancres, même vérification ; rend la socket (seulement si `authorized`) et ce que le certificat présenté permet de décrire. */
+/** Connexion TLS brute (étape TLS du test d'un fournisseur), sans ALPN : même juge, mêmes adresses épinglées, mêmes ancres, même vérification ; rend la socket (seulement si `authorized`) et ce que le certificat présenté permet de décrire. */
 export async function connexionTls(
   hote: string,
   port: number,

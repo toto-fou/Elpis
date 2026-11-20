@@ -156,23 +156,14 @@ export function autoriteDePortee(p: PorteeSecret): string | null {
   return typeof a === "string" ? a : null;
 }
 
-/** DN de liaison d'une portée d'annuaire (`null` si absent). */
-export function dnDePortee(p: PorteeSecret): string | null {
-  const d = (p as { bind_dn?: unknown }).bind_dn;
-  return typeof d === "string" ? d : null;
-}
-
-/** Portée par hôtes : `{hosts: ["hôte:port", …], ca?, bind_dn?}`, port explicite, 3 hôtes au plus. */
+/** Portée par hôtes : `{hosts: ["hôte:port", …], ca?}`, port explicite, 3 hôtes au plus. */
 function porteeHotes(p: Record<string, unknown>): PorteeSecret {
   const brutes = p["hosts"];
   const ca = p["ca"];
-  const dn = p["bind_dn"];
-  if (Object.keys(p).some((k) => k !== "hosts" && k !== "ca" && k !== "bind_dn"))
-    throw refusPortee("Invalid scope: only 'hosts', 'ca' and 'bind_dn' are allowed.");
+  if (Object.keys(p).some((k) => k !== "hosts" && k !== "ca"))
+    throw refusPortee("Invalid scope: only 'hosts' and 'ca' are allowed.");
   if (ca !== undefined && (typeof ca !== "string" || !RE_AUTORITE.test(ca)))
     throw refusPortee("Invalid scope: 'ca' is 'system' or a SHA-256 fingerprint.");
-  if (dn !== undefined && (typeof dn !== "string" || dn === "" || dn.length > 1024))
-    throw refusPortee("Invalid scope: 'bind_dn' is a non-empty DN.");
   if (!Array.isArray(brutes) || brutes.length === 0)
     throw refusPortee("Invalid scope: 'hosts' must list one or more host:port entries.");
   const hotesNormalises: string[] = [];
@@ -187,7 +178,6 @@ function porteeHotes(p: Record<string, unknown>): PorteeSecret {
   return {
     hosts: hotesNormalises,
     ...(ca === undefined ? {} : { ca }),
-    ...(dn === undefined ? {} : { bind_dn: dn }),
   } as unknown as PorteeSecret;
 }
 

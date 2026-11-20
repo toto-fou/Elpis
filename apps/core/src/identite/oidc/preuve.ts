@@ -213,7 +213,7 @@ export async function ouvrirSessionApresPreuve(
     fournisseur: e.fournisseur,
     uid: e.uid,
     lecture: lectureOidc(e.fournisseur, e.groupes),
-    mode: "passe",
+    mode: "retrait",
     secondFacteur: e.secondFacteur,
     ip: e.ip,
   });

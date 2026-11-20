@@ -11,15 +11,13 @@ import { writeFileSync } from "node:fs";
 let core: CoreDeTest;
 let cookie = "";
 
-const LDAP = {
-  type: "ldap",
-  id: "annuaire",
-  label: "Annuaire",
-  urls: ["ldaps://ldap.exemple.lan"],
-  bind_dn: "uid=svc,cn=users,dc=exemple,dc=lan",
-  user_base_dn: "cn=users,dc=exemple,dc=lan",
-  user_filter: "(uid={username})",
-  required_groups: ["cn=elpis,cn=groups,dc=exemple,dc=lan"],
+const IDP = {
+  type: "oidc",
+  id: "idp",
+  label: "IdP",
+  issuer: "https://idp.exemple.lan/realms/elpis",
+  client_id: "elpis",
+  required_groups: ["elpis"],
 };
 
 beforeAll(async () => {
@@ -47,11 +45,11 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
         corps: { public_url: "https://elpis.exemple.lan" },
       }),
     ).toMatchObject({ public_url: "https://elpis.exemple.lan" });
-    expect(await core.appeler("POST", "/api/admin/auth/providers", { cookie, corps: LDAP })).toMatchObject({
+    expect(await core.appeler("POST", "/api/admin/auth/providers", { cookie, corps: IDP })).toMatchObject({
       providers: [
         {
-          id: "annuaire",
-          type: "ldap",
+          id: "idp",
+          type: "oidc",
           enabled: false,
           has_secret: false,
           tested: false,
@@ -62,20 +60,20 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
     });
     await core.appeler("POST", "/api/admin/auth/providers", {
       cookie,
-      corps: { ...LDAP, urls: ["ldap://x"] },
+      corps: { ...IDP, issuer: "http://x" },
     });
     await core.appeler("POST", "/api/admin/auth/providers", {
       cookie,
-      corps: { type: "oidc", id: "sso", label: "SSO", issuer: "https://idp.exemple.lan", client_id: "c" },
+      corps: { type: "oidc", id: "sso", label: "SSO", issuer: "https://sso.exemple.lan", client_id: "c" },
     });
     expect(
-      await core.appeler("PUT", "/api/admin/auth/providers/annuaire", {
+      await core.appeler("PUT", "/api/admin/auth/providers/idp", {
         cookie,
-        corps: { label: "Annuaire central" },
+        corps: { label: "IdP central" },
       }),
-    ).toMatchObject({ providers: [{ label: "Annuaire central" }, { id: "sso", type: "oidc" }] });
+    ).toMatchObject({ providers: [{ label: "IdP central" }, { id: "sso", type: "oidc" }] });
     expect(
-      await core.appeler("PUT", "/api/admin/auth/providers/annuaire/secret", {
+      await core.appeler("PUT", "/api/admin/auth/providers/idp/secret", {
         cookie,
         corps: { secret: "mot-de-passe" },
       }),
@@ -84,20 +82,17 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
       result: null,
     });
     await core.appeler("POST", "/api/admin/auth/providers/sso/trial", { cookie, corps: {} });
-    await core.appeler("POST", "/api/admin/auth/providers/annuaire/enable", { cookie });
-    expect(
-      await core.appeler("POST", "/api/admin/auth/providers/annuaire/disable", { cookie }),
-    ).toMatchObject({
+    await core.appeler("POST", "/api/admin/auth/providers/idp/enable", { cookie });
+    expect(await core.appeler("POST", "/api/admin/auth/providers/idp/disable", { cookie })).toMatchObject({
       providers: [{ enabled: false }, {}],
     });
     expect(
       await core.appeler("POST", "/api/admin/auth/providers/test", {
         cookie,
-        corps: { ...LDAP, urls: ["ldaps://127.0.0.1:9"] },
+        corps: { ...IDP, issuer: "https://127.0.0.1:9/realms/x" },
       }),
     ).toMatchObject({
       ok: false,
-      complete: false,
       steps: [
         { id: "settings" },
         { id: "prerequisites" },
@@ -106,10 +101,10 @@ describe("contrats REST : connexion d'entreprise (core réel)", () => {
       ],
     });
     await core.appeler("PUT", "/api/admin/auth/providers/inconnu", { cookie, corps: {} });
-    expect(await core.appeler("DELETE", "/api/admin/auth/providers/annuaire", { cookie })).toEqual({
+    expect(await core.appeler("DELETE", "/api/admin/auth/providers/idp", { cookie })).toEqual({
       ok: true,
     });
-    await core.appeler("DELETE", "/api/admin/auth/providers/annuaire", { cookie });
+    await core.appeler("DELETE", "/api/admin/auth/providers/idp", { cookie });
   });
 
   it("fournisseur écrit à la main et illisible : listé à part", async () => {

@@ -19,7 +19,7 @@ import { creerFamilleSecrets } from "../src/familles/secrets";
 import { enregistrerTestReussi } from "../src/identite/fournisseurs";
 import { validerFournisseur } from "../src/identite/reglages";
 import { appTest, journalMuet, lignesAuditRecentes } from "./aides";
-import { cleCoffreDeTest, configDeTest, ldapValide, oidcValide } from "./identite/aides";
+import { cleCoffreDeTest, configDeTest, oidcValide } from "./identite/aides";
 import type { ConfigDeTest } from "./identite/aides";
 
 const URL_PUBLIQUE = "https://elpis.exemple.lan";
@@ -137,7 +137,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
         auth: {
           public_url: URL_PUBLIQUE,
           local: { mode: "admins" },
-          providers: [ldapValide({ enabled: true })],
+          providers: [oidcValide({ enabled: true })],
         },
       });
       expect(r.statusCode).toBe(200);
@@ -151,7 +151,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
     });
 
     it("section présente : la valeur du disque gagne, absente du formulaire elle est gardée", async () => {
-      const disque = { public_url: URL_PUBLIQUE, local: { mode: "all" }, providers: [ldapValide()] };
+      const disque = { public_url: URL_PUBLIQUE, local: { mode: "all" }, providers: [oidcValide()] };
       cfg.ecrire({ app: {}, auth: disque });
       await enregistrerFichier({ app: {}, auth: { local: { mode: "admins" }, providers: [] } });
       expect(lireConfig()["auth"]).toEqual(disque);
@@ -177,11 +177,11 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       ["GET", "/api/admin/auth"],
       ["PUT", "/api/admin/auth/settings"],
       ["POST", "/api/admin/auth/providers"],
-      ["PUT", "/api/admin/auth/providers/annuaire"],
-      ["DELETE", "/api/admin/auth/providers/annuaire"],
-      ["PUT", "/api/admin/auth/providers/annuaire/secret"],
-      ["POST", "/api/admin/auth/providers/annuaire/enable"],
-      ["POST", "/api/admin/auth/providers/annuaire/disable"],
+      ["PUT", "/api/admin/auth/providers/sso"],
+      ["DELETE", "/api/admin/auth/providers/sso"],
+      ["PUT", "/api/admin/auth/providers/sso/secret"],
+      ["POST", "/api/admin/auth/providers/sso/enable"],
+      ["POST", "/api/admin/auth/providers/sso/disable"],
       ["POST", "/api/admin/auth/providers/test"],
     ];
 
@@ -214,20 +214,20 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
         revoquer: async () => undefined,
       });
       expect(f.routes.map((r) => `${r.methode} ${r.chemin}`).sort()).toEqual(
-        ROUTES.map(([m, u]) => `${m} ${u.replace("annuaire", ":id")}`).sort(),
+        ROUTES.map(([m, u]) => `${m} ${u.replace("sso", ":id")}`).sort(),
       );
       for (const r of f.routes) expect([r.acces, r.processus], r.chemin).toEqual(["admin", ["admin"]]);
     });
 
     it("création, secret, lecture : le secret n'est jamais renvoyé ni écrit dans config.json ni au journal", async () => {
       cfg.ecrire(null);
-      const brut = ldapValide({ required_groups: ["cn=elpis"] });
+      const brut = oidcValide({ required_groups: ["cn=elpis"] });
       const cree = await appeler(admin, "POST", "/api/admin/auth/providers", chef, brut);
       expect(cree.statusCode, cree.body).toBe(200);
       expect(
         cree.json<{ providers: { id: string; enabled: boolean; has_secret: boolean }[] }>().providers,
-      ).toMatchObject([{ id: "annuaire", enabled: false, has_secret: false }]);
-      const pose = await appeler(admin, "PUT", "/api/admin/auth/providers/annuaire/secret", chef, {
+      ).toMatchObject([{ id: "sso", enabled: false, has_secret: false }]);
+      const pose = await appeler(admin, "PUT", "/api/admin/auth/providers/sso/secret", chef, {
         secret: MOT_DE_PASSE_SERVICE,
       });
       expect(pose.statusCode, pose.body).toBe(200);
@@ -246,7 +246,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
     });
 
     it("secret : texte vide supprime, valeur trop longue ou mauvais type refusés", async () => {
-      const url = "/api/admin/auth/providers/annuaire/secret";
+      const url = "/api/admin/auth/providers/sso/secret";
       expect((await appeler(admin, "PUT", url, chef, { secret: "x".repeat(16_385) })).statusCode).toBe(400);
       expect((await appeler(admin, "PUT", url, chef, { secret: 12 })).statusCode).toBe(400);
       expect((await appeler(admin, "PUT", url, chef, { secret: "x", autre: 1 })).statusCode).toBe(400);
@@ -260,20 +260,18 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
     });
 
     it("les routes ordinaires du coffre ne voient pas, ne changent pas, ne suppriment pas le secret d'instance `auth-*` ; un secret personnel peut porter ce nom", async () => {
-      const ligne = await t.base.get<{ id: number }>(
-        "SELECT id FROM vault_secrets WHERE name='auth-annuaire'",
-      );
+      const ligne = await t.base.get<{ id: number }>("SELECT id FROM vault_secrets WHERE name='auth-sso'");
       expect(ligne).toBeDefined();
       const id = ligne?.id ?? 0;
       const liste = await appeler(admin, "GET", "/api/admin/secrets", chef);
-      expect(liste.body).not.toContain("auth-annuaire");
+      expect(liste.body).not.toContain("auth-sso");
       expect(liste.statusCode).toBe(200);
       expect(
         (await appeler(admin, "POST", `/api/admin/secrets/${id}/rotate`, chef, { value: "autre" }))
           .statusCode,
       ).toBe(404);
       expect((await appeler(admin, "DELETE", `/api/admin/secrets/${id}`, chef)).statusCode).toBe(404);
-      for (const nom of ["auth-annuaire", "auth-x", "auth-"]) {
+      for (const nom of ["auth-sso", "auth-x", "auth-"]) {
         const cree = await appeler(principal, "POST", "/api/secrets", alice, {
           name: nom,
           kind: "token",
@@ -292,9 +290,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       });
       expect(renomme.statusCode).toBe(200);
       expect(
-        await t.base.valeurs(
-          "SELECT COUNT(*) FROM vault_secrets WHERE name='auth-annuaire' AND user_id IS NULL",
-        ),
+        await t.base.valeurs("SELECT COUNT(*) FROM vault_secrets WHERE name='auth-sso' AND user_id IS NULL"),
       ).toEqual([[1]]);
       for (const url of [`/api/secrets/${id}`]) {
         expect((await appeler(principal, "PUT", url, alice, { value: "autre" })).statusCode).toBe(404);
@@ -309,9 +305,9 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
     });
 
     it("activation : refusée un prérequis après l'autre, acceptée quand tous tiennent ; extinction toujours permise", async () => {
-      const f = validerFournisseur(ldapValide({ required_groups: [] }));
+      const f = validerFournisseur(oidcValide({ required_groups: [] }));
       const activer = (): Promise<LightMyRequestResponse> =>
-        appeler(admin, "POST", "/api/admin/auth/providers/annuaire/enable", chef);
+        appeler(admin, "POST", "/api/admin/auth/providers/sso/enable", chef);
       const motif = async (): Promise<string> => (await activer()).json<{ detail: string }>().detail;
       cfg.ecrire({ auth: { public_url: "", providers: [f] } });
       expect(await motif()).toMatch(/adresse publique/u);
@@ -327,11 +323,11 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
         expect.stringMatching(/administrateur/u),
       ]);
       expect(await motif()).toMatch(/groupe/u);
-      const avecGroupe = validerFournisseur(ldapValide({ required_groups: ["cn=elpis"] }));
+      const avecGroupe = validerFournisseur(oidcValide({ required_groups: ["cn=elpis"] }));
       cfg.ecrire({ auth: { public_url: URL_PUBLIQUE, providers: [avecGroupe] } });
-      await t.base.run("DELETE FROM vault_secrets WHERE name='auth-annuaire'");
+      await t.base.run("DELETE FROM vault_secrets WHERE name='auth-sso'");
       expect(await motif()).toMatch(/secret/u);
-      await appeler(admin, "PUT", "/api/admin/auth/providers/annuaire/secret", chef, {
+      await appeler(admin, "PUT", "/api/admin/auth/providers/sso/secret", chef, {
         secret: MOT_DE_PASSE_SERVICE,
       });
       expect(await motif()).toMatch(/test réussi/u);
@@ -351,14 +347,12 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
 
     it("fournisseur allumé : réglages sensibles et adresse publique verrouillés, libellé libre ; ni suppression ni double activation", async () => {
       const mettre = (corps: unknown): Promise<{ statusCode: number }> =>
-        appeler(admin, "PUT", "/api/admin/auth/providers/annuaire", chef, corps);
-      expect((await mettre({ bind_dn: "uid=x,dc=y" })).statusCode).toBe(409);
+        appeler(admin, "PUT", "/api/admin/auth/providers/sso", chef, corps);
+      expect((await mettre({ client_id: "autre" })).statusCode).toBe(409);
       expect((await mettre({ required_groups: [] })).statusCode).toBe(409);
       expect((await mettre({ label: "Nouveau nom", freshness_days: 20 })).statusCode).toBe(200);
       expect((await mettre({ enabled: false })).statusCode).toBe(400);
-      expect((await appeler(admin, "DELETE", "/api/admin/auth/providers/annuaire", chef)).statusCode).toBe(
-        409,
-      );
+      expect((await appeler(admin, "DELETE", "/api/admin/auth/providers/sso", chef)).statusCode).toBe(409);
       expect(
         (
           await appeler(admin, "PUT", "/api/admin/auth/settings", chef, {
@@ -375,10 +369,10 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
     it("extinction : coupe les sessions des comptes rattachés (plancher monté, flux fermés), pas des autres", async () => {
       await t.base.run(
         "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?,?,?,?,?,?)",
-        [alice, "annuaire", "s-alice", "i", "admin", 1],
+        [alice, "sso", "s-alice", "i", "admin", 1],
       );
       revoques.length = 0;
-      const r = await appeler(admin, "POST", "/api/admin/auth/providers/annuaire/disable", chef);
+      const r = await appeler(admin, "POST", "/api/admin/auth/providers/sso/disable", chef);
       expect(r.statusCode, r.body).toBe(200);
       expect(r.json<{ providers: { enabled: boolean; identities: number }[] }>().providers[0]).toMatchObject({
         enabled: false,
@@ -390,7 +384,7 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
       expect(await min(alice)).toBeGreaterThan(1_700_000_000);
       expect(await min(chef)).toBe(0);
       const ev = lignesAuditRecentes({ actionPrefix: "admin.auth.provider.disable" })[0];
-      expect(ev?.["details"]).toMatchObject({ provider_id: "annuaire", sessions_cut: 1 });
+      expect(ev?.["details"]).toMatchObject({ provider_id: "sso", sessions_cut: 1 });
       expect(
         ((lireConfig()["auth"] as { providers: { enabled: boolean }[] }).providers[0] as { enabled: boolean })
           .enabled,
@@ -399,23 +393,17 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
 
     it("fournisseur avec des comptes rattachés : champs figés, suppression refusée ; sans compte : supprimé avec son secret et son état", async () => {
       const mettre = (corps: unknown): Promise<{ statusCode: number }> =>
-        appeler(admin, "PUT", "/api/admin/auth/providers/annuaire", chef, corps);
-      expect((await mettre({ attrs: { id: "ipaUniqueID" } })).statusCode).toBe(409);
-      expect(
-        (await mettre({ attrs: { username: "sAMAccountName" }, user_filter: "(cn={username})" })).statusCode,
-      ).toBe(200);
-      expect((await appeler(admin, "DELETE", "/api/admin/auth/providers/annuaire", chef)).statusCode).toBe(
-        409,
-      );
+        appeler(admin, "PUT", "/api/admin/auth/providers/sso", chef, corps);
+      expect((await mettre({ subject_claim: "oid" })).statusCode).toBe(409);
+      expect((await mettre({ username_claim: "upn" })).statusCode).toBe(200);
+      expect((await appeler(admin, "DELETE", "/api/admin/auth/providers/sso", chef)).statusCode).toBe(409);
       await t.base.run("DELETE FROM user_identities WHERE user_id=?", [alice]);
-      expect((await mettre({ attrs: { id: "ipaUniqueID" } })).statusCode).toBe(200);
-      const r = await appeler(admin, "DELETE", "/api/admin/auth/providers/annuaire", chef);
+      expect((await mettre({ subject_claim: "oid" })).statusCode).toBe(200);
+      const r = await appeler(admin, "DELETE", "/api/admin/auth/providers/sso", chef);
       expect([r.statusCode, r.json()]).toEqual([200, { ok: true }]);
+      expect(await t.base.get("SELECT 1 AS un FROM vault_secrets WHERE name='auth-sso'")).toBeUndefined();
       expect(
-        await t.base.get("SELECT 1 AS un FROM vault_secrets WHERE name='auth-annuaire'"),
-      ).toBeUndefined();
-      expect(
-        await t.base.get("SELECT 1 AS un FROM auth_provider_state WHERE provider_id='annuaire'"),
+        await t.base.get("SELECT 1 AS un FROM auth_provider_state WHERE provider_id='sso'"),
       ).toBeUndefined();
       expect((lireConfig()["auth"] as { providers: unknown[] }).providers).toEqual([]);
     });
@@ -496,22 +484,22 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
             "POST",
             "/api/admin/auth/providers",
             chef,
-            ldapValide({ id: "p1", urls: ["ldap://x.lan"] }),
+            oidcValide({ id: "p1", issuer: "http://x.lan" }),
           )
         ).statusCode,
       ).toBe(400);
       for (let i = 1; i <= 5; i++)
         expect(
-          (await appeler(admin, "POST", "/api/admin/auth/providers", chef, ldapValide({ id: `p${i}` })))
+          (await appeler(admin, "POST", "/api/admin/auth/providers", chef, oidcValide({ id: `p${i}` })))
             .statusCode,
         ).toBe(200);
       expect(
-        (await appeler(admin, "POST", "/api/admin/auth/providers", chef, ldapValide({ id: "p6" })))
+        (await appeler(admin, "POST", "/api/admin/auth/providers", chef, oidcValide({ id: "p6" })))
           .statusCode,
       ).toBe(400);
       expect((await appeler(admin, "DELETE", "/api/admin/auth/providers/p5", chef)).statusCode).toBe(200);
       expect(
-        (await appeler(admin, "POST", "/api/admin/auth/providers", chef, ldapValide({ id: "p1" })))
+        (await appeler(admin, "POST", "/api/admin/auth/providers", chef, oidcValide({ id: "p1" })))
           .statusCode,
       ).toBe(409);
       expect((lireConfig()["auth"] as { providers: unknown[] }).providers).toHaveLength(4);

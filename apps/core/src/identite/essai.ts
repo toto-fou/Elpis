@@ -6,11 +6,8 @@ import { adresseIpOuNul, estDict, HttpError } from "@elpis/commun";
 import type { JugeHote, VerdictHote } from "@elpis/http";
 import type { ServerMetadata } from "openid-client";
 
-import { defautsFournisseur, fusionner, hotePortHttps, hotePortLdaps, validerFournisseur } from "./reglages";
-import type { Fournisseur, FournisseurLdap, FournisseurOidc } from "./reglages";
-import { etapesAnnuaire } from "./annuaire/essai";
-import type { DemandeEssaiAnnuaire } from "./annuaire/essai";
-import type { FabriqueConnexion } from "./annuaire/client";
+import { defautsFournisseur, fusionner, hotePortHttps, validerFournisseur } from "./reglages";
+import type { FournisseurOidc } from "./reglages";
 import { etapesOidc } from "./oidc/essai";
 import type { ContexteEtapesOidc } from "./oidc/essai";
 import { adresseDecouverte, lireMetadonnees } from "./oidc/metadonnees";
@@ -35,7 +32,6 @@ function phrase(e: unknown): string {
 
 export interface ResultatEssai {
   ok: boolean;
-  complete: boolean;
   steps: EtapeEssai[];
 }
 
@@ -52,22 +48,8 @@ export interface OptionsEssai {
   readonly delaiGlobalMs?: number;
   /** Adresses de cette machine ; celles de ses interfaces non bouclées par défaut. */
   readonly adressesLocales?: () => readonly string[];
-  /** Étapes propres à l'annuaire ; sans elle, un test LDAP s'arrête au TLS et reste incomplet. */
-  readonly annuaire?: ParametresAnnuaire;
   /** Lecture du secret client enregistré ; sans elle, un test OIDC n'a pas l'étape du secret. */
   readonly oidc?: Pick<ContexteEtapesOidc, "secretEnregistre">;
-}
-
-export interface ParametresAnnuaire {
-  /** Fabrique de connexions pour les bornes du test (échéance, juge d'adresses). */
-  readonly fabrique: (sortant: OptionsSortant) => FabriqueConnexion;
-  readonly secretEnregistre: DemandeEssaiAnnuaire["secretEnregistre"];
-  /** Identifiant de l'utilisateur d'essai tel que reçu. */
-  readonly utilisateur?: unknown;
-  /** Secret saisi pour ce test seul, tel que reçu. */
-  readonly secret?: unknown;
-  readonly limiteur: DemandeEssaiAnnuaire["limiteur"];
-  readonly secretEmploye?: DemandeEssaiAnnuaire["secretEmploye"];
 }
 
 export interface TestLance {
@@ -75,13 +57,6 @@ export interface TestLance {
   readonly resultat: Promise<ResultatEssai>;
   /** Fin réelle du travail (résolutions et connexions comprises), jamais rejetée. */
   readonly termine: Promise<void>;
-  /** Réglages réellement testés si le test est complet (à lire une fois `resultat` rendu), sinon `null`. */
-  readonly fournisseurTeste: () => Fournisseur | null;
-}
-
-interface Sortie {
-  teste: Fournisseur | null;
-  complet: boolean;
 }
 
 /** Juge appelé une fois par `hôte:port` (ce que l'étape « adresse » affiche est ce que les connexions utilisent), qui ne démarre ni ne rend rien une fois l'échéance levée. */
@@ -277,11 +252,11 @@ function prerequis(c: ContexteEssai): EtapeEssai {
 
 const CLES_D_ETAT = ["has_secret", "tested", "active", "identities"];
 
-/** Réglages du formulaire : l'état affiché (secret, test, activité, identités) retiré, les valeurs de départ du type comblées. */
+/** Réglages du formulaire : l'état affiché (secret, test, activité, identités) retiré, les valeurs de départ comblées. */
 function reglagesDuFormulaire(brut: unknown): unknown {
-  if (!estDict(brut) || (brut["type"] !== "ldap" && brut["type"] !== "oidc")) return brut;
+  if (!estDict(brut) || brut["type"] !== "oidc") return brut;
   const sans = Object.fromEntries(Object.entries(brut).filter(([k]) => !CLES_D_ETAT.includes(k)));
-  return fusionner(defautsFournisseur(brut["type"]), sans);
+  return fusionner(defautsFournisseur(), sans);
 }
 
 async function corps(
@@ -290,10 +265,9 @@ async function corps(
   contexte: ContexteEssai,
   o: OptionsEssai,
   signal: AbortSignal,
-  sortie: Sortie,
 ): Promise<void> {
   const maintenant = o.maintenant ?? Date.now;
-  let f: Fournisseur;
+  let f: FournisseurOidc;
   try {
     f = validerFournisseur(reglagesDuFormulaire(reglages));
     etapes.push(etape("settings", "Réglages", "ok", "Réglages valides."));
@@ -308,56 +282,13 @@ async function corps(
   const sortant: OptionsSortant = { ...o.sortant, caPem: f.ca_pem, signal };
   const juge = jugeUnique(o.sortant?.juger ?? jugeSortant(o.sortant?.resoudre), signal);
   const locales = new Set((o.adressesLocales ?? adressesDeLaMachine)().map((a) => cleIp(a) ?? ""));
-  if (f.type === "ldap") {
-    let premiere: string | null = null;
-    for (const u of f.urls) {
-      if (signal.aborted) return;
-      const n = etapes.length;
-      await etapesAdresse(etapes, hotePortLdaps(u), juge, sortant, maintenant, locales);
-      if (premiere === null && etapes.slice(n).every((e) => e.level !== "fail")) premiere = u;
-    }
-    if (premiere !== null && o.annuaire !== undefined && !signal.aborted)
-      sortie.complet = await etapesLdap(
-        etapes,
-        f,
-        premiere,
-        o.annuaire,
-        { ...sortant, juger: juge },
-        maintenant,
-        signal,
-      );
-    sortie.teste = f;
-  } else {
-    const n = etapes.length;
-    await etapesAdresse(etapes, hotePortHttps(f.issuer), juge, sortant, maintenant, locales);
-    if (!signal.aborted && etapes.slice(n).every((e) => e.level !== "fail"))
-      await etapesDecouverte(etapes, f, juge, sortant, maintenant, o.oidc);
-  }
+  const n = etapes.length;
+  await etapesAdresse(etapes, hotePortHttps(f.issuer), juge, sortant, maintenant, locales);
+  if (!signal.aborted && etapes.slice(n).every((e) => e.level !== "fail"))
+    await etapesDecouverte(etapes, f, juge, sortant, maintenant, o.oidc);
 }
 
-/** Étapes de l'annuaire sur la première adresse joignable ; vrai si elles sont toutes passées avec un utilisateur d'essai. */
-function etapesLdap(
-  etapes: EtapeEssai[],
-  f: FournisseurLdap,
-  url: string,
-  a: ParametresAnnuaire,
-  sortant: OptionsSortant,
-  maintenant: () => number,
-  signal: AbortSignal,
-): Promise<boolean> {
-  return etapesAnnuaire(etapes, f, url, {
-    fabrique: a.fabrique(sortant),
-    secretEnregistre: a.secretEnregistre,
-    utilisateur: a.utilisateur,
-    secret: a.secret,
-    limiteur: a.limiteur,
-    ...(a.secretEmploye === undefined ? {} : { secretEmploye: a.secretEmploye }),
-    maintenant: () => maintenant() / 1000,
-    signal,
-  });
-}
-
-/** Lance le test d'un fournisseur sans jamais lever : `resultat` part au plus tard à l'échéance globale, qui arrête aussi le travail (plus aucune résolution ni connexion ne démarre) ; `termine` n'est tenu qu'à la fin réelle du travail. `complete` n'est vrai que pour un annuaire dont toutes les étapes, utilisateur d'essai compris, sont passées avant l'échéance (les clés OIDC viennent plus tard). */
+/** Lance le test d'un fournisseur sans jamais lever : `resultat` part au plus tard à l'échéance globale, qui arrête aussi le travail (plus aucune résolution ni connexion ne démarre) ; `termine` n'est tenu qu'à la fin réelle du travail. */
 export function lancerTest(
   reglages: unknown,
   contexte: ContexteEssai,
@@ -373,9 +304,7 @@ export function lancerTest(
       r("delai");
     }, global);
   });
-  const sortie: Sortie = { teste: null, complet: false };
-  let retenu: Fournisseur | null = null;
-  const travail = corps(etapes, reglages, contexte, options, arret.signal, sortie).then(
+  const travail = corps(etapes, reglages, contexte, options, arret.signal).then(
     () => "fini" as const,
     () => "erreur" as const,
   );
@@ -388,12 +317,10 @@ export function lancerTest(
     if (fin === "erreur")
       steps.push(etape("internal", "Test", "fail", "Le test a échoué : demandez à votre administrateur."));
     const ok = steps.every((e) => e.level !== "fail");
-    const complete = ok && fin === "fini" && sortie.complet;
-    retenu = complete ? sortie.teste : null;
-    return { ok, complete, steps };
+    return { ok, steps };
   });
   const termine = travail.then(() => clearTimeout(minuteur));
-  return { resultat, termine, fournisseurTeste: () => retenu };
+  return { resultat, termine };
 }
 
 /** Teste les réglages d'un fournisseur et rend le résultat (voir `lancerTest`). */

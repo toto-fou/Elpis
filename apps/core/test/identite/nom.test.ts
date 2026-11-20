@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/identite/nom.test.ts — le nom Elpis dérivé d'un identifiant d'annuaire : forme stricte, noms réservés refusés, jamais de suffixe. */
+/** apps/core/test/identite/nom.test.ts — le nom Elpis dérivé d'un identifiant externe : forme stricte, noms réservés refusés, jamais de suffixe. */
 import { describe, expect, it } from "vitest";
 
 import { nomDerive } from "../../src/identite/nom";

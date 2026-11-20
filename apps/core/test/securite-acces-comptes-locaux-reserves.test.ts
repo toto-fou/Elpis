@@ -22,10 +22,9 @@ import { creerFamilleWebhooks } from "../src/familles/webhooks";
 import { createRoutine, setRoutineWebhook } from "../src/routines/magasin";
 import { Planificateur } from "../src/routines/planificateur";
 import { appTest } from "./aides";
-import { AnnuaireFactice } from "./identite/annuaire/annuaire-factice";
-import { ouvrirBancAnnuaire } from "./identite/annuaire/banc-annuaire";
-import type { BancAnnuaire } from "./identite/annuaire/banc-annuaire";
 import { MOTEURS } from "./identite/banc";
+import { ouvrirBancFournisseur } from "./identite/banc-fournisseur";
+import type { BancFournisseur } from "./identite/banc-fournisseur";
 
 configurerCoffre({
   cleEnv: randomBytes(32).toString("base64"),
@@ -65,7 +64,7 @@ describe("accesPerimeDe : mode local réservé aux administrateurs", () => {
 });
 
 describe.each(MOTEURS)("accès non interactifs d'un compte local en mode réservé (%s)", (moteur) => {
-  let b: BancAnnuaire;
+  let b: BancFournisseur;
   let reserve: boolean;
   let maintenant: number;
   let ordinaire: number;
@@ -86,7 +85,7 @@ describe.each(MOTEURS)("accès non interactifs d'un compte local en mode réserv
   };
 
   beforeEach(async () => {
-    b = await ouvrirBancAnnuaire(moteur, [{}], new AnnuaireFactice());
+    b = await ouvrirBancFournisseur(moteur);
     maintenant = Math.floor(Date.now() / 1000);
     b.horloge = maintenant;
     reserve = false;

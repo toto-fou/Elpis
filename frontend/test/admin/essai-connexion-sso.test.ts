@@ -21,12 +21,8 @@ const BORNES = {
   label_max: 40,
   ca_pem_max: 65536,
   required_groups_max: 20,
-  ldap_urls_max: 3,
   secret_max: 16384,
   freshness_days: { min: 1, max: 90, default: 14 },
-  max_failures: { min: 1, max: 20, default: 4 },
-  failure_window_sec: { min: 60, max: 86400, default: 900 },
-  timeout_sec: { min: 2, max: 30, default: 10 },
   clock_skew_sec: { min: 0, max: 300, default: 60 },
 };
 

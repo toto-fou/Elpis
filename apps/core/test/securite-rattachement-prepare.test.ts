@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-rattachement-prepare.test.ts — un rattachement préparé ne crée jamais de compte et n'attache rien sans la preuve du titulaire (ancien mot de passe du compte de la ligne) ou une dispense courte réservée aux simples utilisateurs ; égalité stricte de l'identifiant dans l'alphabet sûr et de l'ancre du fournisseur ; ligne qui ne survit pas à ce qui l'invalide ; périmé ignoré ; ignoré pour un annuaire LDAP ; consommation revérifiée dans l'écriture (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/securite-rattachement-prepare.test.ts — un rattachement préparé ne crée jamais de compte et n'attache rien sans la preuve du titulaire (ancien mot de passe du compte de la ligne) ou une dispense courte réservée aux simples utilisateurs ; égalité stricte de l'identifiant dans l'alphabet sûr et de l'ancre du fournisseur ; ligne qui ne survit pas à ce qui l'invalide ; périmé ignoré  ; consommation revérifiée dans l'écriture (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,7 +26,7 @@ import type { DependancesProvisionnement, ProfilIdentite } from "../src/identite
 import { validerFournisseur } from "../src/identite/reglages";
 import type { FournisseurOidc } from "../src/identite/reglages";
 import { journalMuet, lignesAuditRecentes } from "./aides";
-import { ldapValide, oidcValide } from "./identite/aides";
+import { oidcValide } from "./identite/aides";
 import { MOTEURS } from "./identite/banc";
 
 const T = 1_800_000_000;
@@ -89,7 +89,6 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
     oidcValide({ id: "sso", required_groups: ["elpis"], issuer: ISSUER_URL }),
   ) as FournisseurOidc;
   const ancre = ancreIdentite(oidc);
-  const ldap = validerFournisseur(ldapValide({ required_groups: ["cn=elpis"] }));
 
   const preparer = async (
     uid: number,
@@ -353,24 +352,6 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
       expect(await identites()).toEqual([]);
     });
 
-    it("annuaire LDAP : les rattachements préparés sont ignorés, l'homonyme est refusé", async () => {
-      const jean = await createUser(t.base, "jean", "mdp-local-1");
-      await preparer(jean, "jean", { dispense: true, fournisseurId: "annuaire" });
-      const r = await resoudreIdentite(dep, {
-        fournisseur: ldap,
-        profil: profil({
-          subject: "cle-1",
-          issuer: "ldap:cn=users,dc=exemple,dc=lan#entryuuid",
-          extUsername: "jean",
-        }),
-        appartenance: "oui",
-        maintenant: T,
-      });
-      expect(r).toMatchObject({ type: "refus", raison: "account_conflict" });
-      expect(await identites()).toEqual([]);
-      expect(await lignes()).toHaveLength(1);
-    });
-
     it("le rattachement préparé d'un autre fournisseur ne correspond pas", async () => {
       const jean = await createUser(t.base, "jean-dupont", "mdp-local-1");
       await preparer(jean, "jean.dupont", { dispense: true, fournisseurId: "autre" });
@@ -380,7 +361,7 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
   });
 
   describe("une ligne préparée ne survit pas à ce qui l'invalide", () => {
-    it("rattacher le compte (assistant d'annuaire) supprime sa ligne ; détacher ne la fait pas revivre", async () => {
+    it("rattacher le compte à une identité supprime sa ligne ; détacher ne la fait pas revivre", async () => {
       const jean = await createUser(t.base, "jean-dupont", "mdp-local-1");
       await preparer(jean, "jean.dupont");
       const obstacle = await t.base.ecriture((x) =>
@@ -388,9 +369,9 @@ describe.each(MOTEURS)("rattachements préparés : résolution et preuve (%s)", 
           x,
           jean,
           {
-            fournisseurId: "annuaire",
+            fournisseurId: "autre",
             subject: "cle",
-            issuer: "ldap:x",
+            issuer: "oidc:https://autre.exemple.lan",
             extUsername: "jean",
             extEmail: "",
             extName: "",

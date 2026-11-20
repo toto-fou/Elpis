@@ -62,18 +62,19 @@ describe("ouvrirSession : méthode contrôlée à l'exécution", () => {
   const ouvrir = (methode: string) =>
     ouvrirSession(new Session(), { uid: 1, methode: methode as "password", maintenant: 1, dureeMax: 100 });
 
-  it.each(["password", "ldap:a", "oidc:sso-1", `ldap:${"a".repeat(31)}`])("accepte %s", (m) => {
+  it.each(["password", "oidc:a", "oidc:sso-1", `oidc:${"a".repeat(31)}`])("accepte %s", (m) => {
     expect(() => ouvrir(m)).not.toThrow();
   });
 
   it.each([
     "",
     "Password",
-    "ldap:",
-    "ldap:-a",
-    "ldap:A",
+    "oidc:",
+    "oidc:-a",
+    "ldap:a",
+    "oidc:A",
     "saml:x",
-    `ldap:${"a".repeat(32)}`,
+    `oidc:${"a".repeat(32)}`,
     "oidc:a b",
     "password\n",
   ])("refuse %j sans toucher la session", (m) => {

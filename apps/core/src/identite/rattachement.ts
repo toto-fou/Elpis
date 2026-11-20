@@ -148,24 +148,23 @@ export async function revoquerOauthRattachement(
   }
 }
 
-/** Ligne d'audit d'un rattachement réussi (l'auteur est l'opérateur, ou le compte lui-même quand personne n'a agi) ; `methode` : `assistant`, `proof` ou `waiver`. */
+/** Ligne d'audit d'un rattachement réussi (l'auteur est le compte lui-même) ; `methode` : `proof` ou `waiver`. */
 export function auditerRattachement(
   e: {
     readonly uid: number;
     readonly username: string | null;
     readonly fournisseurId: string;
     readonly par: string;
-    readonly methode: "assistant" | "proof" | "waiver";
+    readonly methode: "proof" | "waiver";
     readonly subject: string;
     readonly identifiantRecu?: string;
-    readonly acteur?: { id: number; username: string | null } | null;
-    readonly jetons?: { readonly tokens: number; readonly oauth: number } | "kept";
+    readonly jetons?: { readonly tokens: number; readonly oauth: number };
   },
   ip: string | null,
 ): void {
   auditEvent({
-    userId: e.acteur?.id ?? e.uid,
-    username: e.acteur === undefined || e.acteur === null ? e.username : e.acteur.username,
+    userId: e.uid,
+    username: e.username,
     action: "auth.identity.link",
     ip,
     details: {
@@ -177,11 +176,7 @@ export function auditerRattachement(
       ...(e.identifiantRecu === undefined
         ? {}
         : { identifier_hash: empreinteIdentifiant(e.identifiantRecu) }),
-      ...(e.jetons === undefined
-        ? {}
-        : e.jetons === "kept"
-          ? { kept: true }
-          : { revoked_tokens: e.jetons.tokens, revoked_oauth: e.jetons.oauth }),
+      ...(e.jetons === undefined ? {} : { revoked_tokens: e.jetons.tokens, revoked_oauth: e.jetons.oauth }),
     },
   });
 }

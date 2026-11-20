@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/admin/SectionDroitsFournisseur.vue — tiroir d'un fournisseur d'identité : rôles et groupes Elpis d'après les groupes de l'annuaire ou du SSO (repliée, éteinte par défaut). -->
+<!-- frontend/src/components/admin/SectionDroitsFournisseur.vue — tiroir d'un fournisseur d'identité : rôles et groupes Elpis d'après les groupes du fournisseur (repliée, éteinte par défaut). -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -27,7 +27,7 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
             :disabled="!!general"
             :title="general"
           />
-          Donner les rôles d'après les groupes de l'annuaire
+          Donner les rôles d'après les groupes du fournisseur
         </label>
         <p class="adm-card__hint">
           Le rôle d'une personne est recalculé à chacune de ses connexions. Dans la page Comptes, il ne peut
@@ -60,7 +60,7 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
               v-model="f.admin_saisi"
               class="set-input flex-1"
               :disabled="!!general"
-              :title="general || 'Identifiant exact du groupe (DN complet pour un annuaire).'"
+              :title="general || 'Valeur exacte du groupe, telle que le fournisseur la transmet.'"
               @keydown.enter.prevent="adm.authAjouterGroupeRole('admin')"
             />
             <button
@@ -101,7 +101,7 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
               v-model="f.moderator_saisi"
               class="set-input flex-1"
               :disabled="!!general"
-              :title="general || 'Identifiant exact du groupe (DN complet pour un annuaire).'"
+              :title="general || 'Valeur exacte du groupe, telle que le fournisseur la transmet.'"
               @keydown.enter.prevent="adm.authAjouterGroupeRole('moderator')"
             />
             <button
@@ -124,7 +124,7 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
             :disabled="!!general"
             :title="general"
           />
-          Affecter aux groupes Elpis d'après les groupes de l'annuaire
+          Affecter aux groupes Elpis d'après les groupes du fournisseur
         </label>
         <p class="adm-card__hint">
           Seuls les groupes Elpis cités ici sont gérés ; les autres appartenances d'un compte ne sont jamais
@@ -158,10 +158,10 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
             id="ent-map-externe"
             v-model="f.map_externe"
             class="set-input flex-1 font-mono text-xs"
-            aria-label="Groupe de l'annuaire"
-            placeholder="Groupe de l'annuaire"
+            aria-label="Groupe du fournisseur"
+            placeholder="Groupe du fournisseur"
             :disabled="!!general"
-            :title="general || 'Identifiant exact du groupe (DN complet pour un annuaire).'"
+            :title="general || 'Valeur exacte du groupe, telle que le fournisseur la transmet.'"
             @keydown.enter.prevent="adm.authAjouterCorrespondance()"
           />
           <select

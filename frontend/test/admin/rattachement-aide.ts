@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/admin/rattachement-aide.ts — montage de la page Connexion d'entreprise (et du tiroir de rattachement) avec un faux serveur, pour les tests du balayage, de l'assistant et des rattachements préparés. */
+/** frontend/test/admin/rattachement-aide.ts — montage de la page Connexion d'entreprise avec un faux serveur, pour les tests des rattachements préparés et des identités des comptes. */
 import * as Vue from "vue";
 import { createApp, defineComponent, h, reactive, ref } from "vue";
 import type { App } from "vue";
@@ -20,12 +20,8 @@ export const BORNES = {
   label_max: 40,
   ca_pem_max: 65536,
   required_groups_max: 20,
-  ldap_urls_max: 3,
   secret_max: 16384,
   freshness_days: { min: 1, max: 90, default: 14 },
-  max_failures: { min: 1, max: 20, default: 4 },
-  failure_window_sec: { min: 60, max: 86400, default: 900 },
-  timeout_sec: { min: 2, max: 30, default: 10 },
   clock_skew_sec: { min: 0, max: 300, default: 60 },
 };
 
@@ -41,21 +37,6 @@ const COMMUN = {
   tested: true,
   active: true,
   identities: 0,
-};
-export const LDAP = {
-  ...COMMUN,
-  type: "ldap" as const,
-  id: "ipa",
-  label: "Annuaire siège",
-  urls: ["ldaps://ipa.example.lan"],
-  bind_dn: "uid=elpis,cn=users",
-  user_base_dn: "cn=users,dc=example",
-  user_filter: "(uid={username})",
-  attrs: { id: "ipaUniqueID", username: "uid", email: "mail", name: "displayName" },
-  groups: { mode: "memberof" as const },
-  max_failures: 4,
-  failure_window_sec: 900,
-  timeout_sec: 10,
 };
 export const OIDC = {
   ...COMMUN,
@@ -82,32 +63,6 @@ export const OIDC = {
   logout: { rp_initiated: false, backchannel: false },
 };
 
-export function retenus(n: number, debut = 1) {
-  return Array.from({ length: n }, (_, i) => ({
-    user_id: debut + i,
-    username: "compte" + (debut + i),
-    reason: "entry_missing",
-  }));
-}
-
-export function sweep(over: Record<string, unknown> = {}) {
-  return {
-    at: Math.floor(Date.now() / 1000) - 600,
-    seen: 120,
-    suspended: 2,
-    reactivated: 1,
-    unknown: 3,
-    aborted: null,
-    pending: 0,
-    held: [],
-    held_total: 0,
-    held_hash: "",
-    observed: [],
-    ok_at: null,
-    ...over,
-  };
-}
-
 export function etat(providers: unknown[], over: Record<string, unknown> = {}) {
   return {
     public_url: "https://elpis.example.lan",
@@ -118,23 +73,6 @@ export function etat(providers: unknown[], over: Record<string, unknown> = {}) {
     bounds: BORNES,
     ...over,
   };
-}
-
-export function proposition(over: Record<string, unknown> = {}) {
-  return {
-    subject: "uid-1",
-    dn: "uid=alice,cn=users,dc=example",
-    ext_username: "alice",
-    ext_name: "Alice Martin",
-    ext_email: "alice@example.lan",
-    state: "active",
-    in_required_group: true,
-    ...over,
-  };
-}
-
-export function aMigrer(id: number, nom: string, role = "user", prop: unknown = null) {
-  return { user_id: id, username: nom, role, last_login_at: null, suspended: false, proposal: prop };
 }
 
 export function compteConsole(id: number, nom: string, extra: Record<string, unknown> = {}) {

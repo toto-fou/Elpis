@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-oidc-correctifs.test.ts — la connexion SSO reste disponible pour tous (plafonds IPv6 au /64, par fournisseur, panne de découverte gardée, jetons rendus après une réussite), refuse un `azp` étranger, range la ligne de session avant l'audit de succès et n'en garde pas après fermeture, coupe sans révoquer les accès quand l'annuaire retire la personne du groupe (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/securite-oidc-correctifs.test.ts — la connexion SSO reste disponible pour tous (plafonds IPv6 au /64, par fournisseur, panne de découverte gardée, jetons rendus après une réussite), refuse un `azp` étranger, range la ligne de session avant l'audit de succès et n'en garde pas après fermeture, coupe sans révoquer les accès quand le fournisseur retire la personne du groupe (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { cleAdresse, cleAdresseExacte } from "@elpis/auth";
 import { configurerCoffre } from "@elpis/securite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

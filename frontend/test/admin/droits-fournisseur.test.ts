@@ -6,7 +6,6 @@ import { lignesDroits } from "../../src/features/admin/identite";
 import { reinitialiserSuiviChargement } from "../../src/features/admin/suivi-chargement";
 import { json } from "../aides";
 import {
-  LDAP,
   OIDC,
   clic,
   cocher,
@@ -26,9 +25,7 @@ afterEach(() => {
 });
 
 const PUT_SSO = "PUT /api/admin/auth/providers/sso";
-const PUT_IPA = "PUT /api/admin/auth/providers/ipa";
 const SSO_2FA = { ...OIDC, required_acr: ["mfa"] };
-const LDAP_ETEINT = { ...LDAP, enabled: false, active: false, tested: false };
 const GROUPES = [
   { id: 7, name: "développeurs" },
   { id: 8, name: "support" },
@@ -74,8 +71,8 @@ describe("section Rôles et groupes : état d'origine", () => {
   });
 
   it("le test d'un fournisseur sans option n'envoie rien de plus", async () => {
-    const m = await ouvrir(LDAP_ETEINT, "ipa");
-    m.reponses["POST /api/admin/auth/providers/test"] = [json({ ok: true, complete: false, steps: [] })];
+    const m = await ouvrir(SSO_2FA, "sso");
+    m.reponses["POST /api/admin/auth/providers/test"] = [json({ ok: true, steps: [] })];
     await clic("#ent-tester");
     const c = envoye(m, "POST /api/admin/auth/providers/test");
     expect(Object.keys(c)).not.toContain("roles");
@@ -175,7 +172,7 @@ describe("section Rôles et groupes : confirmation à la création et au changem
   it("la création d'un fournisseur avec des groupes administrateurs demande la saisie et l'envoie", async () => {
     const m = monter(etat([]), {});
     await m.A.loadEnterpriseAuth();
-    m.A.authNouveau("oidc");
+    m.A.authNouveau();
     await vider();
     const f = m.A.authTiroir.value;
     if (!f) throw new Error("tiroir absent");
@@ -188,23 +185,10 @@ describe("section Rôles et groupes : confirmation à la création et au changem
       roles_enabled: true,
       admin_groups: ["cn=admins"],
     });
-    m.reponses["POST /api/admin/auth/providers"] = [json(etat([LDAP_ETEINT]))];
+    m.reponses["POST /api/admin/auth/providers"] = [json(etat([SSO_2FA]))];
     await clic("#ent-enregistrer-fournisseur");
     expect(m.mots).toEqual(["administrateur"]);
     expect(envoye(m, "POST /api/admin/auth/providers")["confirm_admin_mapping"]).toBe(true);
-  });
-
-  it("un annuaire : changer l'appartenance rouvre la confirmation", async () => {
-    const enreg = { ...LDAP_ETEINT, roles: ADMINS };
-    const m = await ouvrir(enreg, "ipa");
-    m.reponses[PUT_IPA] = [json(etat([enreg]))];
-    const f = m.A.authTiroir.value;
-    if (!f) throw new Error("tiroir absent");
-    f.groups_mode = "chain";
-    await vider();
-    await clic("#ent-enregistrer-fournisseur");
-    expect(m.mots).toEqual(["administrateur"]);
-    expect(envoye(m, PUT_IPA)["confirm_admin_mapping"]).toBe(true);
   });
 
   for (const champ of ["groups_claim", "required_acr", "required_amr"] as const)
@@ -222,8 +206,8 @@ describe("section Rôles et groupes : confirmation à la création et au changem
     });
 
   it("le 400 d'un groupe Elpis inexistant affiche son détail", async () => {
-    const m = await ouvrir(LDAP_ETEINT, "ipa");
-    m.reponses[PUT_IPA] = [
+    const m = await ouvrir(SSO_2FA, "sso");
+    m.reponses[PUT_SSO] = [
       json({ detail: "Champ « group_map.map.group_id » : ce groupe n'existe pas." }, 400),
     ];
     await clic("#ent-enregistrer-fournisseur");
@@ -256,19 +240,11 @@ describe("section Rôles et groupes : SSO sans second facteur", () => {
     expect(enregistrer()?.disabled).toBe(false);
   });
 
-  it("un annuaire n'est jamais bloqué", async () => {
-    await ouvrir(LDAP_ETEINT, "ipa");
-    await cocher(el<HTMLInputElement>("#ent-roles-actif"));
-    await ajouterAdmin("cn=admins,dc=example");
-    expect(el("[data-exiger-second-facteur]")).toBeNull();
-    expect(enregistrer()?.disabled).toBe(false);
-  });
-
   it("le 409 du serveur est affiché tel quel", async () => {
-    const m = await ouvrir(LDAP_ETEINT, "ipa");
+    const m = await ouvrir(SSO_2FA, "sso");
     await cocher(el<HTMLInputElement>("#ent-roles-actif"));
     await ajouterAdmin("cn=admins,dc=example");
-    m.reponses[PUT_IPA] = [
+    m.reponses[PUT_SSO] = [
       json({ detail: "Confirmez que les membres de ces groupes deviennent administrateurs." }, 409),
     ];
     await clic("#ent-enregistrer-fournisseur");
@@ -281,7 +257,7 @@ describe("section Rôles et groupes : SSO sans second facteur", () => {
 
 describe("section Rôles et groupes : groupes Elpis", () => {
   it("une correspondance se compose avec la liste des groupes Elpis et part dans le corps", async () => {
-    const m = await ouvrir(LDAP_ETEINT, "ipa");
+    const m = await ouvrir(SSO_2FA, "sso");
     expect(tous<HTMLOptionElement>("#ent-map-groupe option").map((o) => o.textContent)).toEqual([
       "Groupe Elpis…",
       "développeurs",
@@ -294,9 +270,9 @@ describe("section Rôles et groupes : groupes Elpis", () => {
     await clic("[data-map-ajouter]");
     expect(el("[data-correspondance]")?.textContent).toContain("cn=dev,dc=example");
     expect(el("[data-correspondance]")?.textContent).toContain("développeurs");
-    m.reponses[PUT_IPA] = [json(etat([LDAP_ETEINT]))];
+    m.reponses[PUT_SSO] = [json(etat([SSO_2FA]))];
     await clic("#ent-enregistrer-fournisseur");
-    expect(envoye(m, PUT_IPA)["group_map"]).toEqual({
+    expect(envoye(m, PUT_SSO)["group_map"]).toEqual({
       enabled: true,
       map: [{ external: "cn=dev,dc=example", group_id: 7 }],
     });
@@ -305,62 +281,13 @@ describe("section Rôles et groupes : groupes Elpis", () => {
 
   it("un groupe Elpis disparu reste lisible et une correspondance se retire", async () => {
     const enreg = {
-      ...LDAP_ETEINT,
+      ...SSO_2FA,
       group_map: { enabled: true, map: [{ external: "cn=x", group_id: 99 }] },
     };
-    await ouvrir(enreg, "ipa");
+    await ouvrir(enreg, "sso");
     expect(el("[data-correspondance]")?.textContent).toContain("Groupe n°99");
     await clic('[aria-label="Retirer la correspondance cn=x"]');
     expect(el("[data-correspondance]")).toBeNull();
-  });
-});
-
-describe("activation et essai", () => {
-  it("une modification des droits demande d'enregistrer puis de tester avant d'activer", async () => {
-    const prov = { ...LDAP_ETEINT, tested: false };
-    const m = await ouvrir(prov, "ipa");
-    expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
-    await cocher(el<HTMLInputElement>("#ent-groupes-actif"));
-    m.reponses["POST /api/admin/auth/providers/test"] = [
-      json({
-        ok: true,
-        complete: true,
-        steps: [{ id: "a", label: "A", level: "ok", detail: "", target: null }],
-      }),
-    ];
-    await clic("#ent-tester");
-    expect(el("#ent-essai-enregistrer")?.textContent).toContain("Enregistrez ces réglages");
-  });
-
-  it("le Tester d'un annuaire montre les deux étapes de droits rendues par le serveur", async () => {
-    const m = await ouvrir(LDAP_ETEINT, "ipa");
-    m.reponses["POST /api/admin/auth/providers/test"] = [
-      json({
-        ok: true,
-        complete: true,
-        steps: [
-          {
-            id: "role_groups",
-            label: "Groupes des rôles",
-            level: "ok",
-            detail: "2 groupes trouvés.",
-            target: null,
-          },
-          {
-            id: "test_user_rights",
-            label: "Droits de l'utilisateur d'essai",
-            level: "ok",
-            detail: "Rôle obtenu : administrateur. Groupes Elpis (identifiants) : 7.",
-            target: null,
-          },
-        ],
-      }),
-    ];
-    await clic("#ent-tester");
-    expect(el('[data-etape="role_groups"]')?.textContent).toContain("Groupes des rôles");
-    expect(el('[data-etape="test_user_rights"]')?.textContent).toContain(
-      "Rôle obtenu : administrateur. Groupes Elpis (identifiants) : 7.",
-    );
   });
 });
 
@@ -431,14 +358,14 @@ describe("essai de connexion SSO : droits affichés", () => {
   });
 });
 
-describe("page Comptes : rôle géré par l'annuaire", () => {
+describe("page Comptes : rôle géré par le fournisseur", () => {
   const UTIL = [
     compteConsole(1, "root", { is_admin: 1 }),
     compteConsole(2, "alice", { is_admin: 2, role_managed: true }),
     compteConsole(3, "bob"),
   ];
   async function page() {
-    const m = monter(etat([LDAP]), { page: "accounts", utilisateurs: UTIL });
+    const m = monter(etat([OIDC]), { page: "accounts", utilisateurs: UTIL });
     await m.A.loadEnterpriseAuth();
     await m.A.loadUsers();
     await vider();
@@ -458,14 +385,14 @@ describe("page Comptes : rôle géré par l'annuaire", () => {
     await ouvrirEdition(m, 2);
     const bloc = el("[data-role-gere]");
     expect(tous<HTMLOptionElement>(OPTIONS).map((o) => o.value)).toEqual(["moderator", "user"]);
-    expect(bloc?.textContent).toContain("géré par l'annuaire");
+    expect(bloc?.textContent).toContain("géré par le fournisseur");
     expect(bloc?.querySelector(".adm-pill")?.getAttribute("title")).toBe(
-      "Le rôle de ce compte est donné par un groupe de votre annuaire. Vous pouvez seulement le rétrograder ; il sera recalculé à sa prochaine connexion.",
+      "Le rôle de ce compte est donné par un groupe de votre fournisseur d'identité. Vous pouvez seulement le rétrograder ; il sera recalculé à sa prochaine connexion.",
     );
   });
 
   it("un administrateur géré peut descendre à tout rôle inférieur", async () => {
-    const m = monter(etat([LDAP]), {
+    const m = monter(etat([OIDC]), {
       page: "accounts",
       utilisateurs: [
         compteConsole(1, "root", { is_admin: 1 }),
@@ -480,7 +407,7 @@ describe("page Comptes : rôle géré par l'annuaire", () => {
   });
 
   it("un compte géré déjà utilisateur reste en lecture seule", async () => {
-    const m = monter(etat([LDAP]), {
+    const m = monter(etat([OIDC]), {
       page: "accounts",
       utilisateurs: [
         compteConsole(1, "root", { is_admin: 1 }),
@@ -517,7 +444,8 @@ describe("page Comptes : rôle géré par l'annuaire", () => {
     m.reponses["POST /api/admin/users/3/role"] = [
       json(
         {
-          detail: "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+          detail:
+            "Le rôle de ce compte est donné par votre fournisseur d'identité : vous pouvez seulement le rétrograder.",
         },
         409,
       ),
@@ -525,7 +453,7 @@ describe("page Comptes : rôle géré par l'annuaire", () => {
     await saisir("[data-user-edit] select[data-user-edit-first]", "moderator");
     await clic('[data-user-edit] button[type="submit"]');
     expect(m.toasts).toContain(
-      "Le rôle de ce compte est donné par votre annuaire : vous pouvez seulement le rétrograder.",
+      "Le rôle de ce compte est donné par votre fournisseur d'identité : vous pouvez seulement le rétrograder.",
     );
   });
 });

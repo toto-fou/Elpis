@@ -205,7 +205,6 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("client sortant : confiance, adresses, born
           .map((l) => l.trim())
           .filter((l) => l.includes(mot));
       expect(fichiers).toContain("sortant.ts");
-      expect(fichiers).toContain(join("annuaire", "client.ts"));
       const verification = [
         'import { checkServerIdentity, connect as tlsConnect } from "node:tls";',
         "return checkServerIdentity(hote, {",
@@ -255,12 +254,12 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("client sortant : confiance, adresses, born
     it("résolution injectée : le juge réel refuse boucle, lien local, non spécifiée, multidiffusion ; le réseau local passe", async () => {
       const juge = (adresses: string[]): ReturnType<typeof jugeSortant> => jugeSortant(async () => adresses);
       for (const a of ["127.0.0.1", "::1", "169.254.169.254", "0.0.0.0", "224.0.0.1", "fe80::1"]) {
-        const v = await juge([a])("ldap.exemple.lan", 636);
+        const v = await juge([a])("idp.exemple.lan", 443);
         expect(v.motif, a).not.toBeNull();
         expect(v.adresses).toEqual([]);
       }
-      expect((await juge(["10.0.0.5", "127.0.0.1"])("ldap.exemple.lan", 636)).motif).not.toBeNull();
-      expect(await juge(["192.168.1.10"])("ldap.exemple.lan", 636)).toEqual({
+      expect((await juge(["10.0.0.5", "127.0.0.1"])("idp.exemple.lan", 443)).motif).not.toBeNull();
+      expect(await juge(["192.168.1.10"])("idp.exemple.lan", 443)).toEqual({
         motif: null,
         adresses: ["192.168.1.10"],
       });
@@ -350,7 +349,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("client sortant : confiance, adresses, born
       ).toBe("delai");
     });
 
-    it("poignée de main qui ne vient pas : délai de connexion, pour https comme pour ldaps", async () => {
+    it("poignée de main qui ne vient pas : délai de connexion, pour https comme pour la connexion TLS brute", async () => {
       const muet = await ecouter(serveurTcp(() => undefined));
       ouvertes.push(muet);
       expect(

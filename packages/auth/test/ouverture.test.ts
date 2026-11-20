@@ -32,8 +32,8 @@ describe("ouvrirSession", () => {
 
   it("rend un _sid neuf à chaque appel et garde la méthode donnée", () => {
     const s = new Session();
-    const a = ouvrirSession(s, { uid: 1, methode: "ldap:annuaire", maintenant: 1, dureeMax: 100 });
-    expect(s.get("_auth")).toBe("ldap:annuaire");
+    const a = ouvrirSession(s, { uid: 1, methode: "oidc:autre", maintenant: 1, dureeMax: 100 });
+    expect(s.get("_auth")).toBe("oidc:autre");
     const b = ouvrirSession(s, { uid: 1, methode: "oidc:sso", maintenant: 2, dureeMax: 100 });
     expect(b).not.toBe(a);
     expect(s.get("_sid")).toBe(b);

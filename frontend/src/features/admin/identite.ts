@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › Connexion d'entreprise : lecture et écritures des réglages `auth`, formulaire d'un fournisseur (LDAP, OIDC), secret, activation. */
+/** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › Connexion d'entreprise : lecture et écritures des réglages `auth`, formulaire d'un fournisseur OpenID Connect, secret, activation. */
 import {
   schemaHoteNonCanonique,
   schemaReglagesAuth,
@@ -106,16 +106,7 @@ export function lignesDroits(d: ResultatEssaiBlanc["rights"]): string[] {
   return l;
 }
 
-export type TypeFournisseur = "ldap" | "oidc";
 export type ModeLocal = "all" | "admins";
-
-export interface PresetLdap {
-  id: string;
-  label: string;
-  filtre: string;
-  attrs: { id: string; username: string; email: string; name: string };
-  groupes: string;
-}
 
 export const GROUPES_ROLE_MAX = 20;
 export const CORRESPONDANCES_MAX = 50;
@@ -126,41 +117,10 @@ export interface Correspondance {
   group_id: number;
 }
 
-export const PRESETS_LDAP: readonly PresetLdap[] = [
-  {
-    id: "freeipa",
-    label: "FreeIPA",
-    filtre: "(&(objectClass=person)(uid={username}))",
-    attrs: { id: "ipaUniqueID", username: "uid", email: "mail", name: "displayName" },
-    groupes: "memberof",
-  },
-  {
-    id: "active-directory",
-    label: "Active Directory",
-    filtre: "(&(objectCategory=person)(objectClass=user)(sAMAccountName={username}))",
-    attrs: { id: "objectGUID", username: "sAMAccountName", email: "mail", name: "displayName" },
-    groupes: "chain",
-  },
-  {
-    id: "openldap",
-    label: "OpenLDAP",
-    filtre: "(&(objectClass=inetOrgPerson)(uid={username}))",
-    attrs: { id: "entryUUID", username: "uid", email: "mail", name: "cn" },
-    groupes: "member",
-  },
-  {
-    id: "other",
-    label: "Autre",
-    filtre: "",
-    attrs: { id: "", username: "", email: "", name: "" },
-    groupes: "",
-  },
-];
-
 /** Formulaire d'un fournisseur : tout en texte, converti à l'envoi ; le secret n'y vit que le temps de la saisie. */
 export interface FormFournisseur {
   nouveau: boolean;
-  type: TypeFournisseur;
+  type: "oidc";
   id: string;
   label: string;
   preset: string;
@@ -179,19 +139,6 @@ export interface FormFournisseur {
   map_groupe: number;
   freshness_days: string;
   secret: string;
-  test_user: string;
-  urls: string;
-  bind_dn: string;
-  user_base_dn: string;
-  user_filter: string;
-  attr_id: string;
-  attr_username: string;
-  attr_email: string;
-  attr_name: string;
-  groups_mode: string;
-  max_failures: string;
-  failure_window_sec: string;
-  timeout_sec: string;
   issuer: string;
   client_id: string;
   client_auth: string;
@@ -212,13 +159,12 @@ export interface FormFournisseur {
 }
 
 const chiffre = (n: number): string => String(n);
-const lignes = (l: readonly string[]): string => l.join("\n");
 const mots = (t: string): string[] => t.split(/[\s,]+/u).filter((x) => x !== "");
 
-function formVide(type: TypeFournisseur): FormFournisseur {
+function formVide(): FormFournisseur {
   return {
     nouveau: true,
-    type,
+    type: "oidc",
     id: "",
     label: "",
     preset: "",
@@ -237,19 +183,6 @@ function formVide(type: TypeFournisseur): FormFournisseur {
     map_groupe: 0,
     freshness_days: "",
     secret: "",
-    test_user: "",
-    urls: "",
-    bind_dn: "",
-    user_base_dn: "",
-    user_filter: "",
-    attr_id: "",
-    attr_username: "",
-    attr_email: "",
-    attr_name: "",
-    groups_mode: "",
-    max_failures: "",
-    failure_window_sec: "",
-    timeout_sec: "",
     issuer: "",
     client_id: "",
     client_auth: "",
@@ -284,7 +217,7 @@ function droitsPresents(f: FormFournisseur): boolean {
 /** Formulaire rempli des réglages d'un fournisseur lu (jamais de secret). */
 function formDe(f: FournisseurAuth): FormFournisseur {
   const base: FormFournisseur = {
-    ...formVide(f.type),
+    ...formVide(),
     nouveau: false,
     id: f.id,
     label: f.label,
@@ -299,22 +232,6 @@ function formDe(f: FournisseurAuth): FormFournisseur {
     freshness_days: chiffre(f.freshness_days),
   };
   base.droits_actifs = droitsPresents(base);
-  if (f.type === "ldap")
-    return {
-      ...base,
-      urls: lignes(f.urls),
-      bind_dn: f.bind_dn,
-      user_base_dn: f.user_base_dn,
-      user_filter: f.user_filter,
-      attr_id: f.attrs.id,
-      attr_username: f.attrs.username,
-      attr_email: f.attrs.email,
-      attr_name: f.attrs.name,
-      groups_mode: f.groups.mode,
-      max_failures: chiffre(f.max_failures),
-      failure_window_sec: chiffre(f.failure_window_sec),
-      timeout_sec: chiffre(f.timeout_sec),
-    };
   return {
     ...base,
     issuer: f.issuer,
@@ -344,27 +261,17 @@ function entierSaisi(v: string, nom: string): number | undefined | string {
   return /^\d{1,9}$/u.test(t) ? Number(t) : `Champ « ${nom} » : nombre entier attendu.`;
 }
 
-const REQUIS: Record<TypeFournisseur, readonly (readonly [keyof FormFournisseur, string])[]> = {
-  ldap: [
-    ["id", "Identifiant"],
-    ["label", "Libellé"],
-    ["urls", "Adresses"],
-    ["bind_dn", "Compte de service"],
-    ["user_base_dn", "Base des comptes"],
-    ["user_filter", "Filtre"],
-  ],
-  oidc: [
-    ["id", "Identifiant"],
-    ["label", "Libellé"],
-    ["issuer", "Autorité"],
-    ["client_id", "Identifiant client"],
-  ],
-};
+const REQUIS: readonly (readonly [keyof FormFournisseur, string])[] = [
+  ["id", "Identifiant"],
+  ["label", "Libellé"],
+  ["issuer", "Autorité"],
+  ["client_id", "Identifiant client"],
+];
 
 /** Corps de création ou de modification d'un fournisseur ; une chaîne seule est un message d'erreur de saisie. */
-export function corpsFournisseur(f: FormFournisseur, urlsMax: number): Record<string, unknown> | string {
+export function corpsFournisseur(f: FormFournisseur): Record<string, unknown> | string {
   if (f.nouveau)
-    for (const [cle, nom] of REQUIS[f.type])
+    for (const [cle, nom] of REQUIS)
       if (String(f[cle]).trim() === "") return `Champ « ${nom} » : à renseigner.`;
   const corps: Record<string, unknown> = {
     label: f.label.trim(),
@@ -388,48 +295,21 @@ export function corpsFournisseur(f: FormFournisseur, urlsMax: number): Record<st
     if (v.trim() !== "") corps[cle] = v.trim();
   };
   const nombres: [string, string, string][] = [["freshness_days", f.freshness_days, "Fraîcheur"]];
-  if (f.type === "ldap") {
-    const urls = f.urls
-      .split("\n")
-      .map((u) => u.trim())
-      .filter((u) => u !== "");
-    if (urls.length > urlsMax) return `Champ « Adresses » : ${urlsMax} au plus.`;
-    if (urls.length > 0) corps["urls"] = urls;
-    texte("bind_dn", f.bind_dn);
-    texte("user_base_dn", f.user_base_dn);
-    texte("user_filter", f.user_filter);
-    const attrs: Record<string, string> = {};
-    for (const [k, v] of [
-      ["id", f.attr_id],
-      ["username", f.attr_username],
-      ["email", f.attr_email],
-      ["name", f.attr_name],
-    ] as const)
-      if (v.trim() !== "") attrs[k] = v.trim();
-    if (Object.keys(attrs).length > 0) corps["attrs"] = attrs;
-    if (f.groups_mode !== "") corps["groups"] = { mode: f.groups_mode };
-    nombres.push(
-      ["max_failures", f.max_failures, "Essais"],
-      ["failure_window_sec", f.failure_window_sec, "Fenêtre"],
-      ["timeout_sec", f.timeout_sec, "Délai"],
-    );
-  } else {
-    texte("issuer", f.issuer);
-    texte("client_id", f.client_id);
-    texte("client_auth", f.client_auth);
-    texte("id_token_alg", f.id_token_alg);
-    for (const k of ["subject_claim", "username_claim", "email_claim", "name_claim", "groups_claim"] as const)
-      texte(k, f[k]);
-    if (mots(f.scopes).length > 0) corps["scopes"] = mots(f.scopes);
-    corps["required_acr"] = mots(f.required_acr);
-    corps["required_amr"] = mots(f.required_amr);
-    corps["logout"] = { rp_initiated: f.rp_initiated, backchannel: f.backchannel };
-    nombres.push(
-      ["max_age_sec", f.max_age_sec, "Âge maximal"],
-      ["clock_skew_sec", f.clock_skew_sec, "Écart d'horloge"],
-      ["session_max_age_sec", f.session_max_age_sec, "Durée de session"],
-    );
-  }
+  texte("issuer", f.issuer);
+  texte("client_id", f.client_id);
+  texte("client_auth", f.client_auth);
+  texte("id_token_alg", f.id_token_alg);
+  for (const k of ["subject_claim", "username_claim", "email_claim", "name_claim", "groups_claim"] as const)
+    texte(k, f[k]);
+  if (mots(f.scopes).length > 0) corps["scopes"] = mots(f.scopes);
+  corps["required_acr"] = mots(f.required_acr);
+  corps["required_amr"] = mots(f.required_amr);
+  corps["logout"] = { rp_initiated: f.rp_initiated, backchannel: f.backchannel };
+  nombres.push(
+    ["max_age_sec", f.max_age_sec, "Âge maximal"],
+    ["clock_skew_sec", f.clock_skew_sec, "Écart d'horloge"],
+    ["session_max_age_sec", f.session_max_age_sec, "Durée de session"],
+  );
   for (const [cle, v, nom] of nombres) {
     const n = entierSaisi(v, nom);
     if (typeof n === "string") return n;
@@ -455,7 +335,6 @@ export function creerIdentite(b: BaseAdmin) {
   const authBusy = ref(false);
   const authTiroir: Ref<FormFournisseur | null> = ref(null);
   const authTiroirErreur = ref("");
-  const authAjoutOuvert = ref(false);
   const authDrawer: Ref<HTMLElement | null> = ref(null);
   const gardeFocus = creerGardeFocus();
   const authEssai: Ref<ReponseEssaiFournisseur | null> = ref(null);
@@ -486,22 +365,15 @@ export function creerIdentite(b: BaseAdmin) {
     if (!f) return false;
     const p = authFournisseur.value;
     if (!p || f.secret !== "") return true;
-    const max = authEtat.value?.bounds.ldap_urls_max ?? 1;
     return (
-      JSON.stringify(corpsFournisseur({ ...f, nouveau: false }, max)) !==
-      JSON.stringify(corpsFournisseur(formDe(p), max))
+      JSON.stringify(corpsFournisseur({ ...f, nouveau: false })) !==
+      JSON.stringify(corpsFournisseur(formDe(p)))
     );
   });
   /** Groupes administrateurs saisis alors que ce SSO n'exige ni niveau ni méthode d'authentification. */
   const authAdminSansSecondFacteur = computed(() => {
     const f = authTiroir.value;
-    return (
-      !!f &&
-      f.type === "oidc" &&
-      f.admin_groups.length > 0 &&
-      f.required_acr.trim() === "" &&
-      f.required_amr.trim() === ""
-    );
+    return !!f && f.admin_groups.length > 0 && f.required_acr.trim() === "" && f.required_amr.trim() === "";
   });
   /** Enregistrer est indisponible : le serveur refuse des groupes administrateurs actifs sans second facteur exigé. */
   const authRolesBloque = computed(
@@ -516,7 +388,6 @@ export function creerIdentite(b: BaseAdmin) {
     const a = [...p.roles.admin_groups].sort();
     const b = [...f.admin_groups].sort();
     if (a.length !== b.length || a.some((x, i) => x !== b[i])) return true;
-    if (p.type === "ldap") return f.groups_mode !== p.groups.mode;
     const mots_ = (t: string[]): string => [...t].sort().join(" ");
     return (
       f.groups_claim.trim() !== p.groups_claim ||
@@ -636,9 +507,8 @@ export function creerIdentite(b: BaseAdmin) {
       (el?.querySelector<HTMLElement>("input, select, textarea") ?? el)?.focus();
     });
   }
-  function authNouveau(type: TypeFournisseur): void {
-    authAjoutOuvert.value = false;
-    ouvrirTiroir(formVide(type));
+  function authNouveau(): void {
+    ouvrirTiroir(formVide());
   }
   function authModifier(id: string): void {
     const f = authEtat.value?.providers.find((p) => p.id === id);
@@ -662,22 +532,8 @@ export function creerIdentite(b: BaseAdmin) {
     if (page !== "enterprise-login") {
       effacerTrial();
       authTiroir.value = null;
-      authAjoutOuvert.value = false;
     }
   });
-
-  /** Préremplit les champs vides d'après le préréglage LDAP choisi ; une saisie n'est jamais écrasée. */
-  function authAppliquerPreset(): void {
-    const f = authTiroir.value;
-    const p = PRESETS_LDAP.find((x) => x.id === f?.preset);
-    if (!f || !p) return;
-    if (f.user_filter.trim() === "") f.user_filter = p.filtre;
-    if (f.attr_id.trim() === "") f.attr_id = p.attrs.id;
-    if (f.attr_username.trim() === "") f.attr_username = p.attrs.username;
-    if (f.attr_email.trim() === "") f.attr_email = p.attrs.email;
-    if (f.attr_name.trim() === "") f.attr_name = p.attrs.name;
-    if (f.groups_mode === "") f.groups_mode = p.groupes;
-  }
 
   function authAjouterGroupe(): void {
     const f = authTiroir.value;
@@ -734,7 +590,7 @@ export function creerIdentite(b: BaseAdmin) {
     const p = authFournisseur.value;
     if (!p) return "";
     if (p.enabled) return "Désactivez ce fournisseur pour modifier ses réglages.";
-    const figes = p.type === "oidc" ? ["issuer", "client_id", "subject_claim"] : ["attrs.id"];
+    const figes = ["issuer", "client_id", "subject_claim"];
     return p.identities > 0 && figes.includes(champ)
       ? "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur."
       : "";
@@ -750,8 +606,7 @@ export function creerIdentite(b: BaseAdmin) {
     if (etat.prerequisites.local_admins < 1) return "Un administrateur avec mot de passe local est requis.";
     if (p.required_groups.length === 0) return "Indiquez d'abord au moins un groupe requis.";
     if (!p.has_secret) return "Enregistrez d'abord le secret.";
-    if (!p.tested)
-      return p.type === "oidc" ? "Lancez d'abord un essai de connexion." : "Testez d'abord ce fournisseur.";
+    if (!p.tested) return "Lancez d'abord un essai de connexion.";
     return "";
   });
 
@@ -760,7 +615,7 @@ export function creerIdentite(b: BaseAdmin) {
     const f = authTiroir.value;
     const base = authAdressePublique.value;
     const id = f?.id.trim() ?? "";
-    if (!f || f.type !== "oidc" || base === "" || id === "") return null;
+    if (!f || base === "" || id === "") return null;
     return {
       retour: `${base}/api/auth/oidc/${id}/callback`,
       deconnexion: `${base}/api/auth/oidc/${id}/backchannel-logout`,
@@ -791,7 +646,7 @@ export function creerIdentite(b: BaseAdmin) {
       !(await confirmerParMot(
         ctx,
         "Donner le rôle d'administrateur",
-        "Les membres de ces groupes de l'annuaire deviendront administrateurs d'Elpis et pourront faire exécuter des commandes sur le serveur. Tapez « administrateur » pour confirmer.",
+        "Les membres de ces groupes du fournisseur deviendront administrateurs d'Elpis et pourront faire exécuter des commandes sur le serveur. Tapez « administrateur » pour confirmer.",
         MOT_CONFIRMATION_ADMIN,
         "Confirmer",
       ))
@@ -801,7 +656,7 @@ export function creerIdentite(b: BaseAdmin) {
     authBusy.value = true;
     try {
       if (!fige) {
-        const corps = corpsFournisseur(f, etat.bounds.ldap_urls_max);
+        const corps = corpsFournisseur(f);
         if (typeof corps === "string") {
           authTiroirErreur.value = corps;
           return false;
@@ -849,12 +704,12 @@ export function creerIdentite(b: BaseAdmin) {
     }
   }
 
-  /** Teste les réglages du formulaire tels quels ; l'utilisateur d'essai et le secret saisi (annuaire) ne partent que dans cette requête ; le résultat s'efface à la moindre modification. */
+  /** Teste les réglages du formulaire tels quels ; le résultat s'efface à la moindre modification. */
   async function authTester(): Promise<void> {
     const f = authTiroir.value;
     const etat = authEtat.value;
     if (!f || !etat || authEssaiEnCours.value) return;
-    const corps = corpsFournisseur({ ...f, nouveau: false }, etat.bounds.ldap_urls_max);
+    const corps = corpsFournisseur({ ...f, nouveau: false });
     if (typeof corps === "string") {
       authEssaiErreur.value = corps;
       authEssai.value = null;
@@ -862,10 +717,6 @@ export function creerIdentite(b: BaseAdmin) {
     }
     corps["id"] = f.id.trim();
     corps["type"] = f.type;
-    if (f.type === "ldap") {
-      if (f.test_user.trim() !== "") corps["test_user"] = f.test_user.trim();
-      if (f.secret !== "") corps["secret"] = f.secret;
-    }
     const moi = ++sequenceEssai;
     authEssai.value = null;
     authEssaiErreur.value = "";
@@ -891,7 +742,6 @@ export function creerIdentite(b: BaseAdmin) {
     authEssaiEnCours.value = false;
     authEssai.value = essai;
     authEssaiErreur.value = erreur;
-    if (essai?.complete) await loadEnterpriseAuth();
   }
 
   /** Interroge le dernier résultat toutes les 2 s, 5 minutes au plus, jusqu'à un résultat postérieur au lancement. */
@@ -928,7 +778,7 @@ export function creerIdentite(b: BaseAdmin) {
   /** Lance l'essai de connexion : étapes puis, si elles passent, adresse ouverte dans un nouvel onglet. */
   async function authEssayerConnexion(): Promise<void> {
     const f = authTiroir.value;
-    if (!f || f.nouveau || f.type !== "oidc" || authTrialEnCours.value) return;
+    if (!f || f.nouveau || authTrialEnCours.value) return;
     const id = f.id;
     const precedent = authTrial.value?.at ?? 0;
     effacerTrial();
@@ -1056,7 +906,6 @@ export function creerIdentite(b: BaseAdmin) {
     authBusy,
     authTiroir,
     authTiroirErreur,
-    authAjoutOuvert,
     authDrawer,
     authFournisseur,
     authActifs,
@@ -1085,7 +934,6 @@ export function creerIdentite(b: BaseAdmin) {
     authModifier,
     authFermer,
     authTouche,
-    authAppliquerPreset,
     authAjouterGroupe,
     authRetirerGroupe,
     authFige,

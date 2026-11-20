@@ -8,6 +8,12 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: an allowlist profile runs in a hardened container.** Read-only root filesystem,
+  seven capabilities instead of ten (`FSETID`, `AUDIT_WRITE` and `NET_BIND_SERVICE` dropped),
+  `/tmp` (executable, half of the sandbox memory), `/var/tmp` and the image's home folder in
+  memory: a full `/tmp` answers "no space left" instead of filling the host's disk. The account
+  never enters such a container as root. The browser service keeps its temporary files under
+  `/work/.elpis-browser/tmp`, emptied at each start. `elpis.spec` 11.
 - **Accounts: reserved names refused.** An account can no longer be created as `_snapshots`,
   `guest` or `user_<n>`: these names met an internal folder of the sandboxes or a fallback name.
   An existing account named `_snapshots` gets its own sandbox folder, `_snapshots.compte`.

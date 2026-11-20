@@ -751,7 +751,7 @@ PY
 
 # Isolation des bacs : script de démarrage, réseau sans trafic entre bacs, filtrage du pont, version de Docker, swap, root remappé ou noyau applicatif, sudo ; script, réseau, filtrage et version comptés (compteur bad), le reste en conseil.
 doctor_isolation_bac() {
-    local sec runtime sudo_permis reseau version majeure py
+    local sec runtime sudo_permis reseau version majeure py ouverts
     if [ -r "$ROOT/sandbox-agent/demarrage.sh" ]; then ok "script de démarrage des bacs présent"
     else warn "script de démarrage des bacs absent (sandbox-agent/demarrage.sh) : aucun bac ne démarre ; réinstallez ou mettez à jour"; bad=$((bad + 1)); fi
     sec="$(docker info --format '{{join .SecurityOptions " "}}' 2>/dev/null)" || return 0
@@ -786,6 +786,11 @@ print(("oui" if v is True else "non") if lu else "")' "$ROOT/config.json" 2>/dev
         non) ok "bacs durcis : sudo refusé (executors.allow_sudo)" ;;
         *) warn "réglage executors.allow_sudo non lu (config.json ou Python indisponible)" ;;
     esac
+    ouverts="$("$py" -c 'import json, sys
+try: p = (json.load(open(sys.argv[1])).get("executors") or {}).get("network_profiles") or []
+except Exception: p = []
+print(" ".join(str(x.get("id")) for x in p if isinstance(x, dict) and x.get("mode") == "bridge" and not any(x.get(k) for k in ("block_metadata", "block_lan", "block_host"))))' "$ROOT/config.json" 2>/dev/null)"
+    [ -z "$ouverts" ] || info "profils réseau ouverts sans protection ($ouverts) : leurs bacs joignent le réseau local, la machine hôte et les métadonnées du cloud (console › Sandbox, cases « Refuser »)"
     return 0
 }
 

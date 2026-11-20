@@ -20,6 +20,7 @@ import {
   configAssainie,
   conteneursPerimes,
   controleSante,
+  etatDomaines,
   gcIdleContainers,
   listerConteneurs,
   profilsAssainis,
@@ -87,6 +88,20 @@ async function enregistrer(dep: DependancesAdminExecuteurs, req: FastifyRequest)
     getPy(assainie, "allow_sudo", true) === true,
   );
   return { ok: true, config: assainie, warnings: avertissements, stale_containers: perimes };
+}
+
+/** État du moment : adresses des domaines des profils en liste blanche et conteneurs en marche à recréer (réglages, ou adresses des domaines changées depuis leur création). */
+async function etat(dep: DependancesAdminExecuteurs): Promise<Dict> {
+  const cfg = chargerConfigBac();
+  const domaines = await etatDomaines(cfg.network_profiles);
+  const perimes = await conteneursPerimes(
+    cfg.network_profiles.map((p) => ({ ...p })),
+    (uid) => getUserSettings(dep.base, uid),
+    (reglages) => resolveNetworkProfileId(reglages),
+    cfg.allow_sudo,
+    domaines,
+  );
+  return { ok: true, domains_status: domaines, stale_containers: perimes };
 }
 
 async function sante(): Promise<Dict> {
@@ -187,6 +202,7 @@ export function creerFamilleAdminExecuteurs(dep: DependancesAdminExecuteurs): Fa
       ),
       route("POST", "/api/admin/executors", (req) => enregistrer(dep, req)),
       route("GET", "/api/admin/executors/healthcheck", () => sante()),
+      route("GET", "/api/admin/executors/status", () => etat(dep)),
       route("GET", "/api/admin/sandbox/containers", async (_req, rep) =>
         reponseJsonPy(rep, await listerConteneurs()),
       ),

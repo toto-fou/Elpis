@@ -2,6 +2,7 @@
 /** frontend/src/features/admin/sandbox.ts — console › Sandbox : limites et politique, profils réseau (cartes repliables, puces validées à la saisie), conteneurs des comptes et nettoyage. */
 import {
   schemaReponseConteneurs,
+  schemaReponseEtatExecuteurs,
   schemaReponseExecuteurs,
   schemaReponseExecuteursEcrits,
   schemaReponseNettoyageBacs,
@@ -36,6 +37,30 @@ export interface ConteneurPerime {
   [cle: string]: unknown;
 }
 type CleListe = "ips" | "domains" | "ports" | "dns";
+type CleProtection = "block_metadata" | "block_lan" | "block_host";
+
+/** Protections d'un profil ouvert : cochées, elles font tourner ses sandboxes sans sudo. */
+export const PROTECTIONS_RESEAU: readonly { key: CleProtection; label: string; title: string }[] =
+  Object.freeze([
+    {
+      key: "block_metadata",
+      label: "Métadonnées du cloud",
+      title:
+        "Refuse 169.254.0.0/16 et les autres adresses de métadonnées des principaux clouds (jetons de la machine).",
+    },
+    {
+      key: "block_lan",
+      label: "Réseau local",
+      title:
+        "Refuse les adresses privées (10/8, 172.16/12, 192.168/16, 100.64/10), le lien local, la multidiffusion et les adresses réservées.",
+    },
+    {
+      key: "block_host",
+      label: "Machine hôte",
+      title:
+        "Refuse les adresses de la machine qui héberge Elpis, la diffusion et la multidiffusion ; relues avant chaque usage, la sandbox est recréée si elles changent.",
+    },
+  ]);
 
 export interface ChampReseau {
   key: CleListe;
@@ -147,7 +172,11 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   const sandboxContainers: Ref<ConteneurBac[]> = ref([]);
   const staleNetContainers: Ref<ConteneurPerime[]> = ref([]);
   const staleNetBusy = ref(false);
+  /** Résolution du moment des domaines des profils filtrés : par profil puis par domaine (`[]` irrésoluble, `null` sans réponse). */
+  const etatDomaines: Ref<Record<string, Record<string, string[] | null>>> = ref({});
   let compteurProfils = 0;
+  /** Sauvegardes lancées depuis le chargement : un état demandé avant la dernière est ignoré. */
+  let generationEtat = 0;
 
   /** Textarea « un flag par ligne » ↔ liste `extra_run_args`. */
   const execExtraArgsText = computed({
@@ -181,7 +210,12 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   /** Résumé lisible des règles, affiché sur la carte repliée. */
   function netProfileSummary(prof: ProfilReseauEdite): string {
     if (prof.mode === "none") return "Aucune sortie réseau";
-    if (prof.mode === "bridge") return "Internet, LAN et métadonnées cloud";
+    if (prof.mode === "bridge") {
+      const refus = PROTECTIONS_RESEAU.filter((x) => prof[x.key] === true).map((x) => x.label.toLowerCase());
+      return refus.length
+        ? `Internet ; refusés : ${refus.join(", ")}`
+        : "Internet, réseau local, machine hôte et métadonnées du cloud";
+    }
     const n = (a: unknown[] | undefined): number => (a || []).length;
     const morceaux: string[] = [];
     if (n(prof.ips)) morceaux.push(n(prof.ips) + " réseau" + (n(prof.ips) > 1 ? "x" : ""));
@@ -270,6 +304,9 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       name: `Profil ${idx + 1}`,
       mode: "allowlist_ip",
       description: "",
+      block_metadata: true,
+      block_lan: false,
+      block_host: true,
     });
     p._open = true;
     execConfig.value.network_profiles.push(p);
@@ -348,6 +385,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       chargementReussi("loadExecConfig");
       await loadExecHealthcheck();
       await loadSandboxContainers();
+      void loadExecStatus();
     } catch (err) {
       chargementEchoue("loadExecConfig", err instanceof Error ? err.message : String(err), () =>
         loadExecConfig(),
@@ -355,6 +393,26 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     } finally {
       execLoading.value = false;
     }
+  }
+  /** Domaines résolus et conteneurs à recréer, en arrière-plan : une résolution lente ne retient pas la page. */
+  async function loadExecStatus(): Promise<void> {
+    const generation = generationEtat;
+    try {
+      const d = await lireSchema(await fetchAuth("/api/admin/executors/status"), schemaReponseEtatExecuteurs);
+      if (!d || generation !== generationEtat) return;
+      etatDomaines.value = d.domains_status;
+      if (d.stale_containers.length) staleNetContainers.value = d.stale_containers as ConteneurPerime[];
+    } catch {
+      /* état facultatif : la page reste utilisable */
+    }
+  }
+  /** Domaines d'un profil sans adresse à l'instant (irrésolus, ou sans réponse à temps). */
+  function domainesNonResolus(prof: ProfilReseauEdite): string[] {
+    const etat = etatDomaines.value[prof.id];
+    if (!etat || prof.mode !== "allowlist_ip") return [];
+    return Object.entries(etat)
+      .filter(([, ips]) => ips === null || ips.length === 0)
+      .map(([dom]) => dom);
   }
   async function loadExecHealthcheck(): Promise<void> {
     try {
@@ -367,6 +425,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   /** Le détail d'un refus serveur (règles de validation des profils) garde son propre toast ; le bilan est celui de la page. */
   async function saveExecConfig(): Promise<boolean> {
     execLoading.value = true;
+    generationEtat++;
     try {
       // Un brouillon encore dans un champ serait perdu : validé d'abord, comme si l'opérateur avait appuyé sur Entrée.
       for (const p of execConfig.value.network_profiles || []) {
@@ -383,6 +442,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       for (const w of d?.warnings ?? []) showToast(w, "warn");
       staleNetContainers.value = (d?.stale_containers ?? []) as typeof staleNetContainers.value;
       await loadExecHealthcheck();
+      void loadExecStatus();
       return true;
     } catch (err) {
       showToast("Sauvegarde refusée : " + (err instanceof Error ? err.message : String(err)), "error");
@@ -463,6 +523,9 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     staleNetContainers,
     staleNetBusy,
     recreateStaleNetContainers,
+    etatDomaines,
+    domainesNonResolus,
+    netProtections: PROTECTIONS_RESEAU,
     addNetworkProfile,
     removeNetworkProfile,
     netFields: CHAMPS_RESEAU,

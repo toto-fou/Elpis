@@ -50,6 +50,10 @@ export interface ProfilReseauEdite {
   domains: (string | number)[];
   ports: (string | number)[];
   dns: (string | number)[];
+  /** Protections d'un profil ouvert ; absentes : non cochées. */
+  block_metadata?: boolean;
+  block_lan?: boolean;
+  block_host?: boolean;
   _uid: string;
   _open: boolean;
   _portsMode: string;

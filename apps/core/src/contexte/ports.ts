@@ -2,8 +2,8 @@
 /** apps/core/src/contexte/ports.ts — dépendances du contexte pas encore portées (comptes, bac à sable, mémoire AX, prompts, index, usage) : interfaces et pose. */
 import { ErreurPortAbsent } from "../llm/ports";
 
-/** Identifiant du profil retenu (celui demandé, même absent de la configuration) et mode du profil appliqué. */
-export type ProfilEffectif = { id: string; mode: unknown };
+/** Identifiant du profil retenu (celui demandé, même absent de la configuration), mode du profil appliqué et filtre du conteneur (liste blanche ou protection cochée). */
+export type ProfilEffectif = { id: string; mode: unknown; filtre?: boolean };
 
 /** Profil réseau effectif du compte (`get_user` + `resolve_network_profile_id` + `load_admin_config().get_profile`). */
 export interface PortProfilReseau {

@@ -1,13 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# sandbox-agent/demarrage.sh — démarrage du conteneur d'un compte : filtre réseau selon ELPIS_NET_MODE (root), puis abandon des privilèges et commande.
+# sandbox-agent/demarrage.sh — démarrage du conteneur d'un compte : filtre réseau selon ELPIS_NET_MODE (liste blanche, ou plages refusées d'un profil ouvert), puis abandon des privilèges et commande.
 set -euf
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 # Étape root sous un environnement propre : seuls PATH et les variables du filtre passent (une variable de l'image ou de l'administrateur ne détourne ni iptables ni ses bibliothèques).
 if [ "${1:-}" != "--environnement-propre" ]; then
     exec env -i PATH="$PATH" ELPIS_NET_MODE="${ELPIS_NET_MODE:-}" ELPIS_ALLOWLIST="${ELPIS_ALLOWLIST:-}" \
-        ELPIS_ALLOWLIST_PORTS="${ELPIS_ALLOWLIST_PORTS:-}" ELPIS_DNS="${ELPIS_DNS:-}" \
+        ELPIS_ALLOWLIST_PORTS="${ELPIS_ALLOWLIST_PORTS:-}" ELPIS_DNS="${ELPIS_DNS:-}" ELPIS_BLOCKED="${ELPIS_BLOCKED:-}" \
         /bin/sh "$0" --environnement-propre "$@"
 fi
 shift
@@ -34,7 +34,7 @@ mode="${ELPIS_NET_MODE:-}"
 if [ -z "$mode" ] && [ -n "${ELPIS_ALLOWLIST:-}" ]; then mode=allowlist; fi
 
 case "$mode" in
-    allowlist)
+    allowlist|blocklist)
         # Tout refuser d'abord : un échec en cours de route laisse le réseau fermé.
         iptables -P OUTPUT DROP
         v6=1
@@ -42,6 +42,15 @@ case "$mode" in
             # IPv6 présent mais non filtrable : arrêt ; noyau sans IPv6 : rien à filtrer.
             if [ -e /proc/net/if_inet6 ]; then log "ip6tables indisponible : IPv6 non filtrable"; exit 65; fi
             v6=0
+        fi
+        # Liste de refus : chaque plage doit se lire, sinon arrêt (une plage ignorée resterait ouverte).
+        refus=""
+        if [ "$mode" = blocklist ]; then
+            for net in ${ELPIS_BLOCKED:-}; do
+                if ! ipv4 "$net"; then log "plage refusée illisible : $net"; exit 65; fi
+                refus="$refus $net"
+            done
+            if [ -z "$refus" ]; then log "liste de refus vide"; exit 65; fi
         fi
         # Ports TCP par paquets de 15 (limite de multiport).
         paquets=""; paquet=""; n=0
@@ -71,15 +80,20 @@ case "$mode" in
                 echo "-A OUTPUT -d $ip -p udp --dport 53 -j ACCEPT"
                 echo "-A OUTPUT -d $ip -p tcp --dport 53 -j ACCEPT"
             done
-            for ip in $destinations; do
-                if ! ipv4 "$ip"; then log "destination ignorée : $ip"; continue; fi
-                if [ -n "$paquets" ]; then
-                    for q in $paquets; do echo "-A OUTPUT -d $ip -p tcp -m multiport --dports $q -j ACCEPT"; done
-                else
-                    echo "-A OUTPUT -d $ip -j ACCEPT"
-                fi
-            done
-            echo '-A OUTPUT -j REJECT --reject-with icmp-host-unreachable'
+            if [ "$mode" = blocklist ]; then
+                for net in $refus; do echo "-A OUTPUT -d $net -j REJECT --reject-with icmp-host-unreachable"; done
+                echo '-A OUTPUT -j ACCEPT'
+            else
+                for ip in $destinations; do
+                    if ! ipv4 "$ip"; then log "destination ignorée : $ip"; continue; fi
+                    if [ -n "$paquets" ]; then
+                        for q in $paquets; do echo "-A OUTPUT -d $ip -p tcp -m multiport --dports $q -j ACCEPT"; done
+                    else
+                        echo "-A OUTPUT -d $ip -j ACCEPT"
+                    fi
+                done
+                echo '-A OUTPUT -j REJECT --reject-with icmp-host-unreachable'
+            fi
             echo 'COMMIT'
         } | iptables-restore
         if [ "$v6" -eq 1 ]; then
@@ -87,7 +101,7 @@ case "$mode" in
             ip6tables -A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
             ip6tables -A OUTPUT -j REJECT --reject-with icmp6-adm-prohibited
         fi
-        log "liste blanche appliquée"
+        if [ "$mode" = blocklist ]; then log "protections appliquées"; else log "liste blanche appliquée"; fi
         ;;
     ''|open)
         log "réseau du profil, sans filtre"

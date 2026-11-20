@@ -32,6 +32,7 @@ export {
   reglagesBac,
   resolveNetworkProfileIdReglages,
   resolveProfileDomains,
+  resoudreIpv4,
   RUN_SPEC,
   sandboxAdminConfigDepuis,
   UserSandbox,
@@ -85,7 +86,16 @@ export {
   sourcesNavigateur,
 } from "./navigateur";
 export { entreePermise, FORMAT_ENTREE, PATH_COMPTE, PREFIXE_NPM, profilFiltre } from "./durcissement";
-export { FORMAT_RESEAU, PONT_BACS, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
+export {
+  adressesEpinglables,
+  FORMAT_RESEAU,
+  PLAGES_LOCALES,
+  PLAGES_METADONNEES,
+  plagesRefusees,
+  PONT_BACS,
+  RESEAU_BACS,
+  RESEAU_CONFORME,
+} from "./reseau";
 export { argsRunPermis, reglagesSources, verifierMontages } from "./options-run";
 export {
   messageSuppression,
@@ -100,12 +110,17 @@ export {
   chargerConfigBac,
   configBacDepuis,
   DOMAIN_RE,
+  domainesEpingles,
+  domainesPerimes,
+  etiquetteDomaines,
+  etiquetteNetcfg,
   ipv4Canonique,
   netcfgHash,
   oublierSignalements,
   PROFILE_ID_RE,
   profilParId,
   profilReseauDepuis,
+  protectionsDe,
   resolveurValide,
   signalerUneFois,
 } from "./profils";

@@ -30,6 +30,7 @@ import {
 } from "@elpis/commun";
 import type { Dict, Reseau } from "@elpis/commun";
 import {
+  adressesEpinglables,
   appelDocker,
   argsRunPermis,
   assainirSeuilsDisque,
@@ -37,6 +38,8 @@ import {
   decoderRemplace,
   DEFAULT_IMAGE,
   DOMAIN_RE,
+  domainesEpingles,
+  domainesPerimes,
   findImageArchive,
   ipv4Canonique,
   labelFilter,
@@ -45,7 +48,9 @@ import {
   PROFILE_ID_RE,
   profilFiltre,
   profilReseauDepuis,
+  protectionsDe,
   resolveurValide,
+  resoudreIpv4,
   RUN_SPEC,
   seuilsDisqueDepuis,
   sousVerrouDeCycle,
@@ -53,6 +58,8 @@ import {
 } from "@elpis/bac";
 import type { ProfilReseau } from "@elpis/bac";
 import { config, pyJoin } from "@elpis/config";
+import { hostAddressesRecent } from "@elpis/securite";
+import type { HoteMachine } from "@elpis/securite";
 
 import { assainirReglagesJobs, reglagesJobsDepuis } from "../jobs/reglages";
 import { journal } from "../journal";
@@ -104,6 +111,7 @@ export function vueExecuteurs(cfg: Dict): Dict {
   const bloc = ouPy(getPy(cfg, "executors"), {});
   let profils = ouPy(getPy(bloc, "network_profiles"), []);
   if (!veritePy(profils)) profils = [profilIsoleDict()];
+  profils = profilsPourConsole(profils);
   const limites = ouPy(getPy(bloc, "limits"), { ...LIMITES_PAR_DEFAUT });
   return {
     config: {
@@ -122,6 +130,18 @@ export function vueExecuteurs(cfg: Dict): Dict {
     },
     image: configuredImage(getPy(bloc, "image")),
   };
+}
+
+/** Profils montrés à la console : protections rendues booléennes telles que lues (une valeur éditée à la main ne casse pas l'écran). */
+function profilsPourConsole(profils: unknown): unknown {
+  if (!Array.isArray(profils)) return profils;
+  return profils.map((p: unknown) => {
+    if (p === null || typeof p !== "object" || Array.isArray(p)) return p;
+    const d: Dict = { ...(p as Dict) };
+    for (const k of ["block_metadata", "block_lan", "block_host"])
+      if (k in d && typeof d[k] !== "boolean") d[k] = veritePy(d[k]);
+    return d;
+  });
 }
 
 /** `(v or "").strip()` : un texte, AttributeError (500) pour une autre valeur vraie. */
@@ -241,6 +261,15 @@ export function profilsAssainis(nouveau: Dict, avertissements: string[]): Dict[]
       ips = ips.map((x) => ipv4Canonique(x) ?? x);
       dns = dns.map((x) => resolveurValide(x) ?? x);
     } else [ips, domaines, dns] = [[], [], []];
+    // Protections d'un profil ouvert : cochées, elles font tourner ses bacs sans sudo.
+    const protections =
+      mode === "bridge"
+        ? {
+            block_metadata: veritePy(getPy(p, "block_metadata")),
+            block_lan: veritePy(getPy(p, "block_lan")),
+            block_host: veritePy(getPy(p, "block_host")),
+          }
+        : {};
     sortie.push({
       id: pid,
       name: nom,
@@ -250,6 +279,7 @@ export function profilsAssainis(nouveau: Dict, avertissements: string[]): Dict[]
       ports,
       dns,
       description: prefixePy(texteNettoye(getPy(p, "description")), 200),
+      ...protections,
     });
   }
   if (sortie.length > 20) throw new HttpError(400, "Trop de profils (max 20)");
@@ -335,25 +365,35 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
 
 // ── Conteneurs des comptes (CLI Docker locale) ─────────────────────────────
 
-/** `_find_stale_network_containers` : conteneurs en marche dont le réseau (`elpis.netcfg`), la version des options (`elpis.spec`) ou le durcissement (`elpis.durci`) ne suivent plus les réglages ; toute erreur → `[]`. */
+/** `_find_stale_network_containers` : conteneurs en marche dont le réseau (`elpis.netcfg`), la version des options (`elpis.spec`), le durcissement (`elpis.durci`) ou, quand `domaines` donne la résolution du moment d'un profil, les adresses épinglées de ses domaines (`elpis.resolved`) ne suivent plus les réglages ; toute erreur → `[]`. */
 export async function conteneursPerimes(
   profils: readonly Dict[],
   reglagesDe: (uid: number) => Promise<Dict>,
   profilDe: (reglages: Dict) => string,
   sudo: boolean,
+  domaines: Readonly<Record<string, Readonly<Record<string, string[] | null>>>> = {},
 ): Promise<Dict[]> {
   try {
     const parId = new Map<string, ProfilReseau>(profils.map((p) => [strPy(p["id"]), profilReseauDepuis(p)]));
     const format =
       `{{.Names}}\t${labelTpl("user_id", true)}\t${labelTpl("username", true)}\t` +
-      `${labelTpl("netcfg", true)}\t${labelTpl("spec", true)}\t${labelTpl("durci", true)}`;
+      `${labelTpl("netcfg", true)}\t${labelTpl("spec", true)}\t${labelTpl("durci", true)}\t` +
+      labelTpl("resolved", true);
     const r = await appelDocker(["ps", ...labelFilter("user_id"), "--format", format], delaisDocker.ps);
     if (r.delaiDepasse || r.code !== 0) return [];
     const perimes: Dict[] = [];
     for (const ligne of splitlinesPy(decoderRemplace(r.sortie))) {
       const parts = ligne.split("\t");
       if (parts.length < 4) continue;
-      const [nomConteneur = "", uidTexte = "", nomCompte = "", brut = "", spec = "", durci = ""] = parts;
+      const [
+        nomConteneur = "",
+        uidTexte = "",
+        nomCompte = "",
+        brut = "",
+        spec = "",
+        durci = "",
+        resolu = "",
+      ] = parts;
       const etiquette = stripPy(brut);
       let uid: number;
       try {
@@ -365,8 +405,18 @@ export async function conteneursPerimes(
       const profil = parId.get(profilDe(await reglagesDe(uid))) ?? parId.get("isolated");
       if (profil === undefined) continue;
       const options = spec === RUN_SPEC && durci === (!sudo || profilFiltre(profil) ? "1" : "0");
-      if (options && etiquette === netcfgHash(profil)) continue;
-      if (options && !etiquette && profil.mode !== "allowlist_ip") continue;
+      const actuels = domaines[profil.id];
+      const adresses =
+        profil.mode !== "allowlist_ip" ||
+        actuels === undefined ||
+        domainesPerimes(domainesEpingles(stripPy(resolu)) ?? {}, actuels).length === 0;
+      // Profil protégé : réglages du profil seulement ; les plages de la machine sont relues par la sandbox avant chaque usage.
+      const reseau =
+        protectionsDe(profil).length === 0
+          ? etiquette === netcfgHash(profil)
+          : etiquette.startsWith(`${netcfgHash(profil)}-`);
+      if (options && adresses && reseau) continue;
+      if (options && !etiquette && !profilFiltre(profil)) continue;
       perimes.push({
         user_id: uid,
         username: nomCompte || null,
@@ -378,6 +428,77 @@ export async function conteneursPerimes(
   } catch {
     return [];
   }
+}
+
+/** Résolutions des domaines pour l'état de la console : gardées `ttlMs`, `simultanees` à la fois au plus, une seule par nom en cours. */
+export const reglagesEtatDomaines = { ttlMs: 60_000, simultanees: 2 };
+const resolutions = new Map<string, { t: number; v: Promise<string[] | null> }>();
+let resolutionsEnCours = 0;
+const resolutionsEnAttente: (() => void)[] = [];
+
+/** Pour les tests : résolutions gardées oubliées. */
+export function oublierEtatDomaines(): void {
+  resolutions.clear();
+}
+
+/** Appel sous le plafond de résolutions simultanées ; un créneau libéré passe directement à la suivante en attente. */
+async function sousPlafond<T>(f: () => Promise<T>): Promise<T> {
+  if (resolutionsEnCours < reglagesEtatDomaines.simultanees) resolutionsEnCours++;
+  else await new Promise<void>((r) => resolutionsEnAttente.push(r));
+  try {
+    return await f();
+  } finally {
+    const suivante = resolutionsEnAttente.shift();
+    if (suivante) suivante();
+    else resolutionsEnCours--;
+  }
+}
+
+/** Adresses du moment d'un domaine : `[]` s'il n'existe pas (ENOTFOUND, ENODATA), `null` sur un échec passager (non gardé). */
+function resolution(dom: string, resoudre: (dom: string) => Promise<string[]>): Promise<string[] | null> {
+  const t = Date.now();
+  for (const [k, e] of resolutions) if (t - e.t >= reglagesEtatDomaines.ttlMs) resolutions.delete(k);
+  const connue = resolutions.get(dom);
+  if (connue !== undefined) return connue.v;
+  const v = sousPlafond(() => resoudre(dom)).catch((e: unknown) => {
+    const code = (e as { code?: unknown } | null)?.code;
+    return code === "ENOTFOUND" || code === "ENODATA" ? [] : null;
+  });
+  resolutions.set(dom, { t, v });
+  void v.then((ips) => {
+    if (ips === null && resolutions.get(dom)?.v === v) resolutions.delete(dom);
+  });
+  return v;
+}
+
+/** Adresses IPv4 du moment des domaines des profils en liste blanche, attendues `delaiMs` au plus, réduites à celles qu'une sandbox créée maintenant épinglerait (`adressesEpinglables`) : par profil puis par domaine, `[]` pour un nom irrésoluble ou sans adresse épinglable, `null` sans réponse à temps. */
+export async function etatDomaines(
+  profils: readonly ProfilReseau[],
+  delaiMs = 3000,
+  resoudre: (dom: string) => Promise<string[]> = resoudreIpv4,
+  machine: () => Promise<HoteMachine> = () => hostAddressesRecent(),
+): Promise<Record<string, Record<string, string[] | null>>> {
+  let minuteur: ReturnType<typeof setTimeout> | undefined;
+  const echeance = new Promise<null>((r) => (minuteur = setTimeout(() => r(null), delaiMs)));
+  const etat: Record<string, Record<string, string[] | null>> = {};
+  const attentes: Promise<void>[] = [];
+  const avecDomaines = profils.filter((p) => p.mode === "allowlist_ip" && p.domains.length > 0);
+  const h = avecDomaines.length > 0 ? await machine().catch(() => null) : null;
+  for (const p of avecDomaines) {
+    const parDomaine: Record<string, string[] | null> = {};
+    etat[p.id] = parDomaine;
+    for (const dom of p.domains) {
+      parDomaine[dom] = null;
+      attentes.push(
+        Promise.race([resolution(dom, resoudre), echeance]).then((ips) => {
+          parDomaine[dom] = ips === null ? null : adressesEpinglables(ips, p.ips, h).gardees;
+        }),
+      );
+    }
+  }
+  await Promise.all(attentes);
+  clearTimeout(minuteur);
+  return etat;
 }
 
 /** `GET /api/admin/executors/healthcheck` : démon (10 s), image chargée (10 s), archive sur disque, état de chargement du process. */

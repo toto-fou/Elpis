@@ -22,6 +22,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { AdresseIp, Reseau } from "@elpis/commun";
+import { PLAGES_LOCALES, PLAGES_METADONNEES } from "@elpis/bac";
 import { liveConfigValue } from "@elpis/config";
 import { hostAddresses } from "@elpis/securite";
 import type { HoteMachine, Resolveur } from "@elpis/securite";
@@ -37,6 +38,11 @@ const RESEAUX_LOCAUX: readonly Reseau[] = [
   .map((n) => reseauPy(n))
   .filter((r): r is Reseau => r !== null);
 const RESERVEE = "address reserved to the host or its local network";
+const reseaux = (l: readonly string[]): Reseau[] =>
+  l.map((n) => reseauPy(n)).filter((r): r is Reseau => r !== null);
+/** Protections d'un profil ouvert, comme dans le conteneur : métadonnées du cloud, réseau local (un profil protégé n'a pas d'IPv6). */
+const METADONNEES_PROFIL = reseaux(PLAGES_METADONNEES);
+const LOCAUX_PROFIL = reseaux(PLAGES_LOCALES);
 
 /** Adresses de l'hôte et sous-réseaux de ses interfaces de conteneurs (relevé de `@elpis/securite`). */
 export type HoteNavigateur = HoteMachine;
@@ -113,13 +119,24 @@ function motifIp(ip: AdresseIp, nom: string, hote: HoteNavigateur, liste: ListeB
   return null;
 }
 
-/** Profil réseau d'un bac, vu du relais : identifiant, mode (`none`, `bridge`, `allowlist_ip`), adresses ou réseaux, domaines, ports. */
+/** Profil réseau d'un bac, vu du relais : identifiant, mode (`none`, `bridge`, `allowlist_ip`), adresses ou réseaux, domaines, ports, protections d'un profil ouvert (la machine et ses réseaux de conteneurs sont toujours refusés ici). */
 export interface ProfilRelais {
   readonly id: string;
   readonly mode: unknown;
   readonly ips: readonly unknown[];
   readonly domains: readonly string[];
   readonly ports: readonly number[];
+  readonly block_metadata?: boolean;
+  readonly block_lan?: boolean;
+  readonly block_host?: boolean;
+}
+
+/** Protections cochées d'un profil ouvert, vues du relais. */
+function protectionsRelais(p: ProfilRelais): { metadonnees: boolean; local: boolean; aucune: boolean } {
+  const ouvert = p.mode === "bridge";
+  const metadonnees = ouvert && p.block_metadata === true;
+  const local = ouvert && p.block_lan === true;
+  return { metadonnees, local, aucune: !(metadonnees || local || (ouvert && p.block_host === true)) };
 }
 
 let hoteEnCache: { t: number; v: Promise<HoteNavigateur> } | null = null;
@@ -167,6 +184,16 @@ export function jugeRelaisBac(
         return { ok: false, motif: `name not found (${nom})` };
       }
     if (adresses.length === 0) return { ok: false, motif: `name not found (${nom})` };
+    const prot = protectionsRelais(p);
+    // Profil protégé : pas d'IPv6 (le bac n'en a pas) ; un nom qui n'a que de l'IPv6 est refusé.
+    if (!prot.aucune) {
+      adresses = adresses.filter((a) => ipNav(a)?.version !== 6);
+      if (adresses.length === 0)
+        return {
+          ok: false,
+          motif: `${nom} has IPv6 addresses only, refused by the sandbox network profile '${p.id}'`,
+        };
+    }
     let allowlist = options.allowlist;
     if (allowlist === undefined || allowlist === null) {
       try {
@@ -183,6 +210,17 @@ export function jugeRelaisBac(
       if (ip === null) return { ok: false, motif: `invalid address (${a})` };
       const m = motifIp(ip, nom, h, liste);
       if (m) return { ok: false, motif: m };
+      const dans = (r: Reseau): boolean => r.version === ip.version && dansReseau(ip, r);
+      if (prot.metadonnees && METADONNEES_PROFIL.some(dans))
+        return {
+          ok: false,
+          motif: `${nom} is a cloud metadata address, refused by the sandbox network profile '${p.id}'`,
+        };
+      if (prot.local && LOCAUX_PROFIL.some(dans))
+        return {
+          ok: false,
+          motif: `${nom} is on the local network, refused by the sandbox network profile '${p.id}'`,
+        };
       if (
         p.mode === "allowlist_ip" &&
         !p.domains.includes(nom) &&
@@ -206,7 +244,8 @@ export function jugeRelaisBac(
         motif: `port ${portVoulu} is not allowed by the sandbox network profile '${p.id}'`,
       };
     const nom = lowerPy(hote);
-    const cle = `${strPy(p.id)}\u0000${strPy(p.mode)}\u0000${nom}`;
+    const marques = [p.block_metadata, p.block_lan, p.block_host].map((b) => (b === true ? 1 : 0)).join("");
+    const cle = `${strPy(p.id)}\u0000${strPy(p.mode)}\u0000${marques}\u0000${nom}`;
     const t = Date.now();
     const connu = cache.get(cle);
     if (connu !== undefined && t < connu.expire) return connu.v;

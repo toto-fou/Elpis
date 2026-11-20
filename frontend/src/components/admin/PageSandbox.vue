@@ -90,7 +90,8 @@ const adm = domaineAdmin();
       >
         <p class="text-xs text-amber-800 font-medium flex items-center gap-1.5">
           <i class="ph ph-warning" aria-hidden="true"></i>
-          {{ adm.staleNetContainers.length }} conteneur(s) en marche utilisent encore d'anciens réglages.
+          {{ adm.staleNetContainers.length }} conteneur(s) en marche utilisent encore d'anciens réglages ou
+          d'anciennes adresses.
         </p>
         <p class="text-[11px] text-amber-700 mt-0.5">
           Recréez-les pour appliquer les réglages actuels ; leur dossier de travail est gardé.
@@ -750,20 +751,37 @@ const adm = domaineAdmin();
                   :disabled="prof.id === 'isolated'"
                   :class="['np-seg__btn', prof.mode === 'bridge' ? 'is-on np-seg__btn--open' : '']"
                   :aria-pressed="prof.mode === 'bridge' ? 'true' : 'false'"
-                  title="Aucun filtrage : internet, LAN et métadonnées cloud"
+                  title="Internet ouvert ; réseau local, hôte et métadonnées du cloud selon les cases cochées"
                   @click="adm.setProfileMode(prof, 'bridge')"
                 >
                   <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i> Tout autoriser
                 </button>
               </div>
 
-              <p
-                v-if="prof.mode === 'bridge'"
-                class="mt-2 text-[11px] text-amber-700 flex items-center gap-1.5"
-              >
-                <i class="ph ph-warning shrink-0" aria-hidden="true"></i>
-                Accès total : internet, LAN et métadonnées cloud.
-              </p>
+              <div v-if="prof.mode === 'bridge'" class="mt-3">
+                <p class="text-[11px] font-semibold text-slate-500 mb-1">Refuser</p>
+                <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <label
+                    v-for="pr in adm.netProtections"
+                    :key="pr.key"
+                    class="inline-flex items-center gap-1.5 text-xs text-slate-700"
+                    :title="pr.title"
+                  >
+                    <input v-model="prof[pr.key]" type="checkbox" />
+                    {{ pr.label }}
+                  </label>
+                </div>
+                <p
+                  v-if="adm.netProtections.some((pr) => prof[pr.key] === true)"
+                  class="mt-1.5 text-[11px] text-slate-500"
+                >
+                  Les sandboxes de ce profil tournent sans sudo.
+                </p>
+                <p v-else class="mt-1.5 text-[11px] text-amber-700 flex items-center gap-1.5">
+                  <i class="ph ph-warning shrink-0" aria-hidden="true"></i>
+                  Accès total : internet, réseau local, machine hôte et métadonnées du cloud.
+                </p>
+              </div>
               <p v-else-if="prof.mode === 'none'" class="mt-2 text-[11px] text-slate-500">
                 Aucune sortie réseau.
               </p>
@@ -860,6 +878,15 @@ const adm = domaineAdmin();
                 </div>
               </div>
 
+              <p
+                v-if="adm.domainesNonResolus(prof).length"
+                class="mt-2 text-[11px] text-amber-700 flex items-center gap-1.5"
+              >
+                <i class="ph ph-warning shrink-0" aria-hidden="true"></i>
+                Sans adresse en ce moment (introuvables, ou DNS sans réponse) :
+                {{ adm.domainesNonResolus(prof).join(", ") }} ; une sandbox créée maintenant ne les joindrait
+                pas.
+              </p>
               <p
                 v-if="adm.netProfileIssue(prof)"
                 role="alert"

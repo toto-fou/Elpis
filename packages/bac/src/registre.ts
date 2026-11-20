@@ -37,8 +37,7 @@ export function getUserSandbox(
     deja.cfg = loadAdminConfig();
     if (networkProfileId !== null && networkProfileId !== deja.networkProfileId) {
       deja.networkProfileId = networkProfileId;
-      deja.configVerified = false;
-      deja.configRetryAt = 0;
+      deja.oublierVerifications();
     }
     return deja;
   }

@@ -11,6 +11,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import * as bac from "../src/index";
 import {
   agentEmpreinte,
+  CAPABILITIES,
   arreterBacsPerimes,
   balayerPartsOrphelines,
   definirFabriqueAgent,
@@ -34,6 +35,7 @@ import {
   lireEntree,
   PATH_SYSTEME,
   profilFiltre,
+  utilisateurDurci,
 } from "../src/durcissement";
 import { empreinteDemarrage, SCRIPT_DEMARRAGE } from "../src/montages";
 import { dossierTemporaire, FauxCli } from "./aides";
@@ -99,7 +101,7 @@ function bacDe(profil: string | null, executors: Record<string, unknown> = {}, r
 
 /** Règles d'un conteneur en marche, monté sur `travail`, à jour pour le profil de `sb`. */
 function reglesAJour(sb: UserSandbox, extra: Regle[] = []): Regle[] {
-  const netcfg = `${netcfgHash(sb.networkProfile)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}\n`;
+  const netcfg = `${netcfgHash(sb.networkProfile)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}|${sb.durci(sb.networkProfile) ? "1" : "0"}\n`;
   return [
     {
       motif: ["container", "inspect"],
@@ -138,8 +140,8 @@ describe("constantes", () => {
     expect("privdrop" in bac).toBe(false);
   });
 
-  it("version des options de lancement : 10", () => {
-    expect(RUN_SPEC).toBe("10");
+  it("version des options de lancement : 11", () => {
+    expect(RUN_SPEC).toBe("11");
   });
 });
 
@@ -518,15 +520,61 @@ describe("garde de l'entrée du conteneur", () => {
     expect(inspections(cli)).toHaveLength(4);
   });
 
-  it("exec_user 0:0 et root:root : refusés avec no-new-privileges:true, acceptés sans NET_ADMIN", async () => {
+  it("exec_user 0:0 et root:root : l'utilisateur de l'image dans un conteneur durci, tels quels sinon", async () => {
+    const utilisateur = (lances: readonly (readonly string[])[]): string | undefined => {
+      const a = lances.find((x) => x[1] === "exec" && x.includes("id"));
+      return a?.[a.indexOf("--user") + 1];
+    };
     for (const u of ["0:0", "root:root"]) {
       const net = bacEnMarche("lan", { exec_user: u });
       net.cli.entree = [0, Buffer.from(NET_AVEC_GAIN), Buffer.alloc(0)];
-      await expect(net.sb.exec(["id"])).rejects.toThrow(A_RELANCER);
+      expect((await net.sb.exec(["id"])).returncode).toBe(0);
+      expect(utilisateur(net.cli.lances)).toBe("10001:10001");
       const libre = bacEnMarche("isolated", { exec_user: u });
       libre.cli.entree = [0, Buffer.from(SANS), Buffer.alloc(0)];
       expect((await libre.sb.exec(["id"])).returncode).toBe(0);
+      expect(utilisateur(libre.cli.lances)).toBe(u);
     }
+  });
+
+  it("utilisateur d'un conteneur durci : un UID ordinaire gardé, root ou un nom remplacés par celui de l'image", () => {
+    expect(["10002:10002", "0:0", "00:0", "root:root", "1000"].map(utilisateurDurci)).toEqual([
+      "10002:10002",
+      "10001:10001",
+      "10001:10001",
+      "10001:10001",
+      "10001:10001",
+    ]);
+  });
+
+  it("inspection des options illisible : conteneur durci recréé, ouvert gardé mais relu plus tard", async () => {
+    const regles: Regle[] = [
+      { motif: ["~ExitCode"], out: "0|false" },
+      { motif: ["~elpis.netcfg"], rc: 1, err: "délai" },
+    ];
+    for (const [profil, recree] of [
+      ["lan", true],
+      ["isolated", false],
+    ] as const) {
+      const cli = new FauxCli(regles);
+      const cfg = sandboxAdminConfigDepuis({ network_profiles: PROFILS }, () => undefined);
+      const sb = new UserSandbox(1, "alice", travail, cfg, profil, {
+        cli,
+        resoudreDomaines: async () => ({}),
+      });
+      expect(await sb.configMatches(), profil).toBe(!recree);
+      if (!recree) {
+        await sb.ensureRunning().catch(() => undefined);
+        expect(sb.configVerified, profil).toBe(false);
+      }
+    }
+  });
+
+  it("profil changé : options relues et entrées revérifiées au prochain usage", () => {
+    const sb = bacEnMarche("isolated").sb;
+    sb.configVerified = true;
+    sb.oublierVerifications();
+    expect([sb.configVerified, sb.configRetryAt]).toEqual([false, 0]);
   });
 
   describe("recréation reportée (image absente)", () => {
@@ -777,10 +825,10 @@ describe("lot 2 : script de démarrage, étiquette elpis.entry, filtre réseau",
   );
 
   describe("configMatches et étiquette elpis.entry", () => {
-    function bacAvec(entree: string) {
-      const base = bacDe("isolated");
-      const netcfg = `${netcfgHash(base.sb.networkProfile)}|${RUN_SPEC}|${base.sb.cfg.image}|${agentEmpreinte()}|${entree}\n`;
-      return bacDe("isolated", {}, [{ motif: ["~elpis.netcfg"], out: netcfg }]);
+    function bacAvec(entree: string, durci = "0", profil = "isolated") {
+      const base = bacDe(profil);
+      const netcfg = `${netcfgHash(base.sb.networkProfile)}|${RUN_SPEC}|${base.sb.cfg.image}|${agentEmpreinte()}|${entree}|${durci}\n`;
+      return bacDe(profil, {}, [{ motif: ["~elpis.netcfg"], out: netcfg }]);
     }
     it("étiquette à jour : conforme ; différente ou vide : recréation", async () => {
       expect(await bacAvec(empreinteDemarrage()).sb.configMatches()).toBe(true);
@@ -788,11 +836,21 @@ describe("lot 2 : script de démarrage, étiquette elpis.entry, filtre réseau",
       expect(await bacAvec("").sb.configMatches()).toBe(false);
     });
 
+    it("étiquette elpis.durci : 1 attendu pour un profil filtré, 0 sinon", async () => {
+      const e = empreinteDemarrage();
+      expect(await bacAvec(e, "1", "lan").sb.configMatches()).toBe(true);
+      expect(await bacAvec(e, "0", "lan").sb.configMatches()).toBe(false);
+      expect(await bacAvec(e, "", "lan").sb.configMatches()).toBe(false);
+      expect(await bacAvec(e, "0", "open").sb.configMatches()).toBe(true);
+      expect(await bacAvec(e, "1", "open").sb.configMatches()).toBe(false);
+      expect(await bacAvec(e, "1").sb.configMatches()).toBe(false);
+    });
+
     it("le format d'inspection lit l'étiquette elpis.entry après elpis.agent", async () => {
       const { sb, cli } = bacAvec(empreinteDemarrage());
       await sb.configMatches();
       expect(String((cli.appels[0] ?? [])[2])).toContain(
-        'elpis.agent"}}|{{index .Config.Labels "elpis.entry"}}',
+        'elpis.agent"}}|{{index .Config.Labels "elpis.entry"}}|{{index .Config.Labels "elpis.durci"}}',
       );
     });
   });
@@ -868,5 +926,65 @@ describe("lot 2 bis : script de démarrage illisible, reconfiguration, profils",
     });
     expect(p?.ips).toEqual(["10.0.0.0/24", "1.2.3.4"]);
     expect(avertis.filter((a) => a.includes("ignoré"))).toHaveLength(2);
+  });
+});
+
+describe("conteneur durci (profil filtré)", () => {
+  const argvDe = (profil: string, executors: Record<string, unknown> = {}): string[] => {
+    const cfg = sandboxAdminConfigDepuis({ network_profiles: PROFILS, ...executors }, () => undefined);
+    const sb = new UserSandbox(1, "alice", travail, cfg, profil, { cli: new FauxCli() });
+    return sb.buildRunArgs(sb.networkProfile, {});
+  };
+  const caps = (argv: string[]): string[] => argv.filter((a, i) => argv[i - 1] === "--cap-add");
+  const tmpfs = (argv: string[]): string[] => argv.filter((a, i) => argv[i - 1] === "--tmpfs");
+
+  it("liste blanche : sept capacités et NET_ADMIN, racine en lecture seule, tmpfs, étiquette elpis.durci=1", () => {
+    const argv = argvDe("lan");
+    expect(caps(argv)).toEqual([
+      "CHOWN",
+      "DAC_OVERRIDE",
+      "FOWNER",
+      "SETUID",
+      "SETGID",
+      "SETPCAP",
+      "KILL",
+      "NET_ADMIN",
+    ]);
+    for (const absente of ["FSETID", "AUDIT_WRITE", "NET_BIND_SERVICE"]) expect(argv).not.toContain(absente);
+    expect(argv).toContain("--read-only");
+    expect(tmpfs(argv)).toEqual([
+      "/tmp:rw,exec,nosuid,nodev,size=1024m,mode=1777",
+      "/var/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+      "/home/elpis:rw,nosuid,nodev,size=64m,mode=0700,uid=10001,gid=10001",
+      "/run:rw,size=10m,mode=755",
+    ]);
+    expect(argv).toContain("elpis.durci=1");
+    expect(argv).toContain("no-new-privileges:true");
+  });
+
+  it("/tmp : la moitié de la mémoire du bac, au moins 64 Mo", () => {
+    const petit = argvDe("lan", { limits: { memory_mb: 100 } });
+    expect(tmpfs(petit)[0]).toBe("/tmp:rw,exec,nosuid,nodev,size=64m,mode=1777");
+    const grand = argvDe("lan", { limits: { memory_mb: 4096 } });
+    expect(tmpfs(grand)[0]).toBe("/tmp:rw,exec,nosuid,nodev,size=2048m,mode=1777");
+  });
+
+  it.each(["isolated", "open"])("profil %s : dix capacités, racine inscriptible, elpis.durci=0", (profil) => {
+    const argv = argvDe(profil);
+    expect(caps(argv)).toEqual(CAPABILITIES);
+    expect(caps(argv)).toHaveLength(10);
+    expect(argv).not.toContain("--read-only");
+    expect(tmpfs(argv)).toEqual(["/run:rw,size=10m,mode=755"]);
+    expect(argv).toContain("elpis.durci=0");
+  });
+
+  it("garde d'entrée : jamais d'entrée du compte en root dans un conteneur sans gain de privilèges", () => {
+    const sansReseau = 'false\nnull\n["no-new-privileges:true"]';
+    expect(entreePermise(sansReseau, "10001:10001")).toBe(true);
+    for (const u of ["0:0", "root:root", "00:1", ":1", "10001"])
+      expect(entreePermise(sansReseau, u)).toBe(false);
+    expect(entreePermise(sansReseau, null)).toBe(true);
+    // sans no-new-privileges et sans réseau : toujours permis, comme avant
+    expect(entreePermise(SANS, "0:0")).toBe(true);
   });
 });

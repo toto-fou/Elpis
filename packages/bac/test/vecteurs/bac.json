@@ -41,7 +41,7 @@
     "--tmpfs",
     "/tmp"
   ],
-  "run_spec": "10",
+  "run_spec": "11",
   "default_image": "elpis/sandbox:1.8.0",
   "run_args": [
     {
@@ -136,11 +136,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -241,11 +243,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -391,11 +395,13 @@
         "--label",
         "elpis.netcfg=c6e3b2679567",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "elpis-sandbox",
         "elpis/sandbox:1.8.0",
@@ -483,8 +489,6 @@
         "--cap-add",
         "FOWNER",
         "--cap-add",
-        "FSETID",
-        "--cap-add",
         "SETUID",
         "--cap-add",
         "SETGID",
@@ -492,10 +496,13 @@
         "SETPCAP",
         "--cap-add",
         "KILL",
-        "--cap-add",
-        "AUDIT_WRITE",
-        "--cap-add",
-        "NET_BIND_SERVICE",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,exec,nosuid,nodev,size=1024m,mode=1777",
+        "--tmpfs",
+        "/var/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+        "--tmpfs",
+        "/home/elpis:rw,nosuid,nodev,size=64m,mode=0700,uid=10001,gid=10001",
         "--tmpfs",
         "/run:rw,size=10m,mode=755",
         "--shm-size",
@@ -541,11 +548,13 @@
         "--label",
         "elpis.netcfg=cc3ca5743576",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=1",
         "--network",
         "elpis-sandbox",
         "--cap-add",
@@ -649,8 +658,6 @@
         "--cap-add",
         "FOWNER",
         "--cap-add",
-        "FSETID",
-        "--cap-add",
         "SETUID",
         "--cap-add",
         "SETGID",
@@ -658,10 +665,13 @@
         "SETPCAP",
         "--cap-add",
         "KILL",
-        "--cap-add",
-        "AUDIT_WRITE",
-        "--cap-add",
-        "NET_BIND_SERVICE",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,exec,nosuid,nodev,size=1024m,mode=1777",
+        "--tmpfs",
+        "/var/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+        "--tmpfs",
+        "/home/elpis:rw,nosuid,nodev,size=64m,mode=0700,uid=10001,gid=10001",
         "--tmpfs",
         "/run:rw,size=10m,mode=755",
         "--shm-size",
@@ -707,11 +717,13 @@
         "--label",
         "elpis.netcfg=c9b70535cd34",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=1",
         "--network",
         "elpis-sandbox",
         "--cap-add",
@@ -817,8 +829,6 @@
         "--cap-add",
         "FOWNER",
         "--cap-add",
-        "FSETID",
-        "--cap-add",
         "SETUID",
         "--cap-add",
         "SETGID",
@@ -826,10 +836,13 @@
         "SETPCAP",
         "--cap-add",
         "KILL",
-        "--cap-add",
-        "AUDIT_WRITE",
-        "--cap-add",
-        "NET_BIND_SERVICE",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,exec,nosuid,nodev,size=1024m,mode=1777",
+        "--tmpfs",
+        "/var/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+        "--tmpfs",
+        "/home/elpis:rw,nosuid,nodev,size=64m,mode=0700,uid=10001,gid=10001",
         "--tmpfs",
         "/run:rw,size=10m,mode=755",
         "--shm-size",
@@ -875,11 +888,13 @@
         "--label",
         "elpis.netcfg=c9b70535cd34",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=1",
         "--network",
         "elpis-sandbox",
         "--cap-add",
@@ -1039,11 +1054,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -1159,11 +1176,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "--cap-add",
@@ -1271,11 +1290,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -1381,11 +1402,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -1490,11 +1513,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -1599,11 +1624,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -1708,11 +1735,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -1816,11 +1845,13 @@
         "--label",
         "elpis.netcfg=c6e3b2679567",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "elpis-sandbox",
         "registre.lan:5000/elpis/sandbox:9",
@@ -1923,11 +1954,13 @@
         "--label",
         "elpis.netcfg=6907f24f152c",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=0",
         "--network",
         "none",
         "elpis/sandbox:1.8.0",
@@ -1981,8 +2014,6 @@
         "--cap-add",
         "FOWNER",
         "--cap-add",
-        "FSETID",
-        "--cap-add",
         "SETUID",
         "--cap-add",
         "SETGID",
@@ -1990,10 +2021,13 @@
         "SETPCAP",
         "--cap-add",
         "KILL",
-        "--cap-add",
-        "AUDIT_WRITE",
-        "--cap-add",
-        "NET_BIND_SERVICE",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,exec,nosuid,nodev,size=1024m,mode=1777",
+        "--tmpfs",
+        "/var/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+        "--tmpfs",
+        "/home/elpis:rw,nosuid,nodev,size=64m,mode=0700,uid=10001,gid=10001",
         "--tmpfs",
         "/run:rw,size=10m,mode=755",
         "--shm-size",
@@ -2039,11 +2073,13 @@
         "--label",
         "elpis.netcfg=d9496c312c57",
         "--label",
-        "elpis.spec=10",
+        "elpis.spec=11",
         "--label",
         "elpis.agent=120fce89f7f6",
         "--label",
         "elpis.entry=9a365cd367f1",
+        "--label",
+        "elpis.durci=1",
         "--network",
         "elpis-sandbox",
         "--cap-add",
@@ -3462,7 +3498,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6' rc=0",
+      "nom": "config '6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3483,7 +3519,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -3491,7 +3527,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3515,7 +3551,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0' rc=0",
+      "nom": "config '6907f24f152c|11|elpis/sandbox:1.8.0' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3536,7 +3572,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0||9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0||9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -3544,7 +3580,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3568,7 +3604,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0|autre' rc=0",
+      "nom": "config '6907f24f152c|11|elpis/sandbox:1.8.0|autre' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3589,7 +3625,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|autre|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|autre|9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -3597,7 +3633,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3621,7 +3657,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|10|elpis/sandbox:1.8.0|<no value>' rc=0",
+      "nom": "config '6907f24f152c|11|elpis/sandbox:1.8.0|<no value>' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3642,7 +3678,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|<no value>|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|<no value>|9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -3650,7 +3686,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3674,7 +3710,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|10|elpis/sandbox:1.6.0' rc=0",
+      "nom": "config '6907f24f152c|11|elpis/sandbox:1.6.0' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3695,7 +3731,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|10|elpis/sandbox:1.6.0||9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.6.0||9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -3703,7 +3739,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3727,7 +3763,7 @@
       }
     },
     {
-      "nom": "config '6907f24f152c|10|' rc=0",
+      "nom": "config '6907f24f152c|11|' rc=0",
       "methode": "_config_matches",
       "executors": {},
       "profil": null,
@@ -3748,7 +3784,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "6907f24f152c|10|||9a365cd367f1\n"
+          "out": "6907f24f152c|11|||9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -3756,7 +3792,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3809,7 +3845,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3862,7 +3898,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3915,7 +3951,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -3960,7 +3996,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "<no value>|10|||9a365cd367f1\n"
+          "out": "<no value>|11|||9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -3968,7 +4004,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -4013,7 +4049,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "|10|||9a365cd367f1\n"
+          "out": "|11|||9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -4021,7 +4057,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -4074,7 +4110,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -4119,7 +4155,7 @@
             "~elpis.netcfg"
           ],
           "rc": 0,
-          "out": "autre|10|||9a365cd367f1\n"
+          "out": "autre|11|||9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -4127,7 +4163,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -4216,7 +4252,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "<no value>|10|||9a365cd367f1"
+          "out": "<no value>|11|||9a365cd367f1|1"
         }
       ],
       "processus": null,
@@ -4224,7 +4260,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -4248,7 +4284,7 @@
       }
     },
     {
-      "nom": "config web 'c9b70535cd34|10|elpis/sandbox:1.8.0|120fce89f7f6'",
+      "nom": "config web 'c9b70535cd34|11|elpis/sandbox:1.8.0|120fce89f7f6'",
       "methode": "_config_matches",
       "executors": {
         "network_profiles": [
@@ -4313,7 +4349,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "c9b70535cd34|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "c9b70535cd34|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|1"
         }
       ],
       "processus": null,
@@ -4321,7 +4357,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -4410,7 +4446,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|||9a365cd367f1"
+          "out": "6907f24f152c|11|||9a365cd367f1|1"
         }
       ],
       "processus": null,
@@ -4418,7 +4454,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ]
@@ -4442,7 +4478,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 137|false 6907f24f152c|10|elpis",
+      "nom": "red\u00e9marrage 137|false 6907f24f152c|11|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4472,7 +4508,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0"
         },
         {
           "motif": [
@@ -4508,7 +4544,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -4553,7 +4589,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 143|false 6907f24f152c|10|elpis",
+      "nom": "red\u00e9marrage 143|false 6907f24f152c|11|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4583,7 +4619,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0"
         },
         {
           "motif": [
@@ -4619,7 +4655,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -4664,7 +4700,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 137|true 6907f24f152c|10|elpis",
+      "nom": "red\u00e9marrage 137|true 6907f24f152c|11|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4694,7 +4730,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0"
         },
         {
           "motif": [
@@ -4829,11 +4865,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -4885,7 +4923,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 0|false 6907f24f152c|10|elpis",
+      "nom": "red\u00e9marrage 0|false 6907f24f152c|11|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -4915,7 +4953,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0"
         },
         {
           "motif": [
@@ -4951,7 +4989,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -4996,7 +5034,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage 1|false 6907f24f152c|10|elpis",
+      "nom": "red\u00e9marrage 1|false 6907f24f152c|11|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5026,7 +5064,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0"
         },
         {
           "motif": [
@@ -5161,11 +5199,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -5217,7 +5257,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage abc 6907f24f152c|10|elpis",
+      "nom": "red\u00e9marrage abc 6907f24f152c|11|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5247,7 +5287,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0"
         },
         {
           "motif": [
@@ -5382,11 +5422,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -5504,7 +5546,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -5616,11 +5658,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -5672,7 +5716,7 @@
       }
     },
     {
-      "nom": "red\u00e9marrage  6907f24f152c|10|elpis",
+      "nom": "red\u00e9marrage  6907f24f152c|11|elpis",
       "methode": "_ensure_running_locked",
       "executors": {},
       "profil": null,
@@ -5702,7 +5746,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0"
         },
         {
           "motif": [
@@ -5837,11 +5881,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -5923,7 +5969,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         },
         {
           "motif": [
@@ -5966,7 +6012,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -6077,11 +6123,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -6293,11 +6341,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -6408,7 +6458,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -6616,11 +6666,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -6849,11 +6901,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -7075,11 +7129,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -7260,11 +7316,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -7459,11 +7517,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -7672,11 +7732,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -8055,7 +8117,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -8078,7 +8140,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -8174,7 +8236,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         },
         {
           "motif": [
@@ -8240,7 +8302,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -8336,7 +8398,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         },
         {
           "motif": [
@@ -8365,7 +8427,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -8386,7 +8448,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -8503,7 +8565,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         },
         {
           "motif": [
@@ -8534,7 +8596,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -8625,7 +8687,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -8648,7 +8710,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -8862,8 +8924,6 @@
           "--cap-add",
           "FOWNER",
           "--cap-add",
-          "FSETID",
-          "--cap-add",
           "SETUID",
           "--cap-add",
           "SETGID",
@@ -8871,10 +8931,13 @@
           "SETPCAP",
           "--cap-add",
           "KILL",
-          "--cap-add",
-          "AUDIT_WRITE",
-          "--cap-add",
-          "NET_BIND_SERVICE",
+          "--read-only",
+          "--tmpfs",
+          "/tmp:rw,exec,nosuid,nodev,size=1024m,mode=1777",
+          "--tmpfs",
+          "/var/tmp:rw,nosuid,nodev,size=64m,mode=1777",
+          "--tmpfs",
+          "/home/elpis:rw,nosuid,nodev,size=64m,mode=0700,uid=10001,gid=10001",
           "--tmpfs",
           "/run:rw,size=10m,mode=755",
           "--shm-size",
@@ -8920,11 +8983,13 @@
           "--label",
           "elpis.netcfg=c9b70535cd34",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=1",
           "--network",
           "elpis-sandbox",
           "--cap-add",
@@ -9265,11 +9330,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -9378,7 +9445,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -9401,7 +9468,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -9522,7 +9589,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": null,
@@ -9545,7 +9612,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -9649,7 +9716,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         },
         {
           "motif": [
@@ -9679,7 +9746,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -9907,11 +9974,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",
@@ -10264,7 +10333,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": [
@@ -10291,7 +10360,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -10420,7 +10489,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": [
@@ -10447,7 +10516,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -10578,7 +10647,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": [
@@ -10605,7 +10674,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -10742,7 +10811,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": [
@@ -10769,7 +10838,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -10893,7 +10962,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": [
@@ -10920,7 +10989,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -11046,7 +11115,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": [
@@ -11073,7 +11142,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -11200,7 +11269,7 @@
           "motif": [
             "~elpis.netcfg"
           ],
-          "out": "6907f24f152c|10|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1\n"
+          "out": "6907f24f152c|11|elpis/sandbox:1.8.0|120fce89f7f6|9a365cd367f1|0\n"
         }
       ],
       "processus": [
@@ -11227,7 +11296,7 @@
         [
           "inspect",
           "--format",
-          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}",
+          "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
           "elpis-sb-alice",
           5
         ],
@@ -11469,11 +11538,13 @@
           "--label",
           "elpis.netcfg=6907f24f152c",
           "--label",
-          "elpis.spec=10",
+          "elpis.spec=11",
           "--label",
           "elpis.agent=120fce89f7f6",
           "--label",
           "elpis.entry=9a365cd367f1",
+          "--label",
+          "elpis.durci=0",
           "--network",
           "none",
           "elpis/sandbox:1.8.0",

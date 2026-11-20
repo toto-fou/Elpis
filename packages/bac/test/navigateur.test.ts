@@ -6,6 +6,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  BROWSER_DATA,
   empreinteNavigateur,
   MONTAGES_NAVIGATEUR,
   montagesNavigateur,
@@ -124,9 +125,9 @@ describe("conteneur du bac", () => {
       new FauxCli([
         {
           motif: ["inspect", "~elpis.browser"],
-          out: `|${RUN_SPEC}|elpis/sandbox:1.8.0||${empreinteDemarrage()}|${nav}\n`,
+          out: `|${RUN_SPEC}|elpis/sandbox:1.8.0||${empreinteDemarrage()}|0|${nav}\n`,
         },
-        { motif: ["inspect"], out: `|${RUN_SPEC}|elpis/sandbox:1.8.0||${empreinteDemarrage()}\n` },
+        { motif: ["inspect"], out: `|${RUN_SPEC}|elpis/sandbox:1.8.0||${empreinteDemarrage()}|0\n` },
       ]);
     const sb = (nav: string): UserSandbox =>
       new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
@@ -175,5 +176,16 @@ describe("conteneur du bac", () => {
     expect((cli.appels.at(-1) as string[]).join(" ")).toContain(
       `pkill -TERM -f ${MONTAGES_NAVIGATEUR.bundle}`,
     );
+  });
+
+  it("démarrage du service : un dossier temporaire par service dans /work, ceux des services disparus retirés, avant la base NSS", () => {
+    const menage = SCRIPT_NAVIGATEUR.indexOf(
+      'for t in "$D"/tmp/*; do [ -d "$t" ] && [ ! -d "/proc/${t##*/}" ] && rm -rf "$t"; done',
+    );
+    const i = SCRIPT_NAVIGATEUR.indexOf('export TMPDIR="$D/tmp/$$"; mkdir -p "$TMPDIR" || exit 1');
+    expect(menage).toBeGreaterThan(-1);
+    expect(i).toBeGreaterThan(menage);
+    expect(i).toBeLessThan(SCRIPT_NAVIGATEUR.indexOf("certutil"));
+    expect(SCRIPT_NAVIGATEUR).toContain(`D=${BROWSER_DATA}`);
   });
 });

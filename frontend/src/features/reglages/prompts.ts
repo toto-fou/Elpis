@@ -8,7 +8,7 @@ import {
   schemaReponsePromptsPartages,
   schemaReponseSuppressionPrompts,
 } from "@elpis/contracts";
-import type { ModelePrompt, Prompt, PromptPartage } from "@elpis/contracts";
+import type { ModelePrompt, Prompt, PromptPartage, ReponseComptesLite } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, lireSchema, objet, texte } from "../../utils/lecture-json";
@@ -27,13 +27,7 @@ export interface FormulaireTemplate {
   content: string;
 }
 
-export interface CompteLite {
-  id: number;
-  username: string;
-  groups: string;
-  ext_username?: string | null;
-  provider_label?: string | null;
-}
+type CompteLite = ReponseComptesLite["users"][number];
 export interface GroupeLite {
   id: number;
   name: string;

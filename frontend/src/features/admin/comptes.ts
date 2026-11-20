@@ -650,13 +650,13 @@ export function creerComptes(b: BaseAdmin) {
 
   // ── Éditeur de compte en ligne ───────────────────────────────────────────
   const userEdit: Ref<EditionCompte | null> = ref(null);
-  const admRoleLabel = (u: CompteConsole): string =>
-    ({ admin: "Administrateur", moderator: "Modérateur", user: "Utilisateur" })[roleDe(u)] ?? "Utilisateur";
   const ROLES_PAR_NIVEAU = [
     { value: "admin", label: "Administrateur" },
     { value: "moderator", label: "Modérateur" },
     { value: "user", label: "Utilisateur" },
   ];
+  const admRoleLabel = (u: CompteConsole): string =>
+    ROLES_PAR_NIVEAU.find((r) => r.value === roleDe(u))?.label ?? "Utilisateur";
   const rolesRetrogradables = (u: CompteConsole): { value: string; label: string }[] =>
     ROLES_PAR_NIVEAU.slice(ROLES_PAR_NIVEAU.findIndex((r) => r.value === roleDe(u)));
   function admNetProfileName(id: string): string {

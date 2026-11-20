@@ -1,138 +1,27 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/admin/essai-connexion-sso.test.ts — console › fournisseur SSO : algorithme du jeton, aide du second facteur, essai de connexion (ouverture https seulement, interrogation bornée et arrêtée, décision, activation dégrisée). */
 import * as Vue from "vue";
-import { createApp, defineComponent, h, reactive, ref } from "vue";
-import type { App } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import PageConnexionEntreprise from "../../src/components/admin/PageConnexionEntreprise.vue";
 import { phraseDecision } from "../../src/features/admin/identite";
-import { setupAdmin } from "../../src/features/admin/console";
-import { CLE_ADMIN } from "../../src/features/admin/domaine";
-import type { DomaineAdmin } from "../../src/features/admin/domaine";
 import { reinitialiserSuiviChargement } from "../../src/features/admin/suivi-chargement";
-import type { CtxAdmin, RefsAdmin } from "../../src/features/admin/types";
-import { GestionnaireSession } from "../../src/features/auth/session";
-import { ClientHttp } from "../../src/platform/http/client";
 import { json, vider } from "../aides";
+import { OIDC as OIDC_BASE, clic, demonter, el, etat as etatAide, monter } from "./rattachement-aide";
 
-const BORNES = {
-  providers_max: 10,
-  label_max: 40,
-  ca_pem_max: 65536,
-  required_groups_max: 20,
-  secret_max: 16384,
-  freshness_days: { min: 1, max: 90, default: 14 },
-  clock_skew_sec: { min: 0, max: 300, default: 60 },
+const OIDC = {
+  ...OIDC_BASE,
+  label: "SSO",
+  issuer: "https://idp.example.lan",
+  id_token_alg: "RS256",
+  scopes: ["openid"],
 };
+const etat = (over: Record<string, unknown> = {}) => etatAide([], over);
 
-const COMMUN = {
-  enabled: false,
-  preset: "",
-  ca_pem: "",
-  required_groups: ["elpis"],
-  roles: { enabled: false, admin_groups: [], moderator_groups: [] },
-  group_map: { enabled: false, map: [] },
-  freshness_days: 14,
-  has_secret: true,
-  tested: false,
-  active: false,
-  identities: 0,
-};
-function etat(over: Record<string, unknown> = {}) {
-  return {
-    public_url: "https://elpis.example.lan",
-    local: { mode: "all" },
-    providers: [],
-    invalid_providers: [],
-    prerequisites: { public_url_https: true, cookie_secure: true, local_admins: 1 },
-    bounds: BORNES,
-    ...over,
-  };
-}
-
-let app: App | null = null;
 afterEach(() => {
-  app?.unmount();
-  app = null;
-  document.body.innerHTML = "";
+  demonter();
   reinitialiserSuiviChargement();
 });
 
-type Reponse = Response | (() => Promise<Response>);
-function monter(initial: unknown = etat()) {
-  const appels: string[] = [];
-  const corps: Record<string, unknown[]> = {};
-  const reponses: Record<string, Reponse[]> = {};
-  const fetchFaux = (url: string, init?: RequestInit): Promise<Response> => {
-    const cle = (init?.method ?? "GET") + " " + url;
-    appels.push(cle);
-    if (init?.body) (corps[cle] ??= []).push(JSON.parse(String(init.body)));
-    const file = reponses[cle];
-    const r = file && file.length > 1 ? file.shift() : file?.[0];
-    if (r) return typeof r === "function" ? r() : Promise.resolve(r);
-    if (cle === "GET /api/admin/auth") return Promise.resolve(json(initial));
-    return Promise.resolve(json({}, 404));
-  };
-  const refs: RefsAdmin = {
-    user: ref({ id: 1, username: "root", role: "admin", is_admin: 1 }),
-    isAdminView: ref(true),
-  };
-  const ctx: CtxAdmin = {
-    showToast: () => undefined,
-    fetchAuth: (url, options) => fetchFaux(url, options),
-    openConfirm: () => Promise.resolve(true),
-    openTypedConfirm: () => Promise.resolve(true),
-    openChoice: () => Promise.resolve("save"),
-    nextTick: () => Vue.nextTick(),
-    loadPublicConfig: () => undefined,
-    systemAlert: ref(""),
-  };
-  const A = setupAdmin(Vue, refs, ctx, new ClientHttp(new GestionnaireSession(), fetchFaux));
-  A.adminTab.value = "enterprise-login";
-  const adm = reactive({ ...A }) as unknown as DomaineAdmin;
-  const hote = document.createElement("div");
-  document.body.appendChild(hote);
-  app = createApp(defineComponent({ setup: () => () => h(PageConnexionEntreprise) }));
-  app.provide(CLE_ADMIN, adm);
-  app.mount(hote);
-  return {
-    A,
-    hote,
-    appels,
-    corps,
-    reponses,
-  };
-}
-
-const el = <T extends HTMLElement>(id: string): T | null => document.getElementById(id) as T | null;
-const clic = async (id: string): Promise<void> => {
-  el(id)?.click();
-  await vider();
-};
-
-const OIDC = {
-  ...COMMUN,
-  type: "oidc" as const,
-  id: "sso",
-  label: "SSO",
-  issuer: "https://idp.example.lan",
-  client_id: "elpis",
-  client_auth: "basic",
-  id_token_alg: "RS256",
-  scopes: ["openid"],
-  subject_claim: "sub",
-  username_claim: "preferred_username",
-  email_claim: "email",
-  name_claim: "name",
-  groups_claim: "groups",
-  required_acr: [],
-  required_amr: [],
-  max_age_sec: 0,
-  clock_skew_sec: 60,
-  session_max_age_sec: 0,
-  logout: { rp_initiated: false, backchannel: false },
-};
 const TRIAL = "/api/admin/auth/providers/sso/trial";
 const ETAPE_OK = { id: "discovery", label: "Découverte", level: "ok", detail: "Réussi.", target: null };
 const RESULTAT = {
@@ -189,7 +78,7 @@ describe("tiroir SSO : réglages", () => {
     sel.dispatchEvent(new Event("change", { bubbles: true }));
     await vider();
     m.reponses["PUT /api/admin/auth/providers/sso"] = [json(etat({ providers: [OIDC] }))];
-    await clic("ent-enregistrer-fournisseur");
+    await clic("#ent-enregistrer-fournisseur");
     expect(
       (m.corps["PUT /api/admin/auth/providers/sso"]?.[0] as Record<string, unknown>)["id_token_alg"],
     ).toBe("ES256");
@@ -219,7 +108,7 @@ describe("tiroir SSO : essai de connexion", () => {
     m.reponses["POST " + TRIAL] = [json({ ok, steps, url })];
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     vi.setSystemTime(new Date(1000 * 1500));
-    await cliquer("ent-trial");
+    await cliquer("#ent-trial");
     return { m, ouvrirOnglet };
   }
   const lectures = (m: ReturnType<typeof monter>) => m.appels.filter((a) => a === "GET " + TRIAL).length;
@@ -233,8 +122,7 @@ describe("tiroir SSO : essai de connexion", () => {
     for (const url of ["http://idp.example.lan/a", "javascript:alert(1)", null]) {
       const { ouvrirOnglet } = await lancer(url);
       expect(ouvrirOnglet).not.toHaveBeenCalled();
-      app?.unmount();
-      document.body.innerHTML = "";
+      demonter();
       vi.useRealTimers();
     }
   });
@@ -258,12 +146,12 @@ describe("tiroir SSO : essai de connexion", () => {
     ];
     await pomper(2000);
     expect(lectures(m)).toBe(1);
-    expect(el("ent-trial-decision")).toBeNull();
+    expect(el("#ent-trial-decision")).toBeNull();
     await pomper(2000);
     expect(lectures(m)).toBe(2);
     await pomper(2000);
     expect(lectures(m)).toBe(3);
-    expect(el("ent-trial-decision")?.textContent?.trim()).toBe(
+    expect(el("#ent-trial-decision")?.textContent?.trim()).toBe(
       "Cette personne se connecterait au compte alice.",
     );
     const liste = document.querySelector("[data-revendications]")!;
@@ -284,7 +172,7 @@ describe("tiroir SSO : essai de connexion", () => {
     const n = lectures(m);
     expect(n).toBeGreaterThanOrEqual(100);
     expect(n).toBeLessThanOrEqual(151);
-    expect(el("ent-trial-erreur")?.textContent).toContain("n'a pas abouti à temps");
+    expect(el("#ent-trial-erreur")?.textContent).toContain("n'a pas abouti à temps");
     await pomper(20000);
     expect(lectures(m)).toBe(n);
   });
@@ -315,11 +203,11 @@ describe("tiroir SSO : essai de connexion", () => {
     const m = monter(etat({ providers: [OIDC] }));
     await ouvrir(m);
     m.reponses["POST " + TRIAL] = [json({ detail: "Désactivez d'abord le fournisseur." }, 409)];
-    await clic("ent-trial");
-    expect(el("ent-trial-erreur")?.textContent).toContain("Désactivez d'abord le fournisseur.");
+    await clic("#ent-trial");
+    expect(el("#ent-trial-erreur")?.textContent).toContain("Désactivez d'abord le fournisseur.");
     m.reponses["POST " + TRIAL] = [json({ detail: "Hôte", canonical: "https://elpis.example.lan" }, 409)];
-    await clic("ent-trial");
-    expect(el("ent-trial-erreur")?.textContent).toContain(
+    await clic("#ent-trial");
+    expect(el("#ent-trial-erreur")?.textContent).toContain(
       "Ouvrez la console depuis https://elpis.example.lan pour lancer l'essai.",
     );
   });
@@ -327,11 +215,11 @@ describe("tiroir SSO : essai de connexion", () => {
   it("Activer se dégrise quand l'état relu dit tested", async () => {
     const m = monter(etat({ providers: [OIDC] }));
     await ouvrir(m);
-    expect(el<HTMLButtonElement>("ent-activer")?.disabled).toBe(true);
-    expect(el<HTMLButtonElement>("ent-activer")?.title).toBe("Lancez d'abord un essai de connexion.");
+    expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
+    expect(el<HTMLButtonElement>("#ent-activer")?.title).toBe("Lancez d'abord un essai de connexion.");
     m.reponses["GET /api/admin/auth"] = [json(etat({ providers: [{ ...OIDC, tested: true }] }))];
     await m.A.loadEnterpriseAuth();
     await vider();
-    expect(el<HTMLButtonElement>("ent-activer")?.disabled).toBe(false);
+    expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(false);
   });
 });

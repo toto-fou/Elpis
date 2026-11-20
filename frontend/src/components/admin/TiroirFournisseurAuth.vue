@@ -7,6 +7,7 @@ import { domaineAdmin } from "../../features/admin/domaine";
 import { heureCourte } from "../../features/admin/horodatage";
 import {
   ALGOS_JETON,
+  etatFournisseur,
   lignesDroits,
   lignesRevendications,
   phraseDecision,
@@ -61,7 +62,7 @@ const titre = computed(() => {
             <i class="ph ph-key adm-card__icon" aria-hidden="true"></i>
             <h2 id="ent-tiroir-titre" class="adm-drawer__title">{{ titre }}</h2>
             <span v-if="adm.authFournisseur" class="adm-pill">{{
-              adm.authFournisseur.active ? "Actif" : adm.authFournisseur.enabled ? "À tester" : "Éteint"
+              etatFournisseur(adm.authFournisseur).libelle
             }}</span>
             <button
               type="button"
@@ -167,7 +168,7 @@ const titre = computed(() => {
                     class="adm-link"
                     :aria-label="'Retirer ' + g"
                     :disabled="!!general"
-                    @click="adm.authRetirerGroupe(i)"
+                    @click="adm.authRetirerGroupe('required_groups', i)"
                   >
                     <i class="ph ph-x" aria-hidden="true"></i>
                   </button>
@@ -461,7 +462,7 @@ const titre = computed(() => {
                 </p>
                 <template v-if="adm.authEssai">
                   <p id="ent-essai-synthese" class="text-xs font-medium text-slate-800">{{ synthese }}</p>
-                  <EtapesEssai :steps="adm.authEssai.steps" :annoncer="false" />
+                  <EtapesEssai :steps="adm.authEssai.steps" />
                 </template>
               </div>
             </section>
@@ -502,7 +503,6 @@ const titre = computed(() => {
                 <EtapesEssai
                   v-if="adm.authTrialEtapes.some((x) => x.level !== 'ok')"
                   :steps="adm.authTrialEtapes"
-                  :annoncer="false"
                 />
                 <template v-if="adm.authTrial">
                   <p id="ent-trial-decision" class="text-xs font-medium text-slate-800">

@@ -175,7 +175,6 @@ const ENTREES: readonly EntreeAdmin[] = [
       {
         id: "enterprise-login",
         label: "Connexion d'entreprise",
-        role: "admin",
         wide: true,
         loaders: [["loadEnterpriseAuth"], ["loadGroups"]],
         paths: ["auth."],

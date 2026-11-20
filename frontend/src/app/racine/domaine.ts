@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/app/racine/domaine.ts — domaines injectés de la racine elle-même : couche commune (toasts, fenêtre, menu contextuel) et cartes de connexion. */
+import type { MethodeConnexionSso } from "@elpis/contracts";
 import { inject, provide } from "vue";
 import type { InjectionKey } from "vue";
 
+import type { ErreurRetour } from "../../features/auth/sso";
 import type { EtatFenetre, MenuContextuel, Toast } from "./chrome";
 
 export interface DomaineChrome {
@@ -42,10 +44,10 @@ export interface DomaineConnexion {
   login(): unknown;
   submitForcePasswordChange(): unknown;
   /** Méthodes de connexion externes proposées ; absent ou vide : l'écran de connexion reste celui du formulaire local. */
-  loginMethods?: readonly { id: string; label: string }[];
+  loginMethods?: readonly MethodeConnexionSso[];
   ssoBusy?: boolean;
   ssoError?: string;
-  authRetour?: { message: string; reference: string | null } | null;
+  authRetour?: ErreurRetour | null;
   preuveUsername?: string | null;
   preuveMotDePasse?: string;
   preuveBusy?: boolean;

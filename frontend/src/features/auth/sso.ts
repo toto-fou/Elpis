@@ -44,7 +44,7 @@ const MESSAGE_INDISPONIBLE =
   "Le service de connexion de votre organisation ne répond pas. Réessayez plus tard ou demandez à votre administrateur.";
 
 /** Message affiché pour chaque code de la liste fermée. */
-export const MESSAGES_ERREUR_CONNEXION: Record<CodeErreurConnexion, string> = {
+const MESSAGES_ERREUR_CONNEXION: Record<CodeErreurConnexion, string> = {
   denied: "Connexion refusée par le service de votre organisation.",
   expired: "La connexion a pris trop de temps. Réessayez.",
   not_in_group: MESSAGE_AUTORISATION,
@@ -67,7 +67,7 @@ export function adresseHttps(valeur: unknown): string | null {
 }
 
 /** Suite d'une connexion rendue par le serveur : chemin local (jamais `//` ni `\`) ou adresse https, sinon l'accueil. */
-export function suiteSure(valeur: unknown): string {
+function suiteSure(valeur: unknown): string {
   if (typeof valeur !== "string") return "/";
   if (valeur.startsWith("/") && !valeur.startsWith("//") && !valeur.includes("\\")) return valeur;
   return adresseHttps(valeur) ?? "/";
@@ -97,7 +97,7 @@ const REFERENCE = /^[A-Za-z0-9_-]{8}$/u;
 const PARAMETRES_RETOUR = ["auth_error", "ref", "auth_link"];
 
 /** Code de la liste fermée, sinon `failed`. */
-export function codeErreur(brut: string): CodeErreurConnexion {
+function codeErreur(brut: string): CodeErreurConnexion {
   return (CODES_ERREUR_CONNEXION as readonly string[]).includes(brut)
     ? (brut as CodeErreurConnexion)
     : "failed";
@@ -108,14 +108,14 @@ export interface ErreurRetour {
   readonly reference: string | null;
 }
 
-export interface CrochetsSso {
+interface CrochetsSso {
   /** Relit la configuration publique (méthode éteinte entre-temps). */
   rechargerConfig(): Promise<unknown>;
   /** Vrai dans la console d'administration (départ du flux avec `target: "console"`). */
   depuisConsole?(): boolean;
 }
 
-export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso = envNavigateur) {
+export function setupSso(http: ClientHttp, crochets: CrochetsSso, env: EnvSso) {
   const loginMethods = ref<MethodeConnexionSso[]>([]);
   const authOrigin = ref("");
   const ssoBusy = ref(false);

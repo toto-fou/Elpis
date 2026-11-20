@@ -4,13 +4,12 @@ import { schemaReponseRattachementsPrepares } from "@elpis/contracts";
 import type { CompteConsole, RattachementPrepare } from "@elpis/contracts";
 import type { Ref } from "vue";
 
-import { corpsJson, detailErreur, lireSchema } from "../../utils/lecture-json";
+import { lireSchema } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
+import { envoyerJson, erreurServeur } from "./identite";
 import type { creerIdentite } from "./identite";
 
-const ENTETES_JSON = { "Content-Type": "application/json" };
 const BASE = "/api/admin/auth/providers";
-const REFUSE = "Demande refusée par le serveur.";
 
 export interface FormPrelink {
   user_id: number;
@@ -31,27 +30,6 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
   const { computed, ref, watch } = vue;
   const { fetchAuth, showToast } = ctx;
   const { authTiroir } = identite;
-
-  /** Appel de l'API : statut (0 sans réponse) et corps JSON. */
-  async function envoyer(
-    methode: string,
-    chemin: string,
-    corps?: unknown,
-  ): Promise<{ statut: number; res: Response | null; donnees: unknown }> {
-    try {
-      const res = await fetchAuth(chemin, {
-        method: methode,
-        headers: corps === undefined ? undefined : ENTETES_JSON,
-        body: corps === undefined ? undefined : JSON.stringify(corps),
-      });
-      if (!res) return { statut: 0, res: null, donnees: null };
-      return { statut: res.status, res, donnees: res.ok ? null : await corpsJson(res) };
-    } catch {
-      return { statut: 0, res: null, donnees: null };
-    }
-  }
-  const erreurServeur = (statut: number, donnees: unknown): string =>
-    statut === 0 ? "Erreur réseau." : detailErreur(donnees, REFUSE);
 
   // ── Rattachements préparés (fournisseur SSO) ─────────────────────────────
   const prelinks: Ref<RattachementPrepare[]> = ref([]);
@@ -75,7 +53,11 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     const id = idPrelinks.value;
     if (id === null) return;
     const moi = ++sequencePrelinks;
-    const { statut, res, donnees } = await envoyer("GET", `${BASE}/${encodeURIComponent(id)}/prelinks`);
+    const { statut, res, donnees } = await envoyerJson(
+      fetchAuth,
+      "GET",
+      `${BASE}/${encodeURIComponent(id)}/prelinks`,
+    );
     if (moi !== sequencePrelinks) return;
     const lu = res?.ok ? await lireSchema(res, schemaReponseRattachementsPrepares) : null;
     if (lu) {
@@ -115,12 +97,17 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     prelinksBusy.value = true;
     prelinksErreur.value = "";
     try {
-      const { statut, donnees } = await envoyer("POST", `${BASE}/${encodeURIComponent(id)}/prelinks`, {
-        user_id: f.user_id,
-        expected: f.expected.trim(),
-        waiver: prelinkAdmin.value ? false : f.waiver,
-        confirm_admin: prelinkAdmin.value && f.confirm_admin,
-      });
+      const { statut, donnees } = await envoyerJson(
+        fetchAuth,
+        "POST",
+        `${BASE}/${encodeURIComponent(id)}/prelinks`,
+        {
+          user_id: f.user_id,
+          expected: f.expected.trim(),
+          waiver: prelinkAdmin.value ? false : f.waiver,
+          confirm_admin: prelinkAdmin.value && f.confirm_admin,
+        },
+      );
       if (statut < 200 || statut >= 300) {
         prelinksErreur.value = erreurServeur(statut, donnees);
         return;
@@ -146,7 +133,8 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     prelinksBusy.value = true;
     prelinksErreur.value = "";
     try {
-      const { statut, donnees } = await envoyer(
+      const { statut, donnees } = await envoyerJson(
+        fetchAuth,
         "DELETE",
         `${BASE}/${encodeURIComponent(id)}/prelinks/${p.id}`,
       );
@@ -180,9 +168,14 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     detachBusy.value = true;
     detachErreur.value = "";
     try {
-      const { statut, donnees } = await envoyer("POST", `/api/admin/users/${u.id}/identity/detach`, {
-        new_password: detachMotDePasse.value,
-      });
+      const { statut, donnees } = await envoyerJson(
+        fetchAuth,
+        "POST",
+        `/api/admin/users/${u.id}/identity/detach`,
+        {
+          new_password: detachMotDePasse.value,
+        },
+      );
       if (statut < 200 || statut >= 300) {
         detachErreur.value = erreurServeur(statut, donnees);
         return;

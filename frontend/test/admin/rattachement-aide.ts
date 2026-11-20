@@ -102,7 +102,7 @@ export function compteConsole(id: number, nom: string, extra: Record<string, unk
   };
 }
 
-type Reponse = Response | (() => Response);
+type Reponse = Response | (() => Response | Promise<Response>);
 let app: App | null = null;
 export function demonter(): void {
   app?.unmount();
@@ -111,7 +111,7 @@ export function demonter(): void {
 }
 
 export function monter(
-  initial: unknown,
+  initial: unknown = etat([]),
   opts: { page?: "enterprise-login" | "accounts"; utilisateurs?: unknown[]; accepter?: boolean } = {},
 ) {
   const appels: string[] = [];
@@ -121,6 +121,7 @@ export function monter(
   const mots: string[] = [];
   const textes: string[] = [];
   const toasts: string[] = [];
+  let accepter = opts.accepter ?? true;
   const fetchFaux = (url: string, init?: RequestInit): Promise<Response> => {
     const cle = (init?.method ?? "GET") + " " + url.split("?")[0];
     appels.push((init?.method ?? "GET") + " " + url);
@@ -146,12 +147,12 @@ export function monter(
     fetchAuth: (url, options) => fetchFaux(url, options),
     openConfirm: (titre) => {
       confirmations.push(titre);
-      return Promise.resolve(opts.accepter ?? true);
+      return Promise.resolve(accepter);
     },
     openTypedConfirm: (_t, texte, mot) => {
       textes.push(texte);
       mots.push(mot);
-      return Promise.resolve(opts.accepter ?? true);
+      return Promise.resolve(accepter);
     },
     openChoice: () => Promise.resolve("save"),
     nextTick: () => Vue.nextTick(),
@@ -171,7 +172,20 @@ export function monter(
   );
   app.provide(CLE_ADMIN, adm);
   app.mount(hote);
-  return { A, hote, appels, corps, reponses, confirmations, mots, textes, toasts };
+  return {
+    A,
+    hote,
+    appels,
+    corps,
+    reponses,
+    confirmations,
+    mots,
+    textes,
+    toasts,
+    refuser: () => {
+      accepter = false;
+    },
+  };
 }
 
 export const el = <T extends HTMLElement>(sel: string): T | null => document.querySelector<T>(sel);

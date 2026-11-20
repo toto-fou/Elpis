@@ -5,6 +5,23 @@ import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 
+const LISTES = [
+  {
+    liste: "admin_groups",
+    saisie: "admin_saisi",
+    id: "ent-admin-groupe",
+    label: "Groupes administrateurs",
+    attr: { "data-admin-ajouter": "" },
+  },
+  {
+    liste: "moderator_groups",
+    saisie: "moderator_saisi",
+    id: "ent-mod-groupe",
+    label: "Groupes modérateurs",
+    attr: { "data-mod-ajouter": "" },
+  },
+] as const;
+
 const adm = domaineAdmin();
 const f = computed(() => adm.authTiroir);
 const general = computed(() => adm.authFige(""));
@@ -34,21 +51,17 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
           alors plus qu'être rétrogradé.
         </p>
 
-        <div class="adm-field">
-          <label class="adm-field__label" for="ent-admin-groupe">Groupes administrateurs</label>
-          <ul
-            v-if="f.admin_groups.length"
-            class="flex flex-wrap gap-1.5"
-            aria-label="Groupes administrateurs"
-          >
-            <li v-for="(g, i) in f.admin_groups" :key="g" class="adm-pill">
+        <div v-for="r in LISTES" :key="r.id" class="adm-field">
+          <label class="adm-field__label" :for="r.id">{{ r.label }}</label>
+          <ul v-if="f[r.liste].length" class="flex flex-wrap gap-1.5" :aria-label="r.label">
+            <li v-for="(g, i) in f[r.liste]" :key="g" class="adm-pill">
               <span class="font-mono">{{ g }}</span>
               <button
                 type="button"
                 class="adm-link"
                 :aria-label="'Retirer ' + g"
                 :disabled="!!general"
-                @click="adm.authRetirerGroupeRole('admin', i)"
+                @click="adm.authRetirerGroupe(r.liste, i)"
               >
                 <i class="ph ph-x" aria-hidden="true"></i>
               </button>
@@ -56,60 +69,19 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
           </ul>
           <div class="adm-field__row">
             <input
-              id="ent-admin-groupe"
-              v-model="f.admin_saisi"
+              :id="r.id"
+              v-model="f[r.saisie]"
               class="set-input flex-1"
               :disabled="!!general"
               :title="general || 'Valeur exacte du groupe, telle que le fournisseur la transmet.'"
-              @keydown.enter.prevent="adm.authAjouterGroupeRole('admin')"
+              @keydown.enter.prevent="adm.authAjouterGroupe(r.liste)"
             />
             <button
               type="button"
               class="adm-btn adm-btn--quiet adm-btn--sm"
-              data-admin-ajouter
-              :disabled="!!general || f.admin_saisi.trim() === ''"
-              @click="adm.authAjouterGroupeRole('admin')"
-            >
-              Ajouter
-            </button>
-          </div>
-        </div>
-
-        <div class="adm-field">
-          <label class="adm-field__label" for="ent-mod-groupe">Groupes modérateurs</label>
-          <ul
-            v-if="f.moderator_groups.length"
-            class="flex flex-wrap gap-1.5"
-            aria-label="Groupes modérateurs"
-          >
-            <li v-for="(g, i) in f.moderator_groups" :key="g" class="adm-pill">
-              <span class="font-mono">{{ g }}</span>
-              <button
-                type="button"
-                class="adm-link"
-                :aria-label="'Retirer ' + g"
-                :disabled="!!general"
-                @click="adm.authRetirerGroupeRole('moderator', i)"
-              >
-                <i class="ph ph-x" aria-hidden="true"></i>
-              </button>
-            </li>
-          </ul>
-          <div class="adm-field__row">
-            <input
-              id="ent-mod-groupe"
-              v-model="f.moderator_saisi"
-              class="set-input flex-1"
-              :disabled="!!general"
-              :title="general || 'Valeur exacte du groupe, telle que le fournisseur la transmet.'"
-              @keydown.enter.prevent="adm.authAjouterGroupeRole('moderator')"
-            />
-            <button
-              type="button"
-              class="adm-btn adm-btn--quiet adm-btn--sm"
-              data-mod-ajouter
-              :disabled="!!general || f.moderator_saisi.trim() === ''"
-              @click="adm.authAjouterGroupeRole('moderator')"
+              v-bind="r.attr"
+              :disabled="!!general || f[r.saisie].trim() === ''"
+              @click="adm.authAjouterGroupe(r.liste)"
             >
               Ajouter
             </button>

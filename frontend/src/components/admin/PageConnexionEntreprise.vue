@@ -2,6 +2,7 @@
 <!-- frontend/src/components/admin/PageConnexionEntreprise.vue — page Utilisateurs & accès › Connexion d'entreprise : état, prérequis, réglages généraux et fournisseurs d'identité OpenID Connect, admins. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import { etatFournisseur } from "../../features/admin/identite";
 import TiroirFournisseurAuth from "./TiroirFournisseurAuth.vue";
 
 const adm = domaineAdmin();
@@ -12,11 +13,6 @@ const MODES = [
 ] as const;
 
 const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché${n > 1 ? "s" : ""}`;
-
-function etat(p: { enabled: boolean; active: boolean }): { libelle: string; alerte: boolean } {
-  if (p.active) return { libelle: "Actif", alerte: false };
-  return p.enabled ? { libelle: "À tester", alerte: true } : { libelle: "Éteint", alerte: false };
-}
 </script>
 
 <template>
@@ -194,8 +190,8 @@ function etat(p: { enabled: boolean; active: boolean }): { libelle: string; aler
                 <div class="font-medium text-sm truncate">{{ p.label }}</div>
                 <div class="adm-card__hint">SSO OpenID Connect · {{ comptes(p.identities) }}</div>
               </div>
-              <span class="adm-pill" :class="{ 'adm-pill--warn': etat(p).alerte }">{{
-                etat(p).libelle
+              <span class="adm-pill" :class="{ 'adm-pill--warn': etatFournisseur(p).alerte }">{{
+                etatFournisseur(p).libelle
               }}</span>
               <button
                 type="button"

@@ -10,9 +10,7 @@ interface Groupe {
   etapes: Etape[];
 }
 
-const props = withDefaults(defineProps<{ steps: readonly Etape[]; annoncer?: boolean }>(), {
-  annoncer: true,
-});
+const props = defineProps<{ steps: readonly Etape[] }>();
 
 const GLYPHES = { ok: "✓", warn: "⚠", fail: "✗" } as const;
 const ICONES = { ok: "ph-check-circle", warn: "ph-warning", fail: "ph-x-circle" } as const;
@@ -39,7 +37,7 @@ const regroupe = computed(() => groupes.value.some((g) => g.cible !== null));
 </script>
 
 <template>
-  <div class="min-w-0" :aria-live="annoncer ? 'polite' : undefined" data-etapes-essai>
+  <div class="min-w-0" data-etapes-essai>
     <p v-if="steps.length === 0" class="text-xs text-slate-500" data-etapes-vide>Aucune étape à afficher.</p>
     <div v-for="(g, i) in groupes" :key="(g.cible ?? '') + i" class="space-y-0.5" data-groupe-essai>
       <p v-if="g.cible !== null" class="mt-2 text-[11px] font-mono text-slate-500" data-cible-groupe>

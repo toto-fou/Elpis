@@ -24,10 +24,35 @@ import { corpsJson, detailErreur, lireSchema } from "../../utils/lecture-json";
 import { confirmerParMot } from "./confirmation";
 import type { BaseAdmin } from "./etat";
 import { suivreChargement } from "./suivi-chargement";
+import type { FetchAuth } from "./types";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
 const NOM_CHARGEUR = "loadEnterpriseAuth";
 const BASE = "/api/admin/auth";
+
+/** Appel JSON de l'API : statut (0 sans réponse), réponse et, en échec, corps décodé. */
+export async function envoyerJson(
+  fetchAuth: FetchAuth,
+  methode: string,
+  chemin: string,
+  corps?: unknown,
+): Promise<{ statut: number; res: Response | null; donnees: unknown }> {
+  try {
+    const res = await fetchAuth(chemin, {
+      method: methode,
+      headers: corps === undefined ? undefined : ENTETES_JSON,
+      body: corps === undefined ? undefined : JSON.stringify(corps),
+    });
+    if (!res) return { statut: 0, res: null, donnees: null };
+    return { statut: res.status, res, donnees: res.ok ? null : await corpsJson(res) };
+  } catch {
+    return { statut: 0, res: null, donnees: null };
+  }
+}
+
+/** Message d'une réponse en échec : « Erreur réseau. » sans réponse, sinon le détail du serveur. */
+export const erreurServeur = (statut: number, donnees: unknown): string =>
+  statut === 0 ? "Erreur réseau." : detailErreur(donnees, "Demande refusée par le serveur.");
 
 export const ALGOS_JETON = [
   "RS256",
@@ -64,6 +89,15 @@ export function phraseDecision(d: ResultatEssaiBlanc["decision"]): string {
   if (d.outcome === "create") return `Un compte ${nom} serait créé.`;
   const raison = (d.reason !== null ? RAISONS_REFUS[d.reason] : undefined) ?? "cause non précisée";
   return d.outcome === "refuse" ? `Connexion refusée : ${raison}.` : `L'essai a échoué : ${raison}.`;
+}
+
+/** Libellé d'état d'un fournisseur ; `alerte` quand il est activé mais pas encore testé. */
+export function etatFournisseur(p: { enabled: boolean; active: boolean }): {
+  libelle: string;
+  alerte: boolean;
+} {
+  if (p.active) return { libelle: "Actif", alerte: false };
+  return p.enabled ? { libelle: "À tester", alerte: true } : { libelle: "Éteint", alerte: false };
 }
 
 /** Revendications reçues en liste compacte (libellé, valeur). */
@@ -106,24 +140,25 @@ export function lignesDroits(d: ResultatEssaiBlanc["rights"]): string[] {
   return l;
 }
 
-export type ModeLocal = "all" | "admins";
+type ModeLocal = ReglagesAuthConsole["local"]["mode"];
+type Correspondance = FournisseurAuth["group_map"]["map"][number];
 
-export const GROUPES_ROLE_MAX = 20;
-export const CORRESPONDANCES_MAX = 50;
-export const MOT_CONFIRMATION_ADMIN = "administrateur";
-
-export interface Correspondance {
-  external: string;
-  group_id: number;
-}
+const GROUPES_ROLE_MAX = 20;
+const CORRESPONDANCES_MAX = 50;
+const MOT_CONFIRMATION_ADMIN = "administrateur";
+const SAISIES = {
+  required_groups: "groupe_saisi",
+  admin_groups: "admin_saisi",
+  moderator_groups: "moderator_saisi",
+} as const;
+type ListeGroupes = keyof typeof SAISIES;
 
 /** Formulaire d'un fournisseur : tout en texte, converti à l'envoi ; le secret n'y vit que le temps de la saisie. */
-export interface FormFournisseur {
+interface FormFournisseur {
   nouveau: boolean;
   type: "oidc";
   id: string;
   label: string;
-  preset: string;
   ca_pem: string;
   required_groups: string[];
   groupe_saisi: string;
@@ -167,7 +202,6 @@ function formVide(): FormFournisseur {
     type: "oidc",
     id: "",
     label: "",
-    preset: "",
     ca_pem: "",
     required_groups: [],
     groupe_saisi: "",
@@ -221,7 +255,6 @@ function formDe(f: FournisseurAuth): FormFournisseur {
     nouveau: false,
     id: f.id,
     label: f.label,
-    preset: f.preset,
     ca_pem: f.ca_pem,
     required_groups: [...f.required_groups],
     roles_enabled: f.roles.enabled,
@@ -269,13 +302,12 @@ const REQUIS: readonly (readonly [keyof FormFournisseur, string])[] = [
 ];
 
 /** Corps de création ou de modification d'un fournisseur ; une chaîne seule est un message d'erreur de saisie. */
-export function corpsFournisseur(f: FormFournisseur): Record<string, unknown> | string {
+function corpsFournisseur(f: FormFournisseur): Record<string, unknown> | string {
   if (f.nouveau)
     for (const [cle, nom] of REQUIS)
       if (String(f[cle]).trim() === "") return `Champ « ${nom} » : à renseigner.`;
   const corps: Record<string, unknown> = {
     label: f.label.trim(),
-    preset: f.preset,
     ca_pem: f.ca_pem,
     required_groups: f.required_groups,
   };
@@ -350,7 +382,6 @@ export function creerIdentite(b: BaseAdmin) {
   let sequenceTrial = 0;
   let minuteurTrial: ReturnType<typeof setTimeout> | null = null;
 
-  const bornes = computed(() => authEtat.value?.bounds ?? null);
   const authReglagesModifies = computed(
     () =>
       authEtat.value !== null &&
@@ -359,16 +390,6 @@ export function creerIdentite(b: BaseAdmin) {
   const authFournisseur = computed<FournisseurAuth | null>(() => {
     const f = authTiroir.value;
     return f && !f.nouveau ? (authEtat.value?.providers.find((p) => p.id === f.id) ?? null) : null;
-  });
-  const authFormModifie = computed(() => {
-    const f = authTiroir.value;
-    if (!f) return false;
-    const p = authFournisseur.value;
-    if (!p || f.secret !== "") return true;
-    return (
-      JSON.stringify(corpsFournisseur({ ...f, nouveau: false })) !==
-      JSON.stringify(corpsFournisseur(formDe(p)))
-    );
   });
   /** Groupes administrateurs saisis alors que ce SSO n'exige ni niveau ni méthode d'authentification. */
   const authAdminSansSecondFacteur = computed(() => {
@@ -396,37 +417,24 @@ export function creerIdentite(b: BaseAdmin) {
     );
   });
   const authActifs = computed(() => (authEtat.value?.providers ?? []).filter((p) => p.active));
-  const authAdressePublique = computed(() => authEtat.value?.public_url ?? "");
-
-  function synchroniserReglages(): void {
-    if (!authEtat.value) return;
-    authUrl.value = authEtat.value.public_url;
-    authMode.value = authEtat.value.local.mode;
-  }
 
   /** Recopie l'état lu ; le formulaire des réglages n'est écrasé que s'il n'a pas été modifié. */
   function appliquer(r: ReglagesAuthConsole, forcer = false): void {
     const propre = !authReglagesModifies.value || forcer;
     authEtat.value = r;
-    if (propre) synchroniserReglages();
+    if (propre) {
+      authUrl.value = r.public_url;
+      authMode.value = r.local.mode;
+    }
   }
 
   /** Appel de l'API : état complet validé, ou message du serveur. */
   async function appeler(methode: string, chemin: string, corps?: unknown): Promise<Retour> {
-    try {
-      const res = await fetchAuth(BASE + chemin, {
-        method: methode,
-        headers: corps === undefined ? undefined : ENTETES_JSON,
-        body: corps === undefined ? undefined : JSON.stringify(corps),
-      });
-      if (!res) return { erreur: "Erreur réseau." };
-      if (!res.ok) return { erreur: detailErreur(await corpsJson(res), "Demande refusée par le serveur.") };
-      if (methode === "DELETE") return {};
-      const r = await lireSchema(res, schemaReglagesAuth);
-      return r ? { r } : { erreur: "Réponse du serveur inattendue." };
-    } catch {
-      return { erreur: "Erreur réseau." };
-    }
+    const { statut, res, donnees } = await envoyerJson(fetchAuth, methode, BASE + chemin, corps);
+    if (!res?.ok) return { erreur: erreurServeur(statut, donnees) };
+    if (methode === "DELETE") return {};
+    const r = await lireSchema(res, schemaReglagesAuth);
+    return r ? { r } : { erreur: "Réponse du serveur inattendue." };
   }
 
   async function loadEnterpriseAuth(): Promise<void> {
@@ -535,38 +543,22 @@ export function creerIdentite(b: BaseAdmin) {
     }
   });
 
-  function authAjouterGroupe(): void {
+  function authAjouterGroupe(cle: ListeGroupes = "required_groups"): void {
     const f = authTiroir.value;
-    const g = f?.groupe_saisi.trim() ?? "";
-    if (!f || g === "") return;
-    const max = bornes.value?.required_groups_max ?? 0;
-    if (f.required_groups.length >= max) {
+    if (!f) return;
+    const g = f[SAISIES[cle]].trim();
+    if (g === "") return;
+    const max =
+      cle === "required_groups" ? (authEtat.value?.bounds.required_groups_max ?? 0) : GROUPES_ROLE_MAX;
+    if (f[cle].length >= max) {
       authTiroirErreur.value = `${max} groupes au plus.`;
       return;
     }
-    if (!f.required_groups.includes(g)) f.required_groups.push(g);
-    f.groupe_saisi = "";
-  }
-  function authRetirerGroupe(i: number): void {
-    authTiroir.value?.required_groups.splice(i, 1);
-  }
-
-  function authAjouterGroupeRole(liste: "admin" | "moderator"): void {
-    const f = authTiroir.value;
-    if (!f) return;
-    const cle = liste === "admin" ? "admin_groups" : "moderator_groups";
-    const saisie = liste === "admin" ? "admin_saisi" : "moderator_saisi";
-    const g = f[saisie].trim();
-    if (g === "") return;
-    if (f[cle].length >= GROUPES_ROLE_MAX) {
-      authTiroirErreur.value = `${GROUPES_ROLE_MAX} groupes au plus.`;
-      return;
-    }
     if (!f[cle].includes(g)) f[cle].push(g);
-    f[saisie] = "";
+    f[SAISIES[cle]] = "";
   }
-  function authRetirerGroupeRole(liste: "admin" | "moderator", i: number): void {
-    authTiroir.value?.[liste === "admin" ? "admin_groups" : "moderator_groups"].splice(i, 1);
+  function authRetirerGroupe(cle: ListeGroupes, i: number): void {
+    authTiroir.value?.[cle].splice(i, 1);
   }
   function authAjouterCorrespondance(): void {
     const f = authTiroir.value;
@@ -613,7 +605,7 @@ export function creerIdentite(b: BaseAdmin) {
   /** Adresses à déclarer chez un fournisseur OIDC ; vides tant que l'adresse publique ou l'identifiant manque. */
   const authAdresses = computed(() => {
     const f = authTiroir.value;
-    const base = authAdressePublique.value;
+    const base = authEtat.value?.public_url ?? "";
     const id = f?.id.trim() ?? "";
     if (!f || base === "" || id === "") return null;
     return {
@@ -721,23 +713,9 @@ export function creerIdentite(b: BaseAdmin) {
     authEssai.value = null;
     authEssaiErreur.value = "";
     authEssaiEnCours.value = true;
-    let essai: ReponseEssaiFournisseur | null = null;
-    let erreur = "";
-    try {
-      const res = await fetchAuth(`${BASE}/providers/test`, {
-        method: "POST",
-        headers: ENTETES_JSON,
-        body: JSON.stringify(corps),
-      });
-      if (!res) erreur = "Erreur réseau.";
-      else if (!res.ok) erreur = detailErreur(await corpsJson(res), "Demande refusée par le serveur.");
-      else {
-        essai = await lireSchema(res, schemaReponseEssaiFournisseur);
-        if (!essai) erreur = "Réponse du serveur inattendue.";
-      }
-    } catch {
-      erreur = "Erreur réseau.";
-    }
+    const { statut, res, donnees } = await envoyerJson(fetchAuth, "POST", `${BASE}/providers/test`, corps);
+    const essai = res?.ok ? await lireSchema(res, schemaReponseEssaiFournisseur) : null;
+    const erreur = essai ? "" : res?.ok ? "Réponse du serveur inattendue." : erreurServeur(statut, donnees);
     if (moi !== sequenceEssai) return;
     authEssaiEnCours.value = false;
     authEssai.value = essai;
@@ -751,13 +729,12 @@ export function creerIdentite(b: BaseAdmin) {
     authTrialAttente.value = true;
     const tour = async (): Promise<void> => {
       minuteurTrial = null;
-      let resultat: ResultatEssaiBlanc | null;
-      try {
-        const res = await fetchAuth(`${BASE}/providers/${encodeURIComponent(id)}/trial`);
-        resultat = (await lireSchema(res, schemaReponseDernierEssai))?.result ?? null;
-      } catch {
-        resultat = null;
-      }
+      const { res } = await envoyerJson(
+        fetchAuth,
+        "GET",
+        `${BASE}/providers/${encodeURIComponent(id)}/trial`,
+      );
+      const resultat = (await lireSchema(res, schemaReponseDernierEssai))?.result ?? null;
       if (jeton !== sequenceTrial) return;
       if (resultat !== null && resultat.at >= depuis - 2 && resultat.at > precedent) {
         authTrial.value = resultat;
@@ -786,22 +763,18 @@ export function creerIdentite(b: BaseAdmin) {
     const jeton = sequenceTrial;
     authTrialEnCours.value = true;
     try {
-      const res = await fetchAuth(`${BASE}/providers/${encodeURIComponent(id)}/trial`, {
-        method: "POST",
-        headers: ENTETES_JSON,
-        body: "{}",
-      });
+      const { statut, res, donnees } = await envoyerJson(
+        fetchAuth,
+        "POST",
+        `${BASE}/providers/${encodeURIComponent(id)}/trial`,
+        {},
+      );
       if (jeton !== sequenceTrial) return;
-      if (!res) {
-        authTrialErreur.value = "Erreur réseau.";
-        return;
-      }
-      if (!res.ok) {
-        const corps = await corpsJson(res);
-        const h = res.status === 409 ? schemaHoteNonCanonique.safeParse(corps) : null;
+      if (!res?.ok) {
+        const h = statut === 409 ? schemaHoteNonCanonique.safeParse(donnees) : null;
         authTrialErreur.value = h?.success
           ? `Ouvrez la console depuis ${h.data.canonical} pour lancer l'essai.`
-          : detailErreur(corps, "Demande refusée par le serveur.");
+          : erreurServeur(statut, donnees);
         return;
       }
       const r = await lireSchema(res, schemaReponseLancementEssai);
@@ -902,7 +875,6 @@ export function creerIdentite(b: BaseAdmin) {
     authMode,
     authReglagesErreur,
     authReglagesModifies,
-    authFormModifie,
     authBusy,
     authTiroir,
     authTiroirErreur,
@@ -911,9 +883,6 @@ export function creerIdentite(b: BaseAdmin) {
     authActifs,
     authAdminSansSecondFacteur,
     authRolesBloque,
-    authAdminAConfirmer,
-    authAjouterGroupeRole,
-    authRetirerGroupeRole,
     authAjouterCorrespondance,
     authRetirerCorrespondance,
     authAdresses,

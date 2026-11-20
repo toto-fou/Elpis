@@ -3360,7 +3360,6 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     box-shadow: -8px 0 24px rgba(15, 23, 42, .12);
     outline: none;
 }
-.adm-drawer--large { width: min(46rem, 100vw); }
 .adm-drawer__head {
     display: flex; align-items: center; gap: 0.625rem;
     padding: 0.875rem 1.25rem;

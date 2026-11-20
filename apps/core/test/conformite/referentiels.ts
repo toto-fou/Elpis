@@ -2511,6 +2511,10 @@ export const EXIGENCES: readonly Exigence[] = [
         "suspendre : état posé une fois (premier auteur gardé), min de session levé, bac détruit, publication faite ; réactiver ne baisse pas le min",
       ],
       ["apps/core/test/securite-auth-reglages.test.ts", "réglages généraux : section créée et journalisée"],
+      [
+        "apps/core/test/securite-roles-oidc.test.ts",
+        "administrateur par groupe avec second facteur exigé : monté à la connexion, audité, modérateur puis utilisateur au gré du jeton",
+      ],
     ],
   ),
   ex(

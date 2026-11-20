@@ -1,13 +1,27 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-oidc-essai.test.ts — le bouton « Tester » d'un fournisseur OIDC lit les clés, vérifie les algorithmes annoncés, l'origine des points d'accès, l'authentification du client et le secret, avertit sur un sujet inhabituel. */
+/** apps/core/test/securite-oidc-essai.test.ts — le bouton « Tester » d'un fournisseur OIDC lit les clés, vérifie les algorithmes annoncés, l'origine des points d'accès, l'authentification du client et le secret, avertit sur un sujet inhabituel, et un test réussi n'enregistre aucun test réussi. */
 import { generateKeyPairSync } from "node:crypto";
 import type { KeyObject } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createUser, dependancesParDefaut, ligneUtilisateur } from "@elpis/auth";
+import { HttpError } from "@elpis/commun";
+import { initialiserBase } from "@elpis/db";
+import { ouvrirBaseDeTest } from "@elpis/db/test";
+import { configureAudit, oublierConfigurationAudit } from "@elpis/securite";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { creerFamilleAdminIdentite } from "../src/familles/admin-identite";
 import { testerFournisseur } from "../src/identite/essai";
 import type { ContexteEssai } from "../src/identite/essai";
-import { oidcValide } from "./identite/aides";
+import { enregistrerSecret } from "../src/identite/fournisseurs";
+import { validerFournisseur } from "../src/identite/reglages";
+import { appTest, journalMuet, lignesAuditRecentes } from "./aides";
+import { cleCoffreDeTest, configDeTest, oidcValide } from "./identite/aides";
+import { MOTEURS } from "./identite/banc";
 import { OidcFactice, VERS_BOUCLE } from "./identite/oidc-factice";
 import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 
@@ -166,3 +180,110 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur OIDC", () => {
     }
   });
 });
+
+describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
+  "« Tester » un fournisseur OIDC : route (%s)",
+  (moteur) => {
+    let idp: OidcFactice;
+    let t: ReturnType<typeof ouvrirBaseDeTest>;
+    let cfg: ReturnType<typeof configDeTest>;
+    let admin: FastifyInstance;
+    let dossier: string;
+    let chef = 0;
+
+    beforeEach(async () => {
+      idp = await OidcFactice.demarrer();
+      t = ouvrirBaseDeTest(moteur);
+      await initialiserBase(t.base);
+      cleCoffreDeTest();
+      cfg = configDeTest({ https: true });
+      dossier = mkdtempSync(join(tmpdir(), "elpis-essai-oidc-"));
+      configureAudit({
+        service: "admin",
+        auditDir: join(dossier, "audit"),
+        hmacKeyPath: join(dossier, "sans-cle"),
+      });
+      chef = await createUser(t.base, "chef", "mdp-chef-1", { isAdmin: 1 });
+      const f = validerFournisseur(
+        oidcValide({
+          issuer: idp.issuer,
+          client_id: idp.clientId,
+          client_auth: idp.authClient,
+          id_token_alg: idp.alg,
+          ca_pem: idp.ca.cert,
+          required_groups: ["elpis"],
+        }),
+      );
+      await enregistrerSecret(t.base, f, idp.clientSecret, { userId: null, username: null, ip: null });
+      cfg.ecrire({ auth: { public_url: CONTEXTE.publicUrl, providers: [f] } });
+      const garde = async (req: FastifyRequest): Promise<void> => {
+        const uid = req.headers["x-uid"];
+        if (!uid) throw new HttpError(401, "not logged in");
+        const ligne = await ligneUtilisateur(t.base, Number(uid));
+        req.utilisateur = { id: Number(uid), username: ligne ? String(ligne.username) : null };
+        if (!ligne || Number(ligne.is_admin) !== 1) throw new HttpError(403, "Admin required");
+      };
+      admin = await appTest({
+        mode: "admin",
+        familles: [
+          creerFamilleAdminIdentite({
+            base: t.base,
+            auth: {
+              ...dependancesParDefaut(t.base),
+              attributsCookie: () => ({
+                cookie_name: "mcpwebui_session",
+                same_site: "lax" as const,
+                https_only: true,
+                max_age: 86_400,
+              }),
+            },
+            journal: journalMuet,
+            revoquer: async () => undefined,
+            essai: { sortant: { juger: VERS_BOUCLE } },
+          }),
+        ],
+        gardes: { admin: garde, staff: garde, session: garde, service: async () => undefined },
+      });
+    });
+    afterEach(async () => {
+      await admin.close();
+      oublierConfigurationAudit();
+      cfg.fermer();
+      await t.fermer();
+      await idp.fermer();
+      rmSync(dossier, { recursive: true, force: true });
+    });
+
+    it("un test réussi rend ses étapes vertes et une ligne d'audit, mais n'enregistre aucun test réussi : seul l'essai complet le fait", async () => {
+      const r = await admin.inject({
+        method: "POST",
+        url: "/api/admin/auth/providers/test",
+        headers: { "x-uid": String(chef) },
+        payload: {
+          ...oidcValide({
+            issuer: idp.issuer,
+            client_id: idp.clientId,
+            client_auth: idp.authClient,
+            id_token_alg: idp.alg,
+            ca_pem: idp.ca.cert,
+            required_groups: ["elpis"],
+          }),
+        },
+      });
+      expect(r.statusCode, r.body).toBe(200);
+      const j = r.json<{ ok: boolean; steps: { id: string; level: string }[] }>();
+      expect(j.ok, JSON.stringify(j.steps)).toBe(true);
+      expect(j.steps.find((e) => e.id === "secret")?.level).toBe("ok");
+      expect(j.steps.every((e) => e.level !== "fail")).toBe(true);
+      expect(j).not.toHaveProperty("complete");
+      expect(lignesAuditRecentes({ actionPrefix: "admin.auth.provider.test" })[0]?.["details"]).toMatchObject(
+        {
+          provider_id: "sso",
+          ok: true,
+          failed_step: null,
+        },
+      );
+      expect(await t.base.valeurs("SELECT * FROM auth_provider_state")).toEqual([]);
+    });
+  },
+);

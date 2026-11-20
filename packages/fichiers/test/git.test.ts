@@ -42,7 +42,11 @@ import { BASIC, demarrerAmont, git, JETON } from "./amont-git";
 import type { Amont } from "./amont-git";
 
 const libre = async (): Promise<{ motif: null; adresses: null }> => ({ motif: null, adresses: null });
-const sansConnecteur: SourceGit = { gitCredential: async () => null, connectorHosts: async () => [] };
+const sansConnecteur: SourceGit = {
+  gitCredential: async () => null,
+  connectorHosts: async () => [],
+  connectorScopes: async () => [],
+};
 /** Compte des rappels signés au core (identifiant git). */
 const BOB = { user_id: 1, username: "bob" };
 
@@ -176,6 +180,7 @@ describe.skipIf(!PYTHON)("réseau par le relais", () => {
         return { username: "u", token: JETON, host: hote };
       },
       connectorHosts: async () => [hote],
+      connectorScopes: async () => [],
     };
     const r = await runNetwork(
       agent,
@@ -209,12 +214,14 @@ describe.skipIf(!PYTHON)("réseau par le relais", () => {
       const source: SourceGit = {
         gitCredential: async () => ({ username: "u", token: JETON, host: autre }),
         connectorHosts: async () => [],
+        connectorScopes: async () => [],
       };
       expect(await credential(source, BOB, amont.url), autre).toEqual(["", ""]);
     }
     const source: SourceGit = {
       gitCredential: async () => ({ username: "u", token: JETON, host: "ailleurs.lan" }),
       connectorHosts: async () => [],
+      connectorScopes: async () => [],
     };
     const r = await runNetwork(
       agent,
@@ -230,6 +237,7 @@ describe.skipIf(!PYTHON)("réseau par le relais", () => {
     const source = (host: string): SourceGit => ({
       gitCredential: async () => ({ username: "", token: "t", host }),
       connectorHosts: async () => [],
+      connectorScopes: async () => [],
     });
     expect(
       await credential(source("git.example.lan:8443"), BOB, "https://Git.Example.LAN:8443/o/r.git"),
@@ -244,7 +252,7 @@ describe.skipIf(!PYTHON)("réseau par le relais", () => {
   it("garde et schémas : refus avant tout transfert", async () => {
     for (const [url, code, garde] of [
       ["git://h/x.git", "scheme_not_relayed", libre],
-      ["https://u:p@h/x.git", "blocked_remote", undefined],
+      ["https://u:p@h/x.git", "malformed_url", undefined],
       ["https://h/a/../b.git", "malformed_url", libre],
       ["http://127.0.0.1:1/x.git", "blocked_remote", undefined],
     ] as const) {
@@ -264,7 +272,11 @@ describe.skipIf(!PYTHON)("réseau par le relais", () => {
 
   it("garde par défaut : boucle refusée même pour un hôte de connecteur enregistré (écart plus strict)", async () => {
     const hote = amont.url.slice("http://".length, amont.url.indexOf("/", "http://".length));
-    const source: SourceGit = { gitCredential: async () => null, connectorHosts: async () => [hote] };
+    const source: SourceGit = {
+      gitCredential: async () => null,
+      connectorHosts: async () => [hote],
+      connectorScopes: async () => [],
+    };
     expect((await gardeDepot(amont.url, BOB, source)).motif).toBe("blocked_ip (127.0.0.1)");
     const resoudre = async (): Promise<string[]> => ["10.1.2.3"];
     expect(await gardeDepot("http://git.lan:3000/o/r.git", BOB, sansConnecteur, resoudre)).toEqual({
@@ -569,6 +581,9 @@ describe.skipIf(!PYTHON)("dépôts, pull local, anciens identifiants", () => {
         throw new Error("core injoignable");
       },
       connectorHosts: async () => {
+        throw new Error("core injoignable");
+      },
+      connectorScopes: async () => {
         throw new Error("core injoignable");
       },
     };

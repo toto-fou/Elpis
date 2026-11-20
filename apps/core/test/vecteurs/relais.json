@@ -3092,7 +3092,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3169,7 +3171,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3246,7 +3250,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3323,7 +3329,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3400,7 +3408,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3492,7 +3502,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3577,7 +3589,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3679,7 +3693,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3759,7 +3775,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3841,7 +3859,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -3937,7 +3957,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "lan",
@@ -3971,7 +3993,9 @@
             ],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4058,7 +4082,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "a",
@@ -4075,7 +4101,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4167,7 +4195,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "a",
@@ -4180,7 +4210,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4268,7 +4300,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "lan",
@@ -4281,7 +4315,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -4294,7 +4330,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "5",
@@ -4307,7 +4345,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "lan",
@@ -4320,7 +4360,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "a",
@@ -4333,7 +4375,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "web",
@@ -4346,7 +4390,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4423,7 +4469,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "z",
@@ -4436,7 +4484,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4513,7 +4563,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4590,7 +4642,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4675,7 +4729,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "legacy",
@@ -4690,7 +4746,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4771,7 +4829,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "legacy",
@@ -4784,7 +4844,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4863,7 +4925,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "legacy",
@@ -4876,7 +4940,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -4953,7 +5019,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "legacy",
@@ -4966,7 +5034,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -5050,7 +5120,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "legacy",
@@ -5063,7 +5135,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -5142,7 +5216,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "legacy",
@@ -5155,7 +5231,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -5232,7 +5310,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "ok",
@@ -5245,7 +5325,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true
@@ -5322,7 +5404,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "isolated",
@@ -5335,7 +5419,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           },
           {
             "id": "lan",
@@ -5348,7 +5434,9 @@
             "dns": [],
             "block_metadata": false,
             "block_lan": false,
-            "block_host": false
+            "block_host": false,
+            "git_access": "all",
+            "git_servers": []
           }
         ],
         "allow_sudo": true

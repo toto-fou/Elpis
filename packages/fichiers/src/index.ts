@@ -49,6 +49,9 @@ export {
   installerImportAncien,
   oublierAnciensVus,
   pull,
+  cleServeurGit,
+  regleCouvre,
+  regleDuProfil,
   REMOTE_SCHEMES,
   remoteBlockReason,
   remoteUrl,
@@ -56,7 +59,15 @@ export {
   run,
   runNetwork,
 } from "./git";
-export type { CompteRappel, GardeDepot, ImportAncien, OptionsReseau, SourceGit } from "./git";
+export type {
+  CompteRappel,
+  GardeDepot,
+  ImportAncien,
+  OptionsReseau,
+  PorteeGit,
+  RegleGit,
+  SourceGit,
+} from "./git";
 export {
   currentSession,
   dossierCompte,

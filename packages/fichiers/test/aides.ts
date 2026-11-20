@@ -6,7 +6,8 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { BacPourAgent, EtatBac } from "@elpis/bac";
+import { configBacDepuis, profilParId } from "@elpis/bac";
+import type { BacPourAgent, EtatBac, ProfilReseau } from "@elpis/bac";
 import { pythonDisponible } from "@elpis/verrous/test";
 
 export const RACINE = path.resolve(import.meta.dirname, "../../..");
@@ -39,6 +40,8 @@ export class BacTest implements BacPourAgent {
   readonly P: string;
   readonly socket: string;
   readonly relais: string;
+  /** Profil « isolated » par défaut : règle Git « tous les dépôts ». */
+  networkProfile: ProfilReseau = profilParId(configBacDepuis({}), "isolated");
   running = true;
   demarrages = 0;
   remplacements = 0;

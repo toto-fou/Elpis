@@ -30,6 +30,7 @@ import {
 } from "@elpis/commun";
 import type { Dict, Reseau } from "@elpis/commun";
 import {
+  ACCES_GIT,
   adressesEpinglables,
   appelDocker,
   argsRunPermis,
@@ -49,9 +50,11 @@ import {
   profilFiltre,
   profilReseauDepuis,
   protectionsDe,
+  regleGitDepuis,
   resolveurValide,
   resoudreIpv4,
   RUN_SPEC,
+  serveurGitCanonique,
   seuilsDisqueDepuis,
   sousVerrouDeCycle,
   which,
@@ -132,7 +135,7 @@ export function vueExecuteurs(cfg: Dict): Dict {
   };
 }
 
-/** Profils montrés à la console : protections rendues booléennes telles que lues (une valeur éditée à la main ne casse pas l'écran). */
+/** Profils montrés à la console : protections et règle Git rendues telles que lues (une valeur éditée à la main ne casse pas l'écran). */
 function profilsPourConsole(profils: unknown): unknown {
   if (!Array.isArray(profils)) return profils;
   return profils.map((p: unknown) => {
@@ -140,6 +143,11 @@ function profilsPourConsole(profils: unknown): unknown {
     const d: Dict = { ...(p as Dict) };
     for (const k of ["block_metadata", "block_lan", "block_host"])
       if (k in d && typeof d[k] !== "boolean") d[k] = veritePy(d[k]);
+    if ("git_access" in d || "git_servers" in d)
+      Object.assign(
+        d,
+        regleGitDepuis(d, "", () => undefined),
+      );
     return d;
   });
 }
@@ -224,6 +232,28 @@ function validerListeBlanche(
   return ports;
 }
 
+/** Règle Git d'un profil saisie en console : `git_access` parmi les trois (absent ou `null` : tous, comme à la lecture), serveurs en liste et en forme, 32 au plus. */
+function regleGitSaisie(pid: string, p: Dict): Dict {
+  const acces = getPy(p, "git_access", "all") ?? "all";
+  if (typeof acces !== "string" || !(ACCES_GIT as readonly string[]).includes(acces))
+    throw new HttpError(400, `Profil ${reprPy(pid)} : git_access invalide (all, servers ou accounts)`);
+  const listeServeurs = getPy(p, "git_servers", []) ?? [];
+  if (!Array.isArray(listeServeurs))
+    throw new HttpError(400, `Profil ${reprPy(pid)} : git_servers doit être une liste`);
+  const serveurs: string[] = [];
+  for (const brut of textesNets(listeServeurs)) {
+    const v = serveurGitCanonique(brut);
+    if (v === null)
+      throw new HttpError(
+        400,
+        `Profil ${reprPy(pid)} : serveur Git invalide ${reprPy(brut)} (hôte[:port] ou hôte/organisation)`,
+      );
+    if (!serveurs.includes(v)) serveurs.push(v);
+  }
+  if (serveurs.length > 32) throw new HttpError(400, `Profil ${reprPy(pid)} : trop de serveurs Git (max 32)`);
+  return { git_access: acces, git_servers: acces === "servers" ? serveurs : [] };
+}
+
 /** Profils réseau d'un `POST /api/admin/executors` : validés, « isolated » ré-ancré sur « none », avertissements non bloquants. */
 export function profilsAssainis(nouveau: Dict, avertissements: string[]): Dict[] {
   const sortie: Dict[] = [];
@@ -280,6 +310,7 @@ export function profilsAssainis(nouveau: Dict, avertissements: string[]): Dict[]
       dns,
       description: prefixePy(texteNettoye(getPy(p, "description")), 200),
       ...protections,
+      ...regleGitSaisie(pid, p),
     });
   }
   if (sortie.length > 20) throw new HttpError(400, "Trop de profils (max 20)");

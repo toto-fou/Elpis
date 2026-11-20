@@ -3,6 +3,7 @@
 import { estDict, getPy, intPy, pyJsonLoads, rstripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { IMPORT_GARDE } from "@elpis/fichiers";
+import type { PorteeGit } from "@elpis/fichiers";
 import { creerIdentite, IDENTITY_HEADER, sign, sousAgentEnDict } from "@elpis/securite";
 import type { SousAgentHote } from "@elpis/securite";
 import { request } from "undici";
@@ -232,6 +233,28 @@ export class ClientRappel {
     const d = await this.appeler("GET", "/api/internal/git/connector-hosts", undefined, undefined, signe);
     const hotes = d === null ? null : liste(getPy(d, "hosts")).map(strPy);
     return [...(this.retenir(cle, hotes) ?? [])];
+  }
+
+  /** Portées des comptes git du compte de l'enveloppe signée (règle Git « comptes Git du compte ») : hôte, chemin (`""` : tout l'hôte), casse exacte. */
+  async connectorScopes(compte: CompteSigne): Promise<PorteeGit[]> {
+    if (compte.user_id <= 0 || !compte.username) return [];
+    const signe = { user_id: Math.trunc(compte.user_id), username: compte.username };
+    const cle = `scopes:${JSON.stringify([signe.user_id, signe.username])}`;
+    const c = this.lu(cle);
+    if (c.trouve) return [...((c.valeur as PorteeGit[] | null) ?? [])];
+    const d = await this.appeler("GET", "/api/internal/git/connector-hosts", undefined, undefined, signe);
+    const portees =
+      d === null
+        ? null
+        : liste(getPy(d, "scopes"))
+            .filter(estDict)
+            .map((x) => ({
+              host: strPy(getPy(x, "host") ?? ""),
+              path: strPy(getPy(x, "path") ?? ""),
+              exact: getPy(x, "exact") === true,
+            }))
+            .filter((x) => x.host !== "");
+    return [...(this.retenir(cle, portees) ?? [])];
   }
 
   /** `sandbox_quota_mb` du compte : `null` sans surcharge (ou sans core) ; core muet : dernière valeur connue, sinon `undefined`. */

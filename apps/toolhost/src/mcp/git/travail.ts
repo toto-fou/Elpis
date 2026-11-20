@@ -421,6 +421,7 @@ export function gitSubmit(
       pushRefs: [`refs/heads/${br}`],
       timeout: 30,
     });
+    if (pu["error"] === "git_rule") return errGit(`git_rule_refused: ${String(pu["fix"] || pu["message"])}`);
     if (!reussi(pu)) {
       const note = jeton ? "" : SANS_JETON;
       if (pu["error"] === "timeout" || pu["returncode"] === 124)
@@ -461,7 +462,7 @@ export function gitSubmit(
         { branch: br, commits_pushed: pousses },
       );
     const demande = {
-      remote_url: remote,
+      remote_url: urlPush,
       head: br,
       base,
       title: titre.toWellFormed(),

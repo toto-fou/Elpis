@@ -107,6 +107,16 @@ run Elpis on a dedicated machine or VM. Details below.
   a valid ticket is closed without relaying anything.
 - A Git remote over `http://` is relayed in clear, connector credential
   included.
+- Which repositories the Git relay reaches is set per network profile, whatever its
+  mode: all of them (the default), only servers chosen by the administrator (a whole
+  server, or a server and an organization), or only those covered by the account's own
+  verified Git accounts. A Git account on a server the rule leaves out is refused, and
+  the pull requests Elpis opens follow the same rule. The rule is read when an operation
+  starts and applied to each of its requests. It bounds the Git relay only: an open
+  profile still reaches the network directly, unless its protections refuse it; the
+  Git relay applies those protections too, with no IPv6 when one is ticked; only the
+  servers chosen by the administrator escape the local network and host protections,
+  never the metadata one.
 - Remote MCP server: its address is checked when it is registered, not
   at every DNS resolution.
 - The site map of screen vision (sites and paths already visited

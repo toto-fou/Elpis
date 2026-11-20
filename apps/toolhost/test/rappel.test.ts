@@ -145,6 +145,83 @@ describe("client de rappel", () => {
     expect(c0.appels).toHaveLength(7);
   });
 
+  it("portées des comptes Git : hôte, chemin, casse exacte ; entrées illisibles écartées ; lues une fois par compte signé", async () => {
+    const c0 = await core({
+      "/api/internal/git/connector-hosts": [
+        200,
+        JSON.stringify({
+          ok: true,
+          hosts: ["github.com"],
+          scopes: [
+            { host: "github.com", path: "acme", exact: true },
+            { host: "git.lan:3000", path: "" },
+            { host: "sans-chemin.lan", exact: "oui" },
+            { host: "", path: "x" },
+            { path: "y" },
+            "pas un objet",
+            null,
+          ],
+        }),
+      ],
+    });
+    const c = new ClientRappel({ appUrl: c0.url, jeton: SVC, journal: journalMuet });
+    const bob = { user_id: 7, username: "bob" };
+    const attendu = [
+      { host: "github.com", path: "acme", exact: true },
+      { host: "git.lan:3000", path: "", exact: false },
+      { host: "sans-chemin.lan", path: "", exact: false },
+    ];
+    expect(await c.connectorScopes(bob)).toEqual(attendu);
+    expect(await c.connectorScopes(bob)).toEqual(attendu);
+    expect(c0.appels.map((a) => `${a.methode} ${a.url}`)).toEqual(["GET /api/internal/git/connector-hosts"]);
+    expect(verify(c0.appels[0]?.identite, SVC)).toMatchObject(bob);
+    await c.connectorScopes({ user_id: 8, username: "bob" });
+    expect(c0.appels).toHaveLength(2);
+    expect(await c.connectorScopes({ user_id: 7, username: "" })).toEqual([]);
+    expect(await c.connectorScopes({ user_id: 0, username: "bob" })).toEqual([]);
+    expect(c0.appels).toHaveLength(2);
+    c.viderCache();
+    await c.connectorScopes(bob);
+    expect(c0.appels).toHaveLength(3);
+  });
+
+  it("portées des comptes Git : réponse sans portées, illisible ou core inactif ou muet : aucune portée", async () => {
+    const c0 = await core({ "/api/internal/git/connector-hosts": [200, '{"ok":true,"hosts":["a.lan"]}'] });
+    const c = new ClientRappel({ appUrl: c0.url, jeton: SVC, journal: journalMuet });
+    expect(await c.connectorScopes({ user_id: 7, username: "bob" })).toEqual([]);
+    const illisible = await core({ "/api/internal/git/connector-hosts": [200, "pas du json"] });
+    expect(
+      await new ClientRappel({ appUrl: illisible.url, jeton: SVC, journal: journalMuet }).connectorScopes({
+        user_id: 7,
+        username: "bob",
+      }),
+    ).toEqual([]);
+    const refus = await core({ "/api/internal/git/connector-hosts": [403, '{"detail":"non"}'] });
+    expect(
+      await new ClientRappel({ appUrl: refus.url, jeton: SVC, journal: journalMuet }).connectorScopes({
+        user_id: 7,
+        username: "bob",
+      }),
+    ).toEqual([]);
+    for (const [appUrl, jeton] of [
+      ["", SVC],
+      ["http://127.0.0.1:1", ""],
+    ] as const)
+      expect(
+        await new ClientRappel({ appUrl, jeton, journal: journalMuet }).connectorScopes({
+          user_id: 7,
+          username: "bob",
+        }),
+      ).toEqual([]);
+    const mort = new ClientRappel({
+      appUrl: "http://127.0.0.1:1",
+      jeton: SVC,
+      journal: journalMuet,
+      delaiMs: 500,
+    });
+    expect(await mort.connectorScopes({ user_id: 7, username: "bob" })).toEqual([]);
+  });
+
   it("identifiant git : conversation et sous-agent de l'appel signés et dans la clé du cache (l'entrée du parent ne sert jamais à un sous-agent) ; présence sans lecture", async () => {
     const c0 = await core({
       "/api/internal/git/credential": [

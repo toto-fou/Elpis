@@ -558,6 +558,31 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     ]);
   });
 
+  it("règle Git d'un profil : enregistrée, relue ; git_servers qui n'est pas une liste : 400", async () => {
+    const poster = (profil: Dict): Promise<LightMyRequestResponse> =>
+      appel(1, "POST", "/api/admin/executors", {
+        executors: {
+          extra_run_args: [],
+          network_profiles: [{ id: "gitp", name: "G", mode: "none", ...profil }],
+        },
+      });
+    const refus = await poster({ git_access: "servers", git_servers: "git.lan" });
+    expect([refus.statusCode, refus.json()]).toEqual([
+      400,
+      { detail: "Profil 'gitp' : git_servers doit être une liste" },
+    ]);
+    const ok = await poster({
+      git_access: "servers",
+      git_servers: ["Git.LAN:3000", "https://github.com/Acme.git"],
+    });
+    expect(ok.statusCode, ok.body).toBe(200);
+    const lu = (await appel(1, "GET", "/api/admin/executors")).json() as {
+      config: { network_profiles: Dict[] };
+    };
+    const p = lu.config.network_profiles.find((x) => x["id"] === "gitp");
+    expect([p?.["git_access"], p?.["git_servers"]]).toEqual(["servers", ["git.lan:3000", "github.com/Acme"]]);
+  });
+
   it("vue des exécuteurs : allow_sudo vrai seulement pour true, un autre type est rendu faux", () => {
     const vue = (executors: Dict): unknown => (vueExecuteurs({ executors })["config"] as Dict)["allow_sudo"];
     expect(

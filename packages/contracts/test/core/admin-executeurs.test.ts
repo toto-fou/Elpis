@@ -6,6 +6,7 @@ import {
   CONTRATS_REST,
   schemaReponseConteneurs,
   schemaReponseEtatExecuteurs,
+  schemaReponseExecuteurs,
   schemaReponseHotesOutils,
   schemaReponseSanteDocker,
 } from "../../src";
@@ -45,6 +46,47 @@ describe("contrats REST : exécuteurs de la console (core réel)", () => {
     ).toMatchObject({ ok: true, config: { force_user_docker: true } });
     await core.appeler("POST", "/api/admin/executors", { cookie, corps: {} });
     await core.appeler("GET", "/api/admin/executors", { cookie: cookieLou });
+  });
+
+  it("profils : protections et règle Git lues par le contrat, absentes ou présentes", () => {
+    const profil = {
+      id: "p",
+      name: "P",
+      mode: "bridge",
+      ips: [],
+      description: "",
+      domains: [],
+      ports: [],
+      dns: [],
+    };
+    const reponse = (profils: unknown[]): unknown => ({
+      config: {
+        limits: {},
+        force_user_docker: false,
+        idle_kill_hours: 24,
+        network_profiles: profils,
+        exec_user: "10001:10001",
+        runtime: "",
+        extra_run_args: [],
+      },
+      image: "elpis/sandbox:1.0.0",
+    });
+    const avec = {
+      ...profil,
+      block_metadata: true,
+      block_lan: false,
+      block_host: true,
+      git_access: "servers",
+      git_servers: ["git.lan"],
+    };
+    expect(schemaReponseExecuteurs.parse(reponse([profil, avec])).config.network_profiles).toEqual([
+      profil,
+      avec,
+    ]);
+    expect(schemaReponseExecuteurs.safeParse(reponse([{ ...profil, git_servers: "git.lan" }])).success).toBe(
+      false,
+    );
+    expect(schemaReponseExecuteurs.safeParse(reponse([{ ...profil, block_lan: "oui" }])).success).toBe(false);
   });
 
   it("Docker absent : santé en échec, conteneurs en 502 ; arrêt, destruction et nettoyage répondent ok", async () => {

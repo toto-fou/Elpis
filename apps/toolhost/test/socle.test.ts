@@ -3,7 +3,7 @@
 import { request } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { fabriqueAgent } from "@elpis/bac";
+import { configBacDepuis, fabriqueAgent, profilParId } from "@elpis/bac";
 import { IDENTITY_HEADER, current } from "@elpis/securite";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -145,6 +145,7 @@ describe("porte de l'API", () => {
     expect(fabrique).not.toBeNull();
     const bac = {
       sandboxPath: "/srv/sb/alice",
+      networkProfile: profilParId(configBacDepuis({}), "isolated"),
       status: vi.fn(),
       ensureRunning: vi.fn(),
       startAgent: vi.fn(),

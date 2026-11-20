@@ -34,6 +34,14 @@ describe("textes du bac, de l'agent et du relais en anglais (harnais B-13)", () 
         "repository refused (SSRF protection): blocked_ip (127.0.0.1)",
       ],
       [
+        "Dépôt refusé : ce dépôt n'est pas autorisé pour votre sandbox. Demandez à votre administrateur.",
+        "repository refused: this repository is not allowed for this sandbox; only the administrator can allow it.",
+      ],
+      [
+        "Dépôt refusé : aucun de vos comptes Git ne couvre ce dépôt. Ajoutez-en un dans Paramètres › Secrets › Comptes Git, ou demandez à votre administrateur.",
+        "repository refused: none of the user's Git accounts covers it; the user can add one in Settings › Secrets › Git accounts, or ask the administrator.",
+      ],
+      [
         "URL de dépôt invalide (identifiants, requête ou hôte)",
         "invalid repository URL (credentials, query or host)",
       ],

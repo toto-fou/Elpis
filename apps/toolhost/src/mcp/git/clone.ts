@@ -90,6 +90,7 @@ export async function gitClone(c: CompteGit, a: ArgsClone): Promise<Dict> {
     cmd.push("--", url, rel);
     const jumeau = await c.esp.jumeauUnicode(rel);
     const cl = await executerReseau(c, "", cmd.slice(1), { url, timeout: 120 });
+    if (cl["error"] === "git_rule") return errGit(`git_rule_refused: ${String(cl["fix"] || cl["message"])}`);
     if (["blocked_remote", "scheme_not_relayed", "malformed_url"].includes(String(cl["error"])))
       return errGit(
         `clone_url_blocked: ${String(cl["fix"] || cl["message"])}`,

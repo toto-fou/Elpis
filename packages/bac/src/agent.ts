@@ -2,6 +2,8 @@
 /** packages/bac/src/agent.ts — contrat entre le bac (cycle de vie) et le client de l'agent du conteneur (@elpis/fichiers, agent_client.py) : état, démarrage, archive, extraction, erreurs. */
 import type { Dict } from "@elpis/commun";
 
+import type { ProfilReseau } from "./profils";
+
 /** `SandboxStatus` du Python. */
 export interface EtatBac {
   readonly exists: boolean;
@@ -17,6 +19,8 @@ export interface EtatBac {
 export interface BacPourAgent {
   /** `P/work`, monté sur `/work` ; le socket de l'agent est sous `P/.elpis-agent`. */
   readonly sandboxPath: string;
+  /** Profil réseau du bac (sa règle Git décide de ce que joint le relais). */
+  readonly networkProfile: ProfilReseau;
   status(): Promise<EtatBac>;
   ensureRunning(): Promise<EtatBac>;
   startAgent(replace: boolean): Promise<void>;

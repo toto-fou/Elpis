@@ -194,3 +194,116 @@ describe("état des domaines", () => {
     expect(resoudre).not.toHaveBeenCalled();
   });
 });
+
+describe("règle Git d'un profil : vue et enregistrement de la console", () => {
+  const assainis = (profils: Dict[]): Dict[] => profilsAssainis({ network_profiles: profils }, []);
+  const regle = (p: Dict): unknown => [p["git_access"], p["git_servers"]];
+  const vue = (profils: unknown[]): Dict[] =>
+    (vueExecuteurs({ executors: { network_profiles: profils } })["config"] as { network_profiles: Dict[] })
+      .network_profiles;
+
+  it("absente ou null : tous les dépôts, serveurs vides, quel que soit le mode", () => {
+    const profils = assainis([
+      { id: "a", name: "A", mode: "none" },
+      { id: "b", name: "B", mode: "bridge", git_access: null, git_servers: null },
+      { id: "c", name: "C", mode: "allowlist_ip", ips: ["192.0.2.1"] },
+    ]);
+    expect(profils.map(regle)).toEqual([
+      ["all", []],
+      ["all", []],
+      ["all", []],
+    ]);
+  });
+
+  it("serveurs choisis : mis en forme (chemin avec sa casse), sans doublon, dans l'ordre ; effacés quand la règle n'est pas « servers »", () => {
+    const servers = [
+      "GitHub.com/Acme",
+      "https://git.lan:3000/",
+      "https://github.com/Acme.git",
+      "github.com/acme",
+      " forge.lan/o/r.git ",
+    ];
+    expect(
+      regle(
+        assainis([
+          { id: "a", name: "A", mode: "bridge", git_access: "servers", git_servers: servers },
+        ])[0] as Dict,
+      ),
+    ).toEqual(["servers", ["github.com/Acme", "git.lan:3000", "github.com/acme", "forge.lan/o/r"]]);
+    for (const acces of ["all", "accounts"])
+      expect(
+        regle(
+          assainis([
+            { id: "a", name: "A", mode: "bridge", git_access: acces, git_servers: servers },
+          ])[0] as Dict,
+        ),
+      ).toEqual([acces, []]);
+  });
+
+  it("règle inconnue : 400, avec le profil nommé", () => {
+    for (const git_access of ["tous", "", "ALL", 5, true, false, [], {}])
+      expect(
+        () => assainis([{ id: "a", name: "A", mode: "bridge", git_access }]),
+        JSON.stringify(git_access),
+      ).toThrow("Profil 'a' : git_access invalide (all, servers ou accounts)");
+  });
+
+  it("git_servers qui n'est pas une liste : 400 ; illisible : 400 avec la valeur ; plus de 32 : 400", () => {
+    for (const git_servers of ["git.lan", 5, true, { a: 1 }])
+      expect(
+        () => assainis([{ id: "a", name: "A", mode: "none", git_servers }]),
+        JSON.stringify(git_servers),
+      ).toThrow("Profil 'a' : git_servers doit être une liste");
+    for (const mauvais of ["user@git.lan", "git.lan:70000", "git.lan/..", "ssh://git@x/y", "a b"])
+      expect(
+        () =>
+          assainis([
+            { id: "a", name: "A", mode: "none", git_access: "servers", git_servers: ["git.lan", mauvais] },
+          ]),
+        mauvais,
+      ).toThrow(`Profil 'a' : serveur Git invalide '${mauvais}' (hôte[:port] ou hôte/organisation)`);
+    const n = (k: number): string[] => Array.from({ length: k }, (_, i) => `h${i}.example`);
+    expect(
+      (
+        assainis([{ id: "a", name: "A", mode: "none", git_access: "servers", git_servers: n(32) }])[0] as Dict
+      )["git_servers"],
+    ).toHaveLength(32);
+    expect(() =>
+      assainis([{ id: "a", name: "A", mode: "none", git_access: "servers", git_servers: n(33) }]),
+    ).toThrow("Profil 'a' : trop de serveurs Git (max 32)");
+    expect(
+      (
+        assainis([
+          {
+            id: "a",
+            name: "A",
+            mode: "none",
+            git_access: "servers",
+            git_servers: [...n(32), "H0.example", "https://h1.example/"],
+          },
+        ])[0] as Dict
+      )["git_servers"],
+    ).toHaveLength(32);
+  });
+
+  it("même un profil non filtré (aucune sortie réseau) enregistre sa règle Git", () => {
+    expect(
+      regle(assainis([{ id: "x", name: "X", mode: "none", git_access: "accounts" }])[0] as Dict),
+    ).toEqual(["accounts", []]);
+  });
+
+  it("vue : règle relue comme à la lecture de config.json, clés absentes laissées absentes", () => {
+    const [a, b, c, d, e] = vue([
+      { id: "a", mode: "bridge" },
+      { id: "b", mode: "bridge", git_access: "servers", git_servers: ["GitHub.com/Acme", "a b"] },
+      { id: "c", mode: "bridge", git_access: "tous" },
+      { id: "d", mode: "bridge", git_access: null, git_servers: "x" },
+      { id: "e", mode: "bridge", git_servers: ["Forge.lan"] },
+    ]) as [Dict, Dict, Dict, Dict, Dict];
+    expect("git_access" in a || "git_servers" in a).toBe(false);
+    expect(regle(b)).toEqual(["servers", ["github.com/Acme"]]);
+    expect(regle(c)).toEqual(["servers", []]);
+    expect(regle(d)).toEqual(["all", []]);
+    expect(regle(e)).toEqual(["all", ["forge.lan"]]);
+  });
+});

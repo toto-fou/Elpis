@@ -54,6 +54,9 @@ export interface ProfilReseauEdite {
   block_metadata?: boolean;
   block_lan?: boolean;
   block_host?: boolean;
+  /** Règle Git du profil (`all` si absente) et serveurs choisis (`hôte[:port][/organisation]`). */
+  git_access?: string;
+  git_servers?: string[];
   _uid: string;
   _open: boolean;
   _portsMode: string;

@@ -45,6 +45,9 @@ export const schemaProfilReseau = z.object({
   block_metadata: z.boolean().optional(),
   block_lan: z.boolean().optional(),
   block_host: z.boolean().optional(),
+  /** Règle Git du profil : `all` (absente), `servers` (`git_servers` : `hôte[:port][/organisation]`) ou `accounts`. */
+  git_access: z.string().optional(),
+  git_servers: z.array(z.string()).optional(),
 });
 export const schemaMachineBureau = z.object({
   name: z.string(),

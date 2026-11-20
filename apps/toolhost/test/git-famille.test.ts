@@ -92,6 +92,7 @@ function faux(
       return Promise.resolve(Boolean(o.jeton && amont && hote(url) === hote(amont.url)));
     },
     connectorHosts: () => Promise.resolve([]),
+    connectorScopes: () => Promise.resolve([]),
     ouvrirPr: (compte, d) => {
       prs.push([compte, d]);
       return Promise.resolve(

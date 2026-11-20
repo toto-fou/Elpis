@@ -5,18 +5,23 @@ import { lookup } from "node:dns/promises";
 import {
   adresseIpOuNul,
   comparePointsDeCode,
+  dansReseau,
   getPy,
   hostname,
+  ipv4Mappee,
   journalDe,
   lowerPy,
   port,
+  reseauPy,
   rstripPy,
   stripPy,
   strPy,
   texteIp,
   urlsplit,
 } from "@elpis/commun";
-import type { AdresseIp, Dict } from "@elpis/commun";
+import type { AdresseIp, Dict, Reseau } from "@elpis/commun";
+import { PLAGES_LOCALES, PLAGES_METADONNEES } from "@elpis/bac";
+import type { ProfilReseau } from "@elpis/bac";
 import { adresseCritique, blockRemoteUrlReason, hostAddresses, surLaMachine } from "@elpis/securite";
 import type { HoteMachine, Resolveur, SousAgentHote } from "@elpis/securite";
 
@@ -73,10 +78,125 @@ export interface CompteRappel {
   readonly subagent?: SousAgentHote | null;
 }
 
-/** Ce que l'hôte demande au core (`ClientRappel` : /api/internal/git/*) : il n'ouvre jamais la base ; identifiant git et hôtes des comptes git, pour le compte de l'enveloppe signée seulement. */
+/** Portée d'un compte Git ou d'un serveur choisi : `hôte[:port]` que joint le relais, chemin d'organisation ou de dépôt (`""` : tout le serveur), comparé à la casse près pour un service générique (`exact`). */
+export interface PorteeGit {
+  readonly host: string;
+  readonly path: string;
+  readonly exact?: boolean;
+}
+
+/** Ce que l'hôte demande au core (`ClientRappel` : /api/internal/git/*) : il n'ouvre jamais la base ; identifiant git, hôtes et portées des comptes git, pour le compte de l'enveloppe signée seulement. */
 export interface SourceGit {
   gitCredential(compte: CompteRappel, remoteUrl: string): Promise<Dict | null>;
   connectorHosts(compte: CompteRappel): Promise<string[]>;
+  connectorScopes(compte: CompteRappel): Promise<PorteeGit[]>;
+}
+
+/** Règle Git du profil réseau d'un bac : tous les dépôts, ou ceux que couvre une portée (serveurs choisis par l'administrateur, comptes Git du compte). */
+export type RegleGit =
+  | { readonly acces: "all" }
+  | { readonly acces: "servers" | "accounts"; readonly portees: readonly PorteeGit[] };
+
+/** Portée d'un serveur choisi (`hôte[:port][/chemin]`, déjà en forme). */
+function porteeServeur(serveur: string): PorteeGit {
+  const barre = serveur.indexOf("/");
+  return barre < 0
+    ? { host: serveur, path: "" }
+    : { host: serveur.slice(0, barre), path: serveur.slice(barre + 1), exact: true };
+}
+
+/** Règle Git d'un profil ; « comptes » : portées des comptes Git du compte, lues par `porteesDesComptes` (aucune en cas de panne). */
+export async function regleDuProfil(
+  profil: Pick<ProfilReseau, "git_access" | "git_servers">,
+  porteesDesComptes: () => Promise<readonly PorteeGit[]>,
+): Promise<RegleGit> {
+  if (profil.git_access === "all") return { acces: "all" };
+  if (profil.git_access === "servers")
+    return { acces: "servers", portees: profil.git_servers.map(porteeServeur) };
+  let portees: readonly PorteeGit[];
+  try {
+    portees = await porteesDesComptes();
+  } catch {
+    portees = [];
+  }
+  return { acces: "accounts", portees };
+}
+
+/** Portées des comptes Git du compte signé, demandées au core ; sans compte : aucune. */
+export function porteesDuCompte(
+  source: SourceGit,
+  compte: CompteRappel,
+): () => Promise<readonly PorteeGit[]> {
+  return async () =>
+    compte.user_id && compte.username
+      ? source.connectorScopes({ user_id: Math.trunc(compte.user_id), username: compte.username })
+      : [];
+}
+
+const SEGMENT_SIMPLE = /^[A-Za-z0-9._~-]+$/u;
+
+/** `hôte[:port]` d'un serveur Git, sans la casse et sans le port par défaut du schéma (443 en HTTPS, 80 en HTTP ; sans schéma, l'un ou l'autre). */
+export function cleServeurGit(cle: string, schema?: "http" | "https"): string {
+  const t = cle.toLowerCase();
+  const m = /^(.+):(443|80)$/u.exec(t);
+  if (m === null) return t;
+  return schema === undefined || schema === (m[2] === "443" ? "https" : "http") ? (m[1] ?? t) : t;
+}
+
+/** Le dépôt `url` est couvert par la règle : même `hôte[:port]` que joint le relais (port par défaut du schéma écrit ou non), et, pour une portée à chemin, un chemin de segments simples égal au sien ou en dessous (frontière de segment ; sans la casse, sauf portée `exact`). */
+export function regleCouvre(regle: RegleGit, url: string): boolean {
+  if (regle.acces === "all") return true;
+  let base: string;
+  let depot: string;
+  try {
+    [base, depot] = amont(url);
+  } catch {
+    return false;
+  }
+  const schema = base.startsWith("https://") ? "https" : "http";
+  const hote = cleServeurGit(base.slice(schema.length + 3), schema);
+  const chemin = depot.replace(/^\/+/u, "");
+  const simple = chemin.split("/").every((x) => SEGMENT_SIMPLE.test(x) && x !== "." && x !== "..");
+  return regle.portees.some((p) => {
+    if (cleServeurGit(p.host, schema) !== hote) return false;
+    if (p.path === "") return true;
+    if (!simple) return false;
+    const [portee, lu] = p.exact ? [p.path, chemin] : [p.path.toLowerCase(), chemin.toLowerCase()];
+    return lu === portee || lu.startsWith(`${portee}/`);
+  });
+}
+
+/** Protections du profil réseau appliquées par le relais Git : réseau local, machine, métadonnées du cloud ; `permis` : `hôte[:port]` qui échappent aux deux premières (serveurs choisis par l'administrateur). */
+export interface ProtectionsGit {
+  readonly local: boolean;
+  readonly machine: boolean;
+  readonly metadonnees: boolean;
+  readonly permis: ReadonlySet<string>;
+}
+
+const SANS_PROTECTION: ProtectionsGit = {
+  local: false,
+  machine: false,
+  metadonnees: false,
+  permis: new Set(),
+};
+const reseaux = (l: readonly string[]): Reseau[] =>
+  l.map((n) => reseauPy(n)).filter((r): r is Reseau => r !== null);
+const RESEAUX_PROFIL_LOCAL = reseaux(PLAGES_LOCALES);
+const RESEAUX_METADONNEES = reseaux(PLAGES_METADONNEES);
+
+/** Protections d'un profil ouvert pour le relais Git ; seuls les serveurs choisis par l'administrateur échappent aux protections « réseau local » et « machine hôte ». */
+export function protectionsDuProfil(
+  profil: Pick<ProfilReseau, "mode" | "block_metadata" | "block_lan" | "block_host">,
+  regle: RegleGit,
+): ProtectionsGit {
+  const ouvert = profil.mode === "bridge";
+  const local = ouvert && profil.block_lan;
+  const machine = ouvert && profil.block_host;
+  const metadonnees = ouvert && profil.block_metadata;
+  if (!local && !machine && !metadonnees) return SANS_PROTECTION;
+  const permis = new Set(regle.acces === "servers" ? regle.portees.map((p) => p.host) : []);
+  return { local, machine, metadonnees, permis };
 }
 
 /** Garde d'un dépôt distant : motif de refus, ou adresses validées à joindre. */
@@ -122,9 +242,9 @@ export async function gardeDepot(
   source: SourceGit,
   resoudre: Resolveur = (h) => resoudreSysteme(h),
   machine: () => Promise<HoteMachine> = hostAddresses,
+  protections: ProtectionsGit = SANS_PROTECTION,
 ): Promise<VerdictDepot> {
   const h = await machine();
-  const refusee = (ip: AdresseIp): boolean => adresseCritique(ip) || surLaMachine(ip, h).conteneurs;
   let vues: string[] | null = null;
   const motif = await blockRemoteUrlReason(url, {
     allowSchemes: REMOTE_SCHEMES,
@@ -135,6 +255,22 @@ export async function gardeDepot(
   if (motif) return { motif, adresses: null };
   const p = urlsplit(stripPy(url));
   const hote = lowerPy(hostname(p) ?? "");
+  const n = port(p);
+  const protege = protections.local || protections.machine || protections.metadonnees;
+  const schema = p.scheme === "https" ? "https" : "http";
+  const cle = cleServeurGit(n ? `${hote.includes(":") ? `[${hote}]` : hote}:${n}` : hote, schema);
+  const echappe = [...protections.permis].some((x) => cleServeurGit(x, schema) === cle);
+  const refusee = (ip: AdresseIp): boolean => {
+    const m = surLaMachine(ip, h);
+    if (adresseCritique(ip) || m.conteneurs) return true;
+    const v4 = ipv4Mappee(ip) ?? ip;
+    const dans = (r: Reseau): boolean => r.version === v4.version && dansReseau(v4, r);
+    // Profil protégé : pas d'IPv6, comme dans le bac et pour le relais du navigateur.
+    if (protege && v4.version === 6) return true;
+    if (protections.metadonnees && RESEAUX_METADONNEES.some(dans)) return true;
+    if (echappe) return false;
+    return (protections.machine && m.adresse) || (protections.local && RESEAUX_PROFIL_LOCAL.some(dans));
+  };
   const litterale = adresseIpOuNul(hote);
   if (litterale !== null)
     return refusee(litterale)
@@ -146,6 +282,14 @@ export async function gardeDepot(
     } catch {
       return { motif: "unresolvable_host", adresses: null };
     }
+  }
+  if (protege) {
+    const v4 = vues.filter((brute) => {
+      const ip = adresseIpOuNul(brute);
+      return ip !== null && (ipv4Mappee(ip) ?? ip).version === 4;
+    });
+    if (v4.length === 0) return { motif: "ipv6_only", adresses: null };
+    vues = v4;
   }
   for (const brute of vues) {
     const ip = adresseIpOuNul(brute);
@@ -354,10 +498,25 @@ export async function runNetwork(
 ): Promise<GitResult> {
   const timeoutS = o.timeoutS ?? 120;
   const compte = compteReseau(o);
-  const garde: GardeDepot = o.garde ?? ((u) => gardeDepot(u, compte, o.source));
-  const verdict = await garde(o.url, o.uid);
-  if (verdict.motif) throw new RelayRefused("blocked_remote", `Dépôt refusé (anti-SSRF) : ${verdict.motif}`);
+  // URL lue d'abord : une URL mal formée garde son motif, ni règle ni garde n'en décident.
   amont(o.url);
+  // Règle Git du profil lue une fois, dans le contexte de l'appel, puis appliquée avant toute garde, à chaque requête du relais.
+  const profil = agent.sandbox.networkProfile;
+  const regle = await regleDuProfil(profil, porteesDuCompte(o.source, compte));
+  const gardeSsrf: GardeDepot =
+    o.garde ??
+    (async (u) => gardeDepot(u, compte, o.source, undefined, undefined, protectionsDuProfil(profil, regle)));
+  const garde: GardeDepot = async (u, uid) =>
+    regleCouvre(regle, u) ? gardeSsrf(u, uid) : { motif: `git_rule (${regle.acces})`, adresses: null };
+  const verdict = await garde(o.url, o.uid);
+  if (verdict.motif?.startsWith("git_rule"))
+    throw new RelayRefused(
+      "git_rule",
+      regle.acces === "accounts"
+        ? "Dépôt refusé : aucun de vos comptes Git ne couvre ce dépôt. Ajoutez-en un dans Paramètres › Secrets › Comptes Git, ou demandez à votre administrateur."
+        : "Dépôt refusé : ce dépôt n'est pas autorisé pour votre sandbox. Demandez à votre administrateur.",
+    );
+  if (verdict.motif) throw new RelayRefused("blocked_remote", `Dépôt refusé (anti-SSRF) : ${verdict.motif}`);
   await importLegacyCredentials(agent, o.uid, o.username ?? "");
   const saisis = Boolean(o.auth && o.auth[1]);
   const [user, token] = saisis

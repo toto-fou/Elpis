@@ -8,6 +8,15 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox: a Git rule per network profile.** In the profile editor, *Git*: all repositories
+  (the default, as before), chosen servers (a whole server or a server and an organization), or
+  the repositories covered by each user's verified Git accounts. The Git relay applies it to every
+  request of an operation, whatever the profile's network mode, and pull requests follow it; a Git
+  account on a server the rule leaves out is refused, and a Git account's repository list keeps
+  the allowed repositories only. A chosen server's organization keeps its case, and a default
+  port matches whether written or not. The rule bounds the Git relay, not the network of an open
+  profile. The Git relay also applies the profile's protections, with no IPv6 when one is ticked;
+  only the chosen servers escape the local network and host protections, never the metadata one.
 - **Sandbox: an open network profile can refuse cloud metadata, the local network and the
   host.** Three boxes in the profile editor (Admin console › Sandbox › network profiles,
   *Refuse*); metadata and host are ticked on a new profile, existing profiles are unchanged and

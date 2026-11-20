@@ -187,6 +187,7 @@ async function initOuClone(c: CompteGit, act: string, a: ArgsActionGit): Promise
     });
   const jumeau = await c.esp.jumeauUnicode(repo);
   const r = await executerReseau(c, "", cmd.slice(1), { url, timeout: 120 });
+  if (r["error"] === "git_rule") return errGit(`git_rule_refused: ${String(r["fix"] || r["message"])}`);
   if (["blocked_remote", "scheme_not_relayed", "malformed_url"].includes(String(r["error"])))
     return errGit(
       `clone_url_blocked: ${String(r["fix"] || r["message"])}`,

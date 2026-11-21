@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis-qdrant.service — base de vecteurs du RAG : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis — qdrant
+PartOf=@PREFIX@.target
+
+[Service]
+Type=simple
+User=@USER@
+SyslogIdentifier=@PREFIX@-qdrant
+WorkingDirectory=@WORKDIR@
+@ENV@
+EnvironmentFile=-@ROOT@/.env
+UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
+InaccessiblePaths=-@VAULT_KEY_SYS@
+InaccessiblePaths=-@VAULT_KEY_REPLI@
+ExecStart=@EXEC@
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=@PREFIX@.target

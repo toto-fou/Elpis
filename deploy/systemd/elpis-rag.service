@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis-rag.service — extracteur du RAG (uvicorn, conversions en prison bubblewrap) : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis — rag
+PartOf=@PREFIX@.target
+After=@PREFIX@-qdrant.service
+
+[Service]
+Type=simple
+User=@USER@
+SyslogIdentifier=@PREFIX@-rag
+WorkingDirectory=@WORKDIR@
+@ENV@
+EnvironmentFile=-@ROOT@/.env
+UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
+InaccessiblePaths=-@VAULT_KEY_SYS@
+InaccessiblePaths=-@VAULT_KEY_REPLI@
+ExecStart=@EXEC@
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=@PREFIX@.target

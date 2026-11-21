@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis-admin.service — admin (console d'administration) : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis — admin
+PartOf=@PREFIX@.target
+After=@PREFIX@-toolhost.service @PREFIX@-rag.service caddy.service@AFTER_DB@
+@WANTS_DB@
+
+[Service]
+Type=simple
+User=@USER@
+SyslogIdentifier=@PREFIX@-admin
+WorkingDirectory=@WORKDIR@
+@ENV@
+EnvironmentFile=-@ROOT@/.env
+ExecStart=@EXEC@
+# Relancé après SIGHUP (sortie 75, tenue pour un succès) ; 310 s = 300 s de générations + 5 s de fermeture forcée.
+Restart=always
+SuccessExitStatus=75
+RestartSec=3
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=310
+
+[Install]
+WantedBy=@PREFIX@.target

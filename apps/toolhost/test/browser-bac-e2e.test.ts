@@ -162,6 +162,7 @@ beforeAll(async () => {
     SANDBOX_DIR: path.join(dossier, "sb"),
   });
   process.env["ELPIS_BROWSER_CA_DIR"] = path.join(dossier, "ca");
+  process.env["RUNTIME_DIRECTORY"] = path.join(dossier, "run");
   process.env["PW_OWNERS_DIR"] = path.join(dossier, "owners");
   reglagesNavigateurBac.service = process.env["ELPIS_TEST_BROWSER_SERVICE_DIR"] || null;
   definirFabriqueAgent((bac) => new AgentClient(bac));
@@ -472,10 +473,7 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
       const sid = String(s["session_id"]);
       expect(JSON.stringify(await outil("pw_page", { session_id: sid, action: "text" }))).toContain(titre);
       // Un autre processus du bac, avec le jeton du relais, n'obtient pas l'Authorization de la session.
-      const jeton = readFileSync(
-        path.join(cheminsNavigateurBac(COMPTE).dossier, ".browser-relay.token"),
-        "utf8",
-      ).trim();
+      const jeton = readFileSync(cheminsNavigateurBac(COMPTE).jetonRelais, "utf8").trim();
       const cible = `http://${hote}.test:${port(http)}/${hote}`;
       const { stdout: brut } = await dockerAsync("docker", [
         "exec",

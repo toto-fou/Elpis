@@ -712,13 +712,13 @@ test(
 );
 
 test(
-  "session ordinaire : eval, mocks, état, PDF, enregistreur et sélecteurs sur `value` permis avant et après la connexion ; /login sans politique TLS aussi",
+  "session ouverte pour un secret ou ayant servi à une connexion : eval, mocks, PDF, enregistreur et sélecteurs sur `value` permis ; état jamais sauvegardé après la connexion (ni dès le départ avec une politique TLS)",
   { skip: SAUTER },
   async () => {
     const o = proprio();
     const sid = await ouvrir(o, "/login");
-    const tour = async () => {
-      const e = await evaluer(o, sid, "return document.title");
+    const tour = async (id: string, etatRefuse: boolean) => {
+      const e = await evaluer(o, id, "return document.title");
       assert.equal(e.statut, 200, e.texte);
       for (const [route, corps] of [
         ["/mock/add", { url_pattern: `${site.base}/rien`, status: 204 }],
@@ -729,28 +729,59 @@ test(
         ["/recorder/stop", {}],
         ["/locator", { by_css: "input[value]" }],
       ] as const) {
-        const r = await service.post(route, { owner: o, session_id: sid, ...corps });
+        const r = await service.post(route, { owner: o, session_id: id, ...corps });
+        if (route === "/save_state" && etatRefuse) {
+          assert.equal(r.statut, 403, r.texte);
+          assert.equal(r.corps.code, "secret_session_not_saved");
+          continue;
+        }
         assert.ok(
           r.statut !== 403 && !String(r.corps?.code || "").startsWith("secret_"),
           `${route} ${r.texte.slice(0, 200)}`,
         );
       }
-      const l = await service.get(`/mock/list?owner=${o}&session_id=${sid}`);
+      const l = await service.get(`/mock/list?owner=${o}&session_id=${id}`);
       assert.equal(l.statut, 200, l.texte);
     };
-    await tour();
+    await tour(sid, true);
     const ok = await connecter(o, sid, cibles);
     assert.equal(ok.corps.ok, true, ok.texte);
-    await tour();
+    await tour(sid, true);
     const court = await connecter(o, sid, { ...cibles, password_value: "ab" });
     assert.equal(court.statut, 400, court.texte);
     assert.equal(court.corps.code, "secret_login_failed");
     await arreter(o, sid);
     const normale = await service.post("/start", { owner: o, url: `${site.base}/login`, isolated: true });
     assert.equal(normale.corps.tls, undefined);
-    const r = await connecter(o, normale.corps.session_id, cibles);
+    const nid = normale.corps.session_id;
+    await tour(nid, false);
+    const r = await connecter(o, nid, cibles);
     assert.equal(r.corps.ok, true, r.texte);
-    await arreter(o, normale.corps.session_id);
+    await tour(nid, true);
+    await arreter(o, nid);
+  },
+);
+
+test(
+  "session démarrée avec un HAR ou une trace : /login refusé (400 recording_with_credentials), rien envoyé",
+  { skip: SAUTER },
+  async () => {
+    for (const option of [{ record_har: true }, { trace: true }]) {
+      const o = proprio();
+      const r = await service.post("/start", {
+        owner: o,
+        url: `${site.base}/login`,
+        isolated: true,
+        ...option,
+      });
+      assert.equal(r.statut, 200, r.texte);
+      const n0 = recus.length;
+      const l = await connecter(o, r.corps.session_id, cibles);
+      assert.equal(l.statut, 400, l.texte);
+      assert.equal(l.corps.code, "recording_with_credentials");
+      assert.ok(!recus.slice(n0).some((x) => x.startsWith("POST ")), "aucun envoi");
+      await arreter(o, r.corps.session_id);
+    }
   },
 );
 

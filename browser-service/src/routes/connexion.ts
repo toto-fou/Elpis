@@ -591,192 +591,206 @@ export function registerLoginRoutes(app: Application, ctx: ServiceContext) {
     }
   });
 
-  app.post("/login", getSession, async (req: Request<CorpsLogin>, res: Response) => {
-    const s = req.session!;
-    const b = req.body;
-    const origineSecret = origineDe(b.secret_origin);
-    const uv = typeof b.username_value === "string" ? b.username_value : "";
-    const pv = typeof b.password_value === "string" ? b.password_value : "";
-    const formes = formesSecret(pv);
-    const fin = req.recuA! + BUDGET_LOGIN_MS - 500;
-    // Drapeau de session, indépendant du verrou et de la connexion HTTP (un client parti rend le verrou) : levé à la toute fin du post-traitement.
-    s._connexionEnCours = true;
-    const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0, coupees: 0, saisie: false };
-    const garde = gardeReseau(formes, origineSecret, etat);
-    const phaseSaisie = (oui: boolean) => {
-      etat.saisie = oui;
-    };
-    const saisies = new Set<Page>();
-    const nouvelles: Page[] = [];
-    const surPage = (pg: Page) => {
-      nouvelles.push(pg);
-    };
-    const defaire: (() => unknown)[] = [];
-    let p: PrepLogin | null = null,
-      avecSecret = false,
-      tape = false,
-      sortie: SortieLogin,
-      message = "";
-    let post: BilanRemplacement = { remplacees: 0, fermees: 0, sessionFermee: false };
-    s.context.on("page", surPage);
-    try {
+  app.post(
+    "/login",
+    getSession,
+    async (req: Request<CorpsLogin>, res: Response): Promise<Response | void> => {
+      const s = req.session!;
+      const b = req.body;
+      const origineSecret = origineDe(b.secret_origin);
+      const uv = typeof b.username_value === "string" ? b.username_value : "";
+      const pv = typeof b.password_value === "string" ? b.password_value : "";
+      const formes = formesSecret(pv);
+      if (s._enregistre)
+        return res.status(400).json({
+          error:
+            "This session records a HAR or a trace: open a session without recording to log in with a vault secret.",
+          code: "recording_with_credentials",
+        });
+      const fin = req.recuA! + BUDGET_LOGIN_MS - 500;
+      // Drapeau de session, indépendant du verrou et de la connexion HTTP (un client parti rend le verrou) : levé à la toute fin du post-traitement.
+      s._connexionEnCours = true;
+      s._aConnecte = true;
+      const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0, coupees: 0, saisie: false };
+      const garde = gardeReseau(formes, origineSecret, etat);
+      const phaseSaisie = (oui: boolean) => {
+        etat.saisie = oui;
+      };
+      const saisies = new Set<Page>();
+      const nouvelles: Page[] = [];
+      const surPage = (pg: Page) => {
+        nouvelles.push(pg);
+      };
+      const defaire: (() => unknown)[] = [];
+      let p: PrepLogin | null = null,
+        avecSecret = false,
+        tape = false,
+        sortie: SortieLogin,
+        message = "";
+      let post: BilanRemplacement = { remplacees: 0, fermees: 0, sessionFermee: false };
+      s.context.on("page", surPage);
       try {
-        if (!origineSecret)
-          throw erreurSecret(
-            "secret_scope_mismatch",
-            "secret_origin must be an http(s) origin (scheme://host[:port]).",
-            400,
-          );
-        if (!uv && !pv)
-          throw erreurSecret(
-            "secret_target_required",
-            "Nothing to type: username_value and password_value are both empty.",
-            400,
-          );
-        if (pv && !formes.length)
-          throw erreurSecret(
-            "secret_login_failed",
-            "A password shorter than 3 characters cannot be guarded or purged: login refused.",
-            400,
-          );
-        if (pv) await isolerConnexion(s, s.page, { garde, formes, origine: origineSecret, fin, defaire });
-        const prep = preparerLogin(ctx, req, { fin, valeurs: { username: uv, password: pv } });
         try {
-          p = await avecDelai(prep, Math.max(500, fin - Date.now()));
-        } catch (e) {
-          prep.then(libererLogin, () => {});
-          throw e;
-        }
-        if (p.origine !== origineSecret)
-          throw erreurSecret(
-            "secret_scope_mismatch",
-            `The login fields are on ${p.origine}, not on the secret's origin (${origineSecret}): nothing was typed.`,
-            403,
-          );
-        avecSecret = Boolean(p.champs.password);
-        if (avecSecret)
-          for (const h of Object.values(p.champs))
-            saisies.add((await avecDelai(h.ownerFrame(), 3000))!.page());
-        const page = s.page;
-        const surNav = (f: Frame) => {
-          if (f === page.mainFrame()) etat.navigue = true;
-        };
-        page.on("framenavigated", surNav);
-        try {
-          for (const champ of ["username", "password"] as const) {
-            const h = p.champs[champ];
-            if (!h) continue;
-            if ((await controlerPoignee(h, champ)) !== origineSecret)
-              throw erreurSecret(
-                "secret_scope_mismatch",
-                "The field's frame left the secret's origin: nothing more was typed.",
-                403,
-              );
-            await verifierFormulaire(h, origineSecret);
-            tape = true;
-            if (avecSecret) phaseSaisie(true);
-            await remplirChamp(h, champ === "password" ? pv : uv, {
-              champ,
-              timeout: p.timeout,
-              delaiAvant: fin,
+          if (!origineSecret)
+            throw erreurSecret(
+              "secret_scope_mismatch",
+              "secret_origin must be an http(s) origin (scheme://host[:port]).",
+              400,
+            );
+          if (!uv && !pv)
+            throw erreurSecret(
+              "secret_target_required",
+              "Nothing to type: username_value and password_value are both empty.",
+              400,
+            );
+          if (pv && !formes.length)
+            throw erreurSecret(
+              "secret_login_failed",
+              "A password shorter than 3 characters cannot be guarded or purged: login refused.",
+              400,
+            );
+          if (pv) await isolerConnexion(s, s.page, { garde, formes, origine: origineSecret, fin, defaire });
+          const prep = preparerLogin(ctx, req, { fin, valeurs: { username: uv, password: pv } });
+          try {
+            p = await avecDelai(prep, Math.max(500, fin - Date.now()));
+          } catch (e) {
+            prep.then(libererLogin, () => {});
+            throw e;
+          }
+          if (p.origine !== origineSecret)
+            throw erreurSecret(
+              "secret_scope_mismatch",
+              `The login fields are on ${p.origine}, not on the secret's origin (${origineSecret}): nothing was typed.`,
+              403,
+            );
+          avecSecret = Boolean(p.champs.password);
+          if (avecSecret)
+            for (const h of Object.values(p.champs))
+              saisies.add((await avecDelai(h.ownerFrame(), 3000))!.page());
+          const page = s.page;
+          const surNav = (f: Frame) => {
+            if (f === page.mainFrame()) etat.navigue = true;
+          };
+          page.on("framenavigated", surNav);
+          try {
+            for (const champ of ["username", "password"] as const) {
+              const h = p.champs[champ];
+              if (!h) continue;
+              if ((await controlerPoignee(h, champ)) !== origineSecret)
+                throw erreurSecret(
+                  "secret_scope_mismatch",
+                  "The field's frame left the secret's origin: nothing more was typed.",
+                  403,
+                );
+              await verifierFormulaire(h, origineSecret);
+              tape = true;
+              if (avecSecret) phaseSaisie(true);
+              await remplirChamp(h, champ === "password" ? pv : uv, {
+                champ,
+                timeout: p.timeout,
+                delaiAvant: fin,
+              });
+            }
+            const observe = p.champs.password || p.champs.username!;
+            const avantId = await avecDelai(idPrincipal(page), 2000).catch(() => "");
+            const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
+            if (etat.saisie) await page.waitForTimeout(150).catch(() => {});
+            phaseSaisie(false);
+            if (p.submit) await p.submit.click({ timeout: t, noWaitAfter: true });
+            else await observe.press("Enter", { timeout: t, noWaitAfter: true });
+            const issue = await issueConnexion(page, p, { fin, nouvelles, etat, avecSecret, origineSecret });
+            const apresId = await avecDelai(idPrincipal(page), 2000).catch(() => avantId);
+            const bloquee = issue !== "wait_for" && (etat.bloquees > 0 || /^chrome-error:/.test(page.url()));
+            sortie = sortieConnexion(issue, {
+              bloquee,
+              docChange: avantId !== "" && apresId !== avantId,
+              p,
+              nouvelles,
             });
+          } finally {
+            phaseSaisie(false);
+            page.off("framenavigated", surNav);
           }
-          const observe = p.champs.password || p.champs.username!;
-          const avantId = await avecDelai(idPrincipal(page), 2000).catch(() => "");
-          const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
-          if (etat.saisie) await page.waitForTimeout(150).catch(() => {});
-          phaseSaisie(false);
-          if (p.submit) await p.submit.click({ timeout: t, noWaitAfter: true });
-          else await observe.press("Enter", { timeout: t, noWaitAfter: true });
-          const issue = await issueConnexion(page, p, { fin, nouvelles, etat, avecSecret, origineSecret });
-          const apresId = await avecDelai(idPrincipal(page), 2000).catch(() => avantId);
-          const bloquee = issue !== "wait_for" && (etat.bloquees > 0 || /^chrome-error:/.test(page.url()));
-          sortie = sortieConnexion(issue, {
-            bloquee,
-            docChange: avantId !== "" && apresId !== avantId,
-            p,
-            nouvelles,
-          });
-        } finally {
-          phaseSaisie(false);
-          page.off("framenavigated", surNav);
-        }
-      } catch (e) {
-        sortie = erreurLogin(e as ErreurAttrapee);
-        console.warn(
-          `[login] ${req.sessionId!.substring(0, 8)}… ${purgerTexte(
-            sansAnsi(String(e && (e as Error).message)),
-            formes,
-          )
-            .split("\n")[0]!
-            .substring(0, 200)}`,
-        );
-      }
-      s.context.off("page", surPage);
-      if (p && tape && sortie.statut !== 200) {
-        message = await messagePage(s.page, formes);
-        for (const h of Object.values(p.champs)) await viderChamp(h);
-      }
-      await libererLogin(p).catch(() => {});
-      if (avecSecret && saisies.size) {
-        try {
-          post = await remplacerDocuments(
-            s,
-            saisies,
-            Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA! + PLAFOND_LOGIN_MS)),
-            formes,
+        } catch (e) {
+          sortie = erreurLogin(e as ErreurAttrapee);
+          console.warn(
+            `[login] ${req.sessionId!.substring(0, 8)}… ${purgerTexte(
+              sansAnsi(String(e && (e as Error).message)),
+              formes,
+            )
+              .split("\n")[0]!
+              .substring(0, 200)}`,
           );
-        } catch {
-          post = { remplacees: 0, fermees: 0, sessionFermee: true };
         }
-        if (post.sessionFermee)
-          await avecDelai(
-            closeSession(ctx, req.sessionId!, "login_echec_ferme", { lockHeld: true }),
-            FERMETURE_MS,
-          ).catch(() => {});
-      }
-    } finally {
-      for (const retour of defaire.reverse())
-        await Promise.resolve()
-          .then(retour)
-          .catch(() => {});
-      s._connexionEnCours = false;
-    }
-    let url = "",
-      titre = "";
-    if (!post.sessionFermee) {
-      try {
-        url = s.page.url();
-        titre = await avecDelai(s.page.title(), 1500).catch(() => "");
-      } catch {
-        url = "";
-      }
-    }
-    const corps = {
-      ...sortie.corps,
-      ...(message ? { page_message: message } : {}),
-      ...(post.sessionFermee
-        ? {
-            ok: false,
-            outcome: "session_closed",
-            session_closed: true,
-            code: "secret_login_failed",
-            error:
-              "The documents that received the secret could not be replaced: the session was closed for safety.",
-            fix: "Start a new session.",
+        s.context.off("page", surPage);
+        if (p && tape && sortie.statut !== 200) {
+          message = await messagePage(s.page, formes);
+          for (const h of Object.values(p.champs)) await viderChamp(h);
+        }
+        await libererLogin(p).catch(() => {});
+        if (avecSecret && saisies.size) {
+          try {
+            post = await remplacerDocuments(
+              s,
+              saisies,
+              Math.max(
+                Date.now() + 4000,
+                Math.min(Date.now() + POST_BUDGET_MS, req.recuA! + PLAFOND_LOGIN_MS),
+              ),
+              formes,
+            );
+          } catch {
+            post = { remplacees: 0, fermees: 0, sessionFermee: true };
           }
-        : {}),
-      url: purgerTexte(url, formes).substring(0, 300),
-      title: purgerTexte(titre, formes).substring(0, 200),
-      documents_replaced: post.remplacees,
-      ...(post.fermees
-        ? {
-            page_closed: true,
-            warning:
-              "A document that received the secret could not be replaced: its page was closed for safety.",
-          }
-        : {}),
-    };
-    res.status(post.sessionFermee ? 422 : sortie.statut).json(corps);
-  });
+          if (post.sessionFermee)
+            await avecDelai(
+              closeSession(ctx, req.sessionId!, "login_echec_ferme", { lockHeld: true }),
+              FERMETURE_MS,
+            ).catch(() => {});
+        }
+      } finally {
+        for (const retour of defaire.reverse())
+          await Promise.resolve()
+            .then(retour)
+            .catch(() => {});
+        s._connexionEnCours = false;
+      }
+      let url = "",
+        titre = "";
+      if (!post.sessionFermee) {
+        try {
+          url = s.page.url();
+          titre = await avecDelai(s.page.title(), 1500).catch(() => "");
+        } catch {
+          url = "";
+        }
+      }
+      const corps = {
+        ...sortie.corps,
+        ...(message ? { page_message: message } : {}),
+        ...(post.sessionFermee
+          ? {
+              ok: false,
+              outcome: "session_closed",
+              session_closed: true,
+              code: "secret_login_failed",
+              error:
+                "The documents that received the secret could not be replaced: the session was closed for safety.",
+              fix: "Start a new session.",
+            }
+          : {}),
+        url: purgerTexte(url, formes).substring(0, 300),
+        title: purgerTexte(titre, formes).substring(0, 200),
+        documents_replaced: post.remplacees,
+        ...(post.fermees
+          ? {
+              page_closed: true,
+              warning:
+                "A document that received the secret could not be replaced: its page was closed for safety.",
+            }
+          : {}),
+      };
+      res.status(post.sessionFermee ? 422 : sortie.statut).json(corps);
+    },
+  );
 }

@@ -1,16 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/conteneur.ts — conteneur Docker persistant d'un compte (executors/_user_sandbox.py) : options de lancement, création, réconciliations, arrêt, purge, agent et exec. */
 import { randomUUID } from "node:crypto";
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { lookup } from "node:dns/promises";
 
 import {
@@ -318,8 +309,13 @@ export class UserSandbox implements BacPourAgent {
     return profilParId(this.cfg, this.networkProfileId || "isolated");
   }
 
-  private appel(args: readonly string[], timeoutS: number, signal?: AbortSignal): Promise<ReponseDocker> {
-    return this.cli.call(args, { timeoutS, ...(signal ? { signal } : {}) });
+  private appel(
+    args: readonly string[],
+    timeoutS: number,
+    signal?: AbortSignal,
+    env?: Readonly<Record<string, string>>,
+  ): Promise<ReponseDocker> {
+    return this.cli.call(args, { timeoutS, ...(signal ? { signal } : {}), ...(env ? { env } : {}) });
   }
 
   async status(signal?: AbortSignal): Promise<EtatBac> {
@@ -1107,39 +1103,34 @@ export class UserSandbox implements BacPourAgent {
       );
   }
 
-  /** Service navigateur du bac lancé détaché sous `exec_user` (script `SCRIPT_NAVIGATEUR`) ; `env` passé par un fichier 0600 de l'hôte, jamais en argument. */
+  /** Service navigateur du bac lancé détaché sous `exec_user` ; `env` passé par `-e NOM` et l'environnement du CLI docker, jamais en argument ni sur disque. */
   async startNavigateur(env: Readonly<Record<string, string>>): Promise<void> {
     if (this.recreationReportee) throw new ExecError(this.recreationReportee);
     const execUser = this.utilisateurExec();
     await this.exigerEntree(execUser);
-    const fichier = pyJoin(pyParent(this.sandboxPath), `.browser-env-${randomUUID()}`);
-    const lignes = Object.entries(env).map(([k, v]) => `${k}=${v.replace(/[\r\n]/gu, "")}`);
-    writeFileSync(fichier, lignes.join("\n") + "\n", { mode: 0o600 });
-    try {
-      const [rc, , err] = await this.appel(
-        [
-          "exec",
-          "-d",
-          "--user",
-          execUser,
-          "-e",
-          `PATH=${PATH_COMPTE}`,
-          "--env-file",
-          fichier,
-          this.containerName,
-          "sh",
-          "-c",
-          SCRIPT_NAVIGATEUR,
-        ],
-        15,
+    const valeurs = Object.fromEntries(Object.entries(env).map(([k, v]) => [k, v.replace(/[\r\n]/gu, "")]));
+    const [rc, , err] = await this.appel(
+      [
+        "exec",
+        "-d",
+        "--user",
+        execUser,
+        "-e",
+        `PATH=${PATH_COMPTE}`,
+        ...Object.keys(valeurs).flatMap((k) => ["-e", k]),
+        this.containerName,
+        "sh",
+        "-c",
+        SCRIPT_NAVIGATEUR,
+      ],
+      15,
+      undefined,
+      valeurs,
+    );
+    if (rc !== 0)
+      throw new ExecError(
+        `Service navigateur non démarré dans ${this.containerName} : ${prefixePy(stripPy(decoderRemplace(err)), 300)}`,
       );
-      if (rc !== 0)
-        throw new ExecError(
-          `Service navigateur non démarré dans ${this.containerName} : ${prefixePy(stripPy(decoderRemplace(err)), 300)}`,
-        );
-    } finally {
-      rmSync(fichier, { force: true });
-    }
   }
 
   /** Arrête le service navigateur du bac (TERM au processus du service). */

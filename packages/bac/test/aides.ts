@@ -26,6 +26,7 @@ export interface ProcessusScripte {
 export class FauxCli implements CliDocker {
   readonly bin = "/usr/bin/docker";
   readonly appels: unknown[][] = [];
+  readonly envs: (Readonly<Record<string, string>> | null)[] = [];
   readonly lances: string[][] = [];
   readonly entrees: { recu: Buffer; ferme: boolean }[] = [];
   private readonly regles: Regle[];
@@ -65,6 +66,7 @@ export class FauxCli implements CliDocker {
 
   async call(args: readonly string[], options: OptionsAppel = {}): Promise<ReponseDocker> {
     this.appels.push([...args, options.timeoutS ?? 30]);
+    this.envs.push(options.env ?? null);
     const suspendu = this.suspendre?.(args) ?? null;
     if (suspendu !== null) return suspendu;
     return this.repondre(args);

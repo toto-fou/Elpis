@@ -117,6 +117,10 @@ export interface Session {
   ongletsFermes?: OngletFerme[];
   reveilsOnglet?: (() => void)[];
   _connexionEnCours?: boolean;
+  /** Une connexion avec un secret du coffre a eu lieu sur cette session (pour sa durée de vie). */
+  _aConnecte?: boolean;
+  /** La session a été démarrée avec un HAR ou une trace. */
+  _enregistre?: boolean;
   _mocksSuspendus?: boolean;
   _mocks?: Simulation[];
   _mockHandlerRegistered?: boolean;

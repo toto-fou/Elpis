@@ -255,6 +255,19 @@ describe("pw_session : session ouverte pour un secret attaché", () => {
     expect(corpsRecus("POST /start")).toEqual([]);
   });
 
+  it("web-login avec record_har ou trace : refus avant toute ouverture, rien d'ouvert", async () => {
+    const proxy: [number, Dict] = [200, { secrets: [applicable("intranet")] }];
+    core.repondre("/api/internal/secrets/match", proxy, proxy);
+    const b = await client();
+    for (const option of [{ record_har: true }, { trace: true }]) {
+      const r = await b.appeler("pw_session", { action: "start", url: `${SITE}/`, ...option }, META);
+      expect(erreur(r)).toMatchObject({ error: "recording_with_credentials" });
+      expect(String(erreur(r)["message"])).toContain("Secret 'intranet' is used in this session");
+      expect(String(erreur(r)["fix"])).toContain("without record_har and trace");
+    }
+    expect(corpsRecus("POST /start")).toEqual([]);
+  });
+
   it("web-login : session ordinaire au TLS du secret, sans valeur (aucune résolution), conseil pw_login ; plusieurs secrets : secret_ambiguous", async () => {
     core.repondre(
       "/api/internal/secrets/match",
@@ -679,18 +692,14 @@ describe("session liée au secret qui l'a ouverte (hôte d'outils)", () => {
     expect(corpsRecus("POST /start")).toHaveLength(2);
   });
 
-  it("start à nouveau pour un secret déjà ouvert avec record_har, trace ou émulation : refus explicite, rien d'ouvert ; http-auth : le refus documenté", async () => {
+  it("start à nouveau pour un secret déjà ouvert avec émulation : refus explicite, rien d'ouvert ; record_har ou trace : refus en amont", async () => {
     const b = await client();
     const intranet: [number, Dict] = [200, { secrets: [applicable("intranet", "web-login")] }];
     core.repondre("/api/internal/secrets/match", intranet, intranet, intranet);
     await b.appeler("pw_session", { action: "start", url: `${SITE}/login` }, META);
-    const r = await b.appeler(
-      "pw_session",
-      { action: "start", url: `${SITE}/b`, trace: true, device: "iPhone 13" },
-      META,
-    );
+    const r = await b.appeler("pw_session", { action: "start", url: `${SITE}/b`, device: "iPhone 13" }, META);
     expect(erreur(r)).toMatchObject({ error: "session_options_need_new_session" });
-    expect(String(erreur(r)["message"])).toContain("trace, device");
+    expect(String(erreur(r)["message"])).toContain("device");
     expect(String(erreur(r)["fix"])).toContain("pw_session action='stop'");
     expect(corpsRecus("POST /action")).toEqual([]);
     const sans = resultat(await b.appeler("pw_session", { action: "start", url: `${SITE}/b` }, META));

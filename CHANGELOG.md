@@ -24,6 +24,14 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Sandbox browser: no long-lived token next to the sandbox, nothing kept from a vault login.**
+  The two tokens of the browser service of an account are now created at each start of that
+  service and kept by the tool host, in memory and in its private runtime directory
+  (`RuntimeDirectory=elpis-toolhost`, else `user_db/run/navigateur`); they no longer sit in the
+  account's sandbox folder, and they reach the service through the environment of the docker
+  client, never a file. A running browser is taken over after a tool host restart. A browser
+  session used with a vault secret saves no cookies or storage and records no HAR or trace; a
+  login is refused in a session that records one.
 - **Sandbox: a Git rule per network profile.** In the profile editor, *Git*: all repositories
   (the default, as before), chosen servers (a whole server or a server and an organization), or
   the repositories covered by each user's verified Git accounts. The Git relay applies it to every

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/test/navigateur.test.ts — navigateur dans le bac de chaque compte : montages et étiquette quand le navigateur est installé, recréation sur changement, démarrage détaché à l'environnement passé par un fichier 0600 retiré ensuite, arrêt. */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -146,31 +146,29 @@ describe("conteneur du bac", () => {
     }
   });
 
-  it("démarrage détaché sous exec_user, environnement par un fichier 0600 de l'hôte retiré ensuite, jamais en argument", async () => {
+  it("démarrage détaché sous exec_user, environnement par -e NOM et l'environnement du CLI, ni argument ni fichier", async () => {
     const cli = new FauxCli();
     mkdirSync(path.join(tmp, "a"), { recursive: true });
     const sb = new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
       cli,
     });
-    let fichier = "";
-    let contenu = "";
-    cli.suspendre = (args) => {
-      const i = args.indexOf("--env-file");
-      if (i < 0) return null;
-      fichier = args[i + 1] ?? "";
-      contenu = readFileSync(fichier, "utf8");
-      return Promise.resolve([0, Buffer.alloc(0), Buffer.alloc(0)]);
-    };
-    await sb.startNavigateur({ BROWSER_SERVICE_TOKEN: "tok-123", BROWSER_IDLE_EXIT_S: "900" });
+    await sb.startNavigateur({ BROWSER_SERVICE_TOKEN: "tok-123", BROWSER_IDLE_EXIT_S: "900\n" });
     const args = cli.appels.at(-1) as string[];
     expect(args.slice(0, 3)).toEqual(["exec", "-d", "--user"]);
-    expect(args.join(" ")).toContain("10001");
-    expect(args.slice(3, 8)).toEqual(["10001:10001", "-e", `PATH=${PATH_COMPTE}`, "--env-file", fichier]);
+    expect(args.slice(3, 10)).toEqual([
+      "10001:10001",
+      "-e",
+      `PATH=${PATH_COMPTE}`,
+      "-e",
+      "BROWSER_SERVICE_TOKEN",
+      "-e",
+      "BROWSER_IDLE_EXIT_S",
+    ]);
     expect(args).toContain(SCRIPT_NAVIGATEUR);
     expect(args.join(" ")).not.toContain("tok-123");
-    expect(contenu).toBe("BROWSER_SERVICE_TOKEN=tok-123\nBROWSER_IDLE_EXIT_S=900\n");
-    expect(path.dirname(fichier)).toBe(path.join(tmp, "a"));
-    expect(existsSync(fichier)).toBe(false);
+    expect(args).not.toContain("--env-file");
+    expect(cli.envs.at(-1)).toEqual({ BROWSER_SERVICE_TOKEN: "tok-123", BROWSER_IDLE_EXIT_S: "900" });
+    expect(readdirSync(path.join(tmp, "a"))).toEqual([]);
     await sb.stopNavigateur();
     expect((cli.appels.at(-1) as string[]).slice(0, 8)).toEqual(["exec", ...ENTREE_ROOT, sb.containerName]);
     expect((cli.appels.at(-1) as string[]).join(" ")).toContain(

@@ -2784,11 +2784,15 @@ ignored (one info line from the tool host at start).
   of the host, never on a command line). The start script imports the CA into the NSS database of
   the service's own profile (`/work/.elpis-browser/home/.pki/nssdb`). The service only listens on
   `/run/elpis/browser.sock` (`FIREFOX_SERVICE_SOCKET`), requires the sandbox token
-  (`BROWSER_SERVICE_TOKEN`, from `<P>/.browser-service.token`, host only; it refuses to start
-  without either), and stops after `browser.sandbox_idle_minutes` (15) without a call; the next
+  (`BROWSER_SERVICE_TOKEN`; it refuses to start without either), and stops after
+  `browser.sandbox_idle_minutes` (15) without a call; the next
   tool starts it again (`browser_service_unreachable` when it stops answering in between). Tool
   calls count as sandbox activity. A stopped or recreated container takes the service with it;
-  the relay forgets the secrets bound to sessions of a service that restarted.
+  the relay forgets the secrets bound to sessions of a service that restarted. The browser
+  service and relay tokens are kept by the tool host in memory and in its private runtime
+  directory (`RuntimeDirectory=elpis-toolhost`, else `user_db/run/navigateur`; main reads it
+  through `ELPIS_TOOLHOST_RUN_DIR`), renewed at each start of the browser service, never in the
+  sandbox folder.
 - **Data.** Screenshots, saved states, HAR, traces, videos and the service log live in
   `/work/.elpis-browser/` (the service's working folder); downloads land in
   `/work/downloads/<owner>/`, recorder dumps are also written to `/work/recordings/`, and returned
@@ -2812,6 +2816,7 @@ ignored (one info line from the tool host at start).
   `about:blank`).
 
 **Secret relay.** A session opened for a vault secret binds the secret's origins to the relay.
+A session used with a vault secret (opened for one, or used for a login) saves no cookies or storage and records no HAR or trace.
 For those origins only, the relay terminates TLS with a leaf certificate signed by the
 **instance CA** (ECDSA P-256, `user_db/browser-relay-ca/`, key 0600, built with `node:crypto`
 only, created when the tool host starts, valid 365 days and renewed when less

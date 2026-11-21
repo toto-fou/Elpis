@@ -319,8 +319,16 @@ describe("agent et navigateur : sous exec_user, PATH du compte", () => {
     const { sb, cli } = bacDe(null);
     await sb.startNavigateur({ A: "1" });
     const argv = cli.appels.at(-1) as unknown[];
-    expect(argv.slice(0, 6)).toEqual(["exec", "-d", "--user", "10001:10001", "-e", `PATH=${PATH_COMPTE}`]);
-    expect(argv[6]).toBe("--env-file");
+    expect(argv.slice(0, 8)).toEqual([
+      "exec",
+      "-d",
+      "--user",
+      "10001:10001",
+      "-e",
+      `PATH=${PATH_COMPTE}`,
+      "-e",
+      "A",
+    ]);
     expect(JSON.stringify(argv)).not.toContain("setpriv");
   });
 });

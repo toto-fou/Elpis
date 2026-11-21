@@ -70,6 +70,8 @@ export interface OptionsAppelDocker {
   /** Annulation (la `CancelledError` de Python) : le processus est tué, sa fin attendue, puis la raison levée. */
   readonly signal?: AbortSignal;
   readonly binaire?: string;
+  /** Variables ajoutées à l'environnement du processus (résolution de `-e NOM` par docker). */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 /** `create_subprocess_exec` + `communicate()` borné : au délai, le processus est tué (SIGKILL) et rendu dès sa fin, sans attendre un descendant qui tiendrait ses tubes ; une erreur de lancement (ENOENT…) est levée. */
@@ -83,6 +85,7 @@ export function appelDocker(
   return new Promise((resoudre, rejeter) => {
     const proc = spawn(options.binaire ?? binaireDocker(), [...args], {
       stdio: [entree ? "pipe" : "ignore", "pipe", "pipe"],
+      ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
     });
     const sortie: Buffer[] = [];
     const erreur: Buffer[] = [];

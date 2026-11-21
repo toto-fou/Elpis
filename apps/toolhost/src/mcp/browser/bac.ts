@@ -5,11 +5,13 @@ import {
   closeSync,
   constants,
   fstatSync,
+  lstatSync,
+  mkdirSync,
+  chmodSync,
   openSync,
   readFileSync,
   renameSync,
   rmSync,
-  writeFileSync,
   writeSync,
 } from "node:fs";
 
@@ -29,6 +31,7 @@ import {
   autoriteARenouveler,
   chargerAutorite,
   cheminsNavigateurBac,
+  dossierJetonsNavigateur,
   jetonDuBac,
   jugeRelaisBac,
   RelaisNavigateur,
@@ -142,12 +145,61 @@ export function autoriteInstance(): Autorite {
   return autorite;
 }
 
-/** Jeton d'un fichier de l'hôte (0600), créé s'il manque. */
-function jetonFichier(chemin: string): string {
-  const lu = jetonDuBac(chemin);
-  if (lu) return lu;
-  const j = randomBytes(32).toString("hex");
-  writeFileSync(chemin, j + "\n", { mode: 0o600 });
+/** Jetons du service et du relais d'un compte pour ce processus : `lance` une fois posés dans un lancement du service. */
+interface JetonsCompte {
+  service: string;
+  relais: string;
+  lance: boolean;
+}
+
+const jetons = new Map<string, JetonsCompte>();
+
+/** Fichier de jeton écrit dans le dossier d'exécution privé de l'hôte (dossier 0700, fichier 0600 : temporaire O_EXCL|O_NOFOLLOW renommé, aucun lien suivi). */
+function poserJeton(chemin: string, jeton: string): void {
+  const dossier = dossierJetonsNavigateur();
+  mkdirSync(dossier, { recursive: true, mode: 0o700 });
+  if (!lstatSync(dossier).isDirectory()) throw new Error("runtime token directory is not a directory");
+  chmodSync(dossier, 0o700);
+  const tmp = `${chemin}.${randomBytes(8).toString("hex")}.tmp`;
+  const fd = openSync(
+    tmp,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    writeSync(fd, jeton + "\n");
+  } finally {
+    closeSync(fd);
+  }
+  try {
+    renameSync(tmp, chemin);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
+}
+
+/** Jetons neufs du compte, écrits dans le dossier d'exécution de l'hôte. */
+function nouveauxJetons(username: string): JetonsCompte {
+  const c = cheminsNavigateurBac(username);
+  const j: JetonsCompte = {
+    service: randomBytes(32).toString("hex"),
+    relais: randomBytes(32).toString("hex"),
+    lance: false,
+  };
+  poserJeton(c.jeton, j.service);
+  poserJeton(c.jetonRelais, j.relais);
+  jetons.set(username, j);
+  return j;
+}
+
+/** Jetons du compte relus du dossier d'exécution (hôte d'outils relancé) si le service en marche les accepte, sinon `null` ; le relais est alors rouvert avec le sien. */
+async function jetonsDuService(username: string): Promise<JetonsCompte | null> {
+  const c = cheminsNavigateurBac(username);
+  const j: JetonsCompte = { service: jetonDuBac(c.jeton), relais: jetonDuBac(c.jetonRelais), lance: true };
+  if (j.service === "" || j.relais === "") return null;
+  if (!(await sante({ socket: c.socket, jeton: j.service })).ok) return null;
+  jetons.set(username, j);
   return j;
 }
 
@@ -232,7 +284,7 @@ async function sante(s: ServiceNavigateur): Promise<{ ok: boolean; refus: boolea
   }
 }
 
-/** Service du bac du compte en marche : conteneur, relais, certificat, jetons, puis service lancé et attendu s'il ne répond pas. */
+/** Service du bac du compte en marche : conteneur, relais, certificat, jetons (neufs à chaque lancement du service), puis service lancé et attendu s'il ne répond pas. */
 async function assurer(username: string, e: EtatCompte): Promise<void> {
   if (montagesNavigateur() === null)
     throw indisponible(username, "service navigateur non installé ou non construit");
@@ -246,27 +298,37 @@ async function assurer(username: string, e: EtatCompte): Promise<void> {
   }
   if (!st.running) throw await bacIndisponible(sb, null);
   const c = cheminsNavigateurBac(username);
-  const jetonRelais = jetonFichier(`${c.dossier}/.browser-relay.token`);
-  await relaisDuCompte(e, username, jetonRelais);
+  let j = jetons.get(username) ?? (await jetonsDuService(username)) ?? nouveauxJetons(username);
+  await relaisDuCompte(e, username, j.relais);
   const rotation = poserCertificat(c.ca, autoriteInstance().certPem);
-  const jeton = jetonFichier(c.jeton);
-  const service: ServiceNavigateur = { socket: c.socket, jeton };
+  let service: ServiceNavigateur = { socket: c.socket, jeton: j.service };
   const avant = await sante(service);
   if (avant.ok && !rotation) {
     noterDebut(e, avant.uptime);
     return;
   }
-  // Jeton refusé, ou autorité renouvelée (le service n'importe le certificat qu'au démarrage) : service relancé.
   if (avant.refus || avant.ok) {
     await sb.stopNavigateur().catch(() => undefined);
-    for (let i = 0; i < 50 && (await sante(service)).ok; i++) await new Promise((ok) => setTimeout(ok, 100));
+    for (let i = 0; i < 50; i++) {
+      const r = await sante(service);
+      if (!r.ok && !r.refus) break;
+      await new Promise((ok) => setTimeout(ok, 100));
+    }
   }
+  if (j.lance) {
+    j = nouveauxJetons(username);
+    await e.relais?.fermer();
+    e.relais = null;
+    await relaisDuCompte(e, username, j.relais);
+    service = { socket: c.socket, jeton: j.service };
+  }
+  j.lance = true;
   const t0 = performance.now();
   await sb.startNavigateur({
     FIREFOX_SERVICE_SOCKET: BROWSER_SOCKET,
-    BROWSER_SERVICE_TOKEN: jeton,
+    BROWSER_SERVICE_TOKEN: j.service,
     BROWSER_RELAY_SOCKET,
-    BROWSER_RELAY_TOKEN: jetonRelais,
+    BROWSER_RELAY_TOKEN: j.relais,
     PLAYWRIGHT_BROWSERS_PATH: MONTAGES_NAVIGATEUR.playwright,
     BROWSER_DOWNLOAD_DIR: BROWSER_DOWNLOADS,
     BROWSER_IDLE_EXIT_S: String(inactiviteS()),
@@ -318,7 +380,8 @@ export async function serviceDuCompte(username: string): Promise<ServiceNavigate
       .then((sb) => sb.marquerActivite())
       .catch(() => undefined);
   }
-  return serviceNavigateur(username);
+  const s = serviceNavigateur(username);
+  return { socket: s.socket, jeton: jetons.get(username)?.service || s.jeton };
 }
 
 /** Lie un secret en usage au relais du compte (ses origines y sont déchiffrées) ; faux sans relais. */
@@ -377,6 +440,7 @@ export function poserRelaisPourTests(username: string, relais: RelaisNavigateur,
 export async function arreterNavigateursBac(): Promise<void> {
   const tous = [...etats.values()];
   etats.clear();
+  jetons.clear();
   autorite = null;
   if (veille !== null) clearInterval(veille);
   veille = null;

@@ -105,6 +105,7 @@ describe("navigateur des sous-agents", () => {
   it("démarrage : socket de chaque bac à jeton de SANDBOX_DIR joint avec son jeton ; bac sans jeton ignoré, service arrêté : 0 sans lever", async () => {
     const sb = mkdtempSync(join(tmpdir(), "elpis-sb-"));
     const restaurer = surchargerConfig({ SANDBOX_DIR: sb });
+    process.env["ELPIS_TOOLHOST_RUN_DIR"] = join(sb, "run");
     const recus: { url: string; auth: unknown; corps: unknown }[] = [];
     const serveur = createServer((req, res) => {
       let texte = "";
@@ -121,7 +122,8 @@ describe("navigateur des sous-agents", () => {
     });
     try {
       for (const compte of ["alice", "bob"]) mkdirSync(join(sb, compte, ".elpis-agent"), { recursive: true });
-      writeFileSync(join(sb, "alice", ".browser-service.token"), "jeton-a\n");
+      mkdirSync(join(sb, "run", "navigateur"), { recursive: true });
+      writeFileSync(join(sb, "run", "navigateur", "alice.service.token"), "jeton-a\n");
       await new Promise<void>((ok) => serveur.listen(join(sb, "alice", ".elpis-agent", "browser.sock"), ok));
       expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7 })).toBe(2);
       expect(recus).toEqual([
@@ -131,6 +133,7 @@ describe("navigateur des sous-agents", () => {
       await new Promise<void>((ok) => serveur.close(() => ok()));
       expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7 })).toBe(0);
     } finally {
+      delete process.env["ELPIS_TOOLHOST_RUN_DIR"];
       restaurer();
       if (serveur.listening) serveur.close();
       rmSync(sb, { recursive: true, force: true });

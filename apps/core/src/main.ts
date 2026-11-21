@@ -12,7 +12,7 @@ import { cheminJournalCommun } from "./evenements";
 import { journal } from "./journal";
 import { resoudreModeApp } from "./mode";
 import { configurerJournalProcess, ecrivainDuProcess } from "./observabilite/journal-acces";
-import { brancherTravailDesComptes } from "./ops/travail-agent";
+import { brancherTravailDesComptes } from "./ops/travail-hote";
 import { configurerSecuriteDuCore } from "./securite";
 
 const GRACE_APRES_FORCAGE_MS = 5_000;

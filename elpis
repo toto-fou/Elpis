@@ -122,10 +122,11 @@ need_exploitation() {
     [ -f "$CORE_DIST/exploitation.mjs" ] || die "Core non construit ($CORE_DIST/exploitation.mjs absent) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
     node_ok || die "Node.js « $("$NODE" -v 2>/dev/null || echo "$NODE absent") » : le core demande Node 24.x, $NODE_MIN au moins (./install.sh installe $NODE_VERSION dans node/, ou ELPIS_NODE=chemin)."
 }
-# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services.
+# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services et l'hôte d'outils local (/work des comptes pour « backup »).
 core_cmd() {
     local e=("ELPIS_RACINE=$ROOT")
     [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
+    e+=("LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp")
     env "${e[@]}" "$NODE" "$CORE_DIST/exploitation.mjs" "$@"
 }
 # lanceur QUESTION : réglage lu par le core dans config.json et l'environnement (exploitation.mjs lanceur) ; rien si le core n'est pas construit.

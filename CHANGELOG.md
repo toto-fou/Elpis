@@ -24,6 +24,20 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **One account per service.** `sudo ./elpis service install` now runs main, the console and the
+  tool host under their own system accounts (`elpis-main`, `elpis-admin`, `elpis-toolhost`, no
+  shell), sharing their state through the `elpis-donnees` group. Only the tool host unit gets
+  the `docker` group; the vault key, the session secret and the remote backup credentials are
+  reserved to main and the console, the signing key to the journal writers, and nothing is left
+  readable by other accounts. Rights are set again at each `service install`, without following
+  links or entering the sandboxes' `/work`, and only on the installation's state folders or on
+  folders already reserved to Elpis; backups then run with `sudo ./elpis backup`. When other
+  accounts cannot reach the installation
+  (a clone in a home folder), or with `ELPIS_COMPTE_UNIQUE=1`, the services keep one account, as
+  before; `./elpis doctor` then warns at every run (Playwright browsers in a closed home folder
+  are copied for the tool host instead). For a server, install in `/opt/elpis`
+  ([operations.md](docs/operations.md#service-accounts)); then run `sudo ./elpis service install`
+  again. `./install.sh --service` no longer adds the application account to the `docker` group.
 - **systemd units: versioned and hardened.** The units of the services are rendered from
   templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
   privileges, with the system read-only except the folders it writes, a private `/tmp` and

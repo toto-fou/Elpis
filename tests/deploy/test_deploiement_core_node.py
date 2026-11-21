@@ -19,8 +19,8 @@ DIST = REPO / "apps" / "core" / "dist"
 
 
 @pytest.fixture
-def racine(tmp_path):
-    r = tmp_path / "elpis"
+def racine(tmp_ouvert):
+    r = tmp_ouvert / "elpis"
     for d in ("deploy/node", "deploy/toolhost", "apps/core/dist", "apps/toolhost/dist", "venv/bin", "rag_app",
               "user_db/run"):
         (r / d).mkdir(parents=True)
@@ -46,9 +46,9 @@ def _faux_node(racine: Path, version: str = "24.21.0") -> Path:
     return _executable(racine / "faux-node", f'#!/bin/sh\n[ "$1" = -v ] && {{ echo v{version}; exit 0; }}\nexit 0\n')
 
 
-def _elpis(racine: Path, *args: str, node: Path | str, timeout: float = 120) -> subprocess.CompletedProcess:
+def _elpis(racine: Path, *args: str, node: Path | str, timeout: float = 120, **extra: str) -> subprocess.CompletedProcess:
     env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(racine), "LANG": "C.UTF-8",
-           "ELPIS_USER": getpass.getuser(), "ELPIS_NODE": str(node)}
+           "ELPIS_USER": getpass.getuser(), "ELPIS_NODE": str(node), **extra}
     return subprocess.run(["bash", str(racine / "elpis"), *args], env=env, capture_output=True, text=True,
                           timeout=timeout, cwd=str(racine), stdin=subprocess.DEVNULL)
 
@@ -222,17 +222,19 @@ def test_unites_durcies(racine):
         assert any(ligne.startswith("SystemCallFilter=") for ligne in lignes) is (s == "qdrant"), s
     for s in ("main", "admin"):
         lignes = _directives(unites[f"elpis-{s}.service"])
-        assert f"ReadWritePaths={racine} /run/elpis" in lignes and "UMask=0027" in lignes, s
+        assert f"ReadWritePaths={racine} /run/elpis" in lignes and "UMask=0007" in lignes, s
         ro = next(ligne for ligne in lignes if ligne.startswith("ReadOnlyPaths="))
         assert {f"-{racine}/apps", f"-{racine}/node", f"-{racine}/elpis", f"-{racine}/deploy"} <= set(ro.split("=", 1)[1].split()), s
     lignes = _directives(unites["elpis-toolhost.service"])
-    assert "UMask=0022" in lignes and f"ReadWritePaths=-{racine}/user_db" in lignes
+    assert "UMask=0007" in lignes and f"ReadWritePaths=-{racine}/user_db" in lignes
     assert not any(ligne in (f"ReadWritePaths={racine}", f"ReadWritePaths=-{racine}") for ligne in lignes)
     assert "RuntimeDirectory=elpis-toolhost" in lignes and "RuntimeDirectoryMode=0700" in lignes
     lignes = _directives(unites["elpis-qdrant.service"])
     assert f"ReadWritePaths={racine}/rag_app/qdrant" in lignes and "UMask=0077" in lignes
     assert "IPAddressDeny=any" in lignes and "IPAddressAllow=localhost" in lignes
     assert f"ReadOnlyPaths=-{racine}/rag_app/qdrant/qdrant -{racine}/rag_app/qdrant/config.yaml" in lignes
+    assert unites["tmpfiles.d/elpis.conf"].strip().splitlines()[-1] == "d /run/elpis 2770 root elpis-donnees -"
+    unites = _unites(_elpis(racine, "service", "print", node=_faux_node(racine), ELPIS_COMPTE_UNIQUE="1").stdout)
     assert unites["tmpfiles.d/elpis.conf"].strip().splitlines()[-1] == f"d /run/elpis 0700 {getpass.getuser()} {grp.getgrgid(os.getgid()).gr_name} -"
 
 
@@ -254,16 +256,18 @@ def test_exposition_des_unites_sous_le_seuil(racine, tmp_path):
         assert v.returncode == 0, (unite.name, v.stdout[-400:], v.stderr)
 
 
-@pytest.mark.parametrize("compte,navigateurs,attendu", [
-    ("nobody", "", "yes"),
-    ("nobody", "/run/user/0/ms-playwright", "read-only"),
-    (None, "", "read-only"),
+@pytest.mark.parametrize("compte,navigateurs,unique,attendu", [
+    ("nobody", "", "1", "yes"),
+    ("nobody", "/run/user/0/ms-playwright", "1", "read-only"),
+    (None, "", "1", "read-only"),
+    (None, "", "", "yes"),
 ])
-def test_protecthome_selon_les_emplacements(racine, compte, navigateurs, attendu):
+def test_protecthome_selon_les_emplacements(racine, compte, navigateurs, unique, attendu):
+    """Compte unique : son dossier personnel compte ; un compte par service : seuls les chemins utilisés comptent."""
     if compte is None and not (Path.home().as_posix() + "/").startswith(("/home/", "/root/")):
         pytest.skip("compte courant hors de /home")
     env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(racine), "LANG": "C.UTF-8",
-           "ELPIS_USER": compte or getpass.getuser(), "ELPIS_NODE": str(_faux_node(racine))}
+           "ELPIS_USER": compte or getpass.getuser(), "ELPIS_NODE": str(_faux_node(racine)), "ELPIS_COMPTE_UNIQUE": unique}
     if navigateurs:
         env["PLAYWRIGHT_BROWSERS_PATH"] = navigateurs
     r = subprocess.run(["bash", str(racine / "elpis"), "service", "print"], env=env, capture_output=True, text=True,

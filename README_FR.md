@@ -84,7 +84,7 @@ Le conteneur de chaque utilisateur est la frontière de sécurité. Le serveur
 ne lit ni n'écrit le contenu d'une sandbox : fichiers, éditeur, archives et
 Git passent par un agent qui tourne dans le conteneur, sous l'utilisateur de
 la sandbox (le réseau de Git passe par un relais de l'hôte qui y ajoute les
-identifiants). Le compte de service pilote Docker : réservez à Elpis une
+identifiants). Le compte de l'hôte d'outils pilote Docker : réservez à Elpis une
 machine ou une VM dédiée. Modèle de menace et signalement :
 [SECURITY.md](SECURITY.md).
 
@@ -113,6 +113,11 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 ./install.sh                                   # 2
 ```
 
+Pour un serveur en services systemd (`./install.sh --service`), clonez plutôt dans
+`/opt/elpis` (`sudo install -d -o "$USER" /opt/elpis` d'abord) : chaque service tourne alors
+sous son propre compte système, ce qu'un clone dans un dossier personnel ne permet pas
+([docs/operations.md](docs/operations.md#service-accounts)).
+
 `install.sh` demande sudo tout de suite (une fois, gardé actif pendant
 l'installation), installe le socle système s'il manque, puis ouvre un
 **assistant par pages** dans le terminal : toutes les questions d'abord, un
@@ -129,7 +134,8 @@ qui manquent :
   aperçus Office, les bibliothèques de Chromium pour le navigateur, Caddy pour
   le HTTPS, PostgreSQL pour une base locale, `build-essential` pour construire
   l'hôte d'outils (sans paquet hors ligne). Avec la sandbox, le compte de
-  l'application entre dans le groupe `docker`.
+  l'application entre dans le groupe `docker`, sauf avec `--service`, où seul le
+  compte de service de l'hôte d'outils le reçoit.
 
 Hors ligne, apt passe par le miroir du LAN ou le support de l'OS. Sans droits
 administrateur, ou si apt échoue, `install.sh` s'arrête sur la liste des

@@ -287,9 +287,12 @@ fi
 # =============================================================================
 #  0 bis. Droits — vérifiés AVANT toute question
 # =============================================================================
-# Compte des services systemd déjà installés (User= de main, admin ou toolhost, comme « ./elpis ») : gardé sans ELPIS_USER explicite.
+# Unités systemd à un compte par service installées (ELPIS_COMPTES=separes dans main, admin ou toolhost).
+unites_separees() { grep -qsx 'Environment="ELPIS_COMPTES=separes"' /etc/systemd/system/elpis-{main,admin,toolhost}.service; }
+# Compte unique des services systemd déjà installés (User= de main, admin ou toolhost, comme « ./elpis ») : gardé sans ELPIS_USER explicite ; rien pour des unités à un compte par service (l'opérateur reste celui de l'installation).
 compte_des_unites() {
     local s u
+    unites_separees && return 0
     for s in main admin toolhost; do
         [ -f "/etc/systemd/system/elpis-$s.service" ] || continue
         u="$(systemctl show -p User --value "elpis-$s.service" 2>/dev/null)"
@@ -707,6 +710,9 @@ dry_paquet_hors_ligne() {
         || bloquer "Paquet hors ligne $OFFLINE_DIR incomplet, absents : ${manque[*]} (paquet d'une autre version ? make_release.sh)."
 }
 
+# Installation en services : le groupe docker n'est pas donné au compte de l'application (« service install » le donne à l'unité de l'hôte d'outils, ou au compte unique).
+docker_au_compte() { [ "$AFTER" != service ]; }
+
 # --dry-run : chaque étape de l'installation sur cette machine, dans l'ordre, sans rien écrire ni appeler sudo.
 plan_dry_run() {
     local src="en ligne" image="" v gardes=()
@@ -715,7 +721,9 @@ plan_dry_run() {
     info "--dry-run : ce que ferait l'installation, dans l'ordre$([ "$ASSUME_YES" -eq 1 ] || echo " (choix par défaut et options ; dans un terminal, sans --yes, l'assistant les demanderait)")"
     installer_prerequis "${GROUPES_APT[@]}"
     if [ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && [ "$SANDBOX_MODE" != none ]; then
-        if id -nG "$APP_USER" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+        if ! docker_au_compte; then
+            etape "Docker : service docker démarré (systemd) ; groupe docker donné par « sudo ./elpis service install » (unité de l'hôte d'outils, ou compte unique)"
+        elif id -nG "$APP_USER" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
             etape "Docker : service docker démarré (systemd) ; $APP_USER déjà dans le groupe docker"
         else
             etape "Docker : service docker démarré (systemd) ; $APP_USER ajouté au groupe docker (effectif à sa prochaine connexion)"
@@ -819,10 +827,12 @@ installer_prerequis "${GROUPES_APT[@]}"
 # sandboxes : chaque /work appartient à l'utilisateur du conteneur (seul
 # l'agent y écrit) ; seuls user_sandboxes et chaque dossier de compte, sans
 # récursion. Un chown -R ici rendait /work illisible en écriture à l'agent
-# jusqu'au redémarrage de son conteneur.
+# jusqu'au redémarrage de son conteneur. Sous des unités à un compte par service : ni les bacs ni les dossiers d'état, propriétaire seul changé.
 chown_depot() {
-    find "$ROOT" -path "$ROOT/user_sandboxes" -prune -o -exec chown -h "$APP_USER": {} +
-    if [ -d "$ROOT/user_sandboxes" ]; then
+    local qui="$APP_USER:" etat=()
+    unites_separees && { qui="$APP_USER"; etat=(-o -path "$ROOT/user_db" -o -path "$ROOT/logs" -o -path "$ROOT/user_skins" -o -path "$ROOT/user_skills"); }
+    find "$ROOT" \( -path "$ROOT/user_sandboxes" "${etat[@]}" \) -prune -o -exec chown -h "$qui" {} +
+    if [ -d "$ROOT/user_sandboxes" ] && [ "${#etat[@]}" -eq 0 ]; then
         chown "$APP_USER": "$ROOT/user_sandboxes"
         find "$ROOT/user_sandboxes" -mindepth 1 -maxdepth 1 -type d -exec chown "$APP_USER": {} +
     fi
@@ -840,7 +850,7 @@ configurer_docker() {
     if [ -d /run/systemd/system ] && ! $SUDO systemctl enable --now docker >/dev/null 2>&1; then
         note_warn "Service docker non démarré (systemctl status docker) : sandbox indisponible tant qu'il ne tourne pas."
     fi
-    if [ "$APP_USER" != root ] && ! id -nG "$APP_USER" | tr ' ' '\n' | grep -qx docker; then
+    if docker_au_compte && [ "$APP_USER" != root ] && ! id -nG "$APP_USER" | tr ' ' '\n' | grep -qx docker; then
         if $SUDO usermod -aG docker "$APP_USER"; then
             note_warn "$APP_USER ajouté au groupe docker : effectif à sa prochaine connexion ; d'ici là, « sg docker -c './elpis start' » (les services systemd et --start l'ont d'office)."
         fi

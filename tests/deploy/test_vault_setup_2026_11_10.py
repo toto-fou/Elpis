@@ -207,7 +207,7 @@ info() {{ printf '[elpis] %s\\n' "$*"; }}; ok() {{ printf '[ ok  ] %s\\n' "$*"; 
 warn() {{ printf '[warn ] %s\\n' "$*" >&2; }}; die() {{ printf '[err  ] %s\\n' "$*" >&2; exit 1; }}
 SYS_PREFIXE="$ELPIS_PREFIXE_SYSTEME"; VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vault.key"; UNIT_PREFIX=elpis
 ROOT={depot}; CORE_DIST="$ROOT/apps/core/dist"
-compte_services() {{ :; }}; groupe_propre() {{ return 0; }}; compte_lit() {{ return 0; }}
+compte_services() {{ :; }}; mode_installe() {{ :; }}; groupe_propre() {{ return 0; }}; compte_lit() {{ return 0; }}
 vault_core() {{ {talon_core}; }}
 """
     return subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre", "lignes_doctor") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
@@ -295,7 +295,7 @@ def _unites(depot: Path, **env: str) -> dict[str, str]:
     """Unités rendues par `_render_units` (dépendances du rendu remplacées par des talons)."""
     talons = """
 load_runtime() { :; }; need_core() { :; }; _db_local_unit() { :; }; _https_enabled() { return 1; }
-svc_available() { :; }
+svc_available() { :; }; dossier_etat_sur() { :; }; base_sure() { printf '%s\n' "$1"; }
 svc_spec() { SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true "$1"); SPEC_ENV=(A=1); }
 core_cmd() {
     case "$*" in "config DB_PATH") echo /srv/donnees/app.db ;; "config MCP_SERVERS_DIR") echo /srv/mcp_custom_servers ;;
@@ -311,7 +311,7 @@ APPLOG_DIR_SYS=/var/log/elpis; NODE=/usr/bin/node
     if not (depot / "deploy/systemd").exists():
         shutil.copytree(REPO / "deploy/systemd", depot / "deploy/systemd")
     fonctions = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_valeur_sure",
-                          "_chemins_hors_depot", "_nettoyer_rendu")
+                          "_chemins_hors_depot", "_nettoyer_rendu", "_compte_unite", "_umask_unite", "_env_comptes")
     r = _bash(depot, fonctions, talons + f'_render_units "{sortie}" {MOI}', **env)
     assert r.returncode == 0, r.stderr
     return {f.name: f.read_text(encoding="utf-8") for f in sortie.iterdir()}
@@ -367,7 +367,7 @@ def test_doctor_session_sans_le_groupe_de_la_cle(depot, tmp_path):
 info() {{ printf '[elpis] %s\\n' "$*"; }}; ok() {{ printf '[ ok  ] %s\\n' "$*"; }}
 warn() {{ printf '[warn ] %s\\n' "$*" >&2; }}
 SYS_PREFIXE="$ELPIS_PREFIXE_SYSTEME"; VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vault.key"; ROOT={depot}
-CORE_DIST="$ROOT/apps/core/dist"; compte_services() {{ echo {MOI}; }}
+CORE_DIST="$ROOT/apps/core/dist"; compte_services() {{ echo {MOI}; }}; mode_installe() {{ :; }}
 vault_core() {{ echo "ne doit pas être appelé" >&2; }}
 """
         r = subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre", "lignes_doctor") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
@@ -428,10 +428,10 @@ def test_unites_code_en_lecture_seule_complet(depot):
 @pytest.mark.parametrize("chemin", ["/srv/avec espace", "/srv/pour%cent"])
 def test_unites_chemin_a_espace_ou_pourcent_refuse_sans_rien_installer(depot, chemin):
     texte = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_valeur_sure",
-                       "_chemins_hors_depot", "_nettoyer_rendu")
+                       "_chemins_hors_depot", "_nettoyer_rendu", "_compte_unite", "_umask_unite", "_env_comptes")
     talons = f"""
 load_runtime() {{ :; }}; need_core() {{ :; }}; _db_local_unit() {{ :; }}; _https_enabled() {{ return 1; }}
-svc_available() {{ :; }}; svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true); SPEC_ENV=(); }}
+svc_available() {{ :; }}; dossier_etat_sur() {{ :; }}; base_sure() {{ printf '%s\n' "$1"; }}; svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true); SPEC_ENV=(); }}
 core_cmd() {{ [ "$*" = "config MCP_SERVERS_DIR" ] && echo '{chemin}'; return 0; }}; lanceur() {{ :; }}
 SERVICES=(main); VAULT_KEY_SYS=/etc/elpis/vault.key; AUDIT_KEY_SYS=/etc/elpis/audit.key
 SANDBOX_DIR=/srv/bacs; RAG_STORE=/srv/rag; RAG_CACHE=/srv/rag-cache; CHART_DIR=/srv/g; AUDIT_DIR_SYS=/a; APPLOG_DIR_SYS=/l; NODE=/n

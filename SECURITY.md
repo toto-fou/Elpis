@@ -28,7 +28,7 @@ Elpis trusts its administrators. Users are authenticated and isolated from one
 another. The LLM agent acting for a user, and everything in that user's
 sandbox, are untrusted: the agent may follow instructions found in a web page,
 a document or a repository. The per-user container is the security boundary.
-The service account drives Docker, which makes it close to root on the host:
+The tool host's account drives Docker, which makes it close to root on the host:
 run Elpis on a dedicated machine or VM. Details below.
 
 ## Threat model (details)
@@ -138,12 +138,19 @@ run Elpis on a dedicated machine or VM. Details below.
 local listening by default,
 HTTPS (Caddy) as soon as the instance is open to the network.
 
-**Service account**: it drives Docker; as a member of the `docker` group, it is
-in effect **close to root** on the host. Dedicate a machine or VM
-to Elpis, and protect the account, `user_db/` and `backups/`. `user_sandboxes/`
-is reserved to it (0700): a container's root can place setuid files there;
-a dedicated `nosuid,nodev` mount point neutralizes them for
-the service account too.
+**Service accounts**: under systemd, each service runs under its own system account
+(`elpis-main`, `elpis-admin`, `elpis-toolhost`; `docs/operations.md`, "Service
+accounts"). Only the tool host unit gets the `docker` group, which makes that account in
+effect **close to root** on the host: dedicate a machine or VM to Elpis. The other services
+never reach Docker, and each file is reserved to the accounts that use it: the vault key,
+the session secret and the remote backup credentials to main and the console (`elpis-cle`),
+the signing key to the journal writers, the shared state (`user_db/`, sandboxes, logs) to
+the `elpis-donnees` group, the local backups to the operator, nothing to other accounts. When other accounts cannot
+reach the installation (a clone in a home folder) or with `ELPIS_COMPTE_UNIQUE=1`, every service
+keeps one account, which then drives Docker itself; `./elpis doctor` warns about this fallback
+at every run. `user_sandboxes/` is reserved to these accounts (2770): a container's root can
+place setuid files there; a dedicated `nosuid,nodev` mount point neutralizes them for the
+service accounts too.
 
 **systemd units** (`deploy/systemd/`): every service runs without privileges, with the
 system read-only except its own folders, a private `/tmp` and `/dev`, and memory and task

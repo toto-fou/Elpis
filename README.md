@@ -87,7 +87,7 @@ Each user's container is the security boundary. The server never reads or
 writes a sandbox's content directly: files, editor, archives and Git go
 through an agent running inside the container, as the sandbox user (Git
 network traffic goes through a relay on the host, which adds the
-credentials). The service account controls Docker: give Elpis a dedicated
+credentials). The tool host's account controls Docker: give Elpis a dedicated
 machine or VM. Threat model and reporting: [SECURITY.md](SECURITY.md).
 
 By default, a non-admin account cannot connect any cloud provider
@@ -117,6 +117,11 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 ./install.sh                                   # 2
 ```
 
+For a server run as systemd services (`./install.sh --service`), clone into
+`/opt/elpis` instead (`sudo install -d -o "$USER" /opt/elpis` first): each service then runs
+under its own system account, which a clone in a home folder does not allow
+([docs/operations.md](docs/operations.md#service-accounts)).
+
 `install.sh` asks for sudo right away (once, kept alive during the
 installation), installs the system base if it is missing, then opens a
 **paged wizard** in the terminal: all the questions first, a summary, then
@@ -133,7 +138,8 @@ that are missing:
   bubblewrap for Office previews, the Chromium libraries for the browser,
   Caddy for HTTPS, PostgreSQL for a local database, `build-essential` to
   build the tool host (without an offline package). With the sandbox, the
-  application account joins the `docker` group.
+  application account joins the `docker` group, except with `--service`, where
+  only the tool host's service account gets it.
 
 Offline, apt goes through the LAN mirror or the OS media. Without admin
 rights, or if apt fails, `install.sh` stops with the list of missing

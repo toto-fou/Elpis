@@ -24,7 +24,7 @@ separate services; the browser runs on the core's Node.js (`node/`).
 [`deploy/systemd/`](../deploy/systemd/) (`elpis-<service>.service`, `elpis.target`)
 into `/etc/systemd/system/`, and the runtime folder shared by main, admin and the tool
 host (`/run/elpis`: locks, turn journals, markers) into `/etc/tmpfiles.d/elpis.conf`.
-`./elpis service print` shows them without installing anything.
+`./elpis service print` shows them without installing anything, in the mode `service install` would choose.
 
 Each unit runs without privileges (`NoNewPrivileges=`, empty
 `CapabilityBoundingSet=`), with the system read-only (`ProtectSystem=strict`) except
@@ -38,8 +38,8 @@ score of a unit (every unit stays under 5, "OK"). Per service:
 - toolhost and rag: bubblewrap (Office previews, RAG conversions) needs namespaces and
   a fresh `/proc`, hence no `RestrictNamespaces=`, `ProtectKernelTunables=`,
   `ProtectKernelLogs=`, `ProtectHostname=` (it covers part of `/proc/sys`),
-  `RestrictSUIDSGID=` (its filter refuses a call bubblewrap makes) nor `PrivateUsers=`; the tool host keeps umask 022, since the
-  sandboxes' account reads some of the files it creates.
+  `RestrictSUIDSGID=` (its filter refuses a call bubblewrap makes) nor `PrivateUsers=`; the tool host keeps umask 022 under a single account, since the
+  sandboxes' account reads some of the files it creates (`0007` with one account per service, below).
 - qdrant: system call filter, no memory both writable and executable, only its folder
   writable, and reachable on the loopback only (`IPAddressDeny=any`,
   `IPAddressAllow=localhost`): a `qdrant_url` on the machine's LAN address is refused.
@@ -66,6 +66,108 @@ the RAG and Qdrant (only the tool host drives Docker), and the audit key from th
 Qdrant.
 
 `./elpis start` (without systemd) applies none of this.
+
+## Service accounts
+
+`sudo ./elpis service install` runs each service under its own system account (no shell, no
+password), so that a flaw in one service does not hand over the files of the others:
+
+| Service | Account |
+|---|---|
+| main | `elpis-main`, primary group `elpis-donnees` |
+| admin (console) | `elpis-admin`, primary group `elpis-donnees` |
+| toolhost | `elpis-toolhost`, primary group `elpis-donnees`, home `/var/lib/elpis-toolhost`; the only unit that gets the `docker` group (`SupplementaryGroups=docker`) |
+| rag, qdrant | the operator (below) |
+
+| Group | Members | For |
+|---|---|---|
+| `elpis-donnees` | `elpis-main`, `elpis-admin`, `elpis-toolhost`, the operator | shared state: database and `user_db/`, sandboxes, `logs/`, `/run/elpis` |
+| `elpis-cle` | `elpis-main`, `elpis-admin` | vault key, legacy encryption key, session secret, remote backup credentials: never the tool host |
+| `elpis-journal` | `elpis-main`, `elpis-admin`, `elpis-toolhost` (writers), `syslog` (reader) | security journal, access log, signing key |
+
+The **operator** is the account that administers Elpis: `ELPIS_USER`, otherwise the account
+that ran `sudo`, otherwise the owner of the installation. It owns the code, joins
+`elpis-donnees` (taken by a new session: `./elpis doctor` and `db` read the services' files
+through it) and is no longer added to the `docker` group nor to the key groups: commands that need
+a key run with `sudo` (`sudo ./elpis backup`, `sudo ./elpis vault status`, `sudo ./elpis audit
+verify`). An `elpis-*` account that already exists must be a system account without shell (uid 1
+to 999, `nologin` or `false`): otherwise `service install` stops.
+
+Rights are set again at every `service install`, services stopped, without following any link
+and without ever entering the `work/` folder of a sandbox (owned by the sandboxes' user):
+
+| Path | Rights |
+|---|---|
+| `user_db/` (and the folder of `app.db_path`, when `APP_DB_PATH` in `.env` names it too) | `2771 root:elpis-donnees`; content group `elpis-donnees`, `g+rwX`, nothing for others |
+| `.vault.key`, `.encryption_key`, `.session_secret` (and their `.lock`) | `0640 root:elpis-cle` |
+| `.local_mcp_token`, `.rag_service_token` | `0640 root:elpis-donnees` |
+| `.db_password*` | `0640 elpis-admin:elpis-donnees` (the console rewrites it) |
+| `.backup_ssh_key`, `.backup_rsync_password` | `0640 elpis-admin:elpis-cle` (main runs the scheduled remote backups) |
+| `.backup_known_hosts` | `0660 elpis-admin:elpis-cle` (OpenSSH, run by main or the console, adds new hosts to it) |
+| `user_db/browser-relay-ca/` | `0700 elpis-toolhost` |
+| `user_db/run/chat_runs/`, `user_db/run/task_resume/` | `0700 elpis-main`, content included |
+| `mcp.json`, `toolhost.json`, `config.json` | `0640`, operator, group `elpis-donnees` |
+| sandboxes (`user_sandboxes/`) | `2770 root:elpis-donnees`; content `g+rwX`, except each `work/` and `.elpis-agent/` |
+| `logs/`, data folders outside the installation | `2770 root:elpis-donnees`; content `g+rwX` (outside the installation, only the content of Elpis accounts; folders accepted as below) |
+| `backups/` | `0700`, operator and its primary group, content included: only `./elpis backup` writes it (with one account per service, under `sudo`; the archive is then handed to the operator); the services never reach it |
+| `/etc/elpis` | `0751 root:root` (keys protected one by one) |
+| `/etc/elpis/vault.key` | `0440 root:elpis-cle` |
+| `/etc/elpis/audit.key` | `0440 root:elpis-journal` |
+| `/var/lib/elpis/audit`, `/var/log/elpis` | `2770 root:elpis-journal`, files `0660` |
+| `/run/elpis` | `2770 root:elpis-donnees` (systemd-tmpfiles) |
+
+Folders named by the settings (`config.json`, `.env`) are used by root, for rights and for the
+units' `ReadWritePaths=`, only if they are, inside the installation, one of its state folders
+(`user_db`, `user_sandboxes`, `logs`, `user_skins`, `user_skills`) or a folder below them and,
+elsewhere, a folder that already exists and belongs to `root:elpis-donnees` or to an Elpis account
+(the default MCP folder next to the installation is created); never `/`, the installation or one
+of its parents, a home folder, a system or Elpis folder, nor a mount point. A refused folder is
+reported at each `service install` and left as it is: create it yourself
+(`sudo install -d -o root -g elpis-donnees -m 2770 /srv/elpis-data`), then run `service install`
+again. With one account for every service, a folder of that account is accepted too, and each
+pass gives the state folders back to it (`0700`), content left by the Elpis accounts included.
+Under units with one account per service, `sudo ./install.sh` leaves the owners and groups of the
+state folders alone.
+
+The units of main, the console and the tool host get umask `0007` (the code sets the modes of
+what the tool host shares with the sandboxes itself), `ELPIS_GROUPE_DONNEES=elpis-donnees` (the
+services then create their shared files for the group) and `ELPIS_COMPTES` (the mode, shown by the
+console and `./elpis doctor`); main and the console also get `ELPIS_GROUPE_CLE=elpis-cle`, the group
+of the remote backup credentials the console writes. The tool host reads the Playwright browsers
+from `PLAYWRIGHT_BROWSERS_PATH`, by default the operator's `~/.cache/ms-playwright`. When its
+account cannot reach that cache (a closed home folder), `service install` copies it, if the copy is
+missing or lists other browsers, to `/var/lib/elpis-toolhost/ms-playwright` (owner `elpis-toolhost`,
+folders `0755`, files `0644`, programs `0755`: the sandboxes' user reads them through their mount)
+and points the tool host at the copy; new browsers are copied at the next `service install`. A
+`PLAYWRIGHT_BROWSERS_PATH` set in `.env` wins in the unit: that folder must then be reachable by
+other accounts.
+
+### An installation other accounts can reach
+
+The service accounts read the code: every folder from `/` down to the installation must let
+other accounts through (`o+x`), and the code must be readable by them (Playwright browsers out
+of their reach are copied, above). A clone in a home folder is not (`/home/<name>`
+is 0700 on Debian, 0750 on Ubuntu): `service install` then keeps one account for every service,
+as before (fallback mode, `ELPIS_COMPTES=repli`), says why, and `./elpis doctor` warns at every
+run. For a server, install in `/opt/elpis`:
+
+```bash
+sudo install -d -o "$USER" /opt/elpis
+git clone https://github.com/toto-fou/Elpis.git /opt/elpis && cd /opt/elpis
+./install.sh --service
+```
+
+For an existing installation, either let other accounts through its parent folders
+(`chmod o+x /home/alice`: they can then reach paths they know, not list the folder; the files
+keep their own rights), or move it: stop the services (`sudo systemctl stop elpis.target`),
+move the folder, remove `venv/` (its scripts carry the old path), check the absolute paths of
+`config.json` (`sandbox_dir`, `app.db_path`…), then run `./install.sh --yes --service` from the
+new place. Then run `sudo ./elpis service install` again: each pass converges to the mode
+in force, with no other command.
+
+To keep one account on purpose: `sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`
+(`ELPIS_COMPTES=unique`; `ELPIS_USER` then names that account, `./elpis doctor` only reports
+it). `service remove` keeps the accounts and groups.
 
 ## System prerequisites (apt packages)
 
@@ -565,10 +667,14 @@ does, when deleted, never has its folders renamed or deleted.
 
 | Method | Use |
 |---|---|
-| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created); each account's `/work` is read through the tool host, which must be running (`./elpis start`; it starts a sleeping sandbox for the duration of the read); without it, each sandbox line says its `/work` was not saved; exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (tool host stopped or sandbox unreadable; `./elpis upgrade` then continues) |
+| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created; with one account per service, `sudo ./elpis backup`, then handed to the operator, and `./elpis upgrade` takes its backup through `sudo`); each account's `/work` is read through the tool host, which must be running (`./elpis start`; it starts a sleeping sandbox for the duration of the read); without it, each sandbox line says its `/work` was not saved; exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (tool host stopped or sandbox unreadable; `./elpis upgrade` then continues) |
 | Admin console › System › Data › Backup | download of the same archive |
 | Admin console › System › Maintenance › Remote backup | scheduled upload: SFTP (key), rsync over SSH, or a mounted folder |
 | Admin console › System › Data › Restore | full archive or by scope |
+
+With one account per service (see [Service accounts](#service-accounts)), a restore from the
+console recreates the restored files under the console's account: run
+`sudo ./elpis service install` afterwards, which gives each file back its owner and rights.
 
 The full archive contains the database (SQLite snapshot, whatever the engine),
 `user_db/` (including the encryption key, the session secret and, while no vault
@@ -608,8 +714,8 @@ disappeared, and can be deleted with services stopped (like the
 `*.lock.perime.*` and `*.lock.rendu` files that a hard stop can leave).
 
 ```cron
-# Full backup every night at 3 a.m., under the application account;
-# archives older than 14 days are deleted.
+# Full backup every night at 3 a.m., under the application account (with one
+# account per service, in root's crontab); archives older than 14 days are deleted.
 0 3 * * * cd /opt/elpis && ./elpis backup full >/dev/null && find backups -name 'backup_*.zip' -mtime +14 -delete
 ```
 
@@ -646,8 +752,8 @@ checks at the end (non-zero exit on any difference):
 | What | Detail |
 |---|---|
 | Group `elpis-journal` | Read access to the journals (`ELPIS_GROUPE_JOURNAL=adm` uses the `adm` group instead). The `syslog` account, when it exists, joins it so that rsyslog can read the files; rsyslog is restarted for that |
-| `/var/lib/elpis/audit` and `/var/log/elpis` | Mode `2750`, owned by the service account and the group above, never readable by everyone. The first holds the security journal, the second the access log |
-| `/etc/elpis/audit.key` | Signing key (0440, root and a group holding the service account only: its own primary group, or `elpis-cle`, name set by `ELPIS_GROUPE_CLE`). Created if missing or empty, never replaced. **Back it up off the machine**: without it, signatures can no longer be checked |
+| `/var/lib/elpis/audit` and `/var/log/elpis` | Mode `2750`, owned by the service account and the group above, never readable by everyone; with one account per service, `2770`, root and the group above, which the three writers join (files `0660`). The first holds the security journal, the second the access log |
+| `/etc/elpis/audit.key` | Signing key (0440, root and a group holding the service account only: its own primary group, or `elpis-cle`, name set by `ELPIS_GROUPE_CLE`; with one account per service, `elpis-journal`). Created if missing or empty, never replaced. **Back it up off the machine**: without it, signatures can no longer be checked |
 | Existing `logs/audit` | The files of an earlier installation are moved to `/var/lib/elpis/audit` (a file of the same day is appended to). While the services run, the files of today and yesterday stay where they are: stop them (`./elpis stop`, or `sudo systemctl stop elpis.target`) and run the command again |
 
 Run it again after changing the service account, after stopping the services to finish the move
@@ -655,7 +761,8 @@ of `logs/audit`, and whenever `./elpis doctor` or the console asks for it. Witho
 falls back to `logs/audit` in the repository, and its lines are unsigned if the key is missing.
 
 The service account is the `User=` of the installed units, otherwise `ELPIS_USER`, otherwise the
-account that ran `sudo`; it is never root. From a root shell (`su -`, `sudo -i`) there is no
+account that ran `sudo`; it is never root. With one account per service (units installed in that
+mode, see "Service accounts"), the command sets that layout, whatever `ELPIS_USER` says. From a root shell (`su -`, `sudo -i`) there is no
 `SUDO_USER`: give the account, `sudo ELPIS_USER=name ./elpis audit setup`. When units are
 installed under another account than `ELPIS_USER`, the command refuses; change the account with
 `sudo ELPIS_USER=name ./elpis service install`.
@@ -696,9 +803,11 @@ command with `ELPIS_AUDIT_DIR` and `--key` (see the rsyslog README).
 
 ### What `./elpis doctor` checks
 
-- the two folders: mode `2750`, service account, group `elpis-journal` (or `adm`); the fallback
+- the two folders: mode `2750`, service account, group `elpis-journal` (or `adm`), or `2770` root
+  with one account per service; the fallback
   folder `logs/audit` in use, or files left in it;
-- the key: 0440 root, group of the service account alone, readable by it, 32 bytes at least
+- the key: 0440 root, group reserved to the service account (to the three writers and `syslog`
+  with one account per service), readable by each writer, 32 bytes at least
   (otherwise lines are written unsigned);
 - forwarding: a rule `*elpis*.conf` in `/etc/rsyslog.d` (or `/etc/syslog-ng/conf.d`), and the
   packages its drivers need (`rsyslog-gnutls` for TLS, `rsyslog-relp` for RELP); no rule is
@@ -789,7 +898,8 @@ sudo systemctl restart elpis.target    # or ./elpis restart
 
 It creates `/etc/elpis/vault.key`: 32 random bytes in base64, mode 0440, owned by root and by the
 key group of the security journal (the service account's own primary group, or `elpis-cle`), in
-`/etc/elpis` (0750). The service account is found as for `audit setup`. Safe to run again: an
+`/etc/elpis` (0750); with one account per service, group `elpis-cle` (main and the console only)
+in `/etc/elpis` (0751). The service account is found as for `audit setup`. Safe to run again: an
 existing key is kept, never replaced, and its owner and mode are applied again. The key is checked
 by the core itself, with the rule the services apply (canonical base64 or 64 hexadecimal digits,
 32 bytes, not a single repeated byte): an invalid key is refused and left as it is. The command
@@ -807,6 +917,9 @@ rm user_db/.vault.key
 
 `rekey` also renews the test fingerprints of the OpenID Connect single sign-on providers whose registered
 secret is unchanged: these providers stay active after a key change.
+
+With one account per service, the operator cannot read the key: prefix these commands with
+`sudo` (they then run under `elpis-admin`).
 
 ### Updating: connector and image engine keys
 
@@ -896,7 +1009,8 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
 
 ### What `./elpis doctor` checks
 
-- `/etc/elpis/vault.key`: 0440, root, group of the service account alone, readable by it. Run
+- `/etc/elpis/vault.key`: 0440, root, group reserved to the service account (to main and the
+  console with one account per service), readable by each of them. Run
   under the service account, a session opened before the account joined that group cannot read it
   (the services started from it could not open the vault): the doctor says so, as for the key of
   the security journal;

@@ -76,8 +76,13 @@ AUDIT_KEY_SYS="$SYS_PREFIXE/etc/elpis/audit.key"
 VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vault.key"
 APPLOG_DIR_SYS="$SYS_PREFIXE/var/log/elpis"
 GROUPE_JOURNAL="${ELPIS_GROUPE_JOURNAL:-elpis-journal}"
-# Groupe de la clé de signature quand le groupe primaire du compte des services n'est pas le sien seul.
+# Groupe de la clé de signature quand le groupe primaire du compte des services n'est pas le sien seul ; en mode séparé, clés de main et de la console.
 GROUPE_CLE="${ELPIS_GROUPE_CLE:-elpis-cle}"
+# Mode séparé (un compte par service) : état partagé par main, la console, l'hôte d'outils et l'opérateur.
+GROUPE_DONNEES=elpis-donnees
+# Dossiers d'état déjà jugés pour root (dossier_etat_sur : 0 accepté, 1 refusé) ; COMPTE_ETAT : compte unique, propriétaire admis.
+declare -A ETAT_VU=()
+COMPTE_ETAT=""
 NODE_DIR="$ROOT/node"
 CORE_DIST="$ROOT/apps/core/dist"
 HOTE_DIST="$ROOT/apps/toolhost/dist"
@@ -122,11 +127,12 @@ need_exploitation() {
     [ -f "$CORE_DIST/exploitation.mjs" ] || die "Core non construit ($CORE_DIST/exploitation.mjs absent) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
     node_ok || die "Node.js « $("$NODE" -v 2>/dev/null || echo "$NODE absent") » : le core demande Node 24.x, $NODE_MIN au moins (./install.sh installe $NODE_VERSION dans node/, ou ELPIS_NODE=chemin)."
 }
-# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services et l'hôte d'outils local (/work des comptes pour « backup »).
+# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services, l'hôte d'outils local (/work des comptes pour « backup ») et, sous des unités à un compte par service, le groupe des données (fichiers créés partagés).
 core_cmd() {
     local e=("ELPIS_RACINE=$ROOT")
     [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
     e+=("LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp")
+    [ "$(mode_installe)" != separes ] || e+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES")
     # Dossier d'exécution des services (repères partagés) : jamais sous root, qui y créerait des fichiers illisibles pour leur compte.
     if [ "$(id -u)" -ne 0 ] && [ -d "/run/${UNIT_PREFIX}" ] && [ -w "/run/${UNIT_PREFIX}" ]; then e+=("ELPIS_RUNTIME_DIR=/run/${UNIT_PREFIX}"); fi
     env "${e[@]}" "$NODE" "$CORE_DIST/exploitation.mjs" "$@"
@@ -322,7 +328,9 @@ charger_instance() {
     [ -n "$SANDBOX_DIR" ] || SANDBOX_DIR="$ROOT/user_sandboxes"
     # Cache des graphiques : écrit par le core, relu par l'hôte d'outils ; un même dossier privé pour tous.
     CHART_DIR="${CHART_CACHE_DIR:-$RUN_DIR/charts}"
-    mkdir -p "$SANDBOX_DIR" "$RUN_DIR" "$LOG_DIR" "$ROOT/user_db/logs"
+    mkdir -p "$RUN_DIR" "$LOG_DIR" "$ROOT/user_db/logs"
+    # Sous root (service install, backup), jamais un dossier choisi par config.json : service install crée ou refuse celui des sandboxes.
+    [ "$(id -u)" -eq 0 ] || mkdir -p "$SANDBOX_DIR"
     dossiers_rag
 }
 
@@ -585,7 +593,7 @@ _chemins_hors_depot() {
     lanceur ecritures
 }
 
-# Dossiers d'état d'un service hors du dépôt : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris) ; dossier absent ou non absolu : ignoré.
+# Dossiers d'état d'un service hors du dépôt : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris) ; dossier venu des réglages et refusé (dossier_etat_sur) : ignoré.
 _ecritures_du_service() {
     local d s l=() vu=" "
     case "$1" in
@@ -599,6 +607,7 @@ _ecritures_du_service() {
     for d in "${l[@]}"; do
         [ -n "$d" ] || continue
         case "$vu" in *" $d "*) continue ;; esac
+        case "$d" in "$AUDIT_DIR_SYS"|"$APPLOG_DIR_SYS"|"$ROOT/system_prompts"|"$ROOT/skills") ;; *) dossier_etat_sur "$d" || continue ;; esac
         vu+="$d "
         _valeur_sure "Dossier d'écriture de $1" "$d" || return 1
         printf 'ReadWritePaths=-%s\n' "$d"
@@ -621,11 +630,49 @@ _protection_home() {
 # Retire le dossier de rendu en cours (et celui de « service print ») quand le script s'arrête.
 _nettoyer_rendu() { rm -rf "${STAGE_RENDU:-}" "${TMP_PRINT:-}"; }
 
-# _render_units DOSSIER UTILISATEUR [DOSSIER_TMPFILES] → unités rendues depuis deploy/systemd/ (UNITS_WANTS rempli) ; dossier d'exécution partagé dans DOSSIER_TMPFILES s'il est donné ; tout est rendu à part, puis déplacé : un échec ne laisse aucune unité tronquée
+# Compte d'une unité (ligne User= et groupes en plus) : un compte par service en mode séparé (Docker à l'hôte d'outils seul), le compte unique sinon.
+_compte_unite() {
+    case "$MODE_COMPTES:$1" in
+        separes:main|separes:admin) echo "User=$UNIT_PREFIX-$1" ;;
+        separes:toolhost) echo "User=$UNIT_PREFIX-toolhost"; if getent group docker >/dev/null; then echo "SupplementaryGroups=docker"; fi ;;
+        *) echo "User=$2" ;;
+    esac
+}
+
+# umask d'une unité : mode séparé, main, console et hôte d'outils 0007 (le code pose lui-même les modes de ce qu'il partage avec les bacs) ; compte unique : 0027, hôte d'outils 0022, Qdrant 0077.
+_umask_unite() {
+    case "$MODE_COMPTES:$1" in
+        separes:main|separes:admin|separes:toolhost) echo 0007 ;;
+        *:toolhost) echo 0022 ;;
+        *:qdrant) echo 0077 ;;
+        *) echo 0027 ;;
+    esac
+}
+
+# Environnement propre au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes) et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
+_env_comptes() {
+    case "$1" in main|admin|toolhost) ;; *) return 0 ;; esac
+    SPEC_ENV+=("ELPIS_COMPTES=$MODE_COMPTES")
+    [ "$MODE_COMPTES" = separes ] || return 0
+    SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES")
+    [ "$1" = toolhost ] || SPEC_ENV+=("ELPIS_GROUPE_CLE=$GROUPE_CLE")
+    [ "$1" != toolhost ] || [ -z "$2" ] || SPEC_ENV+=("PLAYWRIGHT_BROWSERS_PATH=$2")
+}
+
+# Dossier de la base pour root : celui d'APP_DB_PATH (environnement, .env), sinon user_db ; celui du core (DOSSIER, config.json compris) doit être le même, sinon rien, avec la marche à suivre.
+base_sure() {
+    local b="${APP_DB_PATH:-user_db/app.db}"
+    [[ "$b" == /* ]] || b="$ROOT/$b"
+    b="${b%/*}"
+    if [ "$(realpath -m -- "$b")" = "$(realpath -m -- "$1")" ]; then printf '%s\n' "$b"; return 0; fi
+    warn "Base de config.json ($1) non confirmée par APP_DB_PATH (.env) : secrets et droits de ce dossier non posés (APP_DB_PATH=$1/… dans .env, puis sudo ./elpis service install)."
+}
+
+# _render_units DOSSIER COMPTE [DOSSIER_TMPFILES] → unités du mode MODE_COMPTES (COMPTE : compte unique, ou opérateur en mode séparé) rendues depuis deploy/systemd/ (UNITS_WANTS, ECRITURES et BASE_DONNEES remplis) ; dossier d'exécution partagé dans DOSSIER_TMPFILES s'il est donné ; tout est rendu à part, puis déplacé : un échec ne laisse aucune unité tronquée
 _render_units() {
-    local unit_dir="$1" run_user="$2" tmpfiles_dir="${3:-}" s e f repli gabarits="$ROOT/deploy/systemd" code=() ecr db hors=() groupe
+    local unit_dir="$1" run_user="$2" tmpfiles_dir="${3:-}" s e f repli gabarits="$ROOT/deploy/systemd" code=() ecr db hors=() groupe run nav=""
     local -A GAB
-    UNITS_WANTS=()
+    UNITS_WANTS=(); MODE_COMPTES="${MODE_COMPTES:-unique}"
     load_runtime
     need_core
     STAGE_RENDU="$(mktemp -d)" || die "Dossier temporaire indisponible."
@@ -633,21 +680,32 @@ _render_units() {
     local stage="$STAGE_RENDU"
     local db_unit; db_unit="$(_db_local_unit)"
     db="$(core_cmd config DB_PATH 2>/dev/null)"; db="${db:-$ROOT/user_db/app.db}"; repli="${db%/*}/.vault.key"
-    ecr="$(_chemins_hors_depot "${db%/*}")"
-    groupe="$(id -gn "$run_user" 2>/dev/null)" || die "Groupe de $run_user introuvable (id -gn)."
+    ecr="$(_chemins_hors_depot "${db%/*}")"; ECRITURES="$ecr"; BASE_DONNEES="$(base_sure "${db%/*}")"
+    if [ "$MODE_COMPTES" = separes ]; then
+        run="2770 root $GROUPE_DONNEES"; nav="$(_navigateurs "$run_user")"; COMPTE_ETAT=""
+    else
+        groupe="$(id -gn "$run_user" 2>/dev/null)" || die "Groupe de $run_user introuvable (id -gn)."
+        run="0700 $run_user $groupe"; COMPTE_ETAT="$run_user"
+    fi
+    # Dossiers de config.json jugés une fois ici : les unités et les droits n'en reprennent que les acceptés.
+    while IFS= read -r e; do dossier_etat_sur "$e" || true; done < <(printf '%s\n' "$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR"; printf '%s\n' "$ecr" | cut -s -f2)
     for e in apps packages frontend node node_modules venv deploy office rag_app shared_infra sandbox-agent \
              browser-service desktop-agent tools elpis install.sh .env .git .npmrc package.json package-lock.json \
              pyproject.toml toolhost.json mcp.json make_release.sh migration-kit; do code+=("-$ROOT/$e"); done
     for f in "$ROOT"/requirements*.txt; do [ -e "$f" ] && code+=("-$f"); done
     for e in "$ROOT" "$VAULT_KEY_SYS" "$repli" "$AUDIT_KEY_SYS"; do _valeur_sure "Chemin d'unité" "$e" || exit 1; done
-    mapfile -t hors < <(printf '%s\n' "$ecr" | cut -s -f2; printf '%s\n' "${NODE:-}"; readlink -f "${PY:-}" 2>/dev/null)
-    GAB=([PREFIX]="$UNIT_PREFIX" [USER]="$run_user" [GROUP]="$groupe" [ROOT]="$ROOT" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
+    mapfile -t hors < <(printf '%s\n' "$ecr" | cut -s -f2; printf '%s\n' "${NODE:-}" "$nav"; readlink -f "${PY:-}" 2>/dev/null)
+    GAB=([PREFIX]="$UNIT_PREFIX" [RUN]="$run" [ROOT]="$ROOT" [BASE]="${db%/*}" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
          [VAULT_KEY_REPLI]="$repli" [AUDIT_KEY_SYS]="$AUDIT_KEY_SYS" [AFTER_DB]="${db_unit:+ $db_unit}" [WANTS_DB]="${db_unit:+Wants=$db_unit}"
-         [CODE_RO]="${code[*]}" [PROTECT_HOME]="$(_protection_home "$run_user" "${hors[@]}")")
+         [CODE_RO]="${code[*]}"
+         [PROTECT_HOME]="$(_protection_home "$([ "$MODE_COMPTES" = separes ] && echo "$UNIT_PREFIX-toolhost" || echo "$run_user")" "${hors[@]}")")
     for s in "${SERVICES[@]}"; do
         svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
         svc_spec "$s"
+        _env_comptes "$s" "$nav"
         _valeur_sure "Dossier de travail de $s" "$SPEC_DIR" || exit 1
+        GAB[COMPTE]="$(_compte_unite "$s" "$run_user")"
+        GAB[UMASK]="$(_umask_unite "$s")"
         GAB[WORKDIR]="$SPEC_DIR"
         GAB[EXEC]="$(printf '%q ' "${SPEC_CMD[@]}")"; GAB[EXEC]="${GAB[EXEC]//%/%%}"
         GAB[ENV]="$(for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "${e//%/%%}"; done)"
@@ -675,11 +733,184 @@ _render_units() {
     rm -rf "$stage"; STAGE_RENDU=""
 }
 
+# Premier dossier, de CHEMIN à « / », que les autres comptes ne traversent pas (sans o+x) ; échec si tous le permettent.
+dossier_ferme() {
+    local d="$1" m
+    while :; do
+        m="$(stat -c %a -- "$d" 2>/dev/null)" || m=0
+        [ $(( 8#$m & 1 )) -ne 0 ] || { echo "$d"; return 0; }
+        [ "$d" = / ] && return 1
+        d="$(dirname -- "$d")"
+    done
+}
+
+# Premier chemin que COMPTE ne peut pas lire (r) ou traverser et exécuter (x), essayé sous ce compte : chemin_refuse COMPTE r|x CHEMIN… ; échec si tout passe.
+chemin_refuse() {
+    local compte="$1" t c; shift
+    while [ $# -ge 2 ]; do
+        t="$1"; c="$2"; shift 2
+        [ -z "$c" ] || (cd / && runuser -u "$compte" -- test "-$t" "$c") 2>/dev/null || { echo "$c"; return 0; }
+    done
+    return 1
+}
+
+# Navigateurs de Playwright montés dans les bacs (PLAYWRIGHT_BROWSERS_PATH, sinon le cache du compte qui les a installés) ; rien sans service navigateur.
+_navigateurs() {
+    [ -d "$ROOT/browser-service/node_modules" ] || return 0
+    printf '%s\n' "${PLAYWRIGHT_BROWSERS_PATH:-$(getent passwd "$1" | cut -d: -f6)/.cache/ms-playwright}"
+}
+
+# Navigateurs des bacs hors de portée de l'hôte d'outils (cache d'une maison fermée) : copiés par root dans son dossier s'ils y manquent ou si leur liste diffère, à lui, lisibles par tous (le compte des bacs les lit par leur montage), PLAYWRIGHT_BROWSERS_PATH pointé sur la copie ; celui de .env, qui l'emporterait dans l'unité, signalé seulement.
+navigateurs_bac() {
+    local src copie="$SYS_PREFIXE/var/lib/$UNIT_PREFIX-toolhost/ms-playwright" tmp
+    src="$(_navigateurs "$1")"
+    { [ -d "$src" ] && chemin_refuse "$UNIT_PREFIX-toolhost" x "$src" >/dev/null; } || return 0
+    [ -z "${PLAYWRIGHT_BROWSERS_PATH:-}" ] || { warn "PLAYWRIGHT_BROWSERS_PATH ($src) hors de portée de $UNIT_PREFIX-toolhost : navigateur des bacs indisponible tant que ce dossier n'est pas accessible aux autres comptes (docs/operations.md, « Service accounts »)."; return 0; }
+    if [ ! -d "$copie" ] || [ "$(ls -A -- "$src")" != "$(ls -A -- "$copie")" ]; then
+        tmp="$(mktemp -d "${copie%/*/*}/.$UNIT_PREFIX-ms-playwright.XXXXXX")" || return 1
+        { cp -a -- "$src/." "$tmp/c" && chown -R "$UNIT_PREFIX-toolhost:$GROUPE_DONNEES" -- "$tmp/c" && chmod -R u=rwX,go=rX -- "$tmp/c" \
+            && rm -rf -- "$copie" && mv -T -- "$tmp/c" "$copie"; } || { rm -rf -- "$tmp"; return 1; }
+        rm -rf -- "$tmp"
+        info "Navigateurs de Playwright copiés dans $copie ($src est hors de portée de $UNIT_PREFIX-toolhost)."
+    fi
+    PLAYWRIGHT_BROWSERS_PATH="$copie"
+}
+
+# Mode des comptes (MODE_COMPTES) pour print et install : unique sur demande (ELPIS_COMPTE_UNIQUE=1), repli si le dépôt, ou sous root le code ou Node, est fermé au compte de main déjà créé, séparé sinon.
+mode_des_comptes() {
+    local ferme
+    MODE_COMPTES=separes
+    if [ "${ELPIS_COMPTE_UNIQUE:-0}" = 1 ]; then MODE_COMPTES=unique
+    elif ferme="$(dossier_ferme "$ROOT")"; then avertir_repli "$ferme"
+    elif [ "$(id -u)" -eq 0 ] && id -u "$UNIT_PREFIX-main" >/dev/null 2>&1 \
+            && ferme="$(chemin_refuse "$UNIT_PREFIX-main" r "$ROOT/elpis" r "$CORE_DIST/main.mjs" x "$NODE")"; then
+        avertir_repli "$ferme"
+    fi
+}
+
+# Mode séparé impossible (chemin lu par les services fermé aux autres comptes) : repli sur un compte unique, avec la marche à suivre.
+avertir_repli() {
+    MODE_COMPTES=repli
+    warn "Un compte par service impossible : $1 n'est pas accessible aux autres comptes. Services sous un seul compte (repli). Pour en changer : installation dans /opt/elpis, ou dossiers parents traversables et code lisible par les autres comptes (docs/operations.md, « Service accounts »), puis sudo ./elpis service install."
+}
+
+# Comptes du mode séparé, sans rien changer de ce qui est déjà en place (un compte existant doit être un compte système sans shell) : groupes, comptes système de main, de la console et de l'hôte d'outils (sans shell, groupe primaire des données), clé à main et à la console, journaux aux trois, opérateur dans le groupe des données.
+comptes_separes() {
+    local s u g maison
+    for g in "$GROUPE_DONNEES" "$GROUPE_CLE" "$GROUPE_JOURNAL"; do
+        getent group "$g" >/dev/null || { groupadd --system "$g" && info "Groupe $g créé."; } || return 1
+    done
+    for s in main admin toolhost; do
+        u="$UNIT_PREFIX-$s"; maison=/nonexistent
+        [ "$s" = toolhost ] && maison="/var/lib/$u"
+        if ! id -u "$u" >/dev/null 2>&1; then
+            useradd --system --gid "$GROUPE_DONNEES" --home-dir "$maison" --no-create-home --shell /usr/sbin/nologin "$u" || return 1
+            info "Compte système $u créé."
+        elif ! getent passwd "$u" | awk -F: '$3 > 0 && $3 < 1000 && $7 ~ /\/(nologin|false)$/ { ok = 1 } END { exit !ok }'; then
+            warn "$u existe déjà sans être un compte système sans shell (uid de 1 à 999, nologin) : refusé ; à vérifier, puis à retirer (userdel $u)."
+            return 1
+        elif [ "$(id -gn "$u")" != "$GROUPE_DONNEES" ]; then
+            usermod -g "$GROUPE_DONNEES" "$u" || return 1
+        fi
+    done
+    dossier_sur "$SYS_PREFIXE/var/lib/$UNIT_PREFIX-toolhost" 0700 "$UNIT_PREFIX-toolhost" "$GROUPE_DONNEES" || return 1
+    membres_exacts "$GROUPE_CLE" "$UNIT_PREFIX-main" "$UNIT_PREFIX-admin" || return 1
+    for s in main admin toolhost; do membre "$UNIT_PREFIX-$s" "$GROUPE_JOURNAL" || return 1; done
+    membre "$1" "$GROUPE_DONNEES"
+}
+
+# deploy/droits.py par le Python du système, isolé : droits posés sans suivre de lien.
+poser_droits() { python3 -I "$ROOT/deploy/droits.py" "$@"; }
+
+# Dossier d'état venu de config.json ou de .env, que root peut poser et ouvrir aux services : dans le dépôt, un dossier d'état fixe ou dessous ; ailleurs, un dossier existant à root:<groupe des données>, à un compte d'Elpis ou au compte unique (COMPTE_ETAT), ou le dossier MCP par défaut, voisin du dépôt ; jamais « / », le dépôt ou un de ses parents, une maison, un dossier système ou d'Elpis, ni un point de montage ; refus signalé une fois.
+dossier_etat_sur() {
+    local d="${1%/}" r p proprio pourquoi=""
+    [ -n "$1" ] || return 1
+    [ -z "${ETAT_VU[$1]+x}" ] || return "${ETAT_VU[$1]}"
+    r="$(cd -P -- "$ROOT" && pwd -P)"
+    p="$(cd -P -- "$(dirname -- "$d")" 2>/dev/null && pwd -P)" && p="${p%/}/${d##*/}"
+    if [[ "$d" != /?* || "$d/" == */./* || "$d/" == */../* || "$d" == *//* ]] || [ -z "$p" ] || [ -L "$d" ]; then
+        pourquoi="chemin relatif, avec . ou .., lien ou sans dossier parent"
+    elif [[ "$p/" == "$r/"* ]]; then
+        case "${p#"$r"/}/" in user_db/*|user_sandboxes/*|logs/*|user_skins/*|user_skills/*) ;; *) pourquoi="dans le dépôt, hors de ses dossiers d'état" ;; esac
+    elif [[ "$r/" == "$p/"* ]]; then pourquoi="parent du dépôt"
+    elif [ "$p" = /home ] || getent passwd | cut -d: -f6 | grep -qxF -- "$p"; then pourquoi="dossier personnel"
+    elif case "$p/" in /etc/*|/run/*|/proc/*|/sys/*|/dev/*|/usr/*|/boot/*|/var/log/*|/var/lib/private/*|"$SYS_PREFIXE"/etc/*|"$SYS_PREFIXE"/var/log/*|\
+            "$SYS_PREFIXE/var/lib/$UNIT_PREFIX"/*|"$SYS_PREFIXE/var/lib/$UNIT_PREFIX"-*|"$SYS_PREFIXE/var/cache/$UNIT_PREFIX"-*) true ;; *) false ;; esac; then
+        pourquoi="dossier système ou d'Elpis"
+    elif command -v mountpoint >/dev/null && mountpoint -q -- "$p"; then pourquoi="point de montage"
+    elif [ ! -d "$p" ]; then
+        [ "$p" = "${r%/*}/mcp_custom_servers" ] || pourquoi="absent : à créer par l'administrateur, root:$GROUPE_DONNEES et 2770"
+    else
+        proprio="$(stat -c '%U:%G' -- "$p" 2>/dev/null)"
+        case "$proprio" in "root:$GROUPE_DONNEES"|"$UNIT_PREFIX"-*:*|"${COMPTE_ETAT:-/}":*) ;; *) pourquoi="à $proprio, ni à root:$GROUPE_DONNEES ni à un compte d'Elpis" ;; esac
+    fi
+    ETAT_VU[$1]=0
+    [ -n "$pourquoi" ] || return 0
+    ETAT_VU[$1]=1
+    warn "Dossier $1 refusé ($pourquoi) : root n'y pose aucun droit et les services n'y écrivent pas (docs/operations.md, « Service accounts »)."
+    return 1
+}
+
+# Dossier d'état accepté (dossier_etat_sur) mis à PROPRIO:GROUPE (root et le groupe des données par défaut) en MODE ; ADMIS : propriétaires actuels admis.
+dossier_donnees() {
+    dossier_etat_sur "$1" && dossier_sur "$1" "$2" "${4:-root}" "${5:-$GROUPE_DONNEES}" "$3"
+}
+
+# Droits du mode séparé, à chaque passage, services arrêtés, sur les seuls dossiers d'état acceptés (dossier_etat_sur) : dossiers au groupe des données (contenu g+rwX ; hors du dépôt, celui des comptes d'Elpis seul), run/chat_runs et run/task_resume privés à main, secrets un à un (clés et envois des sauvegardes à main et à la console), autorité du relais à l'hôte d'outils, backups/ privé à l'opérateur (./elpis backup seul l'écrit) ; aucun lien suivi, aucun /work touché.
+droits_separes() {
+    local base="$1" op="$2" admis="$3 $2 $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost" G="$GROUPE_DONNEES" og d n e=0 comptes=""
+    og="$(id -gn "$op")" || return 1
+    for n in $admis; do [ "$n" = root ] || [ "$n" = "$op" ] || comptes+="$n "; done
+    local cle=(.vault.key .vault.key.lock .encryption_key .encryption_key.lock .session_secret .session_secret.lock)
+    local partages=(.local_mcp_token .rag_service_token) base_console=('.db_password*') envois=(.backup_ssh_key .backup_rsync_password)
+    local bases=("$ROOT/user_db") sauf=(--sauf "$SANDBOX_DIR" --sauf browser-relay-ca) hors=()
+    [ -z "$base" ] || [ "$base" = "$ROOT/user_db" ] || bases+=("$base")
+    sauf+=(--prive "$UNIT_PREFIX-main:$ROOT/user_db/run/chat_runs" --prive "$UNIT_PREFIX-main:$ROOT/user_db/run/task_resume")
+    for n in "${cle[@]}" "${partages[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do sauf+=(--sauf "$n"); done
+    for d in "${bases[@]}"; do
+        dossier_donnees "$d" 2771 "$admis" || { e=1; continue; }
+        poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${sauf[@]}" || e=1
+        poser_droits fichiers "$d" root "$GROUPE_CLE" 0640 "${cle[@]}" || e=1
+        poser_droits fichiers "$d" root "$G" 0640 "${partages[@]}" || e=1
+        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$G" 0640 "${base_console[@]}" || e=1
+        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0640 "${envois[@]}" || e=1
+        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0660 .backup_known_hosts || e=1
+        [ ! -d "$d/browser-relay-ca" ] || { dossier_sur "$d/browser-relay-ca" 0700 "$UNIT_PREFIX-toolhost" "$G" "$admis" \
+            && poser_droits arbre "$d/browser-relay-ca" "$G" - - --proprio "$UNIT_PREFIX-toolhost"; } || e=1
+    done
+    poser_droits fichiers "$ROOT" "$op" "$G" 0640 mcp.json toolhost.json config.json || e=1
+    { dossier_donnees "$SANDBOX_DIR" 2770 "$admis" && poser_droits arbre "$SANDBOX_DIR" "$G" g+rwX g+rwXs --sauf work --sauf .elpis-agent; } || e=1
+    { dossier_donnees "$LOG_DIR" 2770 "$admis" && poser_droits arbre "$LOG_DIR" "$G" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
+    { dossier_sur "$ROOT/backups" 00700 "$op" "$og" "$admis" && poser_droits arbre "$ROOT/backups" "$og" go-rwx go-rwxs --proprio "$op"; } || e=1
+    mapfile -t hors < <({ printf '%s\n' "${ECRITURES:-}" | cut -s -f2; printf '%s\n' "$RAG_STORE" "$RAG_CACHE"; } | sed '/^$/d' | sort -u)
+    for d in "${hors[@]}"; do
+        case "$d/" in "$ROOT/user_db/"*|"${base:-/nonexistent}/"*|"$SANDBOX_DIR/"*|"$LOG_DIR/"*|"$ROOT/backups/"*) continue ;; esac
+        { dossier_donnees "$d" 2770 "$admis" && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx --comptes "$comptes" \
+            --sauf "$SANDBOX_DIR" --sauf "$ROOT/user_db" --sauf "${base:-/nonexistent}"; } || e=1
+    done
+    return "$e"
+}
+
+# Compte unique, à chaque passage, services arrêtés : dossiers d'état acceptés (dossier_etat_sur : base, sandboxes hors de leurs /work, journaux, magasin et cache du RAG, dossiers hors du dépôt) rendus au compte COMPTE en 0700, contenu u+rwX à lui (ce qui était à root, à un ancien compte ANCIENS ou à un compte d'Elpis), secrets de la base à lui seul ; aucun lien suivi.
+droits_unique() {
+    local base="$1" u="$2" g d e=0 comptes="root $2 ${3:-} $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag" liste=() sauf
+    g="$(id -gn "$u")" || return 1
+    mapfile -t liste < <({ printf '%s\n' "$ROOT/user_db" "$base" "$SANDBOX_DIR" "$LOG_DIR" "$RAG_STORE" "$RAG_CACHE"; printf '%s\n' "${ECRITURES:-}" | cut -s -f2; } | sed '/^$/d' | sort -u)
+    for d in "${liste[@]}"; do
+        sauf=(); [ "$d" != "$SANDBOX_DIR" ] || sauf=(--sauf work --sauf .elpis-agent)
+        { dossier_donnees "$d" 00700 "$comptes" "$u" "$g" && poser_droits arbre "$d" "$g" u+rwX u+rwx,g-s --proprio "$u" --comptes "$comptes" "${sauf[@]}"; } || e=1
+    done
+    [ -z "$base" ] || poser_droits fichiers "$base" "$u" "$g" 0600 .session_secret .encryption_key || e=1
+    return "$e"
+}
+
 cmd_service() {
     local action="${1:-}" unit_dir=/etc/systemd/system s
     if [ "$action" = "print" ]; then
         local tmp; tmp="$(mktemp -d)"; TMP_PRINT="$tmp"; trap _nettoyer_rendu EXIT
         mkdir "$tmp/tmpfiles.d"
+        mode_des_comptes
         _render_units "$tmp" "${ELPIS_USER:-$(id -un)}" "$tmp/tmpfiles.d"
         for s in "$tmp"/*.service "$tmp"/*.target "$tmp/tmpfiles.d/${UNIT_PREFIX}.conf"; do
             echo "### ${s#"$tmp"/}"; cat "$s"; echo
@@ -690,28 +921,48 @@ cmd_service() {
     command -v systemctl >/dev/null || die "systemd absent."
     case "$action" in
         install)
-            # Unités en place : leur compte reste celui par défaut, invite comprise ; ELPIS_USER (ou un nom tapé) pour en changer.
-            local unite run_user ans ancien
-            unite="$(compte_services)"
-            run_user="${ELPIS_USER:-${unite:-${SUDO_USER:-}}}"
-            if [ -z "${ELPIS_USER:-}" ] && [ -t 0 ]; then
-                read -r -p "  Utilisateur qui fera tourner les services [${run_user:-?}] : " ans || ans=""
-                run_user="${ans:-$run_user}"
+            # Mode : un compte par service, sauf ELPIS_COMPTE_UNIQUE=1 (unique) ou chemin lu par les services fermé aux autres comptes (repli) ; ELPIS_USER : l'opérateur, ou le compte unique (celui des unités en place par défaut, invite comprise).
+            local unique run_user ans ancien ecrivain
+            load_runtime
+            need_core
+            unique="$(compte_unique)"
+            ancien="$(compte_services) $(stat -c %U -- "$AUDIT_DIR_SYS" 2>/dev/null)"
+            mode_des_comptes
+            if [ "$MODE_COMPTES" = separes ]; then
+                run_user="${ELPIS_USER:-${SUDO_USER:-$(stat -c %U -- "$ROOT")}}"
+                [ -n "$run_user" ] && [ "$run_user" != root ] && id "$run_user" >/dev/null 2>&1 \
+                    || die "Opérateur inconnu (compte qui administre Elpis, mis dans le groupe $GROUPE_DONNEES) : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
+                comptes_separes "$run_user" || die "Comptes des services non préparés (voir ci-dessus)."
+                mode_des_comptes
             fi
-            if [ -n "$unite" ] && [ "$run_user" != "$unite" ]; then info "Compte des services : $unite → $run_user."; fi
-            [ -n "$run_user" ] && [ "$run_user" != root ] \
-                || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
-            id "$run_user" >/dev/null 2>&1 || die "Utilisateur $run_user inexistant (créez-le, ou ELPIS_USER=nom)."
-            # Il doit lire le dépôt et piloter Docker (sandbox).
-            sudo -u "$run_user" test -r "$ROOT/config.json" \
-                || die "$run_user ne peut pas lire $ROOT/config.json : choisissez le propriétaire du dépôt."
-            if getent group docker >/dev/null && ! id -nG "$run_user" | tr ' ' '\n' | grep -qx docker; then
-                warn "Le groupe docker équivaut à root sur l'hôte : $run_user en deviendra membre. Machine dédiée conseillée (SECURITY.md)."
-                usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
+            if [ "$MODE_COMPTES" = separes ]; then
+                ecrivain="$UNIT_PREFIX-main"
+                info "Comptes des services : un par service ($UNIT_PREFIX-main, $UNIT_PREFIX-admin, $UNIT_PREFIX-toolhost) ; opérateur $run_user (groupe $GROUPE_DONNEES)."
+                navigateurs_bac "$run_user" \
+                    || warn "Navigateurs de Playwright non copiés pour $UNIT_PREFIX-toolhost (voir ci-dessus) : navigateur des bacs indisponible ; relancez sudo ./elpis service install une fois corrigé."
+            else
+                run_user="${ELPIS_USER:-${unique:-${SUDO_USER:-}}}"
+                if [ -z "${ELPIS_USER:-}" ] && [ -t 0 ]; then
+                    read -r -p "  Utilisateur qui fera tourner les services [${run_user:-?}] : " ans || ans=""
+                    run_user="${ans:-$run_user}"
+                fi
+                if [ -n "$unique" ] && [ "$run_user" != "$unique" ]; then info "Compte des services : $unique → $run_user."; fi
+                [ -n "$run_user" ] && [ "$run_user" != root ] \
+                    || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
+                id "$run_user" >/dev/null 2>&1 || die "Utilisateur $run_user inexistant (créez-le, ou ELPIS_USER=nom)."
+                ecrivain="$run_user"
+                # Il doit lire le dépôt et piloter Docker (sandbox).
+                sudo -u "$run_user" test -r "$ROOT/config.json" \
+                    || die "$run_user ne peut pas lire $ROOT/config.json : choisissez le propriétaire du dépôt."
+                if getent group docker >/dev/null && ! id -nG "$run_user" | tr ' ' '\n' | grep -qx docker; then
+                    warn "Le groupe docker équivaut à root sur l'hôte : $run_user en deviendra membre. Machine dédiée conseillée (SECURITY.md)."
+                    usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
+                fi
             fi
-            ancien="$unite $(stat -c %U -- "$AUDIT_DIR_SYS" 2>/dev/null)"
-            audit_setup "$run_user" "$ancien" 0 \
+            audit_setup "$ecrivain" "$ancien" 0 \
                 || warn "Journal de sécurité incomplet (voir ci-dessus) : sudo ./elpis audit setup une fois corrigé."
+            cle_regroupee "$VAULT_KEY_SYS" "$([ "$MODE_COMPTES" = separes ] && echo "$GROUPE_CLE" || echo "${GRP_CLE:-}")" \
+                || warn "Clé du coffre $VAULT_KEY_SYS non remise au groupe des services (sudo ./elpis vault setup)."
             _render_units "$unit_dir" "$run_user" /etc/tmpfiles.d
             systemd-tmpfiles --create "/etc/tmpfiles.d/${UNIT_PREFIX}.conf" \
                 || warn "Dossier d'exécution /run/${UNIT_PREFIX} non créé (systemd-tmpfiles)."
@@ -721,22 +972,28 @@ cmd_service() {
                 systemctl disable --now "${UNIT_PREFIX}-$s.service" >/dev/null 2>&1 || true
                 rm -f "$unit_dir/${UNIT_PREFIX}-$s.service"
             done
-            chown -R "$run_user" "$ROOT/user_db" "$LOG_DIR" 2>/dev/null || true
-            install -d -m 700 -o "$run_user" "$RAG_STORE" "$RAG_CACHE" 2>/dev/null \
-                || warn "Dossiers du RAG ($RAG_STORE, $RAG_CACHE) non préparés pour $run_user."
             systemctl daemon-reload
             systemctl enable "${UNITS_WANTS[@]}" "${UNIT_PREFIX}.target" >/dev/null
             # Les processus lancés à la main laisseraient les ports occupés ; le core peut prendre 300 s.
             COMPTES_ARRET="$ancien $run_user" cmd_stop || true
-            # Cible arrêtée : le contenu de /run/<préfixe> garderait l'ancien propriétaire si le compte change.
+            # Cible arrêtée : le contenu de /run/<préfixe> garderait l'ancien propriétaire si le compte change ; droits posés services arrêtés.
             systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
             [ -d "/run/${UNIT_PREFIX}" ] && find "/run/${UNIT_PREFIX}" -xdev -mindepth 1 -delete 2>/dev/null
+            if [ "$MODE_COMPTES" = separes ]; then
+                droits_separes "$BASE_DONNEES" "$run_user" "$ancien" || warn "Droits du mode séparé incomplets (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
+            else
+                droits_unique "$BASE_DONNEES" "$run_user" "$ancien" \
+                    || warn "Droits du compte unique incomplets (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
+            fi
             if compgen -G "$ROOT/logs/audit/audit-*.jsonl" >/dev/null; then
-                systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
-                audit_deplacer "$run_user" || warn "Fichiers de logs/audit non déplacés (voir ci-dessus)."
+                audit_deplacer "$ecrivain" || warn "Fichiers de logs/audit non déplacés (voir ci-dessus)."
             fi
             systemctl restart "${UNIT_PREFIX}.target"
-            ok "Services installés et démarrés (utilisateur $run_user) : systemctl status ${UNIT_PREFIX}.target"
+            if [ "$MODE_COMPTES" = separes ]; then
+                ok "Services installés et démarrés, un compte par service (opérateur $run_user) : systemctl status ${UNIT_PREFIX}.target"
+            else
+                ok "Services installés et démarrés (utilisateur $run_user, compte unique : $MODE_COMPTES) : systemctl status ${UNIT_PREFIX}.target"
+            fi
             ;;
         remove)
             systemctl disable --now "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
@@ -858,8 +1115,12 @@ doctor_navigateur_bac() {
     # Navigateur non installé : déjà signalé par le contrôle « service navigateur ».
     [ -d "$ROOT/browser-service/node_modules" ] || return 0
     ca="${ELPIS_BROWSER_CA_DIR:-$ROOT/user_db/browser-relay-ca}"
-    check "navigateur dans le bac : autorité du relais ($ca)" "créée au démarrage de l'hôte d'outils : ./elpis restart" test -s "$ca/ca.crt" -a -s "$ca/ca.key"
-    [ -f "$ca/ca.key" ] && check "navigateur dans le bac : clé de l'autorité en 0600" "chmod 600 $ca/ca.key" test "$(stat -c %a "$ca/ca.key")" = 600
+    if [ -d "$ca" ] && [ ! -x "$ca" ]; then
+        info "navigateur dans le bac : autorité du relais ($ca) réservée au compte de l'hôte d'outils, non vérifiable par ce compte (doctor avec sudo)"
+    else
+        check "navigateur dans le bac : autorité du relais ($ca)" "créée au démarrage de l'hôte d'outils : ./elpis restart" test -s "$ca/ca.crt" -a -s "$ca/ca.key"
+        [ -f "$ca/ca.key" ] && check "navigateur dans le bac : clé de l'autorité en 0600" "chmod 600 $ca/ca.key" test "$(stat -c %a "$ca/ca.key")" = 600
+    fi
     # Chromium partage le quota CPU du bac : à 1 CPU, les captures d'étape des pages lourdes dépassent leur délai de 3 s (mesuré : ~5 % des actions, aucune à 2 CPU).
     cpu="$("${PY:-python3}" -c 'import json, sys
 try: print(int(((json.load(open(sys.argv[1])).get("executors") or {}).get("limits") or {}).get("cpu_quota_pct") or 100))
@@ -874,6 +1135,9 @@ except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
     # Jetons du service : dossier d'exécution de l'hôte d'outils (unité systemd) ou, sans systemd, $RUN_DIR/navigateur.
     jt="$RUN_DIR/navigateur"
     if systemd_active && [ "$(systemctl show -p WorkingDirectory --value "${UNIT_PREFIX}-toolhost.service" 2>/dev/null)" = "$ROOT" ]; then jt="/run/${UNIT_PREFIX}-toolhost/navigateur"; fi
+    if [ -d "${jt%/*}" ] && [ ! -x "${jt%/*}" ]; then
+        info "navigateur dans le bac : état des services non vérifiable par ce compte (jetons réservés au compte de l'hôte d'outils : doctor avec sudo)"; return 0
+    fi
     for s in "${sb:-/nonexistent}"/*/.elpis-agent/browser.sock; do
         [ -S "$s" ] || continue
         d="$(dirname "$(dirname "$s")")"; j="$jt/${d##*/}.service.token"; n=$((n+1))
@@ -886,18 +1150,49 @@ except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
     [ "$n" -gt 0 ] || info "navigateur dans le bac : aucun service en marche (démarré au premier outil pw_* d'un compte)"
 }
 
+# Comptes des services (unités installées) : un par service, un seul choisi, repli ou unités d'avant ce réglage (marche à suivre) ; en mode séparé, groupe des données de cette session et droits des dossiers partagés (de backups/, le mode seul) ; appelée par cmd_doctor (compteur bad).
+doctor_comptes() {
+    local mode c chemin attendu vu sb
+    mode="$(mode_installe)"
+    case "$mode" in
+        "") return 0 ;;
+        separes) ok "comptes des services : un par service ($UNIT_PREFIX-main, $UNIT_PREFIX-admin, $UNIT_PREFIX-toolhost)" ;;
+        unique) info "comptes des services : un seul compte, choisi (ELPIS_COMPTE_UNIQUE=1)" ;;
+        repli) c="$(dossier_ferme "$ROOT")" && c=" : $c sans droit de traversée pour les autres comptes"
+               warn "comptes des services : un seul compte (repli$c) ; pour un compte par service : installation dans /opt/elpis, ou dossiers parents traversables et code lisible par les autres comptes (docs/operations.md, « Service accounts »), puis sudo ./elpis service install"; bad=$((bad+1)) ;;
+        *) warn "comptes des services : un seul compte (unités d'avant les comptes séparés) : sudo ./elpis service install pour un compte par service"; bad=$((bad+1)) ;;
+    esac
+    [ "$mode" = separes ] || return 0
+    if id -nG "$(id -un)" | tr ' ' '\n' | grep -qxF -- "$GROUPE_DONNEES" && ! id -Gn | tr ' ' '\n' | grep -qxF -- "$GROUPE_DONNEES"; then
+        warn "groupe $GROUPE_DONNEES absent de cette session (ouverte avant son ajout) : données des services illisibles d'ici (nouvelle session, ou sg $GROUPE_DONNEES -c './elpis doctor')"; bad=$((bad+1))
+    fi
+    sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"
+    for c in "$ROOT/user_db|2771 root $GROUPE_DONNEES" "${sb:-$ROOT/user_sandboxes}|2770 root $GROUPE_DONNEES" "$LOG_DIR|2770 root $GROUPE_DONNEES" \
+             "$ROOT/backups|700" "$SYS_PREFIXE/etc/elpis|751 root root"; do
+        chemin="${c%%|*}"; attendu="${c#*|}"
+        [ -e "$chemin" ] || continue
+        vu="$(stat -c '%a %U %G' -- "$chemin" 2>/dev/null)"
+        [[ "$vu " == "$attendu "* ]] || { warn "droits : $chemin en ${vu:-?} (attendu $attendu : sudo ./elpis service install)"; bad=$((bad+1)); }
+    done
+}
+
 # Journal de sécurité et centralisation (ANSSI) : dossiers et droits (compte des services), clé de signature, règle rsyslog et ses paquets, journald persistant, horloge ; appelée par cmd_doctor (compteur bad).
 doctor_journaux() {
-    local m d compte regles=()
-    compte="$(compte_services)"
-    [ -n "$compte" ] || compte="$(id -un)"
-    [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
+    local m d compte attendu admis="" regles=()
+    if [ "$(mode_installe)" = separes ]; then
+        compte="$UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost"; attendu="2770 root"; admis=syslog
+    else
+        compte="$(compte_services)"
+        [ -n "$compte" ] || compte="$(id -un)"
+        [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
+        attendu="2750 $compte"
+    fi
     for d in "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS"; do
         [ -e "$d" ] || [ -L "$d" ] || continue
         m="$(stat -c '%a %U %G' -- "$d" 2>/dev/null || echo '? ? ?')"
         case "$m" in
-            "2750 $compte $GROUPE_JOURNAL"|"2750 $compte adm") ok "journaux : $d ($m)" ;;
-            *) warn "journaux : $d en $m (attendu 2750 $compte:$GROUPE_JOURNAL, compte des services : sudo ./elpis audit setup)"; bad=$((bad+1)) ;;
+            "$attendu $GROUPE_JOURNAL"|"$attendu adm") ok "journaux : $d ($m)" ;;
+            *) warn "journaux : $d en $m (attendu ${attendu%% *} ${attendu#* }:$GROUPE_JOURNAL : sudo ./elpis audit setup)"; bad=$((bad+1)) ;;
         esac
     done
     if [ ! -d "$AUDIT_DIR_SYS" ]; then
@@ -905,7 +1200,7 @@ doctor_journaux() {
     elif compgen -G "$ROOT/logs/audit/audit-*.jsonl" >/dev/null; then
         warn "journal de sécurité : fichiers restés dans logs/audit, ni transmis ni purgés (services arrêtés : ./elpis stop ou sudo systemctl stop ${UNIT_PREFIX}.target, puis sudo ./elpis audit setup, qui les déplace ou les ajoute au fichier du même jour)"; bad=$((bad+1))
     fi
-    doctor_cle "$compte"
+    doctor_cle "$compte" "$admis"
     mapfile -t regles < <(compgen -G "$SYS_PREFIXE/etc/rsyslog.d/*elpis*.conf")
     if [ "${#regles[@]}" -gt 0 ]; then
         ok "centralisation : règle Elpis ${regles[0]}"
@@ -935,9 +1230,16 @@ compte_lit() {
     [ $(( 8#$m & 8#040 )) -ne 0 ] && id -nG "$1" 2>/dev/null | tr ' ' '\n' | grep -qx "$g"
 }
 
-# Clé de signature : 0440 root, groupe propre au compte des services, lisible par lui, 32 octets au moins quand ce compte-ci la lit.
+# Premier des COMPTES qui ne lit pas FICHIER (compte_lit) ; échec si tous le lisent.
+compte_sans_lecture() {
+    local f="$1" c; shift
+    for c in "$@"; do compte_lit "$c" "$f" || { echo "$c"; return 0; }; done
+    return 1
+}
+
+# Clé de signature : 0440 root, groupe réservé aux comptes des services (COMPTES, ADMIS : membres permis en plus), lisible par chacun, 32 octets au moins quand ce compte-ci la lit.
 doctor_cle() {
-    local compte="$1" m g dossier="${AUDIT_KEY_SYS%/*}"
+    local compte="$1" admis="$1 ${2:-}" m g c dossier="${AUDIT_KEY_SYS%/*}"
     # Sous le compte des services : lecture réelle ; une session ouverte avant audit setup n'a pas encore le groupe de la clé.
     if [ "$(id -u)" -ne 0 ] && [ "$(id -un)" = "$compte" ] && [ -d "$dossier" ] \
             && { [ ! -x "$dossier" ] || [ -e "$AUDIT_KEY_SYS" ]; } && [ ! -r "$AUDIT_KEY_SYS" ]; then
@@ -957,11 +1259,11 @@ doctor_cle() {
     fi
     m="$(stat -c '%a %U %G' -- "$AUDIT_KEY_SYS" 2>/dev/null)"; g="${m##* }"
     if [ -L "$AUDIT_KEY_SYS" ] || [ ! -f "$AUDIT_KEY_SYS" ] || [ "$m" != "440 root $g" ]; then
-        warn "journal de sécurité : clé $AUDIT_KEY_SYS en ${m:-?} (attendu 440 root, groupe du seul compte $compte : sudo ./elpis audit setup)"
-    elif ! groupe_propre "$g" "$compte"; then
-        warn "journal de sécurité : clé lisible par le groupe $g, qui n'est pas propre au compte $compte (sudo ./elpis audit setup)"
-    elif ! compte_lit "$compte" "$AUDIT_KEY_SYS"; then
-        warn "journal de sécurité : clé illisible par le compte des services $compte, lignes non signées (sudo ./elpis audit setup)"
+        warn "journal de sécurité : clé $AUDIT_KEY_SYS en ${m:-?} (attendu 440 root, groupe réservé à $compte : sudo ./elpis audit setup)"
+    elif ! groupe_propre "$g" "$admis"; then
+        warn "journal de sécurité : clé lisible par le groupe $g, qui n'est pas réservé à $compte (sudo ./elpis audit setup)"
+    elif c="$(compte_sans_lecture "$AUDIT_KEY_SYS" $compte)"; then
+        warn "journal de sécurité : clé illisible par le compte des services $c, lignes non signées (sudo ./elpis audit setup)"
     elif [ -r "$AUDIT_KEY_SYS" ] && [ "$(tr -d ' \t\r\n' < "$AUDIT_KEY_SYS" | wc -c)" -lt 32 ]; then
         warn "journal de sécurité : clé $AUDIT_KEY_SYS trop courte (32 octets au moins), lignes non signées"
     else
@@ -970,12 +1272,16 @@ doctor_cle() {
     bad=$((bad+1))
 }
 
-# Coffre « Secrets » : clé 0440 root, groupe propre au compte des services, lisible par lui (sous ce compte : lecture réelle, une session ouverte avant l'ajout du groupe de la clé ne la lit pas) ; repli, clé illisible ou invalide et secrets d'une autre clé vus par le core (compteur bad).
+# Coffre « Secrets » : clé 0440 root, groupe réservé aux comptes des services qui l'ouvrent (main et la console en mode séparé), lisible par chacun (sous ce compte : lecture réelle, une session ouverte avant l'ajout du groupe de la clé ne la lit pas) ; repli, clé illisible ou invalide et secrets d'une autre clé vus par le core (compteur bad).
 doctor_coffre() {
-    local compte m g niveau texte dossier="${VAULT_KEY_SYS%/*}"
-    compte="$(compte_services)"
-    [ -n "$compte" ] || compte="$(id -un)"
-    [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
+    local compte m g c niveau texte dossier="${VAULT_KEY_SYS%/*}"
+    if [ "$(mode_installe)" = separes ]; then
+        compte="$UNIT_PREFIX-main $UNIT_PREFIX-admin"
+    else
+        compte="$(compte_services)"
+        [ -n "$compte" ] || compte="$(id -un)"
+        [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
+    fi
     if [ "$(id -u)" -ne 0 ] && [ "$(id -un)" = "$compte" ] && [ -d "$dossier" ] \
             && { [ ! -x "$dossier" ] || [ -e "$VAULT_KEY_SYS" ]; } && [ ! -r "$VAULT_KEY_SYS" ]; then
         g="$(stat -c %G -- "$VAULT_KEY_SYS" 2>/dev/null || stat -c %G -- "$dossier")"
@@ -989,14 +1295,14 @@ doctor_coffre() {
     if [ -e "$VAULT_KEY_SYS" ] || [ -L "$VAULT_KEY_SYS" ]; then
         m="$(stat -c '%a %U %G' -- "$VAULT_KEY_SYS" 2>/dev/null)"; g="${m##* }"
         if [ -L "$VAULT_KEY_SYS" ] || [ ! -f "$VAULT_KEY_SYS" ] || [ "$m" != "440 root $g" ]; then
-            warn "coffre (Secrets) : clé $VAULT_KEY_SYS en ${m:-?} (attendu 440 root, groupe du seul compte $compte : sudo ./elpis vault setup)"; bad=$((bad+1))
+            warn "coffre (Secrets) : clé $VAULT_KEY_SYS en ${m:-?} (attendu 440 root, groupe réservé à $compte : sudo ./elpis vault setup)"; bad=$((bad+1))
         elif ! groupe_propre "$g" "$compte"; then
-            warn "coffre (Secrets) : clé lisible par le groupe $g, qui n'est pas propre au compte $compte (sudo ./elpis vault setup)"; bad=$((bad+1))
-        elif ! compte_lit "$compte" "$VAULT_KEY_SYS"; then
-            warn "coffre (Secrets) : clé $VAULT_KEY_SYS illisible par le compte des services $compte (sudo ./elpis vault setup)"; bad=$((bad+1))
+            warn "coffre (Secrets) : clé lisible par le groupe $g, qui n'est pas réservé à $compte (sudo ./elpis vault setup)"; bad=$((bad+1))
+        elif c="$(compte_sans_lecture "$VAULT_KEY_SYS" $compte)"; then
+            warn "coffre (Secrets) : clé $VAULT_KEY_SYS illisible par le compte des services $c (sudo ./elpis vault setup)"; bad=$((bad+1))
         fi
         if [ "$(id -u)" -ne 0 ] && [ ! -r "$VAULT_KEY_SYS" ]; then
-            info "coffre (Secrets) : clé non lisible par ce compte, secrets non vérifiés (doctor sous le compte des services $compte, ou avec sudo)"; return 0
+            info "coffre (Secrets) : clé non lisible par ce compte, secrets non vérifiés (doctor sous le compte des services ou avec sudo)"; return 0
         fi
     elif [ "$(id -u)" -ne 0 ] && [ -d "$dossier" ] && [ ! -x "$dossier" ]; then
         info "coffre (Secrets) : clé non vérifiable par ce compte ($dossier réservé au compte des services $compte : doctor sous ce compte ou avec sudo)"; return 0
@@ -1202,6 +1508,7 @@ cmd_doctor() {
     else
         info "RAG : non vérifié (core non construit ou config.json absent)"
     fi
+    doctor_comptes
     doctor_journaux
     doctor_coffre
     doctor_connexion
@@ -1215,11 +1522,22 @@ cmd_doctor() {
 # =============================================================================
 #  backup / upgrade
 # =============================================================================
+# Sauvegarde par le core ; un compte par service : sous root seul (lui seul lit toutes les clés), archives de backups/ rendues ensuite à l'opérateur (0600).
 cmd_backup() {
+    local rc=0 op og
     charger_env
     charger_instance
     need_exploitation
-    core_cmd backup "$@"
+    if [ "$(mode_installe)" != separes ]; then core_cmd backup "$@"; return; fi
+    [ "$(id -u)" -eq 0 ] || die "Un compte par service : seul root lit toutes les clés à sauvegarder ; lancez sudo ./elpis backup${*:+ $*}"
+    core_cmd backup "$@" || rc=$?
+    op="${SUDO_USER:-}"; [ -n "$op" ] && [ "$op" != root ] || op="$(stat -c %U -- "$ROOT")"
+    og="$(id -gn "$op")" || return 1
+    if [ -d "$ROOT/backups" ]; then
+        { dossier_sur "$ROOT/backups" 00700 "$op" "$og" && poser_droits arbre "$ROOT/backups" "$og" go-rwx go-rwxs --proprio "$op" --comptes root; } \
+            || warn "Archives de backups/ non rendues à $op (voir ci-dessus)."
+    fi
+    return "$rc"
 }
 
 # Base de données : état, test d'une cible, copie, choix du moteur (« use sqlite » ne touche à aucune base).
@@ -1230,12 +1548,17 @@ cmd_db() {
     core_cmd db "$@"
 }
 
-# Compte des services pour « audit setup » et « vault setup » (COMPTE_SETUP) : User= des unités, sinon ELPIS_USER, sinon SUDO_USER ; jamais root ; root exigé hors arborescence factice.
+# Compte des services pour « audit setup » et « vault setup » (COMPTE_SETUP, MODE_COMPTES des unités) : mode séparé, l'écrivain du journal ${UNIT_PREFIX}-main ; sinon User= des unités, ELPIS_USER, SUDO_USER ; jamais root ; root exigé hors arborescence factice.
 compte_setup() {
     local quoi="$1" unite
-    unite="$(compte_services)"
-    if [ -n "$unite" ] && [ -n "${ELPIS_USER:-}" ] && [ "$ELPIS_USER" != "$unite" ]; then
-        die "Les services tournent sous $unite (User= des unités systemd), pas sous ELPIS_USER=$ELPIS_USER : sudo ELPIS_USER=$ELPIS_USER ./elpis service install pour changer de compte."
+    MODE_COMPTES="$(mode_installe)"
+    if [ "$MODE_COMPTES" = separes ]; then
+        unite="$UNIT_PREFIX-main"
+    else
+        unite="$(compte_services)"
+        if [ -n "$unite" ] && [ -n "${ELPIS_USER:-}" ] && [ "$ELPIS_USER" != "$unite" ]; then
+            die "Les services tournent sous $unite (User= des unités systemd), pas sous ELPIS_USER=$ELPIS_USER : sudo ELPIS_USER=$ELPIS_USER ./elpis service install pour changer de compte."
+        fi
     fi
     COMPTE_SETUP="${unite:-${ELPIS_USER:-${SUDO_USER:-}}}"
     if [ -z "$SYS_PREFIXE" ]; then
@@ -1246,7 +1569,8 @@ compte_setup() {
     [ -n "$COMPTE_SETUP" ] && [ "$COMPTE_SETUP" != root ] \
         || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
     id -u "$COMPTE_SETUP" >/dev/null 2>&1 || die "Compte de service $COMPTE_SETUP inexistant (ELPIS_USER=nom)."
-    if [ -n "$unite" ] && [ "$unite" != "${SUDO_USER:-}" ]; then info "Compte des services : $unite (unités systemd installées)."; fi
+    if [ "$MODE_COMPTES" = separes ]; then info "Comptes des services : un par service (unités systemd installées)."
+    elif [ -n "$unite" ] && [ "$unite" != "${SUDO_USER:-}" ]; then info "Compte des services : $unite (unités systemd installées)."; fi
 }
 
 # Journal de sécurité : mise en place (setup, root) ou vérification des signatures et de la continuité (verify).
@@ -1254,7 +1578,7 @@ cmd_audit() {
     if [ "${1:-}" = "setup" ]; then
         compte_setup audit
         audit_setup "$COMPTE_SETUP" "" 1 || die "Journal de sécurité incomplet : voir ci-dessus, puis relancez sudo ./elpis audit setup."
-        ok "Journal de sécurité en place (compte $COMPTE_SETUP)."
+        if [ "$MODE_COMPTES" = separes ]; then ok "Journal de sécurité en place (un compte par service)."; else ok "Journal de sécurité en place (compte $COMPTE_SETUP)."; fi
         return 0
     fi
     charger_env
@@ -1305,22 +1629,26 @@ cmd_auth() {
     vault_core auth "$@"
 }
 
-# Commande du coffre par le core : sous le compte des services quand root la lance (runuser, ses groupes compris : clé lisible, fichiers de la base jamais créés par root), telle quelle sinon.
+# Commande du coffre par le core : sous le compte des services quand root la lance (la console en mode séparé ; runuser, ses groupes compris : clé lisible, fichiers de la base jamais créés par root), telle quelle sinon.
 vault_core() {
-    local compte
+    local compte groupe=""
     if [ "$(id -u)" -ne 0 ]; then core_cmd "$@"; return; fi
-    compte="$(compte_services)"
-    compte="${compte:-${ELPIS_USER:-${SUDO_USER:-}}}"
+    if [ "$(mode_installe)" = separes ]; then
+        compte="$UNIT_PREFIX-admin"; groupe="ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES"
+    else
+        compte="$(compte_services)"
+        compte="${compte:-${ELPIS_USER:-${SUDO_USER:-}}}"
+    fi
     [ -n "$compte" ] && [ "$compte" != root ] \
         || die "Compte des services inconnu : relancez sans sudo sous ce compte, ou ELPIS_USER=nom."
-    (cd / && runuser -u "$compte" -- env "ELPIS_RACINE=$ROOT" ${SANDBOX_DIR:+"APP_SANDBOX_DIR=$SANDBOX_DIR"} \
+    (cd / && runuser -u "$compte" -- env "ELPIS_RACINE=$ROOT" ${SANDBOX_DIR:+"APP_SANDBOX_DIR=$SANDBOX_DIR"} ${groupe:+"$groupe"} \
         "$NODE" "$CORE_DIST/exploitation.mjs" "$@")
 }
 
-# Compte des services d'après les unités installées (User= de main, admin ou toolhost) ; vide sans unité.
+# Comptes des unités installées (User= de chaque service, sans doublon, séparés par une espace) ; vide sans unité.
 compte_services() {
-    local s f u
-    for s in main admin toolhost; do
+    local s f u liste=" "
+    for s in main admin toolhost rag qdrant; do
         f="$SYS_PREFIXE/etc/systemd/system/${UNIT_PREFIX}-$s.service"
         [ -f "$f" ] || continue
         u=""
@@ -1328,19 +1656,49 @@ compte_services() {
             u="$(systemctl show -p User --value "${UNIT_PREFIX}-$s.service" 2>/dev/null)"
         fi
         [ -n "$u" ] || u="$(sed -n 's/^User=//p' "$f" | tail -n 1)"
-        echo "$u"
+        [ -z "$u" ] || case "$liste" in *" $u "*) ;; *) liste+="$u " ;; esac
+    done
+    liste="${liste# }"; printf '%s\n' "${liste% }"
+}
+
+# Mode des comptes des unités installées (ELPIS_COMPTES de main, admin ou toolhost) : separes, unique, repli, ancien (unités d'avant ce réglage) ; vide sans unité.
+mode_installe() {
+    local s f m
+    for s in main admin toolhost; do
+        f="$SYS_PREFIXE/etc/systemd/system/${UNIT_PREFIX}-$s.service"
+        [ -f "$f" ] || continue
+        m="$(sed -n 's/^Environment="ELPIS_COMPTES=\([a-z]*\)"$/\1/p' "$f" | tail -n 1)"
+        echo "${m:-ancien}"
         return 0
     done
 }
 
-# Groupe propre au compte : groupe local sans autre membre, groupe primaire d'aucun autre compte.
+# Compte unique des unités installées (mode unique, repli ou unités d'avant les comptes séparés) ; vide en mode séparé ou sans unité.
+compte_unique() { [ "$(mode_installe)" = separes ] || compte_services; }
+
+# Groupe propre aux comptes donnés (liste séparée par des espaces) : groupe local dont chaque membre est l'un d'eux, groupe primaire d'aucun autre compte.
 groupe_propre() {
-    local g="$1" u="$2" gid membres
-    gid="$(awk -F: -v g="$g" '$1 == g { print $3; exit }' /etc/group)"
+    local g="$1" admis=" $2 " gid m
+    gid="$(awk -F: -v g="$g" '$1 == g { print $3; exit }' "$SYS_PREFIXE/etc/group" 2>/dev/null)"
     [ -n "$gid" ] || return 1
-    membres="$(getent group "$g" | cut -d: -f4)"
-    [ -z "$membres" ] || [ "$membres" = "$u" ] || return 1
-    getent passwd | awk -F: -v g="$gid" -v u="$u" '$4 == g && $1 != u { e = 1 } END { exit e }'
+    for m in $(getent group "$g" | cut -d: -f4 | tr ',' ' '); do
+        case "$admis" in *" $m "*) ;; *) return 1 ;; esac
+    done
+    getent passwd | awk -F: -v g="$gid" -v a="$admis" '$4 == g && index(a, " " $1 " ") == 0 { e = 1 } END { exit e }'
+}
+
+# Membres de GROUPE ramenés aux comptes donnés (gpasswd -M), seulement s'ils diffèrent.
+membres_exacts() {
+    local g="$1" voulu actuel; shift
+    voulu="$(printf '%s\n' "$@" | sort | paste -sd,)"
+    actuel="$(getent group "$g" | cut -d: -f4 | tr ',' '\n' | sed '/^$/d' | sort | paste -sd,)"
+    [ "$voulu" = "$actuel" ] || gpasswd -M "$voulu" "$g" >/dev/null
+}
+
+# COMPTE ajouté au GROUPE s'il n'en est pas membre (pris par ses processus à leur prochaine session ou à leur redémarrage).
+membre() {
+    id -nG "$1" 2>/dev/null | tr ' ' '\n' | grep -qxF -- "$2" && return 0
+    usermod -aG "$2" "$1" && info "$1 ajouté au groupe $2."
 }
 
 # Groupe de la clé dans GRP_CLE : groupe primaire du compte s'il lui est propre, sinon GROUPE_CLE (créé au besoin) avec ce compte pour seul membre.
@@ -1356,7 +1714,7 @@ groupe_de_cle() {
     if ! id -nG "$compte" | tr ' ' '\n' | grep -qx "$GRP_CLE"; then
         info "$compte ajouté au groupe $GRP_CLE : pris par les services systemd à leur redémarrage, par ./elpis start dans une nouvelle session."
     fi
-    gpasswd -M "$compte" "$GRP_CLE" >/dev/null || return 1
+    membres_exacts "$GRP_CLE" "$compte" || return 1
     groupe_propre "$GRP_CLE" "$compte" || { warn "Groupe $GRP_CLE : groupe primaire d'un autre compte, clé non confiée."; return 1; }
 }
 
@@ -1397,8 +1755,14 @@ cle_audit() {
         ( umask 0337 && od -An -tx1 -N32 /dev/urandom | tr -d ' \n' > "$cle" ) || return 1
         info "Clé de signature du journal de sécurité créée : $cle (à sauvegarder hors de la machine)."
     fi
-    if [ "$(id -u)" -eq 0 ]; then chown -h "root:$GRP_CLE" -- "$cle" || return 1; fi
-    chmod 0440 -- "$cle"
+    cle_regroupee "$cle" "$GRP_CLE"
+}
+
+# Clé en place (audit, coffre) remise à 0440 root:GROUPE (propriétaire et groupe sous root seulement) : fichier ordinaire, jamais un lien ; rien sans clé ni groupe.
+cle_regroupee() {
+    [ -n "$2" ] && [ -f "$1" ] && [ ! -L "$1" ] || return 0
+    if [ "$(id -u)" -eq 0 ]; then chown -h "root:$2" -- "$1" || return 1; fi
+    chmod 0440 -- "$1"
 }
 
 # Commande lancée sous le compte des services quand root l'exécute (runuser, depuis /), telle quelle sinon.
@@ -1420,9 +1784,14 @@ ecrivains_en_marche() {
     return 1
 }
 
-# Fichiers des journaux (audit, app.log.jsonl et ses rotations) rendus au compte par root (chown -h, fichiers ordinaires à un seul lien, dossier à ce compte, lu après cd -P), puis mis en 0640 sous ce compte.
+# Fichiers des journaux (audit, app.log.jsonl et ses rotations) rendus au compte par root (chown -h, fichiers ordinaires à un seul lien, dossier à ce compte, lu après cd -P), puis mis en 0640 sous ce compte ; mode séparé : groupe des journaux et 0660 (les trois écrivains ajoutent au même fichier), posés par descripteur.
 audit_droits_fichiers() {
     local compte="$1" d echec=0
+    if [ "${MODE_COMPTES:-}" = separes ]; then
+        poser_droits fichiers "$AUDIT_DIR_SYS" - "$GROUPE_JOURNAL" 0660 'audit-*.jsonl' || echec=1
+        poser_droits fichiers "$APPLOG_DIR_SYS" - "$GROUPE_JOURNAL" 0660 'app.log.jsonl*' || echec=1
+        return "$echec"
+    fi
     if [ "$(id -u)" -eq 0 ]; then
         for d in "$AUDIT_DIR_SYS|audit-*.jsonl" "$APPLOG_DIR_SYS|app.log.jsonl*"; do
             (
@@ -1480,10 +1849,10 @@ audit_deplacer() {
 
 # Contrôle final : mode des dossiers et de la clé, propriétaire et groupe sous root, clé d'au moins 32 octets ; liste les écarts.
 audit_controle() {
-    local compte="$1" c chemin attendu vu echec=0
-    for c in "$SYS_PREFIXE/var/lib/elpis|755 root root" "$AUDIT_DIR_SYS|2750 $compte $GROUPE_JOURNAL" \
-             "$APPLOG_DIR_SYS|2750 $compte $GROUPE_JOURNAL" "$SYS_PREFIXE/etc/elpis|750 root ${GRP_CLE:-?}" \
-             "$AUDIT_KEY_SYS|440 root ${GRP_CLE:-?}"; do
+    local c chemin attendu vu echec=0 journaux="2750 $1" etc="750 root ${GRP_CLE:-?}"
+    [ "${MODE_COMPTES:-}" != separes ] || { journaux="2770 root"; etc="751 root root"; }
+    for c in "$SYS_PREFIXE/var/lib/elpis|755 root root" "$AUDIT_DIR_SYS|$journaux $GROUPE_JOURNAL" \
+             "$APPLOG_DIR_SYS|$journaux $GROUPE_JOURNAL" "$SYS_PREFIXE/etc/elpis|$etc" "$AUDIT_KEY_SYS|440 root ${GRP_CLE:-?}"; do
         chemin="${c%%|*}"; attendu="${c#*|}"
         vu="$(stat -c '%a %U %G' -- "$chemin" 2>/dev/null)" || vu="absent"
         if [ "$(id -u)" -ne 0 ]; then attendu="${attendu%% *}"; vu="${vu%% *}"; fi
@@ -1495,9 +1864,10 @@ audit_controle() {
     return "$echec"
 }
 
-# Journal de sécurité hors du dépôt (AUDIT_SETUP COMPTE [ANCIENS_COMPTES] [DÉPLACER]) : groupes, dossiers 2750, clé, droits réappliqués, logs/audit déplacé si DÉPLACER=1, contrôle final ; non nul au moindre échec.
+# Journal de sécurité hors du dépôt (AUDIT_SETUP COMPTE [ANCIENS_COMPTES] [DÉPLACER]) : groupes, dossiers 2750 au compte (mode séparé : 2770 à root, COMPTE n'y fait que déplacer), clé, droits réappliqués, logs/audit déplacé si DÉPLACER=1, contrôle final ; non nul au moindre échec.
 audit_setup() {
-    local compte="$1" ancien="${2:-}" deplacer="${3:-1}" nouveau=0 echec=0 dossiers=0 d
+    local compte="$1" ancien="${2:-}" deplacer="${3:-1}" nouveau=0 echec=0 dossiers=0 d mode=2750 proprio="$1"
+    [ "${MODE_COMPTES:-}" != separes ] || { mode=2770; proprio=root; }
     if [ "$(id -u)" -eq 0 ]; then
         if ! getent group "$GROUPE_JOURNAL" >/dev/null; then
             if groupadd --system "$GROUPE_JOURNAL"; then info "Groupe $GROUPE_JOURNAL créé (lecture des journaux par rsyslog)."; else echec=1; fi
@@ -1509,12 +1879,15 @@ audit_setup() {
     [ -z "$SYS_PREFIXE" ] || mkdir -p "$SYS_PREFIXE/var/lib" "$SYS_PREFIXE/var/log" "$SYS_PREFIXE/etc" || echec=1
     if dossier_sur "$SYS_PREFIXE/var/lib/elpis" 0755 root root; then
         for d in "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS"; do
-            if dossier_sur "$d" 2750 "$compte" "$GROUPE_JOURNAL" "$ancien"; then dossiers=$((dossiers + 1)); else echec=1; fi
+            if dossier_sur "$d" "$mode" "$proprio" "$GROUPE_JOURNAL" "$ancien"; then dossiers=$((dossiers + 1)); else echec=1; fi
         done
     else
         echec=1
     fi
-    if groupe_de_cle "$compte" && dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE"; then cle_audit || echec=1; else echec=1; fi
+    if [ "${MODE_COMPTES:-}" = separes ]; then
+        GRP_CLE="$GROUPE_JOURNAL"
+        if dossier_sur "$SYS_PREFIXE/etc/elpis" 0751 root root; then cle_audit || echec=1; else echec=1; fi
+    elif groupe_de_cle "$compte" && dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE"; then cle_audit || echec=1; else echec=1; fi
     if [ "$dossiers" -eq 2 ]; then
         if [ "$deplacer" = 1 ]; then audit_deplacer "$compte" || echec=1; else audit_droits_fichiers "$compte" || echec=1; fi
     fi
@@ -1539,25 +1912,29 @@ cle_coffre() {
             || { rm -f -- "$cle"; warn "Clé du coffre générée refusée (${verdict:-?}) : relancez sudo ./elpis vault setup."; return 1; }
         info "Clé du coffre créée : $cle ($verdict ; à sauvegarder hors de la machine, à part des sauvegardes d'Elpis)."
     fi
-    if [ "$(id -u)" -eq 0 ]; then chown -h "root:$GRP_CLE" -- "$cle" || return 1; fi
-    chmod 0440 -- "$cle"
+    cle_regroupee "$cle" "$GRP_CLE"
 }
 
-# Clé du coffre hors de la base (vault setup) : groupe de la clé, dossier /etc/elpis 0750, clé 0440 ; contrôle final, conseils pour la clé de repli.
+# Clé du coffre hors de la base (vault setup) : groupe de la clé, dossier /etc/elpis 0750 (mode séparé : 0751, clé à main et à la console), clé 0440 ; contrôle final, conseils pour la clé de repli.
 vault_setup() {
     local vu attendu
     compte_setup vault
     NODE="$(node_bin)"
     need_exploitation
     [ -z "$SYS_PREFIXE" ] || mkdir -p "$SYS_PREFIXE/etc" || die "Arborescence $SYS_PREFIXE/etc impossible à créer."
-    groupe_de_cle "$COMPTE_SETUP" || die "Groupe de la clé non préparé (voir ci-dessus)."
-    dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE" || die "Dossier $SYS_PREFIXE/etc/elpis refusé (voir ci-dessus)."
+    if [ "$MODE_COMPTES" = separes ]; then
+        GRP_CLE="$GROUPE_CLE"
+        dossier_sur "$SYS_PREFIXE/etc/elpis" 0751 root root || die "Dossier $SYS_PREFIXE/etc/elpis refusé (voir ci-dessus)."
+    else
+        groupe_de_cle "$COMPTE_SETUP" || die "Groupe de la clé non préparé (voir ci-dessus)."
+        dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE" || die "Dossier $SYS_PREFIXE/etc/elpis refusé (voir ci-dessus)."
+    fi
     cle_coffre || die "Clé du coffre non posée : voir ci-dessus, puis relancez sudo ./elpis vault setup."
     attendu="440 root $GRP_CLE"
     vu="$(stat -c '%a %U %G' -- "$VAULT_KEY_SYS" 2>/dev/null)" || vu="absent"
     if [ "$(id -u)" -ne 0 ]; then attendu="${attendu%% *}"; vu="${vu%% *}"; fi
     [ "$vu" = "$attendu" ] || die "$VAULT_KEY_SYS : $vu (attendu $attendu)."
-    ok "Clé du coffre en place : $VAULT_KEY_SYS (compte $COMPTE_SETUP, groupe $GRP_CLE)."
+    ok "Clé du coffre en place : $VAULT_KEY_SYS ($([ "$MODE_COMPTES" = separes ] && echo "main et la console" || echo "compte $COMPTE_SETUP"), groupe $GRP_CLE)."
     info "Les services la lisent au démarrage : sudo systemctl restart ${UNIT_PREFIX}.target (ou ./elpis restart)."
     if [ -e "$ROOT/user_db/.vault.key" ]; then
         info "Clé de repli trouvée (user_db/.vault.key) : après le redémarrage, ./elpis vault rekey --from user_db/.vault.key, puis supprimez-la."
@@ -1595,7 +1972,8 @@ cmd_upgrade() {
     if [ "$backup" -eq 1 ]; then
         info "Sauvegarde complète…"
         local rc=0
-        cmd_backup full || rc=$?
+        # Un compte par service : la sauvegarde passe par root (sudo), le reste de la mise à jour reste à l'opérateur.
+        if [ "$(mode_installe)" = separes ] && [ "$(id -u)" -ne 0 ]; then sudo "$ROOT/elpis" backup full || rc=$?; else cmd_backup full || rc=$?; fi
         # 3 : sauvegarde faite, mais sans le /work d'au moins un compte
         # (sandbox illisible) : la base y est, la mise à jour continue.
         if [ "$rc" -eq 3 ]; then

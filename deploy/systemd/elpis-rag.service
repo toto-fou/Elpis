@@ -7,7 +7,7 @@ After=@PREFIX@-qdrant.service
 
 [Service]
 Type=simple
-User=@USER@
+@COMPTE@
 SyslogIdentifier=@PREFIX@-rag
 WorkingDirectory=@WORKDIR@
 @ENV@
@@ -40,7 +40,7 @@ RestrictRealtime=yes
 LockPersonality=yes
 SystemCallArchitectures=native
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-UMask=0027
+UMask=@UMASK@
 MemoryMax=50%
 TasksMax=1024
 

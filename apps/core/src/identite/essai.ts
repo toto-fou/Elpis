@@ -165,6 +165,7 @@ async function etapesDecouverte(
   sortant: OptionsSortant,
   maintenant: () => number,
   oidc: OptionsEssai["oidc"],
+  secretSaisi: boolean,
 ): Promise<void> {
   const client = clientHttps({ ...sortant, juger: juge });
   const cible = hotePortHttps(f.issuer);
@@ -186,6 +187,7 @@ async function etapesDecouverte(
       await etapesOidc(etapes, f, d.metadonnees, {
         fetch: client.fetch,
         secretEnregistre: oidc.secretEnregistre,
+        secretSaisi,
       });
   } finally {
     await client.fermer().catch(() => undefined);
@@ -243,9 +245,9 @@ function prerequis(c: ContexteEssai): EtapeEssai {
     : etape("prerequisites", "Prérequis", "fail", `À corriger : ${manque.join(" ; ")}.`);
 }
 
-const CLES_D_ETAT = ["has_secret", "tested", "active", "identities"];
+const CLES_D_ETAT = ["has_secret", "tested", "active", "identities", "secret_entered"];
 
-/** Réglages du formulaire : l'état affiché (secret, test, activité, identités) retiré, les valeurs de départ comblées. */
+/** Réglages du formulaire : l'état affiché (secret, test, activité, identités) et l'indication d'un secret saisi retirés, les valeurs de départ comblées. */
 function reglagesDuFormulaire(brut: unknown): unknown {
   if (!estDict(brut) || brut["type"] !== "oidc") return brut;
   const sans = Object.fromEntries(Object.entries(brut).filter(([k]) => !CLES_D_ETAT.includes(k)));
@@ -278,7 +280,15 @@ async function corps(
   const n = etapes.length;
   await etapesAdresse(etapes, hotePortHttps(f.issuer), juge, sortant, maintenant, locales);
   if (!signal.aborted && etapes.slice(n).every((e) => e.level !== "fail"))
-    await etapesDecouverte(etapes, f, juge, sortant, maintenant, o.oidc);
+    await etapesDecouverte(
+      etapes,
+      f,
+      juge,
+      sortant,
+      maintenant,
+      o.oidc,
+      estDict(reglages) && reglages["secret_entered"] === true,
+    );
 }
 
 /** Lance le test d'un fournisseur sans jamais lever : `resultat` part au plus tard à l'échéance globale, qui arrête aussi le travail (plus aucune résolution ni connexion ne démarre) ; `termine` n'est tenu qu'à la fin réelle du travail. */

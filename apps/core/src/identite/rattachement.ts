@@ -85,6 +85,23 @@ async function obstacleCompte(
   return (await dernierAdminLocal(x, uid)) ? "last_local_admin" : null;
 }
 
+/** Premier obstacle à rattacher ce compte à cette identité, en lecture seule ; `null` si rien ne s'y oppose. */
+export async function obstacleRattachement(
+  x: Executeur,
+  uid: number,
+  i: Pick<IdentiteARattacher, "fournisseurId" | "subject">,
+  confirmeAdmin: boolean,
+): Promise<RaisonRefusRattachement | null> {
+  const obstacle = await obstacleCompte(x, uid, confirmeAdmin);
+  if (obstacle !== null) return obstacle;
+  return (await x.get("SELECT 1 AS un FROM user_identities WHERE provider_id=? AND subject=?", [
+    i.fournisseurId,
+    i.subject,
+  ])) !== undefined
+    ? "entry_already_linked"
+    : null;
+}
+
 /** Rattache le compte dans l'écriture de l'appelant (`t` pris dans cette écriture) : refus sans rien écrire, ou identité insérée, mot de passe local retiré, rattachements préparés du compte supprimés, sessions d'avant coupées. */
 export async function rattacher(
   x: Executeur,
@@ -92,15 +109,8 @@ export async function rattacher(
   i: IdentiteARattacher,
   o: { readonly par: string; readonly confirmeAdmin: boolean; readonly t: number },
 ): Promise<RaisonRefusRattachement | null> {
-  const obstacle = await obstacleCompte(x, uid, o.confirmeAdmin);
+  const obstacle = await obstacleRattachement(x, uid, i, o.confirmeAdmin);
   if (obstacle !== null) return obstacle;
-  if (
-    (await x.get("SELECT 1 AS un FROM user_identities WHERE provider_id=? AND subject=?", [
-      i.fournisseurId,
-      i.subject,
-    ])) !== undefined
-  )
-    return "entry_already_linked";
   await x.run(
     "INSERT INTO user_identities(user_id, provider_id, subject, issuer, ext_username, linked_by, linked_at, checked_at) VALUES(?,?,?,?,?,?,?,?)",
     [uid, i.fournisseurId, i.subject, i.issuer, i.extUsername, o.par, o.t, o.t],

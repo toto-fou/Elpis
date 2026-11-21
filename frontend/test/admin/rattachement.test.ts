@@ -135,6 +135,9 @@ describe("rattachements préparés", () => {
     expect(el("[data-prelink]")?.textContent).toContain("alice");
     expect(el("[data-prelink]")?.textContent).toContain("alice@sso");
     expect(el("[data-prelink]")?.textContent).toContain("Sans ancien mot de passe");
+    expect(el("[data-prelink] .font-medium")?.textContent).toBe("alice");
+    expect(el("[data-prelink-attendu]")?.textContent).toBe(" · identifiant attendu : alice@sso");
+    expect(el("[data-prelink]")?.textContent).toContain("alice · identifiant attendu : alice@sso");
     const options = tous<HTMLOptionElement>("#ent-prelien-compte option").map((o) => o.textContent?.trim());
     expect(options).toEqual(["—", "root (administrateur)", "alice", "carole (modérateur)"]);
   });

@@ -79,6 +79,17 @@ function authentificationClientRefusee(e: unknown): boolean {
   return (e as { code?: unknown } | null)?.code === "OAUTH_WWW_AUTHENTICATE_CHALLENGE";
 }
 
+/** Cause nommée d'un refus de la bibliothèque : algorithme de l'en-tête autre que celui réglé, ou audiences en plus sans `azp` ; `null` sinon. */
+function causeNommee(e: unknown): "alg_unexpected" | "aud_untrusted" | null {
+  for (let c: unknown = e, i = 0; c instanceof Error && i < 6; c = c.cause, i++) {
+    const d: unknown = c.cause;
+    if (d === null || typeof d !== "object") continue;
+    if ("header" in d && "expected" in d && "reason" in d) return "alg_unexpected";
+    if ("claim" in d && d.claim === "aud" && !("expected" in d)) return "aud_untrusted";
+  }
+  return null;
+}
+
 function refusDe(e: unknown): RefusOidc {
   if (e instanceof RefusOidc) return e;
   return new RefusOidc(chaineDansCause(e) === null ? "failed" : "unavailable", causeDe(e));
@@ -128,6 +139,8 @@ export async function verifierRetour(
   } catch (err) {
     if (chaineDansCause(err) === null && authentificationClientRefusee(err))
       throw new RefusOidc("failed", "client_auth_rejected");
+    const nommee = chaineDansCause(err) === null ? causeNommee(err) : null;
+    if (nommee !== null) throw new RefusOidc("failed", nommee);
     throw refusDe(err);
   }
   const claims = jetons.claims();

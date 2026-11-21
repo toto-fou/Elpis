@@ -162,13 +162,29 @@ describe("SSO OpenID Connect : bouton « Contrôler les réglages »", () => {
     expect(document.querySelectorAll("[data-etape]")).toHaveLength(1);
   });
 
-  it("rien saisi : aucun secret dans la requête", async () => {
+  it("rien saisi : aucun secret dans la requête, ni l'indication d'un secret saisi", async () => {
     const m = monter(etat({ providers: [OIDC] }));
     m.reponses[TEST] = [json({ ok: true, steps: [ETAPES[0]] })];
     await ouvrirTiroir(m);
     await clic("#ent-tester");
     const corps = m.corps[TEST]?.[0] as Record<string, unknown>;
     expect(corps).not.toHaveProperty("secret");
+    expect(corps).not.toHaveProperty("secret_entered");
+  });
+
+  it("secret saisi et pas encore enregistré : seule l'indication `secret_entered` part, et la saisir efface le contrôle précédent", async () => {
+    const m = monter(etat({ providers: [OIDC] }));
+    m.reponses[TEST] = [json({ ok: true, steps: [ETAPES[0]] }), json({ ok: true, steps: [ETAPES[0]] })];
+    await ouvrirTiroir(m);
+    await clic("#ent-tester");
+    expect(document.querySelectorAll("[data-etape]")).toHaveLength(1);
+    await saisir("#ent-secret", "secret-saisi-1");
+    expect(m.A.authEssai.value).toBeNull();
+    await clic("#ent-tester");
+    const corps = m.corps[TEST]?.[1] as Record<string, unknown>;
+    expect(corps["secret_entered"]).toBe(true);
+    expect(corps).not.toHaveProperty("secret");
+    expect(JSON.stringify(corps)).not.toContain("secret-saisi-1");
   });
 
   it("le secret saisi ne part pas dans la requête de test, n'est ni affiché ni gardé, et disparaît avec le tiroir", async () => {

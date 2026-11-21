@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › SSO OpenID Connect : lecture et écritures des réglages `auth`, formulaire d'un fournisseur OpenID Connect, secret, activation. */
 import {
+  adminsToujoursRefuses,
   AMR_MULTI_FACTEUR,
+  amrFortExige,
   amrNormal,
   REGEX_ID_FOURNISSEUR,
   schemaHoteNonCanonique,
@@ -15,6 +17,7 @@ import {
 import type {
   ExigencesSecondFacteur,
   FournisseurAuth,
+  RaisonEssai,
   ReglagesAuthConsole,
   ReponseEssaiFournisseur,
   ReponseLancementEssai,
@@ -77,25 +80,65 @@ export const ALGOS_JETON = [
 const DUREE_ATTENTE_ESSAI_MS = 300000;
 const PAS_ATTENTE_ESSAI_MS = 2000;
 
-const RAISONS_REFUS: Record<string, string> = {
-  denied: "refus du fournisseur",
-  expired: "le parcours a pris trop de temps",
+/** Phrase de chaque raison que le serveur peut rendre à l'essai (liste fermée des contrats) : la cause, puis ce qu'il faut faire et où. */
+export const RAISONS_ESSAI_PHRASES: Readonly<Record<RaisonEssai, string>> = {
+  denied:
+    "refus du fournisseur ; la personne a annulé, ou ce compte n'a pas accès à ce client chez le fournisseur",
+  expired: "le parcours a pris trop de temps ; relancez l'essai",
   not_in_group: "la personne n'est dans aucun groupe requis",
-  groups_unknown: "groupes absents (aucune liste de groupes reçue pour cette personne)",
+  groups_unknown: "groupes absents ou illisibles (aucune liste de groupes lisible reçue pour cette personne)",
   conflict: "un compte existe déjà pour cet identifiant",
   suspended: "le compte est suspendu",
   mfa_required: "le second facteur exigé n'est pas prouvé",
-  unavailable: "le fournisseur ne répond pas",
-  failed: "le parcours n'a pas abouti",
+  unavailable: "le fournisseur ne répond pas ; relancez « Contrôler les réglages »",
+  failed: "le parcours n'a pas abouti ; la cause est notée dans Supervision › Journaux (ligne « essai SSO »)",
+  issuer_mismatch:
+    "l'identité de ce compte a été rattachée sous un autre émetteur ; détachez le compte (page Comptes), puis préparez de nouveau son rattachement",
+  name_invalid:
+    "l'identifiant reçu ne donne pas de nom de compte valable (vide, réservé, trop long ou e-mail non vérifié) ; vérifiez « Revendication nom (preferred_username) », section 6",
+  account_conflict:
+    "un compte local porte déjà ce nom ; préparez son rattachement (carte « 3. Comptes existants »)",
+  no_local_admin: "aucun administrateur à mot de passe local ; rétablissez-en un dans la page Comptes",
+  prelink_invalid:
+    "le rattachement préparé ne vaut plus (échu, compte privilégié sans preuve ou dernier administrateur local) ; préparez-le de nouveau (carte « 3. Comptes existants »)",
+  settings_changed: "les réglages ont changé pendant l'essai ; relancez « Se connecter pour essayer »",
+  secret_missing:
+    "aucun secret client enregistré ; saisissez-le en section 3, enregistrez, puis relancez l'essai",
+  client_auth_rejected:
+    "le fournisseur refuse l'authentification du client ; vérifiez le secret client (section 3) et la méthode d'authentification du client (token_endpoint_auth_method, section 6) tels que réglés chez le fournisseur",
+  code_rejected:
+    "le fournisseur refuse d'échanger le code d'autorisation ; vérifiez l'adresse de retour déclarée chez lui (section 2) et que ce client y autorise le flux par code",
+  alg_unexpected:
+    "le jeton est signé avec un autre algorithme que celui réglé ; choisissez en section 6 (id_token_signed_response_alg) celui du client chez le fournisseur",
+  signing_key:
+    "aucune clé publiée par le fournisseur ne vérifie le jeton ; relancez « Contrôler les réglages » (clés de signature) et vérifiez l'algorithme réglé (section 6)",
+  aud_untrusted:
+    "le jeton d'identité vise aussi d'autres clients (aud) ; retirez chez le fournisseur les audiences ajoutées à ce client",
+  token_mismatch:
+    "le jeton ou la réponse ne viennent pas de l'émetteur ou du client réglés ; vérifiez l'adresse de l'émetteur (issuer, section 1) et l'identifiant client (client_id, section 3)",
+  clock:
+    "le jeton d'identité est hors de sa période de validité ; vérifiez l'heure de ce serveur et celle du fournisseur, puis l'écart d'horloge et l'âge maximal (max_age) en section 6",
+  subject_invalid:
+    "le sujet du jeton est absent ou trop long ; vérifiez « Revendication sujet (sub) », section 6",
+  id_token_missing:
+    "le fournisseur n'a pas rendu de jeton d'identité ; vérifiez la portée openid (scope, section 6) et que ce client est un client OpenID Connect chez le fournisseur",
 };
 
 /** Décision de l'essai en une phrase ; la raison vient d'une liste fermée, jamais du fournisseur. */
 export function phraseDecision(d: ResultatEssaiBlanc["decision"]): string {
   const nom = d.username ?? "";
   if (d.outcome === "login") return `Cette personne se connecterait au compte ${nom}.`;
+  if (d.outcome === "link")
+    return `Cette personne serait rattachée au compte ${nom} sans ancien mot de passe (dispense), puis connectée.`;
+  if (d.outcome === "proof")
+    return `Cette personne devrait d'abord saisir l'ancien mot de passe du compte ${nom} pour s'y rattacher ; à cette première connexion, ses droits ne peuvent que baisser.`;
   if (d.outcome === "create") return `Un compte ${nom} serait créé.`;
-  const raison = (d.reason !== null ? RAISONS_REFUS[d.reason] : undefined) ?? "cause non précisée";
-  return d.outcome === "refuse" ? `Connexion refusée : ${raison}.` : `L'essai a échoué : ${raison}.`;
+  const phrases: Readonly<Record<string, string | undefined>> = RAISONS_ESSAI_PHRASES;
+  const raison = (d.reason !== null ? phrases[d.reason] : undefined) ?? "cause non précisée";
+  if (d.outcome === "error") return `L'essai a échoué : ${raison}.`;
+  return d.username === null
+    ? `Connexion refusée : ${raison}.`
+    : `Connexion refusée pour le compte ${nom} : ${raison}.`;
 }
 
 /** Libellé d'état d'un fournisseur ; `alerte` quand il est activé mais pas actif (inopérant). */
@@ -190,15 +233,31 @@ export function identifiantDe(libelle: string): string {
     .replace(/-+$/u, "");
 }
 
-const PREUVES = {
-  acr: "prouvé par le niveau acr",
-  amr: "prouvé par les méthodes amr",
-  acr_non_declare: "non prouvé : ce niveau acr n'est pas déclaré comme second facteur",
-  aucune: "non prouvé",
-} as const;
+const PREUVES = { acr: "prouvé par le niveau acr", amr: "prouvé par les méthodes amr" } as const;
 
-/** Revendications reçues en liste compacte (libellé, valeur). */
-export function lignesRevendications(c: NonNullable<ResultatEssaiBlanc["claims"]>): [string, string][] {
+/** Ce qui manque quand le jeton ne prouve pas de second facteur, selon ce que les réglages du fournisseur permettent : niveau `acr` déclaré, méthodes `amr`, ou les deux. */
+function preuveManquante(c: NonNullable<ResultatEssaiBlanc["claims"]>, e: ExigencesSecondFacteur): string {
+  const parAcr = e.mfa_acr.length > 0;
+  const parAmr = amrFortExige(e);
+  const amrInsuffisantes =
+    c.amr.length > 0
+      ? "les méthodes amr reçues ne suffisent pas (mfa, mca, ou deux familles comme pwd et otp)"
+      : "aucune méthode amr reçue";
+  const acrNonDeclare =
+    c.acr !== null && c.acr !== ""
+      ? "le niveau acr reçu n'est pas déclaré comme second facteur"
+      : "aucun niveau acr reçu";
+  if (parAcr && parAmr) return `non prouvé : ni niveau acr déclaré, ni méthodes amr qui suffisent`;
+  if (parAcr) return `non prouvé : ${acrNonDeclare}`;
+  if (parAmr) return `non prouvé : ${amrInsuffisantes}`;
+  return "non prouvé : aucun second facteur n'est demandé à ce fournisseur (section 4)";
+}
+
+/** Revendications reçues en liste compacte (libellé, valeur) ; `e` : exigences de second facteur des réglages essayés. */
+export function lignesRevendications(
+  c: NonNullable<ResultatEssaiBlanc["claims"]>,
+  e: ExigencesSecondFacteur,
+): [string, string][] {
   return [
     ["Émetteur", c.iss],
     ["Identifiant stable", c.subject],
@@ -207,8 +266,8 @@ export function lignesRevendications(c: NonNullable<ResultatEssaiBlanc["claims"]
     ["E-mail", c.email === "" ? "" : `${c.email} (${c.email_verified ? "vérifié" : "non vérifié"})`],
     ["acr", c.acr ?? ""],
     ["amr", c.amr.join(", ")],
-    ["Second facteur", PREUVES[c.second_factor ?? (c.acr ? "acr_non_declare" : "aucune")]],
-    ["Groupes", c.groups === null ? "groupes absents" : c.groups.join(", ")],
+    ["Second facteur", c.second_factor === null ? preuveManquante(c, e) : PREUVES[c.second_factor]],
+    ["Groupes", c.groups === null ? "groupes absents ou illisibles" : c.groups.join(", ")],
   ];
 }
 
@@ -218,7 +277,7 @@ const NOMS_ROLES = { user: "utilisateur", moderator: "modérateur", admin: "admi
 export function lignesDroits(d: ResultatEssaiBlanc["rights"]): string[] {
   if (!d || (!d.roles_enabled && !d.groups_enabled)) return [];
   const l: string[] = [];
-  if (!d.readable) l.push("Groupes absents : aucun rôle ni groupe ne serait modifié.");
+  if (!d.readable) l.push("Groupes absents ou illisibles : aucun rôle ni groupe ne serait modifié.");
   else {
     if (d.roles_enabled && d.role !== null) l.push(`Rôle obtenu : ${NOMS_ROLES[d.role]}.`);
     if (d.groups_enabled)
@@ -320,6 +379,8 @@ export function phraseSecondFacteur(f: SaisieSecondFacteur, groupesAdmin: boolea
   if (secondFacteurPourTous(e))
     return `Second facteur exigé pour tous les comptes : ${exigences(e.required_acr, e.required_amr)}.`;
   if (!groupesAdmin || !secondFacteurDemande(e)) return "⚠ Aucun second facteur garanti par Elpis.";
+  if (adminsToujoursRefuses(e))
+    return "⚠ Administrateurs toujours refusés : aucun des niveaux exigés (acr) n'est déclaré comme second facteur, et aucune méthode forte (amr) n'est exigée.";
   const faibles = exigences(
     e.required_acr.filter((a) => !e.mfa_acr.includes(a)),
     e.required_amr.filter((m) => !AMR_MULTI_FACTEUR.has(amrNormal(m))),
@@ -495,11 +556,11 @@ function corpsFournisseur(f: FormFournisseur): Record<string, unknown> | string 
   return corps;
 }
 
-/** Réglages tels que « Contrôler les réglages » les envoie (sans le secret, qu'il n'emploie pas) ; une chaîne seule est un message d'erreur de saisie. */
+/** Réglages tels que « Contrôler les réglages » les envoie : jamais le secret, seulement qu'un secret est saisi sans être enregistré ; une chaîne seule est un message d'erreur de saisie. */
 function corpsControle(f: FormFournisseur): Record<string, unknown> | string {
   const corps = corpsFournisseur({ ...f, nouveau: false });
   if (typeof corps === "string") return corps;
-  return { ...corps, id: f.id.trim(), type: f.type };
+  return { ...corps, id: f.id.trim(), type: f.type, ...(f.secret !== "" ? { secret_entered: true } : {}) };
 }
 
 /** Corps d'un fournisseur activé : le libellé et la fraîcheur, seuls modifiables sans le désactiver ; `null` si rien ne change. */

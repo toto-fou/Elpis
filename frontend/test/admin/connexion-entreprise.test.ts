@@ -937,7 +937,7 @@ describe("SSO OpenID Connect : Ajouter enchaîne sur la vérification", () => {
     expect(el("#ent-essai-synthese")).toBeNull();
   });
 
-  it("un secret enregistré avec l'ajout efface le résultat du contrôle, qui dépendait du secret absent", async () => {
+  it("un secret saisi, puis enregistré avec l'ajout, efface le résultat du contrôle, qui dépendait du secret absent", async () => {
     const m = monter();
     m.reponses["POST /api/admin/auth/providers"] = [
       json(etat({ providers: [{ ...OIDC, has_secret: false }] })),
@@ -966,7 +966,7 @@ describe("SSO OpenID Connect : Ajouter enchaîne sur la vérification", () => {
     await clic("#ent-tester");
     expect(texte("#ent-essai-synthese")).toBe("Un contrôle a échoué.");
     await saisir("#ent-secret", "s3cret");
-    expect(texte("#ent-essai-synthese")).toBe("Un contrôle a échoué.");
+    expect(el("#ent-essai-synthese")).toBeNull();
     await clic("#ent-enregistrer-fournisseur");
     expect(m.corps["PUT /api/admin/auth/providers/sso/secret"]).toHaveLength(1);
     expect(m.A.authTiroir.value?.nouveau).toBe(false);

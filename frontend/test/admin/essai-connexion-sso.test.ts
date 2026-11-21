@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/admin/essai-connexion-sso.test.ts — console › fournisseur SSO : algorithme du jeton, ligne du second facteur, « Se connecter pour essayer » (ouverture https seulement, interrogation bornée et arrêtée, décision, activation dégrisée, raison du grisé). */
 import * as Vue from "vue";
+import { RAISONS_ESSAI, schemaResultatEssaiBlanc } from "@elpis/contracts";
 import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { lignesRevendications, phraseDecision } from "../../src/features/admin/identite";
+import {
+  lignesDroits,
+  lignesRevendications,
+  phraseDecision,
+  RAISONS_ESSAI_PHRASES,
+} from "../../src/features/admin/identite";
 import { reinitialiserSuiviChargement } from "../../src/features/admin/suivi-chargement";
 import { json, vider } from "../aides";
 import { OIDC as OIDC_BASE, clic, demonter, el, etat as etatAide, monter } from "./rattachement-aide";
@@ -125,6 +131,12 @@ describe("tiroir SSO : réglages", () => {
     expect(await ligne("", "pwd otp")).toBe(AUCUN);
     expect(await ligne("0 urn:gold", "", "urn:gold")).toBe(AUCUN);
     expect(await ligne("1", "pwd", "", true)).toBe(AUCUN);
+    const TOUJOURS =
+      "⚠ Administrateurs toujours refusés : aucun des niveaux exigés (acr) n'est déclaré comme second facteur, et aucune méthode forte (amr) n'est exigée.";
+    expect(await ligne("loa-2", "", "loa-5", true)).toBe(TOUJOURS);
+    expect(await ligne("1 2", "pwd", "3", true)).toBe(TOUJOURS);
+    expect(await ligne("loa-2", "otp", "loa-5", true)).toBe(`${ADMINS} avec acr loa-2 et amr otp.`);
+    expect(await ligne("loa-2", "", "loa-5")).toBe(AUCUN);
     const avance = document.querySelector("details[data-section-tiroir='avance']");
     for (const id of ["#ent-acr", "#ent-mfa-acr"]) {
       expect(avance?.querySelector(id), id).toBeNull();
@@ -133,6 +145,25 @@ describe("tiroir SSO : réglages", () => {
     expect(document.querySelector("[data-aide-mfa-acr]")?.textContent?.trim()).toBe(
       "Ceux que votre fournisseur ne délivre qu'après un second facteur.",
     );
+  });
+
+  it("section 4 : les trois champs du second facteur l'un sous l'autre, pleine largeur, dans l'ordre, chacun avec son aide écrite", async () => {
+    const m = monter(etat({ providers: [OIDC] }));
+    await ouvrir(m);
+    const acces = document.querySelector("[data-section-tiroir='acces']")!;
+    const champs = [...acces.querySelectorAll<HTMLElement>("[data-champ-acces]")];
+    expect(champs.map((c) => c.dataset["champAcces"])).toEqual(["required_acr", "mfa_acr", "required_amr"]);
+    for (const c of champs) {
+      expect(c.parentElement, c.dataset["champAcces"]).toBe(acces);
+      expect(c.closest(".grid"), c.dataset["champAcces"]).toBeNull();
+      const champ = c.querySelector("input")!;
+      expect(c.querySelector(`label[for='${champ.id}']`)?.textContent?.trim()).toMatch(/\((acr|amr)\)$/u);
+      const aide = champ.getAttribute("aria-describedby")!.split(" ");
+      expect(aide).toContain("ent-second-facteur");
+      const propre = document.getElementById(aide[0] ?? "");
+      expect(propre?.parentElement, champ.id).toBe(c);
+      expect(propre?.textContent?.trim().length, champ.id).toBeGreaterThan(10);
+    }
   });
 
   it("le champ des niveaux qui prouvent un second facteur est relu des réglages et part dans le corps, vide compris", async () => {
@@ -210,7 +241,7 @@ describe("tiroir SSO : essai de connexion", () => {
       "Cette personne se connecterait au compte alice.",
     );
     const liste = document.querySelector("[data-revendications]")!;
-    expect(liste.textContent).toContain("groupes absents");
+    expect(liste.textContent).toContain("groupes absents ou illisibles");
     expect(liste.textContent).toContain("alice@example.lan (vérifié)");
     expect(liste.querySelector("b")).toBeNull();
     expect(document.querySelector("[data-avertissement-essai]")?.textContent).toBe("Groupes tronqués.");
@@ -249,26 +280,110 @@ describe("tiroir SSO : essai de connexion", () => {
     expect(phraseDecision({ outcome: "refuse", username: null, reason: "not_in_group" })).toBe(
       "Connexion refusée : la personne n'est dans aucun groupe requis.",
     );
-    expect(phraseDecision({ outcome: "refuse", username: null, reason: "<i>x</i>" })).toBe(
+    expect(phraseDecision({ outcome: "refuse", username: null, reason: "<i>x</i>" as never })).toBe(
       "Connexion refusée : cause non précisée.",
     );
     expect(phraseDecision({ outcome: "refuse", username: null, reason: "groups_unknown" })).toBe(
-      "Connexion refusée : groupes absents (aucune liste de groupes reçue pour cette personne).",
+      "Connexion refusée : groupes absents ou illisibles (aucune liste de groupes lisible reçue pour cette personne).",
     );
   });
 
-  it("les revendications disent si le jeton prouve un second facteur, et si le niveau `acr` reçu le prouve", () => {
-    const ligne = (c: Partial<NonNullable<ResultatEssaiBlanc["claims"]>>) =>
-      new Map(lignesRevendications({ ...RESULTAT.claims, ...c })).get("Second facteur");
+  it("chaque raison que le serveur peut rendre à l'essai (liste fermée des contrats) a sa phrase dans la console ; une raison hors liste ne passe pas le schéma", () => {
+    expect(Object.keys(RAISONS_ESSAI_PHRASES).sort()).toEqual([...new Set(RAISONS_ESSAI)].sort());
+    for (const reason of RAISONS_ESSAI)
+      for (const outcome of ["refuse", "error"] as const) {
+        const p = phraseDecision({ outcome, username: null, reason });
+        expect(p, reason).not.toContain("cause non précisée");
+        expect(p, reason).toContain(RAISONS_ESSAI_PHRASES[reason]);
+      }
+    for (const reason of ["account_conflict", "name_invalid", "issuer_mismatch", "prelink_invalid"])
+      expect(RAISONS_ESSAI, reason).toContain(reason);
+    const brut = {
+      ...RESULTAT,
+      decision: { outcome: "refuse", username: null, reason: "texte du fournisseur" },
+    };
+    expect(schemaResultatEssaiBlanc.safeParse(brut).success).toBe(false);
+  });
+
+  it("échecs techniques : la cause, l'action à faire et la section où la faire, sans détail interne", () => {
+    const phrase = (reason: ResultatEssaiBlanc["decision"]["reason"]) =>
+      phraseDecision({ outcome: "error", username: null, reason });
+    expect(phrase("client_auth_rejected")).toBe(
+      "L'essai a échoué : le fournisseur refuse l'authentification du client ; vérifiez le secret client (section 3) et la méthode d'authentification du client (token_endpoint_auth_method, section 6) tels que réglés chez le fournisseur.",
+    );
+    expect(phrase("aud_untrusted")).toContain("retirez chez le fournisseur les audiences ajoutées");
+    expect(phrase("alg_unexpected")).toContain("section 6 (id_token_signed_response_alg)");
+    expect(phrase("secret_missing")).toContain("section 3");
+    expect(phrase("code_rejected")).toContain("adresse de retour déclarée chez lui (section 2)");
+    expect(phrase("token_mismatch")).toContain("issuer, section 1");
+    expect(phrase("settings_changed")).toContain("relancez « Se connecter pour essayer »");
+    for (const r of RAISONS_ESSAI)
+      expect(RAISONS_ESSAI_PHRASES[r], r).not.toMatch(/lib:|OAUTH_|token_endpoint:|cause_/u);
+  });
+
+  it("décisions de compte : rattachement préparé avec preuve ou dispense, refus pour un compte nommé", () => {
+    expect(phraseDecision({ outcome: "proof", username: "homonyme", reason: null })).toBe(
+      "Cette personne devrait d'abord saisir l'ancien mot de passe du compte homonyme pour s'y rattacher ; à cette première connexion, ses droits ne peuvent que baisser.",
+    );
+    expect(phraseDecision({ outcome: "link", username: "jean", reason: null })).toBe(
+      "Cette personne serait rattachée au compte jean sans ancien mot de passe (dispense), puis connectée.",
+    );
+    expect(phraseDecision({ outcome: "refuse", username: "alice", reason: "suspended" })).toBe(
+      "Connexion refusée pour le compte alice : le compte est suspendu.",
+    );
+    expect(phraseDecision({ outcome: "refuse", username: "homonyme", reason: "account_conflict" })).toBe(
+      "Connexion refusée pour le compte homonyme : un compte local porte déjà ce nom ; préparez son rattachement (carte « 3. Comptes existants »).",
+    );
+  });
+
+  it("refus : aucun rôle annoncé (les droits d'un refus ne sont pas rendus)", () => {
+    expect(lignesDroits(null)).toEqual([]);
+    const lisible = {
+      roles_enabled: true,
+      groups_enabled: false,
+      readable: false,
+      role: null,
+      groups: [],
+      missing_group_ids: [],
+      admin_ignored: false,
+    };
+    expect(lignesDroits(lisible)).toEqual([
+      "Groupes absents ou illisibles : aucun rôle ni groupe ne serait modifié.",
+    ]);
+  });
+
+  it("les revendications disent si le jeton prouve un second facteur et, sinon, ce qui manque selon les réglages", () => {
+    const AMR = { required_acr: [], required_amr: ["pwd", "otp"], mfa_acr: [] };
+    const ACR = { required_acr: ["loa-2", "loa-5"], required_amr: [], mfa_acr: ["loa-5"] };
+    const LES_DEUX = { required_acr: [], required_amr: ["otp"], mfa_acr: ["loa-5"] };
+    const RIEN = { required_acr: [], required_amr: [], mfa_acr: [] };
+    const ligne = (
+      c: Partial<NonNullable<ResultatEssaiBlanc["claims"]>>,
+      e: Parameters<typeof lignesRevendications>[1] = ACR,
+    ) => new Map(lignesRevendications({ ...RESULTAT.claims, ...c }, e)).get("Second facteur");
     expect(ligne({ acr: "loa-5", second_factor: "acr" })).toBe("prouvé par le niveau acr");
-    expect(ligne({ acr: "1", amr: ["pwd", "otp"], second_factor: "amr" })).toBe(
+    expect(ligne({ acr: "1", amr: ["pwd", "otp"], second_factor: "amr" }, AMR)).toBe(
       "prouvé par les méthodes amr",
     );
     expect(ligne({ acr: "loa-2", second_factor: null })).toBe(
-      "non prouvé : ce niveau acr n'est pas déclaré comme second facteur",
+      "non prouvé : le niveau acr reçu n'est pas déclaré comme second facteur",
     );
-    expect(ligne({ acr: null, second_factor: null })).toBe("non prouvé");
-    expect(new Map(lignesRevendications(RESULTAT.claims)).get("Groupes")).toBe("groupes absents");
+    expect(ligne({ acr: null, second_factor: null })).toBe("non prouvé : aucun niveau acr reçu");
+    expect(ligne({ acr: "1", amr: ["pwd"], second_factor: null }, AMR)).toBe(
+      "non prouvé : les méthodes amr reçues ne suffisent pas (mfa, mca, ou deux familles comme pwd et otp)",
+    );
+    expect(ligne({ acr: "1", amr: [], second_factor: null }, AMR)).toBe(
+      "non prouvé : aucune méthode amr reçue",
+    );
+    expect(ligne({ acr: "1", amr: ["pwd"], second_factor: null }, LES_DEUX)).toBe(
+      "non prouvé : ni niveau acr déclaré, ni méthodes amr qui suffisent",
+    );
+    expect(ligne({ acr: "1", second_factor: null }, RIEN)).toBe(
+      "non prouvé : aucun second facteur n'est demandé à ce fournisseur (section 4)",
+    );
+    expect(new Map(lignesRevendications(RESULTAT.claims, ACR)).get("Groupes")).toBe(
+      "groupes absents ou illisibles",
+    );
   });
 
   it("409 : détail affiché ; 409 avec canonical : phrase dédiée", async () => {

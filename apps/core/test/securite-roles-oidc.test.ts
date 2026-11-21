@@ -845,7 +845,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("rôles et groupes par le SSO
     const f = b.fournisseur;
     const retour = (groupes: string[] | null, secondFacteur = true) =>
       ({
-        profil: { subject: "s", issuer: `oidc:${f.issuer}`, extUsername: "s" },
+        profil: { subject: "s", issuer: `oidc:${f.issuer}`, extUsername: "sujet-s" },
         appartenance: "oui",
         vue: {
           iss: f.issuer,
@@ -894,7 +894,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("rôles et groupes par le SSO
       b.t.base,
       b.fournisseur,
       {
-        profil: { subject: "s", issuer: "i", extUsername: "s" },
+        profil: { subject: "s", issuer: "i", extUsername: "sujet-s" },
         appartenance: "oui",
         vue: {
           iss: "",

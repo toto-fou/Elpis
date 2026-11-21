@@ -377,7 +377,7 @@ describe("lignesDroits", () => {
   });
   it("groupes absents : aucune autre ligne de droits", () => {
     expect(lignesDroits({ ...DROITS, readable: false })).toEqual([
-      "Groupes absents : aucun rôle ni groupe ne serait modifié.",
+      "Groupes absents ou illisibles : aucun rôle ni groupe ne serait modifié.",
     ]);
   });
   it("administrateurs ignorés et groupes Elpis disparus", () => {

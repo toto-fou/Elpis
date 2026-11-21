@@ -276,13 +276,20 @@ export function creerLecturesAudit(
 let commun: AgregatAudit | null = null;
 let lectures: AgregatAudit | null = null;
 
-/** Événement d'une rafale possible (refus répétés), agrégé par action et `cle` dans l'agrégat du process ; résumés écrits avant `audit.writer.stop`. */
+/** Clé d'agrégation : action, `cle` de l'appelant, puis cause (`reason`) et fournisseur (`provider_id`) de l'événement, pour ne jamais fondre deux refus de causes différentes. */
+export function cleRafale(cle: string, e: EvenementAudit): string {
+  const d = detailsObjet(e.details);
+  const champ = (v: unknown): string | null => (typeof v === "string" ? texteBorne(v, 128) : null);
+  return `${e.action}|${cle}|${JSON.stringify([champ(d["reason"]), champ(d["provider_id"])])}`;
+}
+
+/** Événement d'une rafale possible (refus répétés), agrégé par action, `cle`, cause et fournisseur dans l'agrégat du process ; résumés écrits avant `audit.writer.stop`. */
 export function auditRafale(cle: string, e: EvenementAudit): void {
   if (!commun) {
     commun = creerAgregatAudit();
     avantArretAudit(() => commun?.vider());
   }
-  commun.signaler(`${e.action}|${cle}`, e);
+  commun.signaler(cleRafale(cle, e), e);
 }
 
 /** Lecture d'un admin (recherche dans le journal) dédupliquée par action et `cle` dans la minute, hors des quotas des refus ; résumés écrits avant `audit.writer.stop`. */

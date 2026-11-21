@@ -169,6 +169,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur OIDC", () => {
     const publier = (keys: unknown[]): void => {
       idp.jeuDeCles = { keys };
     };
+    idp.decouverte = { id_token_signing_alg_values_supported: ["ES256", "RS256", "EdDSA"] };
     try {
       publier([jwk("rsa", { modulusLength: 1024 })]);
       expect((await tester({ id_token_alg: "RS256" })).par["jwks"]).toBe("fail");
@@ -178,15 +179,72 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur OIDC", () => {
       expect((await tester({ id_token_alg: "RS256" })).par["jwks"]).toBe("fail");
       publier([jwk("rsa", { modulusLength: 2048, extra: { key_ops: ["encrypt"] } })]);
       expect((await tester({ id_token_alg: "RS256" })).par["jwks"]).toBe("fail");
-      publier([jwk("ed448")]);
+      publier([jwk("ed448", { extra: { alg: "EdDSA" } })]);
       expect((await tester({ id_token_alg: "EdDSA" })).par["jwks"]).toBe("fail");
-      publier([jwk("ed25519")]);
+      publier([jwk("ed25519", { extra: { alg: "EdDSA" } })]);
       expect((await tester({ id_token_alg: "EdDSA" })).par["jwks"]).toBe("ok");
       publier([jwk("ec", { namedCurve: "P-384" })]);
       expect((await tester({ id_token_alg: "ES256" })).par["jwks"]).toBe("fail");
     } finally {
       idp.jeuDeCles = null;
+      idp.decouverte = {};
     }
+  });
+
+  it("clés : l'étape dit les algorithmes annoncés et l'algorithme ou le type de chaque clé ; échec clair si l'algorithme réglé n'est ni annoncé ni porté par une clé, jamais « clé RS384 lisible » pour une clé RSA sans algorithme", async () => {
+    const { publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const rsa = publicKey.export({ format: "jwk" });
+    const detail = (r: Awaited<ReturnType<typeof tester>>): string =>
+      r.steps.find((e) => e.id === "jwks")?.detail ?? "";
+    try {
+      idp.jeuDeCles = { keys: [rsa] };
+      idp.decouverte = { id_token_signing_alg_values_supported: ["RS256", "none", "HS256", "<b>x</b>"] };
+      const piege = await tester({ id_token_alg: "RS384" });
+      expect(piege.par["jwks"]).toBe("fail");
+      expect(detail(piege)).toBe(
+        "L'algorithme réglé (RS384) n'est ni annoncé par le fournisseur ni porté par une de ses clés. Annoncés par le fournisseur : RS256. Clés publiées : 1 RSA sans algorithme. Choisissez dans « Signature du jeton (id_token_signed_response_alg) », section 6, celui du client chez le fournisseur.",
+      );
+      expect(detail(piege)).not.toMatch(/RS384 lisible|<b>/u);
+      const defaut = await tester({ id_token_alg: "RS256" });
+      expect(defaut.par["jwks"]).toBe("ok");
+      expect(detail(defaut)).toContain(
+        "Aucune clé ne déclare son algorithme : 1 clé(s) RSA utilisable(s) en RS256",
+      );
+      idp.decouverte = { id_token_signing_alg_values_supported: ["RS256", "RS384"] };
+      const douteux = await tester({ id_token_alg: "RS384" });
+      expect(douteux.par["jwks"]).toBe("warn");
+      expect(douteux.ok).toBe(true);
+      expect(detail(douteux)).toContain("Vérifiez-le avec « Se connecter pour essayer ».");
+      idp.jeuDeCles = {
+        keys: [
+          { ...rsa, alg: "RS384" },
+          { ...rsa, kid: "b", alg: "RS256" },
+        ],
+      };
+      idp.decouverte = { id_token_signing_alg_values_supported: ["RS256"] };
+      const porte = await tester({ id_token_alg: "RS384" });
+      expect(porte.par).toMatchObject({ jwks: "ok", algorithms: "fail" });
+      expect(detail(porte)).toBe(
+        "1 clé(s) de signature RS384 lisible(s). Annoncés par le fournisseur : RS256. Clés publiées : 1 RS384, 1 RS256.",
+      );
+    } finally {
+      idp.jeuDeCles = null;
+      idp.decouverte = {};
+    }
+  });
+
+  it("secret saisi mais pas encore enregistré : avertissement qui renvoie à « Se connecter pour essayer », pas un échec ; enregistré et saisi : le saisi le remplacera", async () => {
+    const r = await tester({ secret_entered: true }, null);
+    expect(r.par["secret"]).toBe("warn");
+    expect(r.ok).toBe(true);
+    expect(r.steps.find((e) => e.id === "secret")?.detail).toBe(
+      "Secret client saisi, pas encore enregistré : enregistrez le fournisseur, puis « Se connecter pour essayer » le vérifiera.",
+    );
+    expect((await tester({ secret_entered: false }, null)).par["secret"]).toBe("fail");
+    expect((await tester({ secret_entered: "oui" }, null)).par["secret"]).toBe("fail");
+    const remplace = await tester({ secret_entered: true });
+    expect(remplace.par["secret"]).toBe("ok");
+    expect(remplace.steps.find((e) => e.id === "secret")?.detail).toContain("le remplacera");
   });
 });
 

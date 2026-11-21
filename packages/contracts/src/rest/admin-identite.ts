@@ -27,13 +27,28 @@ export interface ExigencesSecondFacteur {
   readonly mfa_acr: readonly string[];
 }
 
-/** Vrai si le fournisseur est invité à un second facteur : `amr` exigé `mfa`, `mca`, de possession ou d'inhérence, ou au moins un niveau `acr` déclaré comme preuve. */
-export function secondFacteurDemande(e: ExigencesSecondFacteur): boolean {
-  const fort = (m: string): boolean => {
+/** Vrai si une méthode `amr` exigée est `mfa`, `mca`, de possession ou d'inhérence. */
+export function amrFortExige(e: ExigencesSecondFacteur): boolean {
+  return e.required_amr.some((brut) => {
+    const m = amrNormal(brut);
     const f = FAMILLES_AMR.get(m);
     return AMR_MULTI_FACTEUR.has(m) || (f !== undefined && f !== "connaissance");
-  };
-  return e.required_amr.some((m) => fort(amrNormal(m))) || e.mfa_acr.length > 0;
+  });
+}
+
+/** Vrai si le fournisseur est invité à un second facteur : `amr` exigé `mfa`, `mca`, de possession ou d'inhérence, ou au moins un niveau `acr` déclaré comme preuve. */
+export function secondFacteurDemande(e: ExigencesSecondFacteur): boolean {
+  return amrFortExige(e) || e.mfa_acr.length > 0;
+}
+
+/** Vrai si les groupes d'administrateurs agissent mais qu'aucun niveau exigé n'est déclaré comme preuve et qu'aucune méthode forte n'est exigée : tout administrateur est alors refusé. */
+export function adminsToujoursRefuses(e: ExigencesSecondFacteur): boolean {
+  return (
+    secondFacteurDemande(e) &&
+    !amrFortExige(e) &&
+    e.required_acr.length > 0 &&
+    !e.required_acr.some((a) => e.mfa_acr.includes(a))
+  );
 }
 
 /** Vrai si tout jeton admis à la connexion prouve un second facteur (une seule valeur listée suffit à entrer) : chaque `acr` exigé est déclaré comme preuve, ou chaque `amr` exigé est `mfa` ou `mca`. */
@@ -137,7 +152,7 @@ export const schemaCorpsMajFournisseur = z.record(z.string(), z.unknown());
 /** Secret du fournisseur : texte vide pour le supprimer. */
 export const schemaCorpsSecretFournisseur = z.object({ secret: z.string() });
 
-/** Test d'un fournisseur : ses réglages tels que le formulaire les contient, enregistrés ou non. */
+/** Test d'un fournisseur : ses réglages tels que le formulaire les contient, enregistrés ou non ; `secret_entered: true` dit qu'un secret est saisi sans être enregistré (le secret lui-même n'est jamais envoyé). */
 export const schemaCorpsEssaiFournisseur = z.record(z.string(), z.unknown());
 /** Étapes ordonnées du test ; `target` est `hôte:port` quand l'étape vise une adresse . */
 export const schemaReponseEssaiFournisseur = z.object({

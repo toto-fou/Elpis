@@ -304,8 +304,10 @@ const phraseEtat = computed(() => {
               <li v-for="p in adm.prelinks" :key="p.id" data-prelink>
                 <div class="flex items-center gap-2 min-w-0">
                   <div class="min-w-0 flex-1 text-xs">
-                    <span class="font-medium">{{ p.username ?? "Compte supprimé" }}</span>
-                    <span class="font-mono text-slate-500"> {{ p.expected }}</span>
+                    <span class="font-medium">{{ p.username ?? "Compte supprimé" }}</span
+                    ><span class="text-slate-500" data-prelink-attendu
+                      >{{ " · identifiant attendu : " }}<span class="font-mono">{{ p.expected }}</span></span
+                    >
                     <div class="adm-card__hint">
                       {{ p.waiver ? "Sans ancien mot de passe · " : "" }}Échéance :
                       {{ heureCourte(p.expires_at) }}

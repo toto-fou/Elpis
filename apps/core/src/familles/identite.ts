@@ -420,11 +420,23 @@ export function creerFamilleIdentite(dep: DependancesIdentite): Famille {
         dep.journal.warn({ err: e }, `déconnexion SSO ${f.id} : flux non fermés`);
       }
     }
-    auditerRequete(req, "auth.oidc.backchannel_logout", {
-      provider_id: f.id,
-      sessions: fermees.length,
-      by: jeton.sid !== null ? "sid" : "sub",
-    });
+    const parCompte = new Map<number, number>();
+    for (const s of fermees) parCompte.set(s.uid, (parCompte.get(s.uid) ?? 0) + 1);
+    const par = jeton.sid !== null ? "sid" : "sub";
+    if (parCompte.size === 0)
+      auditerRequete(req, "auth.oidc.backchannel_logout", {
+        provider_id: f.id,
+        sessions: 0,
+        by: par,
+        target_user_id: null,
+      });
+    for (const [uid, sessions] of parCompte)
+      auditerRequete(
+        req,
+        "auth.oidc.backchannel_logout",
+        { provider_id: f.id, sessions, by: par, target_user_id: uid },
+        { userId: uid, username: await nomDe(uid) },
+      );
     return rep.code(200).send();
   }
 

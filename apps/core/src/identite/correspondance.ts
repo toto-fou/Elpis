@@ -108,13 +108,34 @@ export function decider(f: Fournisseur, groupes: readonly string[] | null): Deci
 /** Ce qu'un compte obtiendrait, tel que l'essai le montre. */
 export type ApercuDroits = NonNullable<ResultatEssaiBlanc["rights"]>;
 
-/** Aperçu des droits d'une lecture : lecture seule de la base, jamais d'écriture. */
+/** Aperçu des droits d'une lecture : lecture seule de la base, jamais d'écriture ; `retraitDe` : compte dont cette connexion ne peut que baisser le rôle et retirer des groupes (première connexion après la preuve du titulaire). */
 export async function apercuDroits(
   x: Executeur,
   f: Fournisseur,
   groupes: readonly string[] | null,
+  retraitDe: number | null = null,
 ): Promise<ApercuDroits> {
-  const d = decider(f, groupes);
+  const lu = decider(f, groupes);
+  let d = lu;
+  if (lu !== null && retraitDe !== null) {
+    const actuel = roleDuNiveau(
+      Number(
+        (await x.get<{ is_admin: unknown }>("SELECT is_admin FROM users WHERE id=?", [retraitDe]))?.is_admin,
+      ),
+    );
+    const membre = new Set(
+      (await x.valeurs<[unknown]>("SELECT group_id FROM user_groups WHERE user_id=?", [retraitDe])).map(
+        ([g]) => Number(g),
+      ),
+    );
+    d = {
+      role: lu.role !== null && estPlusHaut(lu.role, actuel) ? actuel : lu.role,
+      groupes:
+        lu.groupes === null
+          ? null
+          : new Map([...lu.groupes].map(([g, doit]): [number, boolean] => [g, doit && membre.has(g)])),
+    };
+  }
   const ids = groupesActifs(f) ? [...new Set(f.group_map.map.map((m) => m.group_id))] : [];
   const connus = new Map<number, string>();
   if (ids.length > 0)

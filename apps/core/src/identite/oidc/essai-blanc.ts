@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/oidc/essai-blanc.ts — essai à blanc d'un fournisseur : revendications d'une liste blanche et décision qui serait prise, rangées pour l'administrateur ; n'importe ni la résolution d'identité ni l'ouverture de session, ne crée aucun compte. */
-import type { ResultatEssaiBlanc } from "@elpis/contracts";
+/** apps/core/src/identite/oidc/essai-blanc.ts — essai à blanc d'un fournisseur : revendications d'une liste blanche et décision qui serait prise, celle de la connexion (même preuve d'administrateur, même décision de compte en lecture seule), rangées pour l'administrateur ; n'importe ni la résolution d'identité ni l'ouverture de session, ne crée aucun compte. */
+import type { RaisonEssai, ResultatEssaiBlanc } from "@elpis/contracts";
 import type { Executeur } from "@elpis/db";
 
 import { adminSansPreuve, apercuDroits } from "../correspondance";
-import { nomDerive, nomPris } from "../nom";
+import { deciderIdentite } from "../decision";
 import type { Fournisseur } from "../reglages";
 import type { RetourVerifie } from "./echange";
 import type { RefusOidc } from "./refus";
@@ -14,32 +14,43 @@ export const RAISON_REGLAGES_CHANGES = "settings_changed";
 const AVERTISSEMENT_SUJET =
   "Le sujet est égal à l'identifiant : un identifiant réattribué hériterait du compte. Choisissez une autre revendication pour le sujet.";
 
+type Decision = ResultatEssaiBlanc["decision"];
+
+/** Décision de la connexion pour ce retour, et le compte dont les droits ne pourraient que baisser (preuve du titulaire). */
 async function decider(
   x: Executeur,
   f: Fournisseur,
   r: RetourVerifie,
-): Promise<ResultatEssaiBlanc["decision"]> {
-  const refuse = (reason: string): ResultatEssaiBlanc["decision"] => ({
-    outcome: "refuse",
-    username: null,
-    reason,
+  maintenant: number,
+): Promise<{ decision: Decision; retraitDe: number | null }> {
+  const issue = (
+    outcome: Decision["outcome"],
+    username: string | null,
+    reason: RaisonEssai | null = null,
+  ) => ({
+    decision: { outcome, username, reason },
+    retraitDe: null,
   });
-  if (r.appartenance === "inconnu") return refuse("groups_unknown");
-  if (r.appartenance === "non") return refuse("not_in_group");
-  if (adminSansPreuve(f, r.groupesComplets, r.secondFacteur)) return refuse("mfa_required");
-  const connu = await x.get<{ username: string; issuer: string }>(
-    "SELECT u.username, i.issuer FROM user_identities i JOIN users u ON u.id=i.user_id WHERE i.provider_id=? AND i.subject=?",
-    [f.id, r.profil.subject],
-  );
-  if (connu !== undefined)
-    return connu.issuer === r.profil.issuer
-      ? { outcome: "login", username: String(connu.username), reason: null }
-      : refuse("issuer_mismatch");
-  if (r.profil.identifiantFiable === false) return refuse("name_invalid");
-  const nom = nomDerive(r.profil.extUsername);
-  if (nom === null) return refuse("name_invalid");
-  if (await nomPris(x, nom)) return refuse("account_conflict");
-  return { outcome: "create", username: nom, reason: null };
+  if (adminSansPreuve(f, r.groupesComplets, r.secondFacteur)) return issue("refuse", null, "mfa_required");
+  const p = await deciderIdentite(x, {
+    fournisseur: f,
+    profil: r.profil,
+    appartenance: r.appartenance,
+    maintenant,
+    instant: () => maintenant,
+  });
+  switch (p.type) {
+    case "refus":
+      return issue("refuse", p.compte, p.raison);
+    case "connu":
+      return issue("login", p.compte);
+    case "dispense":
+      return issue("link", p.compte);
+    case "preuve":
+      return { ...issue("proof", p.compte), retraitDe: p.uid };
+    case "creation":
+      return issue("create", p.compte);
+  }
 }
 
 /** Résultat d'un essai à blanc : lecture seule de la base, aucun écrit ici. */
@@ -51,10 +62,11 @@ export async function resultatEssaiBlanc(
 ): Promise<ResultatEssaiBlanc> {
   const warnings: string[] = [];
   if (r.vue.sujetEstIdentifiant) warnings.push(AVERTISSEMENT_SUJET);
-  const decision = await decider(x, f, r);
+  const { decision, retraitDe } = await decider(x, f, r, maintenant);
+  const entre = decision.outcome !== "refuse";
   return {
     at: maintenant,
-    ok: decision.outcome === "login" || decision.outcome === "create",
+    ok: entre,
     claims: {
       iss: r.vue.iss,
       subject: r.vue.sujet,
@@ -68,21 +80,45 @@ export async function resultatEssaiBlanc(
       groups: r.vue.groupes,
     },
     decision,
-    rights: await apercuDroits(x, f, r.groupesComplets),
+    rights: entre ? await apercuDroits(x, f, r.groupesComplets, retraitDe) : null,
     warnings,
   };
 }
 
-/** Résultat d'un essai à blanc qui a échoué : le code de refus, ou `settings_changed` ; rien d'autre. */
+/** Cause d'un échec rendue à la console : celles qui disent quoi corriger, sinon le code de la connexion. */
+const CAUSES: Readonly<Record<string, RaisonEssai>> = {
+  [RAISON_REGLAGES_CHANGES]: "settings_changed",
+  client_secret_missing: "secret_missing",
+  client_auth_rejected: "client_auth_rejected",
+  alg_unexpected: "alg_unexpected",
+  "lib:OAUTH_KEY_SELECTION_FAILED": "signing_key",
+  aud_untrusted: "aud_untrusted",
+  azp_mismatch: "token_mismatch",
+  iss_mismatch: "token_mismatch",
+  iat_in_future: "clock",
+  "lib:OAUTH_JWT_TIMESTAMP_CHECK_FAILED": "clock",
+  subject_invalid: "subject_invalid",
+  id_token_missing: "id_token_missing",
+};
+
+/** Raison d'un essai qui n'a pas abouti, d'une liste fermée ; jamais un texte du fournisseur. */
+export function raisonDEchec(refus: RefusOidc): RaisonEssai {
+  const cause = refus.cause_;
+  if (Object.hasOwn(CAUSES, cause)) return CAUSES[cause] ?? refus.code;
+  if (cause.startsWith("token_endpoint:")) return "code_rejected";
+  return refus.code;
+}
+
+/** Résultat d'un essai à blanc qui a échoué : la raison seulement ; un second facteur non prouvé est un refus de la personne, pas une panne. */
 export function resultatEssaiEchoue(refus: RefusOidc, maintenant: number): ResultatEssaiBlanc {
   return {
     at: maintenant,
     ok: false,
     claims: null,
     decision: {
-      outcome: "error",
+      outcome: refus.code === "mfa_required" ? "refuse" : "error",
       username: null,
-      reason: refus.cause_ === RAISON_REGLAGES_CHANGES ? RAISON_REGLAGES_CHANGES : refus.code,
+      reason: raisonDEchec(refus),
     },
     rights: null,
     warnings: [],

@@ -4,9 +4,10 @@ import { readFileSync } from "node:fs";
 
 import { createUser } from "@elpis/auth";
 import { schemaReponseDernierEssai, schemaReponseLancementEssai } from "@elpis/contracts";
+import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { secretFournisseur, testReussiCourant } from "../src/identite/fournisseurs";
+import { enregistrerSecret, secretFournisseur, testReussiCourant } from "../src/identite/fournisseurs";
 import { lignesAuditRecentes, lignesJournal } from "./aides";
 import { CA_PEM } from "./identite/aides";
 import { MOTEURS } from "./identite/banc";
@@ -23,7 +24,7 @@ import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 
 interface Lancement {
   ok: boolean;
-  steps: { id: string; level: string }[];
+  steps: { id: string; level: string; detail: string }[];
   url: string | null;
 }
 
@@ -183,8 +184,64 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     const { retour } = await parcours();
     expect(retour.statusCode).toBe(200);
     const g = (await lire()).json<{ result: Record<string, unknown> }>().result;
-    expect(g).toMatchObject({ ok: false, claims: null, decision: { outcome: "error", reason: "failed" } });
+    expect(g).toMatchObject({
+      ok: false,
+      claims: null,
+      decision: { outcome: "error", reason: "alg_unexpected" },
+    });
     expect(await testReussiCourant(b.t.base, b.fournisseur, URL_PUBLIQUE)).toBe(false);
+    await sansCompte();
+    b.idp.pieges = { signerAvecAutreCle: true };
+    await parcours();
+    expect((await lire()).json<{ result: { decision: unknown } }>().result.decision).toEqual({
+      outcome: "error",
+      username: null,
+      reason: "failed",
+    });
+  });
+
+  it("échec technique : une raison de la liste fermée qui dit quoi corriger (secret ou méthode du client, audience, algorithme, émetteur), jamais un texte du fournisseur", async () => {
+    const raison = async (): Promise<unknown> => {
+      const g = (await lire()).json<{ result: ResultatEssaiBlanc }>().result;
+      expect(schemaReponseDernierEssai.safeParse({ result: g }).success).toBe(true);
+      expect(g.ok).toBe(false);
+      return g.decision.reason;
+    };
+    for (const azp of [undefined, b.idp.clientId]) {
+      b.idp.pieges = { claims: { aud: [b.idp.clientId, "autre-client"], ...(azp ? { azp } : {}) } };
+      await parcours();
+      expect(await raison(), String(azp)).toBe("aud_untrusted");
+    }
+    b.idp.pieges = { claims: { azp: "autre-client", aud: [b.idp.clientId] } };
+    await parcours();
+    expect(await raison()).toBe("token_mismatch");
+    b.idp.pieges = { claims: { iat: Math.floor(Date.now() / 1000) + 3600 } };
+    await parcours();
+    expect(await raison()).toBe("clock");
+    await enregistrerSecret(b.t.base, b.fournisseur, "secret-refuse-par-le-fournisseur", {
+      userId: null,
+      username: null,
+      ip: null,
+    });
+    await parcours();
+    expect(await raison()).toBe("client_auth_rejected");
+    const brut = String((await lignes("SELECT result_json FROM auth_trials"))[0]?.[0]);
+    expect(brut).not.toContain("secret-refuse-par-le-fournisseur");
+    expect(brut).not.toContain("invalid_client");
+    await sansCompte();
+    await b.fermer();
+    b = await ouvrirBancOidc(moteur, { actif: false, idp: { alg: "RS256" } });
+    admin = await connexionLocale("chef", "mdp-chef-1");
+    const { alg: _alg, ...cleSansAlg } = b.idp.jwkPublic;
+    b.idp.jeuDeCles = { keys: [cleSansAlg] };
+    b.idp.decouverte = { id_token_signing_alg_values_supported: ["RS256", "RS384"] };
+    await b.reglages({ id_token_alg: "RS384" });
+    const { lancement } = await parcours();
+    expect(lancement.steps.find((e) => e.id === "jwks")).toMatchObject({
+      level: "warn",
+      detail: expect.stringContaining("Clés publiées : 1 RSA sans algorithme."),
+    });
+    expect(await raison()).toBe("alg_unexpected");
     await sansCompte();
   });
 
@@ -366,7 +423,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     expect(r.statusCode).toBe(200);
     const g = (await lire()).json<{ result: { ok: boolean; decision: Record<string, unknown> } }>().result;
     expect(g.ok).toBe(false);
-    expect(g.decision).toEqual({ outcome: "error", username: null, reason: "unavailable" });
+    expect(g.decision).toEqual({ outcome: "error", username: null, reason: "secret_missing" });
     await sansCompte();
   });
 

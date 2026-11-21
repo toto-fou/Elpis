@@ -193,7 +193,9 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
       const ev = lignesAuditRecentes({ actionPrefix: "auth.oidc.backchannel_logout" }).find(
         (e) => e["action"] === "auth.oidc.backchannel_logout",
       );
-      expect(ev?.["details"]).toEqual({ provider_id: "sso", sessions: 1, by: "sid" });
+      const jean = Number((await lignes("SELECT id FROM users WHERE username='sub-jean'"))[0]?.[0]);
+      expect(ev?.["details"]).toEqual({ provider_id: "sso", sessions: 1, by: "sid", target_user_id: jean });
+      expect([ev?.["user_id"], ev?.["username"]]).toEqual([jean, "sub-jean"]);
       expect(JSON.stringify(lignesAuditRecentes({ limit: 200 })) + lignesJournal.join("\n")).not.toContain(
         jeton,
       );
@@ -209,7 +211,14 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
       const ev = lignesAuditRecentes({ actionPrefix: "auth.oidc.backchannel_logout" }).find(
         (e) => e["action"] === "auth.oidc.backchannel_logout",
       );
-      expect(ev?.["details"]).toEqual({ provider_id: "sso", sessions: 2, by: "sub" });
+      const jean = Number((await lignes("SELECT id FROM users WHERE username='sub-jean'"))[0]?.[0]);
+      expect(ev?.["details"]).toEqual({ provider_id: "sso", sessions: 2, by: "sub", target_user_id: jean });
+      expect([ev?.["user_id"], ev?.["username"]]).toEqual([jean, "sub-jean"]);
+      expect(
+        lignesAuditRecentes({ actionPrefix: "auth.oidc.backchannel_logout" }).filter(
+          (e) => e["action"] === "auth.oidc.backchannel_logout",
+        ),
+      ).toHaveLength(1);
     });
 
     it("aucune session correspondante : 200 quand même", async () => {
@@ -223,6 +232,15 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("déconnexion OIDC (%s)", (mo
         expect(r.headers["cache-control"]).toBe("no-store");
       }
       expect(await vivante(a)).toBe(true);
+      const evs = lignesAuditRecentes({ actionPrefix: "auth.oidc.backchannel_logout" }).filter(
+        (e) => e["action"] === "auth.oidc.backchannel_logout",
+      );
+      expect(
+        evs.map((e) => [e["user_id"], (e["details"] as Record<string, unknown>)["target_user_id"]]),
+      ).toEqual([
+        [null, null],
+        [null, null],
+      ]);
     });
 
     it("jamais la session d'un autre fournisseur ni celle d'un compte local", async () => {

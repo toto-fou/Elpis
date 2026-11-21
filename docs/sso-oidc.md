@@ -97,9 +97,10 @@ and each address to declare is replaced, in the same place, by what is missing u
    authority: changing either asks for it again.
 6. **4. Accès** (Access): the **Groupes requis** (Required groups): at least one is needed to switch on, and
    only the members of one of them can sign in. Type a group and press `Enter` or **Ajouter**. Then the second
-   factor, **Niveaux exigés (acr)**, **Niveaux qui prouvent un second facteur (acr)** and **Méthodes exigées
-   (amr)**, with a fixed line under them that says who must prove a second factor: all accounts, the
-   administrators only, or nobody. See [Requiring a second factor](#requiring-a-second-factor).
+   factor, one field under the other, each with its help line: **Niveaux exigés (acr)**, **Niveaux qui
+   prouvent un second facteur (acr)** and **Méthodes exigées (amr)**, with a fixed line under them that says
+   who must prove a second factor: all accounts, the administrators only, or nobody (or that administrators
+   will always be refused). See [Requiring a second factor](#requiring-a-second-factor).
 7. **5. Rôles et groupes** (Roles and groups, folded, off by default) and **6. Avancé** (Advanced, folded):
    see below.
 8. **7. Vérification** (Verification): **a. Contrôler les réglages** (Check the settings; see [What the check
@@ -131,7 +132,8 @@ deleted: detach them first.
 ### What the check covers
 
 **Contrôler les réglages** checks the settings shown, saved or not, and only reads; its result goes away as
-soon as one of the checked settings changes (the secret is not used). Steps are listed with their level.
+soon as one of the checked settings changes. The secret typed is never sent to the check: it only learns that
+a secret is typed and not saved yet. Steps are listed with their level.
 **Réglages** (valid settings), **Prérequis** (public address, secure session cookie,
 local administrator), **Résolution** (name resolves), **Adresse** (allowed address, with a warning when it is
 the address of the Elpis host itself), **Certificat** (TLS 1.2 or later, trusted, valid; a warning below 30
@@ -139,8 +141,13 @@ days left).
 
 - **Découverte** (the discovery document at the issuer address, whose `issuer` must match
   exactly), **Horloge**, **Points d'accès** (endpoints on the same origin as the issuer), **Algorithmes**,
-  **Clés de signature** (a signing key of the configured algorithm is published; RSA keys of 2048 bits at
-  least), **Authentification** (client authentication method announced), **Secret**, and warnings:
+  **Clés de signature** (it lists the algorithms the provider announces and the algorithm, or the key type,
+  of each published key; it fails when the configured algorithm is neither announced nor carried by a key,
+  or when no key can verify it, RSA keys of 2048 bits at least; when no key states its algorithm, it says so
+  and warns unless the algorithm is `RS256`, the protocol default, since only a real sign-in shows which
+  algorithm the provider uses for this client), **Authentification** (client authentication method
+  announced), **Secret** (saved; a secret typed but not saved yet is a warning, not a failure: **Se
+  connecter pour essayer** checks it once the provider is saved), and warnings:
   **PKCE** (the provider does not announce PKCE S256: check that it requires it), **Sujet** (subject not read
   from `sub`), **Niveaux exigés** (`required_acr` holds several values: see [how the levels are
   requested](#requiring-a-second-factor)) and **Requête poussée** (the provider announces pushed authorization
@@ -148,26 +155,40 @@ days left).
 
 A provider can be switched on after a successful sign-in trial on its saved settings: the condition **Connexion
 d'essai réussie** (Successful sign-in trial) of **8. Activation**. After any later change, check and try
-again.
+again. The condition rests on the last **successful** trial of the current settings, even when a later trial
+refused an account: this is intended, the trial proves the settings, not an account (a refusal of a person
+says something about that person, not about the provider).
 
 ### The sign-in trial
 
 **Se connecter pour essayer** (available once the provider is saved and while it is switched off, on the
 saved settings; otherwise greyed out with the reason) opens the
-provider in a new tab and walks through a real sign-in. No account and no session is created. The console
-then shows the decision, for example **Cette
-personne se connecterait au compte…** (This person would sign in as…), **Un compte … serait créé** (An
-account … would be created) or **Connexion refusée** (Sign-in refused) with the reason, and the claims
-received (issuer, stable identifier, identifier, name, email, `acr`, `amr`, groups). The line **Second
-facteur** says whether the token proves a second factor and how: **prouvé par le niveau acr** (a level
-declared in `mfa_acr`), **prouvé par les méthodes amr**, or **non prouvé**, with **ce niveau acr n'est pas
-déclaré comme second facteur** when the `acr` received is not one of the declared levels. A token without
-groups shows **groupes absents** (no groups). Use it to check the claim names, the group values and the
-`acr` levels your provider really sends. Try it with a member of a required group, then with a non-member. The trial
-validates the provider only when it ends in a sign-in or in an account creation, with the groups readable,
-and for the settings that started it: a refusal, an error or a later change of the settings leaves the
-provider untested. Read the decision line. When roles or groups follow the provider, the result also reports
-the role and the Elpis groups the person would get.
+provider in a new tab and walks through a real sign-in. No account and no session is created, and nothing is
+written but the result. The console then shows the decision, the same as a real sign-in would take on the same
+accounts (the same checks, in the same order, on the database read without writing): **Cette personne se
+connecterait au compte…** (This person would sign in as…), **Un compte … serait créé** (An account … would be
+created), **…devrait d'abord saisir l'ancien mot de passe du compte…** (a prepared link: the old password
+would be asked first; at that first sign-in the rights can only go down), **…serait rattachée au compte…
+sans ancien mot de passe** (a prepared link with the offline-verified option), or **Connexion refusée**
+(Sign-in refused) with the account concerned when there is one and the reason: no proof of a second factor
+for an administrator group, account suspended by an administrator, a local account already has the name
+(prepare its link), prepared link no longer valid, groups. When the sign-in does not get that far, **L'essai
+a échoué** (The trial failed) names the cause and what to do where: client secret or client authentication
+method refused (sections 3 and 6), token signed with another algorithm (section 6), extra audiences of the
+client at the provider, issuer or client that do not match (sections 1 and 3), clock, subject, no identity
+token, settings changed during the trial; anything else points to Supervision › Journaux (line `essai SSO
+<id>`). The provider's own words are never shown. The claims received are listed (issuer, stable
+identifier, identifier, name, email, `acr`, `amr`, groups). The line **Second facteur** says whether the
+token proves a second factor and how (**prouvé par le niveau acr**, a level declared in `mfa_acr`, or
+**prouvé par les méthodes amr**), otherwise what is missing given the settings: no declared `acr` level,
+`amr` methods that are not enough (`mfa`, `mca`, or two families such as `pwd` and `otp`), or both. A token
+without a readable list of groups shows **groupes absents ou illisibles**. Use it to check the claim names,
+the group values and the `acr` levels your provider really sends. Try it with a member of a required group,
+then with a non-member. The trial validates the provider only when the person would get in (a sign-in, an
+account creation, or a prepared link), with the groups readable, and for the settings that started it: a
+refusal, an error or a later change of the settings leaves the provider untested. Read the decision line.
+When roles or groups follow the provider and the person would get in, the result also reports the role and
+the Elpis groups the person would get; a refusal reports none.
 
 The trial ends in the browser that started it, with the binding cookie alone: the administrator's session
 cookie is not needed on the way back, so a strict `same_site` setting does not prevent the trial. The result
@@ -233,7 +254,7 @@ console of the provider:
 | **Portées (scope)** (`scopes`)                                                                 | `openid profile email` | Space separated, `openid` mandatory; add the one that releases groups if the provider needs it                 |
 | **Revendication sujet (sub)** (`subject_claim`)                                                | `sub`                  | The stable key of the person. Never a name that can be reassigned                                              |
 | **Revendication nom (preferred_username)** (`username_claim`)                                  | `preferred_username`   | The login name; the Elpis name is derived from it                                                              |
-| **Revendication e-mail (email)** / **affichée (name)** (`email_claim`, `name_claim`)           | `email`, `name`        | The email is kept only when `email_verified` is true                                                           |
+| **Revendication e-mail (email)** / **affichée (name)** (`email_claim`, `name_claim`)           | `email`, `name`        | Shown by the sign-in trial (the email only when `email_verified` is true); not kept on the account             |
 | **Revendication groupes (groups)** (`groups_claim`)                                            | `groups`               | A dotted path (`realm_access.roles`) works                                                                     |
 | **Âge max., s (max_age)** (`max_age_sec`)                                                      | `0`                    | Asks the provider for a recent authentication, 0 to 604800; 0 asks nothing                                     |
 | **Écart d'horloge, s** (`clock_skew_sec`)                                                      | `60`                   | Clock difference tolerated, 0 to 300                                                                           |
@@ -247,8 +268,8 @@ when it carries no live sign-in of the browser. Behind a reverse proxy, declare 
 every person appears to come from the address of the proxy and shares one allowance.
 
 A login name drawn from the email claim (or from the claim that holds the email) only creates an account, or
-updates the name shown, when `email_verified` is true; otherwise the sign-in is refused (`name_invalid`) and the
-trial says so.
+updates the login kept with the identity, when `email_verified` is true; otherwise the sign-in is refused
+(`name_invalid`) and the trial says so.
 
 The **subject** is what ties an account to the provider: choose a claim that is unique to the person and
 never changes. The trial warns when the subject equals the login name.
@@ -290,6 +311,10 @@ The fixed line under the fields says what Elpis guarantees, by the rule the serv
   value that proves nothing is enough for the others: with `required_amr` set to `pwd otp`, a token carrying
   only `pwd` signs in an ordinary account; with `required_acr` `loa-2 loa-5` and `mfa_acr` `loa-5`, a token at
   `loa-2` does.
+- **⚠ Administrateurs toujours refusés : …** (Administrators always refused), when administrator groups are
+  set and `required_acr` is filled, but none of its values is declared in `mfa_acr` and `required_amr` holds
+  no strong method: the token of a sign-in always carries an undeclared level, so an administrator is refused
+  unless the provider happens to send strong `amr` methods. `./elpis doctor` says so as well.
 - **⚠ Aucun second facteur garanti par Elpis** (No second factor guaranteed by Elpis) otherwise: Elpis then
   checks no proof for anybody, administrators linked to the provider included.
 
@@ -322,7 +347,7 @@ Examples, as played against real servers:
 - Groups: add a **Group Membership** mapper with the claim name `groups`, **Add to ID token** on. Turn **Full
   group path** off, or enter the group with its leading slash.
 - **A person who belongs to no group has no groups claim**: Elpis refuses with `groups_unknown` (the trial
-  says **groupes absents**). This is expected for people outside every group; see [Life cycle](#life-cycle)
+  says **groupes absents ou illisibles**). This is expected for people outside every group; see [Life cycle](#life-cycle)
   for a departure.
 - Second factor: set the **AMR reference** of the steps of the sign-in flow (`pwd` on the password step,
   `otp` on the one-time password step) and add an **Authentication Method Reference (AMR)** mapper to the
@@ -333,6 +358,11 @@ Examples, as played against real servers:
   once ("Une vérification en deux étapes est exigée", `admin_without_mfa`) and signs in again, this time with
   the code. Tell your administrators before their first sign-in.
 - Sign-out: set the **Backchannel logout URL**, and **Backchannel logout session required** on.
+- **Disabling a user in Keycloak sends no logout.** Keycloak calls the back-channel address when a session is
+  ended (sign-out, **Sessions › Logout**), not when a user is disabled: the Elpis session of that person stays
+  open until it ends (24 hours by default, or the **Session, s** of the provider). To cut it at once, suspend
+  the account in **Comptes**, or end the user's sessions in Keycloak before disabling it; the
+  non-interactive access stops when the freshness runs out (see [Life cycle](#life-cycle)).
 
 ### Authentik
 
@@ -355,7 +385,7 @@ Examples, as played against real servers:
   `always`), and check in the trial that **Groupes** lists them one by one. A person with a single group is
   let in when that group is a required group; a string holding several groups is not a list. If roles or groups
   follow the provider, send a list every time (array type `always`). With a directory behind it, a person
-  without any group gets no groups claim at all (`groups_unknown`, **groupes absents**).
+  without any group gets no groups claim at all (`groups_unknown`, **groupes absents ou illisibles**).
 - **Second factor**: LemonLDAP::NG sends no `amr`; its `acr` level proves the second factor only once you
   declare it in **Niveaux qui prouvent un second facteur** (`loa-5` with the default level names). See the
   examples of [Requiring a second factor](#requiring-a-second-factor). Do not put the strongest level first
@@ -563,7 +593,9 @@ account. Elpis never deletes an account by itself.
 
 What people see after a single sign-on failure is a message and a short **Référence** (reference). Search it in
 `./elpis logs main` (a line `connexion SSO <id> refusée (réf. …) : <cause>`) or in Supervision › Journaux ›
-Sécurité (`auth.login.denied`, `details.ref`). Repeated refusals from the same address are summarized: only the first one of a minute keeps its reference in the journal, so a reference may be missing there. All the
+Sécurité (`auth.login.denied`, `details.ref`). Repeated refusals from the same address, for the same cause and
+provider, are summarized: only the first one of a minute keeps its reference in the journal, so a reference may
+be missing there; refusals of different causes are never merged. All the
 reasons are listed in [audit-events.md](audit-events.md#authentication).
 
 | Message shown                                                                        | Code (`auth_error`) | Probable cause                                                                                                                                                                                    |
@@ -580,6 +612,7 @@ reasons are listed in [audit-events.md](audit-events.md#authentication).
 | (same message)                                                                       | `failed`            | `client_auth_rejected` in the journal: the provider refused the client secret; check it, then try the other client authentication method                                                          |
 | (same message)                                                                       | `failed`            | `aud_untrusted` in the journal: the identity token lists another audience than Elpis                                                                                                              |
 | (same message)                                                                       | `failed`            | `iss_mismatch` in the journal: the answer does not come from the configured issuer                                                                                                                |
+| (same message)                                                                       | `failed`            | `alg_unexpected` in the journal: the identity token is signed with another algorithm than **Signature du jeton**; set the one of the client at the provider                                       |
 
 Other messages: "Cette demande a expiré. Reconnectez-vous par le service de votre organisation." (the
 old-password step waited too long), "Cette demande n'est plus valable. Reconnectez-vous par le service de votre
@@ -603,8 +636,11 @@ Commands on the host, described in [operations.md](operations.md#sso-openid-conn
 - **What crosses Elpis.** The person's password is typed at the provider and never reaches Elpis.
 - **What is stored.** The client secret lives only in the secrets vault (as instance
   secrets, never in `config.json`) and no route returns them. `config.json` holds the settings and the pasted
-  certificate authority. For each linked account Elpis keeps the provider, the stable key, and the login, email
-  and name last read.
+  certificate authority. For each linked account Elpis keeps the provider, its issuer, the stable key
+  (subject) and the login last read, with when the link was made and last confirmed: no email and no name of
+  the provider. While a session opened by the provider lasts, its identity token is kept encrypted for the
+  sign-out at the provider; the result of the last sign-in trial (with the email and name it showed) is kept
+  for the console until the next trial or until the provider is switched off or deleted.
 - **What is logged.** The security journal records sign-ins and refusals, links, suspensions, provider changes
   and tests (see [audit-events.md](audit-events.md#openid-connect-single-sign-on-admin)). Passwords, secrets, tokens and
   anything the provider says in its own words are never logged; a typed login is only kept as a hash.
@@ -661,7 +697,7 @@ work, and **Contrôler les réglages** then **Se connecter pour essayer** will s
 
 - **Groups are a list of strings.** A claim holding one string lets the person in when it is exactly a
   required group and neither roles nor groups follow the provider; otherwise a list is required. Several
-  groups glued in one string (`a;b`) are never split, and are read as no groups (**groupes absents**).
+  groups glued in one string (`a;b`) are never split, and are read as no groups (**groupes absents ou illisibles**).
 - **Back-channel sign-out** needs a provider that sends logout tokens (Keycloak and `node-oidc-provider` were
   played on real servers). A logout token without an expiry is accepted when it is recent; one listing another
   audience than Elpis is refused.

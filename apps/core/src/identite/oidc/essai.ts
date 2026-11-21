@@ -17,6 +17,8 @@ const COURBE: Readonly<Record<string, string>> = { ES256: "P-256", ES384: "P-384
 export interface ContexteEtapesOidc {
   readonly fetch: typeof globalThis.fetch;
   readonly secretEnregistre: (f: Fournisseur) => Promise<string | null>;
+  /** Un secret est saisi dans le formulaire sans être enregistré (il n'est jamais envoyé au test). */
+  readonly secretSaisi?: boolean;
 }
 
 /** Clé que la bibliothèque acceptera pour cet algorithme : type, courbe, taille RSA d'au moins 2048 bits, usage. */
@@ -39,10 +41,80 @@ function tailleRsaBits(n: string): number {
   return i >= octets.length ? 0 : (octets.length - i) * 8 - Math.clz32(octets[i] as number) + 24;
 }
 
-/** Nombre de clés de signature du jeu de clés que la bibliothèque acceptera pour l'algorithme réglé. */
-function clesDeSignature(jeu: unknown, alg: string): number {
+const NOM_ALGO = /^[A-Za-z0-9_+-]{1,16}$/u;
+const LISTE_MAX = 10;
+
+/** Clé utilisable pour vérifier une signature (usage et opérations), ou `null`. */
+function cleDeSignature(k: unknown): Record<string, unknown> | null {
+  if (k === null || typeof k !== "object" || Array.isArray(k)) return null;
+  const o = k as Record<string, unknown>;
+  if (o["use"] !== undefined && o["use"] !== "sig") return null;
+  if (Array.isArray(o["key_ops"]) && !o["key_ops"].includes("verify")) return null;
+  return o;
+}
+
+/** Nom court venu du fournisseur, affiché seulement s'il a la forme d'un nom d'algorithme ou de type de clé. */
+const nomSur = (v: unknown): string | null => (typeof v === "string" && NOM_ALGO.test(v) ? v : null);
+
+/** Liste lisible et bornée : « 2 RS256, 1 RSA sans algorithme ». */
+function compter(noms: readonly string[]): string {
+  const n = new Map<string, number>();
+  for (const x of noms) n.set(x, (n.get(x) ?? 0) + 1);
+  const l = [...n].map(([x, k]) => `${k} ${x}`);
+  return l.length > LISTE_MAX ? `${l.slice(0, LISTE_MAX).join(", ")}…` : l.join(", ");
+}
+
+/** Ce que le fournisseur annonce et publie : algorithmes de la découverte (hors signatures symétriques ou nulles), puis algorithme ou type de chaque clé de signature. */
+function resumeCles(m: ServerMetadata, cles: readonly Record<string, unknown>[]): string {
+  const annonces = (m.id_token_signing_alg_values_supported ?? []).flatMap((a) => {
+    const x = nomSur(a);
+    return x === null || ALGOS_REFUSES.test(x) ? [] : [x];
+  });
+  const publiees = cles.map((k) => {
+    const alg = nomSur(k["alg"]);
+    if (alg !== null) return alg;
+    return `${nomSur(k["kty"]) ?? "clé"} sans algorithme`;
+  });
+  const a = annonces.length > LISTE_MAX ? `${annonces.slice(0, LISTE_MAX).join(", ")}…` : annonces.join(", ");
+  return `Annoncés par le fournisseur : ${a || "aucun"}. Clés publiées : ${compter(publiees) || "aucune"}.`;
+}
+
+/** Étape des clés : l'algorithme réglé doit être annoncé ou porté par une clé, et une clé doit pouvoir le vérifier ; une clé sans algorithme déclaré ne vaut que si le fournisseur signe ainsi pour ce client. */
+function jugerCles(f: Fournisseur, m: ServerMetadata, jeu: unknown, cible: string): EtapeEssai {
+  const alg = f.id_token_alg;
   const keys = (jeu as { keys?: unknown } | null)?.keys;
-  return Array.isArray(keys) ? keys.filter((k: unknown) => cleConvient(k, alg)).length : 0;
+  const cles = (Array.isArray(keys) ? keys : []).flatMap((k: unknown) => {
+    const c = cleDeSignature(k);
+    return c === null ? [] : [c];
+  });
+  const resume = resumeCles(m, cles);
+  const utiles = cles.filter((k) => cleConvient(k, alg));
+  const portees = utiles.filter((k) => k["alg"] === alg).length;
+  const sansAlg = utiles.length - portees;
+  const annonce = m.id_token_signing_alg_values_supported?.includes(alg) === true;
+  const echec = (detail: string): EtapeEssai => etape("jwks", "Clés de signature", "fail", detail, cible);
+  if (portees === 0 && !annonce)
+    return echec(
+      `L'algorithme réglé (${alg}) n'est ni annoncé par le fournisseur ni porté par une de ses clés. ${resume} Choisissez dans « Signature du jeton (id_token_signed_response_alg) », section 6, celui du client chez le fournisseur.`,
+    );
+  if (utiles.length === 0)
+    return echec(`Aucune clé de signature utilisable en ${alg} (type, taille ou usage). ${resume}`);
+  if (portees > 0)
+    return etape(
+      "jwks",
+      "Clés de signature",
+      "ok",
+      `${portees} clé(s) de signature ${alg} lisible(s). ${resume}`,
+      cible,
+    );
+  const famille = FAMILLE[alg.slice(0, 2)] ?? "";
+  return etape(
+    "jwks",
+    "Clés de signature",
+    alg === "RS256" ? "ok" : "warn",
+    `Aucune clé ne déclare son algorithme : ${sansAlg} clé(s) ${famille} utilisable(s) en ${alg} si le fournisseur signe ainsi pour ce client. ${resume}${alg === "RS256" ? "" : " Vérifiez-le avec « Se connecter pour essayer »."}`,
+    cible,
+  );
 }
 
 async function etapeCles(
@@ -61,16 +133,7 @@ async function etapeCles(
     } catch {
       return echec("Le jeu de clés n'est pas un document JSON.");
     }
-    const n = clesDeSignature(jeu, f.id_token_alg);
-    return n > 0
-      ? etape(
-          "jwks",
-          "Clés de signature",
-          "ok",
-          `${n} clé(s) de signature ${f.id_token_alg} lisible(s).`,
-          cible,
-        )
-      : echec(`Aucune clé de signature ${f.id_token_alg} dans le jeu de clés du fournisseur.`);
+    return jugerCles(f, m, jeu, cible);
   } catch (e) {
     return echec(PHRASES_SORTANT[classerErreur(e)]);
   }
@@ -149,6 +212,27 @@ function etapeAuthentification(f: Fournisseur, m: ServerMetadata, cible: string)
       );
 }
 
+/** Secret : enregistré, ou saisi mais pas encore enregistré (vérifié ensuite par « Se connecter pour essayer »), sinon absent. */
+function etapeSecret(enregistre: boolean, saisi: boolean): EtapeEssai {
+  if (enregistre)
+    return etape(
+      "secret",
+      "Secret",
+      "ok",
+      saisi
+        ? "Secret client enregistré ; celui saisi le remplacera à l'enregistrement et sera vérifié par « Se connecter pour essayer »."
+        : "Secret client enregistré.",
+    );
+  return saisi
+    ? etape(
+        "secret",
+        "Secret",
+        "warn",
+        "Secret client saisi, pas encore enregistré : enregistrez le fournisseur, puis « Se connecter pour essayer » le vérifiera.",
+      )
+    : etape("secret", "Secret", "fail", "Aucun secret client n'est enregistré pour ce fournisseur.");
+}
+
 /** Étapes OIDC après une découverte valide ; les clés se lisent par le `fetch` borné du test. */
 export async function etapesOidc(
   etapes: EtapeEssai[],
@@ -175,11 +259,7 @@ export async function etapesOidc(
   const info = etapeUserinfo(m, cible);
   if (info !== null) etapes.push(info);
   etapes.push(etapeAuthentification(f, m, cible));
-  etapes.push(
-    (await c.secretEnregistre(f)) === null
-      ? etape("secret", "Secret", "fail", "Aucun secret client n'est enregistré pour ce fournisseur.")
-      : etape("secret", "Secret", "ok", "Secret client enregistré."),
-  );
+  etapes.push(etapeSecret((await c.secretEnregistre(f)) !== null, c.secretSaisi === true));
   if (f.subject_claim !== "sub")
     etapes.push(
       etape(

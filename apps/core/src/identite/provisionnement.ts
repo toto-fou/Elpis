@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/provisionnement.ts — profil externe vérifié → compte Elpis, en une écriture exclusive : identité connue (appartenance, suspension, mise à jour) ou compte créé sans mot de passe local ; jamais de rattachement par nom ou e-mail. */
-import { compteSuspendu, createExternalUser, ErreurNomUtilisateur, getUsernameById } from "@elpis/auth";
+/** apps/core/src/identite/provisionnement.ts — profil externe vérifié → compte Elpis, en une écriture exclusive qui applique la décision partagée (`decision.ts`) : identité connue (suspension, réactivation, mise à jour), rattachement dispensé ou compte créé sans mot de passe local ; jamais de rattachement par nom ou e-mail. */
+import { createExternalUser, ErreurNomUtilisateur, getUsernameById } from "@elpis/auth";
+import type { RaisonRefusCompte } from "@elpis/contracts";
 import { ErreurIntegrite } from "@elpis/db";
 import { auditEvent } from "@elpis/securite";
 
 import { couperAcces, poserReactivation, poserSuspension } from "../comptes/etat";
 import type { DependancesEtat } from "../comptes/etat";
-import { compterAdminsLocaux, dernierAdminLocal } from "./etat";
-import { nomDerive, nomPris } from "./nom";
+import { deciderIdentite, LIRE_IDENTITE, planIdentiteConnue } from "./decision";
+import type { LigneIdentite, Plan } from "./decision";
 import {
   auditerRattachement,
-  ligneConvient,
   raisonDeRefus,
   rattacher,
-  rattachementPrepareDe,
   revoquerFlux,
   revoquerOauthRattachement,
   supprimerJetonsDuCompte,
 } from "./rattachement";
-import type { LigneRattachementPrepare } from "./rattachement";
 import { ancreIdentite } from "./ancre";
 import type { Fournisseur } from "./reglages";
 
@@ -32,34 +30,15 @@ export interface ProfilIdentite {
   readonly identifiantFiable?: boolean;
 }
 
-type RaisonRefusIdentite =
-  | "issuer_mismatch"
-  | "groups_unknown"
-  | "not_in_group"
-  | "suspended"
-  | "name_invalid"
-  | "account_conflict"
-  | "no_local_admin"
-  | "prelink_invalid";
-
 export type Resolution =
   | { readonly type: "compte"; readonly uid: number; readonly cree: boolean }
   | { readonly type: "preuve"; readonly prelinkId: number; readonly uid: number }
-  | { readonly type: "refus"; readonly raison: RaisonRefusIdentite; readonly uid?: number };
+  | { readonly type: "refus"; readonly raison: RaisonRefusCompte; readonly uid?: number };
 
 export interface DependancesProvisionnement extends DependancesEtat {
   /** Flux ouverts d'un compte rattaché coupés dans tous les process. */
   readonly revoquer: (uid: number) => Promise<unknown>;
 }
-
-type LigneIdentite = {
-  id: number;
-  user_id: number;
-  issuer: string;
-  username: string;
-  suspended_at: unknown;
-  suspended_by: string | null;
-};
 
 interface Effets {
   suspendre: number | null;
@@ -68,10 +47,7 @@ interface Effets {
   oauthRevoques: number;
 }
 
-const LIRE_IDENTITE =
-  "SELECT i.id, i.user_id, i.issuer, u.username, u.suspended_at, u.suspended_by FROM user_identities i JOIN users u ON u.id=i.user_id WHERE i.provider_id=? AND i.subject=?";
-
-const refus = (raison: RaisonRefusIdentite, uid?: number): Resolution =>
+const refus = (raison: RaisonRefusCompte, uid?: number): Resolution =>
   uid === undefined ? { type: "refus", raison } : { type: "refus", raison, uid };
 
 type Contexte = {
@@ -85,38 +61,6 @@ type Contexte = {
   readonly ip: string | null;
 };
 
-async function identiteConnue(c: Contexte, l: LigneIdentite): Promise<Resolution> {
-  const { dep, fournisseur, profil, appartenance, maintenant, effets } = c;
-  const uid = Number(l.user_id);
-  effets.username = l.username;
-  if (l.issuer !== profil.issuer) return refus("issuer_mismatch", uid);
-  if (appartenance === "inconnu") return refus("groups_unknown", uid);
-  const origine = `provider:${fournisseur.id}`;
-  if (appartenance === "non") {
-    if (await poserSuspensionDuFournisseur(c, uid, origine)) {
-      await dep.base.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
-      effets.suspendre = uid;
-      c.audits.push(() => auditCompte(c, "auth.account.suspend", uid, l.username, origine));
-    }
-    return refus("not_in_group", uid);
-  }
-  if (compteSuspendu(l)) {
-    const par = l.suspended_by;
-    if (par !== origine && par !== `stale:${fournisseur.id}`) return refus("suspended", uid);
-    if (await poserReactivation(dep.base, uid, maintenant))
-      c.audits.push(() => auditCompte(c, "auth.account.reactivate", uid, l.username, String(par)));
-  }
-  if (profil.identifiantFiable === false)
-    await dep.base.run("UPDATE user_identities SET checked_at=? WHERE id=?", [maintenant, l.id]);
-  else
-    await dep.base.run("UPDATE user_identities SET ext_username=?, checked_at=? WHERE id=?", [
-      profil.extUsername,
-      maintenant,
-      l.id,
-    ]);
-  return { type: "compte", uid, cree: false };
-}
-
 /** Suspension posée par le fournisseur (groupe requis) ; le dernier administrateur local garde son accès (la suspension est alors sans effet). */
 async function poserSuspensionDuFournisseur(c: Contexte, uid: number, origine: string): Promise<boolean> {
   try {
@@ -127,37 +71,21 @@ async function poserSuspensionDuFournisseur(c: Contexte, uid: number, origine: s
   }
 }
 
-/** Rattachement préparé d'un fournisseur OIDC pour cette identité inconnue : preuve à faire, ou rattachement tout de suite si la preuve est dispensée (simple utilisateur seulement) ; jamais de compte créé. */
-async function rattachementPrepare(c: Contexte, l: LigneRattachementPrepare): Promise<Resolution> {
+/** Rattachement dispensé de preuve d'un simple utilisateur : identité insérée, jetons du compte supprimés. */
+async function rattacherSansPreuve(c: Contexte, p: Extract<Plan, { type: "dispense" }>): Promise<Resolution> {
   const { dep, fournisseur, profil, effets } = c;
-  const uid = Number(l.user_id);
-  const ancre = ancreIdentite(fournisseur);
-  const t = dep.maintenant();
-  if (!ligneConvient(l, { fournisseurId: fournisseur.id, ancre, profil, t }))
-    return refus("prelink_invalid", uid);
-  const role = Number(
-    (await dep.base.get<{ is_admin: number | null }>("SELECT is_admin FROM users WHERE id=?", [uid]))
-      ?.is_admin,
-  );
-  if (Number(l.waiver) !== 1) {
-    if (role === 1 && (await dernierAdminLocal(dep.base, uid))) return refus("prelink_invalid", uid);
-    return { type: "preuve", prelinkId: Number(l.id), uid };
-  }
-  if (role === 1 || role === 2) {
-    await dep.base.run("DELETE FROM auth_prelinks WHERE id=?", [l.id]);
-    return refus("prelink_invalid", uid);
-  }
-  const par = `prelink:${Number(l.created_by)}`;
+  const uid = p.uid;
+  const par = `prelink:${Number(p.prepare.created_by)}`;
   const obstacle = await rattacher(
     dep.base,
     uid,
     {
       fournisseurId: fournisseur.id,
       subject: profil.subject,
-      issuer: ancre,
+      issuer: ancreIdentite(fournisseur),
       extUsername: profil.extUsername,
     },
-    { par, confirmeAdmin: false, t },
+    { par, confirmeAdmin: false, t: p.t },
   );
   if (obstacle !== null) return refus(raisonDeRefus(obstacle), uid);
   const tokens = await supprimerJetonsDuCompte(dep.base, uid);
@@ -182,18 +110,9 @@ async function rattachementPrepare(c: Contexte, l: LigneRattachementPrepare): Pr
   return { type: "compte", uid, cree: false };
 }
 
-/** Identité inconnue : un rattachement préparé (OIDC) décide d'abord, sinon le compte est créé ; jamais de rattachement par nom ou e-mail. */
-async function creerCompte(c: Contexte): Promise<Resolution> {
-  const { dep, fournisseur, profil, appartenance, maintenant, effets } = c;
-  if (appartenance === "non") return refus("not_in_group");
-  if (appartenance === "inconnu") return refus("groups_unknown");
-  const prepare = await rattachementPrepareDe(dep.base, fournisseur.id, profil.extUsername, maintenant);
-  if (prepare !== undefined) return rattachementPrepare(c, prepare);
-  if (profil.identifiantFiable === false) return refus("name_invalid");
-  const nom = nomDerive(profil.extUsername);
-  if (nom === null) return refus("name_invalid");
-  if (await nomPris(dep.base, nom)) return refus("account_conflict");
-  if ((await compterAdminsLocaux(dep.base)) === 0) return refus("no_local_admin");
+/** Compte créé sans mot de passe local avec son identité ; une course perdue relit l'identité écrite entre-temps. */
+async function creerCompte(c: Contexte, nom: string): Promise<Resolution> {
+  const { dep, fournisseur, profil, maintenant, effets } = c;
   try {
     const uid = await dep.base.transaction(async (tx) => {
       const cree = await createExternalUser(dep.base, nom, { maintenant });
@@ -219,7 +138,49 @@ async function creerCompte(c: Contexte): Promise<Resolution> {
     if (e instanceof ErreurNomUtilisateur) return refus("account_conflict");
     if (!(e instanceof ErreurIntegrite)) throw e;
     const l = await dep.base.get<LigneIdentite>(LIRE_IDENTITE, [fournisseur.id, profil.subject]);
-    return l ? identiteConnue(c, l) : refus("account_conflict");
+    return l ? appliquer(c, planIdentiteConnue(c, l)) : refus("account_conflict");
+  }
+}
+
+/** Applique la décision dans l'écriture exclusive : suspension ou réactivation, mise à jour de l'identité, rattachement dispensé, création ; rien d'autre n'est décidé ici. */
+async function appliquer(c: Contexte, p: Plan): Promise<Resolution> {
+  const { dep, fournisseur, profil, maintenant, effets } = c;
+  if ((p.type === "refus" || p.type === "connu") && p.ligne !== undefined) effets.username = p.ligne.username;
+  switch (p.type) {
+    case "refus": {
+      const uid = p.uid;
+      if (p.suspendre === true && uid !== undefined) {
+        const origine = `provider:${fournisseur.id}`;
+        if (await poserSuspensionDuFournisseur(c, uid, origine)) {
+          await dep.base.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
+          effets.suspendre = uid;
+          c.audits.push(() => auditCompte(c, "auth.account.suspend", uid, p.compte ?? "", origine));
+        }
+      }
+      if (p.oublierPrepare !== undefined)
+        await dep.base.run("DELETE FROM auth_prelinks WHERE id=?", [p.oublierPrepare]);
+      return refus(p.raison, uid);
+    }
+    case "connu": {
+      const { uid, ligne: l, reactiver } = p;
+      if (reactiver !== null && (await poserReactivation(dep.base, uid, maintenant)))
+        c.audits.push(() => auditCompte(c, "auth.account.reactivate", uid, l.username, reactiver));
+      if (profil.identifiantFiable === false)
+        await dep.base.run("UPDATE user_identities SET checked_at=? WHERE id=?", [maintenant, l.id]);
+      else
+        await dep.base.run("UPDATE user_identities SET ext_username=?, checked_at=? WHERE id=?", [
+          profil.extUsername,
+          maintenant,
+          l.id,
+        ]);
+      return { type: "compte", uid, cree: false };
+    }
+    case "preuve":
+      return { type: "preuve", prelinkId: p.prelinkId, uid: p.uid };
+    case "dispense":
+      return rattacherSansPreuve(c, p);
+    case "creation":
+      return creerCompte(c, p.compte);
   }
 }
 
@@ -249,10 +210,9 @@ export async function resoudreIdentite(
 ): Promise<Resolution> {
   const effets: Effets = { suspendre: null, username: null, rattache: null, oauthRevoques: 0 };
   const c: Contexte = { dep, ...e, effets, audits: [], ip: e.ip ?? null };
-  const r = await dep.base.ecriture(async (x) => {
-    const l = await x.get<LigneIdentite>(LIRE_IDENTITE, [e.fournisseur.id, e.profil.subject]);
-    return l ? identiteConnue(c, l) : creerCompte(c);
-  });
+  const r = await dep.base.ecriture(async (x) =>
+    appliquer(c, await deciderIdentite(x, { ...e, instant: dep.maintenant })),
+  );
   if (effets.rattache !== null) effets.oauthRevoques = await revoquerOauthRattachement(dep, effets.rattache);
   for (const audit of c.audits) audit();
   if (r.type === "refus")

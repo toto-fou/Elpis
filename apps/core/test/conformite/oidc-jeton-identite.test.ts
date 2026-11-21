@@ -93,11 +93,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
       await accepte({ claims: { aud: "elpis", azp: "elpis" } }, "sub-z");
     });
     it("points 4 et 5 : `aud` à plusieurs éléments sans `azp` refusé", async () =>
-      refuse(
-        { claims: { aud: ["elpis", "api-ressource"] } },
-        "sub-x",
-        "lib:OAUTH_JWT_CLAIM_COMPARISON_FAILED",
-      ));
+      refuse({ claims: { aud: ["elpis", "api-ressource"] } }, "sub-x", "aud_untrusted"));
     it("point 5 : `aud` à plusieurs éléments avec `azp` d'un autre client refusé", async () =>
       refuse(
         { claims: { aud: ["elpis", "autre"], azp: "autre" } },
@@ -125,11 +121,11 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
     it("point 6 : signature fausse refusée même reçue directement du point de jetons (TLS ne dispense pas de la signature)", async () =>
       refuse({ signerAvecAutreCle: true }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
     it("point 7 / RFC 8725 §3.2 : `alg` none refusé", async () =>
-      refuse({ alg: "none" }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+      refuse({ alg: "none" }, "sub-x", "alg_unexpected"));
     it("point 8 : HS256 signé avec le secret du client refusé (plus strict que la norme : aucun algorithme à clé partagée)", async () =>
-      refuse({ alg: "HS256" }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+      refuse({ alg: "HS256" }, "sub-x", "alg_unexpected"));
     it("point 8 : HS512 signé avec le secret du client refusé (plus strict que la norme)", async () =>
-      refuse({ alg: "HS512" }, "sub-x", "lib:OAUTH_INVALID_RESPONSE"));
+      refuse({ alg: "HS512" }, "sub-x", "alg_unexpected"));
     it("RFC 8725 §3.1 : confusion d'algorithme : HS256 signé avec la clé publique du fournisseur comme secret refusé", async () => {
       const jwk = JSON.stringify(b.idp.jwkPublic);
       const r = await retourAvecNonce((nonce) =>
@@ -138,12 +134,12 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("conformité du jeton d'ident
           .sign(new TextEncoder().encode(jwk)),
       );
       expect(codeRefus(r)).toBe("failed");
-      expect(causeDuDernierRefus()).toBe("lib:OAUTH_INVALID_RESPONSE");
+      expect(causeDuDernierRefus()).toBe("alg_unexpected");
       expect(await b.utilisateurs()).toEqual(["chef"]);
     });
     it("point 7 / RFC 8725 §3.1 : algorithme du jeton (ES256) différent de l'algorithme réglé (RS256) refusé", async () => {
       await b.reglages({ id_token_alg: "RS256" });
-      await refuse({}, "sub-x", "lib:OAUTH_INVALID_RESPONSE");
+      await refuse({}, "sub-x", "alg_unexpected");
     });
   });
 

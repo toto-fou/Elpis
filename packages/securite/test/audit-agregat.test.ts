@@ -273,4 +273,41 @@ describe("auditRafale", () => {
       ["audit.writer.stop", undefined],
     ]);
   });
+
+  it("refus de causes ou de fournisseurs différents dans la même minute : jamais fondus, chaque cause garde sa première ligne et son nombre", () => {
+    const refusPour = (reason: string, provider_id = "sso"): EvenementAudit => ({
+      ...refus("10.0.0.1"),
+      action: "auth.oidc.backchannel_logout.denied",
+      details: { method: "POST", route: "/api/auth/oidc/:id/backchannel-logout", provider_id, reason },
+    });
+    const cle = "10.0.0.1|-|POST|/api/auth/oidc/:id/backchannel-logout";
+    for (const r of ["bad_audience", "bad_audience", "nonce_present", "expired", "expired", "expired"])
+      auditRafale(cle, refusPour(r));
+    auditRafale(cle, refusPour("expired", "autre"));
+    arreterAudit();
+    const lignes = readdirSync(dossier).flatMap((f) =>
+      readFileSync(join(dossier, f), "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map(
+          (l) =>
+            JSON.parse(l) as {
+              action: string;
+              details: { reason?: string; provider_id?: string; repeated?: number };
+            },
+        ),
+    );
+    expect(
+      lignes
+        .filter((l) => l.action === "auth.oidc.backchannel_logout.denied")
+        .map((l) => [l.details.reason, l.details.provider_id, l.details.repeated ?? 0]),
+    ).toEqual([
+      ["bad_audience", "sso", 0],
+      ["nonce_present", "sso", 0],
+      ["expired", "sso", 0],
+      ["expired", "autre", 0],
+      ["bad_audience", "sso", 1],
+      ["expired", "sso", 2],
+    ]);
+  });
 });

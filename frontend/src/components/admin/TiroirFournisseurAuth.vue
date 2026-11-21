@@ -16,6 +16,7 @@ import EtapesEssai from "./EtapesEssai.vue";
 import ListeGroupesFournisseur from "./ListeGroupesFournisseur.vue";
 import SectionDroitsFournisseur from "./SectionDroitsFournisseur.vue";
 
+const AUCUNE_EXIGENCE = { required_acr: [], required_amr: [], mfa_acr: [] } as const;
 const RAISON_ROLES_BLOQUES =
   "Enregistrement indisponible : groupes administrateurs sans second facteur exigé (section 5).";
 
@@ -294,50 +295,51 @@ const raisonSupprimer = computed(() => {
                 exemple="elpis-utilisateurs"
                 indice="Seules les personnes membres d'un de ces groupes peuvent se connecter."
               />
-              <div class="grid grid-cols-2 gap-3">
-                <label class="adm-field">
-                  <span class="adm-field__label">Niveaux exigés (acr)</span>
-                  <input
-                    id="ent-acr"
-                    v-model="f.required_acr"
-                    class="set-input font-mono text-xs"
-                    aria-describedby="ent-second-facteur"
-                    :disabled="!!general"
-                    :title="general || 'Séparés par des espaces ; vide : aucune exigence.'"
-                  />
-                </label>
-                <div class="adm-field">
-                  <label class="adm-field__label" for="ent-mfa-acr"
-                    >Niveaux qui prouvent un second facteur (acr)</label
-                  >
-                  <input
-                    id="ent-mfa-acr"
-                    v-model="f.mfa_acr"
-                    class="set-input font-mono text-xs"
-                    aria-describedby="ent-mfa-acr-aide ent-second-facteur"
-                    :disabled="!!general"
-                    :title="
-                      general || 'Séparés par des espaces ; vide : aucun niveau ne prouve un second facteur.'
-                    "
-                  />
-                  <span id="ent-mfa-acr-aide" class="adm-card__hint" data-aide-mfa-acr
-                    >Ceux que votre fournisseur ne délivre qu'après un second facteur.</span
-                  >
-                </div>
-                <label class="adm-field">
-                  <span class="adm-field__label">Méthodes exigées (amr)</span>
-                  <input
-                    id="ent-amr"
-                    v-model="f.required_amr"
-                    class="set-input font-mono text-xs"
-                    aria-describedby="ent-second-facteur"
-                    :disabled="!!general"
-                    :title="
-                      general ||
-                      'Séparées par des espaces ; l\'une d\'elles suffit pour se connecter ; vide : aucune exigence.'
-                    "
-                  />
-                </label>
+              <div class="adm-field" data-champ-acces="required_acr">
+                <label class="adm-field__label" for="ent-acr">Niveaux exigés (acr)</label>
+                <input
+                  id="ent-acr"
+                  v-model="f.required_acr"
+                  class="set-input font-mono text-xs"
+                  aria-describedby="ent-acr-aide ent-second-facteur"
+                  :disabled="!!general"
+                  :title="general"
+                />
+                <span id="ent-acr-aide" class="adm-card__hint" data-aide-acr
+                  >Séparés par des espaces ; l'un d'eux suffit pour se connecter ; vide : aucune
+                  exigence.</span
+                >
+              </div>
+              <div class="adm-field" data-champ-acces="mfa_acr">
+                <label class="adm-field__label" for="ent-mfa-acr"
+                  >Niveaux qui prouvent un second facteur (acr)</label
+                >
+                <input
+                  id="ent-mfa-acr"
+                  v-model="f.mfa_acr"
+                  class="set-input font-mono text-xs"
+                  aria-describedby="ent-mfa-acr-aide ent-second-facteur"
+                  :disabled="!!general"
+                  :title="general"
+                />
+                <span id="ent-mfa-acr-aide" class="adm-card__hint" data-aide-mfa-acr
+                  >Ceux que votre fournisseur ne délivre qu'après un second facteur.</span
+                >
+              </div>
+              <div class="adm-field" data-champ-acces="required_amr">
+                <label class="adm-field__label" for="ent-amr">Méthodes exigées (amr)</label>
+                <input
+                  id="ent-amr"
+                  v-model="f.required_amr"
+                  class="set-input font-mono text-xs"
+                  aria-describedby="ent-amr-aide ent-second-facteur"
+                  :disabled="!!general"
+                  :title="general"
+                />
+                <span id="ent-amr-aide" class="adm-card__hint" data-aide-amr
+                  >Séparées par des espaces ; l'une d'elles suffit pour se connecter ; vide : aucune
+                  exigence.</span
+                >
               </div>
               <p id="ent-second-facteur" class="adm-card__hint" data-aide-second-facteur>
                 {{ phraseSecondFacteur(f, f.roles_enabled && f.admin_groups.length > 0) }}
@@ -590,7 +592,10 @@ const raisonSupprimer = computed(() => {
                     </p>
                     <dl v-if="adm.authTrial.claims" class="text-xs space-y-0.5" data-revendications>
                       <div
-                        v-for="[nom, valeur] in lignesRevendications(adm.authTrial.claims)"
+                        v-for="[nom, valeur] in lignesRevendications(
+                          adm.authTrial.claims,
+                          adm.authFournisseur ?? AUCUNE_EXIGENCE,
+                        )"
                         :key="nom"
                         class="flex gap-2"
                       >

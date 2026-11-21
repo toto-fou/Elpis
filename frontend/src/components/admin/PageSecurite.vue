@@ -1,9 +1,28 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/PageSecurite.vue — pages Mots de passe, sessions et droits par défaut. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
 import { domaineAdmin } from "../../features/admin/domaine";
 
 const adm = domaineAdmin();
+
+/** Comptes système des services (`ELPIS_COMPTES` des unités) : état, icône, libellé et précision. */
+const COMPTES = {
+  separes: { etat: "ok", icone: "ph-check-circle", libelle: "séparés", detail: "" },
+  unique: { etat: "off", icone: "ph-user", libelle: "compte unique (choisi)", detail: "" },
+  repli: {
+    etat: "warn",
+    icone: "ph-warning",
+    libelle: "compte unique",
+    detail: "L'installation n'est pas atteignable par des comptes séparés (voir la documentation).",
+  },
+} as const;
+const SANS_UNITES = { etat: "unknown", icone: "ph-minus-circle", libelle: "sans unités systemd", detail: "" };
+const comptes = computed(() => {
+  const mode = adm.httpsStatus?.service_accounts;
+  return mode === undefined ? SANS_UNITES : COMPTES[mode];
+});
 </script>
 
 <template>
@@ -398,6 +417,25 @@ const adm = domaineAdmin();
                 <i class="ph" :class="up ? 'ph-check-circle' : 'ph-x-circle'" aria-hidden="true"></i>
                 {{ svc }} :{{ adm.httpsStatus.ports[svc] }} — {{ up ? "détecté" : "absent" }}
               </span>
+            </div>
+          </div>
+
+          <div class="adm-row">
+            <div>
+              <span
+                class="adm-row__label"
+                title="Comptes système de l'application, de la console et de l'hôte d'outils."
+                >Comptes des services</span
+              >
+              <span class="sr-only"
+                >Comptes système de l'application, de la console et de l'hôte d'outils.</span
+              >
+            </div>
+            <div>
+              <span class="adm-status" :data-state="comptes.etat"
+                ><i class="ph" :class="comptes.icone" aria-hidden="true"></i> {{ comptes.libelle }}</span
+              >
+              <p v-if="comptes.detail" class="text-xs text-slate-500 mt-1">{{ comptes.detail }}</p>
             </div>
           </div>
 

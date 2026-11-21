@@ -15,7 +15,7 @@ import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { configureAudit, oublierConfigurationAudit } from "@elpis/securite";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { masquerSecretsTexte } from "../src/admin/config";
 import { caddyEcoute, redemarrerApp } from "../src/admin/securite";
@@ -227,6 +227,30 @@ describe.each(MOTEURS)("console : sécurité et configuration (%s)", (moteur) =>
         attendu.entetes ? { ...attendu, entetes: sansCharset(attendu.entetes) } : attendu,
       );
     }
+  });
+
+  it("comptes des services : ELPIS_COMPTES des unités rendu tel quel ; absent ou inconnu : champ omis (sans unités)", async () => {
+    writeFileSync(configJson, "{}");
+    invalidateConfigCache();
+    const etat = async (): Promise<Record<string, unknown>> =>
+      (
+        await app.inject({
+          method: "GET",
+          url: "/api/admin/security/https",
+          headers: { host: "testserver", "x-uid": String(V.ids["alice"]) },
+        })
+      ).json();
+    try {
+      for (const mode of ["separes", "unique", "repli"]) {
+        vi.stubEnv("ELPIS_COMPTES", mode);
+        expect((await etat())["service_accounts"]).toBe(mode);
+      }
+      vi.stubEnv("ELPIS_COMPTES", "autre");
+      expect(await etat()).not.toHaveProperty("service_accounts");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(await etat()).not.toHaveProperty("service_accounts");
   });
 
   it("config.json illisible : jamais écrasé par les écrivains de la console (écart voulu au Python)", async () => {

@@ -578,10 +578,9 @@ _render_units() {
             echo "[Service]"
             echo "Type=simple"
             echo "User=$run_user"
-            # Jetons du navigateur des bacs : dossier d'exécution privé de l'hôte d'outils, vidé à l'arrêt ; main le lit pour les contrôles des tâches.
+            # Jetons du navigateur des bacs : dossier d'exécution privé de l'hôte d'outils, vidé à l'arrêt ; main n'y accède pas (ses contrôles passent par les routes de l'hôte).
             case "$s" in
                 toolhost) echo "RuntimeDirectory=${UNIT_PREFIX}-toolhost"; echo "RuntimeDirectoryMode=0700"; echo "RuntimeDirectoryPreserve=restart" ;;
-                main)     echo "Environment=ELPIS_TOOLHOST_RUN_DIR=/run/${UNIT_PREFIX}-toolhost" ;;
             esac
             # Identifiant syslog du service (journald, rsyslog) au lieu de « node » ou « uvicorn ».
             echo "SyslogIdentifier=${UNIT_PREFIX}-$s"

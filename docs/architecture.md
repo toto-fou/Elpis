@@ -2790,9 +2790,9 @@ ignored (one info line from the tool host at start).
   calls count as sandbox activity. A stopped or recreated container takes the service with it;
   the relay forgets the secrets bound to sessions of a service that restarted. The browser
   service and relay tokens are kept by the tool host in memory and in its private runtime
-  directory (`RuntimeDirectory=elpis-toolhost`, else `user_db/run/navigateur`; main reads it
-  through `ELPIS_TOOLHOST_RUN_DIR`), renewed at each start of the browser service, never in the
-  sandbox folder.
+  directory (`RuntimeDirectory=elpis-toolhost`, else `user_db/run/navigateur`), renewed at each
+  start of the browser service, never in the sandbox folder. main never reads them: it asks the
+  tool host (`/api/internal/browser/cleanup-children`, `/api/internal/browser/session-url`).
 - **Data.** Screenshots, saved states, HAR, traces, videos and the service log live in
   `/work/.elpis-browser/` (the service's working folder); downloads land in
   `/work/downloads/<owner>/`, recorder dumps are also written to `/work/recordings/`, and returned

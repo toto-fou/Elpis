@@ -13,10 +13,9 @@ const DOSSIER_AGENT = ".elpis-agent";
 /** Sous-dossier des jetons dans le dossier d'exécution de l'hôte d'outils. */
 const DOSSIER_JETONS = "navigateur";
 
-/** Dossier des jetons du navigateur des bacs, privé à l'hôte d'outils (0700) : `ELPIS_TOOLHOST_RUN_DIR` (lecteurs hors de l'hôte d'outils), sinon `RUNTIME_DIRECTORY` (son unité systemd), sinon `<racine>/user_db/run` ; jamais dans `<P>`. */
+/** Dossier des jetons du navigateur des bacs, privé à l'hôte d'outils (0700) : `RUNTIME_DIRECTORY` (son unité systemd), sinon `<racine>/user_db/run` ; jamais dans `<P>`. */
 export function dossierJetonsNavigateur(): string {
-  const run =
-    process.env["ELPIS_TOOLHOST_RUN_DIR"] || ((process.env["RUNTIME_DIRECTORY"] ?? "").split(":")[0] ?? "");
+  const run = (process.env["RUNTIME_DIRECTORY"] ?? "").split(":")[0] ?? "";
   return pyJoin(run !== "" ? run : pyJoin(pyJoin(racineDepot(), "user_db"), "run"), DOSSIER_JETONS);
 }
 

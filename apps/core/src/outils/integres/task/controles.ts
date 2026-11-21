@@ -2,11 +2,11 @@
 /** apps/core/src/outils/integres/task/controles.ts — appels du harnais de `task` à l'hôte d'outils du compte, hors boucle : santé du navigateur avant un agent `web`, navigateur privé de l'enfant fermé en fin de run (et au démarrage, ceux du process précédent, par le service de chaque bac), rapport complet sauvé dans le bac, branche relue en fin de run. */
 import { estDict, jsonLoads, prefixePy, strPy } from "@elpis/commun";
 import { BUILTIN_SENTINEL } from "@elpis/mcp";
-import { requeteService, servicesDesBacs } from "@elpis/navigateur";
-import type { ServiceNavigateur } from "@elpis/navigateur";
 import { sousAgentEnDict } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
+import { appelerHote } from "../../../admin/pilote-bac";
+import { sandboxHostFor } from "../../../relais/hotes";
 import type { Dict } from "../../../python";
 import { collectMcpTools } from "../../catalogue";
 import { executerOutilMcp } from "../../mcp/clients";
@@ -140,34 +140,54 @@ export const hoteTacheParDefaut: PortsHoteTache = {
   },
 };
 
-/** `POST /cleanup_children` au service d'un bac, sans propriétaire : corps JSON rendu, `null` sur toute panne (service arrêté compris). */
-async function posterNettoyageEnfants(s: ServiceNavigateur, corps: Dict): Promise<unknown> {
+/** Compte dont l'hôte du bac reçoit le nettoyage : son identité signe l'enveloppe. */
+export interface CompteNettoyage {
+  readonly id: number;
+  readonly username: string;
+}
+
+/** Nettoyage demandé à l'hôte du bac d'un compte, sous l'identité de ce compte : corps JSON rendu, `null` sur toute panne. */
+async function posterNettoyageEnfants(compte: CompteNettoyage, corps: Dict): Promise<unknown> {
   try {
-    const r = await requeteService(s, "/cleanup_children", {
-      methode: "POST",
-      entetes: { "content-type": "application/json" },
-      corps: JSON.stringify(corps),
-      delaiMs: 5000,
-    });
-    return r.statut === 200 ? (JSON.parse(r.corps.toString("utf8")) as unknown) : null;
+    const hote = await sandboxHostFor(compte.id, false);
+    if (hote === null || hote.token === "") return null;
+    return await appelerHote(
+      hote,
+      compte.id,
+      compte.username,
+      "POST",
+      "/api/internal/browser/cleanup-children",
+      {
+        json: corps,
+        delaiS: 10,
+      },
+    );
   } catch {
     return null;
   }
 }
 
-/** Au démarrage de main : le service navigateur de chaque bac ferme les sessions de ses sous-agents ouvertes avant ce process (runs interrompus), jamais celles du compte ; rend le nombre fermé (0 pour un service arrêté). */
+/** Au démarrage de main : pour chaque compte, quatre à la fois, l'hôte de son bac fait fermer par son service navigateur les sessions de sous-agents ouvertes avant ce process (runs interrompus), jamais celles du compte ; rend le nombre fermé. */
 export async function fermerNavigateursEnfantsOrphelins(
   o: {
     ageMs?: () => number;
-    services?: () => ServiceNavigateur[];
-    poster?: (s: ServiceNavigateur, corps: Dict) => Promise<unknown>;
+    comptes?: () => Promise<readonly CompteNettoyage[]>;
+    poster?: (c: CompteNettoyage, corps: Dict) => Promise<unknown>;
   } = {},
 ): Promise<number> {
-  const corps = { older_than_ms: (o.ageMs ?? ((): number => Math.floor(process.uptime() * 1000)))() };
+  const age = o.ageMs ?? ((): number => Math.floor(process.uptime() * 1000));
   const poster = o.poster ?? posterNettoyageEnfants;
-  const r = await Promise.all((o.services ?? servicesDesBacs)().map((s) => poster(s, corps)));
-  return r.reduce<number>(
-    (n, x) => n + (estDict(x) && typeof x["cleaned"] === "number" ? x["cleaned"] : 0),
-    0,
+  const comptes = await (o.comptes ?? (async (): Promise<readonly CompteNettoyage[]> => []))().catch(
+    (): readonly CompteNettoyage[] => [],
   );
+  let total = 0;
+  for (let i = 0; i < comptes.length; i += 4) {
+    const corps = { older_than_ms: age() };
+    const r = await Promise.all(comptes.slice(i, i + 4).map((c) => poster(c, corps)));
+    total += r.reduce<number>(
+      (n, x) => n + (estDict(x) && typeof x["cleaned"] === "number" ? x["cleaned"] : 0),
+      0,
+    );
+  }
+  return total;
 }

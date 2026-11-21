@@ -56,6 +56,7 @@ export {
   deleteSite,
   deleteSitesBulk,
   detectSessionUrl,
+  urlCouranteDeSession,
   detectSitesFromText,
   getSiteStats,
   getTreeJson,
@@ -75,7 +76,15 @@ export {
   verrouAx,
   wipeAll,
 } from "./ax";
-export type { IdentifiantSite, IdentifiantsDesSites, NoeudDom, PageDom, Selecteur, Suppressions } from "./ax";
+export type {
+  LireUrlSession,
+  IdentifiantSite,
+  IdentifiantsDesSites,
+  NoeudDom,
+  PageDom,
+  Selecteur,
+  Suppressions,
+} from "./ax";
 export {
   extractSelectorsFromKwargs,
   findPath,

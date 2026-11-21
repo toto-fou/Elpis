@@ -3,6 +3,8 @@
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, realpathSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { bitsInterdits, groupeDonnees, modePartage } from "@elpis/commun";
+
 import type { Base, Executeur, StatsPool } from "./base";
 import { ErreurBase } from "./erreurs";
 import { MigrationDifferee, MIGRATIONS_TS } from "./migration";
@@ -268,23 +270,28 @@ export async function infoBase(base: Base, options: OptionsInfo): Promise<InfoBa
   };
 }
 
-/** `_harden_data_perms` (SQLite, avant ouvrirBase) : fichier et annexes en 0600, dossier en 0700 s'il est `<racine>/user_db`. */
+/** `_harden_data_perms` (SQLite, avant ouvrirBase) : fichier et annexes en 0600 (0660 sous le groupe des données), dossier en 0700 s'il est `<racine>/user_db` (laissé à l'installation sous le groupe). */
 export function durcirDroits(chemin: string, racineProjet?: string): string[] {
   if (chemin === ":memory:") return [];
   const corriges: string[] = [];
   const dossier = dirname(chemin);
+  const mode = modePartage(0o600);
   mkdirSync(dossier, { recursive: true });
-  if (!existsSync(chemin)) closeSync(openSync(chemin, "a", 0o600));
-  const cibles: [string, number][] = ["", "-wal", "-shm", "-journal"].map((s) => [`${chemin}${s}`, 0o600]);
+  if (!existsSync(chemin)) closeSync(openSync(chemin, "a", mode));
+  const cibles: [string, number][] = ["", "-wal", "-shm", "-journal"].map((s) => [`${chemin}${s}`, mode]);
   try {
-    if (racineProjet && realpathSync(dossier) === realpathSync(join(racineProjet, "user_db")))
+    if (
+      racineProjet &&
+      groupeDonnees() === null &&
+      realpathSync(dossier) === realpathSync(join(racineProjet, "user_db"))
+    )
       cibles.push([dossier, 0o700]);
   } catch {
     cibles.length = 4;
   }
   for (const [p, voulu] of cibles) {
     try {
-      if (statSync(p).mode & 0o077) {
+      if (statSync(p).mode & bitsInterdits()) {
         chmodSync(p, voulu);
         corriges.push(p);
       }

@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-import { estDict, FlottantPy, HttpError, veritePy } from "@elpis/commun";
+import { estDict, FlottantPy, HttpError, modePartage, veritePy } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 import type { ReglagesJournal as ReglagesJournalContrat } from "@elpis/contracts";
 import { texteBorne } from "@elpis/securite";
@@ -130,14 +130,14 @@ export function lireTemoinReglages(
   }
 }
 
-/** Témoin des réglages réécrit (fichier temporaire puis renommage) ; ne lève jamais. */
+/** Témoin des réglages réécrit (fichier temporaire puis renommage ; 0660 sous le groupe des données : la console et main l'écrivent) ; ne lève jamais. */
 export function ecrireTemoinReglages(dossier: string, r: ReglagesJournal): boolean {
   const cible = join(dossier, TEMOIN_REGLAGES);
   try {
     writeFileSync(
       `${cible}.tmp`,
       `${JSON.stringify({ retention_days: r.retention_days, forwarding_expected: r.forwarding_expected })}\n`,
-      { mode: 0o640 },
+      { mode: modePartage(0o640) },
     );
     renameSync(`${cible}.tmp`, cible);
     return true;
@@ -156,7 +156,7 @@ export function lireTemoinGel(dossier: string): string | null {
 export function ecrireTemoinGel(dossier: string, motif: string | null): boolean {
   try {
     if (motif === null) rmSync(join(dossier, TEMOIN_GEL), { force: true });
-    else writeFileSync(join(dossier, TEMOIN_GEL), `${motif}\n`, { mode: 0o640 });
+    else writeFileSync(join(dossier, TEMOIN_GEL), `${motif}\n`, { mode: modePartage(0o640) });
     return true;
   } catch {
     return false;

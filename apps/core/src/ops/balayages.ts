@@ -3,7 +3,16 @@
 import { chmod, lstat, mkdir, readdir, readFile, rm, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 
-import { estErreurPython, intPy, strPy, stripPy, veritePy } from "@elpis/commun";
+import {
+  bitsInterdits,
+  dossierDeConfiance,
+  estErreurPython,
+  intPy,
+  modePartage,
+  strPy,
+  stripPy,
+  veritePy,
+} from "@elpis/commun";
 import { config, liveConfigValue, pyJoin, realpathPy } from "@elpis/config";
 
 import { cheminExecution } from "../llm/acces-moteurs";
@@ -106,16 +115,19 @@ function limiteOffice(cle: keyof typeof LIMITES_OFFICE): number {
   }
 }
 
-/** `cache_root` : racine du cache d'aperçus, créée en 0700 ; `null` si elle n'est pas à nous (le Python lève OfficeError). */
+/** `cache_root` : racine du cache d'aperçus, créée en 0700 (0770 sous le groupe des données : l'hôte d'outils l'écrit, main l'élague) ; `null` si elle n'est pas sûre (le Python lève OfficeError). */
 async function racineCacheOffice(): Promise<string | null> {
   const dir = stripPy(strPy(veritePy(reglageOffice("cache_dir", "")) ? reglageOffice("cache_dir", "") : ""));
   const brut = stripPy(process.env["APP_OFFICE_CACHE_DIR"] ?? "") || dir;
   const racine = brut || path.join(config.SANDBOX_DIR, ".office-cache");
   try {
-    await mkdir(racine, { recursive: true, mode: 0o700 });
-    const st = await lstat(racine);
-    if (!st.isDirectory() || st.uid !== process.geteuid?.()) return null;
-    if ((st.mode & 0o077) !== 0) await chmod(racine, 0o700);
+    await mkdir(racine, { recursive: true, mode: modePartage(0o700) });
+    let st = await lstat(racine);
+    if (st.isDirectory() && st.uid === process.geteuid?.() && (st.mode & bitsInterdits()) !== 0) {
+      await chmod(racine, modePartage(0o700));
+      st = await lstat(racine);
+    }
+    if (!st.isDirectory() || !dossierDeConfiance(st)) return null;
     return racine;
   } catch {
     return null;

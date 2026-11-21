@@ -22,7 +22,15 @@ import {
 import { hostname } from "node:os";
 import { join, resolve } from "node:path";
 
-import { estCleEntiere, FlottantPy, pyJsonDumps, reprFlottant, strPy, veritePy } from "@elpis/commun";
+import {
+  estCleEntiere,
+  FlottantPy,
+  modePartage,
+  pyJsonDumps,
+  reprFlottant,
+  strPy,
+  veritePy,
+} from "@elpis/commun";
 
 import { journalDe } from "./ports";
 
@@ -119,7 +127,7 @@ export function defaultAuditDir(env: NodeJS.ProcessEnv, racine: string): string 
   if (explicite) return explicite;
   if (inscriptible(DOSSIER_PROD)) return DOSSIER_PROD;
   const repli = join(racine, "logs", "audit");
-  mkdirSync(repli, { recursive: true, mode: 0o750 });
+  mkdirSync(repli, { recursive: true, mode: modePartage(0o750) });
   return repli;
 }
 
@@ -168,13 +176,13 @@ export function lireCleAudit(chemin: string): Buffer | null {
   return null;
 }
 
-/** `configure` : service, dossier (créé en 0750, jamais rechmodé : il peut porter un groupe de lecture) et clé HMAC (illisible = sans HMAC). */
+/** `configure` : service, dossier (créé en 0750, 0770 sous le groupe des données ; jamais rechmodé : il peut porter un groupe de lecture) et clé HMAC (illisible = sans HMAC). */
 export function configureAudit(r: ReglagesAudit): void {
   fermerFichier();
-  const cree = mkdirSync(r.auditDir, { recursive: true, mode: 0o750 });
+  const cree = mkdirSync(r.auditDir, { recursive: true, mode: modePartage(0o750) });
   if (cree !== undefined) {
     try {
-      chmodSync(r.auditDir, 0o750);
+      chmodSync(r.auditDir, modePartage(0o750));
     } catch (e) {
       if (!erreurDeDroits(e)) throw e;
     }
@@ -370,7 +378,7 @@ function fermerFichier(): void {
   fichier = null;
 }
 
-/** Fichier du jour ouvert sans suivre de lien : créé en 0640 (rendu au propriétaire du dossier si root) ou rouvert s'il a été retiré ; refusé s'il n'est pas un fichier régulier à un seul lien. */
+/** Fichier du jour ouvert sans suivre de lien : créé en 0640 (0660 sous le groupe des données : les trois services y ajoutent ; rendu au propriétaire du dossier si root) ou rouvert s'il a été retiré ; refusé s'il n'est pas un fichier régulier à un seul lien. */
 function fdDuJour(dossier: string, jour: string): number {
   const chemin = `${dossier}/audit-${jour}.jsonl`;
   if (fichier !== null && fichier.chemin === chemin) {
@@ -384,13 +392,13 @@ function fdDuJour(dossier: string, jour: string): number {
   let fd: number;
   let cree = false;
   try {
-    fd = openSync(chemin, OUVERTURE_CREATION, 0o640);
+    fd = openSync(chemin, OUVERTURE_CREATION, modePartage(0o640));
     cree = true;
   } catch (e) {
     const code = (e as { code?: unknown }).code;
     if (code === "ENOENT") {
-      mkdirSync(dossier, { recursive: true, mode: 0o750 });
-      fd = openSync(chemin, OUVERTURE_CREATION, 0o640);
+      mkdirSync(dossier, { recursive: true, mode: modePartage(0o750) });
+      fd = openSync(chemin, OUVERTURE_CREATION, modePartage(0o640));
       cree = true;
     } else if (code === "EEXIST") fd = openSync(chemin, OUVERTURE_AJOUT);
     else throw e;
@@ -402,7 +410,7 @@ function fdDuJour(dossier: string, jour: string): number {
   }
   if (cree) {
     try {
-      fchmodSync(fd, 0o640);
+      fchmodSync(fd, modePartage(0o640));
       // Créé par un process root (commande d'administration) : rendu au propriétaire du dossier.
       if (process.getuid?.() === 0) {
         const d = statSync(dossier);

@@ -8,7 +8,14 @@ import type { Distance, InfoCollection, PointAEcrire } from "@elpis/rag";
 import { ouvrirDossierSous } from "@elpis/securite";
 
 import { journal } from "../journal";
-import { analyserNomQdrantRag, assurerRacineMagasinRag, estNomQdrantRag, estUuidRag } from "./magasin";
+import {
+  analyserNomQdrantRag,
+  assurerRacineMagasinRag,
+  estNomQdrantRag,
+  estUuidRag,
+  modeDossierRag,
+  modeFichierRag,
+} from "./magasin";
 
 const log = journal("rag");
 
@@ -51,10 +58,10 @@ export function noterPurgeQdrant(marqueur: string): void {
   if (!RE_MARQUEUR.test(marqueur)) throw new Error(`marqueur de purge invalide : ${marqueur}`);
   const dfd = ouvrirDossierSous(assurerRacineMagasinRag(), DOSSIER_MARQUEURS, {
     creer: true,
-    modeDossier: 0o700,
+    modeDossier: modeDossierRag(),
   });
   try {
-    closeSync(openSync(viaFd(dfd, marqueur), O_CREAT | O_WRONLY | O_NOFOLLOW, 0o600));
+    closeSync(openSync(viaFd(dfd, marqueur), O_CREAT | O_WRONLY | O_NOFOLLOW, modeFichierRag()));
   } finally {
     closeSync(dfd);
   }

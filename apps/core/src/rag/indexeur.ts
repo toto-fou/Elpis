@@ -24,6 +24,7 @@ import { ErreurExtraction, lireBloc, lireMeta } from "./extracteur";
 import type { MetaExtraction, OptionsExtraction, ResultatExtraction } from "./extracteur";
 import {
   assurerRacineMagasinRag,
+  modeFichierRag,
   nomQdrantRag,
   ouvrirDossierMagasinRag,
   relCollectionRag,
@@ -160,7 +161,7 @@ function ecrireExtrait(coll: LigneCollectionRag, doc: LigneDocumentRag, r: Resul
     assurerRacineMagasinRag(),
     relExtraitRag(coll.owner_user_id, coll.id, doc.id),
     Buffer.from(JSON.stringify(extrait), "utf8"),
-    { creerParents: false, modeDefaut: 0o600 },
+    { creerParents: false, modeDefaut: modeFichierRag() },
   );
   return extrait;
 }

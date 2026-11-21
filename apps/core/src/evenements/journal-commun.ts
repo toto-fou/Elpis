@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { prefixePy, pyJsonDumps, reprPy, versFlottantPy } from "@elpis/commun";
+import { modePartage, prefixePy, pyJsonDumps, reprPy, versFlottantPy } from "@elpis/commun";
 
 import type { EcrireJournal, LigneJournal } from "./systeme";
 
@@ -132,11 +132,11 @@ class Descripteur {
     this.fermer();
     try {
       mkdirSync(path.dirname(this.chemin), { recursive: true });
-      this.fd = openSync(this.chemin, "a", 0o640);
-      // Adresses IP et comptes : jamais lisible par tous, même un fichier créé en 0644 par une ancienne version.
+      this.fd = openSync(this.chemin, "a", modePartage(0o640));
+      // Adresses IP et comptes : jamais lisible par tous, même un fichier créé en 0644 par une ancienne version ; main et la console y ajoutent sous le groupe des données.
       try {
         const st = fstatSync(this.fd);
-        if (st.mode & 0o007 && st.uid === process.getuid?.()) fchmodSync(this.fd, 0o640);
+        if (st.mode & 0o007 && st.uid === process.getuid?.()) fchmodSync(this.fd, modePartage(0o640));
       } catch {
         /* au mieux */
       }

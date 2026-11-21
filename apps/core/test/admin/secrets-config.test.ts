@@ -2,7 +2,7 @@
 /** apps/core/test/admin/secrets-config.test.ts — secrets de config.json : masqués à la lecture par la console, préservés à l'écriture, absents de /api/config, jamais envoyés ailleurs par les essais du formulaire. */
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -203,6 +203,43 @@ describe("secrets de config.json", () => {
     expect(dig(apres, ["rag", "service_token"])).toEqual([true, "jeton-rag-neuf"]);
     expect(dig(apres, ["rag", "embed", "model"])).toEqual([true, "m3"]);
     expect(dig(apres, ["rag", "embed", "api_key"])).toEqual([true, VALEURS["rag.embed.api_key"]]);
+  });
+
+  it("config.json.bak au propriétaire seul (0600) : un lien planté à sa place est remplacé, jamais suivi", async () => {
+    ecrire(configAvecSecrets());
+    chmodSync(fichier, 0o640);
+    const bak = join(dossier, "config.json.bak");
+    const cible = join(dossier, "cible-du-lien");
+    writeFileSync(cible, "intact");
+    rmSync(bak, { force: true });
+    symlinkSync(cible, bak);
+    const avant = readFileSync(fichier, "utf8");
+    const { texte } = await lire();
+    const r = await admin.inject({
+      method: "POST",
+      url: "/api/admin/config-file",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({ type: "main", content: texte }),
+    });
+    expect(r.statusCode).toBe(200);
+    expect([lstatSync(bak).isFile(), lstatSync(bak).mode & 0o777, readFileSync(bak, "utf8")]).toEqual([
+      true,
+      0o600,
+      avant,
+    ]);
+    expect(readFileSync(cible, "utf8")).toBe("intact");
+    chmodSync(bak, 0o644);
+    const avantPatch = readFileSync(fichier, "utf8");
+    const p = await admin.inject({
+      method: "PATCH",
+      url: "/api/admin/config",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({ changes: [{ path: "rag.embed.model", from: "m1", to: "m4" }] }),
+    });
+    expect(p.statusCode, p.body).toBe(200);
+    expect([lstatSync(bak).mode & 0o777, readFileSync(bak, "utf8")]).toEqual([0o600, avantPatch]);
+    rmSync(bak);
+    rmSync(cible);
   });
 
   it("/api/config d'un compte ordinaire ne rend aucun secret, y compris la clé des embeddings", async () => {

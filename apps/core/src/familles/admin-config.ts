@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-config.ts — console : compression, fichier config.json et écritures champ par champ (admin/config.py). */
-import { copyFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 import {
+  ecrireSecret,
   egalPy,
   ErreurJsonPy,
   ErreurPython,
@@ -129,6 +130,11 @@ function champsCompression(c: typeof config = config): Dict {
     threshold_pct: c.COMPACTION_THRESHOLD_PCT,
     threshold_tokens: c.COMPACTION_THRESHOLD_TOKENS,
   };
+}
+
+/** config.json.bak : copie de config.json au propriétaire seul (0600), nouveau fichier renommé sans suivre de lien. */
+function copierConfigJson(chemin: string): void {
+  if (existePy(chemin)) ecrireSecret(cheminCopieConfigJson(chemin), readFileSync(chemin), 0o600);
 }
 
 function messageDe(e: unknown, chemin: string): string {
@@ -328,7 +334,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         throw new HttpError(500, "Enregistrement impossible : le fichier n'a pas été modifié.");
       }
       try {
-        if (existePy(chemin)) copyFileSync(chemin, cheminCopieConfigJson(chemin));
+        copierConfigJson(chemin);
         writeTextAtomic(chemin, texte);
       } catch (e) {
         throw new HttpError(500, `Error writing file: ${messageDe(e, chemin)}`);
@@ -408,7 +414,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         else if (!(estSecretMasque(parties) && c["to"] === MASQUE_SECRET)) plant(d, parties, c["to"]);
       }
       ecrits = diffConfig(avant, d);
-      if (existePy(chemin)) copyFileSync(chemin, cheminCopieConfigJson(chemin));
+      copierConfigJson(chemin);
       writeTextAtomic(chemin, pyJsonDumps(d, { ensureAscii: false, indent: 2 }));
       return ["ok", lus.length];
     });

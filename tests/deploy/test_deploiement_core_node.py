@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import getpass
+import grp
 import os
 import re
 import shutil
@@ -164,15 +165,16 @@ def test_doctor_et_status_sans_elpis_tools(racine):
     ("TMPDIR={racine}/tmp\nCHART_CACHE_DIR=/srv/graphiques\n", "/srv/graphiques"),
 ])
 def test_cache_des_graphiques_partage(racine, env_fichier, attendu):
-    """Le core écrit le cache des graphiques, l'hôte d'outils le relit : même dossier, jamais de PrivateTmp."""
+    """Le core écrit le cache des graphiques, l'hôte d'outils le relit : même dossier, hors du /tmp privé de chaque unité."""
     (racine / "tmp").mkdir()
     (racine / ".env").write_text(env_fichier.format(racine=racine), encoding="utf-8")
     r = _elpis(racine, "service", "print", node=_faux_node(racine))
     assert r.returncode == 0, r.stderr
     unites = _unites(r.stdout)
     for service in ("main", "admin", "toolhost"):
-        assert f'Environment="CHART_CACHE_DIR={attendu.format(racine=racine)}"' in unites[f"elpis-{service}.service"].splitlines()
-    assert not any("PrivateTmp" in corps for corps in unites.values())
+        lignes = unites[f"elpis-{service}.service"].splitlines()
+        assert f'Environment="CHART_CACHE_DIR={attendu.format(racine=racine)}"' in lignes
+        assert 'Environment="ELPIS_RUNTIME_DIR=/run/elpis"' in lignes and "PrivateTmp=yes" in lignes
 
 
 @pytest.mark.skipif(shutil.which("systemd-analyze") is None, reason="systemd-analyze absent")
@@ -182,10 +184,75 @@ def test_unites_valides_pour_systemd(racine, tmp_path):
     dossier = tmp_path / "unites"
     dossier.mkdir()
     for nom, corps in _unites(r.stdout).items():
-        (dossier / nom).write_text(corps.rstrip() + "\n", encoding="utf-8")
+        if nom.endswith((".service", ".target")):
+            (dossier / nom).write_text(corps.rstrip() + "\n", encoding="utf-8")
     v = subprocess.run(["systemd-analyze", "verify", "--man=no", "--recursive-errors=no",
                         *sorted(str(p) for p in dossier.iterdir())], capture_output=True, text=True, timeout=120)
     assert v.returncode == 0, v.stderr
+
+
+COMMUN = ("NoNewPrivileges=yes", "CapabilityBoundingSet=", "ProtectSystem=strict", "PrivateTmp=yes", "PrivateDevices=yes",
+          "ProtectKernelModules=yes", "ProtectControlGroups=yes", "ProtectClock=yes",
+          "ProtectProc=invisible", "RestrictRealtime=yes", "LockPersonality=yes",
+          "SystemCallArchitectures=native")
+# Prison bubblewrap (aperçus Office, conversions du RAG) : espaces de noms et /proc neuf ; Node (V8) : mémoire W+X.
+SANS_PRISON = ("RestrictNamespaces=yes", "ProtectKernelTunables=yes", "ProtectKernelLogs=yes", "ProtectHostname=yes",
+               "RestrictSUIDSGID=yes")
+
+
+def _directives(corps: str) -> list[str]:
+    return [ligne for ligne in corps.splitlines() if ligne and not ligne.startswith("#")]
+
+
+def test_unites_durcies(racine):
+    (racine / "rag_app/qdrant").mkdir()
+    _executable(racine / "rag_app/qdrant/qdrant", "#!/bin/sh\nexit 0\n")
+    r = _elpis(racine, "service", "print", node=_faux_node(racine))
+    assert r.returncode == 0, r.stderr
+    unites = _unites(r.stdout)
+    for s in ("qdrant", "rag", "toolhost", "main", "admin"):
+        lignes = _directives(unites[f"elpis-{s}.service"])
+        for attendue in COMMUN:
+            assert attendue in lignes, (s, attendue)
+        assert any(ligne.startswith("MemoryMax=") for ligne in lignes) and any(ligne.startswith("TasksMax=") for ligne in lignes), s
+        assert not any(ligne.startswith("PrivateUsers") for ligne in lignes), s
+        for d in SANS_PRISON:
+            assert (d in lignes) is (s in ("qdrant", "main", "admin")), (s, d)
+        assert ("MemoryDenyWriteExecute=yes" in lignes) is (s == "qdrant"), s
+        assert any(ligne.startswith("SystemCallFilter=") for ligne in lignes) is (s == "qdrant"), s
+    for s in ("main", "admin"):
+        lignes = _directives(unites[f"elpis-{s}.service"])
+        assert f"ReadWritePaths={racine} /run/elpis" in lignes and "UMask=0027" in lignes, s
+        ro = next(ligne for ligne in lignes if ligne.startswith("ReadOnlyPaths="))
+        assert {f"-{racine}/apps", f"-{racine}/node", f"-{racine}/elpis", f"-{racine}/deploy"} <= set(ro.split("=", 1)[1].split()), s
+    lignes = _directives(unites["elpis-toolhost.service"])
+    assert "UMask=0022" in lignes and f"ReadWritePaths=-{racine}/user_db" in lignes
+    assert not any(ligne in (f"ReadWritePaths={racine}", f"ReadWritePaths=-{racine}") for ligne in lignes)
+    assert "RuntimeDirectory=elpis-toolhost" in lignes and "RuntimeDirectoryMode=0700" in lignes
+    lignes = _directives(unites["elpis-qdrant.service"])
+    assert f"ReadWritePaths={racine}/rag_app/qdrant" in lignes and "UMask=0077" in lignes
+    assert f"ReadOnlyPaths=-{racine}/rag_app/qdrant/qdrant -{racine}/rag_app/qdrant/config.yaml" in lignes
+    assert unites["tmpfiles.d/elpis.conf"].strip().splitlines()[-1] == f"d /run/elpis 0700 {getpass.getuser()} {grp.getgrgid(os.getgid()).gr_name} -"
+
+
+@pytest.mark.parametrize("compte,navigateurs,attendu", [
+    ("nobody", "", "yes"),
+    ("nobody", "/run/user/0/ms-playwright", "read-only"),
+    (None, "", "read-only"),
+])
+def test_protecthome_selon_les_emplacements(racine, compte, navigateurs, attendu):
+    if compte is None and not (Path.home().as_posix() + "/").startswith(("/home/", "/root/")):
+        pytest.skip("compte courant hors de /home")
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(racine), "LANG": "C.UTF-8",
+           "ELPIS_USER": compte or getpass.getuser(), "ELPIS_NODE": str(_faux_node(racine))}
+    if navigateurs:
+        env["PLAYWRIGHT_BROWSERS_PATH"] = navigateurs
+    r = subprocess.run(["bash", str(racine / "elpis"), "service", "print"], env=env, capture_output=True, text=True,
+                       timeout=120, cwd=str(racine), stdin=subprocess.DEVNULL)
+    assert r.returncode == 0, r.stderr
+    for nom, corps in _unites(r.stdout).items():
+        if nom.endswith(".service"):
+            assert f"ProtectHome={attendu}" in corps.splitlines(), nom
 
 
 def test_gabarit_a_repere_inconnu_refuse(racine):

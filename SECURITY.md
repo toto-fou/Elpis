@@ -145,6 +145,10 @@ is reserved to it (0700): a container's root can place setuid files there;
 a dedicated `nosuid,nodev` mount point neutralizes them for
 the service account too.
 
+**systemd units** (`deploy/systemd/`): every service runs without privileges, with the
+system read-only except its own folders, a private `/tmp` and `/dev`, and memory and task
+limits; `systemd-analyze security` rates each unit "OK" (details in `docs/operations.md`).
+
 **Sandbox containers** (`packages/bac/src/conteneur.ts`, `durcissement.ts`,
 `sandbox-agent/demarrage.sh`): commands, the agent, the browser service and the
 terminal enter directly under the account's user (`executors.exec_user`, 10001 by

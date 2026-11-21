@@ -18,6 +18,54 @@ it starts the Office engine's Python worker itself. Account tools (memory,
 tasks, skills, charts) are served by main itself; RAG and the browser remain
 separate services; the browser runs on the core's Node.js (`node/`).
 
+## systemd units
+
+`sudo ./elpis service install` renders the units from the templates in
+[`deploy/systemd/`](../deploy/systemd/) (`elpis-<service>.service`, `elpis.target`)
+into `/etc/systemd/system/`, and the runtime folder shared by main, admin and the tool
+host (`/run/elpis`: locks, turn journals, markers) into `/etc/tmpfiles.d/elpis.conf`.
+`./elpis service print` shows them without installing anything.
+
+Each unit runs without privileges (`NoNewPrivileges=`, empty
+`CapabilityBoundingSet=`), with the system read-only (`ProtectSystem=strict`) except
+the folders the service writes (`ReadWritePaths=`), a private `/tmp` and `/dev`,
+protected kernel settings, modules and logs, and memory and task limits
+(`MemoryMax=`, `TasksMax=`). `systemd-analyze security elpis-main` gives the exposure
+score of a unit (every unit stays under 5, "OK"). Per service:
+
+- main and admin: no new namespaces either; they write in the installation folder
+  (configuration, `user_db/`, logs, backups), whose code folders stay read-only.
+- toolhost and rag: bubblewrap (Office previews, RAG conversions) needs namespaces and
+  a fresh `/proc`, hence no `RestrictNamespaces=`, `ProtectKernelTunables=`,
+  `ProtectKernelLogs=`, `ProtectHostname=` (it covers part of `/proc/sys`),
+  `RestrictSUIDSGID=` (its filter refuses a call bubblewrap makes) nor `PrivateUsers=`; the tool host keeps umask 022, since the
+  sandboxes' account reads some of the files it creates.
+- qdrant: system call filter, no memory both writable and executable, only its folder
+  writable.
+
+`ProtectHome=` is `yes`, or `read-only` when the installation, a data folder, the
+services' account or the Playwright browsers sit under `/home`, `/root` or `/run/user`.
+To change a limit (a large Qdrant collection, for example), add a drop-in, which
+`service install` keeps: `sudo systemctl edit elpis-qdrant`, then
+
+```ini
+[Service]
+MemoryMax=16G
+```
+
+The units are rendered for the paths in force at `service install`. Data folders that may
+live outside the installation (`MCP_SERVERS_DIR`, the folder of `app.db_path`, `MEMORY_DIR`,
+`USER_SKILLS_DIR`, `SKINS_DIR`, `APP_FILE_HISTORY_DIR`, `office_preview.cache_dir`, and
+`backup.remote.dest_path` of the "mounted" connector) are made writable for the services
+that write them; after changing one of them, run `sudo ./elpis service install` again (or add
+`ReadWritePaths=` in a drop-in). A path containing `%` or a space is refused. Main and the
+console keep their turn journals and task resumes in `user_db/run/` (`/run` is in memory);
+locks and stamps stay in `/run/elpis`. The Docker socket is hidden from main, the console,
+the RAG and Qdrant (only the tool host drives Docker), and the audit key from the RAG and
+Qdrant.
+
+`./elpis start` (without systemd) applies none of this.
+
 ## System prerequisites (apt packages)
 
 `install.sh` installs by itself, with `apt-get`, the OS packages listed in

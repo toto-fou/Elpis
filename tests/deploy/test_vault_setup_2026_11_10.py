@@ -297,14 +297,22 @@ def _unites(depot: Path, **env: str) -> dict[str, str]:
 load_runtime() { :; }; need_core() { :; }; _db_local_unit() { :; }; _https_enabled() { return 1; }
 svc_available() { :; }
 svc_spec() { SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true "$1"); SPEC_ENV=(A=1); }
-core_cmd() { [ "$*" = "config DB_PATH" ] && echo /srv/donnees/app.db; }
-SERVICES=(qdrant rag toolhost main admin); VAULT_KEY_SYS=/etc/elpis/vault.key
+core_cmd() {
+    case "$*" in "config DB_PATH") echo /srv/donnees/app.db ;; "config MCP_SERVERS_DIR") echo /srv/mcp_custom_servers ;;
+        "config SKINS_DIR") echo /srv/skins ;; esac
+}
+lanceur() { printf 'main admin toolhost\t/srv/apercus\nmain admin\t/mnt/sauvegardes\n'; }
+SERVICES=(qdrant rag toolhost main admin); VAULT_KEY_SYS=/etc/elpis/vault.key; AUDIT_KEY_SYS=/etc/elpis/audit.key
+SANDBOX_DIR=/srv/bacs; RAG_STORE=/srv/rag; RAG_CACHE=/srv/rag-cache; CHART_DIR=/srv/graphiques; AUDIT_DIR_SYS=/var/lib/elpis/audit
+APPLOG_DIR_SYS=/var/log/elpis; NODE=/usr/bin/node
 """
     sortie = depot.parent / "unites"
     sortie.mkdir(exist_ok=True)
     if not (depot / "deploy/systemd").exists():
         shutil.copytree(REPO / "deploy/systemd", depot / "deploy/systemd")
-    r = _bash(depot, _fonctions("_render_units", "_rendre_gabarit"), talons + f'_render_units "{sortie}" {MOI}', **env)
+    fonctions = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_valeur_sure",
+                          "_chemins_hors_depot", "_nettoyer_rendu")
+    r = _bash(depot, fonctions, talons + f'_render_units "{sortie}" {MOI}', **env)
     assert r.returncode == 0, r.stderr
     return {f.name: f.read_text(encoding="utf-8") for f in sortie.iterdir()}
 
@@ -319,7 +327,7 @@ def test_unites_sans_la_cle_hors_de_main_et_admin(depot):
         assert texte.index("EnvironmentFile=") < texte.index("UnsetEnvironment="), s
     for s in ("main", "admin"):
         texte = u[f"elpis-{s}.service"]
-        assert "UnsetEnvironment" not in texte and "InaccessiblePaths" not in texte, s
+        assert "UnsetEnvironment" not in texte and "vault.key" not in texte, s
 
 
 def test_start_retire_la_cle_de_l_environnement_hors_de_main_et_admin(depot, tmp_path):
@@ -370,3 +378,66 @@ vault_core() {{ echo "ne doit pas être appelé" >&2; }}
     assert "bad=1" in r.stdout, r.stdout + r.stderr
     assert f"sans le groupe {groupe}" in r.stderr and "sg " in r.stderr
     assert "ne doit pas être appelé" not in r.stderr
+
+
+def test_unites_dossiers_hors_du_depot_selon_le_service(depot):
+    u = _unites(depot)
+    for s in ("main", "admin"):
+        lignes = u[f"elpis-{s}.service"].splitlines()
+        for d in ("/srv/mcp_custom_servers", "/srv/skins", "/srv/donnees", "/srv/apercus", "/mnt/sauvegardes"):
+            assert f"ReadWritePaths=-{d}" in lignes, (s, d)
+    lignes = u["elpis-toolhost.service"].splitlines()
+    assert "ReadWritePaths=-/srv/apercus" in lignes and "ReadWritePaths=-/mnt/sauvegardes" not in lignes
+    assert "ReadWritePaths=-/srv/skins" not in lignes
+
+
+def test_unites_docker_et_cle_d_audit_inaccessibles(depot):
+    u = _unites(depot)
+    for s in ("main", "admin", "rag", "qdrant"):
+        assert "InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock" in u[f"elpis-{s}.service"].splitlines(), s
+    for s in ("rag", "qdrant"):
+        assert "InaccessiblePaths=-/etc/elpis/audit.key" in u[f"elpis-{s}.service"].splitlines(), s
+    assert "docker.sock" not in u["elpis-toolhost.service"]
+    for s in ("main", "admin"):
+        assert "audit.key" not in u[f"elpis-{s}.service"]
+
+
+def test_unites_journaux_de_tours_sur_disque_et_ipc_isolees(depot):
+    u = _unites(depot)
+    for s in ("main", "admin"):
+        lignes = u[f"elpis-{s}.service"].splitlines()
+        assert f'Environment="ELPIS_CHAT_RUNS_DIR={depot}/user_db/run/chat_runs"' in lignes, s
+        assert f'Environment="ELPIS_TASK_RESUME_DIR={depot}/user_db/run/task_resume"' in lignes, s
+        assert "RemoveIPC=yes" in lignes and "PrivateIPC=yes" in lignes, s
+        assert f"ReadWritePaths={depot} /run/elpis" in lignes, s
+    assert "RemoveIPC=yes" in u["elpis-qdrant.service"] and "PrivateIPC=yes" in u["elpis-qdrant.service"]
+    assert "ReadWritePaths=/run/elpis" in u["elpis-toolhost.service"].splitlines()
+
+
+def test_unites_code_en_lecture_seule_complet(depot):
+    for f in ("requirements.txt", "requirements-rag.txt"):
+        (depot / f).write_text("", encoding="utf-8")
+    ro = next(l for l in _unites(depot)["elpis-main.service"].splitlines() if l.startswith("ReadOnlyPaths="))
+    liste = set(ro.split("=", 1)[1].split())
+    attendu = {f"-{depot}/{n}" for n in (".env", ".git", ".npmrc", "package.json", "package-lock.json", "pyproject.toml",
+                                          "toolhost.json", "mcp.json", "make_release.sh", "migration-kit",
+                                          "requirements.txt", "requirements-rag.txt")}
+    assert attendu <= liste
+
+
+@pytest.mark.parametrize("chemin", ["/srv/avec espace", "/srv/pour%cent"])
+def test_unites_chemin_a_espace_ou_pourcent_refuse_sans_rien_installer(depot, chemin):
+    texte = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_valeur_sure",
+                       "_chemins_hors_depot", "_nettoyer_rendu")
+    talons = f"""
+load_runtime() {{ :; }}; need_core() {{ :; }}; _db_local_unit() {{ :; }}; _https_enabled() {{ return 1; }}
+svc_available() {{ :; }}; svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true); SPEC_ENV=(); }}
+core_cmd() {{ [ "$*" = "config MCP_SERVERS_DIR" ] && echo '{chemin}'; return 0; }}; lanceur() {{ :; }}
+SERVICES=(main); VAULT_KEY_SYS=/etc/elpis/vault.key; AUDIT_KEY_SYS=/etc/elpis/audit.key
+SANDBOX_DIR=/srv/bacs; RAG_STORE=/srv/rag; RAG_CACHE=/srv/rag-cache; CHART_DIR=/srv/g; AUDIT_DIR_SYS=/a; APPLOG_DIR_SYS=/l; NODE=/n
+"""
+    sortie = depot.parent / "unites-refus"
+    sortie.mkdir()
+    r = _bash(depot, texte, talons + f'_render_units "{sortie}" {MOI}')
+    assert r.returncode != 0 and "contient" in r.stderr
+    assert list(sortie.iterdir()) == []

@@ -127,6 +127,8 @@ core_cmd() {
     local e=("ELPIS_RACINE=$ROOT")
     [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
     e+=("LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp")
+    # Dossier d'exécution des services (repères partagés) : jamais sous root, qui y créerait des fichiers illisibles pour leur compte.
+    if [ "$(id -u)" -ne 0 ] && [ -d "/run/${UNIT_PREFIX}" ] && [ -w "/run/${UNIT_PREFIX}" ]; then e+=("ELPIS_RUNTIME_DIR=/run/${UNIT_PREFIX}"); fi
     env "${e[@]}" "$NODE" "$CORE_DIST/exploitation.mjs" "$@"
 }
 # lanceur QUESTION : réglage lu par le core dans config.json et l'environnement (exploitation.mjs lanceur) ; rien si le core n'est pas construit.
@@ -551,6 +553,13 @@ cmd_logs() {
 # =============================================================================
 #  service install / remove (systemd)
 # =============================================================================
+# _valeur_sure NOM VALEUR → échec (message en français) si VALEUR contient « % » (spécificateur systemd) ou une espace : elle serait changée ou coupée dans une directive de chemin.
+_valeur_sure() {
+    [[ "$2" =~ [%[:space:]] ]] || return 0
+    warn "$1 : « $2 » contient « % » ou une espace, que systemd interpréterait dans une unité : choisissez un chemin sans ces caractères."
+    return 1
+}
+
 # _rendre_gabarit GABARIT → le gabarit, chaque @NOM@ remplacé par GAB[NOM] ; une ligne faite d'un seul @NOM@ reçoit GAB[NOM] tel quel (plusieurs lignes ou aucune) ; @NOM@ inconnu : échec.
 _rendre_gabarit() {
     local ligne cle
@@ -565,24 +574,85 @@ _rendre_gabarit() {
     done < "$1"
 }
 
-# _render_units DOSSIER UTILISATEUR → unités rendues depuis les gabarits de deploy/systemd/, UNITS_WANTS rempli
+# _chemins_hors_depot DOSSIER_BASE → lignes « services<TAB>dossier » des dossiers de données que le core place hors du dépôt (il les connaît, pas ce script).
+_chemins_hors_depot() {
+    local nom d
+    for nom in MCP_SERVERS_DIR MEMORY_DIR USER_SKILLS_DIR SKINS_DIR; do
+        d="$(core_cmd config "$nom" 2>/dev/null)" || continue
+        [ -z "$d" ] || printf 'main admin\t%s\n' "$d"
+    done
+    [ -z "$1" ] || printf 'main admin\t%s\n' "$1"
+    lanceur ecritures
+}
+
+# Dossiers d'état d'un service hors du dépôt : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris) ; dossier absent ou non absolu : ignoré.
+_ecritures_du_service() {
+    local d s l=() vu=" "
+    case "$1" in
+        main|admin) l=("$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR" "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS") ;;
+        toolhost)   l=("$ROOT/user_db" "$LOG_DIR" "$SANDBOX_DIR" "$CHART_DIR" "$AUDIT_DIR_SYS") ;;
+        rag)        l=("$RAG_CACHE") ;;
+    esac
+    while IFS=$'\t' read -r s d; do
+        case " $s " in *" $1 "*) l+=("$d") ;; esac
+    done <<< "${2:-}"
+    for d in "${l[@]}"; do
+        [ -n "$d" ] || continue
+        case "$vu" in *" $d "*) continue ;; esac
+        vu+="$d "
+        _valeur_sure "Dossier d'écriture de $1" "$d" || return 1
+        printf 'ReadWritePaths=-%s\n' "$d"
+    done
+}
+
+# ProtectHome : « read-only » si le dépôt, un dossier d'état, le compte des services, les navigateurs de Playwright ou un chemin donné (Node, Python, autorités, dossiers de données) sont sous /home, /root ou /run/user ; sinon « yes ».
+_protection_home() {
+    local d maison
+    maison="$(getent passwd "$1" 2>/dev/null | cut -d: -f6)"
+    shift
+    for d in "$ROOT" "$SANDBOX_DIR" "$RAG_STORE" "$RAG_CACHE" "$CHART_DIR" "$maison" "${PLAYWRIGHT_BROWSERS_PATH:-}" \
+             "${SSL_CERT_FILE:-}" "${SSL_CERT_DIR:-}" "${NODE_EXTRA_CA_CERTS:-}" "${GIT_SSL_CAINFO:-}" \
+             "${ELPIS_SANDBOX_IMAGE_TAR:-}" "$@"; do
+        case "$d" in /home|/home/*|/root|/root/*|/run/user|/run/user/*) echo read-only; return 0 ;; esac
+    done
+    echo yes
+}
+
+# Retire le dossier de rendu en cours (et celui de « service print ») quand le script s'arrête.
+_nettoyer_rendu() { rm -rf "${STAGE_RENDU:-}" "${TMP_PRINT:-}"; }
+
+# _render_units DOSSIER UTILISATEUR [DOSSIER_TMPFILES] → unités rendues depuis deploy/systemd/ (UNITS_WANTS rempli) ; dossier d'exécution partagé dans DOSSIER_TMPFILES s'il est donné ; tout est rendu à part, puis déplacé : un échec ne laisse aucune unité tronquée
 _render_units() {
-    local unit_dir="$1" run_user="$2" s e repli gabarits="$ROOT/deploy/systemd"
+    local unit_dir="$1" run_user="$2" tmpfiles_dir="${3:-}" s e f repli gabarits="$ROOT/deploy/systemd" code=() ecr db hors=() groupe
     local -A GAB
     UNITS_WANTS=()
     load_runtime
     need_core
+    STAGE_RENDU="$(mktemp -d)" || die "Dossier temporaire indisponible."
+    trap _nettoyer_rendu EXIT
+    local stage="$STAGE_RENDU"
     local db_unit; db_unit="$(_db_local_unit)"
-    repli="$(core_cmd config DB_PATH 2>/dev/null)"; repli="${repli:-$ROOT/user_db/app.db}"; repli="${repli%/*}/.vault.key"
-    GAB=([PREFIX]="$UNIT_PREFIX" [USER]="$run_user" [ROOT]="$ROOT" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
-         [VAULT_KEY_REPLI]="$repli" [AFTER_DB]="${db_unit:+ $db_unit}" [WANTS_DB]="${db_unit:+Wants=$db_unit}")
+    db="$(core_cmd config DB_PATH 2>/dev/null)"; db="${db:-$ROOT/user_db/app.db}"; repli="${db%/*}/.vault.key"
+    ecr="$(_chemins_hors_depot "${db%/*}")"
+    groupe="$(id -gn "$run_user" 2>/dev/null)" || die "Groupe de $run_user introuvable (id -gn)."
+    for e in apps packages frontend node node_modules venv deploy office rag_app shared_infra sandbox-agent \
+             browser-service desktop-agent tools elpis install.sh .env .git .npmrc package.json package-lock.json \
+             pyproject.toml toolhost.json mcp.json make_release.sh migration-kit; do code+=("-$ROOT/$e"); done
+    for f in "$ROOT"/requirements*.txt; do [ -e "$f" ] && code+=("-$f"); done
+    for e in "$ROOT" "$VAULT_KEY_SYS" "$repli" "$AUDIT_KEY_SYS"; do _valeur_sure "Chemin d'unité" "$e" || exit 1; done
+    mapfile -t hors < <(printf '%s\n' "$ecr" | cut -s -f2; printf '%s\n' "${NODE:-}"; readlink -f "${PY:-}" 2>/dev/null)
+    GAB=([PREFIX]="$UNIT_PREFIX" [USER]="$run_user" [GROUP]="$groupe" [ROOT]="$ROOT" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
+         [VAULT_KEY_REPLI]="$repli" [AUDIT_KEY_SYS]="$AUDIT_KEY_SYS" [AFTER_DB]="${db_unit:+ $db_unit}" [WANTS_DB]="${db_unit:+Wants=$db_unit}"
+         [CODE_RO]="${code[*]}" [PROTECT_HOME]="$(_protection_home "$run_user" "${hors[@]}")")
     for s in "${SERVICES[@]}"; do
         svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
         svc_spec "$s"
+        _valeur_sure "Dossier de travail de $s" "$SPEC_DIR" || exit 1
         GAB[WORKDIR]="$SPEC_DIR"
-        GAB[EXEC]="$(printf '%q ' "${SPEC_CMD[@]}")"
-        GAB[ENV]="$(for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done)"
-        _rendre_gabarit "$gabarits/elpis-$s.service" > "$unit_dir/${UNIT_PREFIX}-$s.service" \
+        GAB[EXEC]="$(printf '%q ' "${SPEC_CMD[@]}")"; GAB[EXEC]="${GAB[EXEC]//%/%%}"
+        GAB[ENV]="$(for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "${e//%/%%}"; done)"
+        GAB[RW]="$(_ecritures_du_service "$s" "$ecr")" || exit 1
+        _rendre_gabarit "$gabarits/elpis-$s.service" > "$stage/${UNIT_PREFIX}-$s.service" \
             || die "Gabarit d'unité invalide : $gabarits/elpis-$s.service"
         UNITS_WANTS+=("${UNIT_PREFIX}-$s.service")
     done
@@ -594,17 +664,26 @@ _render_units() {
     [ -f /etc/systemd/system/elpis-whisper.service ] && extra+=(elpis-whisper.service)
     [ -f /etc/systemd/system/elpis-tts.service ] && extra+=(elpis-tts.service)
     GAB[WANTS]="${UNITS_WANTS[*]}${extra[*]:+ ${extra[*]}}"
-    _rendre_gabarit "$gabarits/elpis.target" > "$unit_dir/${UNIT_PREFIX}.target" \
+    _rendre_gabarit "$gabarits/elpis.target" > "$stage/${UNIT_PREFIX}.target" \
         || die "Gabarit d'unité invalide : $gabarits/elpis.target"
+    if [ -n "$tmpfiles_dir" ]; then
+        _rendre_gabarit "$gabarits/elpis.tmpfiles" > "$stage/${UNIT_PREFIX}.conf" \
+            || die "Gabarit invalide : $gabarits/elpis.tmpfiles"
+        mv -f -- "$stage/${UNIT_PREFIX}.conf" "$tmpfiles_dir/${UNIT_PREFIX}.conf" || die "Écriture de $tmpfiles_dir impossible."
+    fi
+    mv -f -- "$stage"/* "$unit_dir"/ || die "Écriture de $unit_dir impossible."
+    rm -rf "$stage"; STAGE_RENDU=""
 }
 
 cmd_service() {
     local action="${1:-}" unit_dir=/etc/systemd/system s
     if [ "$action" = "print" ]; then
-        local tmp; tmp="$(mktemp -d)"
-        _render_units "$tmp" "${ELPIS_USER:-$(id -un)}"
-        for s in "$tmp"/*; do echo "### $(basename "$s")"; cat "$s"; echo; done
-        rm -rf "$tmp"
+        local tmp; tmp="$(mktemp -d)"; TMP_PRINT="$tmp"; trap _nettoyer_rendu EXIT
+        mkdir "$tmp/tmpfiles.d"
+        _render_units "$tmp" "${ELPIS_USER:-$(id -un)}" "$tmp/tmpfiles.d"
+        for s in "$tmp"/*.service "$tmp"/*.target "$tmp/tmpfiles.d/${UNIT_PREFIX}.conf"; do
+            echo "### ${s#"$tmp"/}"; cat "$s"; echo
+        done
         return 0
     fi
     [ "$(id -u)" -eq 0 ] || die "Lancez avec sudo : sudo ./elpis service ${action:-install}"
@@ -633,7 +712,9 @@ cmd_service() {
             ancien="$unite $(stat -c %U -- "$AUDIT_DIR_SYS" 2>/dev/null)"
             audit_setup "$run_user" "$ancien" 0 \
                 || warn "Journal de sécurité incomplet (voir ci-dessus) : sudo ./elpis audit setup une fois corrigé."
-            _render_units "$unit_dir" "$run_user"
+            _render_units "$unit_dir" "$run_user" /etc/tmpfiles.d
+            systemd-tmpfiles --create "/etc/tmpfiles.d/${UNIT_PREFIX}.conf" \
+                || warn "Dossier d'exécution /run/${UNIT_PREFIX} non créé (systemd-tmpfiles)."
             for s in "${SERVICES[@]}" "${SERVICES_RETIRES[@]}"; do
                 case " ${UNITS_WANTS[*]} " in *" ${UNIT_PREFIX}-$s.service "*) continue ;; esac
                 [ -f "$unit_dir/${UNIT_PREFIX}-$s.service" ] || continue
@@ -647,6 +728,9 @@ cmd_service() {
             systemctl enable "${UNITS_WANTS[@]}" "${UNIT_PREFIX}.target" >/dev/null
             # Les processus lancés à la main laisseraient les ports occupés ; le core peut prendre 300 s.
             COMPTES_ARRET="$ancien $run_user" cmd_stop || true
+            # Cible arrêtée : le contenu de /run/<préfixe> garderait l'ancien propriétaire si le compte change.
+            systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
+            [ -d "/run/${UNIT_PREFIX}" ] && find "/run/${UNIT_PREFIX}" -xdev -mindepth 1 -delete 2>/dev/null
             if compgen -G "$ROOT/logs/audit/audit-*.jsonl" >/dev/null; then
                 systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
                 audit_deplacer "$run_user" || warn "Fichiers de logs/audit non déplacés (voir ci-dessus)."
@@ -660,7 +744,8 @@ cmd_service() {
                 systemctl disable --now "${UNIT_PREFIX}-$s.service" >/dev/null 2>&1 || true
                 rm -f "$unit_dir/${UNIT_PREFIX}-$s.service"
             done
-            rm -f "$unit_dir/${UNIT_PREFIX}.target"
+            rm -f "$unit_dir/${UNIT_PREFIX}.target" "/etc/tmpfiles.d/${UNIT_PREFIX}.conf"
+            rm -rf "/run/${UNIT_PREFIX}"
             systemctl daemon-reload
             ok "Services systemd retirés."
             ;;

@@ -263,6 +263,7 @@ def test_service_install_garde_le_compte_des_unites(depot, explicite):
     talons = """
 id() { if [ "$#" -eq 1 ] && [ "$1" = -u ]; then echo 0; else command id "$@"; fi; }
 systemctl() { :; }; usermod() { :; }; sudo() { :; }; getent() { return 1; }; chown() { :; }; install() { :; }
+systemd-tmpfiles() { :; }
 _render_units() { UNITS_WANTS=(); RAG_STORE=/x; RAG_CACHE=/x; }
 audit_setup() { echo "audit_setup $1 | $2"; }; cmd_stop() { echo "cmd_stop $COMPTES_ARRET"; }
 """

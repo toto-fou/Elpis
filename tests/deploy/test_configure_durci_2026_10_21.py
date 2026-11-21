@@ -149,7 +149,7 @@ def test_env_lu_comme_des_donnees_aucune_substitution_ni_commande(racine):
                                            ('APP_SANDBOX_DIR="/tmp/sb-q2"\r\n', "/tmp/sb-q2"),
                                            ("APP_SANDBOX_DIR=/tmp/sb-q3 # sans guillemets\n", "/tmp/sb-q3"),
                                            ("export APP_SANDBOX_DIR=/tmp/sb-q4\n", "/tmp/sb-q4"),
-                                           ('APP_SANDBOX_DIR="/tmp/a $HOME"\n', "/tmp/a $HOME")])
+                                           ('APP_SANDBOX_DIR="/tmp/a$HOME"\n', "/tmp/a$HOME")])
 def test_env_valeurs_entre_guillemets_et_commentaires_de_fin(racine, ligne, attendu):
     (racine / ".env").write_text(ligne, encoding="utf-8")
     assert f'Environment="APP_SANDBOX_DIR={attendu}"' in _elpis(racine, "service", "print").stdout.splitlines()

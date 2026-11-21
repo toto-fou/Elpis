@@ -24,6 +24,13 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **systemd units: versioned and hardened.** The units of the services are rendered from
+  templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
+  privileges, with the system read-only except the folders it writes, a private `/tmp` and
+  `/dev`, protected kernel settings, and memory and task limits; main, the console and the tool
+  host share `/run/elpis` (created at boot by systemd-tmpfiles). The exposure score given by
+  `systemd-analyze security` drops from 9.0 ("UNSAFE") to 1.2-4.3 ("OK"). Run
+  `sudo ./elpis service install` again to apply it.
 - **Sandbox browser: no long-lived token next to the sandbox, nothing kept from a vault login.**
   The two tokens of the browser service of an account are now created at each start of that
   service and kept by the tool host, in memory and in its private runtime directory

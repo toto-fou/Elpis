@@ -116,6 +116,7 @@ export function monter(
   const corps: Record<string, unknown[]> = {};
   const reponses: Record<string, Reponse[]> = {};
   const confirmations: string[] = [];
+  const messages: string[] = [];
   const mots: string[] = [];
   const textes: string[] = [];
   const toasts: string[] = [];
@@ -145,8 +146,9 @@ export function monter(
       toasts.push(m);
     },
     fetchAuth: (url, options) => fetchFaux(url, options),
-    openConfirm: (titre) => {
+    openConfirm: (titre, message) => {
       confirmations.push(titre);
+      messages.push(message);
       return Promise.resolve(accepter);
     },
     openTypedConfirm: (_t, texte, mot) => {
@@ -179,6 +181,7 @@ export function monter(
     corps,
     reponses,
     confirmations,
+    messages,
     mots,
     textes,
     toasts,

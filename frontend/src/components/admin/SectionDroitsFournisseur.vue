@@ -142,7 +142,11 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
         role="alert"
         data-exiger-second-facteur
       >
-        Exigez d'abord un second facteur (section 4).
+        {{
+          f.roles_enabled
+            ? "Exigez d'abord un second facteur (section 4)."
+            : "Pour donner les rôles, exigez d'abord un second facteur (section 4)."
+        }}
       </p>
     </template>
   </div>

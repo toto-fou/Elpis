@@ -119,6 +119,28 @@ describe("SSO OpenID Connect : bouton « Contrôler les réglages »", () => {
     expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
   });
 
+  const PRET = { ...OIDC, tested: true };
+  const SYNTHESES: [string, unknown, string, string][] = [
+    ["activable", PRET, "", "Les contrôles passent. Ce fournisseur peut être activé (section 8)."],
+    [
+      "secret manquant",
+      { ...PRET, has_secret: false },
+      "",
+      "Les contrôles passent. Enregistrez d'abord le secret.",
+    ],
+    ["modifié", PRET, "Autre libellé", "Les contrôles passent. Enregistrez d'abord vos modifications."],
+    ["déjà activé", { ...PRET, enabled: true, active: true }, "", "Les contrôles passent."],
+  ];
+  for (const [nom, p, libelle, attendu] of SYNTHESES)
+    it(`la synthèse ne dit « peut être activé » que si la section 8 le permet : ${nom}`, async () => {
+      const m = monter(etat({ providers: [p] }));
+      m.reponses[TEST] = [json({ ok: true, steps: [ETAPES[0]] })];
+      await ouvrirTiroir(m);
+      if (libelle) await saisir("#ent-label", libelle);
+      await clic("#ent-tester");
+      expect(el("#ent-essai-synthese")?.textContent).toBe(attendu);
+    });
+
   it("un test raté reste affiché avec « Un contrôle a échoué. »", async () => {
     const m = monter(etat({ providers: [OIDC] }));
     m.reponses[TEST] = [json({ ok: false, steps: ETAPES })];

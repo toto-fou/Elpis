@@ -18,6 +18,8 @@ const MODES = [
 const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché${n > 1 ? "s" : ""}`;
 const prerequis = computed(() => adm.authEtat?.prerequisites ?? null);
 const carteGrisee = computed(() => adm.prelinkRaison !== "");
+/** Champs grisés de la carte 3 reliés à la raison écrite sous le choix du fournisseur. */
+const raisonCarte = computed(() => (carteGrisee.value ? "ent-prelien-raison" : undefined));
 /** Phrase de la carte d'état : les fournisseurs actifs, sinon qui peut encore se connecter. */
 const phraseEtat = computed(() => {
   const etat = adm.authEtat;
@@ -27,7 +29,7 @@ const phraseEtat = computed(() => {
     return "⚠ Aucun fournisseur actif et mots de passe locaux réservés aux administrateurs : seuls les administrateurs peuvent se connecter.";
   return [...etat.providers, ...etat.invalid_providers].some((p) => p.enabled)
     ? "⚠ Aucun fournisseur activé n'est opérant (carte 2) : seule la connexion locale fonctionne."
-    : "Aucun fournisseur activé : chacun se connecte avec son mot de passe local.";
+    : "Aucun fournisseur activé : seule la connexion par mot de passe local fonctionne.";
 });
 </script>
 
@@ -76,7 +78,7 @@ const phraseEtat = computed(() => {
               <span class="adm-row__label">
                 <span aria-hidden="true">{{ prerequis.public_url_https ? "✓" : "✗" }}</span> Adresse publique
                 en https<span class="sr-only">
-                  : {{ prerequis.public_url_https ? "rempli" : "manquant" }}</span
+                  : condition {{ prerequis.public_url_https ? "remplie" : "manquante" }}</span
                 >
               </span>
               <p class="adm-card__hint">
@@ -126,7 +128,7 @@ const phraseEtat = computed(() => {
                 <span aria-hidden="true">{{ prerequis.cookie_secure ? "✓" : "✗" }}</span> Accès HTTPS<span
                   class="sr-only"
                 >
-                  : {{ prerequis.cookie_secure ? "rempli" : "manquant" }}</span
+                  : condition {{ prerequis.cookie_secure ? "remplie" : "manquante" }}</span
                 >
               </span>
               <p class="adm-card__hint">
@@ -153,7 +155,7 @@ const phraseEtat = computed(() => {
               <span class="adm-row__label">
                 <span aria-hidden="true">{{ prerequis.local_admins >= 1 ? "✓" : "✗" }}</span> Administrateur à
                 mot de passe local<span class="sr-only">
-                  : {{ prerequis.local_admins >= 1 ? "rempli" : "manquant" }}</span
+                  : condition {{ prerequis.local_admins >= 1 ? "remplie" : "manquante" }}</span
                 >
               </span>
               <p class="adm-card__hint">
@@ -273,8 +275,8 @@ const phraseEtat = computed(() => {
           <div>
             <h3 id="ent-prelien-h" class="adm-card__title">3. Comptes existants</h3>
             <p class="adm-card__hint">
-              À sa première connexion par ce fournisseur, la personne devra saisir une fois son ancien mot de
-              passe Elpis.
+              À sa première connexion par ce fournisseur, la personne saisit une fois son ancien mot de passe
+              Elpis, sauf dispense ci-dessous.
             </p>
           </div>
         </header>
@@ -330,6 +332,7 @@ const phraseEtat = computed(() => {
               id="ent-prelien-compte"
               v-model.number="adm.prelinkForm.user_id"
               class="set-select w-full"
+              :aria-describedby="raisonCarte"
               :disabled="carteGrisee"
             >
               <option :value="0">—</option>
@@ -352,6 +355,7 @@ const phraseEtat = computed(() => {
               class="set-input font-mono text-xs"
               maxlength="256"
               autocomplete="off"
+              :aria-describedby="raisonCarte"
               :disabled="carteGrisee"
             />
           </div>
@@ -369,6 +373,7 @@ const phraseEtat = computed(() => {
                   id="ent-prelien-dispense"
                   v-model="adm.prelinkForm.waiver"
                   type="checkbox"
+                  :aria-describedby="raisonCarte"
                   :disabled="carteGrisee || adm.prelinkAdmin"
                 />
                 <span>Identité vérifiée hors ligne : ne pas demander l'ancien mot de passe</span>
@@ -384,7 +389,9 @@ const phraseEtat = computed(() => {
                   id="ent-prelien-admin"
                   v-model="adm.prelinkForm.confirm_admin"
                   type="checkbox"
-                  aria-describedby="ent-prelien-admin-aide"
+                  :aria-describedby="
+                    carteGrisee ? 'ent-prelien-raison ent-prelien-admin-aide' : 'ent-prelien-admin-aide'
+                  "
                   :disabled="carteGrisee || !adm.prelinkAdmin"
                 />
                 <span class="adm-row__label"

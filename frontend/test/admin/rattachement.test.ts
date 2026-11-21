@@ -58,6 +58,8 @@ describe("rattachements préparés", () => {
     expect(carte?.querySelector("[data-prelink]")?.textContent).toContain("alice@sso");
     expect(el<HTMLSelectElement>("#ent-prelien-fournisseur")?.value).toBe("sso");
     expect(m.appels).toContain("GET " + PRE);
+    expect(el("#ent-prelien-compte")?.hasAttribute("aria-describedby")).toBe(false);
+    expect(el("#ent-prelien-admin")?.getAttribute("aria-describedby")).toBe("ent-prelien-admin-aide");
   });
 
   it("aucun fournisseur : carte visible, grisée, avec sa raison écrite", async () => {
@@ -76,6 +78,13 @@ describe("rattachements préparés", () => {
       "#ent-prelien-ajouter",
     ])
       expect(el<HTMLInputElement>(sel)?.disabled, sel).toBe(true);
+    for (const sel of [
+      "#ent-prelien-compte",
+      "#ent-prelien-attendu",
+      "#ent-prelien-dispense",
+      "#ent-prelien-admin",
+    ])
+      expect(el(sel)?.getAttribute("aria-describedby")?.split(" "), sel).toContain("ent-prelien-raison");
     expect(m.appels.some((a) => a.includes("/prelinks"))).toBe(false);
   });
 
@@ -121,7 +130,7 @@ describe("rattachements préparés", () => {
     const t = el("[data-prelinks]")?.textContent ?? "";
     expect(t).toContain("Comptes existants");
     expect(t).toContain(
-      "À sa première connexion par ce fournisseur, la personne devra saisir une fois son ancien mot de passe Elpis.",
+      "À sa première connexion par ce fournisseur, la personne saisit une fois son ancien mot de passe Elpis, sauf dispense ci-dessous.",
     );
     expect(el("[data-prelink]")?.textContent).toContain("alice");
     expect(el("[data-prelink]")?.textContent).toContain("alice@sso");

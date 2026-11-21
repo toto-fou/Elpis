@@ -38,9 +38,10 @@
 #  ./elpis vault rekey --from FICHIER   rechiffre avec la clé courante les
 #                                secrets de l'ancienne clé FICHIER
 #  ./elpis secret ls [--user COMPTE]   secrets du coffre : métadonnées seules
-#  ./elpis auth status           SSO OpenID Connect : fournisseurs (allumé,
-#                                actif, testé), mot de passe local, administrateurs
-#  ./elpis auth off              issue de secours : éteint tous les fournisseurs
+#  ./elpis auth status           SSO OpenID Connect : fournisseurs (activé,
+#                                actif ou inopérant, testé), mot de passe
+#                                local, administrateurs
+#  ./elpis auth off              issue de secours : désactive tous les fournisseurs
 #                                et rouvre le mot de passe local à tous
 #  ./elpis auth reactivate COMPTE  lève la suspension d'un compte (issue de
 #                                secours si tous les administrateurs le sont)

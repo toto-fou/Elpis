@@ -31,7 +31,7 @@ describe("SSO OpenID Connect : page vide", () => {
     const t = m.hote.textContent ?? "";
     expect(t).toContain("Connexion locale seule");
     expect(texte("[data-etat-page]")).toBe(
-      "Aucun fournisseur activé : chacun se connecte avec son mot de passe local.",
+      "Aucun fournisseur activé : seule la connexion par mot de passe local fonctionne.",
     );
     expect(t).toContain("✗ Adresse publique en https");
     expect(t).toContain("Activez l'accès HTTPS, puis redémarrez.");
@@ -352,7 +352,7 @@ describe("SSO OpenID Connect : fournisseur existant", () => {
     expect(el<HTMLButtonElement>("#ent-secret-supprimer")?.disabled).toBe(true);
     expect(el<HTMLInputElement>("#ent-roles-actif")?.disabled).toBe(true);
     expect(texte("[data-etat-tiroir]")).toBe(
-      "Fournisseur activé : seuls le libellé et la fraîcheur se modifient. Pour le reste, désactivez-le (section 8) ; les sessions des comptes rattachés seront fermées.",
+      "Fournisseur activé : seuls le libellé (section 1) et la fraîcheur (section 6) se modifient. Pour le reste, désactivez-le (section 8) ; les sessions des comptes rattachés seront fermées.",
     );
     expect(m.A.authFige("issuer")).toBe("Désactivez d'abord ce fournisseur pour modifier ce réglage.");
     expect(m.A.authFige("label")).toBe("");
@@ -408,6 +408,9 @@ describe("SSO OpenID Connect : fournisseur existant", () => {
     m.refuser();
     await clic("#ent-desactiver");
     expect(m.confirmations).toEqual(["Désactiver ce fournisseur"]);
+    expect(m.messages).toEqual([
+      "Les sessions des comptes rattachés à « SSO siège » seront fermées : ces personnes devront se reconnecter autrement.",
+    ]);
     expect(m.appels).not.toContain("POST /api/admin/auth/providers/sso/disable");
     expect(m.A.authFournisseur.value?.active).toBe(true);
   });
@@ -606,7 +609,7 @@ describe("SSO OpenID Connect : carte d'état fidèle à l'état réel", () => {
       "aucun fournisseur activé",
       etat({ providers: [OIDC] }),
       "Connexion locale seule",
-      "Aucun fournisseur activé : chacun se connecte avec son mot de passe local.",
+      "Aucun fournisseur activé : seule la connexion par mot de passe local fonctionne.",
     ],
     [
       "activé mais inopérant",
@@ -688,6 +691,9 @@ describe("SSO OpenID Connect : raison d'un fournisseur inopérant", () => {
     });
 });
 
+const ECARTE =
+  "Seuls le libellé et la fraîcheur s'enregistrent tant que ce fournisseur est activé : vos autres modifications n'ont pas été envoyées. Désactivez-le pour les faire.";
+
 describe("SSO OpenID Connect : le secret ne part jamais pour un fournisseur activé", () => {
   const PRET = { ...OIDC, tested: true };
 
@@ -708,6 +714,8 @@ describe("SSO OpenID Connect : le secret ne part jamais pour un fournisseur acti
     await clic("#ent-enregistrer-fournisseur");
     expect(m.corps["PUT /api/admin/auth/providers/sso"]).toEqual([{ label: "Nouveau nom" }]);
     expect(m.appels.some((a) => a.endsWith("/secret"))).toBe(false);
+    expect(texte("[data-tiroir-erreur]")).toBe(ECARTE);
+    expect(m.toasts).not.toContain("Fournisseur enregistré");
   });
 
   it("la réponse de l'enregistrement dit le fournisseur activé : le secret saisi ne part pas, la raison est écrite", async () => {
@@ -721,8 +729,9 @@ describe("SSO OpenID Connect : le secret ne part jamais pour un fournisseur acti
     expect(m.appels).toContain("PUT /api/admin/auth/providers/sso");
     expect(m.appels.some((a) => a.endsWith("/secret"))).toBe(false);
     expect(texte("[data-tiroir-erreur]")).toBe(
-      "Ce fournisseur vient d'être activé : le secret n'a pas été envoyé. Désactivez-le pour le changer.",
+      "Réglages enregistrés, sauf le secret : ce fournisseur vient d'être activé. Désactivez-le pour changer le secret.",
     );
+    expect(m.toasts).not.toContain("Fournisseur enregistré");
     expect(el<HTMLInputElement>("#ent-secret")?.value).toBe("");
   });
 
@@ -734,6 +743,71 @@ describe("SSO OpenID Connect : le secret ne part jamais pour un fournisseur acti
     await m.A.authSupprimerSecret();
     expect(m.confirmations).toEqual([]);
     expect(m.appels.some((a) => a.endsWith("/secret"))).toBe(false);
+  });
+});
+
+describe("SSO OpenID Connect : fournisseur activé pendant la saisie", () => {
+  const PRET = { ...OIDC, tested: true };
+
+  it("activé depuis une autre session : le tiroir est relu du serveur, le libellé et la fraîcheur saisis restent et partent seuls", async () => {
+    const m = monter(etat({ providers: [PRET] }));
+    m.reponses["PUT /api/admin/auth/providers/sso"] = [
+      json(etat({ providers: [{ ...ACTIF, label: "Nouveau nom", freshness_days: 30 }] })),
+    ];
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    await saisir("#ent-label", "Nouveau nom");
+    await saisir("#ent-fraicheur", "30");
+    m.A.authRetirerGroupe("required_groups", 0);
+    await saisir("#ent-groupe", "autres");
+    m.A.authAjouterGroupe();
+    await saisir("#ent-issuer", "https://autre.example.lan");
+    m.reponses["GET /api/admin/auth"] = [json(etat({ providers: [ACTIF] }))];
+    await m.A.loadEnterpriseAuth();
+    await vider();
+    expect(m.A.authTiroir.value?.required_groups).toEqual(["elpis"]);
+    expect(el<HTMLInputElement>("#ent-issuer")?.value).toBe("https://sso.example.lan/realms/x");
+    expect(el<HTMLInputElement>("#ent-issuer")?.disabled).toBe(true);
+    expect(el<HTMLInputElement>("#ent-label")?.value).toBe("Nouveau nom");
+    expect(String(el<HTMLInputElement>("#ent-fraicheur")?.value)).toBe("30");
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.corps["PUT /api/admin/auth/providers/sso"]).toEqual([
+      { label: "Nouveau nom", freshness_days: 30 },
+    ]);
+    expect(m.toasts).toContain("Fournisseur enregistré");
+    expect(m.A.authTiroir.value).toBeNull();
+  });
+
+  it("activé, tiroir resté sur une saisie qui ne peut pas partir : rien n'est annoncé comme enregistré, le tiroir est relu et le dit", async () => {
+    const m = monter(etat({ providers: [ACTIF] }));
+    m.reponses["PUT /api/admin/auth/providers/sso"] = [
+      json(etat({ providers: [{ ...ACTIF, label: "Nouveau nom" }] })),
+    ];
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    m.A.authTiroir.value!.required_groups = ["autres"];
+    await saisir("#ent-label", "Nouveau nom");
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.corps["PUT /api/admin/auth/providers/sso"]).toEqual([{ label: "Nouveau nom" }]);
+    expect(m.toasts).not.toContain("Fournisseur enregistré");
+    expect(texte("[data-tiroir-erreur]")).toBe(ECARTE);
+    expect(m.A.authTiroir.value?.required_groups).toEqual(["elpis"]);
+    expect(el<HTMLInputElement>("#ent-label")?.value).toBe("Nouveau nom");
+  });
+
+  it("activé sans rien d'autre de modifié qu'une saisie impossible : rien ne part, le tiroir le dit", async () => {
+    const m = monter(etat({ providers: [ACTIF] }));
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    m.A.authTiroir.value!.issuer = "https://autre.example.lan";
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.appels.some((a) => a.startsWith("PUT "))).toBe(false);
+    expect(m.toasts).not.toContain("Fournisseur enregistré");
+    expect(texte("[data-tiroir-erreur]")).toBe(ECARTE);
+    expect(el<HTMLInputElement>("#ent-issuer")?.value).toBe("https://sso.example.lan/realms/x");
   });
 });
 
@@ -794,6 +868,9 @@ describe("SSO OpenID Connect : Activer et Désactiver partent des réglages enre
     await saisir("#ent-label", "Brouillon");
     await clic("#ent-desactiver");
     expect(m.appels).toContain("POST /api/admin/auth/providers/sso/disable");
+    expect(m.messages.at(-1)).toBe(
+      "Les sessions des comptes rattachés à « Nom du serveur » seront fermées : ces personnes devront se reconnecter autrement. Vos modifications non enregistrées seront perdues.",
+    );
     expect(el<HTMLInputElement>("#ent-label")?.value).toBe("SSO siège");
     expect(document.activeElement).toBe(bouton);
     expect(document.activeElement?.id).toBe("ent-activer");
@@ -828,6 +905,39 @@ describe("SSO OpenID Connect : Ajouter enchaîne sur la vérification", () => {
     expect(document.activeElement?.id).toBe("ent-trial");
     expect(texte("[data-raison-activer]")).toBe("Réussissez d'abord « Se connecter pour essayer ».");
   });
+
+  it("le résultat de « Contrôler les réglages » reste après l'ajout, puis s'efface à la première modification", async () => {
+    const m = monter();
+    m.reponses["POST /api/admin/auth/providers"] = [
+      json(etat({ providers: [{ ...OIDC, has_secret: false }] })),
+    ];
+    m.reponses["PUT /api/admin/auth/providers/sso/secret"] = [json(etat({ providers: [OIDC] }))];
+    m.reponses["POST /api/admin/auth/providers/test"] = [
+      json({
+        ok: true,
+        steps: [
+          { id: "settings", label: "Réglages", level: "ok", detail: "Réglages valides.", target: null },
+        ],
+      }),
+    ];
+    await ouvrir(m);
+    await clic("#ent-ajouter");
+    await saisir("#ent-label", "SSO siège");
+    await saisir("#ent-id", "sso");
+    await saisir("#ent-issuer", "https://sso.example.lan/realms/x");
+    await saisir("#ent-client", "elpis");
+    await clic("#ent-tester");
+    const synthese =
+      "Les contrôles passent. Faites ensuite « Se connecter pour essayer » pour pouvoir activer ce fournisseur.";
+    expect(texte("#ent-essai-synthese")).toBe(synthese);
+    await saisir("#ent-secret", "s3cret");
+    expect(texte("#ent-essai-synthese")).toBe(synthese);
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.A.authTiroir.value?.nouveau).toBe(false);
+    expect(texte("#ent-essai-synthese")).toBe(synthese);
+    await saisir("#ent-issuer", "https://autre.example.lan");
+    expect(el("#ent-essai-synthese")).toBeNull();
+  });
 });
 
 describe("SSO OpenID Connect : accessibilité et termes", () => {
@@ -852,18 +962,47 @@ describe("SSO OpenID Connect : accessibilité et termes", () => {
     );
   });
 
-  it("chaque ✓ / ✗ des prérequis a son texte pour lecteur d'écran", async () => {
+  it("chaque ✓ / ✗ des prérequis et de la liste d'activation a son texte pour lecteur d'écran, accordé et placé après le libellé", async () => {
     const m = monter(
-      etat({ prerequisites: { public_url_https: false, cookie_secure: true, local_admins: 0 } }),
+      etat({
+        providers: [OIDC],
+        prerequisites: { public_url_https: false, cookie_secure: true, local_admins: 0 },
+      }),
     );
     await ouvrir(m);
     expect(tous("[data-prerequis] .sr-only").map((n) => n.textContent?.trim())).toEqual([
-      ": manquant",
-      ": rempli",
-      ": manquant",
+      ": condition manquante",
+      ": condition remplie",
+      ": condition manquante",
     ]);
     for (const n of tous("[data-prerequis] .adm-row__label > [aria-hidden]"))
       expect(["✓", "✗"]).toContain(n.textContent?.trim());
+    /** Ce qu'entend un lecteur d'écran : le texte sans les signes cachés. */
+    const lu = (n: Element | null): string =>
+      (n?.textContent ?? "").replace(/[✓✗]/gu, "").replace(/\s+/gu, " ").trim();
+    expect(tous("[data-prerequis] .adm-row__label").map(lu)).toEqual([
+      "Adresse publique en https : condition manquante",
+      "Accès HTTPS : condition remplie",
+      "Administrateur à mot de passe local : condition manquante",
+    ]);
+    m.A.authModifier("sso");
+    await vider();
+    expect(lu(el('[data-condition="secret"]'))).toBe("Secret client enregistré : condition remplie");
+    expect(lu(el('[data-condition="trial"]'))).toBe("Connexion d'essai réussie : condition manquante");
+    expect(lu(el('[data-condition="saved"]'))).toBe("Modifications enregistrées : condition remplie");
+  });
+
+  it("l'autorité de certification a son seul nom pour libellé, son aide est reliée au champ ; le secret dit une fois où il est rangé", async () => {
+    const m = monter(etat({ providers: [OIDC] }));
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    expect(texte('label[for="ent-ca"]')).toBe("Autorité de certification");
+    expect(el(`#${el("#ent-ca")?.getAttribute("aria-describedby") ?? "absent"}`)?.textContent).toContain(
+      "Si le certificat du fournisseur n'est pas reconnu",
+    );
+    expect(el("#ent-secret")?.getAttribute("title") ?? "").toBe("");
+    expect(m.hote.ownerDocument.body.textContent).toContain("Rangé à part sur le serveur, jamais réaffiché.");
   });
 
   it("les trois identifiants sont distingués", async () => {

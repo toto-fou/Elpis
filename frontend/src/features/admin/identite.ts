@@ -401,6 +401,15 @@ function formDe(f: FournisseurAuth): FormFournisseur {
   };
 }
 
+/** Formulaire relu des réglages enregistrés `p` ; le libellé et la fraîcheur modifiés à l'écran depuis `avant` (les seuls modifiables d'un fournisseur activé) sont gardés. */
+function relire(p: FournisseurAuth, f: FormFournisseur, avant: FournisseurAuth): FormFournisseur {
+  const relu = formDe(p);
+  if (f.label.trim() !== avant.label) relu.label = f.label;
+  if (String(f.freshness_days).trim() !== chiffre(avant.freshness_days))
+    relu.freshness_days = f.freshness_days;
+  return relu;
+}
+
 /** Entier saisi (texte, ou nombre rendu par un champ `type="number"`) : `undefined` si vide, message d'erreur si ce n'est pas un entier. */
 function entierSaisi(v: string | number, nom: string): number | undefined | string {
   const t = String(v).trim();
@@ -464,6 +473,13 @@ function corpsFournisseur(f: FormFournisseur): Record<string, unknown> | string 
   return corps;
 }
 
+/** Réglages tels que « Contrôler les réglages » les envoie (sans le secret, qu'il n'emploie pas) ; une chaîne seule est un message d'erreur de saisie. */
+function corpsControle(f: FormFournisseur): Record<string, unknown> | string {
+  const corps = corpsFournisseur({ ...f, nouveau: false });
+  if (typeof corps === "string") return corps;
+  return { ...corps, id: f.id.trim(), type: f.type };
+}
+
 /** Corps d'un fournisseur activé : le libellé et la fraîcheur, seuls modifiables sans le désactiver ; `null` si rien ne change. */
 function corpsActif(f: FormFournisseur, p: FournisseurAuth): Record<string, unknown> | string | null {
   const corps: Record<string, unknown> = {};
@@ -507,6 +523,9 @@ export function creerIdentite(b: BaseAdmin) {
   let sequenceEssai = 0;
   let sequenceTrial = 0;
   let minuteurTrial: ReturnType<typeof setTimeout> | null = null;
+  /** Réglages contrôlés par le dernier « Contrôler les réglages » : son résultat ne vaut que pour eux. */
+  let cleEssai = "";
+  const cleControle = (f: FormFournisseur | null): string => (f ? JSON.stringify(corpsControle(f)) : "");
 
   const authUrlModifiee = computed(
     () => authEtat.value !== null && authUrl.value.trim() !== authEtat.value.public_url,
@@ -637,6 +656,7 @@ export function creerIdentite(b: BaseAdmin) {
   /** Oublie le résultat du test (et la réponse d'un test encore en vol). */
   function effacerEssai(): void {
     sequenceEssai += 1;
+    cleEssai = "";
     authEssai.value = null;
     authEssaiErreur.value = "";
     authEssaiEnCours.value = false;
@@ -697,15 +717,21 @@ export function creerIdentite(b: BaseAdmin) {
     piegerTab(ev, authDrawer.value);
   }
 
-  watch(authTiroir, effacerEssai, { deep: true });
-
-  // Un fournisseur activé ne reçoit jamais de secret : le champ se vide dès qu'il l'est, même depuis une autre session.
+  // Le résultat du contrôle s'efface dès que les réglages contrôlés changent à l'écran.
   watch(
-    () => authFournisseur.value?.enabled,
-    (active) => {
-      if (active && authTiroir.value) authTiroir.value.secret = "";
+    () => cleControle(authTiroir.value),
+    (cle) => {
+      if (cle !== cleEssai) effacerEssai();
     },
   );
+
+  // Activé, même depuis une autre session : le tiroir est relu du serveur (libellé et fraîcheur saisis gardés) ; jamais de secret saisi.
+  watch(authFournisseur, (p, avant) => {
+    const f = authTiroir.value;
+    if (!f || !p?.enabled) return;
+    if (avant?.id === p.id && !avant.enabled) authTiroir.value = relire(p, f, avant);
+    else f.secret = "";
+  });
 
   // Identifiant d'un nouveau fournisseur déduit du libellé tant que l'administrateur ne l'a pas saisi.
   watch(
@@ -775,7 +801,7 @@ export function creerIdentite(b: BaseAdmin) {
     if (!f) return "";
     if (f.nouveau || !p) return "Nouveau fournisseur : il reste éteint jusqu'à son activation (section 8).";
     if (p.enabled)
-      return "Fournisseur activé : seuls le libellé et la fraîcheur se modifient. Pour le reste, désactivez-le (section 8) ; les sessions des comptes rattachés seront fermées.";
+      return "Fournisseur activé : seuls le libellé (section 1) et la fraîcheur (section 6) se modifient. Pour le reste, désactivez-le (section 8) ; les sessions des comptes rattachés seront fermées.";
     return p.identities > 0
       ? "Fournisseur éteint : ses réglages se modifient, sauf l'adresse de l'émetteur, l'identifiant client et la revendication sujet, figés par les comptes rattachés."
       : "Fournisseur éteint : ses réglages se modifient.";
@@ -879,6 +905,7 @@ export function creerIdentite(b: BaseAdmin) {
     if (authBusy.value) return false;
     authBusy.value = true;
     const ajout = f.nouveau;
+    const cleAvant = cleControle(f);
     try {
       if (actif) {
         const corps = corpsActif(f, actif);
@@ -886,6 +913,10 @@ export function creerIdentite(b: BaseAdmin) {
           authTiroirErreur.value = corps;
           return false;
         }
+        const enregistre = { ...formDe(actif), label: f.label, freshness_days: f.freshness_days };
+        const ecarte =
+          f.secret !== "" ||
+          JSON.stringify(corpsFournisseur(enregistre)) !== JSON.stringify(corpsFournisseur(f));
         if (corps) {
           const { r, erreur } = await appeler("PUT", `/providers/${encodeURIComponent(f.id)}`, corps);
           if (!r) {
@@ -893,6 +924,13 @@ export function creerIdentite(b: BaseAdmin) {
             return false;
           }
           appliquer(r);
+        }
+        if (ecarte) {
+          const p = authFournisseur.value;
+          if (p && authTiroir.value === f) authTiroir.value = relire(p, f, actif);
+          authTiroirErreur.value =
+            "Seuls le libellé et la fraîcheur s'enregistrent tant que ce fournisseur est activé : vos autres modifications n'ont pas été envoyées. Désactivez-le pour les faire.";
+          return false;
         }
       } else {
         const corps = corpsFournisseur(f);
@@ -914,7 +952,7 @@ export function creerIdentite(b: BaseAdmin) {
         if (f.secret !== "") {
           if (authFournisseur.value?.enabled) {
             authTiroirErreur.value =
-              "Ce fournisseur vient d'être activé : le secret n'a pas été envoyé. Désactivez-le pour le changer.";
+              "Réglages enregistrés, sauf le secret : ce fournisseur vient d'être activé. Désactivez-le pour changer le secret.";
             return false;
           }
           if (!(await envoyerSecret(f.id, f.secret))) return false;
@@ -927,7 +965,10 @@ export function creerIdentite(b: BaseAdmin) {
         authFermer();
         return true;
       }
-      if (authTiroir.value === f) authTiroir.value = formDe(cree);
+      if (authTiroir.value === f) {
+        authTiroir.value = formDe(cree);
+        if (cleEssai === cleAvant) cleEssai = cleControle(authTiroir.value);
+      }
       focaliserDansTiroir("#ent-trial", true);
       return true;
     } finally {
@@ -954,20 +995,19 @@ export function creerIdentite(b: BaseAdmin) {
     }
   }
 
-  /** Teste les réglages du formulaire tels quels ; le résultat s'efface à la moindre modification. */
+  /** Teste les réglages du formulaire tels quels ; le résultat s'efface dès que ces réglages changent à l'écran. */
   async function authTester(): Promise<void> {
     const f = authTiroir.value;
     const etat = authEtat.value;
     if (!f || !etat || authEssaiEnCours.value) return;
-    const corps = corpsFournisseur({ ...f, nouveau: false });
+    const corps = corpsControle(f);
     if (typeof corps === "string") {
       authEssaiErreur.value = corps;
       authEssai.value = null;
       return;
     }
-    corps["id"] = f.id.trim();
-    corps["type"] = f.type;
     const moi = ++sequenceEssai;
+    cleEssai = JSON.stringify(corps);
     authEssai.value = null;
     authEssaiErreur.value = "";
     authEssaiEnCours.value = true;
@@ -1063,7 +1103,7 @@ export function creerIdentite(b: BaseAdmin) {
     if (!activer) {
       const ok = await ctx.openConfirm(
         "Désactiver ce fournisseur",
-        `Les sessions des comptes rattachés à « ${p.label} » seront fermées : ces personnes devront se reconnecter autrement.`,
+        `Les sessions des comptes rattachés à « ${p.label} » seront fermées : ces personnes devront se reconnecter autrement.${authModifie.value ? " Vos modifications non enregistrées seront perdues." : ""}`,
         true,
         "Désactiver",
       );

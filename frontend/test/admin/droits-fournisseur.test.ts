@@ -245,6 +245,31 @@ describe("section Rôles et groupes : SSO sans second facteur", () => {
     expect(m.corps[PUT_SSO]).toBeUndefined();
   });
 
+  it("rôles éteints : la section dit d'exiger un second facteur pour les donner, l'enregistrement reste disponible", async () => {
+    const m = await ouvrir(OIDC, "sso");
+    m.reponses[PUT_SSO] = [json(etat([OIDC]))];
+    await ajouterAdmin("cn=admins");
+    expect(el("[data-exiger-second-facteur]")?.textContent?.trim()).toBe(
+      "Pour donner les rôles, exigez d'abord un second facteur (section 4).",
+    );
+    expect(el("[data-raison-enregistrer]")).toBeNull();
+    expect(enregistrer()?.disabled).toBe(false);
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.corps[PUT_SSO]).toHaveLength(1);
+  });
+
+  it("rôles allumés : le pied du tiroir dit pourquoi Enregistrer est grisé, sans répéter la section 5", async () => {
+    await ouvrir(OIDC, "sso");
+    await cocher(el<HTMLInputElement>("#ent-roles-actif"));
+    await ajouterAdmin("cn=admins");
+    const pied = el("[data-raison-enregistrer]")?.textContent?.trim();
+    expect(pied).toBe(
+      "Enregistrement indisponible : groupes administrateurs sans second facteur exigé (section 5).",
+    );
+    expect(enregistrer()?.title).toBe(pied);
+    expect(el("[data-exiger-second-facteur]")?.textContent?.trim()).not.toBe(pied);
+  });
+
   it("exiger un niveau d'authentification rend l'enregistrement disponible", async () => {
     await ouvrir(OIDC, "sso");
     await cocher(el<HTMLInputElement>("#ent-roles-actif"));

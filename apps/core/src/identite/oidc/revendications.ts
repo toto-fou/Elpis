@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/revendications.ts — lecture des revendications vérifiées d'un jeton d'identité : toujours par `Object.hasOwn`, sujet, groupes (chemin pointé), `acr` et `amr` requis, e-mail vérifié seulement. */
-import { ACR_FAIBLES, droitsActifs, FAMILLES_AMR } from "../correspondance";
+import { ACR_FAIBLES, AMR_MULTI_FACTEUR, droitsActifs, FAMILLES_AMR } from "../correspondance";
 import type { Appartenance } from "../provisionnement";
 import type { Fournisseur } from "../reglages";
 
@@ -96,7 +96,7 @@ export function secondFacteurProuve(claims: Revendications, f: Fournisseur): boo
   const amr = proprieteDe(claims, "amr");
   if (Array.isArray(amr)) {
     const m = amr.filter((x): x is string => typeof x === "string").map((x) => x.trim().toLowerCase());
-    if (m.includes("mfa") || m.includes("mca")) return true;
+    if (m.some((x) => AMR_MULTI_FACTEUR.has(x))) return true;
     if (new Set(m.map((x) => FAMILLES_AMR.get(x)).filter((x) => x !== undefined)).size >= 2) return true;
   }
   const acr = proprieteDe(claims, "acr");

@@ -27,12 +27,12 @@ Reference of every setting: [configuration.md](configuration.md#openid-connect-s
 
 ## Before you start
 
-1. **HTTPS in service.** Set up HTTPS access first (Administration › **Accès HTTPS**, see
-   [configuration.md](configuration.md#https-caddy-front-end)). A provider cannot be switched on while the
-   session cookie is not secure.
-2. **A public address.** The `https` address people type to reach Elpis (`https://elpis.example.lan`, no
+1. **A public address.** The `https` address people type to reach Elpis (`https://elpis.example.lan`, no
    path). It is the only source of the return address given to the provider, and cannot change while a
    provider is on.
+2. **HTTPS in service.** Set up HTTPS access (Administration › **Accès HTTPS**, see
+   [configuration.md](configuration.md#https-caddy-front-end)). A provider cannot be switched on while the
+   session cookie is not secure.
 3. **An administrator with a local password, kept as the way back in.** Elpis refuses to switch a provider
    on, to suspend, delete or demote the last such administrator, and accounts created by a provider have no
    local password. Do not link your own administrator account to a provider.
@@ -54,8 +54,9 @@ Reference of every setting: [configuration.md](configuration.md#openid-connect-s
 The console page is Administration › **Utilisateurs & accès** (Users & access) › **SSO OpenID Connect**; the
 search of the console also finds it by `oidc`, `openid`, `sso` or `entreprise`. A status card says
 **SSO OpenID Connect actif** (OpenID Connect SSO on) with the active providers, or **Connexion locale seule**
-(Local sign-in only) with who can still sign in: everybody with their local password when no provider is
-switched on; only the local sign-in, with a ⚠, when providers are switched on but none is operative; only the
+(Local sign-in only) with who can still sign in: only the local password sign-in when no provider is
+switched on (accounts created by a provider have no local password); only the local sign-in, with a ⚠, when
+providers are switched on but none is operative; only the
 administrators, with a ⚠, when **4. Mots de passe locaux** is set to **Administrateurs seulement** and no
 provider is active. Then four numbered cards follow the order of the setup:
 
@@ -103,14 +104,15 @@ and each address to declare is replaced, in the same place, by what is missing u
    see below.
 8. **7. Vérification** (Verification): **a. Contrôler les réglages** (Check the settings; see [What the check
    covers](#what-the-check-covers)), then save with **Ajouter**: the drawer stays open on the new provider,
-   scrolled to this section. With the provider still switched off, **b. Se connecter pour essayer** (Sign in
-   to try) with a real account (see [The sign-in trial](#the-sign-in-trial)). The second is greyed out until
-   the provider is saved.
+   scrolled to this section, with the result of the check. With the provider still switched off, **b. Se
+   connecter pour essayer** (Sign in to try) with a real account (see [The sign-in
+   trial](#the-sign-in-trial)). The second is greyed out until the provider is saved.
 9. **8. Activation**: the six conditions (public address, HTTPS, local administrator, required group, secret
    saved, successful sign-in trial) and **Modifications enregistrées** (Changes saved: nothing typed in the
    drawer is waiting to be saved, the secret included) are listed with ✓ or ✗, then **Activer** (Switch on),
    which says what is missing while it is disabled. After **Activer** or **Désactiver**, the drawer shows the
-   settings as saved on the server.
+   settings as saved on the server; the confirmation of **Désactiver** says when changes typed and not saved
+   will be lost.
 10. Test it as a person would, in a private window.
 11. When everything works, you may set **4. Mots de passe locaux** to **Administrateurs seulement**: other
     accounts then cannot use a local password. The console greys this choice out, with its reason, while no
@@ -119,13 +121,17 @@ and each address to declare is replaced, in the same place, by what is missing u
 While a provider is switched on, only its **Libellé** and its **Fraîcheur (jours)** (freshness, under
 **6. Avancé**) can change, as the drawer says at the top; the rest is greyed out. To change anything else,
 switch it off (**Désactiver**, in **8. Activation**, which closes the sessions of the accounts attached to it),
-change, try again, switch on. Once accounts are attached, the settings that identify a person cannot change
-any more: the **Identifiant client**, the **Adresse de l'émetteur** and the **Revendication sujet**, each with
-the reason written under it. A provider with attached accounts cannot be deleted: detach them first.
+change, try again, switch on. If someone else switches the provider on while its drawer is open, the drawer
+reloads the saved settings and keeps the label and the freshness you typed; if anything else could not be
+sent, **Enregistrer** says so and the drawer stays open. Once accounts are attached, the settings that
+identify a person cannot change any more: the **Identifiant client**, the **Adresse de l'émetteur** and the
+**Revendication sujet**, each with the reason written under it. A provider with attached accounts cannot be
+deleted: detach them first.
 
 ### What the check covers
 
-**Contrôler les réglages** checks the settings shown, saved or not, and only reads. Steps are listed with their level.
+**Contrôler les réglages** checks the settings shown, saved or not, and only reads; its result goes away as
+soon as one of the checked settings changes (the secret is not used). Steps are listed with their level.
 **Réglages** (valid settings), **Prérequis** (public address, secure session cookie,
 local administrator), **Résolution** (name resolves), **Adresse** (allowed address, with a warning when it is
 the address of the Elpis host itself), **Certificat** (TLS 1.2 or later, trusted, valid; a warning below 30
@@ -427,7 +433,8 @@ d'après les groupes du fournisseur** (Assign Elpis groups from the provider gro
 pick the external group (**Groupe du fournisseur**) and the **Groupe Elpis…** (Elpis group) it feeds, then
 **Ajouter**. With administrator groups, a fixed notice reminds you that an administrator of Elpis can run
 commands on the server. For single sign-on without a second factor, the section asks you to require a
-second factor first (section **4. Accès**) and the save stays unavailable.
+second factor first (section **4. Accès**): with the role decision on, the save stays unavailable and the
+foot of the drawer says why; with it off, the save goes through and the groups do nothing yet.
 
 **Changing these settings** follows the general rule: switch the provider off, change them, try again, switch
 on. They are part of what the sign-in trial covers.
@@ -512,9 +519,9 @@ passwords) and "Trop de tentatives, réessayez dans un instant." (rate limit).
 
 Commands on the host, described in [operations.md](operations.md#sso-openid-connect-emergency-exit):
 
-- `./elpis auth status`: public address, local mode, and per provider switched on / active / tested. A
-  provider that is on but not active (**Inopérant** in the console) has an unmet condition (sign-in trial,
-  secret, groups, public address).
+- `./elpis auth status`: public address, local mode, and per provider switched on (`activé`), active (`actif`)
+  and tested (`testé`). A provider that is on but not active (`actif non (inopérant)`, **Inopérant** in the
+  console) has an unmet condition (sign-in trial, secret, groups, public address).
 - `./elpis doctor` (or `./elpis auth doctor`): provider state, certificate authorities nearing their end,
   providers whose roles or groups are managed, last local
   administrator.

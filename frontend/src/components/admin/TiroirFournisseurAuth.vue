@@ -16,19 +16,25 @@ import EtapesEssai from "./EtapesEssai.vue";
 import ListeGroupesFournisseur from "./ListeGroupesFournisseur.vue";
 import SectionDroitsFournisseur from "./SectionDroitsFournisseur.vue";
 
+const RAISON_ROLES_BLOQUES =
+  "Enregistrement indisponible : groupes administrateurs sans second facteur exigé (section 5).";
+
 const adm = domaineAdmin();
 const f = computed(() => adm.authTiroir);
 const bornes = computed(() => adm.authEtat?.bounds ?? null);
 const general = computed(() => adm.authFige(""));
 const actif = computed(() => !!adm.authFournisseur?.enabled);
+/** Synthèse du contrôle, puis l'étape suivante d'après la section 8 (rien de plus pour un fournisseur activé). */
 const synthese = computed(() => {
   const r = adm.authEssai;
+  const p = adm.authFournisseur;
   if (!r) return "";
   if (!r.ok || r.steps.length === 0 || r.steps.some((x) => x.level === "fail"))
     return "Un contrôle a échoué.";
-  return adm.authFournisseur?.tested
-    ? "Les contrôles passent. Ce fournisseur peut être activé."
-    : "Les contrôles passent. Faites ensuite « Se connecter pour essayer » pour pouvoir activer ce fournisseur.";
+  if (p?.enabled) return "Les contrôles passent.";
+  if (!p?.tested)
+    return "Les contrôles passent. Faites ensuite « Se connecter pour essayer » pour pouvoir activer ce fournisseur.";
+  return `Les contrôles passent. ${adm.authRaisonActiver || "Ce fournisseur peut être activé (section 8)."}`;
 });
 const titre = computed(() => {
   const x = f.value;
@@ -232,7 +238,7 @@ const raisonSupprimer = computed(() => {
                     :maxlength="bornes.secret_max"
                     :placeholder="adm.authFournisseur?.has_secret ? 'Inchangé' : 'Secret'"
                     :disabled="!!adm.authFige('secret')"
-                    :title="adm.authFige('secret') || 'Stocké à part sur le serveur, jamais réaffiché.'"
+                    :title="adm.authFige('secret')"
                   />
                   <div class="adm-field__row text-xs">
                     <span
@@ -259,8 +265,8 @@ const raisonSupprimer = computed(() => {
                   <span class="adm-card__hint">Rangé à part sur le serveur, jamais réaffiché.</span>
                 </div>
               </div>
-              <label class="adm-field">
-                <span class="adm-field__label">Autorité de certification</span>
+              <div class="adm-field">
+                <label class="adm-field__label" for="ent-ca">Autorité de certification</label>
                 <textarea
                   id="ent-ca"
                   v-model="f.ca_pem"
@@ -268,14 +274,15 @@ const raisonSupprimer = computed(() => {
                   class="set-textarea font-mono text-xs"
                   placeholder="-----BEGIN CERTIFICATE-----"
                   spellcheck="false"
+                  aria-describedby="ent-ca-aide"
                   :disabled="!!general"
                   :title="general"
                 ></textarea>
-                <span class="adm-card__hint"
+                <span id="ent-ca-aide" class="adm-card__hint"
                   >Si le certificat du fournisseur n'est pas reconnu : collez ici l'autorité de votre
                   organisation.</span
                 >
-              </label>
+              </div>
             </section>
 
             <section class="space-y-3" aria-labelledby="ent-s4-h" data-section-tiroir="acces">
@@ -609,8 +616,10 @@ const raisonSupprimer = computed(() => {
                   :data-ok="c.ok ? 'oui' : 'non'"
                 >
                   <span class="shrink-0 font-mono" aria-hidden="true">{{ c.ok ? "✓" : "✗" }}</span>
-                  <span class="sr-only">{{ c.ok ? "Remplie" : "Manquante" }} :</span>
-                  <span>{{ c.libelle }}</span>
+                  <span
+                    >{{ c.libelle
+                    }}<span class="sr-only"> : condition {{ c.ok ? "remplie" : "manquante" }}</span></span
+                  >
                 </li>
               </ul>
               <div class="flex items-center gap-3 flex-wrap" data-bascule>
@@ -672,7 +681,7 @@ const raisonSupprimer = computed(() => {
           </p>
           <footer class="adm-drawer__foot">
             <span v-if="adm.authRolesBloque" class="adm-field__warn mr-auto" data-raison-enregistrer>
-              Exigez d'abord un second facteur (section 4).
+              {{ RAISON_ROLES_BLOQUES }}
             </span>
             <button type="button" class="adm-btn adm-btn--quiet" @click="adm.authFermer()">Annuler</button>
             <button
@@ -680,7 +689,7 @@ const raisonSupprimer = computed(() => {
               type="button"
               class="adm-btn adm-btn--primary"
               :disabled="adm.authBusy || adm.authRolesBloque"
-              :title="adm.authRolesBloque ? 'Exigez d\'abord un second facteur (section 4).' : undefined"
+              :title="adm.authRolesBloque ? RAISON_ROLES_BLOQUES : undefined"
               @click="adm.authEnregistrer()"
             >
               {{ f.nouveau ? "Ajouter" : "Enregistrer" }}

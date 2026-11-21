@@ -429,7 +429,25 @@ function chargerOuCreerSecret(dossier: string): string | null {
   return secretEphemere();
 }
 
-/** Précédence : `APP_SESSION_SECRET` > `app.session_secret` (hors valeurs d'exemple publiées) > fichier près de la base, que l'hôte d'outils (`APP_SERVICE=toolhost`, sans usage du secret) ne lit, ne crée ni ne touche jamais. */
+/** Secret du fichier explicite `APP_SESSION_SECRET_FILE`, lu seulement ; échoue (CRITICAL nommant la variable) s'il manque ou fait moins de 40 caractères. */
+function lireSecretExplicite(fichier: string): string {
+  const refuser = (motif: string): never => {
+    const message = `APP_SESSION_SECRET_FILE (${fichier}) ${motif} : fichier non modifié, démarrage refusé (sessions cassées entre process sinon).`;
+    process.stderr.write(`\n[CRITICAL] Elpis SESSION_SECRET : ${message}\n\n`);
+    throw new Error(message);
+  };
+  let secret: string | null;
+  try {
+    secret = lireSecret(fichier);
+  } catch (e) {
+    return refuser(`illisible (${String(e)})`);
+  }
+  if (secret === null) return refuser("introuvable ou illisible");
+  if (longueurPy(secret) < 40) return refuser("trop court (moins de 40 caractères)");
+  return secret;
+}
+
+/** Précédence : `APP_SESSION_SECRET` > `app.session_secret` (hors valeurs d'exemple publiées) > `APP_SESSION_SECRET_FILE` (lu seulement) > fichier près de la base, que l'hôte d'outils (`APP_SERVICE=toolhost`, sans usage du secret) ne lit, ne crée ni ne touche jamais. */
 function resoudreSecretSession(env: Env, sessionJson: string, dbPath: string): string {
   const sessionEnv = asStr(env["APP_SESSION_SECRET"], "");
   if (sessionEnv) {
@@ -441,6 +459,8 @@ function resoudreSecretSession(env: Env, sessionJson: string, dbPath: string): s
     return sessionJson;
   }
   if ((env["APP_SERVICE"] ?? "").toLowerCase() === "toolhost") return secretEphemere();
+  const explicite = asStr(env["APP_SESSION_SECRET_FILE"], "");
+  if (explicite) return lireSecretExplicite(explicite);
   const secret = chargerOuCreerSecret(pyParent(dbPath));
   if (secret === null) {
     if (env["APP_MODE"])

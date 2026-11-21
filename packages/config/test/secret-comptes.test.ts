@@ -119,3 +119,91 @@ describe("groupe des données", () => {
     expect(existsSync(`${fichierSecret(base)}.lock`)).toBe(false);
   });
 });
+
+describe("APP_SESSION_SECRET_FILE (fichier explicite, lu seulement)", () => {
+  const SECRET_FICHIER = `fichier-${"b".repeat(60)}`;
+
+  it("lit le fichier sans rien créer ni resserrer, et ignore celui de la base", () => {
+    const base = dossier();
+    const dehors = dossier();
+    const explicite = path.join(dehors, "session.secret");
+    writeFileSync(explicite, `${SECRET_FICHIER}\n`);
+    chmodSync(explicite, 0o644);
+    writeFileSync(fichierSecret(base), `${FORT}\n`);
+    expect(demarrer(base, { APP_SESSION_SECRET_FILE: explicite }).secret).toBe(SECRET_FICHIER);
+    expect(statSync(explicite).mode & 0o777).toBe(0o644);
+    expect(readFileSync(explicite, "utf-8")).toBe(`${SECRET_FICHIER}\n`);
+    expect(readdirSync(dehors)).toEqual(["session.secret"]);
+  });
+
+  it("fichier absent : échec avec CRITICAL nommant la variable, rien créé", () => {
+    const base = dossier();
+    const explicite = path.join(base, "nulle-part", "session.secret");
+    let erreurs = "";
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation(((m: string) => {
+      erreurs += m;
+      return true;
+    }) as typeof process.stderr.write);
+    try {
+      const env = {
+        APP_DB_PATH: path.join(base, "app.db"),
+        MCP_SERVERS_DIR: path.join(base, "mcp"),
+        APP_SESSION_SECRET_FILE: explicite,
+      };
+      expect(() => calculerReglages(env, {}, RACINE, path.join(base, "config.json"))).toThrow(
+        "APP_SESSION_SECRET_FILE",
+      );
+    } finally {
+      espion.mockRestore();
+    }
+    expect(erreurs).toContain("[CRITICAL]");
+    expect(erreurs).toContain("APP_SESSION_SECRET_FILE");
+    expect(contenu(base)).toEqual([]);
+  });
+
+  it("fichier trop court : échec, fichier intact et pas de secret aléatoire", () => {
+    const base = dossier();
+    const explicite = path.join(base, "court.secret");
+    writeFileSync(explicite, "court\n");
+    expect(() => demarrer(base, { APP_SESSION_SECRET_FILE: explicite })).toThrow("APP_SESSION_SECRET_FILE");
+    expect(readFileSync(explicite, "utf-8")).toBe("court\n");
+    expect(existsSync(fichierSecret(base))).toBe(false);
+  });
+
+  it("précédence : valeur d'environnement, puis config.json, puis fichier explicite", () => {
+    const base = dossier();
+    const explicite = path.join(base, "session.secret");
+    writeFileSync(explicite, SECRET_FICHIER);
+    expect(demarrer(base, { APP_SESSION_SECRET_FILE: explicite, APP_SESSION_SECRET: FORT }).secret).toBe(
+      FORT,
+    );
+    const { reglages } = calculerReglages(
+      {
+        APP_DB_PATH: path.join(base, "app.db"),
+        MCP_SERVERS_DIR: path.join(base, "mcp"),
+        APP_SESSION_SECRET_FILE: explicite,
+      },
+      { app: { session_secret: FORT } },
+      RACINE,
+      path.join(base, "config.json"),
+    );
+    expect(reglages.SESSION_SECRET).toBe(FORT);
+  });
+
+  it("l'hôte d'outils ne lit pas le fichier explicite, même absent", () => {
+    const base = dossier();
+    const { secret, erreurs } = demarrer(base, {
+      APP_SERVICE: "toolhost",
+      APP_SESSION_SECRET_FILE: path.join(base, "absent"),
+    });
+    expect(secret).toMatch(/^EPHEMERAL_/);
+    expect(erreurs).toBe("");
+  });
+
+  it("sans la variable, le fichier près de la base est créé comme avant", () => {
+    const base = dossier();
+    const { secret } = demarrer(base);
+    expect(secret.length).toBeGreaterThanOrEqual(40);
+    expect(existsSync(fichierSecret(base))).toBe(true);
+  });
+});

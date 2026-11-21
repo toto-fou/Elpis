@@ -6,6 +6,7 @@ import {
   chmodSync,
   constants,
   copyFileSync,
+  mkdtempSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -395,6 +396,26 @@ function sshOpts(cfg: Dict): string[] {
   ];
 }
 
+/** `f` avec une config dont la clé est privée : celle de la config si elle l'est déjà (0600), sinon une copie 0600 dans un dossier 0700 du temporaire (OpenSSH refuse une clé lisible par le groupe), retirée après l'appel. */
+async function avecClePrivee<T>(cfg: Dict, f: (cfg: Dict) => Promise<T>): Promise<T> {
+  const cle = strPy(cfg["key_path"]);
+  let mode: number;
+  try {
+    mode = statSync(cle).mode;
+  } catch {
+    return f(cfg);
+  }
+  if ((mode & 0o077) === 0) return f(cfg);
+  const dossier = mkdtempSync(path.join(tmpdir(), "elpis-cle-ssh-"));
+  try {
+    const copie = path.join(dossier, "cle");
+    writeFileSync(copie, readFileSync(cle), { mode: 0o600, flag: "wx" });
+    return await f({ ...cfg, key_path: copie });
+  } finally {
+    rmSync(dossier, { recursive: true, force: true });
+  }
+}
+
 function rstripBarres(s: string): string {
   return rstripPy(s, "/");
 }
@@ -558,7 +579,7 @@ export async function runTest(): Promise<Dict> {
   }
   if (!existeOs(cfg["key_path"] as string))
     return { ok: false, error: "Clé SSH absente — téléverse-la d'abord." };
-  const [ok2, msg] = await executerCommande(buildTestArgv(cfg), 20);
+  const [ok2, msg] = await avecClePrivee(cfg, (c) => executerCommande(buildTestArgv(c), 20));
   return { ok: ok2, error: msg };
 }
 
@@ -664,9 +685,8 @@ async function envoyer(base: Base, scope: unknown, trigger: string, journal?: Jo
     } else if (!existeOs(cfg["key_path"] as string)) {
       res = { ok: false, error: "Clé SSH absente" };
     } else {
-      const [ok2, msg] = await executerCommande(
-        buildSendArgv(cfg, chemin, nom),
-        cfg["timeout_sec"] as number,
+      const [ok2, msg] = await avecClePrivee(cfg, (c) =>
+        executerCommande(buildSendArgv(c, chemin, nom), cfg["timeout_sec"] as number),
       );
       res = { ok: ok2, error: msg, filename: ok2 ? nom : "" };
     }

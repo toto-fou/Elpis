@@ -58,7 +58,11 @@ export interface ProfilReseauEdite {
   git_access?: string;
   git_servers?: string[];
   _uid: string;
+  /** Identifiant au chargement (ou au dernier enregistrement) : les comptes du profil y sont rattachés. */
+  _idCharge: string;
   _open: boolean;
+  /** Onglet du panneau « Ce que voient les sandboxes » : graphe, tableau ou règles. */
+  _onglet: string;
   _portsMode: string;
   _draft: Record<string, string>;
   _err: Record<string, string>;

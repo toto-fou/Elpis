@@ -1381,6 +1381,7 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     .set-switch-track::after,
     .adm-details > summary::before,
     .np-card__chev,
+    .np-depli,
     .task-run-caret,
     .elpis-effect-caret,
     .elpis-img-tile__fill { transition: none !important; }
@@ -1415,6 +1416,8 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     /* Éclat des libellés vivants. */
     .mem-wave-fenetre, .mem-wave-copie { animation-duration: 3.4s !important; }
     .editor-fullscreen { animation: none !important; }
+    /* Profils réseau : la carte s'ouvre d'un coup, la vue d'un onglet s'affiche sans fondu. */
+    .np-fondu { animation: none !important; }
     /* Flash de saut (outline / recherche) — pas de pulsation animée. */
     .vs-jump-flash { animation: none !important; background-color: color-mix(in srgb, var(--accent-500) 10%, transparent) !important; }
 }
@@ -2813,9 +2816,10 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
    cède, parce que l'information EST le niveau de risque. */
 .np-seg {
     display: inline-flex;
+    max-width: 100%;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    overflow: hidden;
+    overflow-x: auto;
     background: var(--surface);
 }
 .np-seg__btn {
@@ -2894,7 +2898,11 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
 }
 .np-card__chev { color: var(--text-400); transition: transform .15s ease; flex-shrink: 0; }
 .np-card--open .np-card__chev { transform: rotate(90deg); }
-.np-card__body { padding: 0.25rem 0.875rem 0.875rem; border-top: 1px solid var(--border-soft); }
+.np-card__body {
+    padding: 0.25rem 0.875rem 0.875rem;
+    border-top: 1px solid var(--border-soft);
+    container: np-carte / inline-size;
+}
 
 /* Badge de mode : la couleur EST l'information (niveau de risque). */
 .np-badge {
@@ -2949,6 +2957,317 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
 }
 .np-chip__x:hover { background: color-mix(in srgb, #dc2626 12%, transparent); color: #dc2626; }
 .np-chip__x:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+
+/* Pastilles de la tête repliée : sandboxes sans sudo, domaines sans adresse, comptes du profil. */
+.np-pastille {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    color: var(--text-500);
+    white-space: nowrap;
+}
+.np-pastille--durci { color: var(--accent-text); }
+.np-pastille--warn  { color: var(--warn-text); }
+
+/* Dépliage d'une carte : sa hauteur glisse (lignes de la grille, de 0 à celle du
+   contenu) ; replié, le contenu reste hors du focus et des lecteurs d'écran. */
+.np-depli {
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    transition: grid-template-rows var(--duree-longue) var(--courbe-volet), visibility 0s linear var(--duree-longue);
+}
+.np-card--open > .np-depli {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition: grid-template-rows var(--duree-longue) var(--courbe-volet), visibility 0s;
+}
+.np-depli__in { min-height: 0; overflow: hidden; }
+
+/* Carte dépliée : l'éditeur à gauche, ce que voient les sandboxes à droite ;
+   une seule colonne quand la carte est étroite. */
+.np-grille {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    padding-top: 0.625rem;
+}
+@container np-carte (min-width: 60rem) {
+    .np-grille { grid-template-columns: minmax(0, 11fr) minmax(0, 10fr); }
+}
+
+/* Éditeur : sections titrées, une aide visible sous chaque champ. */
+.np-sec + .np-sec { margin-top: 0.875rem; }
+.np-sec__t {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.3125rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-500);
+}
+.np-sec__t .ph { font-size: 0.8125rem; }
+.np-aide {
+    margin-top: 0.3125rem;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--text-500);
+}
+.np-aide--warn,
+.np-aide--erreur,
+.np-aide--info { display: flex; align-items: flex-start; gap: 0.3125rem; }
+.np-aide--warn   { color: var(--warn-text); }
+.np-aide--erreur { color: var(--danger-text); }
+.np-aide .ph { margin-top: 0.0625rem; }
+.np-champ + .np-champ { margin-top: 0.625rem; }
+.np-champ__l {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-600);
+}
+.np-cases { display: grid; gap: 0.125rem; }
+.np-case {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.3125rem 0.375rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+}
+.np-case:hover { background: var(--surface-3); }
+.np-case input { flex-shrink: 0; margin-top: 0.125rem; }
+.np-case__t { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-800); }
+.np-case__d { display: block; font-size: 0.6875rem; line-height: 1.35; color: var(--text-500); }
+
+/* Ce que voient les sandboxes : graphe, tableau ou règles posées, puis les comptes du profil. */
+.np-panneau {
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    background: var(--surface-2);
+    padding: 0.625rem 0.75rem 0.75rem;
+}
+.np-panneau__tete {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.np-panneau__titre {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-900);
+}
+/* Changement d'onglet : la vue entre en fondu. */
+.np-fondu { animation: np-fondu var(--duree) var(--courbe-fondu); }
+@keyframes np-fondu {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Graphe : la sandbox à gauche, une carte par destination à droite ; flèches
+   pleines (autorisé, relais) ou en tirets (inactif, refusé), dessinées au pas
+   des cartes (2,625 rem). */
+.np-graphe { container: np-graphe / inline-size; }
+.np-graphe__grille {
+    display: grid;
+    grid-template-columns: 9.5rem 4.75rem minmax(0, 1fr);
+    align-items: center;
+}
+.np-graphe__source {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.625rem 0.75rem;
+    border: 1.5px solid var(--accent-ring);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    font-size: 0.625rem;
+    color: var(--text-500);
+}
+.np-graphe__titre {
+    display: flex;
+    align-items: center;
+    gap: 0.3125rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-900);
+}
+.np-graphe__fleches { display: block; width: 4.75rem; overflow: visible; }
+/* Hauteur des cartes et écart : variables posées par le composant, qui en tire aussi le tracé des flèches. */
+.np-graphe__dest {
+    display: grid;
+    grid-auto-rows: var(--np-ligne);
+    gap: var(--np-ecart);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.np-dest {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding: 0 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+}
+.np-dest--partiel { border-color: var(--ok-border); border-style: dashed; }
+.np-dest--refus   { border-color: var(--danger-border); }
+.np-dest--inactif { border-color: var(--warn-border); border-style: dashed; }
+.np-dest--relais  { border-color: var(--accent-border); }
+.np-dest__nom {
+    display: flex;
+    align-items: center;
+    gap: 0.3125rem;
+    min-width: 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-900);
+}
+.np-dest__nom .ph { flex-shrink: 0; }
+.np-dest__texte,
+.np-dest__detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-dest__detail { font-size: 0.625rem; color: var(--text-500); }
+.np-arc { fill: none; stroke-width: 1.6; }
+.np-arc--ok      { stroke: var(--ok-text); }
+.np-arc--partiel { stroke: var(--ok-text); stroke-dasharray: 9 3; }
+.np-arc--inactif { stroke: var(--warn-text); stroke-dasharray: 5 4; }
+.np-arc--refus   { stroke: var(--danger-text); stroke-dasharray: 5 4; opacity: .85; }
+/* Pointillés : un relais se distingue d'un accès direct sans la couleur (Émeraude donne la même teinte). */
+.np-arc--relais  { stroke: var(--accent-text); stroke-dasharray: 0.5 3.5; stroke-linecap: round; }
+.np-fl--ok      { fill: var(--ok-text); }
+.np-fl--partiel { fill: var(--ok-text); }
+.np-fl--inactif { fill: var(--warn-text); }
+.np-fl--refus   { fill: var(--danger-text); }
+.np-fl--relais  { fill: var(--accent-text); }
+.np-risque { color: var(--warn-text); }
+/* Graphe étroit : les cartes s'empilent sous la sandbox, le verdict passe au bord gauche. */
+@container np-graphe (max-width: 24rem) {
+    .np-graphe__grille { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+    .np-graphe__fleches { display: none; }
+    .np-dest { border-left-width: 3px; }
+    .np-dest--ok      { border-left-color: var(--ok-text); }
+    .np-dest--partiel { border-left-color: var(--ok-text); }
+    .np-dest--inactif { border-left-color: var(--warn-text); }
+    .np-dest--refus   { border-left-color: var(--danger-text); }
+    .np-dest--relais  { border-left-color: var(--accent-text); }
+}
+.np-legende {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 0.875rem;
+    margin-top: 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--text-500);
+}
+.np-legende > span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.np-legende svg { width: 1.625rem; height: 0.5rem; }
+
+/* Tableau : destination, ports, verdict, détail. */
+.np-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.np-table th {
+    padding: 0.25rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-500);
+}
+.np-table td {
+    padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid var(--border-soft);
+    vertical-align: top;
+    color: var(--text-800);
+}
+.np-table td.np-table__d { font-size: 0.6875rem; color: var(--text-500); }
+.np-table .np-risque { margin-left: 0.25rem; }
+.np-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.6875rem; }
+.np-verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.0625rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.np-verdict--ok      { background: var(--ok-surface);     color: var(--ok-text);     border-color: var(--ok-border); }
+.np-verdict--partiel { background: var(--ok-surface);     color: var(--ok-text);     border-color: var(--ok-border); border-style: dashed; }
+.np-verdict--inactif { background: var(--warn-surface);   color: var(--warn-text);   border-color: var(--warn-border); }
+.np-verdict--refus   { background: var(--danger-surface); color: var(--danger-text); border-color: var(--danger-border); }
+.np-verdict--relais  { background: var(--accent-surface); color: var(--accent-text); border-color: var(--accent-border); }
+
+/* Règles posées : le jeu de règles qu'une sandbox créée maintenant recevrait, en lecture seule. */
+.np-regles__tete { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; }
+.np-regles__tete .np-aide { margin-top: 0; }
+.np-regles {
+    margin: 0;
+    padding: 0.5rem 0.625rem;
+    max-height: 21.25rem;
+    overflow: auto;
+    white-space: pre;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--text-800);
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+}
+.np-vide {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+    padding: 0.625rem 0.125rem;
+    font-size: 0.75rem;
+    color: var(--text-500);
+}
+
+/* Comptes du profil (choisi, imposé, par défaut) et lien vers Utilisateurs. */
+.np-comptes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.625rem;
+    padding-top: 0.625rem;
+    border-top: 1px solid var(--border-soft);
+}
+.np-comptes .np-sec__t { margin-bottom: 0; }
+.np-compte {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    padding: 0.0625rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.6875rem;
+    color: var(--text-800);
+}
+.np-compte small { font-size: 0.625rem; color: var(--text-400); }
+.np-comptes__lien { margin-left: auto; font-size: 0.6875rem; }
+/* Écran étroit : sans le résumé, les pastilles passent sous le nom plutôt que de le masquer. */
+@media (max-width: 640px) {
+    .np-card__sum { display: none; }
+    .np-card__toggle { flex-wrap: wrap; row-gap: 0.25rem; }
+}
 
 /* État vide d'une section (aucun agent, aucun groupe…). */
 .adm-empty {

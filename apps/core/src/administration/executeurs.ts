@@ -13,6 +13,7 @@ import {
   intPy,
   itemPy,
   iterExige,
+  lire,
   longueurPy,
   lowerPy,
   nomTypePy,
@@ -26,6 +27,7 @@ import {
   splitlinesPy,
   stripPy,
   strPy,
+  texteNet,
   veritePy,
 } from "@elpis/commun";
 import type { Dict, Reseau } from "@elpis/commun";
@@ -459,6 +461,22 @@ export async function conteneursPerimes(
   } catch {
     return [];
   }
+}
+
+/** Comptes et profil réseau de leur sandbox (`profilDe`, celui des conteneurs) avec son origine : imposé, choisi, sinon le profil isolé, qui sert aussi de repli à un profil disparu. */
+export function comptesDesProfils(
+  comptes: readonly { id: number; username: string; reglages: Dict }[],
+  profils: readonly { id: string }[],
+  profilDe: (reglages: Dict) => string,
+): Dict[] {
+  return comptes.map((c) => {
+    const voulu = profilDe(c.reglages);
+    const connu = profils.some((p) => p.id === voulu);
+    let origine = "default";
+    if (connu && texteNet(lire(c.reglages, "forced_network_profile_id"))) origine = "forced";
+    else if (connu && texteNet(lire(c.reglages, "network_profile_id"))) origine = "chosen";
+    return { user_id: c.id, username: c.username, profile_id: connu ? voulu : "isolated", origin: origine };
+  });
 }
 
 /** Résolutions des domaines pour l'état de la console : gardées `ttlMs`, `simultanees` à la fois au plus, une seule par nom en cours. */

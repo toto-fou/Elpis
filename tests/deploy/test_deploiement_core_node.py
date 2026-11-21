@@ -235,6 +235,24 @@ def test_unites_durcies(racine):
     assert unites["tmpfiles.d/elpis.conf"].strip().splitlines()[-1] == f"d /run/elpis 0700 {getpass.getuser()} {grp.getgrgid(os.getgid()).gr_name} -"
 
 
+@pytest.mark.skipif(shutil.which("systemd-analyze") is None, reason="systemd-analyze absent")
+def test_exposition_des_unites_sous_le_seuil(racine, tmp_path):
+    """Score d'exposition de systemd (0 sûr, 10 exposé) : chaque unité reste « OK », sous 5."""
+    r = _elpis(racine, "service", "print", node=_faux_node(racine))
+    assert r.returncode == 0, r.stderr
+    dossier = tmp_path / "unites"
+    dossier.mkdir()
+    for nom, corps in _unites(r.stdout).items():
+        if nom.endswith(".service"):
+            (dossier / nom).write_text(corps.rstrip() + "\n", encoding="utf-8")
+    for unite in sorted(dossier.iterdir()):
+        v = subprocess.run(["systemd-analyze", "security", "--offline=true", "--threshold=49", "--no-pager", str(unite)],
+                           capture_output=True, text=True, timeout=120)
+        if "--offline" in v.stderr and "unrecognized" in v.stderr:
+            pytest.skip("systemd-analyze sans --offline")
+        assert v.returncode == 0, (unite.name, v.stdout[-400:], v.stderr)
+
+
 @pytest.mark.parametrize("compte,navigateurs,attendu", [
     ("nobody", "", "yes"),
     ("nobody", "/run/user/0/ms-playwright", "read-only"),

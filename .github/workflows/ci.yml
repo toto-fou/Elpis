@@ -37,6 +37,25 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+      # Unités systemd rendues depuis deploy/systemd/ : chacune reste « OK » pour systemd-analyze (exposition sous 5, seuil 49).
+      - name: systemd units exposure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv venv
+          echo '{}' > config.json
+          mkdir -p rag_app/qdrant && printf '#!/bin/sh\nexit 0\n' > rag_app/qdrant/qdrant && chmod +x rag_app/qdrant/qdrant
+          d="$(mktemp -d)"
+          APP_SANDBOX_DIR="$PWD/user_sandboxes" RAG_STORE_DIR="$PWD/user_db/rag" RAG_CACHE_DIR="$PWD/user_db/rag-cache" \
+            ELPIS_NODE="$(command -v node)" ./elpis service print \
+            | awk -v d="$d" '/^### /{f = ($2 ~ /\.service$/) ? d "/" $2 : ""; next} f {print > f}'
+          n=0
+          for u in "$d"/*.service; do
+            systemd-analyze security --offline=true --threshold=49 --no-pager "$u" > "$u.score" || { cat "$u.score"; exit 1; }
+            grep -o 'exposure level for .*' "$u.score"
+            n=$((n + 1))
+          done
+          [ "$n" -eq 5 ] || { echo "expected 5 scored units, got $n"; exit 1; }
 
   # Non bloquant : npm audit remonte des failles hautes déjà connues (katex, via mermaid) ; résultat à lire dans le journal.
   audit:

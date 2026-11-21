@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/import-ax.test.ts — reprise au démarrage des anciens identifiants AX de la base de l'hôte : comptes retrouvés par leur nom ou leur forme canonique, lignes déchiffrées (Fernet de l'hôte) remises compte par compte au core, effacées sans trace sous le verrou de schéma après accusé de réception (compte disparu et valeur indéchiffrable aussi), gardées si le core ne répond pas ; rappels du client (enveloppe du compte, identité en trois états, forme canonique). */
+/** apps/toolhost/test/import-ax.test.ts — reprise au démarrage des anciens identifiants AX de la base de l'hôte : comptes retrouvés par leur nom ou leur forme canonique, valeurs remises telles que stockées (jeton Fernet compris : le core le déchiffre) compte par compte au core, effacées sans trace sous le verrou de schéma après accusé de réception (compte disparu et valeur indéchiffrable pour le core aussi), gardées si le core ne répond pas ou n'a pas la clé ; rappels du client (enveloppe du compte, identité en trois états, forme canonique). */
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -80,7 +80,7 @@ function fauxRappel(issues: Record<string, Partial<IssueAx>> = {}) {
 }
 
 describe("reprise des identifiants AX de la base de l'hôte", () => {
-  it("clair et Fernet remis déchiffrés au core pour leur compte ; acquittées, disparues et indéchiffrables retirées ; injoignables et échecs gardés ; VACUUM", async () => {
+  it("clair et Fernet remis tels que stockés au core pour leur compte ; acquittées, disparues et indéchiffrables retirées ; injoignables et échecs gardés ; VACUUM", async () => {
     const fernet = encrypt("mdp-chiffre-2");
     configurerChiffrement({ cleEnv: "autre-cle", fichierCle: path.join(dossier, "inutilise.key") });
     const perdu = encrypt("mdp-perdu-3");
@@ -97,6 +97,7 @@ describe("reprise des identifiants AX de la base de l'hôte", () => {
       "vieux.lan:8080": { status: "skipped", reason: "no_origin" },
       "https://plein.lan": { status: "failed", reason: "limit" },
       "https://srv.lan": { status: "exists", name: "deja" },
+      "https://perdu.lan": { status: "skipped", reason: "undecryptable" },
     });
     verrous.pris = 0;
     const bilan = await reprendreIdentifiantsAx(base, rappel, journalMuet, verrou);
@@ -106,8 +107,9 @@ describe("reprise des identifiants AX de la base de l'hôte", () => {
         compte: { user_id: 7, username: "alice" },
         lignes: [
           { site: "https://intranet.lan:8443", username: "admin", password: "mdp-clair-1" },
+          { site: "https://perdu.lan", username: "x", password: perdu },
           { site: "https://plein.lan", username: "x", password: "mdp-plein-5" },
-          { site: "https://srv.lan", username: "svc", password: "mdp-chiffre-2" },
+          { site: "https://srv.lan", username: "svc", password: fernet },
           { site: "vieux.lan:8080", username: "x", password: "mdp-vieux-4" },
         ],
       },
@@ -149,20 +151,20 @@ describe("reprise des identifiants AX de la base de l'hôte", () => {
     expect(vide.recues).toEqual([]);
   });
 
-  it("sans clé Fernet : les lignes chiffrées attendent, les claires passent ; la boucle s'arrête quand tout est repris", async () => {
+  it("clé Fernet absente du core (`failed`) : la ligne chiffrée attend, la claire passe ; la boucle s'arrête quand le core la reprend", async () => {
     const fernet = encrypt("mdp-chiffre-2");
     await inserer("alice", "https://srv.lan", "svc", fernet);
     await inserer("alice", "https://intranet.lan:8443", "admin", "mdp-clair-1");
     configurerChiffrement({ cleConfig: 42, fichierCle: "relatif/.encryption_key" });
-    const rappel = fauxRappel();
+    const rappel = fauxRappel({ "https://srv.lan": { status: "failed", reason: "no_key" } });
     expect(await reprendreIdentifiantsAx(base, rappel, journalMuet, verrou)).toEqual({
       retirees: 1,
       gardees: 1,
     });
     expect(await base.all("SELECT site FROM ax_credentials")).toEqual([{ site: "https://srv.lan" }]);
-    configurerChiffrement({ cleEnv: "cle-de-l-hote", fichierCle: path.join(dossier, "inutilise.key") });
+    expect(rappel.recues[0]?.lignes.map((l) => l.password)).toEqual(["mdp-clair-1", fernet]);
     const arret = new AbortController();
-    await boucleRepriseAx(() => base, rappel, journalMuet, arret.signal, verrou);
+    await boucleRepriseAx(() => base, fauxRappel(), journalMuet, arret.signal, verrou);
     expect(await base.all("SELECT site FROM ax_credentials")).toEqual([]);
   });
 });

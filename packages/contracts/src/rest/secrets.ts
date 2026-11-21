@@ -198,17 +198,19 @@ export const schemaReponseDeclencheurSecret = z.object({ ok: z.literal(true), de
 
 /** Lignes d'`ax_credentials` reprises en un appel, au plus. */
 export const IMPORT_AX_MAX = 500;
-/** Ligne d'`ax_credentials` remise par l'hôte d'outils pour le compte de l'enveloppe, mot de passe déchiffré (jamais rendu). */
+/** Jeton Fernet du plus long secret (jusqu'à 3 octets UTF-8 par caractère, enveloppe comprise). */
+const JETON_AX_MAX = 4 * VALEUR_SECRET_MAX + 128;
+/** Ligne d'`ax_credentials` remise par l'hôte d'outils pour le compte de l'enveloppe, mot de passe tel que stocké (un jeton Fernet est déchiffré par le core ; jamais rendu). */
 export const schemaLigneAx = z.strictObject({
   site: z.string().min(1).max(2048),
   username: z.string().max(256),
-  password: z.string().max(VALEUR_SECRET_MAX),
+  password: z.string().max(JETON_AX_MAX),
   last_ok: z.number().nullable().optional(),
   use_count: entier.min(0).optional(),
 });
 export type LigneAx = z.infer<typeof schemaLigneAx>;
 export const schemaCorpsImportAx = z.strictObject({ rows: z.array(schemaLigneAx).max(IMPORT_AX_MAX) });
-/** `imported` : secret `http-auth` créé (`unverified`) ; `exists` : même origine et même identifiant déjà au coffre ; `skipped` : jamais importable (clé sans origine, valeur vide) ; `failed` : à reprendre plus tard (limite du compte). */
+/** `imported` : secret `http-auth` créé (`unverified`) ; `exists` : même origine et même identifiant déjà au coffre ; `skipped` : jamais importable (clé sans origine, valeur vide, jeton indéchiffrable : `undecryptable`) ; `failed` : à reprendre plus tard (limite du compte, clé de chiffrement absente du core : `no_key`). */
 export const ISSUES_IMPORT_AX = ["imported", "exists", "skipped", "failed"] as const;
 export type IssueImportAx = (typeof ISSUES_IMPORT_AX)[number];
 export const schemaResultatImportAx = z.object({

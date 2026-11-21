@@ -26,7 +26,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { getChat, upsertChat } from "../../src/chats/stockage";
 import { creerFamilleSecrets } from "../../src/familles/secrets";
 import { nomDeLOrigine, origineDeCle, repriseAxDuCore } from "../../src/secrets/import-ax";
-import { creerSecret } from "../../src/secrets/stockage";
+import { creerSecret, dechiffrerLigne, lireLigneParNom } from "../../src/secrets/stockage";
 import { appTest } from "../aides";
 
 const SVC = "jeton-de-service-des-essais-de-l-attachement";
@@ -442,6 +442,45 @@ describe("reprise des anciens identifiants AX", () => {
     expect(
       code(await interne("import-ax", { rows: [{ ...rows[0], extra: 1 }] }, signe(alice, "alice"))),
     ).toEqual([400, "secret_request_invalid"]);
+  });
+
+  it("/import-ax : jeton Fernet remis tel que stocké par l'hôte, déchiffré par le core ; illisible : écarté (`undecryptable`) ; clé absente du core : `failed` (`no_key`), gardé par l'hôte", async () => {
+    configurerChiffrement({ cleEnv: "cle-fernet-des-essais", fichierCle: join(dossier, "fernet.key") });
+    const fernet = encrypt("mdp-chiffre-88");
+    configurerChiffrement({ cleEnv: "autre-cle-fernet", fichierCle: join(dossier, "fernet.key") });
+    const illisible = encrypt("mdp-perdu-66");
+    configurerChiffrement({ cleEnv: "cle-fernet-des-essais", fichierCle: join(dossier, "fernet.key") });
+    const rows = [
+      { site: "https://chiffre.lan", username: "u", password: fernet },
+      { site: "https://perdu.lan", username: "u", password: illisible },
+      { site: "https://clair.lan", username: "u", password: "mdp-clair-99" },
+    ];
+    const r = await interne("import-ax", { rows }, signe(alice, "alice"));
+    expect(r.json()).toEqual({
+      ok: true,
+      results: [
+        { site: "https://chiffre.lan", status: "imported", name: "chiffre.lan" },
+        { site: "https://perdu.lan", status: "skipped", reason: "undecryptable" },
+        { site: "https://clair.lan", status: "imported", name: "clair.lan" },
+      ],
+    });
+    const ligne = await lireLigneParNom(t.base, alice, "chiffre.lan");
+    expect(ligne === null ? null : dechiffrerLigne(ligne)).toBe("mdp-chiffre-88");
+    configurerChiffrement({ cleEnv: "", cleConfig: 42, fichierCle: join(dossier, "fernet.key") });
+    try {
+      const sansCle = await interne(
+        "import-ax",
+        { rows: [{ site: "https://autre.lan", username: "u", password: fernet }] },
+        signe(alice, "alice"),
+      );
+      expect(sansCle.json()).toEqual({
+        ok: true,
+        results: [{ site: "https://autre.lan", status: "failed", reason: "no_key" }],
+      });
+    } finally {
+      configurerChiffrement({ cleEnv: "cle-fernet-des-essais", fichierCle: join(dossier, "fernet.key") });
+    }
+    expect(texteJournal()).not.toMatch(/mdp-/u);
   });
 
   it("reprise au démarrage : lignes du core reprises (clair et Fernet, propriétaire assaini), compte disparu et valeur indéchiffrable effacés sans trace, clé sans origine listée ; rien au second passage", async () => {

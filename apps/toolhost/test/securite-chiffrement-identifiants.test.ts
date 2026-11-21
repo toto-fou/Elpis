@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/securite-chiffrement-identifiants.test.ts — anciens mots de passe de sites chiffrés (Fernet) : jamais déchiffrés ni joints par pw_session, rien écrit ; clé maître résolue par l'hôte comme au core (elle déchiffre les lignes reprises dans le coffre). */
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+/** apps/toolhost/test/securite-chiffrement-identifiants.test.ts — anciens mots de passe de sites chiffrés (Fernet) : jamais déchiffrés ni joints par pw_session, rien écrit ; l'hôte ne charge aucune clé de chiffrement (le core déchiffre les lignes reprises dans le coffre). */
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -10,7 +10,7 @@ import { initialiserBase, ouvrirBase } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import { ouvrirEnMemoire, ServeurOutils } from "@elpis/outils-mcp";
 import type { ConnexionEnMemoire } from "@elpis/outils-mcp";
-import { coerceToFernetKey, configurerChiffrement, decrypt, encrypt, Fernet } from "@elpis/securite";
+import { configurerChiffrement, encrypt } from "@elpis/securite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ClientBrut } from "../../../packages/outils-mcp/test/aides";
@@ -97,7 +97,7 @@ describe("pw_session : ancien mot de passe chiffré jamais rejoint", () => {
   });
 });
 
-describe("base de l'hôte : clé maître", () => {
+describe("base de l'hôte : aucune clé de chiffrement", () => {
   const restaurations: (() => void)[] = [];
 
   function basePropre(): string {
@@ -114,31 +114,14 @@ describe("base de l'hôte : clé maître", () => {
     invalidateConfigCache();
   });
 
-  /** Jeton chiffré par la clé maître de l'hôte (celle qui déchiffre les lignes reprises), relu par elle. */
-  async function jetonEcrit(): Promise<string> {
-    expect(baseHote()).not.toBeNull();
-    const jeton = encrypt(MDP);
-    expect(decrypt(jeton)).toBe(MDP);
-    return jeton;
-  }
-
-  it("sans clé définie : fichier 0600 créé près de la base au premier chiffrement seulement", async () => {
+  it("ouvrir la base ne pointe jamais la clé héritée près d'elle : aucun `.encryption_key` créé", async () => {
     vi.stubEnv("APP_ENCRYPTION_KEY", "");
+    configurerChiffrement({ cleEnv: "", fichierCle: FICHIER });
     const d = basePropre();
     await ouvrirBaseHote(() => journalMuet);
-    const fichier = path.join(d, ".encryption_key");
-    expect(existsSync(fichier)).toBe(false);
-    const jeton = await jetonEcrit();
-    expect(statSync(fichier).mode & 0o777).toBe(0o600);
-    expect(new Fernet(readFileSync(fichier, "utf8")).decrypt(jeton).toString()).toBe(MDP);
-  });
-
-  it("APP_ENCRYPTION_KEY prime, comme au core : aucun fichier créé", async () => {
-    vi.stubEnv("APP_ENCRYPTION_KEY", "cle-maitre-commune");
-    const d = basePropre();
-    await ouvrirBaseHote(() => journalMuet);
-    const jeton = await jetonEcrit();
+    expect(baseHote()).not.toBeNull();
+    encrypt(MDP);
     expect(existsSync(path.join(d, ".encryption_key"))).toBe(false);
-    expect(new Fernet(coerceToFernetKey("cle-maitre-commune")).decrypt(jeton).toString()).toBe(MDP);
+    expect(existsSync(FICHIER)).toBe(true);
   });
 });

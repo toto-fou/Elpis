@@ -34,7 +34,7 @@ export function getServiceUrl(): string {
   ).replace(/\/+$/, "");
 }
 
-/** `RAG_SERVICE_TOKEN` > `rag.service_token` > `user_db/.rag_service_token` (écrit par ./elpis configure). */
+/** `RAG_SERVICE_TOKEN` > `rag.service_token` > fichier `RAG_SERVICE_TOKEN_FILE` (comme l'extracteur), sinon `user_db/.rag_service_token` (écrit par ./elpis configure). */
 export function getServiceToken(): string {
   const env = stripPy(process.env["RAG_SERVICE_TOKEN"] ?? "");
   if (env) return env;
@@ -42,8 +42,11 @@ export function getServiceToken(): string {
     strPy(veritePy(lire(sectionRag(), "service_token")) ? lire(sectionRag(), "service_token") : ""),
   );
   if (tok) return tok;
+  const fichier =
+    stripPy(process.env["RAG_SERVICE_TOKEN_FILE"] ?? "") ||
+    path.join(config.PROJECT_ROOT, "user_db", ".rag_service_token");
   try {
-    return stripPy(readFileSync(path.join(config.PROJECT_ROOT, "user_db", ".rag_service_token"), "utf8"));
+    return stripPy(readFileSync(fichier, "utf8"));
   } catch {
     return "";
   }

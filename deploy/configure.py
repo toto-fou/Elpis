@@ -32,6 +32,7 @@ import socket
 import stat
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -270,31 +271,42 @@ def write_config(cfg: Dict[str, Any], eteindre_auth: bool = False) -> None:
 
 
 def keep_owner(fd: int, avant: os.stat_result) -> None:
-    """Propriétaire et groupe de l'ancien fichier repris autant que ce compte le peut (root : les deux), puis ses droits."""
+    """Propriétaire et groupe de l'ancien fichier repris autant que ce compte le peut (root : les deux), puis ses droits ; groupe non repris : aucun droit pour le groupe ni les autres."""
+    droits = stat.S_IMODE(avant.st_mode)
     for uid, gid in ((avant.st_uid, avant.st_gid), (-1, avant.st_gid)):
         try:
             os.fchown(fd, uid, gid)
             break
         except PermissionError:
             continue
-    os.fchmod(fd, stat.S_IMODE(avant.st_mode))
+    else:
+        droits &= 0o700
+    os.fchmod(fd, droits)
 
 
-def write_private(p: Path, content: str) -> None:
-    """Écriture atomique au chemin réel (lien suivi : config.json vers /etc/elpis/config) ; fichier existant : propriétaire, groupe et droits gardés, sinon 0600 dès la création."""
+def write_private(p: Path, content: str, mode: Optional[int] = None) -> None:
+    """Écriture atomique au chemin réel (lien suivi : config.json vers /etc/elpis/config) par un temporaire exclusif au nom aléatoire ; fichier existant : propriétaire, groupe et droits gardés, sinon 0600 dès la création ; ``mode`` impose les droits."""
     cible = Path(os.path.realpath(p))
     cible.parent.mkdir(parents=True, exist_ok=True)
     try:
         avant: Optional[os.stat_result] = os.stat(cible)
     except FileNotFoundError:
         avant = None
-    tmp = cible.with_name(cible.name + f".tmp{os.getpid()}")
-    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        fh.write(content)
-        if avant is not None:
-            keep_owner(fh.fileno(), avant)
-    os.replace(tmp, cible)
+    fd, tmp = tempfile.mkstemp(dir=str(cible.parent), prefix=f".{cible.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+            if avant is not None:
+                keep_owner(fh.fileno(), avant)
+            if mode is not None:
+                os.fchmod(fh.fileno(), mode)
+        os.replace(tmp, cible)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def mode_of(p: Path) -> str:
@@ -1057,7 +1069,7 @@ def db_dir(cfg: Dict[str, Any]) -> Path:
 
 
 def session_secret_set(cfg: Dict[str, Any]) -> bool:
-    """Un secret de session que le core retiendrait : APP_SESSION_SECRET, app.session_secret hors valeurs d'exemple, ou fichier .session_secret d'au moins 40 caractères."""
+    """Un secret de session que le core retiendrait : APP_SESSION_SECRET, app.session_secret hors valeurs d'exemple, fichier .session_secret d'au moins 40 caractères, ou illisible pour ce compte (celui des services, jamais remplacé)."""
     if (os.environ.get("APP_SESSION_SECRET") or read_env_file().get("APP_SESSION_SECRET") or "").strip():
         return True
     app = cfg.get("app") if isinstance(cfg.get("app"), dict) else {}
@@ -1066,6 +1078,8 @@ def session_secret_set(cfg: Dict[str, Any]) -> bool:
         return True
     try:
         return len((db_dir(cfg) / ".session_secret").read_text(encoding="utf-8").strip()) >= 40
+    except PermissionError:
+        return True
     except (OSError, UnicodeDecodeError):
         return False
 
@@ -1373,20 +1387,13 @@ def apply_https(https: Dict[str, Any]) -> None:
     (ok if rc == 0 else warn)(f"Caddy : https://{https['domain']}/" if rc == 0 else "Configuration de Caddy échouée.")
 
 
-def ranger_secrets(fichier_jeton_rag: str) -> int:
-    """``--ranger-secrets`` : chaque secret de plateforme de config.json (valeur gagnante au core) va dans son fichier puis sort de config.json ; jamais une valeur affichée ; idempotent."""
-    if not CONFIG.exists():
-        return 0
-    cfg = read_config_strict(CONFIG)
-    if cfg is None:
-        warn("config.json est illisible : secrets non déplacés.")
-        return 1
-    jeton = Path(fichier_jeton_rag)
-    cibles = {("app", "session_secret"): db_dir(cfg) / ".session_secret",
-              ("app", "encryption_key"): db_dir(cfg) / ".encryption_key",
-              ("rag", "service_token"): jeton if jeton.is_absolute() else ROOT / jeton}
+SECRETS_DE_PLATEFORME = (("app", "session_secret"), ("app", "encryption_key"), ("rag", "service_token"))
+
+
+def retirer_secrets(cfg: Dict[str, Any], valeurs: Dict[str, str]) -> bool:
+    """Secrets de plateforme retirés de ``cfg``, valeurs que le core retiendrait dans ``valeurs`` ; un non-texte ou un secret de session de moins de 40 caractères reste ; vrai si ``cfg`` a changé."""
     change = False
-    for (sec, cle), fichier in cibles.items():
+    for sec, cle in SECRETS_DE_PLATEFORME:
         bloc = cfg.get(sec)
         if not isinstance(bloc, dict) or cle not in bloc:
             continue
@@ -1401,22 +1408,74 @@ def ranger_secrets(fichier_jeton_rag: str) -> int:
                 warn(f"{nom} laissé dans config.json (moins de 40 caractères : le core remplacerait un fichier aussi "
                      "court) : remplacez-le, ou retirez-le pour un secret neuf.")
                 continue
-            try:
-                actuel = fichier.read_text(encoding="utf-8").strip()
-            except (OSError, UnicodeDecodeError):
-                actuel = None
-            try:
-                if actuel != texte:
-                    write_private(fichier, texte + "\n")
-            except OSError as e:
-                warn(f"{nom} non déplacé : {fichier} ({e.strerror}).")
-                return 1
-            ok(f"{nom} déplacé dans {fichier}.")
+            valeurs[nom] = texte
         del bloc[cle]
         change = True
-    if change:
-        write_config(cfg)
-        ok(f"config.json réécrit sans ses secrets de plateforme ({mode_of(CONFIG)}).")
+    return change
+
+
+def copie_sans_secrets(reel: Path) -> None:
+    """config.json.bak (copie de la console, près du fichier réel) sans aucun secret de plateforme, au propriétaire seul ; au mieux."""
+    nom = reel.name
+    point = nom.rfind(".")
+    bak = reel.with_name((nom[:point] if point > 0 else nom) + ".json.bak")
+    if not bak.is_file():
+        return
+    copie = read_config_strict(bak)
+    if copie is None:
+        warn(f"{bak.name} est illisible : laissé tel quel (à retirer s'il porte des secrets).")
+        return
+    change = False
+    for sec, cle in SECRETS_DE_PLATEFORME:
+        if isinstance(copie.get(sec), dict) and cle in copie[sec]:
+            del copie[sec][cle]
+            change = True
+    try:
+        if change:
+            write_private(bak, json.dumps(copie, indent=2, ensure_ascii=False) + "\n", mode=0o600)
+    except OSError as e:
+        warn(f"{bak.name} non réécrit ({e.strerror}) : à retirer.")
+
+
+def ranger_secrets(sortie: Optional[str]) -> int:
+    """``--ranger-secrets --sortie FD|-``, sous le compte propriétaire de config.json : secrets de plateforme retirés de config.json et de config.json.bak, valeurs retenues sorties en un objet JSON sur le descripteur (jamais un terminal) avant la réécriture ; aucun autre fichier ; code 0 : config.json sans eux."""
+    try:
+        fd = 1 if sortie == "-" else int(sortie or "")
+        terminal = os.isatty(fd)
+    except (ValueError, OSError):
+        warn("--ranger-secrets demande --sortie : un descripteur ouvert ou « - ».")
+        return 2
+    if terminal:
+        warn("--sortie : des secrets ne s'écrivent jamais sur un terminal.")
+        return 2
+    reel = Path(os.path.realpath(CONFIG))
+    cfg: Optional[Dict[str, Any]] = None
+    if reel.exists():
+        if os.stat(reel).st_uid != os.geteuid():
+            warn("--ranger-secrets : à lancer sous le compte propriétaire de config.json.")
+            return 2
+        cfg = read_config_strict(reel)
+        if cfg is None:
+            warn("config.json est illisible : secrets laissés en place.")
+            return 1
+    valeurs: Dict[str, str] = {}
+    change = cfg is not None and retirer_secrets(cfg, valeurs)
+    try:
+        donnees = (json.dumps(valeurs) + "\n").encode("ascii")
+        while donnees:
+            donnees = donnees[os.write(fd, donnees):]
+    except OSError as e:
+        warn(f"--sortie non écrite ({e.strerror}) : secrets laissés dans config.json.")
+        return 1
+    if cfg is None:
+        return 0
+    try:
+        if change:
+            write_config(cfg)
+    except OSError as e:
+        warn(f"config.json non réécrit ({e.strerror}) : secrets laissés en place.")
+        return 1
+    copie_sans_secrets(reel)
     return 0
 
 
@@ -1444,10 +1503,10 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--check-llm", action="store_true",
                    help="sonde seulement le serveur LLM retenu (GET /v1/models, clé en Bearer), sans rien écrire (./elpis doctor)")
     g.add_argument("--ranger-secrets", action="store_true",
-                   help="déplace app.session_secret, app.encryption_key et rag.service_token de config.json "
-                        "vers leurs fichiers (rien à faire : code 0)")
-    g.add_argument("--fichier-jeton-rag", metavar="CHEMIN", default="user_db/.rag_service_token",
-                   help="fichier du jeton du RAG pour --ranger-secrets (défaut : user_db/.rag_service_token)")
+                   help="retire app.session_secret, app.encryption_key et rag.service_token de config.json et de "
+                        "config.json.bak, valeurs en JSON sur --sortie (compte propriétaire de config.json)")
+    g.add_argument("--sortie", metavar="FD",
+                   help="descripteur (ou « - ») où --ranger-secrets écrit les valeurs, jamais un terminal")
     g.add_argument("--conseils-moteur", action="store_true",
                    help="affiche les drapeaux de lancement conseillés pour vLLM et SGLang, sans rien écrire")
     g = ap.add_argument_group("LLM")
@@ -1589,7 +1648,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         migrate_app_entries(chemin)
         return 0
     if a.ranger_secrets:
-        return ranger_secrets(a.fichier_jeton_rag)
+        return ranger_secrets(a.sortie)
     if a.check_llm:
         return check_llm(a)
     if a.conseils_moteur:

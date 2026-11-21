@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""tests/deploy/test_configure_comptes_separes_2026_11_21.py — ./elpis configure et comptes séparés : écriture au chemin réel en gardant propriétaire, groupe et droits ; secret de session dans son fichier, jamais dans config.json ; --ranger-secrets."""
+"""tests/deploy/test_configure_comptes_separes_2026_11_21.py — ./elpis configure et comptes séparés : écriture au chemin réel par un temporaire exclusif en gardant propriétaire, groupe et droits ; secret de session dans son fichier, jamais dans config.json ni remplacé s'il est illisible ; --ranger-secrets --sortie."""
 from __future__ import annotations
 
 import importlib.util
@@ -87,7 +87,53 @@ def test_base_deplacee_secret_pres_de_la_base(conf, tmp_path, monkeypatch):
     assert (tmp_path / "ailleurs" / ".session_secret").is_file()
 
 
-def test_ranger_secrets(conf, tmp_path, capsys):
+def test_temporaire_exclusif_jamais_suivi(conf, tmp_path):
+    cible = tmp_path / "user_db" / ".session_secret"
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.write_text("intact", encoding="utf-8")
+    (cible.parent / f".session_secret.tmp{os.getpid()}").symlink_to(ailleurs)
+    conf.write_private(cible, "secret\n")
+    assert (cible.read_text(encoding="utf-8"), ailleurs.read_text(encoding="utf-8")) == ("secret\n", "intact")
+    assert sorted(p.name for p in cible.parent.iterdir()) == [".session_secret", f".session_secret.tmp{os.getpid()}"]
+
+
+def test_groupe_non_repris_droits_au_proprietaire(conf, tmp_path, monkeypatch):
+    fichier = tmp_path / "user_db" / ".jeton"
+    fichier.write_text("x", encoding="utf-8")
+    os.chmod(fichier, 0o640)
+
+    def refus(*_):
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(conf.os, "fchown", refus)
+    conf.write_private(fichier, "y")
+    assert mode(fichier) == 0o600
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root lit un fichier 0000")
+def test_secret_illisible_jamais_remplace(conf, tmp_path):
+    fichier = tmp_path / "user_db" / ".session_secret"
+    fichier.write_text("s" * 64, encoding="utf-8")
+    os.chmod(fichier, 0)
+    try:
+        conf.step_secrets({}, False)
+        assert mode(fichier) == 0
+    finally:
+        os.chmod(fichier, 0o600)
+    assert fichier.read_text(encoding="utf-8") == "s" * 64
+
+
+def ranger(conf, *options):
+    lu, ecrit = os.pipe()
+    try:
+        code = conf.main(["--ranger-secrets", "--sortie", str(ecrit), *options])
+    finally:
+        os.close(ecrit)
+    with os.fdopen(lu, encoding="ascii") as fh:
+        return code, fh.read()
+
+
+def test_ranger_secrets(conf, tmp_path, capfd):
     cle = "cle-de-chiffrement-heritee-0123456789"
     jeton = "jeton-du-rag-0123456789"
     (tmp_path / "config.json").write_text(json.dumps({
@@ -95,38 +141,61 @@ def test_ranger_secrets(conf, tmp_path, capsys):
         "rag": {"service_token": jeton, "service_url": "http://127.0.0.1:8000"},
     }), encoding="utf-8")
     os.chmod(tmp_path / "config.json", 0o640)
-    (tmp_path / "user_db" / ".session_secret").write_text("ancien-secret-different-" + "a" * 30, encoding="utf-8")
-    fichier_jeton = tmp_path / "etc" / "rag.token"
-    assert conf.main(["--ranger-secrets", "--fichier-jeton-rag", str(fichier_jeton)]) == 0
-    sortie = capsys.readouterr()
-    for valeur in (FORT, cle, jeton):
-        assert valeur not in sortie.out + sortie.err
-    assert (tmp_path / "user_db" / ".session_secret").read_text(encoding="utf-8").strip() == FORT
-    assert (tmp_path / "user_db" / ".encryption_key").read_text(encoding="utf-8") == cle + "\n"
-    assert fichier_jeton.read_text(encoding="utf-8") == jeton + "\n"
-    assert mode(fichier_jeton) == 0o600
+    bak = tmp_path / "config.json.bak"
+    bak.write_text(json.dumps({"app": {"session_secret": "ancien-" + "a" * 40, "name": "x"}}), encoding="utf-8")
+    os.chmod(bak, 0o640)
+    avant = sorted(p.name for p in tmp_path.rglob("*"))
+    code, sortie = ranger(conf)
+    assert code == 0
+    assert json.loads(sortie) == {"app.session_secret": FORT, "app.encryption_key": cle, "rag.service_token": jeton}
+    vu = capfd.readouterr()
+    for valeur in (FORT, cle, jeton, "ancien-"):
+        assert valeur not in vu.out + vu.err
     cfg = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert cfg == {"app": {"name": "x"}, "rag": {"service_url": "http://127.0.0.1:8000"}}
-    assert mode(tmp_path / "config.json") == 0o640
-    avant = (tmp_path / "config.json").read_text(encoding="utf-8")
-    assert conf.main(["--ranger-secrets", "--fichier-jeton-rag", str(fichier_jeton)]) == 0
-    assert (tmp_path / "config.json").read_text(encoding="utf-8") == avant
+    assert json.loads(bak.read_text(encoding="utf-8")) == {"app": {"name": "x"}}
+    assert (mode(tmp_path / "config.json"), mode(bak)) == (0o640, 0o600)
+    assert sorted(p.name for p in tmp_path.rglob("*")) == avant
+    texte = (tmp_path / "config.json").read_text(encoding="utf-8")
+    assert ranger(conf) == (0, "{}\n")
+    assert (tmp_path / "config.json").read_text(encoding="utf-8") == texte
 
 
-def test_ranger_secrets_cas_limites(conf, tmp_path, capsys):
-    assert conf.main(["--ranger-secrets"]) == 0
+def test_ranger_secrets_sortie_standard(conf, tmp_path, capfd):
+    (tmp_path / "config.json").write_text(json.dumps({"rag": {"service_token": "jeton-0123456789"}}), encoding="utf-8")
+    assert conf.main(["--ranger-secrets", "--sortie", "-"]) == 0
+    assert json.loads(capfd.readouterr().out) == {"rag.service_token": "jeton-0123456789"}
+
+
+def test_ranger_secrets_refus(conf, tmp_path, monkeypatch, capfd):
+    (tmp_path / "config.json").write_text(json.dumps({"app": {"session_secret": FORT}}), encoding="utf-8")
+    assert conf.main(["--ranger-secrets"]) == 2
+    assert conf.main(["--ranger-secrets", "--sortie", "x"]) == 2
+    maitre, terminal = os.openpty()
+    try:
+        assert conf.main(["--ranger-secrets", "--sortie", str(terminal)]) == 2
+    finally:
+        os.close(maitre)
+        os.close(terminal)
+    monkeypatch.setattr(conf.os, "geteuid", lambda: os.getuid() + 1)
+    assert ranger(conf) == (2, "")
+    assert FORT not in "".join(capfd.readouterr())
+    assert json.loads((tmp_path / "config.json").read_text(encoding="utf-8")) == {"app": {"session_secret": FORT}}
+
+
+def test_ranger_secrets_cas_limites(conf, tmp_path, capfd):
+    assert ranger(conf) == (0, "{}\n")
     (tmp_path / "config.json").write_text(json.dumps({
         "app": {"session_secret": "court-mais-a-moi", "encryption_key": 42},
         "rag": {"service_token": ""},
     }), encoding="utf-8")
-    assert conf.main(["--ranger-secrets"]) == 0
-    assert "court-mais-a-moi" not in capsys.readouterr().out
+    assert ranger(conf) == (0, "{}\n")
+    assert "court-mais-a-moi" not in "".join(capfd.readouterr())
     cfg = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert cfg == {"app": {"session_secret": "court-mais-a-moi", "encryption_key": 42}, "rag": {}}
-    assert not (tmp_path / "user_db" / ".rag_service_token").exists()
     (tmp_path / "config.json").write_text('{"app": {"session_secret": "changeme"}}', encoding="utf-8")
-    assert conf.main(["--ranger-secrets"]) == 0
+    assert ranger(conf) == (0, "{}\n")
     assert json.loads((tmp_path / "config.json").read_text(encoding="utf-8")) == {"app": {}}
-    assert not (tmp_path / "user_db" / ".session_secret").exists()
     (tmp_path / "config.json").write_text("{ pas du json", encoding="utf-8")
-    assert conf.main(["--ranger-secrets"]) == 1
+    assert ranger(conf) == (1, "")
+    assert sorted(p.name for p in (tmp_path / "user_db").iterdir()) == []

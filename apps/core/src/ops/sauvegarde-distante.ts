@@ -9,6 +9,7 @@ import {
   copyFileSync,
   fchmodSync,
   fchownSync,
+  lstatSync,
   mkdtempSync,
   openSync,
   readFileSync,
@@ -24,6 +25,7 @@ import path from "node:path";
 import { setTimeout as attendre } from "node:timers/promises";
 
 import {
+  ecrireSecret,
   ErreurPython,
   estDict,
   FlottantPy,
@@ -270,30 +272,18 @@ export function encoderTexte(s: string): Buffer {
   throw new ErreurPython("ValueError", raison);
 }
 
-/** Secret sous le groupe de clé (lu par main et la console) : temporaire du même dossier au groupe et aux droits du fichier existant, sinon au groupe de clé et en `modeNeuf`, puis renommé. */
-function ecrireSecretDuGroupe(chemin: string, corps: Buffer, gid: number, modeNeuf: number): void {
-  let avant: { gid: number; mode: number } | null = null;
+/** Secret de la sauvegarde distante (exclusif, aucun lien suivi) : 0600 ; sous le groupe de clé (lu par main et la console), à ce groupe, droits d'un fichier existant à ce compte gardés dans la limite de 0640, sinon 0640. */
+function ecrireSecretSauvegarde(chemin: string, corps: Buffer): void {
+  const gid = gidGroupeCle();
+  if (gid === null) return ecrireSecret(chemin, corps, 0o600);
+  let mode = 0o640;
   try {
-    const st = statSync(chemin);
-    avant = { gid: st.gid, mode: st.mode & 0o7777 };
+    const st = lstatSync(chemin);
+    if (st.isFile() && st.uid === process.geteuid?.()) mode = st.mode & 0o640;
   } catch (e) {
     if ((e as { code?: unknown }).code !== "ENOENT") throw e;
   }
-  const tmp = `${chemin}.tmp`;
-  const fd = openSync(tmp, "w", 0o600);
-  try {
-    writeFileSync(fd, corps);
-    try {
-      fchownSync(fd, -1, avant?.gid ?? gid);
-    } catch (e) {
-      if ((e as { code?: unknown }).code !== "EPERM" || avant === null) throw e;
-      fchownSync(fd, -1, gid);
-    }
-    fchmodSync(fd, avant?.mode ?? modeNeuf);
-  } finally {
-    closeSync(fd);
-  }
-  renameSync(tmp, chemin);
+  ecrireSecret(chemin, corps, mode, gid);
 }
 
 /** `known_hosts` absent sous le groupe de clé : créé vide (groupe de clé, 0660) avant qu'OpenSSH y ajoute un hôte, hors de portée de l'hôte d'outils ; au mieux. */
@@ -321,25 +311,16 @@ function assurerKnownHosts(cfg: Dict): void {
   }
 }
 
-/** `store_ssh_key` : clé privée en fichier 0600 (temporaire puis renommage ; sous le groupe de clé, groupe et droits gardés, 0640 si neuve) ; rend son chemin. */
+/** `store_ssh_key` : clé privée en fichier secret (`ecrireSecretSauvegarde`) ; rend son chemin. */
 export function storeSshKey(contenu: string, keyPath?: string): string {
   const chemin = keyPath || (getRemoteConfig()["key_path"] as string);
   mkdirParentsPy(path.dirname(chemin));
   const corps = encoderTexte(contenu.endsWith("\n") ? contenu : `${contenu}\n`);
-  const gid = gidGroupeCle();
-  if (gid !== null) {
-    ecrireSecretDuGroupe(chemin, corps, gid, 0o640);
-    return chemin;
-  }
-  const tmp = `${chemin}.tmp`;
-  writeFileSync(tmp, corps, { mode: 0o600 });
-  chmodSync(tmp, 0o600);
-  renameSync(tmp, chemin);
-  chmodSync(chemin, 0o600);
+  ecrireSecretSauvegarde(chemin, corps);
   return chemin;
 }
 
-/** `store_rsync_password` : mot de passe en fichier 0600 (sous le groupe de clé, groupe et droits gardés, 0640 si neuf), vide = retrait ; vrai s'il est désormais enregistré. */
+/** `store_rsync_password` : mot de passe en fichier secret (`ecrireSecretSauvegarde`), vide = retrait ; vrai s'il est désormais enregistré. */
 export function storeRsyncPassword(motDePasse: string): boolean {
   const chemin = rsyncPasswordPath();
   if (!motDePasse) {
@@ -353,16 +334,7 @@ export function storeRsyncPassword(motDePasse: string): boolean {
   if (motDePasse.includes("\n") || motDePasse.includes("\r"))
     throw new ErreurPython("ValueError", "Le mot de passe ne peut pas contenir de saut de ligne");
   mkdirParentsPy(path.dirname(chemin));
-  const tmp = pyJoin(path.dirname(chemin), `${path.basename(chemin)}.tmp`);
-  const corps = encoderTexte(`${motDePasse}\n`);
-  const gid = gidGroupeCle();
-  if (gid !== null) {
-    ecrireSecretDuGroupe(chemin, corps, gid, 0o640);
-    return true;
-  }
-  writeFileSync(tmp, corps, { mode: 0o600 });
-  chmodSync(tmp, 0o600);
-  renameSync(tmp, chemin);
+  ecrireSecretSauvegarde(chemin, encoderTexte(`${motDePasse}\n`));
   return true;
 }
 

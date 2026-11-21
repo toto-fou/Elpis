@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/ops/bascule.ts — bascule de la base d'un moteur à l'autre (page admin « Base de données ») : drapeau de maintenance, tâche de fond, config.json (shared_infra/ops/db_switch.py). */
-import {
-  chmodSync,
-  closeSync,
-  existsSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeSync,
-} from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { intPy, modePartage, pyJsonDumps, pyJsonLoads, stripPy, strPy, veritePy } from "@elpis/commun";
+import {
+  ecrireSecret,
+  intPy,
+  modePartage,
+  pyJsonDumps,
+  pyJsonLoads,
+  stripPy,
+  strPy,
+  veritePy,
+} from "@elpis/commun";
 import {
   config,
   CONFIG_ILLISIBLE,
@@ -198,17 +198,9 @@ function cheminMotDePasse(pending = false): string {
   return join(dataDir(), pending ? ".db_password.pending" : ".db_password");
 }
 
-/** Mot de passe dans un fichier 0600 hors de config.json (0640 sous le groupe des données : tous les services s'y connectent). */
+/** Mot de passe dans un fichier secret 0600 hors de config.json (0640 sous le groupe des données : tous les services s'y connectent). */
 export function savePassword(motDePasse: string, pending = false): void {
-  const chemin = cheminMotDePasse(pending);
-  const mode = modePartage(0o600, true);
-  const fd = openSync(chemin, "w", mode);
-  try {
-    writeSync(fd, motDePasse);
-  } finally {
-    closeSync(fd);
-  }
-  chmodSync(chemin, mode);
+  ecrireSecret(cheminMotDePasse(pending), Buffer.from(motDePasse, "utf8"), modePartage(0o600, true));
 }
 
 /** Mot de passe de la cible enregistrée sans bascule (aucun pour un moteur retiré), ou "". */

@@ -37,7 +37,7 @@ export const EXCEPTIONS: Readonly<
     ops: ["readdir"],
     raison: "occupation (du) : noms et métadonnées, liens non suivis",
   },
-  "apps/core/src/administration/executeurs.ts": {
+  "apps/toolhost/src/bac/console.ts": {
     ops: ["readdir"],
     raison: "dernière activité (arrêt des conteneurs inactifs) : mtime des journaux de .bg, liens non suivis",
   },

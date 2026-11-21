@@ -45,7 +45,6 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import {
   conteneursPerimes,
   configAssainie,
-  delaisDocker,
   oublierEtatDomaines,
   profilsAssainis,
   vueExecuteurs,
@@ -55,6 +54,9 @@ import { remplacerBase } from "../../src/base";
 import { composer } from "../../src/composition";
 import { creerFamilleAdminExecuteurs } from "../../src/familles/admin-executeurs";
 import { oublierHotes } from "../../src/relais/hotes";
+import { creerAppToolhost } from "../../../toolhost/src/app";
+import { delaisDocker, routesConsole } from "../../../toolhost/src/bac/console";
+import { configParDefaut } from "../../../toolhost/src/config";
 import { appTest, journalMuet, lignesAuditRecentes } from "../aides";
 import { FauxServeur } from "../llm/faux-serveur";
 import type { RequeteRecue } from "../llm/faux-serveur";
@@ -117,6 +119,7 @@ const V = JSON.parse(TEXTE_V) as {
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
 const T = 1_791_331_200;
 const T0 = 1_800_000_000.5;
+const ACTEUR = { id: 1, username: "admin" };
 const SECRET = "secret-de-test";
 const DELAIS_AVANT = { ...delaisDocker };
 const ENV = [
@@ -204,6 +207,8 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
   let t: BaseDeTest;
   let app: FastifyInstance;
   let hotes: FauxServeur;
+  /** Hôte d'outils réel du process (routes de la console), seul à lancer le faux docker. */
+  let hoteOutils: FastifyInstance;
   let d: string;
   let restaurer: () => void;
   let miroirs: number[];
@@ -330,6 +335,17 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     await peupler(t.base);
     remplacerBase(t.base);
     hotes = await FauxServeur.demarrer({ "*": repondreHote });
+    hoteOutils = await creerAppToolhost({
+      tc: { ...configParDefaut(), token: SECRET },
+      familles: [{ nom: "bac", routes: routesConsole() }],
+      journal: journalMuet,
+    });
+    await hoteOutils.listen({ host: "127.0.0.1", port: 0 });
+    const portHote = (hoteOutils.server.address() as { port: number }).port;
+    writeFileSync(
+      path.join(d, "mcp.json"),
+      JSON.stringify({ toolHosts: { main: { url: `http://127.0.0.1:${portHote}`, token: SECRET } } }),
+    );
     miroirs = [];
     const ip = (texte: string): AdresseIp => {
       const a = adresseIpOuNul(texte);
@@ -349,6 +365,7 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     vi.useRealTimers();
     Object.assign(delaisDocker, DELAIS_AVANT);
     await app.close();
+    await hoteOutils.close();
     restaurer();
     remplacerBase(undefined);
     oublierHotes();
@@ -496,6 +513,31 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     expect(existsSync(path.join(d, "sb", ".lifecycle_locks", "u3.lock"))).toBe(false);
   });
 
+  it("hôte d'outils arrêté : santé en démon absent, liste et arrêt en 502 clair, GC vide, jamais de détail interne", async () => {
+    await hoteOutils.close();
+    const message = "L'hôte d'outils ne répond pas. Vérifiez qu'il est démarré, puis réessayez.";
+    const sante = await appel(1, "GET", "/api/admin/executors/healthcheck");
+    expect([sante.statusCode, sante.json()]).toEqual([
+      200,
+      {
+        daemon_ok: false,
+        error: message,
+        hint: "Demandez à votre administrateur de vérifier l'hôte d'outils.",
+      },
+    ]);
+    for (const [methode, url] of [
+      ["GET", "/api/admin/sandbox/containers"],
+      ["POST", "/api/admin/sandbox/containers/3/stop"],
+      ["DELETE", "/api/admin/sandbox/containers/3"],
+    ] as const) {
+      const r = await appel(1, methode, url);
+      expect([r.statusCode, r.json()], url).toEqual([502, { detail: message }]);
+    }
+    const gc = await appel(1, "POST", "/api/admin/sandbox/gc");
+    expect([gc.statusCode, gc.json()]).toEqual([200, { ok: true, stopped: [] }]);
+    expect(existsSync(path.join(d, "docker", "appels.log"))).toBe(false);
+  });
+
   it("délais Docker : démon muet = daemon_ok faux et processus tué, `docker ps` muet = 502", async () => {
     Object.assign(delaisDocker, { version: 200, ps: 200 });
     preparer("DOCKER", { "version.dort": "5", "ps-a.dort": "5" });
@@ -615,6 +657,7 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     const perimes = async (sudo: boolean, lignes: string[]): Promise<string[]> => {
       preparer("DOCKER", { "ps-netcfg.out": `${lignes.join("\n")}\n` });
       const r = await conteneursPerimes(
+        ACTEUR,
         profils,
         async (uid) => ({ profil: uid === 2 ? "web" : "isolated" }),
         (reglages) => String(reglages["profil"]),
@@ -662,6 +705,7 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     ): Promise<string[]> => {
       preparer("DOCKER", { "ps-netcfg.out": `${lignes.join("\n")}\n` });
       const r = await conteneursPerimes(
+        ACTEUR,
         profils,
         async (uid) => ({ profil: chez[uid] ?? "isolated" }),
         (reglages) => String(reglages["profil"]),

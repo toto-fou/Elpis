@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-executeurs.ts — `/api/admin` des exécuteurs et des hôtes d'outils : réglages des bacs à sable, santé Docker, conteneurs des comptes, GC ; affectations et migration entre hôtes (shared_infra/routes/admin/executors.py, toolhosts.py). */
 import { getUserSettings, getUsernameById, reglagesDepuis } from "@elpis/auth";
-import {
-  argsRunPermis,
-  chargerConfigBac,
-  configuredImage,
-  containerName,
-  releveHote,
-  verifierMontages,
-} from "@elpis/bac";
+import { argsRunPermis, chargerConfigBac, configuredImage, releveHote, verifierMontages } from "@elpis/bac";
 import {
   estDict,
   getPy,
@@ -23,7 +16,6 @@ import {
   texteNet,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { safeSandboxName } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { hostAddresses } from "@elpis/securite";
 import type { HoteMachine } from "@elpis/securite";
@@ -49,6 +41,7 @@ import {
   sonderHote,
   unassign,
 } from "../administration/hotes-outils";
+import type { Acteur } from "../administration/hote-console";
 import type { Journal } from "../journal";
 import { auditerRequete as auditer } from "../journal-securite/auditer";
 import { resolveNetworkProfileId } from "../relais/identite";
@@ -86,6 +79,9 @@ async function exigerMontages(bruts: unknown): Promise<void> {
   if (v.refus.length > 0) throw new HttpError(400, `extra_run_args : montage refusé : ${v.refus.join(", ")}`);
 }
 
+/** Compte de la session admin, au nom duquel l'hôte d'outils est appelé. */
+const acteurDe = (req: FastifyRequest): Acteur | undefined => req.utilisateur;
+
 async function enregistrer(dep: DependancesAdminExecuteurs, req: FastifyRequest): Promise<Dict> {
   const corps = corpsJsonValeurs(req);
   const nouveau = estDict(corps) ? getPy(corps, "executors") : null;
@@ -100,6 +96,7 @@ async function enregistrer(dep: DependancesAdminExecuteurs, req: FastifyRequest)
   });
   auditer(req, "admin.executors.update", { force_user_docker: assainie["force_user_docker"] });
   const perimes = await conteneursPerimes(
+    acteurDe(req),
     profils,
     (uid) => getUserSettings(dep.base, uid),
     (reglages) => resolveNetworkProfileId(reglages),
@@ -142,10 +139,11 @@ function hotesDistants(adresses: readonly string[]): boolean {
 }
 
 /** État du moment : adresses des domaines des profils en liste blanche, conteneurs en marche à recréer (réglages, ou adresses des domaines changées depuis leur création), comptes de chaque profil, relevé de la machine et présence d'hôtes d'outils distants. */
-async function etat(dep: DependancesAdminExecuteurs): Promise<Dict> {
+async function etat(dep: DependancesAdminExecuteurs, req: FastifyRequest): Promise<Dict> {
   const cfg = chargerConfigBac();
   const domaines = await etatDomaines(cfg.network_profiles);
   const perimes = await conteneursPerimes(
+    acteurDe(req),
     cfg.network_profiles.map((p) => ({ ...p })),
     (uid) => getUserSettings(dep.base, uid),
     (reglages) => resolveNetworkProfileId(reglages),
@@ -175,12 +173,12 @@ async function etat(dep: DependancesAdminExecuteurs): Promise<Dict> {
   };
 }
 
-async function sante(): Promise<Dict> {
+async function sante(req: FastifyRequest): Promise<Dict> {
   chargerConfigBac();
-  return controleSante(configuredImage(getPy(sectionExecuteurs(), "image")));
+  return controleSante(acteurDe(req), configuredImage(getPy(sectionExecuteurs(), "image")));
 }
 
-/** `UserSandbox(uid, nom).stop()/destroy()` : 404 sans compte, configuration du bac relue comme le constructeur, puis la commande sous verrou. */
+/** Arrêt ou destruction du bac d'un compte : 404 sans compte, configuration du bac relue, puis la commande par l'hôte d'outils sous verrou. */
 async function actionBac(
   dep: DependancesAdminExecuteurs,
   req: FastifyRequest,
@@ -190,13 +188,13 @@ async function actionBac(
   const nom = await getUsernameById(dep.base, uid);
   if (!nom) throw new HttpError(404, `User ${uid} introuvable`);
   chargerConfigBac();
-  await actionConteneur(uid, containerName(safeSandboxName(nom)), action);
+  await actionConteneur({ id: uid, username: nom }, action);
   auditer(req, `admin.sandbox.${action}`, { target_user_id: uid, target_username: nom });
   return { ok: true };
 }
 
 async function nettoyer(req: FastifyRequest): Promise<Dict> {
-  const arretes = await gcIdleContainers(chargerConfigBac().idle_kill_hours);
+  const arretes = await gcIdleContainers(acteurDe(req), chargerConfigBac().idle_kill_hours);
   auditer(req, "admin.sandbox.gc", { stopped: arretes });
   return { ok: true, stopped: arretes };
 }
@@ -272,10 +270,10 @@ export function creerFamilleAdminExecuteurs(dep: DependancesAdminExecuteurs): Fa
         reponseJsonPy(rep, vueExecuteurs(lireConfigJson())),
       ),
       route("POST", "/api/admin/executors", (req) => enregistrer(dep, req)),
-      route("GET", "/api/admin/executors/healthcheck", () => sante()),
-      route("GET", "/api/admin/executors/status", () => etat(dep)),
-      route("GET", "/api/admin/sandbox/containers", async (_req, rep) =>
-        reponseJsonPy(rep, await listerConteneurs()),
+      route("GET", "/api/admin/executors/healthcheck", (req) => sante(req)),
+      route("GET", "/api/admin/executors/status", (req) => etat(dep, req)),
+      route("GET", "/api/admin/sandbox/containers", async (req, rep) =>
+        reponseJsonPy(rep, await listerConteneurs(acteurDe(req))),
       ),
       route("POST", "/api/admin/sandbox/containers/:user_id/stop", (req) => actionBac(dep, req, "stop")),
       route("DELETE", "/api/admin/sandbox/containers/:user_id", (req) => actionBac(dep, req, "destroy")),

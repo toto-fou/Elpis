@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** packages/contracts/test/core/admin-executeurs.test.ts — contrats de la console pour les exécuteurs, les conteneurs et les hôtes d'outils rejoués contre le core TS réel en process admin (sans Docker : les chemins qui l'exigent sont vérifiés sur des exemples). */
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -10,16 +15,40 @@ import {
   schemaReponseHotesOutils,
   schemaReponseSanteDocker,
 } from "../../src";
+import { oublierHotes } from "../../../../apps/core/src/relais/hotes";
+import { journalMuet } from "../../../../apps/core/test/aides";
+import { creerAppToolhost } from "../../../../apps/toolhost/src/app";
+import { routesConsole } from "../../../../apps/toolhost/src/bac/console";
+import { configParDefaut } from "../../../../apps/toolhost/src/config";
 import { cle, creerCompte, demarrerCore } from "./aides";
 import type { CoreDeTest } from "./aides";
 
 let core: CoreDeTest;
 let cookie = "";
 let cookieLou = "";
+let hoteOutils: FastifyInstance;
+let dossierHote = "";
+let manifesteHote = "";
 const dockerHostAvant = process.env["DOCKER_HOST"];
+const manifesteAvant = process.env["APP_MCP_MANIFEST"];
 
 beforeAll(async () => {
   process.env["DOCKER_HOST"] = "unix:///nonexistent/elpis-test-docker.sock";
+  hoteOutils = await creerAppToolhost({
+    tc: { ...configParDefaut(), token: "jeton-de-service-de-test" },
+    familles: [{ nom: "bac", routes: routesConsole() }],
+    journal: journalMuet,
+  });
+  await hoteOutils.listen({ host: "127.0.0.1", port: 0 });
+  dossierHote = mkdtempSync(join(tmpdir(), "elpis-contrats-hote-"));
+  const port = (hoteOutils.server.address() as { port: number }).port;
+  writeFileSync(
+    join(dossierHote, "mcp.json"),
+    JSON.stringify({
+      toolHosts: { main: { url: `http://127.0.0.1:${port}`, token: "jeton-de-service-de-test" } },
+    }),
+  );
+  manifesteHote = join(dossierHote, "mcp.json");
   core = await demarrerCore("admin");
   await creerCompte(core.base, "zoe", "mdp-de-zoe-1", 1);
   await creerCompte(core.base, "lou", "mdp-de-lou-1");
@@ -29,6 +58,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await core.fermer();
+  await hoteOutils.close();
+  rmSync(dossierHote, { recursive: true, force: true });
+  if (manifesteAvant === undefined) delete process.env["APP_MCP_MANIFEST"];
+  else process.env["APP_MCP_MANIFEST"] = manifesteAvant;
+  oublierHotes();
   if (dockerHostAvant === undefined) delete process.env["DOCKER_HOST"];
   else process.env["DOCKER_HOST"] = dockerHostAvant;
 });
@@ -90,6 +124,19 @@ describe("contrats REST : exécuteurs de la console (core réel)", () => {
   });
 
   it("Docker absent : santé en échec, conteneurs en 502 ; arrêt, destruction et nettoyage répondent ok", async () => {
+    process.env["APP_MCP_MANIFEST"] = manifesteHote;
+    oublierHotes();
+    try {
+      await dockerAbsent();
+    } finally {
+      if (manifesteAvant === undefined) delete process.env["APP_MCP_MANIFEST"];
+      else process.env["APP_MCP_MANIFEST"] = manifesteAvant;
+      oublierHotes();
+    }
+  });
+
+  /** Scénario « Docker absent » joué contre l'hôte d'outils en process déclaré dans le manifeste. */
+  async function dockerAbsent(): Promise<void> {
     expect(
       schemaReponseSanteDocker.parse(
         await core.appeler("GET", "/api/admin/executors/healthcheck", { cookie }),
@@ -147,7 +194,7 @@ describe("contrats REST : exécuteurs de la console (core réel)", () => {
       count: 1,
     };
     expect(schemaReponseConteneurs.parse(liste)).toEqual(liste);
-  });
+  }
 
   it("état : chaque compte et le profil de sa sandbox, relevé de la machine ; refusé à un compte ordinaire", async () => {
     const etat = schemaReponseEtatExecuteurs.parse(

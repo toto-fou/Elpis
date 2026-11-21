@@ -3597,7 +3597,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/absent\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"\",\n        \"error\": \"Dossier de destination indisponible\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 0.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/absent\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3647,7 +3647,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"\",\n        \"error\": \"Dossier de destination indisponible\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 0.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3670,7 +3670,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"\",\n        \"error\": \"Dossier de destination indisponible\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 0.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3696,7 +3696,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3721,7 +3721,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3749,7 +3749,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"backup_complet_<ts>_incomplet.zip\",\n        \"error\": \"Sauvegarde incompl\u00e8te : /work d'au moins un compte non sauvegard\u00e9 (sandboxes indisponibles ?) \u2014 voir backup-warnings.txt\",\n        \"trigger\": \"manual\",\n        \"incomplete\": true,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3778,7 +3778,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"backup_sandboxes_<ts>_incomplet.zip\",\n        \"error\": \"Sauvegarde incompl\u00e8te : /work d'au moins un compte non sauvegard\u00e9 (sandboxes indisponibles ?) \u2014 voir backup-warnings.txt\",\n        \"trigger\": \"manual\",\n        \"incomplete\": true,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3830,7 +3830,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"backup_sandboxes_<ts>_incomplet.zip\",\n        \"error\": \"Sauvegarde incompl\u00e8te : /work d'au moins un compte non sauvegard\u00e9 (sandboxes indisponibles ?) \u2014 voir backup-warnings.txt\",\n        \"trigger\": \"manual\",\n        \"incomplete\": true,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"mounted\",\n      \"scope\": \"full\",\n      \"host\": \"\",\n      \"port\": 22,\n      \"user\": \"\",\n      \"remote_path\": \"\",\n      \"dest_path\": \"<R>/dest\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": true,\n      \"schedule_every\": 2,\n      \"schedule_unit\": \"hours\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3884,7 +3884,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 2200,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv/b/\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": false,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"backup_sandboxes_<ts>_incomplet.zip\",\n        \"error\": \"Sauvegarde incompl\u00e8te : /work d'au moins un compte non sauvegard\u00e9 (sandboxes indisponibles ?) \u2014 voir backup-warnings.txt\",\n        \"trigger\": \"manual\",\n        \"incomplete\": true,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 2200,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv/b/\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": false,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3913,7 +3913,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 2200,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv/b/\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": false,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": false,\n        \"filename\": \"backup_sandboxes_<ts>_incomplet.zip\",\n        \"error\": \"Sauvegarde incompl\u00e8te : /work d'au moins un compte non sauvegard\u00e9 (sandboxes indisponibles ?) \u2014 voir backup-warnings.txt\",\n        \"trigger\": \"manual\",\n        \"incomplete\": true,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 2200,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv/b/\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": false,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3943,7 +3943,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 2200,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv/b/\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": false,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 2200,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv/b/\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": false,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -3997,7 +3997,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -4026,7 +4026,7 @@
           "s3cret\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -4049,7 +4049,7 @@
           "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -4072,7 +4072,7 @@
           "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"rsync\",\n      \"scope\": \"full\",\n      \"host\": \"h\",\n      \"port\": 22,\n      \"user\": \"refus\",\n      \"remote_path\": \"/srv/b\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -4122,7 +4122,7 @@
           "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -4147,7 +4147,7 @@
           "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -4173,7 +4173,7 @@
           "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     },
     {
       "statut": 200,
@@ -4221,7 +4221,7 @@
           "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n"
         ]
       },
-      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 1800000000.0,\n        \"ok\": true,\n        \"filename\": \"backup_mcp_<ts>.zip\",\n        \"error\": \"\",\n        \"trigger\": \"manual\",\n        \"incomplete\": false,\n        \"ok_at\": 1800000000.0\n      }\n    }\n  }\n}"
+      "config": "{\n  \"backup\": {\n    \"remote\": {\n      \"enabled\": true,\n      \"connector\": \"sftp\",\n      \"scope\": \"full\",\n      \"host\": \"absent\",\n      \"port\": 22,\n      \"user\": \"u\",\n      \"remote_path\": \"/srv\",\n      \"dest_path\": \"\",\n      \"strict_host_key_checking\": true,\n      \"schedule_enabled\": false,\n      \"schedule_every\": 1,\n      \"schedule_unit\": \"days\",\n      \"key_path\": \"<R>/user_db/.backup_ssh_key\",\n      \"known_hosts\": \"<R>/user_db/.backup_known_hosts\",\n      \"timeout_sec\": 300,\n      \"last_send\": {\n        \"at\": 0,\n        \"ok\": null,\n        \"ok_at\": 0,\n        \"trigger\": \"\",\n        \"filename\": \"\",\n        \"error\": \"\"\n      }\n    }\n  }\n}"
     }
   ],
   "normalisations": [

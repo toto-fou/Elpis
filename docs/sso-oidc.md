@@ -392,6 +392,11 @@ Examples, as played against real servers:
   declare it in **Niveaux qui prouvent un second facteur** (`loa-5` with the default level names). See the
   examples of [Requiring a second factor](#requiring-a-second-factor). Do not put the strongest level first
   in **Niveaux exigés**: LemonLDAP::NG would then require it from everybody.
+- **Trying several people in a row**: LemonLDAP::NG honours the fresh sign-in that **Se connecter pour
+  essayer** asks for (`prompt=login`) only for a portal session older than its forced re-authentication
+  interval (`portalForceAuthnInterval`, 300 seconds by default). Within that time the trial reuses the person
+  already signed in at the portal; the result always names the account received. Use a private window for
+  each person, or lower that interval in the manager.
 
 ### AD FS
 

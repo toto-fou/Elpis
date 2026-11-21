@@ -369,6 +369,43 @@ def test_lien_de_config_illisible_message_clair(depot):
     assert r.returncode != 0 and "config.json illisible pour ce compte" in r.stderr and "elpis-donnees" in r.stderr
 
 
+def _qdrant(depot: Path) -> Path:
+    (depot / "rag_app/qdrant").mkdir(parents=True, exist_ok=True)
+    _executable(depot / "rag_app/qdrant/qdrant", "#!/bin/sh\nexit 0\n")
+    stockage = depot / "rag_app/qdrant/storage/collections/c"
+    stockage.mkdir(parents=True)
+    (stockage / "segment").write_text("vecteurs", encoding="utf-8")
+    return depot / "rag_app/qdrant/storage"
+
+
+def test_stockage_de_qdrant_vers_son_dossier_d_etat_une_fois(depot):
+    _unite_bloc4(depot)
+    stockage = _qdrant(depot)
+    r = _harnais(depot, INSTALLE_SEPARE)
+    assert r.returncode == 0, r.stdout + r.stderr
+    etat = _sys(depot) / "var/lib/private/elpis-qdrant"
+    assert not stockage.exists() and (etat / "storage/collections/c/segment").read_text() == "vecteurs"
+    assert _mode(etat) == "700" and _mode(etat.parent) == "700" and "Stockage de Qdrant déplacé" in r.stdout
+    assert not (_sys(depot) / "var/lib/elpis-qdrant").exists()
+    r = _harnais(depot, INSTALLE_SEPARE)
+    assert r.returncode == 0 and "Qdrant" not in r.stdout + r.stderr
+    (stockage / "x").mkdir(parents=True)
+    r = _harnais(depot, INSTALLE_SEPARE)
+    assert "Stockage de Qdrant : " in r.stderr and (etat / "storage/collections/c/segment").exists()
+
+
+def test_stockage_de_qdrant_ramene_sous_un_compte_unique(depot):
+    _unite_bloc4(depot)
+    stockage = _qdrant(depot)
+    prive = _sys(depot) / "var/lib/private/elpis-qdrant"
+    prive.mkdir(parents=True)
+    os.rename(stockage, prive / "storage")
+    r = _harnais(depot, INSTALLE_SEPARE, ELPIS_COMPTE_UNIQUE="1")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (stockage / "collections/c/segment").exists() and not (prive / "storage").exists()
+    assert f"chown -R {MOI} {stockage}" in _trace(depot)
+
+
 def test_dossier_ferme_premier_dossier_sans_traversee(tmp_path):
     ferme = tmp_path / "ferme"
     (ferme / "ouvert").mkdir(parents=True)
@@ -546,6 +583,11 @@ def test_unites_du_mode_separe(depot):
     assert {"User=elpis-rag", "CacheDirectory=elpis-rag", 'Environment="RAG_CACHE_DIR=/var/cache/elpis-rag"',
             'Environment="RAG_SERVICE_TOKEN_FILE=/etc/elpis/rag.token"'} <= set(rag)
     assert not any(l.startswith("ReadWritePaths") for l in rag) and not any("RestrictSUIDSGID" in l or "DynamicUser" in l for l in rag)
+    qdrant = u["elpis-qdrant.service"].splitlines()
+    assert {"DynamicUser=yes", "StateDirectory=elpis-qdrant", "WorkingDirectory=/var/lib/elpis-qdrant",
+            'Environment="QDRANT__STORAGE__STORAGE_PATH=/var/lib/elpis-qdrant/storage"',
+            'Environment="QDRANT__STORAGE__SNAPSHOTS_PATH=/var/lib/elpis-qdrant/storage/snapshots"'} <= set(qdrant)
+    assert not any(l.startswith(("User=", "ReadWritePaths", "ReadOnlyPaths")) for l in qdrant)
     assert u["tmpfiles.d/elpis.conf"].strip().splitlines()[-1] == "d /run/elpis 2770 root elpis-donnees -"
     assert f"InaccessiblePaths=-{depot}/user_db/.session_secret -{depot}/user_db/.encryption_key" \
         in u["elpis-toolhost.service"].splitlines()

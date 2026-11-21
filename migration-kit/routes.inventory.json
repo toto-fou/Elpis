@@ -28,8 +28,8 @@
     "publiques": 57,
     "session_a_relire": 12,
     "par_etat": {
-      "retiré": 42,
-      "ts": 417
+      "retiré": 43,
+      "ts": 416
     },
     "par_prefixe": {
       "/": 2,
@@ -2265,7 +2265,7 @@
         "session",
         "session_lue"
       ],
-      "etat": "ts"
+      "etat": "retiré"
     },
     {
       "methodes": [

@@ -19,6 +19,7 @@ import { RefusIndexationRag } from "./erreurs-indexation";
 import {
   creerDossiersCollectionRag,
   estExtensionRag,
+  modeFichierRag,
   ouvrirDossierMagasinRag,
   relCollectionRag,
   resoudreMagasinRag,
@@ -168,7 +169,7 @@ async function ecrirePartiel(
 ): Promise<{ octets: number; sha256: string }> {
   const empreinte = createHash("sha256");
   let octets = 0;
-  const fh = await open(viaFd(dfd, partiel), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600);
+  const fh = await open(viaFd(dfd, partiel), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, modeFichierRag());
   try {
     try {
       for await (const morceau of flux) {

@@ -7,7 +7,7 @@ import path from "node:path";
 import { setTimeout as dormirAsync } from "node:timers/promises";
 import { isMainThread } from "node:worker_threads";
 
-import { FlottantPy, fixePy, pyJsonDumps, pyJsonLoads, stripPy, strPy } from "@elpis/commun";
+import { FlottantPy, fixePy, modePartage, pyJsonDumps, pyJsonLoads, stripPy, strPy } from "@elpis/commun";
 
 import { demarrerBattement } from "./battement";
 import {
@@ -334,17 +334,18 @@ function* existeLienP(chemin: string): Proc<boolean> {
   }
 }
 
-/** Création exclusive portant `ligne` ; faux si le chemin existe, ou n'est plus notre fichier une fois écrit. */
+/** Création exclusive portant `ligne` (0600, 0660 sous le groupe des données : les autres services le relisent) ; faux si le chemin existe, ou n'est plus notre fichier une fois écrit. */
 export function* creerVerrouP(chemin: string, ligne: Uint8Array, annexe = false): Proc<boolean> {
   let fd: number;
+  const mode = modePartage(0o600);
   try {
-    fd = yield* ouvrir(chemin, DRAPEAUX_CREATION, 0o600);
+    fd = yield* ouvrir(chemin, DRAPEAUX_CREATION, mode);
   } catch (e) {
     if (codeErreur(e) === "EEXIST") return false;
     if (codeErreur(e) !== "ENOENT") throw e;
     yield* creerDossier(path.dirname(chemin));
     try {
-      fd = yield* ouvrir(chemin, DRAPEAUX_CREATION, 0o600);
+      fd = yield* ouvrir(chemin, DRAPEAUX_CREATION, mode);
     } catch (e2) {
       if (codeErreur(e2) === "EEXIST") return false;
       throw e2;

@@ -4,10 +4,12 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 
 import {
+  dossierDeConfiance,
   ErreurPython,
   estDict,
   journalDe,
   lire,
+  modePartage,
   ouPy,
   pyJsonLoads,
   stripPy,
@@ -87,17 +89,17 @@ export function pwOwnersDir(): string {
   );
 }
 
-/** Dossier des compagnons à nous et fermé aux autres comptes ; sinon on n'y lit ni n'y écrit (contrôle en mémoire seul). */
+/** Dossier des compagnons à nous et fermé aux autres comptes (au groupe des données quand main et l'hôte d'outils ont chacun leur compte) ; sinon on n'y lit ni n'y écrit (contrôle en mémoire seul). */
 async function dossierOk(): Promise<boolean> {
   const dossier = pwOwnersDir();
   let infos: Awaited<ReturnType<typeof lstat>>;
   try {
-    await mkdir(dossier, { recursive: true, mode: 0o700 });
+    await mkdir(dossier, { recursive: true, mode: modePartage(0o700) });
     infos = await lstat(dossier);
   } catch {
     return false;
   }
-  if (!infos.isDirectory() || infos.uid !== process.geteuid?.() || infos.mode & 0o077) {
+  if (!infos.isDirectory() || !dossierDeConfiance(infos)) {
     log().warn(`${dossier} n'est pas un dossier privé de ce compte : sidecars ignorés`);
     return false;
   }

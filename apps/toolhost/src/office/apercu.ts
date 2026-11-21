@@ -19,6 +19,8 @@ import path from "node:path";
 
 import { estErreurAgent } from "@elpis/bac";
 import {
+  bitsInterdits,
+  dossierDeConfiance,
   ErreurPython,
   FlottantPy,
   floatPy,
@@ -26,6 +28,7 @@ import {
   intPy,
   journalDe,
   lowerPy,
+  modePartage,
   pyJsonDumps,
   pyJsonLoadsOctets,
   quotePy,
@@ -136,7 +139,7 @@ export function maxBytes(kind: string): number {
   return intPy((mb > 1.0 ? mb : 1.0) * 1024 * 1024);
 }
 
-/** `cache_root` : racine du cache, créée en 0700 et refusée si elle n'est pas à ce compte. */
+/** `cache_root` : racine du cache, créée en 0700 (0770 sous le groupe des données : main l'élague) et refusée si elle n'est pas à ce compte (ou à ce groupe). */
 export function cacheRoot(): string {
   const conf = cfg("cache_dir", "");
   const brut =
@@ -144,27 +147,28 @@ export function cacheRoot(): string {
   const racine = brut || path.join(String(config.SANDBOX_DIR), ".office-cache");
   let st;
   try {
-    mkdirSync(racine, { recursive: true, mode: 0o700 });
+    mkdirSync(racine, { recursive: true, mode: modePartage(0o700) });
     st = lstatSync(racine);
   } catch (e) {
     log.warn(`[office] cache ${racine} inutilisable : ${(e as Error).message}`);
     throw new ErreurOffice("failed", 500, "Cache d'aperçu indisponible");
   }
-  if (!st.isDirectory() || st.uid !== process.geteuid?.())
-    throw new ErreurOffice("failed", 500, "Cache d'aperçu non sûr");
-  if (st.mode & 0o077) {
+  if (st.isDirectory() && st.uid === process.geteuid?.() && st.mode & bitsInterdits()) {
     try {
-      chmodSync(racine, 0o700);
+      chmodSync(racine, modePartage(0o700));
+      st = lstatSync(racine);
     } catch {
       throw new ErreurOffice("failed", 500, "Cache d'aperçu non sûr");
     }
   }
+  if (!st.isDirectory() || !dossierDeConfiance(st))
+    throw new ErreurOffice("failed", 500, "Cache d'aperçu non sûr");
   return racine;
 }
 
 function creerDossier(d: string): void {
   try {
-    mkdirSync(d, { mode: 0o700 });
+    mkdirSync(d, { mode: modePartage(0o700) });
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
   }
@@ -931,7 +935,7 @@ export async function prepare(o: {
 function newJobDir(userDir: string, cle: string): string {
   const job = path.join(userCacheDir(userDir), `.tmp-${cle}-${randomBytes(4).toString("hex")}`);
   mkdirSync(job);
-  mkdirSync(path.join(job, "out"), { mode: 0o700 });
+  mkdirSync(path.join(job, "out"), { mode: modePartage(0o700) });
   return job;
 }
 

@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { intPy, pyJsonDumps, pyJsonLoads, stripPy, strPy, veritePy } from "@elpis/commun";
+import { intPy, modePartage, pyJsonDumps, pyJsonLoads, stripPy, strPy, veritePy } from "@elpis/commun";
 import {
   config,
   CONFIG_ILLISIBLE,
@@ -198,16 +198,17 @@ function cheminMotDePasse(pending = false): string {
   return join(dataDir(), pending ? ".db_password.pending" : ".db_password");
 }
 
-/** Mot de passe dans un fichier 0600 hors de config.json. */
+/** Mot de passe dans un fichier 0600 hors de config.json (0640 sous le groupe des données : tous les services s'y connectent). */
 export function savePassword(motDePasse: string, pending = false): void {
   const chemin = cheminMotDePasse(pending);
-  const fd = openSync(chemin, "w", 0o600);
+  const mode = modePartage(0o600, true);
+  const fd = openSync(chemin, "w", mode);
   try {
     writeSync(fd, motDePasse);
   } finally {
     closeSync(fd);
   }
-  chmodSync(chemin, 0o600);
+  chmodSync(chemin, mode);
 }
 
 /** Mot de passe de la cible enregistrée sans bascule (aucun pour un moteur retiré), ou "". */

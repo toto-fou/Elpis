@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { encoderUtf8Py, ErreurPython, intPy, pyJsonDumps } from "@elpis/commun";
+import { encoderUtf8Py, ErreurPython, intPy, modePartage, pyJsonDumps } from "@elpis/commun";
 import { pyPath } from "@elpis/config";
 
 import { baseGraphiques, idGraphiqueSur, lireCacheGraphique, nomSur } from "../incrustation";
@@ -44,11 +44,11 @@ function supprimerSiPresent(p: string): void {
   }
 }
 
-/** `_chmod_cross_writable` : 0700 (dossier) ou 0600 (fichier), sans suivre les liens, sans jamais échouer. */
+/** `_chmod_cross_writable` : 0700 (dossier) ou 0600 (fichier), lisibles par le groupe des données s'il y en a un (l'hôte d'outils y lit les graphiques d'Office), sans suivre les liens, sans jamais échouer. */
 function chmodPrive(p: string, dossier: boolean): void {
   try {
     if (lstatSync(p).isSymbolicLink()) return;
-    chmodSync(p, dossier ? 0o700 : 0o600);
+    chmodSync(p, modePartage(dossier ? 0o700 : 0o600, true));
   } catch {
     return;
   }

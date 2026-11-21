@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/llm/acces-moteurs.ts — serveurs visibles et droit de gérer les modèles, par compte et par groupe (`engine_access.py`, table `llm_engine_policies`). */
-import { closeSync, mkdirSync, openSync, statSync, utimesSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, renameSync, statSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -81,15 +81,27 @@ function empreinteCourante(): bigint {
   }
 }
 
+/** Avance le mtime du témoin `p` d'au moins 1 µs ; témoin d'un autre compte (dates refusées hors de son propriétaire) : remplacé par un neuf, renommé à sa place. */
+export function avancerTemoin(p: string, mode = 0o666): void {
+  closeSync(openSync(p, "a", mode));
+  const avant = statSync(p, { bigint: true }).mtimeNs;
+  const maintenant = BigInt(Date.now()) * 1_000_000n;
+  const cible = Number(maintenant > avant + 1_000n ? maintenant : avant + 1_000n) / 1e9;
+  try {
+    utimesSync(p, cible, cible);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EPERM") throw e;
+    const neuf = `${p}.${process.pid}.tmp`;
+    closeSync(openSync(neuf, "w", mode));
+    utimesSync(neuf, cible, cible);
+    renameSync(neuf, p);
+  }
+}
+
 /** Signale un changement de politique ou d'appartenance aux groupes ; le mtime avance toujours (deux écritures dans la même milliseconde comprises). */
 export function bumpStamp(): void {
   try {
-    const p = cheminEmpreinte();
-    closeSync(openSync(p, "a"));
-    const avant = statSync(p, { bigint: true }).mtimeNs;
-    const maintenant = BigInt(Date.now()) * 1_000_000n;
-    const cible = Number(maintenant > avant + 1_000n ? maintenant : avant + 1_000n) / 1e9;
-    utimesSync(p, cible, cible);
+    avancerTemoin(cheminEmpreinte());
   } catch (e) {
     log.debug(`[engine_access] empreinte de politiques non touchée (${String(e)})`);
   }

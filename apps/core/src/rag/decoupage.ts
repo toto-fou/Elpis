@@ -31,6 +31,7 @@ import { ecrireSous, ouvrirFeuille } from "@elpis/securite";
 import { ErreurRouteRag } from "./http";
 import {
   assurerRacineMagasinRag,
+  modeFichierRag,
   ouvrirDossierMagasinRag,
   relCollectionRag,
   relDecoupageDocumentRag,
@@ -222,7 +223,7 @@ export function ecrireDecoupageDocumentRag(
     assurerRacineMagasinRag(),
     relDecoupageDocumentRag(uid, collectionId, docId),
     Buffer.from(JSON.stringify({ version: VERSION_FICHIER, sha256, decoupage: canon }), "utf8"),
-    { creerParents: false, modeDefaut: 0o600 },
+    { creerParents: false, modeDefaut: modeFichierRag() },
   );
 }
 

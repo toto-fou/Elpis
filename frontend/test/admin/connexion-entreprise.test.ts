@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/admin/connexion-entreprise.test.ts — console › SSO OpenID Connect : page vide, cartes numérotées, création d'un SSO, identifiant déduit, secret en écriture seule, sections stables, conditions d'activation, fournisseur actif, erreurs du serveur, champs figés, confirmations. */
+import { REGEX_ID_FOURNISSEUR } from "@elpis/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { reinitialiserSuiviChargement } from "../../src/features/admin/suivi-chargement";
@@ -29,7 +30,9 @@ describe("SSO OpenID Connect : page vide", () => {
     await ouvrir(m);
     const t = m.hote.textContent ?? "";
     expect(t).toContain("Connexion locale seule");
-    expect(t).toContain("Rien ne change tant qu'aucun fournisseur n'est activé");
+    expect(texte("[data-etat-page]")).toBe(
+      "Aucun fournisseur activé : chacun se connecte avec son mot de passe local.",
+    );
     expect(t).toContain("✗ Adresse publique en https");
     expect(t).toContain("Activez l'accès HTTPS, puis redémarrez.");
     expect(t).toContain("Aucun fournisseur déclaré.");
@@ -122,7 +125,8 @@ describe("SSO OpenID Connect : page vide", () => {
     await clic("#ent-enregistrer-url");
     expect(m.corps["PUT /api/admin/auth/settings"]).toEqual([{ public_url: "https://autre.example.lan" }]);
     expect(m.A.authEtat.value?.public_url).toBe("https://autre.example.lan");
-    expect(m.A.authReglagesModifies.value).toBe(false);
+    expect(m.A.authUrlModifiee.value).toBe(false);
+    expect(el<HTMLButtonElement>("#ent-enregistrer-url")?.disabled).toBe(true);
   });
 
   it("chaque carte n'envoie que son champ : le mode modifié reste à l'écran après l'enregistrement de l'adresse", async () => {
@@ -166,7 +170,7 @@ describe("SSO OpenID Connect : liste des fournisseurs", () => {
     const pastille = (id: string) => texte(`[data-fournisseur="${id}"] .adm-pill`);
     expect([pastille("a"), pastille("b"), pastille("c")]).toEqual(["Actif", "Éteint", "Inopérant"]);
     expect(texte('[data-fournisseur="c"] [data-raison-inoperant]')).toBe(
-      "· Réussissez d'abord « Se connecter pour essayer ».",
+      "· Connexion d'essai à refaire : désactivez-le pour refaire « Se connecter pour essayer ».",
     );
     expect(el('[data-fournisseur="a"] [data-raison-inoperant]')).toBeNull();
     expect(el('[data-fournisseur="b"] [data-raison-inoperant]')).toBeNull();
@@ -182,8 +186,8 @@ describe("SSO OpenID Connect : création", () => {
     await clic("#ent-ajouter");
     expect(el("#ent-retour")).toBeNull();
     expect(tous("[data-adresse-manque]").map((n) => n.textContent?.trim())).toEqual([
-      "Identifiant manquant : renseignez-le en section 1.",
-      "Identifiant manquant : renseignez-le en section 1.",
+      "Identifiant dans Elpis manquant : renseignez-le en section 1.",
+      "Identifiant dans Elpis manquant : renseignez-le en section 1.",
     ]);
     expect(el<HTMLButtonElement>("[data-copier-retour]")?.disabled).toBe(true);
     await saisir("#ent-id", "sso");
@@ -251,7 +255,7 @@ describe("SSO OpenID Connect : création", () => {
     await clic("#ent-ajouter");
     await saisir("#ent-id", "SSO Siège");
     expect(el("#ent-retour")).toBeNull();
-    expect(texte("[data-adresse-manque]")).toContain("Identifiant invalide");
+    expect(texte("[data-adresse-manque]")).toContain("Identifiant dans Elpis invalide");
   });
 
   it("un champ obligatoire vide n'est pas envoyé", async () => {
@@ -514,7 +518,7 @@ describe("SSO OpenID Connect : panneau stable", () => {
     expect(texte("[data-raison-essai]")).toBe(
       "Enregistrez d'abord ce fournisseur : l'essai part des réglages enregistrés.",
     );
-    expect(tous("[data-condition]")).toHaveLength(6);
+    expect(tous("[data-condition]")).toHaveLength(7);
     expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
     expect(texte("[data-raison-activer]")).toBe("Enregistrez d'abord ce fournisseur.");
     expect(el<HTMLButtonElement>("#ent-supprimer")?.disabled).toBe(true);
@@ -572,7 +576,7 @@ describe("SSO OpenID Connect : panneau stable", () => {
         n.getAttribute("data-condition"),
         n.getAttribute("data-ok"),
       ]);
-      expect(etats).toEqual(CAS.map((c) => [c.id, c.id === cas.id ? "non" : "oui"]));
+      expect(etats).toEqual([...CAS.map((c) => [c.id, c.id === cas.id ? "non" : "oui"]), ["saved", "oui"]]);
       expect(el(`[data-condition="${cas.id}"]`)?.textContent).toContain("✗");
       expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
       expect(texte("[data-raison-activer]")).toBe(cas.raison);
@@ -593,5 +597,323 @@ describe("SSO OpenID Connect : panneau stable", () => {
     expect(m.appels).toContain("POST /api/admin/auth/providers/sso/enable");
     expect(el("#ent-desactiver")).not.toBeNull();
     expect(tous("[data-section-tiroir]").map((n) => n.getAttribute("data-section-tiroir"))).toEqual(SECTIONS);
+  });
+});
+
+describe("SSO OpenID Connect : carte d'état fidèle à l'état réel", () => {
+  const CAS = [
+    [
+      "aucun fournisseur activé",
+      etat({ providers: [OIDC] }),
+      "Connexion locale seule",
+      "Aucun fournisseur activé : chacun se connecte avec son mot de passe local.",
+    ],
+    [
+      "activé mais inopérant",
+      etat({ providers: [{ ...OIDC, enabled: true, tested: false }] }),
+      "Connexion locale seule",
+      "⚠ Aucun fournisseur activé n'est opérant (carte 2) : seule la connexion locale fonctionne.",
+    ],
+    [
+      "illisible et activé",
+      etat({ invalid_providers: [{ id: "vieux", label: "Ancien", enabled: true }] }),
+      "Connexion locale seule",
+      "⚠ Aucun fournisseur activé n'est opérant (carte 2) : seule la connexion locale fonctionne.",
+    ],
+    [
+      "« Administrateurs seulement » sans fournisseur actif",
+      etat({ local: { mode: "admins" }, providers: [{ ...OIDC, enabled: true, tested: false }] }),
+      "Connexion locale seule",
+      "⚠ Aucun fournisseur actif et mots de passe locaux réservés aux administrateurs : seuls les administrateurs peuvent se connecter.",
+    ],
+    [
+      "fournisseur actif",
+      etat({ local: { mode: "admins" }, providers: [ACTIF] }),
+      "SSO OpenID Connect actif",
+      "Fournisseurs actifs : SSO siège.",
+    ],
+  ] as const;
+  for (const [nom, e, titre, phrase] of CAS)
+    it(`${nom} : « ${titre} » et sa phrase`, async () => {
+      const m = monter(e);
+      await ouvrir(m);
+      expect(texte("#ent-etat .adm-card__title")).toBe(titre);
+      expect(texte("[data-etat-page]")).toBe(phrase);
+    });
+});
+
+describe("SSO OpenID Connect : raison d'un fournisseur inopérant", () => {
+  const INOPERANT = { ...OIDC, enabled: true, tested: true };
+  const PREREQUIS = { public_url_https: true, cookie_secure: true, local_admins: 1 };
+  const CAS = [
+    [
+      etat({
+        public_url: "",
+        providers: [INOPERANT],
+        prerequisites: { ...PREREQUIS, public_url_https: false },
+      }),
+      "Adresse publique manquante : désactivez les fournisseurs pour la renseigner.",
+    ],
+    [
+      etat({ providers: [INOPERANT], prerequisites: { ...PREREQUIS, cookie_secure: false } }),
+      "Accès HTTPS hors service : rétablissez-le depuis la carte « 1. Prérequis ».",
+    ],
+    [
+      etat({ providers: [INOPERANT], prerequisites: { ...PREREQUIS, local_admins: 0 } }),
+      "Aucun administrateur à mot de passe local : rétablissez-en un dans la page Comptes.",
+    ],
+    [
+      etat({ providers: [{ ...INOPERANT, required_groups: [] }] }),
+      "Aucun groupe requis : désactivez-le pour en indiquer un.",
+    ],
+    [
+      etat({ providers: [{ ...INOPERANT, has_secret: false }] }),
+      "Secret client manquant : désactivez-le pour l'enregistrer.",
+    ],
+    [
+      etat({ providers: [{ ...INOPERANT, tested: false }] }),
+      "Connexion d'essai à refaire : désactivez-le pour refaire « Se connecter pour essayer ».",
+    ],
+    [
+      etat({ providers: [INOPERANT] }),
+      "Condition d'activation manquante : désactivez-le, puis vérifiez sa section « 8. Activation ».",
+    ],
+  ] as const;
+  for (const [e, raison] of CAS)
+    it(`dit la cause et le remède : « ${raison} »`, async () => {
+      const m = monter(e);
+      await ouvrir(m);
+      expect(texte('[data-fournisseur="sso"] [data-raison-inoperant]')).toBe(`· ${raison}`);
+      expect(texte('[data-fournisseur="sso"] [data-raison-inoperant]')).not.toContain("d'abord");
+    });
+});
+
+describe("SSO OpenID Connect : le secret ne part jamais pour un fournisseur activé", () => {
+  const PRET = { ...OIDC, tested: true };
+
+  it("activé depuis une autre session pendant la saisie : le champ se vide, Enregistrer n'envoie que le libellé", async () => {
+    const m = monter(etat({ providers: [PRET] }));
+    m.reponses["PUT /api/admin/auth/providers/sso"] = [json(etat({ providers: [ACTIF] }))];
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    await saisir("#ent-secret", "nouveau-secret");
+    m.reponses["GET /api/admin/auth"] = [json(etat({ providers: [ACTIF] }))];
+    await m.A.loadEnterpriseAuth();
+    await vider();
+    expect(el<HTMLInputElement>("#ent-secret")?.value).toBe("");
+    expect(el<HTMLInputElement>("#ent-secret")?.disabled).toBe(true);
+    m.A.authTiroir.value!.secret = "glissé autrement";
+    await saisir("#ent-label", "Nouveau nom");
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.corps["PUT /api/admin/auth/providers/sso"]).toEqual([{ label: "Nouveau nom" }]);
+    expect(m.appels.some((a) => a.endsWith("/secret"))).toBe(false);
+  });
+
+  it("la réponse de l'enregistrement dit le fournisseur activé : le secret saisi ne part pas, la raison est écrite", async () => {
+    const m = monter(etat({ providers: [PRET] }));
+    m.reponses["PUT /api/admin/auth/providers/sso"] = [json(etat({ providers: [ACTIF] }))];
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    await saisir("#ent-secret", "nouveau-secret");
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.appels).toContain("PUT /api/admin/auth/providers/sso");
+    expect(m.appels.some((a) => a.endsWith("/secret"))).toBe(false);
+    expect(texte("[data-tiroir-erreur]")).toBe(
+      "Ce fournisseur vient d'être activé : le secret n'a pas été envoyé. Désactivez-le pour le changer.",
+    );
+    expect(el<HTMLInputElement>("#ent-secret")?.value).toBe("");
+  });
+
+  it("Supprimer le secret ne part pas pour un fournisseur activé", async () => {
+    const m = monter(etat({ providers: [ACTIF] }));
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    await m.A.authSupprimerSecret();
+    expect(m.confirmations).toEqual([]);
+    expect(m.appels.some((a) => a.endsWith("/secret"))).toBe(false);
+  });
+});
+
+describe("SSO OpenID Connect : Activer et Désactiver partent des réglages enregistrés", () => {
+  const PRET = { ...OIDC, tested: true };
+
+  it("modification non enregistrée : Activer est grisé, la ligne « Modifications enregistrées » et la raison le disent, rien ne part", async () => {
+    const m = monter(etat({ providers: [PRET] }));
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    expect(el(`[data-condition="saved"]`)?.getAttribute("data-ok")).toBe("oui");
+    m.A.authRetirerGroupe("required_groups", 0);
+    await saisir("#ent-groupe", "autres");
+    m.A.authAjouterGroupe();
+    await vider();
+    expect(el(`[data-condition="saved"]`)?.getAttribute("data-ok")).toBe("non");
+    expect(texte(`[data-condition="saved"]`)).toContain("Modifications enregistrées");
+    expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
+    expect(texte("[data-raison-activer]")).toBe("Enregistrez d'abord vos modifications.");
+    expect(await m.A.authBasculer(true)).toBe(false);
+    await clic("#ent-activer");
+    expect(m.appels.some((a) => a.includes("/enable"))).toBe(false);
+    m.A.authRetirerGroupe("required_groups", 0);
+    await saisir("#ent-groupe", "elpis");
+    m.A.authAjouterGroupe();
+    await vider();
+    expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(false);
+    await saisir("#ent-secret", "nouveau-secret");
+    expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
+    expect(texte("[data-raison-activer]")).toBe("Enregistrez d'abord vos modifications.");
+  });
+
+  it("après Activer puis Désactiver, le tiroir est relu depuis l'état rendu et le focus revient sur le bouton", async () => {
+    const m = monter(etat({ providers: [PRET] }));
+    /** Le navigateur retire le focus d'un bouton grisé pendant la demande. */
+    const grise = (corps: unknown) => () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      return json(corps);
+    };
+    m.reponses["POST /api/admin/auth/providers/sso/enable"] = [
+      grise(
+        etat({ providers: [{ ...ACTIF, label: "Nom du serveur", required_groups: ["elpis", "autres"] }] }),
+      ),
+    ];
+    m.reponses["POST /api/admin/auth/providers/sso/disable"] = [grise(etat({ providers: [PRET] }))];
+    await ouvrir(m);
+    m.A.authModifier("sso");
+    await vider();
+    const bouton = el<HTMLButtonElement>("#ent-activer");
+    bouton?.focus();
+    await clic("#ent-activer");
+    expect(el<HTMLInputElement>("#ent-label")?.value).toBe("Nom du serveur");
+    expect(m.A.authTiroir.value?.required_groups).toEqual(["elpis", "autres"]);
+    expect(document.activeElement).toBe(bouton);
+    expect(document.activeElement?.id).toBe("ent-desactiver");
+    expect(document.activeElement?.textContent?.trim()).toBe("Désactiver");
+    await saisir("#ent-label", "Brouillon");
+    await clic("#ent-desactiver");
+    expect(m.appels).toContain("POST /api/admin/auth/providers/sso/disable");
+    expect(el<HTMLInputElement>("#ent-label")?.value).toBe("SSO siège");
+    expect(document.activeElement).toBe(bouton);
+    expect(document.activeElement?.id).toBe("ent-activer");
+  });
+});
+
+describe("SSO OpenID Connect : Ajouter enchaîne sur la vérification", () => {
+  it("après l'ajout, le tiroir reste ouvert sur le fournisseur créé, secret rangé, « Se connecter pour essayer » disponible et focalisé", async () => {
+    const m = monter();
+    m.reponses["POST /api/admin/auth/providers"] = [
+      json(etat({ providers: [{ ...OIDC, has_secret: false }] })),
+    ];
+    m.reponses["PUT /api/admin/auth/providers/sso/secret"] = [json(etat({ providers: [OIDC] }))];
+    await ouvrir(m);
+    await clic("#ent-ajouter");
+    await saisir("#ent-label", "SSO siège");
+    await saisir("#ent-id", "sso");
+    await saisir("#ent-issuer", "https://sso.example.lan/realms/x");
+    await saisir("#ent-client", "elpis");
+    await saisir("#ent-secret", "s3cret");
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.appels).toEqual(
+      expect.arrayContaining(["POST /api/admin/auth/providers", "PUT /api/admin/auth/providers/sso/secret"]),
+    );
+    expect(m.toasts).toContain("Fournisseur enregistré");
+    expect(m.A.authTiroir.value?.nouveau).toBe(false);
+    expect(el<HTMLInputElement>("#ent-secret")?.value).toBe("");
+    expect(texte("#ent-enregistrer-fournisseur")).toBe("Enregistrer");
+    expect(texte("[data-etat-pastille]")).toBe("Éteint");
+    expect(el<HTMLInputElement>("#ent-id")?.disabled).toBe(true);
+    expect(el<HTMLButtonElement>("#ent-trial")?.disabled).toBe(false);
+    expect(document.activeElement?.id).toBe("ent-trial");
+    expect(texte("[data-raison-activer]")).toBe("Réussissez d'abord « Se connecter pour essayer ».");
+  });
+});
+
+describe("SSO OpenID Connect : accessibilité et termes", () => {
+  it("les deux boutons Copier ont chacun leur nom et sont reliés à leur ligne", async () => {
+    const m = monter();
+    await ouvrir(m);
+    await clic("#ent-ajouter");
+    const retour = el<HTMLButtonElement>("[data-copier-retour]");
+    const deconnexion = el<HTMLButtonElement>("[data-copier-deconnexion]");
+    expect(retour?.getAttribute("aria-label")).toBe("Copier l'adresse de retour");
+    expect(deconnexion?.getAttribute("aria-label")).toBe("Copier l'adresse de déconnexion par canal arrière");
+    for (const b of [retour, deconnexion])
+      expect(el(`#${b?.getAttribute("aria-describedby") ?? "absent"}`)?.textContent).toContain(
+        "Identifiant dans Elpis manquant",
+      );
+    await saisir("#ent-id", "sso");
+    expect(el(`#${retour?.getAttribute("aria-describedby") ?? "absent"}`)?.textContent).toBe(
+      "https://elpis.example.lan/api/auth/oidc/sso/callback",
+    );
+    expect(el(`#${deconnexion?.getAttribute("aria-describedby") ?? "absent"}`)?.textContent).toBe(
+      "https://elpis.example.lan/api/auth/oidc/sso/backchannel-logout",
+    );
+  });
+
+  it("chaque ✓ / ✗ des prérequis a son texte pour lecteur d'écran", async () => {
+    const m = monter(
+      etat({ prerequisites: { public_url_https: false, cookie_secure: true, local_admins: 0 } }),
+    );
+    await ouvrir(m);
+    expect(tous("[data-prerequis] .sr-only").map((n) => n.textContent?.trim())).toEqual([
+      ": manquant",
+      ": rempli",
+      ": manquant",
+    ]);
+    for (const n of tous("[data-prerequis] .adm-row__label > [aria-hidden]"))
+      expect(["✓", "✗"]).toContain(n.textContent?.trim());
+  });
+
+  it("les trois identifiants sont distingués", async () => {
+    const m = monter(etat({ providers: [OIDC] }));
+    await ouvrir(m);
+    expect(texte('label[for="ent-prelien-attendu"]')).toBe("Identifiant attendu chez le fournisseur");
+    await clic("#ent-ajouter");
+    expect(texte('label[for="ent-id"]')).toBe("Identifiant dans Elpis");
+    expect(texte('label[for="ent-client"]')).toBe("Identifiant client (client_id)");
+    await clic("#ent-enregistrer-fournisseur");
+    expect(texte("[data-tiroir-erreur]")).toBe("Champ « Identifiant dans Elpis » : à renseigner.");
+  });
+
+  it("l'identifiant suit la règle commune au serveur : adresses écrites seulement pour un identifiant admis", async () => {
+    const m = monter();
+    await ouvrir(m);
+    await clic("#ent-ajouter");
+    for (const id of [
+      "sso",
+      "a",
+      "9-a",
+      "sso-",
+      "x".repeat(31),
+      "x".repeat(32),
+      "-sso",
+      "SSO",
+      "sso_1",
+      "é",
+    ]) {
+      await saisir("#ent-id", id);
+      expect(el("#ent-retour") !== null, id).toBe(REGEX_ID_FOURNISSEUR.test(id));
+    }
+  });
+});
+
+describe("SSO OpenID Connect : Enregistrer de la carte 4 suit le choix", () => {
+  it("« Administrateurs seulement » devenu indisponible (plus de fournisseur actif) : Enregistrer est grisé, la raison est écrite", async () => {
+    const m = monter(etat({ providers: [ACTIF] }));
+    await ouvrir(m);
+    await clic('[data-mode="admins"]');
+    expect(el<HTMLButtonElement>("#ent-enregistrer-mode")?.disabled).toBe(false);
+    m.reponses["GET /api/admin/auth"] = [json(etat({ providers: [OIDC] }))];
+    await m.A.loadEnterpriseAuth();
+    await vider();
+    expect(m.A.authMode.value).toBe("admins");
+    expect(el<HTMLButtonElement>("#ent-enregistrer-mode")?.disabled).toBe(true);
+    expect(texte("[data-mode-aide]")).toBe(
+      "Indisponible tant qu'aucun fournisseur n'est actif : les autres comptes ne pourraient plus se connecter.",
+    );
+    await clic('[data-mode="all"]');
+    expect(el<HTMLButtonElement>("#ent-enregistrer-mode")?.disabled).toBe(true);
   });
 });

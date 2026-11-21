@@ -53,21 +53,28 @@ Reference of every setting: [configuration.md](configuration.md#openid-connect-s
 
 The console page is Administration › **Utilisateurs & accès** (Users & access) › **SSO OpenID Connect**; the
 search of the console also finds it by `oidc`, `openid`, `sso` or `entreprise`. A status card says
-**Connexion locale seule** (Local sign-in only) or **SSO OpenID Connect actif** (OpenID Connect SSO on) with the
-active providers, then four numbered cards follow the order of the setup:
+**SSO OpenID Connect actif** (OpenID Connect SSO on) with the active providers, or **Connexion locale seule**
+(Local sign-in only) with who can still sign in: everybody with their local password when no provider is
+switched on; only the local sign-in, with a ⚠, when providers are switched on but none is operative; only the
+administrators, with a ⚠, when **4. Mots de passe locaux** is set to **Administrateurs seulement** and no
+provider is active. Then four numbered cards follow the order of the setup:
 
 1. **Prérequis** (Prerequisites): the three prerequisites above, each marked ✓ or ✗ with what to do, the
    **Adresse publique** (Public address) field with its own **Enregistrer** (Save), and **Ouvrir Accès HTTPS**
    (Open HTTPS access).
 2. **Fournisseurs** (Providers): the list, with **Ajouter** (Add). A provider is **Actif** (Active),
    **Éteint** (Off) or **Inopérant** (Inoperative: switched on but not active), and an inoperative one says in
-   its line which condition is missing.
+   its line which condition is missing and how to restore it: switch the provider off to fix its settings,
+   its secret or its sign-in trial (the public address needs every provider switched off); HTTPS and the local
+   administrator are restored without switching it off.
 3. **Comptes existants** (Existing accounts): the prepared links, see [Accounts](#accounts).
 4. **Mots de passe locaux** (Local passwords): **Tous les comptes** (All accounts) or **Administrateurs
    seulement** (Administrators only), with its own **Enregistrer**.
 
 Nothing appears or disappears on this page or in the provider drawer as you fill, save or switch on: what is
-not available yet is greyed out, with the reason written next to it.
+not available yet is greyed out, with the reason written next to it. Only results, errors and validation
+warnings come and go; the button of **8. Activation** reads **Activer** or **Désactiver** in the same place,
+and each address to declare is replaced, in the same place, by what is missing until it can be written.
 
 ## Setting up a provider
 
@@ -76,9 +83,9 @@ not available yet is greyed out, with the reason written next to it.
 2. In **2. Fournisseurs**, click **Ajouter**. A provider is always created switched off. The drawer has eight
    numbered sections, in the order of the procedure; they are the same for a new, a saved and an active
    provider.
-3. **1. Fournisseur** (Provider): the **Libellé** (Label), the **Identifiant** (Identifier, derived from the
-   label until you type it yourself: lowercase letters, digits and dashes, 31 characters at most, fixed once
-   the provider is added) and the **Adresse de l'émetteur (issuer)**.
+3. **1. Fournisseur** (Provider): the **Libellé** (Label), the **Identifiant dans Elpis** (Identifier in Elpis,
+   used in the addresses; derived from the label until you type it yourself: lowercase letters, digits and
+   dashes, 31 characters at most, fixed once the provider is added) and the **Adresse de l'émetteur (issuer)**.
 4. **2. À déclarer chez le fournisseur** (To declare at the provider): the **Adresse de retour
    (redirect_uri)** and the **Déconnexion par canal arrière (backchannel_logout_uri)**, with **Copier**
    (Copy). Until the public address and the identifier are filled, each line says what is missing.
@@ -89,18 +96,21 @@ not available yet is greyed out, with the reason written next to it.
    authority: changing either asks for it again.
 6. **4. Accès** (Access): the **Groupes requis** (Required groups): at least one is needed to switch on, and
    only the members of one of them can sign in. Type a group and press `Enter` or **Ajouter**. Then the second
-   factor, **Niveaux exigés (acr)** and **Méthodes exigées (amr)**: a fixed line says **Second facteur
-   exigé : …** (Second factor required) or **⚠ Aucun second facteur garanti par Elpis** (No second factor
-   guaranteed by Elpis). See [Requiring a second factor](#requiring-a-second-factor).
+   factor, **Niveaux exigés (acr)** and **Méthodes exigées (amr)**, with a fixed line under them that says
+   who must prove a second factor: all accounts, the administrators only, or nobody. See [Requiring a second
+   factor](#requiring-a-second-factor).
 7. **5. Rôles et groupes** (Roles and groups, folded, off by default) and **6. Avancé** (Advanced, folded):
    see below.
 8. **7. Vérification** (Verification): **a. Contrôler les réglages** (Check the settings; see [What the check
-   covers](#what-the-check-covers)), then save and, with the provider still switched off, **b. Se connecter
-   pour essayer** (Sign in to try) with a real account (see [The sign-in trial](#the-sign-in-trial)). The
-   second is greyed out until the provider is saved.
+   covers](#what-the-check-covers)), then save with **Ajouter**: the drawer stays open on the new provider,
+   scrolled to this section. With the provider still switched off, **b. Se connecter pour essayer** (Sign in
+   to try) with a real account (see [The sign-in trial](#the-sign-in-trial)). The second is greyed out until
+   the provider is saved.
 9. **8. Activation**: the six conditions (public address, HTTPS, local administrator, required group, secret
-   saved, successful sign-in trial) are listed with ✓ or ✗, then **Activer** (Switch on), which says what is
-   missing while it is disabled.
+   saved, successful sign-in trial) and **Modifications enregistrées** (Changes saved: nothing typed in the
+   drawer is waiting to be saved, the secret included) are listed with ✓ or ✗, then **Activer** (Switch on),
+   which says what is missing while it is disabled. After **Activer** or **Désactiver**, the drawer shows the
+   settings as saved on the server.
 10. Test it as a person would, in a private window.
 11. When everything works, you may set **4. Mots de passe locaux** to **Administrateurs seulement**: other
     accounts then cannot use a local password. The console greys this choice out, with its reason, while no
@@ -182,7 +192,7 @@ Create a client for Elpis at the provider:
 - **Return address** (redirect URI) and **back-channel logout address**: copy them from the drawer, section
   **2. À déclarer chez le fournisseur** (To declare at the provider), with **Copier** (Copy). They are
   `<public address>/api/auth/oidc/<id>/callback` and `<public address>/api/auth/oidc/<id>/backchannel-logout`;
-  they are written once the public address and the **Identifiant** (Identifier) are filled, and the line says
+  they are written once the public address and the **Identifiant dans Elpis** (Identifier in Elpis) are filled, and the line says
   what is missing until then. For sign-out, also allow `<public address>/` as post-logout address.
 - **Groups in the identity token**: a claim holding a list of strings (default name `groups`). Some providers
   send a person's single group as one string: a string that is exactly a **required group** lets the person
@@ -237,9 +247,22 @@ Set the second factor at the provider, then make Elpis require it, in section **
 **Niveaux exigés (acr)** (`required_acr`) and **Méthodes exigées (amr)** (`required_amr`), space-separated
 lists. A sign-in
 is accepted when the identity token carries one of the listed `acr` values and, if set, one of the listed
-`amr` methods (any one of them is enough to sign in); the `acr` values are also sent in the request. Empty means no requirement: the fixed line under the two
-fields then says **⚠ Aucun second facteur garanti par Elpis**, otherwise **Second facteur exigé : …** with
-the values. Becoming an administrator through a group is judged on what the received token proves. The settings only have to invite the provider to a second factor: `required_amr` lists at least one method of possession or inherence (for example `pwd otp`), `mfa` or `mca`, or `required_acr` lists a level other than `0` and `1`; `pwd` alone or `acr` `1` alone is refused when you save. Then, at each sign-in, the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
+`amr` methods (any one value of each list is enough to sign in); the `acr` values are also sent in the request. Empty means no requirement.
+
+The fixed line under the two fields says what Elpis guarantees, by the rule the server applies at sign-in:
+
+- **Second facteur exigé pour tous les comptes : …** (Second factor required for all accounts), when every
+  token that can sign in proves a second factor: every listed `acr` is a level other than `0` and `1`, or every
+  listed `amr` is `mfa` or `mca`.
+- **⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec …** (Second
+  factor required from administrators only: the other accounts can sign in with …), when the settings invite
+  the provider to a second factor (see below) and **5. Rôles et groupes** gives the administrator role through
+  groups, but a single-factor value of the lists is enough for the others: with `required_amr` set to
+  `pwd otp`, a token carrying only `pwd`, or only `otp`, signs in an ordinary account.
+- **⚠ Aucun second facteur garanti par Elpis** (No second factor guaranteed by Elpis) otherwise: Elpis then
+  checks no proof for anybody, administrators linked to the provider included.
+
+Becoming an administrator through a group is judged on what the received token proves. The settings only have to invite the provider to a second factor: `required_amr` lists at least one method of possession or inherence (for example `pwd otp`), `mfa` or `mca`, or `required_acr` lists a level other than `0` and `1`; `pwd` alone or `acr` `1` alone is refused when you save. Then, at each sign-in, the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
 `pin` `kba`; possession `otp` `hwk` `swk` `sms` `tel` `sc`; inherence `face` `fpt` `iris` `retina` `vbm`), or an
 `acr` listed in `required_acr` that is not `0` or `1`. A sign-in whose token lists an administrator group without
 such a proof is refused (`mfa_required`, cause `admin_without_mfa`), even when it satisfies the settings: with `required_amr` set to `pwd otp`, a token carrying only `pwd` is refused. A refusal shows "Une vérification en deux étapes est
@@ -325,7 +348,7 @@ last local administrator cannot be linked, and a suspended account must be react
 
 On the page, card **3. Comptes existants** (Existing accounts), available as soon as a provider is saved:
   choose the **Fournisseur** (preselected when there is only one), the **Compte local**, enter the
-  **Identifiant attendu** (Expected identifier, at the provider: the value of the login claim: letters, digits,
+  **Identifiant attendu chez le fournisseur** (Expected identifier at the provider: the value of the login claim: letters, digits,
   `.`, `_`, `@` and `-`, 255 characters at most, compared exactly except for the case), click **Préparer le
   rattachement** (Prepare the link). It is valid for 30 days. A login that is an email address matches only
   when the provider says the email is verified. On their first sign-in the person enters their old Elpis
@@ -404,7 +427,7 @@ d'après les groupes du fournisseur** (Assign Elpis groups from the provider gro
 pick the external group (**Groupe du fournisseur**) and the **Groupe Elpis…** (Elpis group) it feeds, then
 **Ajouter**. With administrator groups, a fixed notice reminds you that an administrator of Elpis can run
 commands on the server. For single sign-on without a second factor, the section asks you to require a
-two-step verification first (section **4. Accès**) and the save stays unavailable.
+second factor first (section **4. Accès**) and the save stays unavailable.
 
 **Changing these settings** follows the general rule: switch the provider off, change them, try again, switch
 on. They are part of what the sign-in trial covers.

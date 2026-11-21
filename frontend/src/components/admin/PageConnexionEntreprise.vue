@@ -1,12 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/PageConnexionEntreprise.vue — page Utilisateurs & accès › SSO OpenID Connect : état, puis prérequis, fournisseurs, comptes existants et mots de passe locaux, dans l'ordre du parcours. -->
 <script setup lang="ts">
-import type { FournisseurAuth } from "@elpis/contracts";
 import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { heureCourte } from "../../features/admin/horodatage";
-import { etatFournisseur, raisonActivation } from "../../features/admin/identite";
+import { etatFournisseur, raisonInoperant } from "../../features/admin/identite";
 import TiroirFournisseurAuth from "./TiroirFournisseurAuth.vue";
 
 const adm = domaineAdmin();
@@ -19,9 +18,17 @@ const MODES = [
 const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché${n > 1 ? "s" : ""}`;
 const prerequis = computed(() => adm.authEtat?.prerequisites ?? null);
 const carteGrisee = computed(() => adm.prelinkRaison !== "");
-/** Raison écrite dans la ligne d'un fournisseur inopérant (activé mais pas actif). */
-const raisonInoperant = (p: FournisseurAuth): string =>
-  (adm.authEtat ? raisonActivation(adm.authEtat, p) : "") || "Conditions d'activation non remplies.";
+/** Phrase de la carte d'état : les fournisseurs actifs, sinon qui peut encore se connecter. */
+const phraseEtat = computed(() => {
+  const etat = adm.authEtat;
+  if (!etat) return "";
+  if (adm.authActifs.length) return `Fournisseurs actifs : ${adm.authActifs.map((p) => p.label).join(", ")}.`;
+  if (etat.local.mode === "admins")
+    return "⚠ Aucun fournisseur actif et mots de passe locaux réservés aux administrateurs : seuls les administrateurs peuvent se connecter.";
+  return [...etat.providers, ...etat.invalid_providers].some((p) => p.enabled)
+    ? "⚠ Aucun fournisseur activé n'est opérant (carte 2) : seule la connexion locale fonctionne."
+    : "Aucun fournisseur activé : chacun se connecte avec son mot de passe local.";
+});
 </script>
 
 <template>
@@ -46,14 +53,7 @@ const raisonInoperant = (p: FournisseurAuth): string =>
             <h3 class="adm-card__title">
               {{ adm.authActifs.length ? "SSO OpenID Connect actif" : "Connexion locale seule" }}
             </h3>
-            <p class="adm-card__hint" role="status">
-              <template v-if="adm.authActifs.length">
-                Fournisseurs actifs : {{ adm.authActifs.map((p) => p.label).join(", ") }}.
-              </template>
-              <template v-else>
-                Rien ne change tant qu'aucun fournisseur n'est activé : chacun se connecte comme aujourd'hui.
-              </template>
-            </p>
+            <p class="adm-card__hint" role="status" data-etat-page>{{ phraseEtat }}</p>
           </div>
         </header>
       </section>
@@ -74,7 +74,10 @@ const raisonInoperant = (p: FournisseurAuth): string =>
           >
             <div>
               <span class="adm-row__label">
-                {{ prerequis.public_url_https ? "✓" : "✗" }} Adresse publique en https
+                <span aria-hidden="true">{{ prerequis.public_url_https ? "✓" : "✗" }}</span> Adresse publique
+                en https<span class="sr-only">
+                  : {{ prerequis.public_url_https ? "rempli" : "manquant" }}</span
+                >
               </span>
               <p class="adm-card__hint">
                 {{
@@ -119,7 +122,13 @@ const raisonInoperant = (p: FournisseurAuth): string =>
           </li>
           <li class="adm-row" :class="{ 'ent-ko': !prerequis.cookie_secure }" data-prerequis="https">
             <div>
-              <span class="adm-row__label">{{ prerequis.cookie_secure ? "✓" : "✗" }} Accès HTTPS</span>
+              <span class="adm-row__label">
+                <span aria-hidden="true">{{ prerequis.cookie_secure ? "✓" : "✗" }}</span> Accès HTTPS<span
+                  class="sr-only"
+                >
+                  : {{ prerequis.cookie_secure ? "rempli" : "manquant" }}</span
+                >
+              </span>
               <p class="adm-card__hint">
                 {{
                   prerequis.cookie_secure
@@ -142,7 +151,10 @@ const raisonInoperant = (p: FournisseurAuth): string =>
           <li class="adm-row" :class="{ 'ent-ko': prerequis.local_admins < 1 }" data-prerequis="local_admin">
             <div>
               <span class="adm-row__label">
-                {{ prerequis.local_admins >= 1 ? "✓" : "✗" }} Administrateur à mot de passe local
+                <span aria-hidden="true">{{ prerequis.local_admins >= 1 ? "✓" : "✗" }}</span> Administrateur à
+                mot de passe local<span class="sr-only">
+                  : {{ prerequis.local_admins >= 1 ? "rempli" : "manquant" }}</span
+                >
               </span>
               <p class="adm-card__hint">
                 {{
@@ -203,7 +215,7 @@ const raisonInoperant = (p: FournisseurAuth): string =>
                 <div class="adm-card__hint">
                   SSO OpenID Connect · {{ comptes(p.identities)
                   }}<span v-if="etatFournisseur(p).alerte" data-raison-inoperant>
-                    · {{ raisonInoperant(p) }}</span
+                    · {{ raisonInoperant(adm.authEtat, p) }}</span
                   >
                 </div>
               </div>
@@ -329,8 +341,10 @@ const raisonInoperant = (p: FournisseurAuth): string =>
           </div>
           <div class="adm-row">
             <div>
-              <label class="adm-row__label" for="ent-prelien-attendu">Identifiant attendu</label>
-              <p class="adm-card__hint">Chez le fournisseur.</p>
+              <label class="adm-row__label" for="ent-prelien-attendu"
+                >Identifiant attendu chez le fournisseur</label
+              >
+              <p class="adm-card__hint">Nom de connexion qu'il transmettra (revendication nom).</p>
             </div>
             <input
               id="ent-prelien-attendu"
@@ -446,7 +460,11 @@ const raisonInoperant = (p: FournisseurAuth): string =>
                 id="ent-enregistrer-mode"
                 type="button"
                 class="adm-btn adm-btn--primary"
-                :disabled="adm.authBusy || !adm.authModeModifie"
+                :disabled="
+                  adm.authBusy ||
+                  !adm.authModeModifie ||
+                  (adm.authMode === 'admins' && !!adm.authModeAdminsRaison)
+                "
                 @click="adm.authEnregistrerReglages('mode')"
               >
                 Enregistrer

@@ -6,6 +6,7 @@ import type { DependancesAuth } from "@elpis/auth";
 import { estDict, HttpError, poserCle } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { sousVerrouConfigJson, writeConfigJson } from "@elpis/config";
+import { REGEX_ID_FOURNISSEUR } from "@elpis/contracts";
 import type { Base, Executeur } from "@elpis/db";
 import { corpsJson, parametreChemin } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -60,7 +61,6 @@ export interface DependancesAdminIdentite {
 const TESTS_MAX = 2;
 const CIBLES_AUDIT_MAX = 5;
 
-const REGEX_ID_AUDIT = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const SANS_CACHE = { "cache-control": "no-store" };
 
 function route(
@@ -425,7 +425,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
     });
     const r = await lance.resultat;
     const brut = estDict(corps) ? corps : {};
-    const id = typeof brut["id"] === "string" && REGEX_ID_AUDIT.test(brut["id"]) ? brut["id"] : null;
+    const id = typeof brut["id"] === "string" && REGEX_ID_FOURNISSEUR.test(brut["id"]) ? brut["id"] : null;
     const type = brut["type"] === "oidc" ? "oidc" : null;
     const targets = [...new Set(r.steps.flatMap((e) => (e.target === null ? [] : [e.target])))].slice(
       0,

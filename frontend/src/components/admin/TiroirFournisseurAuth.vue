@@ -113,7 +113,7 @@ const raisonSupprimer = computed(() => {
                 />
               </label>
               <div class="adm-field">
-                <label class="adm-field__label" for="ent-id">Identifiant</label>
+                <label class="adm-field__label" for="ent-id">Identifiant dans Elpis</label>
                 <input
                   id="ent-id"
                   v-model="f.id"
@@ -157,13 +157,14 @@ const raisonSupprimer = computed(() => {
                   <code v-if="adm.authAdresses" id="ent-retour" class="sup-mono text-xs break-all flex-1">{{
                     adm.authAdresses.retour
                   }}</code>
-                  <span v-else class="adm-card__hint flex-1" data-adresse-manque>{{
+                  <span v-else id="ent-retour-manque" class="adm-card__hint flex-1" data-adresse-manque>{{
                     adm.authAdressesManque
                   }}</span>
                   <button
                     type="button"
                     class="adm-btn adm-btn--quiet adm-btn--sm"
-                    title="Adresse de retour"
+                    aria-label="Copier l'adresse de retour"
+                    :aria-describedby="adm.authAdresses ? 'ent-retour' : 'ent-retour-manque'"
                     data-copier-retour
                     :disabled="!adm.authAdresses"
                     @click="adm.authAdresses && adm.authCopier(adm.authAdresses.retour)"
@@ -181,13 +182,18 @@ const raisonSupprimer = computed(() => {
                     class="sup-mono text-xs break-all flex-1"
                     >{{ adm.authAdresses.deconnexion }}</code
                   >
-                  <span v-else class="adm-card__hint flex-1" data-adresse-manque>{{
-                    adm.authAdressesManque
-                  }}</span>
+                  <span
+                    v-else
+                    id="ent-deconnexion-manque"
+                    class="adm-card__hint flex-1"
+                    data-adresse-manque
+                    >{{ adm.authAdressesManque }}</span
+                  >
                   <button
                     type="button"
                     class="adm-btn adm-btn--quiet adm-btn--sm"
-                    title="Adresse de déconnexion par canal arrière"
+                    aria-label="Copier l'adresse de déconnexion par canal arrière"
+                    :aria-describedby="adm.authAdresses ? 'ent-deconnexion' : 'ent-deconnexion-manque'"
                     data-copier-deconnexion
                     :disabled="!adm.authAdresses"
                     @click="adm.authAdresses && adm.authCopier(adm.authAdresses.deconnexion)"
@@ -309,7 +315,13 @@ const raisonSupprimer = computed(() => {
                 </label>
               </div>
               <p id="ent-second-facteur" class="adm-card__hint" data-aide-second-facteur>
-                {{ phraseSecondFacteur(f.required_acr, f.required_amr) }}
+                {{
+                  phraseSecondFacteur(
+                    f.required_acr,
+                    f.required_amr,
+                    f.roles_enabled && f.admin_groups.length > 0,
+                  )
+                }}
               </p>
             </section>
 
@@ -603,27 +615,19 @@ const raisonSupprimer = computed(() => {
               </ul>
               <div class="flex items-center gap-3 flex-wrap" data-bascule>
                 <button
-                  v-if="!actif"
-                  id="ent-activer"
+                  :id="actif ? 'ent-desactiver' : 'ent-activer'"
                   type="button"
                   class="adm-btn adm-tool"
                   aria-describedby="ent-bascule-aide"
-                  :disabled="adm.authBusy || !!adm.authRaisonActiver"
-                  :title="adm.authRaisonActiver || 'Active ce fournisseur pour la connexion.'"
-                  @click="adm.authBasculer(true)"
+                  :disabled="adm.authBusy || (!actif && !!adm.authRaisonActiver)"
+                  :title="
+                    actif
+                      ? 'Désactive ce fournisseur.'
+                      : adm.authRaisonActiver || 'Active ce fournisseur pour la connexion.'
+                  "
+                  @click="adm.authBasculer(!actif)"
                 >
-                  Activer
-                </button>
-                <button
-                  v-else
-                  id="ent-desactiver"
-                  type="button"
-                  class="adm-btn adm-tool"
-                  aria-describedby="ent-bascule-aide"
-                  :disabled="adm.authBusy"
-                  @click="adm.authBasculer(false)"
-                >
-                  Désactiver
+                  {{ actif ? "Désactiver" : "Activer" }}
                 </button>
                 <span id="ent-bascule-aide" class="adm-card__hint" data-raison-activer>
                   {{

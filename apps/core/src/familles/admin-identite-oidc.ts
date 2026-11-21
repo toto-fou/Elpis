@@ -62,7 +62,7 @@ export function creerFamilleAdminIdentiteOidc(dep: DependancesAdminIdentiteOidc)
   /** Lance l'essai : les étapes du bouton « Tester » d'abord, puis, si toutes passent, le flux d'autorisation lié à cet administrateur. */
   async function lancer(req: FastifyRequest, rep: FastifyReply): Promise<unknown> {
     const f = enregistre(parametreChemin(req));
-    if (f.enabled) throw new HttpError(409, "Éteignez le fournisseur avant de l'essayer.");
+    if (f.enabled) throw new HttpError(409, "Désactivez le fournisseur avant de l'essayer.");
     const admin = req.utilisateur?.id;
     if (admin === undefined) throw new HttpError(401, "not logged in");
     const publicUrl = lireReglagesAuth().public_url;

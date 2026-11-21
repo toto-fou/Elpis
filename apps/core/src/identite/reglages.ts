@@ -5,10 +5,10 @@ import { createHash, X509Certificate } from "node:crypto";
 import { DUREE_MAX_SESSION_S } from "@elpis/auth";
 import { estDict, FlottantPy, HttpError } from "@elpis/commun";
 import { configView, gelerProfond } from "@elpis/config";
+import { REGEX_ID_FOURNISSEUR } from "@elpis/contracts";
 
 export const FOURNISSEURS_MAX = 5;
 export const CA_PEM_MAX = 64 * 1024;
-export const REGEX_ID = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const CONTROLE = /\p{Cc}/u;
 const REGEX_REVENDICATION = /^[A-Za-z0-9_.:-]{1,64}$/u;
 const REGEX_JETON_SCOPE = /^[\x21\x23-\x5b\x5d-\x7e]+$/u;
@@ -277,7 +277,7 @@ function fournisseurDe(o: Record<string, unknown>): Fournisseur {
   const roles = objet(o["roles"], "roles", ["enabled", "admin_groups", "moderator_groups"]);
   const carte = objet(o["group_map"], "group_map", ["enabled", "map"]);
   const id = o["id"];
-  if (typeof id !== "string" || !REGEX_ID.test(id))
+  if (typeof id !== "string" || !REGEX_ID_FOURNISSEUR.test(id))
     return refus("id", "minuscules, chiffres et tirets, 31 caractères au plus");
   return {
     id,

@@ -58,6 +58,15 @@ describe("feuilles CSS", () => {
     }
   });
 
+  it("la règle de la carte d'état SSO OpenID Connect reste sur cette carte : aucun en-tête de carte de la console n'est visé par sa position", () => {
+    const sans = readFileSync(join(CSS, "style.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const selecteurs = [...sans.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap((m) =>
+      (m[1] ?? "").split(",").map((x) => x.trim()),
+    );
+    expect(selecteurs.filter((x) => /\.adm-card__head:(?:first|last|only)-child/.test(x))).toEqual([]);
+    expect(selecteurs).toContain("#ent-etat > .adm-card__head");
+  });
+
   it("le garde-fou voit un chemin qui referme un commentaire", () => {
     const sans = "/* skins/*/skin.css reste */ a{}".replace(/\/\*[\s\S]*?\*\//g, "");
     expect(sans).toContain("*/");

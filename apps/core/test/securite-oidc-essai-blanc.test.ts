@@ -219,7 +219,11 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     expect([401, 403]).toContain(sans.statusCode);
     expect(await lignes("SELECT COUNT(*) FROM auth_flows")).toEqual([[0]]);
     await b.reglages({ enabled: true });
-    expect((await lancer()).statusCode).toBe(409);
+    const actif = await lancer();
+    expect([actif.statusCode, actif.body]).toEqual([
+      409,
+      expect.stringContaining("Désactivez le fournisseur"),
+    ]);
   });
 
   it("autorité de certification changée dans les réglages enregistrés : le secret client est hors de portée, l'essai est refusé sans flux", async () => {

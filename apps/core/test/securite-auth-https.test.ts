@@ -102,7 +102,7 @@ describe("retour à HTTP et fournisseurs allumés", () => {
     const avant = readFileSync(configJson, "utf8");
     const r = await basculer(false);
     expect(r.statusCode, r.body).toBe(409);
-    expect(r.body).toContain("Éteignez d'abord les fournisseurs");
+    expect(r.body).toContain("Désactivez d'abord les fournisseurs");
     expect(readFileSync(configJson, "utf8")).toBe(avant);
     expect(https(lire())).toEqual({ enabled: true, https_only: true });
   });

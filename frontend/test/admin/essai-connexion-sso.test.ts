@@ -84,22 +84,43 @@ describe("tiroir SSO : réglages", () => {
     ).toBe("ES256");
   });
 
-  it("la ligne du second facteur reste en place et suit la règle du serveur : vide ou à un seul facteur, avertissement ; sinon ce qui est exigé", async () => {
+  it("la ligne du second facteur reste en place et suit la règle du serveur : pour tous les comptes, pour les administrateurs seulement, ou aucun", async () => {
     const m = monter(etat({ providers: [OIDC] }));
     await ouvrir(m);
-    const ligne = () => document.querySelector("[data-aide-second-facteur]")?.textContent?.trim();
-    expect(ligne()).toBe("⚠ Aucun second facteur garanti par Elpis.");
-    m.A.authTiroir.value!.required_amr = "mfa";
-    await vider();
-    expect(ligne()).toBe("Second facteur exigé : amr mfa.");
-    m.A.authTiroir.value!.required_acr = "gold silver";
-    m.A.authTiroir.value!.required_amr = "otp, hwk";
-    await vider();
-    expect(ligne()).toBe("Second facteur exigé : acr gold ou silver ; amr otp ou hwk.");
-    m.A.authTiroir.value!.required_acr = "1";
-    m.A.authTiroir.value!.required_amr = "pwd";
-    await vider();
-    expect(ligne()).toBe("⚠ acr 1 ; amr pwd ne demande pas de second facteur.");
+    const f = m.A.authTiroir.value!;
+    const ligne = async (acr: string, amr: string, admins = false) => {
+      f.required_acr = acr;
+      f.required_amr = amr;
+      f.roles_enabled = admins;
+      f.admin_groups = admins ? ["admins"] : [];
+      await vider();
+      return document.querySelector("[data-aide-second-facteur]")?.textContent?.trim();
+    };
+    const AUCUN = "⚠ Aucun second facteur garanti par Elpis.";
+    expect(await ligne("", "")).toBe(AUCUN);
+    expect(await ligne("", "mfa")).toBe("Second facteur exigé pour tous les comptes : amr mfa.");
+    expect(await ligne("urn:gold", "")).toBe("Second facteur exigé pour tous les comptes : acr urn:gold.");
+    expect(await ligne("gold silver", "otp, hwk")).toBe(
+      "Second facteur exigé pour tous les comptes : acr gold ou silver et amr otp ou hwk.",
+    );
+    expect(await ligne("0 urn:gold", "MFA")).toBe(
+      "Second facteur exigé pour tous les comptes : acr 0 ou urn:gold et amr MFA.",
+    );
+    expect(await ligne("", "pwd otp", true)).toBe(
+      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec amr pwd ou otp.",
+    );
+    expect(await ligne("", "otp hwk", true)).toBe(
+      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec amr otp ou hwk.",
+    );
+    expect(await ligne("0 urn:gold", "", true)).toBe(
+      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec acr 0.",
+    );
+    expect(await ligne("1 urn:gold", "pwd mfa", true)).toBe(
+      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec acr 1 et amr pwd.",
+    );
+    expect(await ligne("", "pwd otp")).toBe(AUCUN);
+    expect(await ligne("0 urn:gold", "")).toBe(AUCUN);
+    expect(await ligne("1", "pwd", true)).toBe(AUCUN);
     const avance = document.querySelector("details[data-section-tiroir='avance']");
     expect(avance?.querySelector("#ent-acr")).toBeNull();
     expect(document.querySelector("[data-section-tiroir='acces'] #ent-acr")).not.toBeNull();

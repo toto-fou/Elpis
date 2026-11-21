@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/securite-droits-second-facteur.test.ts — devenir administrateur par SSO exige que le jeton reçu prouve un second facteur, jamais le seul réglage du fournisseur (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+import { secondFacteurPourTous } from "@elpis/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { adminAdmis, adminSansPreuve } from "../src/identite/correspondance";
 import { connecterParOidc } from "../src/identite/oidc/connexion";
 import { resultatEssaiBlanc } from "../src/identite/oidc/essai-blanc";
 import { RefusOidc } from "../src/identite/oidc/refus";
-import { secondFacteurProuve } from "../src/identite/oidc/revendications";
+import { secondFacteurProuve, secondFacteurSatisfait } from "../src/identite/oidc/revendications";
 import { validerFournisseur } from "../src/identite/reglages";
 import type { Fournisseur } from "../src/identite/reglages";
 import { appliquerDroits } from "../src/identite/droits";
@@ -46,6 +47,7 @@ describe("second facteur prouvé par le jeton", () => {
       { required_amr: ["face"] },
       { required_acr: ["urn:gold"] },
       { required_acr: ["0", "urn:gold"] },
+      { required_acr: [" "] },
     ])
       expect(adminAdmis(f(ok)), JSON.stringify(ok)).toBe(true);
     for (const non of [
@@ -57,6 +59,44 @@ describe("second facteur prouvé par le jeton", () => {
       { required_acr: ["0", "1"] },
     ])
       expect(adminAdmis(f(non)), JSON.stringify(non)).toBe(false);
+  });
+
+  it("second facteur garanti pour tous les comptes seulement si chaque jeton admis à la connexion le prouve : tous les `acr` exigés forts, ou tous les `amr` exigés `mfa` / `mca`", () => {
+    const VECTEURS: [string[], string[], boolean][] = [
+      [[], ["pwd", "otp"], false],
+      [[], ["otp", "hwk"], false],
+      [[], ["pwd", "mfa"], false],
+      [[], ["mfa"], true],
+      [[], ["MFA", "mca"], true],
+      [["0", "urn:gold"], [], false],
+      [["1"], [], false],
+      [["urn:gold"], [], true],
+      [["urn:gold", "urn:silver"], [], true],
+      [[" "], [], true],
+      [["urn:gold"], ["pwd"], true],
+      [["0", "urn:gold"], ["mfa"], true],
+      [["0", "urn:gold"], ["pwd", "otp"], false],
+      [["1"], ["pwd", "otp"], false],
+      [["0"], ["pwd"], false],
+      [[], [], false],
+    ];
+    for (const [acr, amr, tous] of VECTEURS) {
+      const g = f({ required_acr: acr, required_amr: amr });
+      const nom = JSON.stringify([acr, amr]);
+      expect(secondFacteurPourTous(acr, amr), nom).toBe(tous);
+      const jetons = (acr.length ? acr : [undefined]).flatMap((a) =>
+        (amr.length ? amr.map((m) => [m]) : [undefined]).map((m) => ({
+          ...(a === undefined ? {} : { acr: a }),
+          ...(m === undefined ? {} : { amr: m }),
+        })),
+      );
+      const admis = jetons.filter((c) => secondFacteurSatisfait(c, g));
+      expect(admis.length, nom).toBe(jetons.length);
+      expect(
+        admis.every((c) => secondFacteurProuve(c, g)),
+        nom,
+      ).toBe(tous);
+    }
   });
 
   it("un jeton qui liste un groupe d'administrateurs sans preuve est repéré, avec preuve ou sans ce groupe non", () => {

@@ -248,9 +248,9 @@ def refuse_https_off_with_providers() -> None:
     allumes = [str(p.get("id") or "?") for p in (auth or {}).get("providers") or []
                if isinstance(p, dict) and p.get("enabled")]
     if allumes:
-        warn("HTTPS ne peut pas être coupé tant qu'un fournisseur d'identité est allumé "
-             f"({', '.join(allumes)}) : éteignez-le d'abord dans la console, ou relancez avec --force "
-             "(qui éteint tous les fournisseurs).")
+        warn("HTTPS ne peut pas être coupé tant qu'un fournisseur d'identité est activé "
+             f"({', '.join(allumes)}) : désactivez-le d'abord dans la console, ou relancez avec --force "
+             "(qui désactive tous les fournisseurs).")
         raise SystemExit(2)
 
 

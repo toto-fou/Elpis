@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › SSO OpenID Connect : lecture et écritures des réglages `auth`, formulaire d'un fournisseur OpenID Connect, secret, activation. */
 import {
+  ACR_FAIBLES,
+  AMR_MULTI_FACTEUR,
+  REGEX_ID_FOURNISSEUR,
   schemaHoteNonCanonique,
   schemaReglagesAuth,
   schemaReponseDernierEssai,
   schemaReponseEssaiFournisseur,
   schemaReponseLancementEssai,
   secondFacteurDemande,
+  secondFacteurPourTous,
 } from "@elpis/contracts";
 import type {
   FournisseurAuth,
@@ -18,6 +22,7 @@ import type {
 import type { Ref } from "vue";
 
 import { maintenantServeurS } from "../../platform/horloge";
+import { mouvementReduit } from "../../platform/mouvement";
 import { adresseHttps } from "../auth/sso";
 import { gardeFocus as creerGardeFocus, piegerTab } from "../../utils/focus";
 import { copierTexte } from "../../utils/dom";
@@ -102,10 +107,13 @@ export function etatFournisseur(p: { enabled: boolean; active: boolean }): {
 }
 
 export interface ConditionActivation {
-  id: "public_url" | "https" | "local_admin" | "required_group" | "secret" | "trial";
+  id: "public_url" | "https" | "local_admin" | "required_group" | "secret" | "trial" | "saved";
   libelle: string;
   ok: boolean;
+  /** Ce qu'il faut faire avant d'activer. */
   raison: string;
+  /** Cause et remède quand le fournisseur est déjà activé mais inopérant (seul ce qui reste faisable est proposé). */
+  inoperant: string;
 }
 
 /** Les six conditions d'activation d'un fournisseur enregistré, dans l'ordre où le serveur les vérifie. */
@@ -119,47 +127,54 @@ export function conditionsActivation(
       libelle: "Adresse publique en https",
       ok: etat.public_url !== "",
       raison: "Renseignez d'abord l'adresse publique en https.",
+      inoperant: "Adresse publique manquante : désactivez les fournisseurs pour la renseigner.",
     },
     {
       id: "https",
       libelle: "Accès HTTPS en service",
       ok: etat.prerequisites.cookie_secure,
       raison: "Activez d'abord l'accès HTTPS.",
+      inoperant: "Accès HTTPS hors service : rétablissez-le depuis la carte « 1. Prérequis ».",
     },
     {
       id: "local_admin",
       libelle: "Administrateur à mot de passe local",
       ok: etat.prerequisites.local_admins >= 1,
       raison: "Un administrateur avec mot de passe local est requis.",
+      inoperant: "Aucun administrateur à mot de passe local : rétablissez-en un dans la page Comptes.",
     },
     {
       id: "required_group",
       libelle: "Au moins un groupe requis",
       ok: (p?.required_groups.length ?? 0) > 0,
       raison: "Indiquez d'abord au moins un groupe requis.",
+      inoperant: "Aucun groupe requis : désactivez-le pour en indiquer un.",
     },
     {
       id: "secret",
       libelle: "Secret client enregistré",
       ok: p?.has_secret ?? false,
       raison: "Enregistrez d'abord le secret.",
+      inoperant: "Secret client manquant : désactivez-le pour l'enregistrer.",
     },
     {
       id: "trial",
       libelle: "Connexion d'essai réussie",
       ok: p?.tested ?? false,
       raison: "Réussissez d'abord « Se connecter pour essayer ».",
+      inoperant: "Connexion d'essai à refaire : désactivez-le pour refaire « Se connecter pour essayer ».",
     },
   ];
 }
 
-/** Première condition d'activation manquante (texte vide : toutes remplies). */
-export function raisonActivation(etat: ReglagesAuthConsole, p: FournisseurAuth | null): string {
-  return conditionsActivation(etat, p).find((c) => !c.ok)?.raison ?? "";
+/** Raison écrite dans la ligne d'un fournisseur activé mais inopérant : la cause et ce qui la corrige. */
+export function raisonInoperant(etat: ReglagesAuthConsole, p: FournisseurAuth): string {
+  return (
+    conditionsActivation(etat, p).find((c) => !c.ok)?.inoperant ??
+    "Condition d'activation manquante : désactivez-le, puis vérifiez sa section « 8. Activation »."
+  );
 }
 
-/** Identifiant du serveur : minuscules, chiffres et tirets, 31 caractères au plus, sans tiret en tête. */
-export const MOTIF_IDENTIFIANT = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 const IDENTIFIANT_MAX = 31;
 
 /** Identifiant déduit d'un libellé : sans accent, en minuscules, chaque suite d'autres caractères devient un tiret. */
@@ -272,16 +287,25 @@ interface FormFournisseur {
 const chiffre = (n: number): string => String(n);
 const mots = (t: string): string[] => t.split(/[\s,]+/u).filter((x) => x !== "");
 
-/** Ligne d'état du second facteur exigé (`acr` / `amr`), toujours affichée, selon la règle du serveur. */
-export function phraseSecondFacteur(acr: string, amr: string): string {
-  const parts = [
-    ...(mots(acr).length ? [`acr ${mots(acr).join(" ou ")}`] : []),
-    ...(mots(amr).length ? [`amr ${mots(amr).join(" ou ")}`] : []),
-  ];
-  if (parts.length === 0) return "⚠ Aucun second facteur garanti par Elpis.";
-  return secondFacteurDemande(mots(acr), mots(amr))
-    ? `Second facteur exigé : ${parts.join(" ; ")}.`
-    : `⚠ ${parts.join(" ; ")} ne demande pas de second facteur.`;
+/** Exigences en clair : `acr` et `amr` vont ensemble, une valeur de chaque liste suffit. */
+const exigences = (acr: readonly string[], amr: readonly string[]): string =>
+  [
+    ...(acr.length ? [`acr ${acr.join(" ou ")}`] : []),
+    ...(amr.length ? [`amr ${amr.join(" ou ")}`] : []),
+  ].join(" et ");
+
+/** Ligne d'état du second facteur, toujours affichée, selon la règle du serveur : prouvé à chaque connexion, prouvé seulement par qui reçoit un groupe administrateur (`groupesAdmin`), ou jamais. */
+export function phraseSecondFacteur(acrSaisi: string, amrSaisi: string, groupesAdmin: boolean): string {
+  const acr = mots(acrSaisi);
+  const amr = mots(amrSaisi);
+  if (secondFacteurPourTous(acr, amr))
+    return `Second facteur exigé pour tous les comptes : ${exigences(acr, amr)}.`;
+  if (!groupesAdmin || !secondFacteurDemande(acr, amr)) return "⚠ Aucun second facteur garanti par Elpis.";
+  const faibles = exigences(
+    acr.filter((a) => ACR_FAIBLES.has(a)),
+    amr.filter((m) => !AMR_MULTI_FACTEUR.has(m.toLowerCase())),
+  );
+  return `⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec ${faibles}.`;
 }
 
 function formVide(): FormFournisseur {
@@ -385,10 +409,10 @@ function entierSaisi(v: string | number, nom: string): number | undefined | stri
 }
 
 const REQUIS: readonly (readonly [keyof FormFournisseur, string])[] = [
-  ["id", "Identifiant"],
+  ["id", "Identifiant dans Elpis"],
   ["label", "Libellé"],
   ["issuer", "Adresse de l'émetteur"],
-  ["client_id", "Identifiant client"],
+  ["client_id", "Identifiant client (client_id)"],
 ];
 
 /** Corps de création ou de modification d'un fournisseur ; une chaîne seule est un message d'erreur de saisie. */
@@ -490,7 +514,6 @@ export function creerIdentite(b: BaseAdmin) {
   const authModeModifie = computed(
     () => authEtat.value !== null && authMode.value !== authEtat.value.local.mode,
   );
-  const authReglagesModifies = computed(() => authUrlModifiee.value || authModeModifie.value);
   const authFournisseur = computed<FournisseurAuth | null>(() => {
     const f = authTiroir.value;
     return f && !f.nouveau ? (authEtat.value?.providers.find((p) => p.id === f.id) ?? null) : null;
@@ -631,6 +654,19 @@ export function creerIdentite(b: BaseAdmin) {
     authTrialAttente.value = false;
   }
 
+  /** Après le rendu, met le focus sur un contrôle du tiroir (sur le tiroir lui-même s'il est grisé), en faisant défiler jusqu'à sa section si `defiler`. */
+  function focaliserDansTiroir(selecteur: string, defiler = false): void {
+    void ctx.nextTick().then(() => {
+      const tiroir = authDrawer.value;
+      const cible = tiroir?.querySelector<HTMLButtonElement>(selecteur) ?? null;
+      if (defiler)
+        cible
+          ?.closest("section")
+          ?.scrollIntoView({ block: "start", behavior: mouvementReduit() ? "auto" : "smooth" });
+      (cible && !cible.disabled ? cible : tiroir)?.focus({ preventScroll: defiler });
+    });
+  }
+
   function ouvrirTiroir(f: FormFournisseur): void {
     if (!authTiroir.value) gardeFocus.remember();
     effacerTrial();
@@ -662,6 +698,14 @@ export function creerIdentite(b: BaseAdmin) {
   }
 
   watch(authTiroir, effacerEssai, { deep: true });
+
+  // Un fournisseur activé ne reçoit jamais de secret : le champ se vide dès qu'il l'est, même depuis une autre session.
+  watch(
+    () => authFournisseur.value?.enabled,
+    (active) => {
+      if (active && authTiroir.value) authTiroir.value.secret = "";
+    },
+  );
 
   // Identifiant d'un nouveau fournisseur déduit du libellé tant que l'administrateur ne l'a pas saisi.
   watch(
@@ -737,17 +781,37 @@ export function creerIdentite(b: BaseAdmin) {
       : "Fournisseur éteint : ses réglages se modifient.";
   });
 
-  /** Conditions d'activation d'après les réglages enregistrés. */
-  const authConditions = computed(() =>
-    authEtat.value ? conditionsActivation(authEtat.value, authFournisseur.value) : [],
+  /** Vrai quand le tiroir diffère des réglages enregistrés (secret saisi compris) : ce qui partirait à l'enregistrement. */
+  const authModifie = computed(() => {
+    const f = authTiroir.value;
+    const p = authFournisseur.value;
+    if (!f || !p) return true;
+    return (
+      f.secret !== "" || JSON.stringify(corpsFournisseur(f)) !== JSON.stringify(corpsFournisseur(formDe(p)))
+    );
+  });
+
+  /** Conditions d'activation d'après les réglages enregistrés, puis celle du tiroir : rien en attente d'enregistrement. */
+  const authConditions = computed((): ConditionActivation[] =>
+    authEtat.value
+      ? [
+          ...conditionsActivation(authEtat.value, authFournisseur.value),
+          {
+            id: "saved",
+            libelle: "Modifications enregistrées",
+            ok: !authModifie.value,
+            raison: "Enregistrez d'abord vos modifications.",
+            inoperant: "",
+          },
+        ]
+      : [],
   );
 
   /** Raison pour laquelle le fournisseur ne peut pas être activé (texte vide : activable). */
   const authRaisonActiver = computed(() => {
-    const etat = authEtat.value;
-    if (!etat || !authTiroir.value) return "";
+    if (!authEtat.value || !authTiroir.value) return "";
     if (!authFournisseur.value) return "Enregistrez d'abord ce fournisseur.";
-    return raisonActivation(etat, authFournisseur.value);
+    return authConditions.value.find((c) => !c.ok)?.raison ?? "";
   });
 
   /** Raison pour laquelle « Se connecter pour essayer » est indisponible (texte vide : disponible). */
@@ -765,7 +829,7 @@ export function creerIdentite(b: BaseAdmin) {
     const f = authTiroir.value;
     const base = authEtat.value?.public_url ?? "";
     const id = f?.id.trim() ?? "";
-    if (!f || base === "" || !MOTIF_IDENTIFIANT.test(id)) return null;
+    if (!f || base === "" || !REGEX_ID_FOURNISSEUR.test(id)) return null;
     return {
       retour: `${base}/api/auth/oidc/${id}/callback`,
       deconnexion: `${base}/api/auth/oidc/${id}/backchannel-logout`,
@@ -776,10 +840,10 @@ export function creerIdentite(b: BaseAdmin) {
     const id = authTiroir.value?.id.trim() ?? "";
     if ((authEtat.value?.public_url ?? "") === "")
       return "Adresse publique manquante : renseignez-la dans la carte « 1. Prérequis ».";
-    if (id === "") return "Identifiant manquant : renseignez-le en section 1.";
-    return MOTIF_IDENTIFIANT.test(id)
+    if (id === "") return "Identifiant dans Elpis manquant : renseignez-le en section 1.";
+    return REGEX_ID_FOURNISSEUR.test(id)
       ? ""
-      : "Identifiant invalide : minuscules, chiffres et tirets, 31 caractères au plus.";
+      : "Identifiant dans Elpis invalide : minuscules, chiffres et tirets, 31 caractères au plus.";
   });
 
   async function envoyerSecret(id: string, secret: string): Promise<boolean> {
@@ -792,7 +856,7 @@ export function creerIdentite(b: BaseAdmin) {
     return true;
   }
 
-  /** Crée ou modifie le fournisseur du tiroir, puis range le secret saisi ; le tiroir reste ouvert en cas d'échec. */
+  /** Crée ou modifie le fournisseur du tiroir, puis range le secret saisi s'il reste désactivé ; après un ajout, le tiroir reste ouvert sur lui pour la vérification et l'activation, et en cas d'échec. */
   async function authEnregistrer(): Promise<boolean> {
     const f = authTiroir.value;
     const etat = authEtat.value;
@@ -814,6 +878,7 @@ export function creerIdentite(b: BaseAdmin) {
       return false;
     if (authBusy.value) return false;
     authBusy.value = true;
+    const ajout = f.nouveau;
     try {
       if (actif) {
         const corps = corpsActif(f, actif);
@@ -846,13 +911,24 @@ export function creerIdentite(b: BaseAdmin) {
         appliquer(r);
         f.nouveau = false;
         f.id = f.id.trim();
-      }
-      if (f.secret !== "") {
-        if (!(await envoyerSecret(f.id, f.secret))) return false;
-        f.secret = "";
+        if (f.secret !== "") {
+          if (authFournisseur.value?.enabled) {
+            authTiroirErreur.value =
+              "Ce fournisseur vient d'être activé : le secret n'a pas été envoyé. Désactivez-le pour le changer.";
+            return false;
+          }
+          if (!(await envoyerSecret(f.id, f.secret))) return false;
+          f.secret = "";
+        }
       }
       showToast("Fournisseur enregistré", "success");
-      authFermer();
+      const cree = ajout ? authFournisseur.value : null;
+      if (!cree) {
+        authFermer();
+        return true;
+      }
+      if (authTiroir.value === f) authTiroir.value = formDe(cree);
+      focaliserDansTiroir("#ent-trial", true);
       return true;
     } finally {
       authBusy.value = false;
@@ -861,7 +937,7 @@ export function creerIdentite(b: BaseAdmin) {
 
   async function authSupprimerSecret(): Promise<void> {
     const f = authTiroir.value;
-    if (!f || f.nouveau || authBusy.value) return;
+    if (!f || f.nouveau || authBusy.value || authFournisseur.value?.enabled !== false) return;
     const ok = await ctx.openConfirm(
       "Supprimer le secret",
       "Le secret enregistré sera effacé : ce fournisseur ne pourra plus être activé tant qu'un nouveau secret n'est pas saisi.",
@@ -978,6 +1054,7 @@ export function creerIdentite(b: BaseAdmin) {
     }
   }
 
+  /** Active ou désactive le fournisseur du tiroir, puis recharge le tiroir depuis l'état rendu ; le focus reste sur le bouton. */
   async function authBasculer(activer: boolean): Promise<boolean> {
     const f = authTiroir.value;
     const p = authFournisseur.value;
@@ -1004,9 +1081,12 @@ export function creerIdentite(b: BaseAdmin) {
         return false;
       }
       appliquer(r);
+      const relu = r.providers.find((x) => x.id === f.id);
+      if (relu && authTiroir.value === f) authTiroir.value = formDe(relu);
       return true;
     } finally {
       authBusy.value = false;
+      focaliserDansTiroir("[data-bascule] button");
     }
   }
 
@@ -1058,7 +1138,6 @@ export function creerIdentite(b: BaseAdmin) {
     authListeErreur,
     authUrlModifiee,
     authModeModifie,
-    authReglagesModifies,
     authUrlFigee,
     authModeAdminsRaison,
     authModeAide,

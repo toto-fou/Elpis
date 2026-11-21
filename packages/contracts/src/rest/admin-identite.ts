@@ -4,8 +4,14 @@ import { z } from "zod";
 
 import { entier } from "./commun";
 
+/** Identifiant d'un fournisseur : minuscules, chiffres et tirets, 31 caractères au plus, sans tiret en tête. */
+export const REGEX_ID_FOURNISSEUR = /^[a-z0-9][a-z0-9-]{0,30}$/u;
+
 /** Niveaux `acr` à un seul facteur : ils n'invitent jamais à un second facteur. */
 export const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
+
+/** Méthodes `amr` qui attestent à elles seules plusieurs facteurs. */
+export const AMR_MULTI_FACTEUR: ReadonlySet<string> = new Set(["mfa", "mca"]);
 
 /** Famille de chaque méthode `amr` de la RFC 8176 (connaissance, possession, inhérence). */
 export const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
@@ -18,11 +24,16 @@ export const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
 export function secondFacteurDemande(acr: readonly string[], amr: readonly string[]): boolean {
   const fort = (m: string): boolean => {
     const f = FAMILLES_AMR.get(m);
-    return m === "mfa" || m === "mca" || (f !== undefined && f !== "connaissance");
+    return AMR_MULTI_FACTEUR.has(m) || (f !== undefined && f !== "connaissance");
   };
+  return amr.some((m) => fort(m.trim().toLowerCase())) || acr.some((a) => !ACR_FAIBLES.has(a.trim()));
+}
+
+/** Vrai si tout jeton admis à la connexion prouve un second facteur (une seule valeur listée suffit à entrer) : chaque `acr` exigé est autre que 0 ou 1, ou chaque `amr` exigé est `mfa` ou `mca`. */
+export function secondFacteurPourTous(acr: readonly string[], amr: readonly string[]): boolean {
   return (
-    amr.some((m) => fort(m.trim().toLowerCase())) ||
-    acr.some((a) => a.trim() !== "" && !ACR_FAIBLES.has(a.trim()))
+    (acr.length > 0 && acr.every((a) => !ACR_FAIBLES.has(a.trim()))) ||
+    (amr.length > 0 && amr.every((m) => AMR_MULTI_FACTEUR.has(m.trim().toLowerCase())))
   );
 }
 

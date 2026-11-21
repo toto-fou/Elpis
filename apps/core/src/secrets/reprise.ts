@@ -2,6 +2,7 @@
 /** apps/core/src/secrets/reprise.ts — ports des migrations du coffre passés par main (secret rangé comme `creerSecret` ou chiffré hors liste, Fernet relu sans jamais créer de clé, journal de sécurité après validation), puis suite de 0028 au démarrage de main (clés illisibles réessayées, clés réécrites par une version antérieure confrontées au coffre, clé du moteur d'images semée et retirée de config.json et config.json.bak). */
 import { basename } from "node:path";
 
+import { groupeDonnees } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { POLITIQUE_SECRET_DEFAUT, schemaPolitiqueSecret } from "@elpis/contracts";
 import type { GenreSecret } from "@elpis/contracts";
@@ -254,7 +255,7 @@ async function clesRestantes(base: Base): Promise<number> {
   return Number(n?.n ?? 0);
 }
 
-/** Suite de 0028 au démarrage de main (sous le verrou de schéma), migration faite à un démarrage précédent et seulement s'il en reste : clés gardées réessayées, clés réécrites confrontées au coffre, clé du moteur d'images semée, sous `secure_delete`, journal après validation ; puis ancienne clé du moteur d'images retirée de config.json ; rend les tables dont d'anciennes valeurs sont parties (à compacter) ; jamais d'échec du démarrage. */
+/** Suite de 0028 au démarrage de main (sous le verrou de schéma), migration faite à un démarrage précédent et seulement s'il en reste : clés gardées réessayées, clés réécrites confrontées au coffre, clé du moteur d'images semée, sous `secure_delete`, journal après validation ; puis ancienne clé du moteur d'images retirée de config.json (par la console quand chaque service a son compte) ; rend les tables dont d'anciennes valeurs sont parties (à compacter) ; jamais d'échec du démarrage. */
 export async function reprendreAuDemarrage(
   base: Base,
   rapport: RapportInit,
@@ -281,11 +282,24 @@ export async function reprendreAuDemarrage(
       }
       if ((await clesRestantes(base)) < avant) effacees.push("llm_connectors");
     }
-    await retirerCleImagesHeritee(base, log);
+    if (groupeDonnees() === null) await retirerCleImagesHeritee(base, log);
   } catch (e) {
     log.warn(
       `coffre : reprise des anciennes clés reportée au prochain démarrage (${e instanceof Error ? e.message : String(e)})`,
     );
   }
   return effacees;
+}
+
+/** Ancienne clé du moteur d'images retirée de config.json au démarrage de la console quand chaque service a son compte (main ne peut plus l'écrire), migration 0028 faite ; jamais d'échec du démarrage. */
+export async function retirerCleImagesParLaConsole(base: Base, log: Journal): Promise<void> {
+  if (groupeDonnees() === null) return;
+  try {
+    if (await base.get("SELECT 1 AS un FROM schema_migrations WHERE name = ?", [MIGRATION]))
+      await retirerCleImagesHeritee(base, log);
+  } catch (e) {
+    log.warn(
+      `coffre : ancienne clé du moteur d'images retirée au prochain démarrage de la console (${e instanceof Error ? e.message : String(e)})`,
+    );
+  }
 }

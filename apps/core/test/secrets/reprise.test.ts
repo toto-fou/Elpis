@@ -18,7 +18,7 @@ import {
   Fernet,
   oublierConfigurationAudit,
 } from "@elpis/securite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Journal, journal } from "../../src/journal";
 import { getImageConfig } from "../../src/images/config";
@@ -27,7 +27,11 @@ import { cleImages, enregistrerCleImages, etatCleImages } from "../../src/images
 import { creerSecret, dechiffrerLigne, lireLigneParNom, listerSecrets } from "../../src/secrets/stockage";
 import type { LigneSecret } from "../../src/secrets/stockage";
 import { MIGRATIONS_DU_CORE } from "../../src/base";
-import { portsMigrationsDuCore, reprendreAuDemarrage } from "../../src/secrets/reprise";
+import {
+  portsMigrationsDuCore,
+  reprendreAuDemarrage,
+  retirerCleImagesParLaConsole,
+} from "../../src/secrets/reprise";
 
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
 const MIGRATION = "0028_vault_llm_images";
@@ -546,6 +550,35 @@ describe.each(MOTEURS)("migration des clés vers le coffre (%s)", (moteur) => {
       expect(Object.hasOwn(lireConfig()["image"] as Dict, "api_key_enc")).toBe(false);
       expect(JSON.parse(readFileSync(copie, "utf-8"))).toEqual({ image: {}, autre: 1 });
       expect(await cleImages(getImageConfig(), t.base)).toBe("sk-coffre");
+    }
+  });
+
+  it("comptes séparés : main laisse config.json à la console, qui retire l'ancienne clé d'images à son démarrage ; compte unique : la console n'y touche pas", async () => {
+    await enregistrerCleImages(t.base, "sk-coffre", "http://127.0.0.1:7860", {
+      userId: null,
+      username: null,
+    });
+    const sceau = encrypt(JSON.stringify({ k: "sk-coffre", o: "http://127.0.0.1:7860" }));
+    const r = {
+      appliquees: [],
+      echec: null,
+      differees: [],
+      infos: [],
+      avertissements: [],
+    } as unknown as Parameters<typeof reprendreAuDemarrage>[1];
+    ecrireConfig({ enabled: true, url: "http://127.0.0.1:7860", api_key_enc: sceau });
+    await retirerCleImagesParLaConsole(t.base, journal("test"));
+    expect(lireConfig()["image"]).toMatchObject({ api_key_enc: sceau });
+    vi.stubEnv("ELPIS_GROUPE_DONNEES", String(process.getgid?.() ?? 0));
+    try {
+      const { j, lignes } = journalCapte();
+      expect(await reprendreAuDemarrage(t.base, r, j)).toEqual([]);
+      expect(lireConfig()["image"]).toMatchObject({ api_key_enc: sceau });
+      await retirerCleImagesParLaConsole(t.base, j);
+      expect(Object.hasOwn(lireConfig()["image"] as Dict, "api_key_enc")).toBe(false);
+      expect(lignes.join("\n")).toContain("(image.api_key_enc) retirée de config.json");
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 

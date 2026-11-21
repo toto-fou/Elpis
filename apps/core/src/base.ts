@@ -21,7 +21,7 @@ import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
 import { repriseAxDuCore } from "./secrets/import-ax";
 import { MIGRATION_MCP, reprendreMcpAuDemarrage } from "./secrets/migration-mcp";
-import { portsMigrationsDuCore, reprendreAuDemarrage } from "./secrets/reprise";
+import { portsMigrationsDuCore, reprendreAuDemarrage, retirerCleImagesParLaConsole } from "./secrets/reprise";
 
 /** Implémentations des migrations du registre (`MIGRATIONS_TS` de @elpis/db) que main applique avec les ports du core ; admin, l'hôte d'outils et les commandes les lui laissent. */
 export const MIGRATIONS_DU_CORE: readonly Migration[] = [
@@ -106,7 +106,7 @@ export async function reprendreCoffreAuDemarrage(b: Base, rapport: RapportInit):
   }
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé) ; main seul applique les migrations du coffre (journal de sécurité écrit après validation), puis nettoyage et suites du coffre. */
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé) ; main seul applique les migrations du coffre (journal de sécurité écrit après validation), puis nettoyage et suites du coffre ; la console, l'ancienne clé d'images de config.json en comptes séparés. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
@@ -117,5 +117,6 @@ export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
   });
   courante = nouvelle;
   if (mode === "main") await reprendreCoffreAuDemarrage(nouvelle, rapport);
+  else await retirerCleImagesParLaConsole(nouvelle, journal("coffre"));
   return rapport;
 }

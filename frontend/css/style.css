@@ -3374,6 +3374,11 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--border-soft);
 }
+/* Tiroir ouvert : les notifications passent à sa gauche, ou au-dessus de son pied sur un écran étroit ; leurs boutons ne couvrent jamais ceux du pied. */
+body:has(.adm-drawer-backdrop) .elpis-toasts { right: calc(min(28rem, 100vw) + 1.5rem); }
+@media (max-width: 52rem) {
+    body:has(.adm-drawer-backdrop) .elpis-toasts { right: 1.5rem; bottom: 5.25rem; }
+}
 
 
 /* Zone sensible : dernier bloc d'une page, actions destructrices ou

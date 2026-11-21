@@ -193,6 +193,7 @@ def _sqlite_peuplee(root: Path):
 
 
 def test_donnees_sqlite_existantes_proposees_au_transfert(conf, monkeypatch, tmp_path):
+    monkeypatch.delenv("APP_DB_PATH", raising=False)
     _sqlite_peuplee(tmp_path)
     monkeypatch.setenv("ELPIS_CFG_DB_PASSWORD", "pw")
     plan = conf.step_database(conf.Prompter(False), _args(db="postgres"), {})

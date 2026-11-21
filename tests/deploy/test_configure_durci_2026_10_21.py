@@ -51,9 +51,16 @@ def test_emails_refuses(conf, valeur):
 
 def _caddy_factice(monkeypatch, conf, tmp_path):
     appels: list = []
+
+    def lancer(cmd, *a, **k):
+        appels.append(cmd)
+        if cmd[1] == "install":
+            (tmp_path / "Caddyfile.copie").write_text(Path(cmd[-2]).read_text(encoding="utf-8"), encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0)
+
     monkeypatch.setattr(conf.shutil, "which", lambda nom: "/usr/bin/caddy")
     monkeypatch.setattr(conf, "sudo_prefix", lambda: ["sudo"])
-    monkeypatch.setattr(conf.subprocess, "run", lambda cmd, *a, **k: appels.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(conf.subprocess, "run", lancer)
     (tmp_path / "deploy/caddy").mkdir(parents=True)
     shutil.copy2(REPO / "deploy/caddy/Caddyfile.acme.template", tmp_path / "deploy/caddy/Caddyfile.acme.template")
     return appels
@@ -71,7 +78,9 @@ def test_apply_https_acme_lance_trois_commandes_sans_sh_c(conf, monkeypatch, tmp
     conf.apply_https({"mode": "acme", "domain": "elpis.example.com", "email": "admin@example.com"})
     assert [c[1] for c in appels] == ["install", "caddy", "systemctl"] and all(c[0] == "sudo" for c in appels)
     assert all("sh" not in c[:3] and "-c" not in c for c in appels)
-    corps = (tmp_path / "user_db/run/Caddyfile.acme").read_text(encoding="utf-8")
+    # Rédigé dans un dossier temporaire privé (jamais sous user_db), retiré ensuite.
+    assert not appels[0][-2].startswith(str(tmp_path)) and not Path(appels[0][-2]).exists()
+    corps = (tmp_path / "Caddyfile.copie").read_text(encoding="utf-8")
     assert "elpis.example.com" in corps and "email admin@example.com" in corps
 
 

@@ -172,8 +172,8 @@ changing anything. An answer disables the inputs it makes useless (with
 the reason shown); a value that has become impossible falls back to the first
 possible value (Caddy unchecked: HTTPS goes back to "Direct HTTP"). LLM and embeddings
 addresses are probed (`GET /v1/models`) and you pick the model from the announced list.
-Answers are stored in `user_db/run/install-answers.json`
-(0600, secrets included), deleted at the end. `--plain` keeps the questions as
+Answers are stored in a private temporary folder (`install-answers.json`, 0600,
+secrets included; never under `user_db/`), deleted at the end. `--plain` keeps the questions as
 plain lines; without a terminal (or with `TERM=dumb`), they are plain lines too.
 
 **Database.** Prepared (local server) and tested right after the venv,

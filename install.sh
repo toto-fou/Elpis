@@ -250,7 +250,7 @@ ask_choice() {
 ANSWERS=""; SUDO_KEEPALIVE=""; ELPIS_NODE_CACHE=""
 cleanup() {
     [ -n "$SUDO_KEEPALIVE" ] && kill "$SUDO_KEEPALIVE" 2>/dev/null
-    [ -n "$ANSWERS" ] && rm -f "$ANSWERS"
+    [ -n "$ANSWERS" ] && rm -rf -- "${ANSWERS%/*}"
     [ -n "$ELPIS_NODE_CACHE" ] && rm -rf "$ELPIS_NODE_CACHE"
     return 0
 }
@@ -534,7 +534,8 @@ cite_sh() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 #  1. Les choix : assistant par pages, questions en lignes, ou options seules
 # =============================================================================
 TUI=0
-ANSWERS_PATH="$ROOT/user_db/run/install-answers.json"
+# Réponses de l'assistant (secrets compris) : dossier temporaire privé (à root seul sous sudo), jamais sous user_db.
+ANSWERS_PATH=""
 
 ensure_python3() { have python3; }
 preset_json() {
@@ -560,8 +561,7 @@ print(json.dumps({"installer": sys.argv[1] == "1", "manquants": manquants}))' \
         "$([ "$DO_APT" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && echo 1 || echo 0)"
 }
 run_wizard() {   # run_wizard [--in FICHIER] [--start PAGE] [--banner TEXTE]
-    mkdir -p "$ROOT/user_db/run"
-    chmod 700 "$ROOT/user_db" "$ROOT/user_db/run" 2>/dev/null
+    [ -n "$ANSWERS_PATH" ] || ANSWERS_PATH="$(mktemp -d)/install-answers.json" || die "Dossier temporaire indisponible."
     ANSWERS="$ANSWERS_PATH"
     ELPIS_WIZ_ADMIN="$ADMIN_OK" ELPIS_WIZ_OFFLINE="$OFFLINE_DIR" ELPIS_WIZ_OS="$OS_NAME" \
     ELPIS_WIZ_PRESET="$(preset_json)" ELPIS_WIZ_APT="$(apt_json)" \
@@ -959,10 +959,11 @@ db_should_check() {
 }
 db_check() {
     local out rc
+    # Par ./elpis configure : sous root et des unités à un compte par service, sous le compte de la console (ni le core ni configure.py sous root).
     if [ "$TUI" -eq 1 ]; then
-        out="$("$VENV/bin/python" "$ROOT/deploy/configure.py" --answers "$ANSWERS" --check-db 2>&1)"
+        out="$(bash "$ROOT/elpis" configure --answers "$ANSWERS" --check-db 2>&1)"
     else
-        out="$("$VENV/bin/python" "$ROOT/deploy/configure.py" --yes "${DB_CONFIGURE_ARGS[@]}" \
+        out="$(bash "$ROOT/elpis" configure --yes "${DB_CONFIGURE_ARGS[@]}" \
                "${CONFIGURE_ARGS[@]}" --check-db 2>&1)"
     fi
     rc=$?

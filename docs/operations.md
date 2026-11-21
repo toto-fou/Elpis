@@ -79,9 +79,22 @@ Qdrant.
 `service install` moves `config.json` (with `config.json.bak` and `config.json.lock`) to
 `/etc/elpis/config/` and leaves a link at its place: only the console writes it (Admin console),
 main and the tool host read it. With one account per service, the folder and the file belong
-to the console (`elpis-admin`, group `elpis-donnees`): `./elpis configure` then runs with
-`sudo`, followed by `sudo ./elpis service install`. With one account for every service, they
-belong to that account. A `config.json` file put back in place of the link (an edit with
+to the console (`elpis-admin`, group `elpis-donnees`): `sudo ./elpis configure` runs the
+assistant and `deploy/configure.py` under the console's account (never as root), followed by
+`sudo ./elpis service install`. That run writes `config.json`, the database and the console's
+own files; it never writes the operator's files: the lines `.env` would get are printed, to be
+copied into `.env` from the operator's account, `mcp.json` is updated by `./elpis configure
+--migrer-mcp` (without `sudo`), Caddy by `sudo deploy/caddy/install_caddy.sh`, and the platform
+secrets and tokens are created by `service install`. `./elpis configure` without `sudo` stops
+with that advice (its checking options, `--check-llm`, `--verifier-mcp`…, still run). With one
+account for every service, they belong to that account, and `sudo ./elpis configure` runs
+`deploy/configure.py` as root: it then writes every file through its folder opened without
+following any link (a random temporary file created exclusively, then renamed; owner and group
+of the file it replaces, else of its folder), follows only the `config.json` link that
+`service install` set, never takes a path from `config.json` (the database folder comes from
+`APP_DB_PATH` or `user_db/`), opens a SQLite database only when it is a regular file of root or of
+the installation's owner, and keeps the wizard's answers (those of `sudo ./install.sh` too) in a
+temporary folder only root can read, never under `user_db/`. A `config.json` file put back in place of the link (an edit with
 `sed -i`, for example) wins: the next `service install` moves it over the old one and restores
 the link. Platform secrets found in `config.json` (`app.session_secret`, `app.encryption_key`,
 `rag.service_token`) are moved to their files at each `service install`: `deploy/configure.py

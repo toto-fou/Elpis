@@ -15,7 +15,18 @@ import {
   statSync,
 } from "node:fs";
 
-import { comparePointsDeCode, intPy, maxPy, minPy, reprPy, strPy, stripPy, veritePy } from "@elpis/commun";
+import {
+  bitsInterdits,
+  comparePointsDeCode,
+  groupeDonnees,
+  intPy,
+  maxPy,
+  minPy,
+  reprPy,
+  strPy,
+  stripPy,
+  veritePy,
+} from "@elpis/commun";
 import { avecVerrouSync } from "@elpis/verrous";
 
 import {
@@ -337,14 +348,15 @@ function lireSecret(fichier: string): string | null {
   }
 }
 
-/** Remet en 0600 un fichier de secret élargi (restauration, copie, chmod à la main). */
+/** Remet en 0600 un fichier de secret élargi (restauration, copie, chmod à la main) ; sous le groupe des données, retire seulement les droits des autres (groupe de clé posé par l'installation). */
 function durcirModeSecret(fichier: string): void {
   try {
     const mode = statSync(fichier).mode & 0o777;
-    if ((mode & 0o077) === 0) return;
-    chmodSync(fichier, 0o600);
+    if ((mode & bitsInterdits()) === 0) return;
+    const voulu = groupeDonnees() === null ? 0o600 : mode & 0o740;
+    chmodSync(fichier, voulu);
     process.stderr.write(
-      `[startup] ${fichier} était en ${mode.toString(8)} (lisible hors propriétaire) — remis en 0600.\n`,
+      `[startup] ${fichier} était en ${mode.toString(8)} (lisible hors propriétaire) — remis en ${voulu.toString(8).padStart(4, "0")}.\n`,
     );
   } catch (e) {
     if (!estErreurSysteme(e)) throw e;
@@ -372,6 +384,7 @@ function creerSecretExclusif(fichier: string): string {
     }
     const autre = lireSecret(fichier);
     if (autre !== null && longueurPy(autre) >= 40) return autre;
+    if (autre === null && existsSync(fichier)) throw new Error(`${fichier} illisible pour ce compte`);
     renameSync(temporaire, fichier);
     return secret;
   } finally {
@@ -383,14 +396,15 @@ function secretEphemere(): string {
   return `EPHEMERAL_${randomBytes(16).toString("hex")}`;
 }
 
-/** Fichier `<dossier>/.session_secret` : relu s'il est valide (≥ 40 caractères), sinon créé sous `.session_secret.lock` (v1.1, comme Python) ; éphémère en dernier recours. */
-function chargerOuCreerSecret(dossier: string): string {
+/** Fichier `<dossier>/.session_secret` : relu s'il est valide (≥ 40 caractères), sinon créé sous `.session_secret.lock` (v1.1, comme Python) ; `null` s'il existe sans être lisible par ce compte (jamais remplacé) ; éphémère en dernier recours. */
+function chargerOuCreerSecret(dossier: string): string | null {
   const fichier = pyJoin(dossier, ".session_secret");
   const existant = lireSecret(fichier);
   if (existant !== null && longueurPy(existant) >= 40) {
     durcirModeSecret(fichier);
     return existant;
   }
+  if (existant === null && existsSync(fichier)) return null;
   try {
     mkdirSync(dossier, { recursive: true });
   } catch (e) {
@@ -415,7 +429,7 @@ function chargerOuCreerSecret(dossier: string): string {
   return secretEphemere();
 }
 
-/** Précédence : `APP_SESSION_SECRET` > `app.session_secret` (hors valeurs d'exemple publiées) > fichier près de la base. */
+/** Précédence : `APP_SESSION_SECRET` > `app.session_secret` (hors valeurs d'exemple publiées) > fichier près de la base, que l'hôte d'outils (`APP_SERVICE=toolhost`, sans usage du secret) ne lit, ne crée ni ne touche jamais. */
 function resoudreSecretSession(env: Env, sessionJson: string, dbPath: string): string {
   const sessionEnv = asStr(env["APP_SESSION_SECRET"], "");
   if (sessionEnv) {
@@ -426,7 +440,16 @@ function resoudreSecretSession(env: Env, sessionJson: string, dbPath: string): s
     avertirSecretFaible(sessionJson, "config.json");
     return sessionJson;
   }
+  if ((env["APP_SERVICE"] ?? "").toLowerCase() === "toolhost") return secretEphemere();
   const secret = chargerOuCreerSecret(pyParent(dbPath));
+  if (secret === null) {
+    if (env["APP_MODE"])
+      process.stderr.write(
+        `\n[CRITICAL] Elpis SESSION_SECRET illisible pour ce compte (${pyJoin(pyParent(dbPath), ".session_secret")}, jamais remplacé) — ` +
+          "sessions cassées entre process et redémarrages. Donner à ce service la lecture du fichier, ou configurer APP_SESSION_SECRET.\n\n",
+      );
+    return secretEphemere();
+  }
   if (secret.startsWith("EPHEMERAL_")) {
     process.stderr.write(
       "\n[CRITICAL] Elpis SESSION_SECRET est ÉPHÉMÈRE — sessions cassées entre process et redémarrages. " +

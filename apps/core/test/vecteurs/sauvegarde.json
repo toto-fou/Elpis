@@ -1289,25 +1289,6 @@
           "extraction": 20
         },
         {
-          "nom": "user_db/lien-fichier",
-          "date": [
-            2023,
-            11,
-            14,
-            22,
-            13,
-            20
-          ],
-          "attr": 2172649472,
-          "methode": 8,
-          "crc": 118499420,
-          "taille": 6,
-          "drapeaux": 0,
-          "systeme": 3,
-          "version": 20,
-          "extraction": 20
-        },
-        {
           "nom": "user_db/secret.key",
           "date": [
             2023,
@@ -1404,7 +1385,7 @@
         }
       ],
       "textes": {
-        "backup-warnings.txt": "Fichiers ignor\u00e9s (illisibles depuis l'h\u00f4te) :\n<R>/user_db/fifo \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/lien-mort \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/illisible \u2014 PermissionError: [Errno 13] Permission denied: '<R>/user_db/illisible'\n<R>/sb/alice/fifo \u2014 SandboxPathError: symlink or special file refused: 'fifo'\n<R>/sb/alice/lien \u2014 SandboxPathError: symlink or special file refused: 'lien'\n<R>/sb/alice/illisible \u2014 PermissionError: [Errno 13] Permission denied: '/proc/self/fd/N'\n<R>/sb/bob/work \u2014 compte inconnu : /work non sauvegard\u00e9\nsandboxes/alice/work \u2014 agent_unavailable: agent de sandbox indisponible : /work non sauvegard\u00e9\n"
+        "backup-warnings.txt": "Fichiers ignor\u00e9s (illisibles depuis l'h\u00f4te) :\n<R>/user_db/fifo \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/lien-mort \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/illisible \u2014 PermissionError: [Errno 13] Permission denied: '<R>/user_db/illisible'\n<R>/sb/alice/fifo \u2014 SandboxPathError: symlink or special file refused: 'fifo'\n<R>/sb/alice/lien \u2014 SandboxPathError: symlink or special file refused: 'lien'\n<R>/sb/alice/illisible \u2014 PermissionError: [Errno 13] Permission denied: '/proc/self/fd/N'\n<R>/sb/bob/work \u2014 compte inconnu : /work non sauvegard\u00e9\nsandboxes/alice/work \u2014 agent_unavailable: agent de sandbox indisponible : /work non sauvegard\u00e9\n<R>/user_db/lien-fichier \u2014 OSError: lien symbolique, non suivi\n"
       },
       "base": {
         "users": [
@@ -1504,25 +1485,6 @@
           "extraction": 20
         },
         {
-          "nom": "user_db/lien-fichier",
-          "date": [
-            2023,
-            11,
-            14,
-            22,
-            13,
-            20
-          ],
-          "attr": 2172649472,
-          "methode": 8,
-          "crc": 118499420,
-          "taille": 6,
-          "drapeaux": 0,
-          "systeme": 3,
-          "version": 20,
-          "extraction": 20
-        },
-        {
           "nom": "user_db/secret.key",
           "date": [
             2023,
@@ -1581,7 +1543,7 @@
         }
       ],
       "textes": {
-        "backup-warnings.txt": "Fichiers ignor\u00e9s (illisibles depuis l'h\u00f4te) :\n<R>/user_db/fifo \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/lien-mort \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/illisible \u2014 PermissionError: [Errno 13] Permission denied: '<R>/user_db/illisible'\n"
+        "backup-warnings.txt": "Fichiers ignor\u00e9s (illisibles depuis l'h\u00f4te) :\n<R>/user_db/fifo \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/lien-mort \u2014 OSError: fichier sp\u00e9cial ou lien mort\n<R>/user_db/illisible \u2014 PermissionError: [Errno 13] Permission denied: '<R>/user_db/illisible'\n<R>/user_db/lien-fichier \u2014 OSError: lien symbolique, non suivi\n"
       },
       "base": {
         "users": [
@@ -1602,7 +1564,7 @@
           1.0,
           {
             "scope": "db",
-            "skipped": 3,
+            "skipped": 4,
             "bytes": "<octets>"
           }
         ]

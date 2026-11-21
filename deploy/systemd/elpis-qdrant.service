@@ -51,6 +51,9 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# Boucle locale seulement (le cœur et le RAG l'appellent en 127.0.0.1) : pas l'adresse du réseau de la machine, aucune sortie réseau.
+IPAddressDeny=any
+IPAddressAllow=localhost
 UMask=0077
 MemoryMax=50%
 TasksMax=1024

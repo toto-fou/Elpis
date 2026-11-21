@@ -231,6 +231,7 @@ def test_unites_durcies(racine):
     assert "RuntimeDirectory=elpis-toolhost" in lignes and "RuntimeDirectoryMode=0700" in lignes
     lignes = _directives(unites["elpis-qdrant.service"])
     assert f"ReadWritePaths={racine}/rag_app/qdrant" in lignes and "UMask=0077" in lignes
+    assert "IPAddressDeny=any" in lignes and "IPAddressAllow=localhost" in lignes
     assert f"ReadOnlyPaths=-{racine}/rag_app/qdrant/qdrant -{racine}/rag_app/qdrant/config.yaml" in lignes
     assert unites["tmpfiles.d/elpis.conf"].strip().splitlines()[-1] == f"d /run/elpis 0700 {getpass.getuser()} {grp.getgrgid(os.getgid()).gr_name} -"
 

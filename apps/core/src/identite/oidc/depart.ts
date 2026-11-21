@@ -82,6 +82,7 @@ export async function preparerDepart(
         nonce,
         ...(f.required_acr.length > 0 ? { acr_values: f.required_acr.join(" ") } : {}),
         ...(f.max_age_sec > 0 ? { max_age: String(f.max_age_sec) } : {}),
+        ...(d.essaiAdmin !== null ? { prompt: "login" } : {}),
       };
       const url =
         ouverte.metadonnees.pushed_authorization_request_endpoint === undefined

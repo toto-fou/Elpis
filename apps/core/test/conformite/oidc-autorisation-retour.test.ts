@@ -64,6 +64,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("requête d'autorisation et r
       const p = new URL((await b.demarrer()).url ?? "").searchParams;
       expect(p.get("acr_values")).toBe("urn:a urn:b");
       expect(p.get("max_age")).toBe("120");
+      expect(p.has("prompt")).toBe(false);
     });
 
     it("§3.1.2.1 : l'adresse d'autorisation annoncée avec une chaîne de requête propre au produit la conserve", async () => {

@@ -163,7 +163,8 @@ says something about that person, not about the provider).
 
 **Se connecter pour essayer** (available once the provider is saved and while it is switched off, on the
 saved settings; otherwise greyed out with the reason) opens the
-provider in a new tab and walks through a real sign-in. No account and no session is created, and nothing is
+provider in a new tab and walks through a real sign-in; the provider is asked to sign the person in again
+(`prompt=login`), so a session already open there is not reused. No account and no session is created, and nothing is
 written but the result. The console then shows the decision, the same as a real sign-in would take on the same
 accounts (the same checks, in the same order, on the database read without writing): **Cette personne se
 connecterait au compte…** (This person would sign in as…), **Un compte … serait créé** (An account … would be

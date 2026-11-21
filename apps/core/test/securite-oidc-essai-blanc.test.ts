@@ -89,7 +89,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     return { lancement, retour: retourne };
   }
 
-  it("lancement : les étapes du test d'abord, puis l'adresse d'autorisation et le cookie de liaison ; un flux marqué pour cet administrateur", async () => {
+  it("lancement : les étapes du test d'abord, puis l'adresse d'autorisation (nouvelle authentification demandée, `prompt=login`) et le cookie de liaison ; un flux marqué pour cet administrateur", async () => {
     const l = await lancer();
     expect(l.statusCode, l.body).toBe(200);
     const r = l.json<Lancement>();
@@ -99,6 +99,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
       expect.arrayContaining(["settings", "prerequisites", "discovery", "jwks", "secret"]),
     );
     expect(r.url).toContain("/realms/elpis/auth?");
+    expect(new URL(r.url ?? "").searchParams.get("prompt")).toBe("login");
     expect(String(l.headers["set-cookie"])).toMatch(/^__Host-elpis-sso=/u);
     expect(await lignes(`SELECT trial_admin, stage FROM auth_flows`)).toEqual([[b.chef, "auth"]]);
   });

@@ -29,6 +29,7 @@ export function configurerSecuriteDuCore(env: NodeJS.ProcessEnv = process.env): 
     cleEnv: env["APP_ENCRYPTION_KEY"],
     cleConfig: deepGet(bootRaw(), "app.encryption_key", ""),
     fichierCle: encryptionKeyPath(config.DB_PATH),
+    fichierExplicite: env["APP_ENCRYPTION_KEY_PATH"],
   });
   configurerCoffreDuCore(env);
 }

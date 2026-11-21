@@ -906,6 +906,7 @@ export function creerIdentite(b: BaseAdmin) {
     authBusy.value = true;
     const ajout = f.nouveau;
     const cleAvant = cleControle(f);
+    let secretParti = false;
     try {
       if (actif) {
         const corps = corpsActif(f, actif);
@@ -957,6 +958,7 @@ export function creerIdentite(b: BaseAdmin) {
           }
           if (!(await envoyerSecret(f.id, f.secret))) return false;
           f.secret = "";
+          secretParti = true;
         }
       }
       showToast("Fournisseur enregistré", "success");
@@ -967,7 +969,8 @@ export function creerIdentite(b: BaseAdmin) {
       }
       if (authTiroir.value === f) {
         authTiroir.value = formDe(cree);
-        if (cleEssai === cleAvant) cleEssai = cleControle(authTiroir.value);
+        if (secretParti) effacerEssai();
+        else if (cleEssai === cleAvant) cleEssai = cleControle(authTiroir.value);
       }
       focaliserDansTiroir("#ent-trial", true);
       return true;

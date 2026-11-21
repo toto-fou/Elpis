@@ -930,12 +930,46 @@ describe("SSO OpenID Connect : Ajouter enchaîne sur la vérification", () => {
     const synthese =
       "Les contrôles passent. Faites ensuite « Se connecter pour essayer » pour pouvoir activer ce fournisseur.";
     expect(texte("#ent-essai-synthese")).toBe(synthese);
-    await saisir("#ent-secret", "s3cret");
-    expect(texte("#ent-essai-synthese")).toBe(synthese);
     await clic("#ent-enregistrer-fournisseur");
     expect(m.A.authTiroir.value?.nouveau).toBe(false);
     expect(texte("#ent-essai-synthese")).toBe(synthese);
     await saisir("#ent-issuer", "https://autre.example.lan");
+    expect(el("#ent-essai-synthese")).toBeNull();
+  });
+
+  it("un secret enregistré avec l'ajout efface le résultat du contrôle, qui dépendait du secret absent", async () => {
+    const m = monter();
+    m.reponses["POST /api/admin/auth/providers"] = [
+      json(etat({ providers: [{ ...OIDC, has_secret: false }] })),
+    ];
+    m.reponses["PUT /api/admin/auth/providers/sso/secret"] = [json(etat({ providers: [OIDC] }))];
+    m.reponses["POST /api/admin/auth/providers/test"] = [
+      json({
+        ok: false,
+        steps: [
+          {
+            id: "secret",
+            label: "Secret",
+            level: "fail",
+            detail: "Aucun secret client n'est enregistré.",
+            target: null,
+          },
+        ],
+      }),
+    ];
+    await ouvrir(m);
+    await clic("#ent-ajouter");
+    await saisir("#ent-label", "SSO siège");
+    await saisir("#ent-id", "sso");
+    await saisir("#ent-issuer", "https://sso.example.lan/realms/x");
+    await saisir("#ent-client", "elpis");
+    await clic("#ent-tester");
+    expect(texte("#ent-essai-synthese")).toBe("Un contrôle a échoué.");
+    await saisir("#ent-secret", "s3cret");
+    expect(texte("#ent-essai-synthese")).toBe("Un contrôle a échoué.");
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.corps["PUT /api/admin/auth/providers/sso/secret"]).toHaveLength(1);
+    expect(m.A.authTiroir.value?.nouveau).toBe(false);
     expect(el("#ent-essai-synthese")).toBeNull();
   });
 });

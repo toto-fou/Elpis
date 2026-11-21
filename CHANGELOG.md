@@ -47,6 +47,9 @@ follow [SemVer](https://semver.org/).
   `elpis-rag`: it reads the RAG store (`2770 elpis-main:elpis-rag`, read-only in its unit) and
   the RAG token, moved to `/etc/elpis/rag.token` (`0440`, group `elpis-rag`), and keeps its cache
   in `/var/cache/elpis-rag`; it no longer reaches the database, the keys nor the sandboxes.
+- **Qdrant under a dynamic account.** With one account per service, Qdrant runs under a dynamic
+  account (`DynamicUser=yes`) and keeps its storage in `/var/lib/elpis-qdrant`;
+  `service install` moves `rag_app/qdrant/storage` there once, services stopped.
 - **systemd units: versioned and hardened.** The units of the services are rendered from
   templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
   privileges, with the system read-only except the folders it writes, a private `/tmp` and

@@ -97,7 +97,7 @@ password), so that a flaw in one service does not hand over the files of the oth
 | admin (console) | `elpis-admin`, primary group `elpis-donnees` |
 | toolhost | `elpis-toolhost`, primary group `elpis-donnees`, home `/var/lib/elpis-toolhost`; the only unit that gets the `docker` group (`SupplementaryGroups=docker`) |
 | rag | `elpis-rag`, primary group `elpis-rag`; cache in `/var/cache/elpis-rag` (`CacheDirectory=`); a static account, since `DynamicUser=` would impose `RestrictSUIDSGID=`, which bubblewrap does not survive |
-| qdrant | the operator (below) |
+| qdrant | a dynamic account (`DynamicUser=yes`), storage in `/var/lib/elpis-qdrant` (`StateDirectory=`: systemd keeps it in `/var/lib/private/elpis-qdrant`, where `service install` moves `rag_app/qdrant/storage` once) |
 
 | Group | Members | For |
 |---|---|---|
@@ -717,7 +717,8 @@ the browser's saved states (`browser-service/cookies/`), a RAG store placed
 outside `user_db/` (`rag.store_dir`); what is specific to the machine
 (`.db_password`, state of a database switch); logs, PID files and the
 extractor cache (`user_db/logs/`, `user_db/run/`, `user_db/rag-cache/`), neither
-backed up nor restored. The Qdrant index (`rag_app/qdrant/storage/`) is not
+backed up nor restored. The Qdrant index (`rag_app/qdrant/storage/`, or
+`/var/lib/elpis-qdrant/storage/` with one account per service) is not
 there either: after a restore on another machine, Admin console › Models & services ›
 RAG › Embedding model change › "Reindex all collections" (checkbox "Even those
 already using this model") rebuilds it from the store's extracted texts.

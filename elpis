@@ -600,7 +600,7 @@ _chemins_hors_depot() {
     lanceur ecritures
 }
 
-# Dossiers d'état d'un service : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris ; pour main et la console, ceux de la racine, config.json étant chez la console) ; dossier venu des réglages et refusé (dossier_etat_sur) : ignoré.
+# Dossiers d'état d'un service : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris ; pour main et la console, ceux de la racine, config.json étant chez la console ; Qdrant sous un compte unique : son dossier du dépôt, binaire et réglages en lecture seule) ; dossier venu des réglages et refusé (dossier_etat_sur) : ignoré.
 _ecritures_du_service() {
     local d s l=() vu=" "
     case "$1" in
@@ -609,6 +609,9 @@ _ecritures_du_service() {
                     [ "$1" = main ] || l+=("$CONFIG_SYS") ;;
         toolhost)   l=("$ROOT/user_db" "$LOG_DIR" "$SANDBOX_DIR" "$CHART_DIR" "$AUDIT_DIR_SYS") ;;
         rag)        [ "$MODE_COMPTES" = separes ] || l=("$RAG_CACHE") ;;
+        qdrant)     [ "$MODE_COMPTES" = separes ] || printf 'ReadWritePaths=%s\nReadOnlyPaths=-%s/qdrant -%s/config.yaml\n' \
+                        "$ROOT/rag_app/qdrant" "$ROOT/rag_app/qdrant" "$ROOT/rag_app/qdrant"
+                    return 0 ;;
     esac
     while IFS=$'\t' read -r s d; do
         case " $s " in *" $1 "*) l+=("$d") ;; esac
@@ -639,12 +642,13 @@ _protection_home() {
 # Retire le dossier de rendu en cours (et celui de « service print ») quand le script s'arrête.
 _nettoyer_rendu() { rm -rf "${STAGE_RENDU:-}" "${TMP_PRINT:-}"; }
 
-# Compte d'une unité (User=, groupes et dossiers propres) : un compte par service en mode séparé (Docker à l'hôte d'outils seul, cache systemd au RAG), le compte unique sinon.
+# Compte d'une unité (User=, groupes et dossiers propres) : un compte par service en mode séparé (Docker à l'hôte d'outils seul, cache systemd au RAG, compte dynamique et dossier d'état à Qdrant), le compte unique sinon.
 _compte_unite() {
     case "$MODE_COMPTES:$1" in
         separes:main|separes:admin) echo "User=$UNIT_PREFIX-$1" ;;
         separes:toolhost) echo "User=$UNIT_PREFIX-toolhost"; if getent group docker >/dev/null; then echo "SupplementaryGroups=docker"; fi ;;
         separes:rag) printf 'User=%s\nCacheDirectory=%s\n' "$UNIT_PREFIX-rag" "$UNIT_PREFIX-rag" ;;
+        separes:qdrant) printf 'DynamicUser=yes\nStateDirectory=%s\n' "$UNIT_PREFIX-qdrant" ;;
         *) echo "User=$2" ;;
     esac
 }
@@ -659,7 +663,7 @@ _umask_unite() {
     esac
 }
 
-# Environnement propre au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG), le cache systemd du RAG et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
+# Environnement et dossier propres au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG), le cache systemd du RAG, le stockage de Qdrant dans son dossier d'état et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
 _env_comptes() {
     case "$1" in main|admin|toolhost) SPEC_ENV+=("ELPIS_COMPTES=$MODE_COMPTES") ;; esac
     [ "$MODE_COMPTES" = separes ] || return 0
@@ -667,6 +671,8 @@ _env_comptes() {
         main|admin) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS") ;;
         toolhost) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES"); [ -z "$2" ] || SPEC_ENV+=("PLAYWRIGHT_BROWSERS_PATH=$2") ;;
         rag) _env_unite "RAG_CACHE_DIR=/var/cache/$UNIT_PREFIX-rag"; _env_unite "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS" ;;
+        qdrant) SPEC_DIR="/var/lib/$UNIT_PREFIX-qdrant"
+                SPEC_ENV+=("QDRANT__STORAGE__STORAGE_PATH=$SPEC_DIR/storage" "QDRANT__STORAGE__SNAPSHOTS_PATH=$SPEC_DIR/storage/snapshots") ;;
     esac
 }
 
@@ -965,6 +971,23 @@ jeton_rag() {
     fi
 }
 
+# Stockage de Qdrant, services arrêtés : rag_app/qdrant/storage déplacé une fois dans le dossier d'état privé du compte dynamique (mode séparé ; /var/lib/private, 0700 à root s'il manque, systemd rend ce dossier au compte et pose le lien de /var/lib), ramené dans le dépôt au compte unique COMPTE sinon.
+qdrant_stockage() {
+    local depot="$ROOT/rag_app/qdrant/storage" pub="$SYS_PREFIXE/var/lib/$UNIT_PREFIX-qdrant" prive="$SYS_PREFIXE/var/lib/private" etat
+    etat="$prive/$UNIT_PREFIX-qdrant"
+    if [ "$MODE_COMPTES" = separes ]; then
+        [ -d "$depot" ] && [ ! -L "$depot" ] || return 0
+        if [ -e "$etat/storage" ] || [ -e "$pub/storage" ]; then warn "Stockage de Qdrant : $depot laissé, celui de $pub est en service (à vérifier, puis à retirer)."; return 0; fi
+        { [ -d "$prive" ] || mkdir -m 0700 -- "$prive"; } && { [ -d "$etat" ] || mkdir -m 0700 -- "$etat"; } || return 1
+        mv -T -- "$depot" "$etat/storage" && info "Stockage de Qdrant déplacé dans $pub."
+    else
+        [ -d "$etat" ] || etat="$pub"
+        if [ -d "$etat/storage" ] && [ ! -L "$etat/storage" ] && [ ! -e "$depot" ]; then
+            mv -T -- "$etat/storage" "$depot" && chown -R "$1" "$depot" && info "Stockage de Qdrant ramené dans $depot."
+        fi
+    fi
+}
+
 # config.json chez la console (COMPTE : compte unique ou opérateur ; ADMIS : anciens propriétaires) : déplacé dans CONFIG_SYS avec .bak (0600, à elle seule) et .lock, lien laissé à sa place ; un fichier ordinaire remis à la place du lien (sed -i…) l'emporte ; dossier et fichier à la console en mode séparé, au compte unique sinon ; jamais un déplacement dans un lien.
 config_vers_console() {
     local lien="$ROOT/config.json" d="$CONFIG_SYS" f proprio="$1" groupe md=0700 mf=0600
@@ -1072,6 +1095,7 @@ cmd_service() {
                 droits_unique "$BASE_DONNEES" "$run_user" "$ancien" \
                     || warn "Droits du compte unique incomplets (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             fi
+            [ ! -x "$ROOT/rag_app/qdrant/qdrant" ] || qdrant_stockage "$run_user" || warn "Stockage de Qdrant non déplacé (voir ci-dessus)."
             if compgen -G "$ROOT/logs/audit/audit-*.jsonl" >/dev/null; then
                 audit_deplacer "$ecrivain" || warn "Fichiers de logs/audit non déplacés (voir ci-dessus)."
             fi

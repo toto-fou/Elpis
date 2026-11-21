@@ -27,8 +27,7 @@ TimeoutStopSec=30
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
-ReadWritePaths=@WORKDIR@
-ReadOnlyPaths=-@WORKDIR@/qdrant -@WORKDIR@/config.yaml
+@RW@
 ProtectHome=@PROTECT_HOME@
 PrivateTmp=yes
 PrivateIPC=yes

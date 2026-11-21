@@ -18,12 +18,25 @@ async function hoteDistant(uid: number): Promise<SandboxHost | null> {
   return hote !== null && !isLoopback(hote.url) ? hote : null;
 }
 
+/** Refus d'un hôte d'outils : statut HTTP et `detail` rendus par l'hôte. */
+export class ErreurHote extends Error {
+  readonly statut: number;
+  readonly detail: string;
+
+  constructor(message: string, statut: number, detail: string) {
+    super(message);
+    this.name = "ErreurHote";
+    this.statut = statut;
+    this.detail = detail;
+  }
+}
+
 /** Appel de l'hôte au nom du compte (suspension tolérée seulement pour un arrêt ou un nettoyage ; nom gardé : la base n'a peut-être plus sa ligne), corps JSON rendu ; un refus est levé avec le `detail` de l'hôte. */
 export async function appelerHote(
   hote: SandboxHost,
   uid: number,
   username: string,
-  methode: "POST" | "DELETE",
+  methode: "GET" | "POST" | "DELETE",
   chemin: string,
   options: { json?: unknown; delaiS?: number; tolererSuspension?: boolean } = {},
 ): Promise<unknown> {
@@ -45,7 +58,11 @@ export async function appelerHote(
       detail = null;
     }
     const raison = typeof detail === "string" && detail ? detail : `HTTP ${r.statusCode}`;
-    throw new Error(`hôte d'outils ${hote.id} : ${raison}`);
+    throw new ErreurHote(
+      `hôte d'outils ${hote.id} : ${raison}`,
+      r.statusCode,
+      typeof detail === "string" ? detail : "",
+    );
   } finally {
     await client.aclose();
   }

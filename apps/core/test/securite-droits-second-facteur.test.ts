@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-droits-second-facteur.test.ts — devenir administrateur par SSO exige que le jeton reçu prouve un second facteur, jamais le seul réglage du fournisseur (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/securite-droits-second-facteur.test.ts — devenir administrateur par SSO exige que le jeton reçu prouve un second facteur (`amr` fort, ou niveau `acr` déclaré par l'administrateur), jamais le seul réglage du fournisseur ni le nom d'un niveau (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { secondFacteurPourTous } from "@elpis/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -7,7 +7,7 @@ import { adminAdmis, adminSansPreuve } from "../src/identite/correspondance";
 import { connecterParOidc } from "../src/identite/oidc/connexion";
 import { resultatEssaiBlanc } from "../src/identite/oidc/essai-blanc";
 import { RefusOidc } from "../src/identite/oidc/refus";
-import { secondFacteurProuve, secondFacteurSatisfait } from "../src/identite/oidc/revendications";
+import { preuveSecondFacteur, secondFacteurSatisfait } from "../src/identite/oidc/revendications";
 import { validerFournisseur } from "../src/identite/reglages";
 import type { Fournisseur } from "../src/identite/reglages";
 import { appliquerDroits } from "../src/identite/droits";
@@ -20,24 +20,31 @@ import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 const ROLES = { roles: { enabled: true, admin_groups: ["admins"], moderator_groups: [] } };
 const f = (extra: Record<string, unknown> = {}): Fournisseur =>
   validerFournisseur(oidcValide({ required_groups: ["elpis"], ...ROLES, ...extra })) as Fournisseur;
+const prouve = (claims: Record<string, unknown>, g: Fournisseur): boolean =>
+  preuveSecondFacteur(claims, g) !== null;
 
 describe("second facteur prouvé par le jeton", () => {
-  it("le jeton prouve un second facteur avec `mfa` / `mca`, deux familles RFC 8176 différentes, ou un `acr` exigé et non faible", () => {
-    const g = f({ required_acr: ["urn:gold"] });
+  it("le jeton prouve un second facteur avec `mfa` / `mca`, deux familles RFC 8176 différentes, ou un `acr` déclaré par l'administrateur", () => {
+    const g = f({ required_acr: ["loa-2", "loa-5"], mfa_acr: ["loa-5"] });
     for (const amr of [["mfa"], ["MCA"], ["pwd", "otp"], ["pin", "hwk"], ["otp", "face"], ["kba", "fpt"]])
-      expect(secondFacteurProuve({ amr }, g), amr.join()).toBe(true);
-    expect(secondFacteurProuve({ acr: "urn:gold" }, g)).toBe(true);
+      expect(preuveSecondFacteur({ amr }, g), amr.join()).toBe("amr");
+    expect(preuveSecondFacteur({ acr: "loa-5" }, g)).toBe("acr");
+    expect(preuveSecondFacteur({ acr: "loa-5", amr: ["pwd"] }, g)).toBe("acr");
   });
 
-  it("un seul facteur, deux méthodes d'une même famille, des méthodes sans famille ou un `acr` faible ou non exigé ne prouvent rien", () => {
-    const g = f({ required_acr: ["1", "0"] });
+  it("un seul facteur, deux méthodes d'une même famille, des méthodes sans famille ou un `acr` non déclaré ne prouvent rien, quel que soit le nom du niveau", () => {
+    const g = f({ required_acr: ["0", "1", "2", "3", "loa-2", "loa-5", "urn:gold", "mfa"] });
     for (const amr of [["pwd"], ["otp"], ["pwd", "pin"], ["otp", "sms"], ["pwd", "geo"], ["geo", "rba"], []])
-      expect(secondFacteurProuve({ amr }, g), amr.join()).toBe(false);
-    for (const claims of [{ acr: "1" }, { acr: "0" }, { acr: "urn:gold" }, { amr: "mfa" }, {}])
-      expect(secondFacteurProuve(claims, g), JSON.stringify(claims)).toBe(false);
+      expect(prouve({ amr }, g), amr.join()).toBe(false);
+    for (const acr of ["0", "1", "2", "3", "loa-2", "loa-5", "urn:gold", "mfa"])
+      expect(prouve({ acr }, g), acr).toBe(false);
+    for (const claims of [{ amr: "mfa" }, {}]) expect(prouve(claims, g), JSON.stringify(claims)).toBe(false);
+    const declare = f({ required_acr: ["loa-2", "loa-5"], mfa_acr: ["loa-5"] });
+    for (const claims of [{ acr: "loa-2" }, { acr: "LOA-5" }, { acr: " loa-5" }, { acr: ["loa-5"] }])
+      expect(prouve(claims, declare), JSON.stringify(claims)).toBe(false);
   });
 
-  it("les groupes d'administrateurs ne sont admis que si le fournisseur est invité à un second facteur : possession, inhérence, `mfa` / `mca` en `amr`, ou un `acr` autre que 0 ou 1", () => {
+  it("les groupes d'administrateurs ne sont admis que si le fournisseur est invité à un second facteur : possession, inhérence, `mfa` / `mca` en `amr`, ou au moins un niveau `acr` déclaré comme preuve", () => {
     for (const ok of [
       { required_amr: ["mfa"] },
       { required_amr: ["MFA", "mca"] },
@@ -45,9 +52,9 @@ describe("second facteur prouvé par le jeton", () => {
       { required_amr: ["otp"] },
       { required_amr: ["pwd", "mfa"] },
       { required_amr: ["face"] },
-      { required_acr: ["urn:gold"] },
-      { required_acr: ["0", "urn:gold"] },
-      { required_acr: [" "] },
+      { mfa_acr: ["loa-5"] },
+      { required_acr: ["loa-2", "loa-5"], mfa_acr: ["loa-5"] },
+      { required_acr: ["1", "2"], mfa_acr: ["2"] },
     ])
       expect(adminAdmis(f(ok)), JSON.stringify(ok)).toBe(true);
     for (const non of [
@@ -57,34 +64,45 @@ describe("second facteur prouvé par le jeton", () => {
       { required_amr: ["geo"] },
       { required_acr: ["1"] },
       { required_acr: ["0", "1"] },
+      { required_acr: ["2"] },
+      { required_acr: ["urn:gold"] },
+      { required_acr: ["loa-2", "loa-5"] },
+      { required_acr: ["loa-5"], required_amr: ["pwd"] },
     ])
       expect(adminAdmis(f(non)), JSON.stringify(non)).toBe(false);
   });
 
-  it("second facteur garanti pour tous les comptes seulement si chaque jeton admis à la connexion le prouve : tous les `acr` exigés forts, ou tous les `amr` exigés `mfa` / `mca`", () => {
-    const VECTEURS: [string[], string[], boolean][] = [
-      [[], ["pwd", "otp"], false],
-      [[], ["otp", "hwk"], false],
-      [[], ["pwd", "mfa"], false],
-      [[], ["mfa"], true],
-      [[], ["MFA", "mca"], true],
-      [["0", "urn:gold"], [], false],
-      [["1"], [], false],
-      [["urn:gold"], [], true],
-      [["urn:gold", "urn:silver"], [], true],
-      [[" "], [], true],
-      [["urn:gold"], ["pwd"], true],
-      [["0", "urn:gold"], ["mfa"], true],
-      [["0", "urn:gold"], ["pwd", "otp"], false],
-      [["1"], ["pwd", "otp"], false],
-      [["0"], ["pwd"], false],
-      [[], [], false],
+  it("second facteur garanti pour tous les comptes seulement si chaque jeton admis à la connexion le prouve : tous les `acr` exigés déclarés comme preuve, ou tous les `amr` exigés `mfa` / `mca`", () => {
+    const VECTEURS: [string[], string[], string[], boolean][] = [
+      [[], ["pwd", "otp"], [], false],
+      [[], ["otp", "hwk"], [], false],
+      [[], ["pwd", "mfa"], [], false],
+      [[], ["mfa"], [], true],
+      [[], ["MFA", "mca"], [], true],
+      [["urn:gold"], [], [], false],
+      [["urn:gold"], [], ["urn:gold"], true],
+      [["2"], [], [], false],
+      [["2"], [], ["2"], true],
+      [["1", "2"], [], ["2"], false],
+      [["loa-2", "loa-5"], [], [], false],
+      [["loa-2", "loa-5"], [], ["loa-5"], false],
+      [["loa-5"], [], ["loa-5"], true],
+      [["loa-2", "loa-5"], [], ["loa-2", "loa-5"], true],
+      [["urn:gold"], ["pwd"], ["urn:gold"], true],
+      [["0", "urn:gold"], ["mfa"], [], true],
+      [["0", "urn:gold"], ["pwd", "otp"], ["urn:gold"], false],
+      [["1"], ["pwd", "otp"], [], false],
+      [["0"], ["pwd"], [], false],
+      [[], [], ["loa-5"], false],
+      [[], ["pwd"], ["loa-5"], false],
+      [[], [], [], false],
     ];
-    for (const [acr, amr, tous] of VECTEURS) {
-      const g = f({ required_acr: acr, required_amr: amr });
-      const nom = JSON.stringify([acr, amr]);
-      expect(secondFacteurPourTous(acr, amr), nom).toBe(tous);
-      const jetons = (acr.length ? acr : [undefined]).flatMap((a) =>
+    for (const [acr, amr, mfa, tous] of VECTEURS) {
+      const g = f({ required_acr: acr, required_amr: amr, mfa_acr: mfa });
+      const nom = JSON.stringify([acr, amr, mfa]);
+      expect(secondFacteurPourTous(g), nom).toBe(tous);
+      const niveaux = acr.length ? acr : [undefined, "autre", ...mfa];
+      const jetons = niveaux.flatMap((a) =>
         (amr.length ? amr.map((m) => [m]) : [undefined]).map((m) => ({
           ...(a === undefined ? {} : { acr: a }),
           ...(m === undefined ? {} : { amr: m }),
@@ -93,14 +111,14 @@ describe("second facteur prouvé par le jeton", () => {
       const admis = jetons.filter((c) => secondFacteurSatisfait(c, g));
       expect(admis.length, nom).toBe(jetons.length);
       expect(
-        admis.every((c) => secondFacteurProuve(c, g)),
+        admis.every((c) => prouve(c, g)),
         nom,
       ).toBe(tous);
     }
   });
 
   it("un jeton qui liste un groupe d'administrateurs sans preuve est repéré, avec preuve ou sans ce groupe non", () => {
-    const g = f({ required_acr: ["urn:gold"] });
+    const g = f({ mfa_acr: ["urn:gold"] });
     expect(adminSansPreuve(g, ["elpis", "admins"], false)).toBe(true);
     expect(adminSansPreuve(g, ["elpis", "admins"], true)).toBe(false);
     expect(adminSansPreuve(g, ["elpis"], false)).toBe(false);
@@ -108,7 +126,7 @@ describe("second facteur prouvé par le jeton", () => {
   });
 
   it("une connexion SSO dont le jeton liste un groupe d'administrateurs sans preuve est refusée `mfa_required` (cause `admin_without_mfa`), avant tout compte", async () => {
-    const g = f({ required_acr: ["urn:gold"] });
+    const g = f({ mfa_acr: ["urn:gold"] });
     const retour = (secondFacteur: boolean) => ({ groupesComplets: ["elpis", "admins"], secondFacteur });
     const echec = await connecterParOidc(
       {} as never,
@@ -119,7 +137,7 @@ describe("second facteur prouvé par le jeton", () => {
   });
 
   it("l'essai à blanc dit la vérité : refusé `mfa_required` sans preuve", async () => {
-    const g = f({ required_acr: ["urn:gold"] });
+    const g = f({ mfa_acr: ["urn:gold"] });
     const retour = (secondFacteur: boolean) =>
       ({
         profil: { subject: "s", issuer: "i", extUsername: "s" },
@@ -133,6 +151,7 @@ describe("second facteur prouvé par le jeton", () => {
           emailVerifie: false,
           acr: null,
           amr: [],
+          preuveSecondFacteur: null,
           groupes: null,
           sujetEstIdentifiant: false,
         },
@@ -149,7 +168,7 @@ describe("second facteur prouvé par le jeton", () => {
   });
 
   it("les droits ne bougent pas quand le jeton reçu liste un groupe d'administrateurs sans preuve", async () => {
-    const g = f({ required_acr: ["urn:gold"] });
+    const g = f({ mfa_acr: ["urn:gold"] });
     const dep = { base: {} } as never;
     const r = await appliquerDroits(dep, {
       fournisseur: g,
@@ -222,8 +241,40 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)(
       expect(await niveau("sub-d")).toBe(1);
     });
 
-    it("réglage `acr` exigé et jeton avec `pwd` et `otp` reçus : administrateur", async () => {
-      await b.reglages({ ...ROLES, required_acr: ["urn:gold"] });
+    it("réglage `PWD OTP` en capitales : la casse des `amr` ne compte pas, jeton `pwd` `otp` administrateur", async () => {
+      await b.reglages({ ...ROLES, required_amr: ["PWD", "OTP"] });
+      await b.connecter(ELPIS("sub-h", { groups: ["elpis", "admins"], amr: ["pwd", "otp"] }));
+      expect(await niveau("sub-h")).toBe(1);
+    });
+
+    it("niveaux exigés `loa-2 loa-5` sans niveau déclaré comme preuve : groupes d'administrateurs ignorés, ni `loa-2` ni `loa-5` ne donnent l'administration", async () => {
+      await b.reglages({ ...ROLES, required_acr: ["loa-2", "loa-5"] });
+      for (const [nom, acr] of [
+        ["sub-i", "loa-2"],
+        ["sub-j", "loa-5"],
+      ] as const) {
+        const r = await b.connecter(ELPIS(nom, { groups: ["elpis", "admins"], acr }));
+        expect(r.retour.statusCode, String(r.retour.headers.location)).toBe(200);
+        expect(await niveau(nom), acr).toBe(0);
+      }
+    });
+
+    it("`loa-5` déclaré comme preuve : jeton `loa-2` refusé `mfa_required`, aucun compte ; jeton `loa-5` administrateur", async () => {
+      await b.reglages({ ...ROLES, required_acr: ["loa-2", "loa-5"], mfa_acr: ["loa-5"] });
+      await refuseMfa("sub-k", { groups: ["elpis", "admins"], acr: "loa-2" });
+      await b.connecter(ELPIS("sub-l", { groups: ["elpis", "admins"], acr: "loa-5" }));
+      expect(await niveau("sub-l")).toBe(1);
+    });
+
+    it("un `acr` « 2 » non déclaré ne prouve rien : refusé `mfa_required` ; le même jeton avec `pwd` `otp` administrateur", async () => {
+      await b.reglages({ ...ROLES, required_acr: ["1", "2"], required_amr: ["pwd", "otp"] });
+      await refuseMfa("sub-m", { groups: ["elpis", "admins"], acr: "2", amr: ["pwd"] });
+      await b.connecter(ELPIS("sub-n", { groups: ["elpis", "admins"], acr: "2", amr: ["pwd", "otp"] }));
+      expect(await niveau("sub-n")).toBe(1);
+    });
+
+    it("un niveau déclaré n'empêche pas la preuve par `amr` : jeton d'un niveau non déclaré avec `pwd` et `otp` administrateur", async () => {
+      await b.reglages({ ...ROLES, required_acr: ["urn:gold", "urn:silver"], mfa_acr: ["urn:silver"] });
       await b.connecter(
         ELPIS("sub-e", { groups: ["elpis", "admins"], acr: "urn:gold", amr: ["pwd", "otp"] }),
       );

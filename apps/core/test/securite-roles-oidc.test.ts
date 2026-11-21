@@ -532,6 +532,25 @@ describe.each(MOTEURS)("console : rôle géré et enregistrement de la correspon
       expect(ok.statusCode, ok.body).toBe(200);
     });
 
+    it("des niveaux exigés sans niveau déclaré comme preuve ne valent pas un second facteur : refusé même confirmé ; avec `loa-5` déclaré, accepté", async () => {
+      ecrireFournisseur();
+      const avant = sansEtatEcrit();
+      for (const acr of [["loa-2", "loa-5"], ["2"], ["urn:gold"]]) {
+        const refus = await modifier({ ...ADMINS, required_acr: acr, confirm_admin_mapping: true });
+        expect(refus.statusCode, JSON.stringify(acr)).toBe(400);
+        expect(refus.json<{ detail: string }>().detail).toContain("second facteur");
+      }
+      expect(sansEtatEcrit()).toEqual(avant);
+      const ok = await modifier({
+        ...ADMINS,
+        required_acr: ["loa-2", "loa-5"],
+        mfa_acr: ["loa-5"],
+        confirm_admin_mapping: true,
+      });
+      expect(ok.statusCode, ok.body).toBe(200);
+      expect(fournisseurEcrit()?.["mfa_acr"]).toEqual(["loa-5"]);
+    });
+
     it("création : même confirmation et même exigence de second facteur que la modification", async () => {
       const cree = (extra: Record<string, unknown>) =>
         b.appeler("POST", "/api/admin/auth/providers", oidcValide({ id: "neuf", ...extra }));
@@ -562,13 +581,14 @@ describe.each(MOTEURS)("console : rôle géré et enregistrement de la correspon
       expect(rallume.statusCode, "rôles rallumés").toBe(409);
     });
 
-    it("la revendication des groupes, acr et amr font aussi le sens de la correspondance", async () => {
+    it("la revendication des groupes, acr, amr et les niveaux qui prouvent un second facteur font aussi le sens de la correspondance", async () => {
       ecrireFournisseur({ required_amr: ["mfa"] });
       expect((await modifier({ ...ADMINS, confirm_admin_mapping: true })).statusCode).toBe(200);
       for (const change of [
         { groups_claim: "roles" },
         { required_acr: ["urn:gold"] },
         { required_amr: ["mfa", "mca"] },
+        { mfa_acr: ["urn:gold"] },
       ]) {
         expect((await modifier(change)).statusCode, JSON.stringify(change)).toBe(409);
         expect((await modifier({ ...change, confirm_admin_mapping: true })).statusCode).toBe(200);
@@ -836,6 +856,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("rôles et groupes par le SSO
           emailVerifie: false,
           acr: null,
           amr: secondFacteur ? ["mfa"] : [],
+          preuveSecondFacteur: secondFacteur ? "amr" : null,
           groupes,
           sujetEstIdentifiant: true,
         },
@@ -884,6 +905,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("rôles et groupes par le SSO
           emailVerifie: false,
           acr: null,
           amr: [],
+          preuveSecondFacteur: null,
           groupes: ["elpis", "mods"],
           sujetEstIdentifiant: true,
         },

@@ -189,6 +189,15 @@ export async function etapesOidc(
         `Le sujet est lu dans « ${f.subject_claim} » et non dans « sub » : vérifiez qu'il est propre à la personne et ne change jamais.`,
       ),
     );
+  if (f.required_acr.length > 1)
+    etapes.push(
+      etape(
+        "acr",
+        "Niveaux exigés",
+        "warn",
+        "Tous les niveaux exigés sont envoyés ensemble au fournisseur, qui en retient un selon ses propres règles (le plus bas, ou le premier de la liste) pour tout le monde : vérifiez avec « Se connecter pour essayer ».",
+      ),
+    );
   if (m.pushed_authorization_request_endpoint !== undefined)
     etapes.push(
       etape(

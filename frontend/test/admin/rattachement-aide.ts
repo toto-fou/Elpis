@@ -55,6 +55,7 @@ export const OIDC = {
   groups_claim: "groups",
   required_acr: [],
   required_amr: [],
+  mfa_acr: [],
   max_age_sec: 0,
   clock_skew_sec: 60,
   session_max_age_sec: 0,

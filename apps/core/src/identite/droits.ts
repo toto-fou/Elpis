@@ -73,7 +73,7 @@ const trier = (l: readonly string[]): string[] => [...l].sort();
 function sensAdmin(f: Fournisseur): string {
   return JSON.stringify([
     trier(f.roles.admin_groups),
-    [f.groups_claim, trier(f.required_acr), trier(f.required_amr)],
+    [f.groups_claim, trier(f.required_acr), trier(f.required_amr), trier(f.mfa_acr)],
   ]);
 }
 
@@ -87,7 +87,7 @@ export function exigerConfirmationAdmin(
   if (!adminAdmis(nouveau))
     throw new HttpError(
       400,
-      "Un groupe d'administrateurs exige que ce fournisseur impose un second facteur : une méthode de possession ou d'inhérence (par exemple « otp »), « mfa » ou « mca » en méthodes (amr), ou un niveau (acr) autre que 0 ou 1.",
+      "Un groupe d'administrateurs exige que ce fournisseur impose un second facteur : une méthode de possession ou d'inhérence (par exemple « otp »), « mfa » ou « mca » en méthodes (amr), ou au moins un niveau qui prouve un second facteur (acr).",
     );
   const identique = actuel !== null && donneAdmin(actuel) && sensAdmin(actuel) === sensAdmin(nouveau);
   if (!identique && !confirme)

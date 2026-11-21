@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/correspondance.ts — correspondance exacte groupes du jeton → rôle et groupes Elpis, en lecture seule : des groupes illisibles ne sont jamais un « non » et suspendent toute décision. */
-import { ACR_FAIBLES, AMR_MULTI_FACTEUR, FAMILLES_AMR, secondFacteurDemande } from "@elpis/contracts";
+import { AMR_MULTI_FACTEUR, amrNormal, FAMILLES_AMR, secondFacteurDemande } from "@elpis/contracts";
 import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import type { Executeur } from "@elpis/db";
 
@@ -28,11 +28,11 @@ export function estPlusHaut(a: RoleElpis, b: RoleElpis): boolean {
   return RANG[a] > RANG[b];
 }
 
-export { ACR_FAIBLES, AMR_MULTI_FACTEUR, FAMILLES_AMR };
+export { AMR_MULTI_FACTEUR, amrNormal, FAMILLES_AMR };
 
 /** Le fournisseur est invité à un second facteur (règle partagée avec la console) ; la preuve du jeton décide ensuite à la connexion. */
 export function adminAdmis(f: Fournisseur): boolean {
-  return secondFacteurDemande(f.required_acr, f.required_amr);
+  return secondFacteurDemande(f);
 }
 
 function groupesDeRoles(f: Fournisseur): { admin: readonly string[]; moderateur: readonly string[] } {

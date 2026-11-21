@@ -34,6 +34,8 @@ export const schemaResultatEssaiBlanc = z.object({
       email_verified: z.boolean(),
       acr: z.string().nullable(),
       amr: z.array(z.string()),
+      /** Ce qui prouve un second facteur dans le jeton : un niveau `acr` déclaré (`acr`), les méthodes `amr` (`amr`), ou rien (`null`). */
+      second_factor: z.enum(["acr", "amr"]).nullable(),
       groups: z.array(z.string()).nullable(),
     })
     .nullable(),
@@ -54,7 +56,7 @@ export const schemaResultatEssaiBlanc = z.object({
       groups: z.array(z.object({ id: z.number(), name: z.string() })),
       /** Groupes Elpis de la correspondance qui n'existent plus (ignorés). */
       missing_group_ids: z.array(z.number()),
-      /** Groupes d'administrateurs ignorés : le fournisseur n'exige ni `acr` ni `amr`. */
+      /** Groupes d'administrateurs ignorés : le fournisseur n'est invité à aucun second facteur. */
       admin_ignored: z.boolean(),
     })
     .nullable()

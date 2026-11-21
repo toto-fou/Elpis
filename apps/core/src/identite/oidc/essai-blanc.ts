@@ -64,6 +64,7 @@ export async function resultatEssaiBlanc(
       email_verified: r.vue.emailVerifie,
       acr: r.vue.acr,
       amr: r.vue.amr,
+      second_factor: r.vue.preuveSecondFacteur,
       groups: r.vue.groupes,
     },
     decision,

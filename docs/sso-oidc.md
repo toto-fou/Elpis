@@ -17,7 +17,7 @@ Reference of every setting: [configuration.md](configuration.md#openid-connect-s
 - Not provided: SAML, Kerberos or other ticket-based sign-in, authentication by a header set by a front
   proxy.
 - **No second factor in Elpis.** Two-factor authentication is set up at the provider; Elpis can require
-  that the identity token proves it (`required_acr` / `required_amr`, see
+  that the identity token proves it (`required_amr`, or the `acr` levels you declare in `mfa_acr`, see
   [Requiring a second factor](#requiring-a-second-factor)).
 - Nothing is on by default. Without a provider, nothing changes: no new route answers, no outgoing call is
   made, the login page is the same.
@@ -97,9 +97,9 @@ and each address to declare is replaced, in the same place, by what is missing u
    authority: changing either asks for it again.
 6. **4. Accès** (Access): the **Groupes requis** (Required groups): at least one is needed to switch on, and
    only the members of one of them can sign in. Type a group and press `Enter` or **Ajouter**. Then the second
-   factor, **Niveaux exigés (acr)** and **Méthodes exigées (amr)**, with a fixed line under them that says
-   who must prove a second factor: all accounts, the administrators only, or nobody. See [Requiring a second
-   factor](#requiring-a-second-factor).
+   factor, **Niveaux exigés (acr)**, **Niveaux qui prouvent un second facteur (acr)** and **Méthodes exigées
+   (amr)**, with a fixed line under them that says who must prove a second factor: all accounts, the
+   administrators only, or nobody. See [Requiring a second factor](#requiring-a-second-factor).
 7. **5. Rôles et groupes** (Roles and groups, folded, off by default) and **6. Avancé** (Advanced, folded):
    see below.
 8. **7. Vérification** (Verification): **a. Contrôler les réglages** (Check the settings; see [What the check
@@ -142,8 +142,9 @@ days left).
   **Clés de signature** (a signing key of the configured algorithm is published; RSA keys of 2048 bits at
   least), **Authentification** (client authentication method announced), **Secret**, and warnings:
   **PKCE** (the provider does not announce PKCE S256: check that it requires it), **Sujet** (subject not read
-  from `sub`) and **Requête poussée** (the provider announces pushed authorization requests, which Elpis then
-  uses).
+  from `sub`), **Niveaux exigés** (`required_acr` holds several values: see [how the levels are
+  requested](#requiring-a-second-factor)) and **Requête poussée** (the provider announces pushed authorization
+  requests, which Elpis then uses).
 
 A provider can be switched on after a successful sign-in trial on its saved settings: the condition **Connexion
 d'essai réussie** (Successful sign-in trial) of **8. Activation**. After any later change, check and try
@@ -157,8 +158,12 @@ provider in a new tab and walks through a real sign-in. No account and no sessio
 then shows the decision, for example **Cette
 personne se connecterait au compte…** (This person would sign in as…), **Un compte … serait créé** (An
 account … would be created) or **Connexion refusée** (Sign-in refused) with the reason, and the claims
-received (issuer, stable identifier, identifier, name, email, `acr`, `amr`, groups). Use it to check the
-claim names and group values. Try it with a member of a required group, then with a non-member. The trial
+received (issuer, stable identifier, identifier, name, email, `acr`, `amr`, groups). The line **Second
+facteur** says whether the token proves a second factor and how: **prouvé par le niveau acr** (a level
+declared in `mfa_acr`), **prouvé par les méthodes amr**, or **non prouvé**, with **ce niveau acr n'est pas
+déclaré comme second facteur** when the `acr` received is not one of the declared levels. A token without
+groups shows **groupes absents** (no groups). Use it to check the claim names, the group values and the
+`acr` levels your provider really sends. Try it with a member of a required group, then with a non-member. The trial
 validates the provider only when it ends in a sign-in or in an account creation, with the groups readable,
 and for the settings that started it: a refusal, an error or a later change of the settings leaves the
 provider untested. Read the decision line. When roles or groups follow the provider, the result also reports
@@ -188,7 +193,8 @@ Whatever the product, the requirements that matter to the directory are settled 
 - **A departure** is seen at the person's next sign-in (the groups are read again), through back-channel
   logout when the provider sends it (see [Sign-out](#sign-out)), and through the freshness of the access
   (**Fraîcheur (jours)**, 14 days by default): tokens, OAuth grants and routines of a person not seen for that
-  long stop.
+  long stop. Removing a person's **last** group is not the same as removing a required group: see [Life
+  cycle](#life-cycle). To cut access at once, suspend the account in **Comptes**.
 
 ## Single sign-on (OpenID Connect)
 
@@ -249,30 +255,65 @@ never changes. The trial warns when the subject equals the login name.
 
 ### Requiring a second factor
 
-Set the second factor at the provider, then make Elpis require it, in section **4. Accès** of the drawer:
-**Niveaux exigés (acr)** (`required_acr`) and **Méthodes exigées (amr)** (`required_amr`), space-separated
-lists. A sign-in
-is accepted when the identity token carries one of the listed `acr` values and, if set, one of the listed
-`amr` methods (any one value of each list is enough to sign in); the `acr` values are also sent in the request. Empty means no requirement.
+Set the second factor at the provider, then make Elpis require it, in section **4. Accès** of the drawer,
+with three space-separated lists (empty means no requirement):
 
-The fixed line under the two fields says what Elpis guarantees, by the rule the server applies at sign-in:
+- **Niveaux exigés (acr)** (`required_acr`): a sign-in is accepted only when the identity token carries one
+  of these `acr` values, compared exactly.
+- **Niveaux qui prouvent un second facteur (acr)** (`mfa_acr`, empty by default): the `acr` values your
+  provider issues only after a second factor. **Only these levels prove a second factor.** Elpis never
+  infers it from the name or the number of a level: each provider names its levels its own way (at
+  LemonLDAP::NG, `loa-2` is a password alone).
+- **Méthodes exigées (amr)** (`required_amr`): a sign-in is accepted only when the token carries one of these
+  `amr` methods, compared without regard to case.
+
+Any one value of each list is enough to sign in. A level declared in `mfa_acr` must be one the token can
+carry: when `required_acr` is set, a declared level that is not in it never gets through the sign-in.
+
+**How the levels are requested.** The whole `required_acr` list is sent to the provider in one `acr_values`
+parameter, and providers do not read it the same way: Keycloak aims at the lowest level of the list,
+LemonLDAP::NG takes the first value it knows as the minimum for everybody (with `loa-5 loa-2`, every person
+has to raise their session; with `loa-2 loa-5`, nothing changes). A single list therefore cannot say "a
+password for users, a second factor for administrators"; leave the choice to the provider (by group or by
+role) and let Elpis check the proof. **Contrôler les réglages** warns when `required_acr` holds several
+values: check them with **Se connecter pour essayer**.
+
+The fixed line under the fields says what Elpis guarantees, by the rule the server applies at sign-in:
 
 - **Second facteur exigé pour tous les comptes : …** (Second factor required for all accounts), when every
-  token that can sign in proves a second factor: every listed `acr` is a level other than `0` and `1`, or every
-  listed `amr` is `mfa` or `mca`.
+  token that can sign in proves a second factor: every value of `required_acr` is declared in `mfa_acr`, or
+  every listed `amr` is `mfa` or `mca`.
 - **⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec …** (Second
-  factor required from administrators only: the other accounts can sign in with …), when the settings invite
-  the provider to a second factor (see below) and **5. Rôles et groupes** gives the administrator role through
-  groups, but a single-factor value of the lists is enough for the others: with `required_amr` set to
-  `pwd otp`, a token carrying only `pwd`, or only `otp`, signs in an ordinary account.
+  factor required from administrators only: the other accounts can sign in with …; **sans second facteur**,
+  without a second factor, when nothing is required to sign in), when the settings invite the provider to a
+  second factor (see below) and **5. Rôles et groupes** gives the administrator role through groups, but a
+  value that proves nothing is enough for the others: with `required_amr` set to `pwd otp`, a token carrying
+  only `pwd` signs in an ordinary account; with `required_acr` `loa-2 loa-5` and `mfa_acr` `loa-5`, a token at
+  `loa-2` does.
 - **⚠ Aucun second facteur garanti par Elpis** (No second factor guaranteed by Elpis) otherwise: Elpis then
   checks no proof for anybody, administrators linked to the provider included.
 
-Becoming an administrator through a group is judged on what the received token proves. The settings only have to invite the provider to a second factor: `required_amr` lists at least one method of possession or inherence (for example `pwd otp`), `mfa` or `mca`, or `required_acr` lists a level other than `0` and `1`; `pwd` alone or `acr` `1` alone is refused when you save. Then, at each sign-in, the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
-`pin` `kba`; possession `otp` `hwk` `swk` `sms` `tel` `sc`; inherence `face` `fpt` `iris` `retina` `vbm`), or an
-`acr` listed in `required_acr` that is not `0` or `1`. A sign-in whose token lists an administrator group without
-such a proof is refused (`mfa_required`, cause `admin_without_mfa`), even when it satisfies the settings: with `required_amr` set to `pwd otp`, a token carrying only `pwd` is refused. A refusal shows "Une vérification en deux étapes est
-exigée".
+Becoming an administrator through a group is judged on what the received token proves. The settings only
+have to invite the provider to a second factor: `required_amr` lists at least one method of possession or
+inherence (for example `pwd otp`), `mfa` or `mca`, or `mfa_acr` declares at least one level. `pwd` alone, or
+`required_acr` without `mfa_acr` whatever its levels are called, invites to nothing: administrator groups are
+then refused when you save. Then, at each
+sign-in, the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176:
+knowledge `pwd` `pin` `kba`; possession `otp` `hwk` `swk` `sms` `tel` `sc`; inherence `face` `fpt` `iris`
+`retina` `vbm`), or an `acr` declared in `mfa_acr`. A sign-in whose token lists an administrator group without
+such a proof is refused (`mfa_required`, cause `admin_without_mfa`), even when it satisfies the settings: with
+`required_amr` set to `pwd otp`, a token carrying only `pwd` is refused. A refusal shows "Une vérification en
+deux étapes est exigée".
+
+Examples, as played against real servers:
+
+- **Keycloak**, one-time password asked by the sign-in flow to the administrators only: prove it with the
+  methods, **Méthodes exigées** `pwd otp`, `mfa_acr` empty. The `acr` of Keycloak (`1`, or `0` when a session
+  is reused) says nothing about the one-time password here. See [Keycloak](#keycloak) for the `amr` claim.
+- **LemonLDAP::NG** sends no `amr` (version 2.20): only `acr` proves the second factor. With its default
+  levels (`loa-2` after the password, `loa-5` after a one-time password), declare `loa-5` in **Niveaux qui
+  prouvent un second facteur** and leave **Niveaux exigés** empty (or `loa-2 loa-5`, in that order). With
+  levels renamed to numbers (`1` after the password, `2` after the one-time password), declare `2`.
 
 ### Keycloak
 
@@ -280,8 +321,17 @@ exigée".
   `S256`. Issuer: `https://sso.example.lan/realms/<realm>`. Subject `sub`, login `preferred_username`.
 - Groups: add a **Group Membership** mapper with the claim name `groups`, **Add to ID token** on. Turn **Full
   group path** off, or enter the group with its leading slash.
-- **A person who belongs to no group has no groups claim**: Elpis cannot read the groups and refuses with
-  `groups_unknown` ("groups unreadable"). This is expected for people outside every group.
+- **A person who belongs to no group has no groups claim**: Elpis refuses with `groups_unknown` (the trial
+  says **groupes absents**). This is expected for people outside every group; see [Life cycle](#life-cycle)
+  for a departure.
+- Second factor: set the **AMR reference** of the steps of the sign-in flow (`pwd` on the password step,
+  `otp` on the one-time password step) and add an **Authentication Method Reference (AMR)** mapper to the
+  client (**Add to ID token** on): without the references the `amr` claim is empty. Then set **Méthodes
+  exigées** to `pwd otp`.
+- **The sign-in that enrols a one-time password does not prove it.** When the person sets up the one-time
+  password as a required action, the token of that sign-in carries only `pwd`: an administrator is refused
+  once ("Une vérification en deux étapes est exigée", `admin_without_mfa`) and signs in again, this time with
+  the code. Tell your administrators before their first sign-in.
 - Sign-out: set the **Backchannel logout URL**, and **Backchannel logout session required** on.
 
 ### Authentik
@@ -304,7 +354,12 @@ exigée".
 - Expose the groups as a claim through the relying party's attributes, as a list (array type `auto` or
   `always`), and check in the trial that **Groupes** lists them one by one. A person with a single group is
   let in when that group is a required group; a string holding several groups is not a list. If roles or groups
-  follow the provider, send a list every time (array type `always`).
+  follow the provider, send a list every time (array type `always`). With a directory behind it, a person
+  without any group gets no groups claim at all (`groups_unknown`, **groupes absents**).
+- **Second factor**: LemonLDAP::NG sends no `amr`; its `acr` level proves the second factor only once you
+  declare it in **Niveaux qui prouvent un second facteur** (`loa-5` with the default level names). See the
+  examples of [Requiring a second factor](#requiring-a-second-factor). Do not put the strongest level first
+  in **Niveaux exigés**: LemonLDAP::NG would then require it from everybody.
 
 ### AD FS
 
@@ -371,6 +426,11 @@ On the page, card **3. Comptes existants** (Existing accounts), available as soo
 again with a temporary password you type (to change at the next sign-in); its sessions, tokens and grants are
 revoked. You cannot detach your own account.
 
+**One identity per account.** An account is tied to one identity of one provider. The same person declared
+at two providers is two identities: when both give the same login name, the second is refused (`conflict`);
+otherwise it gets an account of its own. An account already linked cannot be linked to a second provider. To move an account from one
+provider to another, detach it, then prepare its link to the other provider (card **3. Comptes existants**).
+
 ## Roles and groups from the provider
 
 By default Elpis decides nothing about roles and groups: accounts created by a provider are ordinary users, and
@@ -419,8 +479,9 @@ When the decision is applied:
 **Administrator groups.** Giving the administrator role through groups is a deliberate step. When you save a
 provider with administrator groups, when you create it or change them, the save is refused until you confirm
 explicitly that their members become administrators: the drawer asks you to type **administrateur**. The
-confirmation is asked again when the way the groups are read changes: the groups claim, `required_acr` or `required_amr`. The provider must also be invited to a second factor (a `required_acr` with a level other than `0` and `1`,
-or a `required_amr` with a method of possession or inherence, `mfa` or `mca`; see
+confirmation is asked again when the way the groups are read changes: the groups claim, `required_acr`,
+`required_amr` or `mfa_acr`. The provider must also be invited to a second factor (a level declared in
+`mfa_acr`, or a `required_amr` with a method of possession or inherence, `mfa` or `mca`; see
 [Requiring a second factor](#requiring-a-second-factor)), otherwise the settings are refused; administrator
 groups of a provider that does not require one are ignored, and `./elpis doctor` warns about
 it. At sign-in the received token must prove the second factor, or the sign-in is refused. A mapping to an Elpis group that does not exist is refused when you save.
@@ -454,10 +515,18 @@ roles or groups are managed.
 
 ## Life cycle
 
-**Groups are read at every sign-in.** A person already linked who
-signs in without a required group is refused and their account is suspended; it is reactivated at their next
-sign-in once they are back in a group, unless an administrator suspended it. A provider that supports
-back-channel logout ends sessions as it decides (see [Sign-out](#sign-out)).
+**Groups are read at every sign-in.** A person already linked who signs in with their groups, none of them a
+required group, is refused and their account is suspended; it is reactivated at their next sign-in once they
+are back in a group, unless an administrator suspended it. A provider that supports back-channel logout ends
+sessions as it decides (see [Sign-out](#sign-out)).
+
+**A person removed from all their groups is refused, not suspended.** Keycloak and LemonLDAP::NG (with a
+directory) leave out the groups claim of a person who has no group left. Elpis reads a missing claim as
+"groups unknown", never as "no group" (a provider can also omit it for other reasons): the sign-in is refused
+(`groups_unknown`) and nothing is changed on the account. Its non-interactive access (personal tokens, OAuth
+grants, routines) stops when the freshness runs out (below). To cut everything at once, suspend the account
+in **Comptes**; to have departures suspended at the next sign-in, keep a group that everybody has at the
+provider (a default group), so that the claim is always sent.
 
 **Freshness.** Access that does not go through an interactive session (personal tokens, OAuth grants,
 scheduled runs of routines) is refused for an account whose identity was not confirmed for **Fraîcheur
@@ -497,20 +566,20 @@ What people see after a single sign-on failure is a message and a short **Réfé
 Sécurité (`auth.login.denied`, `details.ref`). Repeated refusals from the same address are summarized: only the first one of a minute keeps its reference in the journal, so a reference may be missing there. All the
 reasons are listed in [audit-events.md](audit-events.md#authentication).
 
-| Message shown                                                                        | Code (`auth_error`) | Probable cause                                                                                                                           |
-| ------------------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| "Votre compte n'est pas autorisé à utiliser Elpis. Demandez à votre administrateur." | `not_in_group`      | Not in a required group (check the group value in the trial)                                                                             |
-| (same message)                                                                       | `groups_unknown`    | No groups claim, not a list of strings, or too many groups for the token (Keycloak: person without group)                                |
-| (same message)                                                                       | `conflict`          | An account already has the derived name, the name is invalid or reserved, or the prepared link does not match                            |
-| (same message)                                                                       | `suspended`         | Account suspended: at a sign-in without a required group, or by an administrator                                                        |
-| "Une vérification en deux étapes est exigée. Reconnectez-vous en la validant."       | `mfa_required`      | `acr` / `amr` of the token do not match **required_acr** / **required_amr**                                                              |
-| "Connexion refusée par le service de votre organisation."                            | `denied`            | The provider answered with an error (person refused or cancelled there)                                                                  |
-| "La connexion a pris trop de temps. Réessayez."                                      | `expired`           | The sign-in was too long, was opened from another address than the public one, or the browser blocked cookies                            |
-| "Le service de connexion de votre organisation ne répond pas…"                       | `unavailable`       | Provider unreachable, discovery or keys unreadable, client secret missing, no local administrator left                                   |
-| "La connexion n'a pas abouti. Réessayez ou demandez à votre administrateur."         | `failed`            | Anything else: token rejected (signature, issuer, audience, nonce, expiry: `lib:<code>`), clock difference, subject missing              |
-| (same message)                                                                       | `failed`            | `client_auth_rejected` in the journal: the provider refused the client secret; check it, then try the other client authentication method |
-| (same message)                                                                       | `failed`            | `aud_untrusted` in the journal: the identity token lists another audience than Elpis                                                     |
-| (same message)                                                                       | `failed`            | `iss_mismatch` in the journal: the answer does not come from the configured issuer                                                       |
+| Message shown                                                                        | Code (`auth_error`) | Probable cause                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Votre compte n'est pas autorisé à utiliser Elpis. Demandez à votre administrateur." | `not_in_group`      | Not in a required group (check the group value in the trial)                                                                                                                                      |
+| (same message)                                                                       | `groups_unknown`    | No groups claim (Keycloak and LemonLDAP::NG leave it out for a person without group), not a list of strings, or too many groups for the token                                                     |
+| (same message)                                                                       | `conflict`          | An account already has the derived name, the name is invalid or reserved, or the prepared link does not match                                                                                     |
+| (same message)                                                                       | `suspended`         | Account suspended: at a sign-in without a required group, or by an administrator                                                                                                                  |
+| "Une vérification en deux étapes est exigée. Reconnectez-vous en la validant."       | `mfa_required`      | `acr` / `amr` of the token do not match **required_acr** / **required_amr**, or an administrator group without proof (`admin_without_mfa`; Keycloak: the sign-in that enrols a one-time password) |
+| "Connexion refusée par le service de votre organisation."                            | `denied`            | The provider answered with an error (person refused or cancelled there)                                                                                                                           |
+| "La connexion a pris trop de temps. Réessayez."                                      | `expired`           | The sign-in was too long, was opened from another address than the public one, or the browser blocked cookies                                                                                     |
+| "Le service de connexion de votre organisation ne répond pas…"                       | `unavailable`       | Provider unreachable, discovery or keys unreadable, client secret missing, no local administrator left                                                                                            |
+| "La connexion n'a pas abouti. Réessayez ou demandez à votre administrateur."         | `failed`            | Anything else: token rejected (signature, issuer, audience, nonce, expiry: `lib:<code>`), clock difference, subject missing                                                                       |
+| (same message)                                                                       | `failed`            | `client_auth_rejected` in the journal: the provider refused the client secret; check it, then try the other client authentication method                                                          |
+| (same message)                                                                       | `failed`            | `aud_untrusted` in the journal: the identity token lists another audience than Elpis                                                                                                              |
+| (same message)                                                                       | `failed`            | `iss_mismatch` in the journal: the answer does not come from the configured issuer                                                                                                                |
 
 Other messages: "Cette demande a expiré. Reconnectez-vous par le service de votre organisation." (the
 old-password step waited too long), "Cette demande n'est plus valable. Reconnectez-vous par le service de votre
@@ -572,27 +641,27 @@ work, and **Contrôler les réglages** then **Se connecter pour essayer** will s
 
 ### Identity providers
 
-| Provider                                | Status                  | Settings and limits                                                                                                          |
-| --------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Keycloak                                | Played on a real server | See [Keycloak](#keycloak). Sign-out both ways                                                                                |
-| LemonLDAP::NG                           | Played on a real server | See [LemonLDAP::NG](#lemonldapng): client authentication in the request body; a single group sent as a string was played too |
-| Dex                                     | Played on a real server | Add the `groups` scope. No sign-out at the provider                                                                          |
-| Providers built on `node-oidc-provider` | Played on a real server | RS256, PS256, ES256, ES384 and EdDSA, both client authentication methods, pushed authorization requests, sign-out both ways  |
-| Microsoft Entra ID                      | Played on its profile   | See [Microsoft Entra ID](#microsoft-entra-id): groups in the identity token, issuer of your tenant                           |
-| AD FS                                   | Played on its profile   | See [AD FS](#ad-fs)                                                                                                          |
-| Authentik                               | Played on its profile   | See [Authentik](#authentik): a signing key is mandatory                                                                      |
-| Okta                                    | Played on its profile   | Standard settings; create a `groups` claim                                                                                   |
-| GitLab                                  | Played on its profile   | The groups are read at the user-information endpoint (full group paths). No sign-out at the provider                         |
-| Authelia                                | Played on its profile   | Add the `groups` scope; the groups and the login name are read at the user-information endpoint                              |
-| Kanidm                                  | Played on its profile   | ES256, client authentication in the header, `groups` scope                                                                   |
-| Auth0, Ory Hydra                        | Played on its profile   | Type the issuer with its final slash. Auth0: put the groups in a claim with a plain name                                     |
-| Zitadel                                 | Played on its profile   | Provide the groups as a list of strings (an Action); its native roles claim is an object and is not read                     |
-| OneLogin                                | Played on its profile   | Add the `groups` scope                                                                                                       |
-| Google, Amazon Cognito                  | Not supported           | Their token and key endpoints are on other hosts than the issuer. Put an identity broker you run (Keycloak, Dex) in front    |
+| Provider                                | Status                  | Settings and limits                                                                                                                                                                   |
+| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keycloak                                | Played on a real server | See [Keycloak](#keycloak). Sign-out both ways                                                                                                                                         |
+| LemonLDAP::NG                           | Played on a real server | See [LemonLDAP::NG](#lemonldapng): client authentication in the request body; second factor through a declared `acr` level (no `amr`); a single group sent as a string was played too |
+| Dex                                     | Played on a real server | Add the `groups` scope. No sign-out at the provider                                                                                                                                   |
+| Providers built on `node-oidc-provider` | Played on a real server | RS256, PS256, ES256, ES384 and EdDSA, both client authentication methods, pushed authorization requests, sign-out both ways                                                           |
+| Microsoft Entra ID                      | Played on its profile   | See [Microsoft Entra ID](#microsoft-entra-id): groups in the identity token, issuer of your tenant                                                                                    |
+| AD FS                                   | Played on its profile   | See [AD FS](#ad-fs)                                                                                                                                                                   |
+| Authentik                               | Played on its profile   | See [Authentik](#authentik): a signing key is mandatory                                                                                                                               |
+| Okta                                    | Played on its profile   | Standard settings; create a `groups` claim                                                                                                                                            |
+| GitLab                                  | Played on its profile   | The groups are read at the user-information endpoint (full group paths). No sign-out at the provider                                                                                  |
+| Authelia                                | Played on its profile   | Add the `groups` scope; the groups and the login name are read at the user-information endpoint                                                                                       |
+| Kanidm                                  | Played on its profile   | ES256, client authentication in the header, `groups` scope                                                                                                                            |
+| Auth0, Ory Hydra                        | Played on its profile   | Type the issuer with its final slash. Auth0: put the groups in a claim with a plain name                                                                                              |
+| Zitadel                                 | Played on its profile   | Provide the groups as a list of strings (an Action); its native roles claim is an object and is not read                                                                              |
+| OneLogin                                | Played on its profile   | Add the `groups` scope                                                                                                                                                                |
+| Google, Amazon Cognito                  | Not supported           | Their token and key endpoints are on other hosts than the issuer. Put an identity broker you run (Keycloak, Dex) in front                                                             |
 
 - **Groups are a list of strings.** A claim holding one string lets the person in when it is exactly a
   required group and neither roles nor groups follow the provider; otherwise a list is required. Several
-  groups glued in one string (`a;b`) are never split, and give "groups unreadable".
+  groups glued in one string (`a;b`) are never split, and are read as no groups (**groupes absents**).
 - **Back-channel sign-out** needs a provider that sends logout tokens (Keycloak and `node-oidc-provider` were
   played on real servers). A logout token without an expiry is accepted when it is recent; one listing another
   audience than Elpis is refused.

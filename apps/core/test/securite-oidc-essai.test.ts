@@ -119,6 +119,15 @@ describe.skipIf(!OPENSSL_DISPONIBLE)("test d'un fournisseur OIDC", () => {
     idp.decouverte = {};
   });
 
+  it("plusieurs niveaux exigés : avertissement `acr` (le fournisseur en retient un pour tout le monde) ; un seul ou aucun : pas d'étape", async () => {
+    const r = await tester({ required_acr: ["loa-2", "loa-5"] });
+    expect(r.par["acr"]).toBe("warn");
+    expect(r.ok).toBe(true);
+    expect(r.steps.find((e) => e.id === "acr")?.detail).toContain("Se connecter pour essayer");
+    for (const acr of [["loa-5"], []])
+      expect((await tester({ required_acr: acr })).par["acr"]).toBeUndefined();
+  });
+
   it("PKCE S256 non annoncé : avertissement ; annoncé : aucune étape `pkce`", async () => {
     expect(await tester()).toMatchObject({ par: expect.not.objectContaining({ pkce: expect.anything() }) });
     idp.decouverte = { code_challenge_methods_supported: ["plain"] };

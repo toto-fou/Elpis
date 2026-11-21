@@ -85,6 +85,17 @@ describe("revendications", () => {
     expect(secondFacteurSatisfait({}, f())).toBe(true);
   });
 
+  it("`amr` exigés comparés sans tenir compte de la casse, des deux côtés ; `acr` comparé exactement", () => {
+    const g = f({ required_amr: ["OTP", "hwk"] });
+    for (const amr of [["otp"], ["OTP"], ["pwd", "Otp"], ["HWK"]])
+      expect(secondFacteurSatisfait({ amr }, g), amr.join()).toBe(true);
+    for (const amr of [["pwd"], ["ot p"], []])
+      expect(secondFacteurSatisfait({ amr }, g), amr.join()).toBe(false);
+    const acr = f({ required_acr: ["Loa-5"] });
+    expect(secondFacteurSatisfait({ acr: "Loa-5" }, acr)).toBe(true);
+    expect(secondFacteurSatisfait({ acr: "loa-5" }, acr)).toBe(false);
+  });
+
   it("e-mail : seulement si `email_verified` vaut vrai (booléen)", () => {
     expect(emailVerifieDe({ email: "a@b.c", email_verified: true }, f())).toBe("a@b.c");
     for (const v of [false, "true", 1, undefined])

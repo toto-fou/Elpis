@@ -306,6 +306,24 @@ const raisonSupprimer = computed(() => {
                     :title="general || 'Séparés par des espaces ; vide : aucune exigence.'"
                   />
                 </label>
+                <div class="adm-field">
+                  <label class="adm-field__label" for="ent-mfa-acr"
+                    >Niveaux qui prouvent un second facteur (acr)</label
+                  >
+                  <input
+                    id="ent-mfa-acr"
+                    v-model="f.mfa_acr"
+                    class="set-input font-mono text-xs"
+                    aria-describedby="ent-mfa-acr-aide ent-second-facteur"
+                    :disabled="!!general"
+                    :title="
+                      general || 'Séparés par des espaces ; vide : aucun niveau ne prouve un second facteur.'
+                    "
+                  />
+                  <span id="ent-mfa-acr-aide" class="adm-card__hint" data-aide-mfa-acr
+                    >Ceux que votre fournisseur ne délivre qu'après un second facteur.</span
+                  >
+                </div>
                 <label class="adm-field">
                   <span class="adm-field__label">Méthodes exigées (amr)</span>
                   <input
@@ -322,13 +340,7 @@ const raisonSupprimer = computed(() => {
                 </label>
               </div>
               <p id="ent-second-facteur" class="adm-card__hint" data-aide-second-facteur>
-                {{
-                  phraseSecondFacteur(
-                    f.required_acr,
-                    f.required_amr,
-                    f.roles_enabled && f.admin_groups.length > 0,
-                  )
-                }}
+                {{ phraseSecondFacteur(f, f.roles_enabled && f.admin_groups.length > 0) }}
               </p>
             </section>
 

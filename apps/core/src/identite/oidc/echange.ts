@@ -12,7 +12,7 @@ import {
   groupesDe,
   identifiantFiable,
   lireRevendication,
-  secondFacteurProuve,
+  preuveSecondFacteur,
   secondFacteurSatisfait,
   sujetDe,
   texteDe,
@@ -51,6 +51,8 @@ export interface VueRevendications {
   readonly emailVerifie: boolean;
   readonly acr: string | null;
   readonly amr: string[];
+  /** Ce qui prouve un second facteur : niveau `acr` déclaré, méthodes `amr`, ou rien. */
+  readonly preuveSecondFacteur: "acr" | "amr" | null;
   readonly groupes: string[] | null;
   readonly sujetEstIdentifiant: boolean;
 }
@@ -161,6 +163,7 @@ export async function verifierRetour(
     (lireRevendication(claims, f.email_claim) === undefined ? emailVerifieDe(complement, f) : "");
   const sid = lireRevendication(claims, "sid");
   const acr = lireRevendication(claims, "acr");
+  const preuve = preuveSecondFacteur(claims, f);
   return {
     profil: {
       subject: sujet,
@@ -178,11 +181,12 @@ export async function verifierRetour(
       emailVerifie: email !== "",
       acr: typeof acr === "string" ? acr.slice(0, 128) : null,
       amr: liste(lireRevendication(claims, "amr")),
+      preuveSecondFacteur: preuve,
       groupes: groupes === null ? (requisSeul === null ? null : [requisSeul]) : groupes.slice(0, 50),
       sujetEstIdentifiant: identifiant !== "" && identifiant === sujet,
     },
     groupesComplets: groupes,
-    secondFacteur: secondFacteurProuve(claims, f),
+    secondFacteur: preuve !== null,
     sub: claims.sub,
     idToken: jetons.id_token ?? null,
     idpSid: typeof sid === "string" && sid !== "" && sid.length <= SID_MAX && sid.isWellFormed() ? sid : null,

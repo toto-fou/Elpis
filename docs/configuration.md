@@ -428,7 +428,7 @@ Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at 
 - `roles` (all three keys required; see [sso-oidc.md](sso-oidc.md#roles-and-groups-from-the-provider)):
   `enabled` (default `false`), `admin_groups` and `moderator_groups` (0 to 20 entries of 512 characters at
   most each, no duplicate). The role of the accounts of the provider follows these groups; administrator groups
-  of a provider count only when it invites a second factor (`required_amr` with a method of possession or inherence, `mfa` or `mca`, or `required_acr` with a level other than `0` and `1`), and a sign-in only gives the role when the received token proves it.
+  of a provider count only when it invites a second factor (`required_amr` with a method of possession or inherence, `mfa` or `mca`, or at least one level in `mfa_acr`), and a sign-in only gives the role when the received token proves it.
 - `group_map`: `enabled` (default `false`) and `map`, 0 to 50 pairs `{external, group_id}` (`external`: 1 to 512
   characters, the exact claim value; `group_id`: identifier of an Elpis group, 1 or more; no
   duplicate pair).
@@ -439,7 +439,10 @@ Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at 
   `subject_claim` (default `sub`), `username_claim` (default `preferred_username`), `email_claim` (default
   `email`), `name_claim` (default `name`), `groups_claim` (default `groups`; claim names of 1 to 64 letters,
   digits, `_`, `-`, `.` or `:`, a dotted path reaches a nested claim), `required_acr` and `required_amr`
-  (0 to 10 values of 128 characters at most; empty = no requirement), `max_age_sec` (0 to 604800, 0 = none),
+  (0 to 10 values of 128 characters at most; empty = no requirement; `acr` compared exactly, `amr` without
+  regard to case), `mfa_acr` (0 to 10 values of 128 characters at most, default empty: the `acr` levels the
+  provider issues only after a second factor, the only ones that prove it; see
+  [sso-oidc.md](sso-oidc.md#requiring-a-second-factor)), `max_age_sec` (0 to 604800, 0 = none),
   `clock_skew_sec` (0 to 300, default 60), `session_max_age_sec` (0 to 2592000, 0 = global duration), `logout`
   (`rp_initiated`, `backchannel`, both default `false`).
 

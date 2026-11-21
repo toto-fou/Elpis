@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** frontend/test/admin/essai-connexion-sso.test.ts — console › fournisseur SSO : algorithme du jeton, ligne du second facteur, « Se connecter pour essayer » (ouverture https seulement, interrogation bornée et arrêtée, décision, activation dégrisée, raison du grisé). */
 import * as Vue from "vue";
+import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { phraseDecision } from "../../src/features/admin/identite";
+import { lignesRevendications, phraseDecision } from "../../src/features/admin/identite";
 import { reinitialiserSuiviChargement } from "../../src/features/admin/suivi-chargement";
 import { json, vider } from "../aides";
 import { OIDC as OIDC_BASE, clic, demonter, el, etat as etatAide, monter } from "./rattachement-aide";
@@ -36,6 +37,7 @@ const RESULTAT = {
     email_verified: true,
     acr: null,
     amr: ["pwd"],
+    second_factor: null,
     groups: null,
   },
   decision: { outcome: "login", username: "alice", reason: null },
@@ -84,46 +86,67 @@ describe("tiroir SSO : réglages", () => {
     ).toBe("ES256");
   });
 
-  it("la ligne du second facteur reste en place et suit la règle du serveur : pour tous les comptes, pour les administrateurs seulement, ou aucun", async () => {
+  it("la ligne du second facteur reste en place et suit la règle du serveur : pour tous les comptes, pour les administrateurs seulement, ou aucun ; seuls les niveaux déclarés comptent", async () => {
     const m = monter(etat({ providers: [OIDC] }));
     await ouvrir(m);
     const f = m.A.authTiroir.value!;
-    const ligne = async (acr: string, amr: string, admins = false) => {
+    const ligne = async (acr: string, amr: string, mfa = "", admins = false) => {
       f.required_acr = acr;
       f.required_amr = amr;
+      f.mfa_acr = mfa;
       f.roles_enabled = admins;
       f.admin_groups = admins ? ["admins"] : [];
       await vider();
       return document.querySelector("[data-aide-second-facteur]")?.textContent?.trim();
     };
     const AUCUN = "⚠ Aucun second facteur garanti par Elpis.";
+    const ADMINS = "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer";
     expect(await ligne("", "")).toBe(AUCUN);
     expect(await ligne("", "mfa")).toBe("Second facteur exigé pour tous les comptes : amr mfa.");
-    expect(await ligne("urn:gold", "")).toBe("Second facteur exigé pour tous les comptes : acr urn:gold.");
-    expect(await ligne("gold silver", "otp, hwk")).toBe(
+    expect(await ligne("urn:gold", "", "urn:gold")).toBe(
+      "Second facteur exigé pour tous les comptes : acr urn:gold.",
+    );
+    expect(await ligne("loa-5", "", "loa-5")).toBe("Second facteur exigé pour tous les comptes : acr loa-5.");
+    expect(await ligne("gold silver", "otp, hwk", "silver gold")).toBe(
       "Second facteur exigé pour tous les comptes : acr gold ou silver et amr otp ou hwk.",
     );
     expect(await ligne("0 urn:gold", "MFA")).toBe(
       "Second facteur exigé pour tous les comptes : acr 0 ou urn:gold et amr MFA.",
     );
-    expect(await ligne("", "pwd otp", true)).toBe(
-      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec amr pwd ou otp.",
-    );
-    expect(await ligne("", "otp hwk", true)).toBe(
-      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec amr otp ou hwk.",
-    );
-    expect(await ligne("0 urn:gold", "", true)).toBe(
-      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec acr 0.",
-    );
-    expect(await ligne("1 urn:gold", "pwd mfa", true)).toBe(
-      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec acr 1 et amr pwd.",
-    );
+    expect(await ligne("", "pwd otp", "", true)).toBe(`${ADMINS} avec amr pwd ou otp.`);
+    expect(await ligne("", "otp hwk", "", true)).toBe(`${ADMINS} avec amr otp ou hwk.`);
+    expect(await ligne("0 urn:gold", "", "urn:gold", true)).toBe(`${ADMINS} avec acr 0.`);
+    expect(await ligne("1 urn:gold", "pwd mfa", "urn:gold", true)).toBe(`${ADMINS} avec acr 1 et amr pwd.`);
+    expect(await ligne("loa-2 loa-5", "", "loa-5", true)).toBe(`${ADMINS} avec acr loa-2.`);
+    expect(await ligne("", "", "loa-5", true)).toBe(`${ADMINS} sans second facteur.`);
+    expect(await ligne("urn:gold", "")).toBe(AUCUN);
+    expect(await ligne("loa-2 loa-5", "", "", true)).toBe(AUCUN);
+    expect(await ligne("2", "", "", true)).toBe(AUCUN);
     expect(await ligne("", "pwd otp")).toBe(AUCUN);
-    expect(await ligne("0 urn:gold", "")).toBe(AUCUN);
-    expect(await ligne("1", "pwd", true)).toBe(AUCUN);
+    expect(await ligne("0 urn:gold", "", "urn:gold")).toBe(AUCUN);
+    expect(await ligne("1", "pwd", "", true)).toBe(AUCUN);
     const avance = document.querySelector("details[data-section-tiroir='avance']");
-    expect(avance?.querySelector("#ent-acr")).toBeNull();
-    expect(document.querySelector("[data-section-tiroir='acces'] #ent-acr")).not.toBeNull();
+    for (const id of ["#ent-acr", "#ent-mfa-acr"]) {
+      expect(avance?.querySelector(id), id).toBeNull();
+      expect(document.querySelector(`[data-section-tiroir='acces'] ${id}`), id).not.toBeNull();
+    }
+    expect(document.querySelector("[data-aide-mfa-acr]")?.textContent?.trim()).toBe(
+      "Ceux que votre fournisseur ne délivre qu'après un second facteur.",
+    );
+  });
+
+  it("le champ des niveaux qui prouvent un second facteur est relu des réglages et part dans le corps, vide compris", async () => {
+    const m = monter(
+      etat({ providers: [{ ...OIDC, required_acr: ["loa-2", "loa-5"], mfa_acr: ["loa-5"] }] }),
+    );
+    await ouvrir(m);
+    const champ = document.querySelector<HTMLInputElement>("#ent-mfa-acr")!;
+    expect(champ.value).toBe("loa-5");
+    m.reponses["PUT /api/admin/auth/providers/sso"] = [json(etat({ providers: [OIDC] }))];
+    await clic("#ent-enregistrer-fournisseur");
+    expect((m.corps["PUT /api/admin/auth/providers/sso"]?.[0] as Record<string, unknown>)["mfa_acr"]).toEqual(
+      ["loa-5"],
+    );
   });
 });
 
@@ -187,7 +210,7 @@ describe("tiroir SSO : essai de connexion", () => {
       "Cette personne se connecterait au compte alice.",
     );
     const liste = document.querySelector("[data-revendications]")!;
-    expect(liste.textContent).toContain("groupes non lisibles");
+    expect(liste.textContent).toContain("groupes absents");
     expect(liste.textContent).toContain("alice@example.lan (vérifié)");
     expect(liste.querySelector("b")).toBeNull();
     expect(document.querySelector("[data-avertissement-essai]")?.textContent).toBe("Groupes tronqués.");
@@ -229,6 +252,23 @@ describe("tiroir SSO : essai de connexion", () => {
     expect(phraseDecision({ outcome: "refuse", username: null, reason: "<i>x</i>" })).toBe(
       "Connexion refusée : cause non précisée.",
     );
+    expect(phraseDecision({ outcome: "refuse", username: null, reason: "groups_unknown" })).toBe(
+      "Connexion refusée : groupes absents (aucune liste de groupes reçue pour cette personne).",
+    );
+  });
+
+  it("les revendications disent si le jeton prouve un second facteur, et si le niveau `acr` reçu le prouve", () => {
+    const ligne = (c: Partial<NonNullable<ResultatEssaiBlanc["claims"]>>) =>
+      new Map(lignesRevendications({ ...RESULTAT.claims, ...c })).get("Second facteur");
+    expect(ligne({ acr: "loa-5", second_factor: "acr" })).toBe("prouvé par le niveau acr");
+    expect(ligne({ acr: "1", amr: ["pwd", "otp"], second_factor: "amr" })).toBe(
+      "prouvé par les méthodes amr",
+    );
+    expect(ligne({ acr: "loa-2", second_factor: null })).toBe(
+      "non prouvé : ce niveau acr n'est pas déclaré comme second facteur",
+    );
+    expect(ligne({ acr: null, second_factor: null })).toBe("non prouvé");
+    expect(new Map(lignesRevendications(RESULTAT.claims)).get("Groupes")).toBe("groupes absents");
   });
 
   it("409 : détail affiché ; 409 avec canonical : phrase dédiée", async () => {

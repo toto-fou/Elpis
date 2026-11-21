@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › SSO OpenID Connect : lecture et écritures des réglages `auth`, formulaire d'un fournisseur OpenID Connect, secret, activation. */
 import {
-  ACR_FAIBLES,
   AMR_MULTI_FACTEUR,
+  amrNormal,
   REGEX_ID_FOURNISSEUR,
   schemaHoteNonCanonique,
   schemaReglagesAuth,
@@ -13,6 +13,7 @@ import {
   secondFacteurPourTous,
 } from "@elpis/contracts";
 import type {
+  ExigencesSecondFacteur,
   FournisseurAuth,
   ReglagesAuthConsole,
   ReponseEssaiFournisseur,
@@ -80,7 +81,7 @@ const RAISONS_REFUS: Record<string, string> = {
   denied: "refus du fournisseur",
   expired: "le parcours a pris trop de temps",
   not_in_group: "la personne n'est dans aucun groupe requis",
-  groups_unknown: "les groupes de la personne ne se lisent pas",
+  groups_unknown: "groupes absents (aucune liste de groupes reçue pour cette personne)",
   conflict: "un compte existe déjà pour cet identifiant",
   suspended: "le compte est suspendu",
   mfa_required: "le second facteur exigé n'est pas prouvé",
@@ -189,6 +190,13 @@ export function identifiantDe(libelle: string): string {
     .replace(/-+$/u, "");
 }
 
+const PREUVES = {
+  acr: "prouvé par le niveau acr",
+  amr: "prouvé par les méthodes amr",
+  acr_non_declare: "non prouvé : ce niveau acr n'est pas déclaré comme second facteur",
+  aucune: "non prouvé",
+} as const;
+
 /** Revendications reçues en liste compacte (libellé, valeur). */
 export function lignesRevendications(c: NonNullable<ResultatEssaiBlanc["claims"]>): [string, string][] {
   return [
@@ -199,7 +207,8 @@ export function lignesRevendications(c: NonNullable<ResultatEssaiBlanc["claims"]
     ["E-mail", c.email === "" ? "" : `${c.email} (${c.email_verified ? "vérifié" : "non vérifié"})`],
     ["acr", c.acr ?? ""],
     ["amr", c.amr.join(", ")],
-    ["Groupes", c.groups === null ? "groupes non lisibles" : c.groups.join(", ")],
+    ["Second facteur", PREUVES[c.second_factor ?? (c.acr ? "acr_non_declare" : "aucune")]],
+    ["Groupes", c.groups === null ? "groupes absents" : c.groups.join(", ")],
   ];
 }
 
@@ -209,7 +218,7 @@ const NOMS_ROLES = { user: "utilisateur", moderator: "modérateur", admin: "admi
 export function lignesDroits(d: ResultatEssaiBlanc["rights"]): string[] {
   if (!d || (!d.roles_enabled && !d.groups_enabled)) return [];
   const l: string[] = [];
-  if (!d.readable) l.push("Groupes non lisibles : aucun rôle ni groupe ne serait modifié.");
+  if (!d.readable) l.push("Groupes absents : aucun rôle ni groupe ne serait modifié.");
   else {
     if (d.roles_enabled && d.role !== null) l.push(`Rôle obtenu : ${NOMS_ROLES[d.role]}.`);
     if (d.groups_enabled)
@@ -277,6 +286,7 @@ interface FormFournisseur {
   groups_claim: string;
   required_acr: string;
   required_amr: string;
+  mfa_acr: string;
   max_age_sec: string;
   clock_skew_sec: string;
   session_max_age_sec: string;
@@ -294,18 +304,27 @@ const exigences = (acr: readonly string[], amr: readonly string[]): string =>
     ...(amr.length ? [`amr ${amr.join(" ou ")}`] : []),
   ].join(" et ");
 
+/** Champs du formulaire qui disent le second facteur. */
+export type SaisieSecondFacteur = Pick<FormFournisseur, "required_acr" | "required_amr" | "mfa_acr">;
+
+/** Exigences de second facteur saisies dans le formulaire. */
+const exigencesSaisies = (f: SaisieSecondFacteur): ExigencesSecondFacteur => ({
+  required_acr: mots(f.required_acr),
+  required_amr: mots(f.required_amr),
+  mfa_acr: mots(f.mfa_acr),
+});
+
 /** Ligne d'état du second facteur, toujours affichée, selon la règle du serveur : prouvé à chaque connexion, prouvé seulement par qui reçoit un groupe administrateur (`groupesAdmin`), ou jamais. */
-export function phraseSecondFacteur(acrSaisi: string, amrSaisi: string, groupesAdmin: boolean): string {
-  const acr = mots(acrSaisi);
-  const amr = mots(amrSaisi);
-  if (secondFacteurPourTous(acr, amr))
-    return `Second facteur exigé pour tous les comptes : ${exigences(acr, amr)}.`;
-  if (!groupesAdmin || !secondFacteurDemande(acr, amr)) return "⚠ Aucun second facteur garanti par Elpis.";
+export function phraseSecondFacteur(f: SaisieSecondFacteur, groupesAdmin: boolean): string {
+  const e = exigencesSaisies(f);
+  if (secondFacteurPourTous(e))
+    return `Second facteur exigé pour tous les comptes : ${exigences(e.required_acr, e.required_amr)}.`;
+  if (!groupesAdmin || !secondFacteurDemande(e)) return "⚠ Aucun second facteur garanti par Elpis.";
   const faibles = exigences(
-    acr.filter((a) => ACR_FAIBLES.has(a)),
-    amr.filter((m) => !AMR_MULTI_FACTEUR.has(m.toLowerCase())),
+    e.required_acr.filter((a) => !e.mfa_acr.includes(a)),
+    e.required_amr.filter((m) => !AMR_MULTI_FACTEUR.has(amrNormal(m))),
   );
-  return `⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec ${faibles}.`;
+  return `⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer ${faibles ? `avec ${faibles}` : "sans second facteur"}.`;
 }
 
 function formVide(): FormFournisseur {
@@ -342,6 +361,7 @@ function formVide(): FormFournisseur {
     groups_claim: "",
     required_acr: "",
     required_amr: "",
+    mfa_acr: "",
     max_age_sec: "",
     clock_skew_sec: "",
     session_max_age_sec: "",
@@ -393,6 +413,7 @@ function formDe(f: FournisseurAuth): FormFournisseur {
     groups_claim: f.groups_claim,
     required_acr: f.required_acr.join(" "),
     required_amr: f.required_amr.join(" "),
+    mfa_acr: f.mfa_acr.join(" "),
     max_age_sec: chiffre(f.max_age_sec),
     clock_skew_sec: chiffre(f.clock_skew_sec),
     session_max_age_sec: chiffre(f.session_max_age_sec),
@@ -459,6 +480,7 @@ function corpsFournisseur(f: FormFournisseur): Record<string, unknown> | string 
   if (mots(f.scopes).length > 0) corps["scopes"] = mots(f.scopes);
   corps["required_acr"] = mots(f.required_acr);
   corps["required_amr"] = mots(f.required_amr);
+  corps["mfa_acr"] = mots(f.mfa_acr);
   corps["logout"] = { rp_initiated: f.rp_initiated, backchannel: f.backchannel };
   nombres.push(
     ["max_age_sec", f.max_age_sec, "Âge maximal"],
@@ -540,9 +562,7 @@ export function creerIdentite(b: BaseAdmin) {
   /** Groupes administrateurs saisis alors que ce SSO ne demande pas de second facteur (même règle que le serveur). */
   const authAdminSansSecondFacteur = computed(() => {
     const f = authTiroir.value;
-    return (
-      !!f && f.admin_groups.length > 0 && !secondFacteurDemande(mots(f.required_acr), mots(f.required_amr))
-    );
+    return !!f && f.admin_groups.length > 0 && !secondFacteurDemande(exigencesSaisies(f));
   });
   /** Enregistrer est indisponible : le serveur refuse des groupes administrateurs actifs sans second facteur exigé. */
   const authRolesBloque = computed(
@@ -561,7 +581,8 @@ export function creerIdentite(b: BaseAdmin) {
     return (
       f.groups_claim.trim() !== p.groups_claim ||
       mots_(mots(f.required_acr)) !== mots_(p.required_acr) ||
-      mots_(mots(f.required_amr)) !== mots_(p.required_amr)
+      mots_(mots(f.required_amr)) !== mots_(p.required_amr) ||
+      mots_(mots(f.mfa_acr)) !== mots_(p.mfa_acr)
     );
   });
   const authActifs = computed(() => (authEtat.value?.providers ?? []).filter((p) => p.active));

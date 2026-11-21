@@ -155,6 +155,22 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
     expect(await b.utilisateurs()).toEqual(["chef", "sub-pris"]);
   });
 
+  it("le résultat dit ce qui prouve un second facteur : un niveau `acr` déclaré, les méthodes `amr`, ou rien pour un niveau non déclaré", async () => {
+    await b.reglages({ mfa_acr: ["loa-5"] });
+    const preuves: [Record<string, unknown>, string | null][] = [
+      [{ acr: "loa-5" }, "acr"],
+      [{ acr: "loa-2" }, null],
+      [{ acr: "2" }, null],
+      [{ acr: "loa-2", amr: ["pwd", "otp"] }, "amr"],
+      [{}, null],
+    ];
+    for (const [claims, attendu] of preuves) {
+      await parcours(ELPIS("sub-preuve", claims));
+      const g = (await lire()).json<{ result: { claims: { second_factor: unknown } } }>().result;
+      expect(g.claims.second_factor, JSON.stringify(claims)).toBe(attendu);
+    }
+  });
+
   it("groupes illisibles : l'essai est rendu mais le test n'est pas retenu", async () => {
     b.idp.userinfo = (x) => ({ sub: x.sub });
     await parcours(ELPIS("sub-sansgroupe", { groups: undefined }));
@@ -260,7 +276,18 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc d'un fourniss
       expect(json).not.toContain(x);
     const r = JSON.parse(json) as { claims: Record<string, unknown> };
     expect(Object.keys(r.claims).sort()).toEqual(
-      ["acr", "amr", "email", "email_verified", "groups", "iss", "identifier", "name", "subject"].sort(),
+      [
+        "acr",
+        "amr",
+        "email",
+        "email_verified",
+        "groups",
+        "iss",
+        "identifier",
+        "name",
+        "second_factor",
+        "subject",
+      ].sort(),
     );
     expect((r.claims["groups"] as string[]).length).toBe(50);
     const audit = JSON.stringify(lignesAuditRecentes({ limit: 100 }));

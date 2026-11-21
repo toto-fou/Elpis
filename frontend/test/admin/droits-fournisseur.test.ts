@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 const PUT_SSO = "PUT /api/admin/auth/providers/sso";
-const SSO_2FA = { ...OIDC, required_acr: ["mfa"] };
+const SSO_2FA = { ...OIDC, required_acr: ["mfa"], mfa_acr: ["mfa"] };
 const GROUPES = [
   { id: 7, name: "développeurs" },
   { id: 8, name: "support" },
@@ -182,6 +182,7 @@ describe("section Rôles et groupes : confirmation à la création et au changem
       issuer: "https://idp.example",
       client_id: "elpis",
       required_acr: "mfa",
+      mfa_acr: "mfa",
       roles_enabled: true,
       admin_groups: ["cn=admins"],
     });
@@ -191,7 +192,7 @@ describe("section Rôles et groupes : confirmation à la création et au changem
     expect(envoye(m, "POST /api/admin/auth/providers")["confirm_admin_mapping"]).toBe(true);
   });
 
-  for (const champ of ["groups_claim", "required_acr", "required_amr"] as const)
+  for (const champ of ["groups_claim", "required_acr", "required_amr", "mfa_acr"] as const)
     it(`un SSO : changer ${champ} rouvre la confirmation`, async () => {
       const enreg = { ...SSO_2FA, roles: ADMINS };
       const m = await ouvrir(enreg, "sso");
@@ -270,13 +271,38 @@ describe("section Rôles et groupes : SSO sans second facteur", () => {
     expect(el("[data-exiger-second-facteur]")?.textContent?.trim()).not.toBe(pied);
   });
 
-  it("exiger un niveau d'authentification rend l'enregistrement disponible", async () => {
-    await ouvrir(OIDC, "sso");
+  it("niveaux exigés sans niveau qui prouve un second facteur (`loa-2 loa-5`) : enregistrement indisponible, quel que soit le nom des niveaux", async () => {
+    const m = await ouvrir(OIDC, "sso");
     await cocher(el<HTMLInputElement>("#ent-roles-actif"));
     await ajouterAdmin("cn=admins");
-    await saisir("#ent-acr", "mfa");
+    for (const acr of ["loa-2 loa-5", "2", "urn:gold mfa"]) {
+      await saisir("#ent-acr", acr);
+      expect(el("[data-exiger-second-facteur]")?.textContent, acr).toContain(
+        "Exigez d'abord un second facteur (section 4).",
+      );
+      expect(enregistrer()?.disabled, acr).toBe(true);
+      expect(el("[data-aide-second-facteur]")?.textContent?.trim(), acr).toBe(
+        "⚠ Aucun second facteur garanti par Elpis.",
+      );
+    }
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.corps[PUT_SSO]).toBeUndefined();
+  });
+
+  it("déclarer un niveau qui prouve un second facteur rend l'enregistrement disponible et part dans le corps", async () => {
+    const m = await ouvrir(OIDC, "sso");
+    m.reponses[PUT_SSO] = [json(etat([OIDC]))];
+    await cocher(el<HTMLInputElement>("#ent-roles-actif"));
+    await ajouterAdmin("cn=admins");
+    await saisir("#ent-acr", "loa-2 loa-5");
+    await saisir("#ent-mfa-acr", "loa-5");
     expect(el("[data-exiger-second-facteur]")).toBeNull();
     expect(enregistrer()?.disabled).toBe(false);
+    expect(el("[data-aide-second-facteur]")?.textContent?.trim()).toBe(
+      "⚠ Second facteur exigé des administrateurs seulement : les autres comptes peuvent entrer avec acr loa-2.",
+    );
+    await clic("#ent-enregistrer-fournisseur");
+    expect(envoye(m, PUT_SSO)).toMatchObject({ required_acr: ["loa-2", "loa-5"], mfa_acr: ["loa-5"] });
   });
 
   it("le 409 du serveur est affiché tel quel", async () => {
@@ -349,9 +375,9 @@ describe("lignesDroits", () => {
     expect(lignesDroits(DROITS)).toEqual(["Rôle obtenu : modérateur.", "Groupes Elpis : développeurs."]);
     expect(lignesDroits({ ...DROITS, groups: [] })[1]).toBe("Groupes Elpis : aucun.");
   });
-  it("groupes illisibles : aucune autre ligne de droits", () => {
+  it("groupes absents : aucune autre ligne de droits", () => {
     expect(lignesDroits({ ...DROITS, readable: false })).toEqual([
-      "Groupes non lisibles : aucun rôle ni groupe ne serait modifié.",
+      "Groupes absents : aucun rôle ni groupe ne serait modifié.",
     ]);
   });
   it("administrateurs ignorés et groupes Elpis disparus", () => {

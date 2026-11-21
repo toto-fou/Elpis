@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/revendications.ts — lecture des revendications vérifiées d'un jeton d'identité : toujours par `Object.hasOwn`, sujet, groupes (chemin pointé), `acr` et `amr` requis, e-mail vérifié seulement. */
-import { ACR_FAIBLES, AMR_MULTI_FACTEUR, droitsActifs, FAMILLES_AMR } from "../correspondance";
+import { AMR_MULTI_FACTEUR, amrNormal, droitsActifs, FAMILLES_AMR } from "../correspondance";
 import type { Appartenance } from "../provisionnement";
 import type { Fournisseur } from "../reglages";
 
@@ -77,7 +77,7 @@ export function appartenanceDe(groupes: readonly string[] | null, f: Fournisseur
   return f.required_groups.some((g) => groupes.includes(g)) ? "oui" : "non";
 }
 
-/** Vrai si `acr` et `amr` satisfont les réglages (liste vide : rien d'exigé). */
+/** Vrai si `acr` et `amr` satisfont les réglages (liste vide : rien d'exigé) ; `acr` comparé exactement, `amr` sans tenir compte de la casse. */
 export function secondFacteurSatisfait(claims: Revendications, f: Fournisseur): boolean {
   if (f.required_acr.length > 0) {
     const acr = proprieteDe(claims, "acr");
@@ -85,22 +85,22 @@ export function secondFacteurSatisfait(claims: Revendications, f: Fournisseur): 
   }
   if (f.required_amr.length > 0) {
     const amr = proprieteDe(claims, "amr");
-    if (!Array.isArray(amr) || !amr.some((m) => typeof m === "string" && f.required_amr.includes(m)))
+    const exiges = new Set(f.required_amr.map(amrNormal));
+    if (!Array.isArray(amr) || !amr.some((m) => typeof m === "string" && exiges.has(amrNormal(m))))
       return false;
   }
   return true;
 }
 
-/** Vrai si le jeton prouve un second facteur : `amr` avec `mfa` / `mca` ou deux familles (RFC 8176), ou `acr` exigé par le fournisseur et non faible. */
-export function secondFacteurProuve(claims: Revendications, f: Fournisseur): boolean {
-  const amr = proprieteDe(claims, "amr");
-  if (Array.isArray(amr)) {
-    const m = amr.filter((x): x is string => typeof x === "string").map((x) => x.trim().toLowerCase());
-    if (m.some((x) => AMR_MULTI_FACTEUR.has(x))) return true;
-    if (new Set(m.map((x) => FAMILLES_AMR.get(x)).filter((x) => x !== undefined)).size >= 2) return true;
-  }
+/** Ce qui prouve un second facteur dans le jeton : `acr` déclaré dans `mfa_acr`, ou `amr` avec `mfa` / `mca` ou deux familles (RFC 8176) ; `null` sinon. */
+export function preuveSecondFacteur(claims: Revendications, f: Fournisseur): "acr" | "amr" | null {
   const acr = proprieteDe(claims, "acr");
-  return typeof acr === "string" && f.required_acr.includes(acr) && !ACR_FAIBLES.has(acr.trim());
+  if (typeof acr === "string" && f.mfa_acr.includes(acr)) return "acr";
+  const amr = proprieteDe(claims, "amr");
+  if (!Array.isArray(amr)) return null;
+  const m = amr.filter((x): x is string => typeof x === "string").map(amrNormal);
+  if (m.some((x) => AMR_MULTI_FACTEUR.has(x))) return "amr";
+  return new Set(m.map((x) => FAMILLES_AMR.get(x)).filter((x) => x !== undefined)).size >= 2 ? "amr" : null;
 }
 
 /** E-mail gardé seulement si `email_verified` est vrai (booléen) dans la même source. */

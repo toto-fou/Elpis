@@ -239,6 +239,7 @@ describe.each(MOTEURS)("fournisseurs d'identité (%s)", (moteur) => {
       { client_id: "x" },
       { ca_pem: "", required_groups: ["cn=a"] },
       { clock_skew_sec: 61 },
+      { mfa_acr: ["loa-5"] },
     ])
       expect(empreinteFournisseur({ ...f, ...modif } as never, URL_PUBLIQUE), JSON.stringify(modif)).not.toBe(
         e,

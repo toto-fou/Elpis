@@ -58,6 +58,8 @@ export interface Fournisseur {
   groups_claim: string;
   required_acr: string[];
   required_amr: string[];
+  /** Niveaux `acr` que l'administrateur déclare délivrés après un second facteur : seuls eux le prouvent. */
+  mfa_acr: string[];
   max_age_sec: number;
   clock_skew_sec: number;
   session_max_age_sec: number;
@@ -267,6 +269,7 @@ const CLES_FOURNISSEUR = [
   "groups_claim",
   "required_acr",
   "required_amr",
+  "mfa_acr",
   "max_age_sec",
   "clock_skew_sec",
   "session_max_age_sec",
@@ -308,6 +311,7 @@ function fournisseurDe(o: Record<string, unknown>): Fournisseur {
     groups_claim: nomRevendication(o["groups_claim"], "groups_claim"),
     required_acr: listeTextes(o["required_acr"], "required_acr", 10, 128),
     required_amr: listeTextes(o["required_amr"], "required_amr", 10, 128),
+    mfa_acr: listeTextes(o["mfa_acr"], "mfa_acr", 10, 128),
     max_age_sec: entier(o["max_age_sec"], "max_age_sec", 0, 604_800),
     clock_skew_sec: entier(o["clock_skew_sec"], "clock_skew_sec", 0, 300),
     session_max_age_sec: entier(o["session_max_age_sec"], "session_max_age_sec", 0, DUREE_MAX_SESSION_S),
@@ -340,6 +344,7 @@ export function defautsFournisseur(): Record<string, unknown> {
     groups_claim: "groups",
     required_acr: [],
     required_amr: [],
+    mfa_acr: [],
     max_age_sec: 0,
     clock_skew_sec: BORNES_AUTH.clock_skew_sec.default,
     session_max_age_sec: 0,

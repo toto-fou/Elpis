@@ -158,6 +158,22 @@ describe("validateur strict (une valeur fausse par champ sensible)", () => {
     ],
     ["clé d'un ancien type", () => validerFournisseur(oidcValide({ urls: ["ldaps://a.lan"] })), /urls/u],
     ["activation en texte", () => validerFournisseur(oidcValide({ enabled: "true" })), /enabled/u],
+    [
+      "onze niveaux qui prouvent un second facteur",
+      () => validerFournisseur(oidcValide({ mfa_acr: Array.from({ length: 11 }, (_, i) => `n${i}`) })),
+      /mfa_acr/u,
+    ],
+    [
+      "niveau déclaré trop long",
+      () => validerFournisseur(oidcValide({ mfa_acr: ["x".repeat(129)] })),
+      /mfa_acr/u,
+    ],
+    ["niveau déclaré vide", () => validerFournisseur(oidcValide({ mfa_acr: [""] })), /mfa_acr/u],
+    [
+      "niveaux déclarés absents",
+      () => validerFournisseur({ ...oidcValide(), mfa_acr: undefined }),
+      /mfa_acr/u,
+    ],
   ];
   it.each(fautes)("%s : 400", (_nom, f, motif) => {
     const r = refus(f);
@@ -182,10 +198,11 @@ describe("validateur strict (une valeur fausse par champ sensible)", () => {
       issuer: "https://idp.lan",
       client_id: "c",
     });
-    expect([cree.enabled, cree.scopes, cree.freshness_days]).toEqual([
+    expect([cree.enabled, cree.scopes, cree.freshness_days, cree.mfa_acr]).toEqual([
       false,
       ["openid", "profile", "email"],
       14,
+      [],
     ]);
   });
 

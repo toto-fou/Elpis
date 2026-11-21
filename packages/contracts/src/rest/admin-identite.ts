@@ -7,9 +7,6 @@ import { entier } from "./commun";
 /** Identifiant d'un fournisseur : minuscules, chiffres et tirets, 31 caractères au plus, sans tiret en tête. */
 export const REGEX_ID_FOURNISSEUR = /^[a-z0-9][a-z0-9-]{0,30}$/u;
 
-/** Niveaux `acr` à un seul facteur : ils n'invitent jamais à un second facteur. */
-export const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
-
 /** Méthodes `amr` qui attestent à elles seules plusieurs facteurs. */
 export const AMR_MULTI_FACTEUR: ReadonlySet<string> = new Set(["mfa", "mca"]);
 
@@ -20,20 +17,30 @@ export const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
   ...["face", "fpt", "iris", "retina", "vbm"].map((m): [string, string] => [m, "inherence"]),
 ]);
 
-/** Vrai si les exigences invitent le fournisseur à un second facteur : `amr` `mfa`, `mca` ou de possession ou d'inhérence, ou `acr` autre que 0 ou 1. */
-export function secondFacteurDemande(acr: readonly string[], amr: readonly string[]): boolean {
+/** Méthode `amr` sous la forme comparée partout : sans espaces autour, en minuscules. */
+export const amrNormal = (m: string): string => m.trim().toLowerCase();
+
+/** Exigences de second facteur d'un fournisseur : niveaux et méthodes exigés, niveaux déclarés comme preuve d'un second facteur. */
+export interface ExigencesSecondFacteur {
+  readonly required_acr: readonly string[];
+  readonly required_amr: readonly string[];
+  readonly mfa_acr: readonly string[];
+}
+
+/** Vrai si le fournisseur est invité à un second facteur : `amr` exigé `mfa`, `mca`, de possession ou d'inhérence, ou au moins un niveau `acr` déclaré comme preuve. */
+export function secondFacteurDemande(e: ExigencesSecondFacteur): boolean {
   const fort = (m: string): boolean => {
     const f = FAMILLES_AMR.get(m);
     return AMR_MULTI_FACTEUR.has(m) || (f !== undefined && f !== "connaissance");
   };
-  return amr.some((m) => fort(m.trim().toLowerCase())) || acr.some((a) => !ACR_FAIBLES.has(a.trim()));
+  return e.required_amr.some((m) => fort(amrNormal(m))) || e.mfa_acr.length > 0;
 }
 
-/** Vrai si tout jeton admis à la connexion prouve un second facteur (une seule valeur listée suffit à entrer) : chaque `acr` exigé est autre que 0 ou 1, ou chaque `amr` exigé est `mfa` ou `mca`. */
-export function secondFacteurPourTous(acr: readonly string[], amr: readonly string[]): boolean {
+/** Vrai si tout jeton admis à la connexion prouve un second facteur (une seule valeur listée suffit à entrer) : chaque `acr` exigé est déclaré comme preuve, ou chaque `amr` exigé est `mfa` ou `mca`. */
+export function secondFacteurPourTous(e: ExigencesSecondFacteur): boolean {
   return (
-    (acr.length > 0 && acr.every((a) => !ACR_FAIBLES.has(a.trim()))) ||
-    (amr.length > 0 && amr.every((m) => AMR_MULTI_FACTEUR.has(m.trim().toLowerCase())))
+    (e.required_acr.length > 0 && e.required_acr.every((a) => e.mfa_acr.includes(a))) ||
+    (e.required_amr.length > 0 && e.required_amr.every((m) => AMR_MULTI_FACTEUR.has(amrNormal(m))))
   );
 }
 
@@ -71,6 +78,7 @@ const champsFournisseur = {
   groups_claim: z.string(),
   required_acr: z.array(z.string()),
   required_amr: z.array(z.string()),
+  mfa_acr: z.array(z.string()),
   max_age_sec: entier,
   clock_skew_sec: entier,
   session_max_age_sec: entier,

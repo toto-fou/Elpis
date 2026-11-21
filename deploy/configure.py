@@ -22,6 +22,8 @@ mode routeur, cette requête CHARGE le modèle demandé en mémoire.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import errno
 import getpass
 import json
 import os
@@ -204,9 +206,120 @@ class Prompter:
 # =============================================================================
 #  Utilitaires
 # =============================================================================
+def _droits() -> Any:
+    """deploy/droits.py (dossiers ouverts depuis « / » sans suivre de lien), comptes des services d'Elpis connus."""
+    os.environ.setdefault("ELPIS_DROITS_SERVICES", "elpis-main elpis-admin elpis-toolhost elpis-rag")
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        import droits
+    finally:
+        sys.path.pop(0)
+    return droits
+
+
+def _cible_racine(p: Path) -> Tuple[str, str]:
+    """(dossier, nom) où root lit et écrit P sans suivre de lien : P, ou config.json au bout du seul lien admis (celui que « service install » pose vers /etc/elpis/config) ; tout autre lien est refusé."""
+    p = Path(os.path.abspath(p))
+    if os.path.islink(p):
+        attendu = Path(os.environ.get("ELPIS_PREFIXE_SYSTEME", "") + "/etc/elpis/config/config.json")
+        if p == Path(os.path.abspath(CONFIG)) and os.readlink(p) == str(attendu):
+            return str(attendu.parent), attendu.name
+        raise PermissionError(errno.ELOOP, "lien symbolique refusé sous root", str(p))
+    return str(p.parent), p.name
+
+
+def _lire_racine(p: Path) -> str:
+    """Texte de P lu par root sans suivre de lien : dossier ouvert depuis « / », fichier ordinaire seulement."""
+    d = _droits()
+    dossier, nom = _cible_racine(p)
+    try:
+        dfd = d.ouvrir_dossier(d._net(dossier))
+    except d.Refus as e:
+        raise PermissionError(errno.EPERM, str(e), dossier) from None
+    try:
+        fd = os.open(nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
+        with os.fdopen(fd, "rb") as f:
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                raise PermissionError(errno.EPERM, "fichier spécial refusé sous root", str(p))
+            return f.read(64 * 1024 * 1024).decode("utf-8")
+    except OSError as e:
+        if e.errno == errno.ELOOP:
+            raise PermissionError(errno.ELOOP, "lien symbolique refusé sous root", str(p)) from None
+        raise
+    finally:
+        os.close(dfd)
+
+
+def _ecrire_racine(p: Path, content: str, mode: Optional[int]) -> None:
+    """Écriture de root sans suivre de lien : dossier ouvert depuis « / » (créé s'il manque, au compte de son parent), temporaire au nom aléatoire O_EXCL|O_NOFOLLOW renommé ; propriétaire et groupe du fichier remplacé (sinon du dossier), ses droits sans setuid ni écriture des autres (sinon 0600)."""
+    d = _droits()
+    dossier, nom = _cible_racine(p)
+    try:
+        try:
+            dfd = d.ouvrir_dossier(d._net(dossier))
+        except FileNotFoundError:
+            parent = d.ouvrir_dossier(d._net(os.path.dirname(dossier) or "/"))
+            try:
+                st_p = os.fstat(parent)
+                os.mkdir(os.path.basename(dossier), 0o700, dir_fd=parent)
+                os.chown(os.path.basename(dossier), st_p.st_uid, st_p.st_gid, dir_fd=parent, follow_symlinks=False)
+            finally:
+                os.close(parent)
+            dfd = d.ouvrir_dossier(d._net(dossier))
+    except d.Refus as e:
+        raise PermissionError(errno.EPERM, str(e), dossier) from None
+    try:
+        try:
+            avant: Optional[os.stat_result] = os.stat(nom, dir_fd=dfd, follow_symlinks=False)
+        except FileNotFoundError:
+            avant = None
+        if avant is not None and not stat.S_ISREG(avant.st_mode):
+            raise PermissionError(errno.ELOOP, "lien ou fichier spécial refusé sous root", os.path.join(dossier, nom))
+        st_d = os.fstat(dfd)
+        uid, gid = (avant.st_uid, avant.st_gid) if avant is not None else (st_d.st_uid, st_d.st_gid)
+        droits = (stat.S_IMODE(avant.st_mode) & 0o755) if avant is not None else 0o600
+        tmp = f".{nom}.{secrets.token_hex(8)}.tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(content)
+                fh.flush()
+                os.fchown(fh.fileno(), uid, gid)
+                os.fchmod(fh.fileno(), droits if mode is None else mode)
+                os.fsync(fh.fileno())
+            os.replace(tmp, nom, src_dir_fd=dfd, dst_dir_fd=dfd)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp, dir_fd=dfd)
+            raise
+    finally:
+        os.close(dfd)
+
+
+def read_text(p: Path) -> str:
+    """Texte de P (UTF-8) ; sous root, sans suivre de lien (_lire_racine)."""
+    return _lire_racine(p) if os.geteuid() == 0 else p.read_text(encoding="utf-8")
+
+
+def read_secret(p: Path) -> str:
+    """Contenu de P sans espaces de bord, « » s'il manque ; sous root, sans suivre de lien (lien ou fichier spécial : signalé, « »)."""
+    try:
+        return read_text(p).strip()
+    except FileNotFoundError:
+        return ""
+    except PermissionError as e:
+        warn(f"{p} : {e.strerror} : ignoré (à vérifier).")
+        return ""
+
+
+def ecrit_fichiers_operateur() -> bool:
+    """Ce compte écrit les fichiers de l'opérateur (.env, mcp.json) : root, ou le propriétaire du dépôt ; faux sous le compte de la console (sudo ./elpis configure, un compte par service)."""
+    return os.geteuid() == 0 or os.access(ROOT, os.W_OK)
+
+
 def read_json(p: Path) -> Dict[str, Any]:
     try:
-        d = json.loads(p.read_text(encoding="utf-8"))
+        d = json.loads(read_text(p))
         return d if isinstance(d, dict) else {}
     except Exception:
         return {}
@@ -215,7 +328,7 @@ def read_json(p: Path) -> Dict[str, Any]:
 def read_config_strict(p: Path) -> Optional[Dict[str, Any]]:
     """config.json relu sans indulgence : None s'il n'est pas un objet JSON lisible."""
     try:
-        d = json.loads(p.read_text(encoding="utf-8"))
+        d = json.loads(read_text(p))
     except Exception:                                           # noqa: BLE001
         return None
     return d if isinstance(d, dict) else None
@@ -285,7 +398,10 @@ def keep_owner(fd: int, avant: os.stat_result) -> None:
 
 
 def write_private(p: Path, content: str, mode: Optional[int] = None) -> None:
-    """Écriture atomique au chemin réel (lien suivi : config.json vers /etc/elpis/config) par un temporaire exclusif au nom aléatoire ; fichier existant : propriétaire, groupe et droits gardés, sinon 0600 dès la création ; ``mode`` impose les droits."""
+    """Écriture atomique au chemin réel (lien suivi : config.json vers /etc/elpis/config) par un temporaire exclusif au nom aléatoire ; fichier existant : propriétaire, groupe et droits gardés, sinon 0600 dès la création ; ``mode`` impose les droits ; sous root, sans suivre de lien (_ecrire_racine)."""
+    if os.geteuid() == 0:
+        _ecrire_racine(Path(p), content, mode)
+        return
     cible = Path(os.path.realpath(p))
     cible.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -307,6 +423,14 @@ def write_private(p: Path, content: str, mode: Optional[int] = None) -> None:
         except OSError:
             pass
         raise
+
+
+def config_ecrivable() -> bool:
+    """Ce compte peut écrire config.json : root, absent, ou fichier réel et dossier inscriptibles."""
+    if os.geteuid() == 0 or not (CONFIG.exists() or CONFIG.is_symlink()):
+        return True
+    reel = Path(os.path.realpath(CONFIG))
+    return os.access(reel.parent, os.W_OK) and (not reel.exists() or os.access(reel, os.W_OK))
 
 
 def mode_of(p: Path) -> str:
@@ -497,20 +621,34 @@ def primary_ip() -> str:
 
 
 def read_env_file() -> Dict[str, str]:
+    """Paires de .env ; illisible (fichier de l'opérateur, assistant sous le compte de la console) : celles de l'environnement, où ./elpis les a mises."""
     out: Dict[str, str] = {}
-    if ENV_FILE.is_file():
-        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-            if "=" in line and not line.lstrip().startswith("#"):
-                k, v = line.split("=", 1)
-                out[k.strip()] = v.strip().strip('"')
+    try:
+        texte = read_text(ENV_FILE)
+    except FileNotFoundError:
+        return out
+    except (PermissionError, IsADirectoryError, UnicodeDecodeError):
+        return dict(os.environ)
+    for line in texte.splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            k, v = line.split("=", 1)
+            out[k.strip()] = v.strip().strip('"')
     return out
 
 
 def update_env_file(values: Dict[str, Optional[str]]) -> None:
-    """Met à jour .env en gardant les autres lignes ; ``None`` retire la clé."""
-    lines = ENV_FILE.read_text(encoding="utf-8").splitlines() if ENV_FILE.is_file() else [
-        "# Surcharges locales d'Elpis (KEY=VALUE). Lu par ./elpis et les unités systemd.",
-    ]
+    """Met à jour .env en gardant les autres lignes ; ``None`` retire la clé ; sous le compte de la console (fichier de l'opérateur), les changements sont affichés, rien n'est écrit."""
+    if not ecrit_fichiers_operateur():
+        actuel = read_env_file()
+        changes = [f"{k}={v}" if v is not None else f"(retirer {k})" for k, v in values.items() if actuel.get(k) != v]
+        if changes:
+            warn(".env (fichier de l'opérateur) non écrit sous le compte de la console : à y reporter depuis le compte de "
+                 "l'opérateur : " + " ; ".join(changes) + ", puis sudo ./elpis service install.")
+        return
+    try:
+        lines = read_text(ENV_FILE).splitlines()
+    except FileNotFoundError:
+        lines = ["# Surcharges locales d'Elpis (KEY=VALUE). Lu par ./elpis et les unités systemd."]
     seen = set()
     out = []
     for line in lines:
@@ -846,8 +984,8 @@ def step_voice(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
     # Jeton du service de synthèse local : /opt/elpis-voice/tts/token.env n'est
     # lisible que par root ; une copie dans user_db/.tts_token est reprise.
     tok = USER_DB / ".tts_token"
-    if local_tts and not tts.get("token") and tok.is_file():
-        tts["token"] = tok.read_text(encoding="utf-8").strip()
+    if local_tts and not tts.get("token"):
+        tts["token"] = read_secret(tok) or tts.get("token") or ""
     for name, url in (("reconnaissance", stt["endpoint_url"]), ("synthèse", tts["endpoint_url"])):
         if url:
             _, err = http_json(norm_base(url) + "/health", timeout=3)
@@ -895,9 +1033,20 @@ def _db_url(t: Dict[str, Any]) -> str:
             f"{quote(t['name'], safe='')}?tls={t['tls']}")
 
 
+def base_sqlite_sure(path: Path) -> bool:
+    """Base SQLite que ce compte peut ouvrir : sous root, fichier ordinaire (jamais un lien) de root ou du propriétaire du dépôt, pas un fichier qu'un compte des services a pu écrire (vu juste avant l'ouverture)."""
+    if os.geteuid() != 0:
+        return path.is_file()
+    try:
+        st = os.lstat(path)
+        return stat.S_ISREG(st.st_mode) and st.st_uid in (0, os.stat(ROOT).st_uid)
+    except OSError:
+        return False
+
+
 def _sqlite_has_data(path: Path) -> bool:
     import sqlite3
-    if not path.is_file():
+    if not base_sqlite_sure(path):
         return False
     try:
         c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
@@ -941,7 +1090,7 @@ def step_database(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> Op
     tls = p.choose("TLS", [("off", "aucun (même machine ou réseau de confiance)"),
                            ("require", "chiffré"), ("verify", "chiffré, certificat vérifié")],
                    tls if tls in ("off", "require", "verify") else "off")
-    stored = DB_PASSWORD_FILE.read_text(encoding="utf-8").strip() if DB_PASSWORD_FILE.is_file() else ""
+    stored = read_secret(DB_PASSWORD_FILE)
     password = os.environ.get("ELPIS_CFG_DB_PASSWORD") or ""
     if not password:
         hint = " (Entrée = inchangé)" if stored else ""
@@ -981,7 +1130,7 @@ def step_database(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> Op
         pass
     ok(f"Base : {_db_url(target)}")
     # Données d'une installation SQLite existante : les copier dans la base vide.
-    sqlite_path = ROOT / str(section(cfg, "app").get("db_path") or "user_db/app.db")
+    sqlite_path = chemin_base(cfg)
     if cur == "sqlite" and _sqlite_has_data(sqlite_path) and res.get("ok") and res.get("empty"):
         want = as_bool(pick(a.db_transfer, "ELPIS_CFG_DB_TRANSFER", None, "1"))
         if p.yes(f"Copier les données de {sqlite_path.name} dans la nouvelle base ?", want):
@@ -1047,8 +1196,9 @@ def keep_sqlite_after_failed_transfer(cfg: Dict[str, Any]) -> None:
     db["pending"] = {k: db[k] for k in ("backend", "host", "port", "name", "user", "tls")
                      if db.get(k) not in (None, "")}
     db["backend"] = "sqlite"
-    if DB_PASSWORD_FILE.is_file():
-        write_private(USER_DB / ".db_password.pending", DB_PASSWORD_FILE.read_text(encoding="utf-8"))
+    mot_de_passe = read_secret(DB_PASSWORD_FILE)
+    if mot_de_passe:
+        write_private(USER_DB / ".db_password.pending", mot_de_passe + "\n")
     write_config(cfg)
     warn("Elpis reste sur SQLite, données intactes. La nouvelle base est gardée en attente : "
          "console d'administration › Base de données › Migrer, une fois le problème corrigé "
@@ -1059,13 +1209,20 @@ def keep_sqlite_after_failed_transfer(cfg: Dict[str, Any]) -> None:
 WEAK_SESSION_SECRETS = {"mysecretsessiontomodify", "changeme", "secret", "session_secret"}
 
 
-def db_dir(cfg: Dict[str, Any]) -> Path:
-    """Dossier de la base comme le core : APP_DB_PATH (environnement, puis .env) > app.db_path > user_db/app.db."""
+def chemin_base(cfg: Dict[str, Any]) -> Path:
+    """Fichier de la base comme le core : APP_DB_PATH (environnement, puis .env) > app.db_path (jamais sous root : config.json est écrit par les services) > user_db/app.db."""
     brut = os.environ.get("APP_DB_PATH") or read_env_file().get("APP_DB_PATH") or ""
-    if not brut.strip():
+    if not brut.strip() and os.geteuid() != 0:
         brut = str((cfg.get("app") if isinstance(cfg.get("app"), dict) else {}).get("db_path") or "")
     p = Path(brut if brut.strip() else "user_db/app.db")
-    return p.parent if p.is_absolute() else Path(os.path.realpath(ROOT / p)).parent
+    if p.is_absolute():
+        return p
+    return Path(os.path.abspath(ROOT / p)) if os.geteuid() == 0 else Path(os.path.realpath(ROOT / p))
+
+
+def db_dir(cfg: Dict[str, Any]) -> Path:
+    """Dossier de la base comme le core (chemin_base)."""
+    return chemin_base(cfg).parent
 
 
 def session_secret_set(cfg: Dict[str, Any]) -> bool:
@@ -1077,7 +1234,7 @@ def session_secret_set(cfg: Dict[str, Any]) -> bool:
     if isinstance(valeur, str) and valeur.strip() and valeur.strip().lower() not in WEAK_SESSION_SECRETS:
         return True
     try:
-        return len((db_dir(cfg) / ".session_secret").read_text(encoding="utf-8").strip()) >= 40
+        return len(read_text(db_dir(cfg) / ".session_secret").strip()) >= 40
     except PermissionError:
         return True
     except (OSError, UnicodeDecodeError):
@@ -1085,6 +1242,10 @@ def session_secret_set(cfg: Dict[str, Any]) -> bool:
 
 
 def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
+    if not ecrit_fichiers_operateur():
+        info("Secrets de la plateforme et jetons : posés par sudo ./elpis service install ; mcp.json (fichier de "
+             "l'opérateur) : ./elpis configure --migrer-mcp, sans sudo.")
+        return
     if force or not session_secret_set(cfg):
         fichier = db_dir(cfg) / ".session_secret"
         write_private(fichier, "ELPIS_" + secrets.token_hex(32))
@@ -1093,13 +1254,12 @@ def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
     for name, label in ((".local_mcp_token", "de l'hôte d'outils MCP"),
                         (".rag_service_token", "du service RAG")):
         f = USER_DB / name
-        if force or not f.is_file() or not f.read_text(encoding="utf-8").strip():
+        if force or not read_secret(f):
             write_private(f, secrets.token_urlsafe(32) + "\n")
             ok(f"Jeton {label} généré (user_db/{name}).")
     for src, dst in (("mcp.example.json", "mcp.json"),):
-        if not (ROOT / dst).exists() and (ROOT / src).exists():
-            shutil.copy2(ROOT / src, ROOT / dst)
-            os.chmod(ROOT / dst, 0o600)
+        if not (ROOT / dst).exists() and not (ROOT / dst).is_symlink() and (ROOT / src).exists():
+            write_private(ROOT / dst, read_text(ROOT / src), mode=0o600)
             ok(f"{dst} créé depuis {src}.")
     migrate_sandbox_relay(ROOT / "mcp.json")
     migrate_missing_families(ROOT / "mcp.json")
@@ -1309,11 +1469,7 @@ def show_secret(line: str) -> None:
         print("    (secret affiché sur le terminal, non journalisé)")
     except OSError:
         path = ROOT / "user_db" / "admin-initial-password.txt"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(line.strip() + "\n")
-        os.chmod(path, 0o600)
+        write_private(path, line.strip() + "\n", mode=0o600)
         print(f"    (pas de terminal : secret écrit dans {path}, lisible par son "
               f"seul propriétaire ; supprimez-le après la première connexion)")
 
@@ -1359,6 +1515,10 @@ def apply_https(https: Dict[str, Any]) -> None:
     mode = https["mode"]
     if mode == "off" or not shutil.which("caddy"):
         return
+    if not ecrit_fichiers_operateur():
+        warn("Caddy non configuré sous le compte de la console : sudo deploy/caddy/install_caddy.sh (certificat local), "
+             "ou relancez l'assistant en compte unique pour Let's Encrypt.")
+        return
     if mode == "local":
         info("Certificat local et Caddyfile (sudo)…")
         rc = subprocess.run(sudo_prefix() + [str(ROOT / "deploy/caddy/install_caddy.sh")]
@@ -1373,17 +1533,21 @@ def apply_https(https: Dict[str, Any]) -> None:
     email_block = "{\n\t__EMAIL_LINE__\n}\n"
     tpl = tpl.replace(email_block, f"{{\n\temail {https['email']}\n}}\n" if https.get("email") else "")
     body = tpl.replace("__DOMAIN__", https["domain"])
-    tmp = USER_DB / "run" / "Caddyfile.acme"
-    tmp.parent.mkdir(parents=True, exist_ok=True)
-    tmp.write_text(body, encoding="utf-8")
-    info("Caddyfile Let's Encrypt (sudo)…")
-    rc = 1
-    for cmd in (["install", "-m", "0644", str(tmp), "/etc/caddy/Caddyfile"],
-                ["caddy", "validate", "--config", "/etc/caddy/Caddyfile"],
-                ["systemctl", "reload-or-restart", "caddy"]):
-        rc = subprocess.run(sudo_prefix() + cmd).returncode
-        if rc != 0:
-            break
+    # Caddyfile rédigé dans un dossier temporaire privé, jamais sous user_db (que d'autres comptes écrivent) avant sa copie par root.
+    prive = tempfile.mkdtemp(prefix="elpis-caddy-")
+    tmp = Path(prive) / "Caddyfile.acme"
+    try:
+        tmp.write_text(body, encoding="utf-8")
+        info("Caddyfile Let's Encrypt (sudo)…")
+        rc = 1
+        for cmd in (["install", "-m", "0644", str(tmp), "/etc/caddy/Caddyfile"],
+                    ["caddy", "validate", "--config", "/etc/caddy/Caddyfile"],
+                    ["systemctl", "reload-or-restart", "caddy"]):
+            rc = subprocess.run(sudo_prefix() + cmd).returncode
+            if rc != 0:
+                break
+    finally:
+        shutil.rmtree(prive, ignore_errors=True)
     (ok if rc == 0 else warn)(f"Caddy : https://{https['domain']}/" if rc == 0 else "Configuration de Caddy échouée.")
 
 
@@ -1556,7 +1720,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def load_answers(path: str) -> Tuple[List[str], Dict[str, str]]:
     """Réponses de l'assistant (``deploy/wizard.py``) : options et secrets."""
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    data = json.loads(sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8"))
     conf = data.get("configure") or {}
     return [str(x) for x in conf.get("argv") or []], {str(k): str(v) for k, v in (conf.get("env") or {}).items()}
 
@@ -1572,7 +1736,7 @@ def check_db(a: argparse.Namespace) -> int:
     if choice not in DB_PORTS:
         print("SQLite : rien à tester.")
         return 0
-    stored = DB_PASSWORD_FILE.read_text(encoding="utf-8").strip() if DB_PASSWORD_FILE.is_file() else ""
+    stored = read_secret(DB_PASSWORD_FILE)
     target = {"backend": choice,
               "host": pick(a.db_host, "ELPIS_CFG_DB_HOST", None, "127.0.0.1"),
               "port": int(pick(a.db_port, "ELPIS_CFG_DB_PORT", None, DB_PORTS[choice])),
@@ -1657,6 +1821,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if a.check_db:
         os.chdir(ROOT)
         return check_db(a)
+    if not config_ecrivable():
+        warn("config.json appartient à la console (un compte par service) : sudo ./elpis configure (assistant sous le "
+             "compte de la console, qui l'écrit).")
+        return 2
     try:
         sys.stdout.reconfigure(line_buffering=True)
     except Exception:                                           # noqa: BLE001
@@ -1680,7 +1848,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     else:
         ancienne: Optional[Dict[str, Any]] = None
         if CONFIG.exists():
-            shutil.copy2(CONFIG, ROOT / "config.json.bak")
+            reel = Path(_cible_racine(CONFIG)[0]) if os.geteuid() == 0 else Path(os.path.realpath(CONFIG)).parent
+            write_private(reel / "config.json.bak", read_text(CONFIG), mode=0o600)
             info("Ancienne configuration sauvegardée dans config.json.bak.")
             ancienne = read_config_strict(CONFIG)
             if ancienne is None:
@@ -1731,3 +1900,6 @@ if __name__ == "__main__":
         print()
         warn("Interrompu : rien n'a été écrit pour l'étape en cours.")
         sys.exit(130)
+    except PermissionError as e:
+        warn(f"{e.filename or ''} : {e.strerror} : arrêt, rien n'est écrit par ce chemin (à vérifier).")
+        sys.exit(1)

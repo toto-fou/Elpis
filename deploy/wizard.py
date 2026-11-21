@@ -116,6 +116,8 @@ class Ctx:
 def _sqlite_admins(path: Path) -> Optional[List[str]]:
     if not path.is_file():
         return []
+    if not C.base_sqlite_sure(path):
+        return None
     try:
         c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         try:
@@ -185,9 +187,9 @@ def initial_state(ctx: Ctx) -> State:
         _detect_installed(st, ctx, backend, db)
     llm_url_auto(st)
     _apply_presets(st, ctx)
-    st["_admins"] = _sqlite_admins(ROOT / str((cfg.get("app") or {}).get("db_path") or "user_db/app.db")) \
-        if backend == "sqlite" else None
-    st["_sqlite_data"] = C._sqlite_has_data(ROOT / str((cfg.get("app") or {}).get("db_path") or "user_db/app.db"))
+    # Base lue au chemin de chemin_base : jamais celui de config.json sous root (fichier que les services écrivent).
+    st["_admins"] = _sqlite_admins(C.chemin_base(cfg)) if backend == "sqlite" else None
+    st["_sqlite_data"] = C._sqlite_has_data(C.chemin_base(cfg))
     st["_current_db"] = backend
     return st
 
@@ -752,16 +754,18 @@ def write_answers(path: Path, ans: State, mode: str, reinstall: bool) -> None:
     if out["admin_generated"]:
         ans["_generated"] = out["admin_generated"]
     data = {"version": 1, "mode": mode, "reinstall": reinstall, "answers": ans, **out}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.chmod(path.parent, 0o700)
-    except OSError:
-        pass
-    C.write_private(path, json.dumps(data, ensure_ascii=False, indent=1) + "\n")
+    # Sous root, aucun dossier créé ni changé par chemin : write_private ouvre le dossier sans suivre de lien.
+    if os.geteuid() != 0:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(path.parent, 0o700)
+        except OSError:
+            pass
+    C.write_private(path, json.dumps(data, ensure_ascii=False, indent=1) + "\n", mode=0o600)
 
 
 def load(path: Path) -> Dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(C.read_text(path))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

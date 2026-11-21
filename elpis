@@ -218,16 +218,33 @@ ca_ok() {
 # =============================================================================
 cmd_configure() {
     need_venv
+    # Root sous un compte par service : l'assistant et deploy/configure.py tournent sous le compte de la console (app_console), qui écrit config.json ; les fichiers de l'opérateur (.env, mcp.json) ne sont pas écrits, leurs changements sont affichés.
+    if racine_separee; then
+        # Fichier de réponses de root (install.sh) : donné par l'entrée standard, jamais lu par chemin sous ce compte.
+        local a=() f="" i
+        for ((i = 1; i <= $#; i++)); do
+            case "${!i}" in
+                --answers) i=$((i + 1)); f="${!i:-}"; a+=(--answers -) ;;
+                --answers=*) f="${!i#--answers=}"; a+=(--answers -) ;;
+                *) a+=("${!i}") ;;
+            esac
+        done
+        if [ -n "$f" ]; then app_console bash "$ROOT/elpis" configure "${a[@]}" < "$f"
+        elif [ -t 0 ] && [ -t 1 ]; then app_console --terminal bash "$ROOT/elpis" configure "${a[@]}"
+        else app_console bash "$ROOT/elpis" configure "${a[@]}"; fi
+        return
+    fi
     # Sans option, dans un terminal : assistant par pages (deploy/wizard.py) —
     # toutes les réponses d'abord, puis application sans question. Avec des
     # options, ou sans terminal : deploy/configure.py directement
     # (« ./elpis configure --help »).
     if [ $# -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then
-        local ans="$ROOT/user_db/run/configure-answers.json" rc
-        mkdir -p "$ROOT/user_db/run" && chmod 700 "$ROOT/user_db" "$ROOT/user_db/run"
+        local dossier ans rc
+        # Le fichier de réponses porte des secrets : dossier temporaire privé (à root seul sous sudo), jamais sous user_db.
+        dossier="$(mktemp -d)" || die "Dossier temporaire indisponible."
+        ans="$dossier/configure-answers.json"
         (
-            # Le fichier de réponses porte des secrets : supprimé quoi qu'il arrive.
-            trap 'rm -f "$ans"' EXIT
+            trap 'rm -rf -- "$dossier"' EXIT
             "$PY" "$ROOT/deploy/wizard.py" configure --out "$ans"
             rc=$?
             case $rc in

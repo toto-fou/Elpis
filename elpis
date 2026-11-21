@@ -80,11 +80,13 @@ CONFIG_SYS="$SYS_PREFIXE/etc/elpis/config"
 GROUPE_JOURNAL="${ELPIS_GROUPE_JOURNAL:-elpis-journal}"
 # Groupe de la clé de signature quand le groupe primaire du compte des services n'est pas le sien seul ; en mode séparé, clés de main et de la console.
 GROUPE_CLE="${ELPIS_GROUPE_CLE:-elpis-cle}"
-# Mode séparé (un compte par service) : état partagé par main, la console, l'hôte d'outils et l'opérateur.
+# Mode séparé (un compte par service) : état partagé par main, la console, l'hôte d'outils et l'opérateur ; magasin et jeton du RAG.
 GROUPE_DONNEES=elpis-donnees
 # Dossiers d'état déjà jugés pour root (dossier_etat_sur : 0 accepté, 1 refusé) ; COMPTE_ETAT : compte unique, propriétaire admis.
 declare -A ETAT_VU=()
 COMPTE_ETAT=""
+GROUPE_RAG=elpis-rag
+JETON_RAG_SYS="$SYS_PREFIXE/etc/elpis/rag.token"
 NODE_DIR="$ROOT/node"
 CORE_DIST="$ROOT/apps/core/dist"
 HOTE_DIST="$ROOT/apps/toolhost/dist"
@@ -606,7 +608,7 @@ _ecritures_du_service() {
                        "$ROOT/user_skills" "$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR" "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS")
                     [ "$1" = main ] || l+=("$CONFIG_SYS") ;;
         toolhost)   l=("$ROOT/user_db" "$LOG_DIR" "$SANDBOX_DIR" "$CHART_DIR" "$AUDIT_DIR_SYS") ;;
-        rag)        l=("$RAG_CACHE") ;;
+        rag)        [ "$MODE_COMPTES" = separes ] || l=("$RAG_CACHE") ;;
     esac
     while IFS=$'\t' read -r s d; do
         case " $s " in *" $1 "*) l+=("$d") ;; esac
@@ -637,33 +639,42 @@ _protection_home() {
 # Retire le dossier de rendu en cours (et celui de « service print ») quand le script s'arrête.
 _nettoyer_rendu() { rm -rf "${STAGE_RENDU:-}" "${TMP_PRINT:-}"; }
 
-# Compte d'une unité (ligne User= et groupes en plus) : un compte par service en mode séparé (Docker à l'hôte d'outils seul), le compte unique sinon.
+# Compte d'une unité (User=, groupes et dossiers propres) : un compte par service en mode séparé (Docker à l'hôte d'outils seul, cache systemd au RAG), le compte unique sinon.
 _compte_unite() {
     case "$MODE_COMPTES:$1" in
         separes:main|separes:admin) echo "User=$UNIT_PREFIX-$1" ;;
         separes:toolhost) echo "User=$UNIT_PREFIX-toolhost"; if getent group docker >/dev/null; then echo "SupplementaryGroups=docker"; fi ;;
+        separes:rag) printf 'User=%s\nCacheDirectory=%s\n' "$UNIT_PREFIX-rag" "$UNIT_PREFIX-rag" ;;
         *) echo "User=$2" ;;
     esac
 }
 
-# umask d'une unité : mode séparé, main, console et hôte d'outils 0007 (le code pose lui-même les modes de ce qu'il partage avec les bacs) ; compte unique : 0027, hôte d'outils 0022, Qdrant 0077.
+# umask d'une unité : mode séparé, main, console et hôte d'outils 0007 (le code pose lui-même les modes de ce qu'il partage avec les bacs), RAG 0077 ; compte unique : 0027, hôte d'outils 0022 ; Qdrant 0077.
 _umask_unite() {
     case "$MODE_COMPTES:$1" in
         separes:main|separes:admin|separes:toolhost) echo 0007 ;;
         *:toolhost) echo 0022 ;;
-        *:qdrant) echo 0077 ;;
+        *:qdrant|separes:rag) echo 0077 ;;
         *) echo 0027 ;;
     esac
 }
 
-# Environnement propre au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes) et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
+# Environnement propre au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG), le cache systemd du RAG et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
 _env_comptes() {
-    case "$1" in main|admin|toolhost) ;; *) return 0 ;; esac
-    SPEC_ENV+=("ELPIS_COMPTES=$MODE_COMPTES")
+    case "$1" in main|admin|toolhost) SPEC_ENV+=("ELPIS_COMPTES=$MODE_COMPTES") ;; esac
     [ "$MODE_COMPTES" = separes ] || return 0
-    SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES")
-    [ "$1" = toolhost ] || SPEC_ENV+=("ELPIS_GROUPE_CLE=$GROUPE_CLE")
-    [ "$1" != toolhost ] || [ -z "$2" ] || SPEC_ENV+=("PLAYWRIGHT_BROWSERS_PATH=$2")
+    case "$1" in
+        main|admin) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS") ;;
+        toolhost) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES"); [ -z "$2" ] || SPEC_ENV+=("PLAYWRIGHT_BROWSERS_PATH=$2") ;;
+        rag) _env_unite "RAG_CACHE_DIR=/var/cache/$UNIT_PREFIX-rag"; _env_unite "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS" ;;
+    esac
+}
+
+# NOM=VALEUR dans l'environnement de l'unité en cours (SPEC_ENV), à la place d'une valeur déjà donnée.
+_env_unite() {
+    local e l=()
+    for e in "${SPEC_ENV[@]}"; do [ "${e%%=*}" = "${1%%=*}" ] || l+=("$e"); done
+    SPEC_ENV=("${l[@]}" "$1")
 }
 
 # Dossier de la base pour root : celui d'APP_DB_PATH (environnement, .env), sinon user_db ; celui du core (DOSSIER, config.json compris) doit être le même, sinon rien, avec la marche à suivre.
@@ -796,27 +807,29 @@ avertir_repli() {
     warn "Un compte par service impossible : $1 n'est pas accessible aux autres comptes. Services sous un seul compte (repli). Pour en changer : installation dans /opt/elpis, ou dossiers parents traversables et code lisible par les autres comptes (docs/operations.md, « Service accounts »), puis sudo ./elpis service install."
 }
 
-# Comptes du mode séparé, sans rien changer de ce qui est déjà en place (un compte existant doit être un compte système sans shell) : groupes, comptes système de main, de la console et de l'hôte d'outils (sans shell, groupe primaire des données), clé à main et à la console, journaux aux trois, opérateur dans le groupe des données.
+# Comptes du mode séparé, sans rien changer de ce qui est déjà en place (un compte existant doit être un compte système sans shell) : groupes, comptes système de main, de la console et de l'hôte d'outils (sans shell, groupe primaire des données) et du RAG (groupe du RAG), clé et magasin du RAG à main et à la console, journaux aux trois, opérateur dans le groupe des données.
 comptes_separes() {
     local s u g maison
-    for g in "$GROUPE_DONNEES" "$GROUPE_CLE" "$GROUPE_JOURNAL"; do
+    for g in "$GROUPE_DONNEES" "$GROUPE_CLE" "$GROUPE_JOURNAL" "$GROUPE_RAG"; do
         getent group "$g" >/dev/null || { groupadd --system "$g" && info "Groupe $g créé."; } || return 1
     done
-    for s in main admin toolhost; do
-        u="$UNIT_PREFIX-$s"; maison=/nonexistent
+    for s in main admin toolhost rag; do
+        u="$UNIT_PREFIX-$s"; maison=/nonexistent; g="$GROUPE_DONNEES"
         [ "$s" = toolhost ] && maison="/var/lib/$u"
+        [ "$s" = rag ] && g="$GROUPE_RAG"
         if ! id -u "$u" >/dev/null 2>&1; then
-            useradd --system --gid "$GROUPE_DONNEES" --home-dir "$maison" --no-create-home --shell /usr/sbin/nologin "$u" || return 1
+            useradd --system --gid "$g" --home-dir "$maison" --no-create-home --shell /usr/sbin/nologin "$u" || return 1
             info "Compte système $u créé."
         elif ! getent passwd "$u" | awk -F: '$3 > 0 && $3 < 1000 && $7 ~ /\/(nologin|false)$/ { ok = 1 } END { exit !ok }'; then
             warn "$u existe déjà sans être un compte système sans shell (uid de 1 à 999, nologin) : refusé ; à vérifier, puis à retirer (userdel $u)."
             return 1
-        elif [ "$(id -gn "$u")" != "$GROUPE_DONNEES" ]; then
-            usermod -g "$GROUPE_DONNEES" "$u" || return 1
+        elif [ "$(id -gn "$u")" != "$g" ]; then
+            usermod -g "$g" "$u" || return 1
         fi
     done
     dossier_sur "$SYS_PREFIXE/var/lib/$UNIT_PREFIX-toolhost" 0700 "$UNIT_PREFIX-toolhost" "$GROUPE_DONNEES" || return 1
     membres_exacts "$GROUPE_CLE" "$UNIT_PREFIX-main" "$UNIT_PREFIX-admin" || return 1
+    membres_exacts "$GROUPE_RAG" "$UNIT_PREFIX-main" "$UNIT_PREFIX-admin" || return 1
     for s in main admin toolhost; do membre "$UNIT_PREFIX-$s" "$GROUPE_JOURNAL" || return 1; done
     membre "$1" "$GROUPE_DONNEES"
 }
@@ -859,14 +872,14 @@ dossier_donnees() {
     dossier_etat_sur "$1" && dossier_sur "$1" "$2" "${4:-root}" "${5:-$GROUPE_DONNEES}" "$3"
 }
 
-# Droits du mode séparé, à chaque passage, services arrêtés, sur les seuls dossiers d'état acceptés (dossier_etat_sur) : dossiers au groupe des données (contenu g+rwX ; hors du dépôt, celui des comptes d'Elpis seul), run/chat_runs et run/task_resume privés à main, secrets un à un (clés et envois des sauvegardes à main et à la console), autorité du relais à l'hôte d'outils, backups/ privé à l'opérateur (./elpis backup seul l'écrit), prompts et skills versionnés gardés à l'opérateur ; aucun lien suivi, aucun /work touché.
+# Droits du mode séparé, à chaque passage, services arrêtés, sur les seuls dossiers d'état acceptés (dossier_etat_sur) : dossiers au groupe des données (contenu g+rwX ; hors du dépôt, celui des comptes d'Elpis seul), run/chat_runs et run/task_resume privés à main, secrets un à un (clés et envois des sauvegardes à main et à la console), autorité du relais à l'hôte d'outils, backups/ privé à l'opérateur (./elpis backup seul l'écrit), prompts et skills versionnés gardés à l'opérateur, magasin du RAG ; aucun lien suivi, aucun /work touché.
 droits_separes() {
     local base="$1" op="$2" admis="$3 $2 $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost" G="$GROUPE_DONNEES" og d n e=0 comptes=""
     og="$(id -gn "$op")" || return 1
     for n in $admis; do [ "$n" = root ] || [ "$n" = "$op" ] || comptes+="$n "; done
     local cle=(.vault.key .vault.key.lock .encryption_key .encryption_key.lock .session_secret .session_secret.lock)
     local partages=(.local_mcp_token .rag_service_token) base_console=('.db_password*') envois=(.backup_ssh_key .backup_rsync_password)
-    local bases=("$ROOT/user_db") sauf=(--sauf "$SANDBOX_DIR" --sauf browser-relay-ca) hors=()
+    local bases=("$ROOT/user_db") sauf=(--sauf "$SANDBOX_DIR" --sauf "$RAG_STORE" --sauf browser-relay-ca) hors=()
     [ -z "$base" ] || [ "$base" = "$ROOT/user_db" ] || bases+=("$base")
     sauf+=(--prive "$UNIT_PREFIX-main:$ROOT/user_db/run/chat_runs" --prive "$UNIT_PREFIX-main:$ROOT/user_db/run/task_resume")
     for n in "${cle[@]}" "${partages[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do sauf+=(--sauf "$n"); done
@@ -889,11 +902,13 @@ droits_separes() {
         [ -d "$d" ] && [ ! -L "$d" ] || continue
         { dossier_sur "$d" 2770 "$(stat -c %U -- "$d")" "$G" "$admis" && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
     done
-    mapfile -t hors < <({ printf '%s\n' "${ECRITURES:-}" | cut -s -f2; printf '%s\n' "$RAG_STORE" "$RAG_CACHE"; } | sed '/^$/d' | sort -u)
+    { dossier_donnees "$RAG_STORE" 2770 "$admis" "$UNIT_PREFIX-main" "$GROUPE_RAG" \
+        && poser_droits arbre "$RAG_STORE" "$GROUPE_RAG" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
+    mapfile -t hors < <(printf '%s\n' "${ECRITURES:-}" | cut -s -f2 | sed '/^$/d' | sort -u)
     for d in "${hors[@]}"; do
-        case "$d/" in "$ROOT/user_db/"*|"${base:-/nonexistent}/"*|"$SANDBOX_DIR/"*|"$LOG_DIR/"*|"$ROOT/backups/"*) continue ;; esac
+        case "$d/" in "$ROOT/user_db/"*|"${base:-/nonexistent}/"*|"$SANDBOX_DIR/"*|"$LOG_DIR/"*|"$ROOT/backups/"*|"$RAG_STORE/"*) continue ;; esac
         { dossier_donnees "$d" 2770 "$admis" && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx --comptes "$comptes" \
-            --sauf "$SANDBOX_DIR" --sauf "$ROOT/user_db" --sauf "${base:-/nonexistent}"; } || e=1
+            --sauf "$SANDBOX_DIR" --sauf "$ROOT/user_db" --sauf "${base:-/nonexistent}" --sauf "$RAG_STORE"; } || e=1
     done
     return "$e"
 }
@@ -927,6 +942,27 @@ ranger_secrets() {
     printf '%s' "$sortie" | poser_droits ranger "$BASE_DONNEES" "$jeton" \
         || { warn "Secrets retirés de config.json mais pas tous écrits (voir ci-dessus) : ceux qui manquent sont à saisir de nouveau."; return 1; }
     [ ! -f "$ROOT/config.json.bak" ] || [ -L "$ROOT/config.json.bak" ] || rm -f -- "$ROOT/config.json.bak"
+}
+
+# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de root ou de l'opérateur, à un seul lien et sans écriture d'autrui), créé s'il manque ; compte unique, user_db/.rag_service_token ; secrets de config.json rangés au passage.
+jeton_rag() {
+    local depot="$ROOT/user_db/.rag_service_token" sys="$JETON_RAG_SYS" u m n
+    if [ "$MODE_COMPTES" = separes ]; then
+        if [ -f "$depot" ] && [ ! -L "$depot" ]; then
+            read -r u m n < <(stat -c '%U %a %h' -- "$depot")
+            if { [ "$u" = root ] || [ "$u" = "$1" ]; } && [ $(( 8#$m & 8#022 )) -eq 0 ] && [ "$n" = 1 ]; then
+                mv -fT -- "$depot" "$sys" || return 1
+            else
+                warn "$depot ignoré (à $u, en $m, $n lien(s) : seul un fichier de root ou de $1, sans écriture d'autrui, remplace le jeton du RAG) : à vérifier, puis à retirer."
+            fi
+        fi
+        [ ! -L "$sys" ] || rm -f -- "$sys"
+        ranger_secrets "$sys" "$UNIT_PREFIX-admin"
+        poser_droits secret "${sys%/*}" "${sys##*/}" && poser_droits fichiers "${sys%/*}" root "$GROUPE_RAG" 0440 "${sys##*/}"
+    else
+        if [ -f "$sys" ] && [ ! -L "$sys" ] && [ ! -e "$depot" ]; then mv -T -- "$sys" "$depot" || return 1; fi
+        ranger_secrets "$depot" "$1"
+    fi
 }
 
 # config.json chez la console (COMPTE : compte unique ou opérateur ; ADMIS : anciens propriétaires) : déplacé dans CONFIG_SYS avec .bak (0600, à elle seule) et .lock, lien laissé à sa place ; un fichier ordinaire remis à la place du lien (sed -i…) l'emporte ; dossier et fichier à la console en mode séparé, au compte unique sinon ; jamais un déplacement dans un lien.
@@ -1026,7 +1062,7 @@ cmd_service() {
             # Cible arrêtée : le contenu de /run/<préfixe> garderait l'ancien propriétaire si le compte change ; droits posés services arrêtés.
             systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
             [ -d "/run/${UNIT_PREFIX}" ] && find "/run/${UNIT_PREFIX}" -xdev -mindepth 1 -delete 2>/dev/null
-            ranger_secrets "$ROOT/user_db/.rag_service_token" "$([ "$MODE_COMPTES" = separes ] && echo "$UNIT_PREFIX-admin" || echo "$run_user")"
+            jeton_rag "$run_user" || warn "Jeton du service RAG non préparé (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             if [ "$MODE_COMPTES" = separes ]; then
                 # Secret de session créé ici (0640 au groupe de la clé) : créé par main, il resterait illisible pour la console.
                 [ -n "${APP_SESSION_SECRET:-}" ] || [ -z "$BASE_DONNEES" ] || poser_droits secret "$BASE_DONNEES" .session_secret \
@@ -1203,7 +1239,7 @@ except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
 
 # Comptes des services (unités installées) : un par service, un seul choisi, repli ou unités d'avant ce réglage (marche à suivre) ; en mode séparé, groupe des données de cette session et droits des dossiers partagés (de backups/, le mode seul) ; appelée par cmd_doctor (compteur bad).
 doctor_comptes() {
-    local mode c chemin attendu vu sb
+    local mode c chemin attendu vu sb rs
     mode="$(mode_installe)"
     case "$mode" in
         "") return 0 ;;
@@ -1217,9 +1253,10 @@ doctor_comptes() {
     if id -nG "$(id -un)" | tr ' ' '\n' | grep -qxF -- "$GROUPE_DONNEES" && ! id -Gn | tr ' ' '\n' | grep -qxF -- "$GROUPE_DONNEES"; then
         warn "groupe $GROUPE_DONNEES absent de cette session (ouverte avant son ajout) : données des services illisibles d'ici (nouvelle session, ou sg $GROUPE_DONNEES -c './elpis doctor')"; bad=$((bad+1))
     fi
-    sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"
+    sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"; rs="$(core_cmd config RAG_STORE_DIR 2>/dev/null)"
     for c in "$ROOT/user_db|2771 root $GROUPE_DONNEES" "${sb:-$ROOT/user_sandboxes}|2770 root $GROUPE_DONNEES" "$LOG_DIR|2770 root $GROUPE_DONNEES" \
-             "$ROOT/backups|700" "$SYS_PREFIXE/etc/elpis|751 root root"; do
+             "$ROOT/backups|700" "$SYS_PREFIXE/etc/elpis|751 root root" \
+             "${rs:-$ROOT/user_db/rag}|2770 $UNIT_PREFIX-main $GROUPE_RAG" "$JETON_RAG_SYS|440 root $GROUPE_RAG"; do
         chemin="${c%%|*}"; attendu="${c#*|}"
         [ -e "$chemin" ] || continue
         vu="$(stat -c '%a %U %G' -- "$chemin" 2>/dev/null)"
@@ -1486,7 +1523,11 @@ cmd_doctor() {
     fi
     check "mcp.json" "./elpis configure" test -f "$ROOT/mcp.json"
     check "jeton MCP" "./elpis configure" test -s "$ROOT/user_db/.local_mcp_token"
-    check "jeton du service RAG" "./elpis configure" test -s "$ROOT/user_db/.rag_service_token"
+    if [ "$(mode_installe)" = separes ]; then
+        check "jeton du service RAG ($JETON_RAG_SYS)" "sudo ./elpis service install" test -s "$JETON_RAG_SYS"
+    else
+        check "jeton du service RAG" "./elpis configure" test -s "$ROOT/user_db/.rag_service_token"
+    fi
     local th_host="${LOCAL_MCP_HOST:-127.0.0.1}"; [ "$th_host" = 0.0.0.0 ] && th_host=127.0.0.1
     check "hôte d'outils ($th_host:$MCP_PORT)" "./elpis logs toolhost" curl --noproxy '*' -fsS -m 3 -o /dev/null "http://$th_host:$MCP_PORT/health"
     if [ -f "$HOTE_DIST/main.mjs" ]; then

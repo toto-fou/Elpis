@@ -146,6 +146,11 @@ def _etat(depot: Path) -> None:
                 ".db_password"):
         (db / nom).write_text("x", encoding="utf-8")
         (db / nom).chmod(0o600)
+    (db / ".rag_service_token").write_text("r" * 43 + "\n", encoding="utf-8")
+    (db / ".rag_service_token").chmod(0o600)
+    (db / "rag/source").mkdir(parents=True)
+    (db / "rag/source/texte.txt").write_text("t", encoding="utf-8")
+    (db / "rag/source/texte.txt").chmod(0o600)
     (db / "browser-relay-ca").mkdir(mode=0o700)
     (db / "browser-relay-ca/ca.key").write_text("k", encoding="utf-8")
     (db / "browser-relay-ca/ca.key").chmod(0o600)
@@ -185,13 +190,14 @@ def test_installation_separee_comptes_groupes_et_droits(depot):
     r = _harnais(depot, INSTALLE_SEPARE)
     assert r.returncode == 0, r.stdout + r.stderr
     t = _trace(depot)
-    for g in ("elpis-donnees", "elpis-cle", "elpis-journal"):
+    for g in ("elpis-donnees", "elpis-cle", "elpis-journal", "elpis-rag"):
         assert f"groupadd --system {g}" in t
     for s, maison in (("main", "/nonexistent"), ("admin", "/nonexistent"), ("toolhost", "/var/lib/elpis-toolhost")):
         assert (f"useradd --system --gid elpis-donnees --home-dir {maison} --no-create-home --shell /usr/sbin/nologin "
                 f"elpis-{s}") in t
         assert f"usermod -aG elpis-journal elpis-{s}" in t
-    assert "gpasswd -M elpis-admin,elpis-main elpis-cle" in t
+    assert "useradd --system --gid elpis-rag --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin elpis-rag" in t
+    assert "gpasswd -M elpis-admin,elpis-main elpis-cle" in t and "gpasswd -M elpis-admin,elpis-main elpis-rag" in t
     assert f"usermod -aG elpis-donnees {MOI}" in t
     assert not any(l.startswith("usermod -aG docker") for l in t), t
     assert f"render separes {MOI}" in t and "audit_setup elpis-main separes" in t
@@ -206,13 +212,16 @@ def test_installation_separee_comptes_groupes_et_droits(depot):
                 "user_db/browser-relay-ca": "700", "user_db/browser-relay-ca/ca.key": "600", "user_sandboxes": "2770",
                 "user_sandboxes/alice": "2770", "user_sandboxes/alice/skills/s.md": "664",
                 "user_sandboxes/alice/work/projet/f": "600", "user_sandboxes/alice/.elpis-agent": "1777", "logs": "2770",
-                "backups": "700", "mcp.json": "640", "config.json": "640"}
+                "backups": "700", "mcp.json": "640", "config.json": "640", "user_db/rag": "2770",
+                "user_db/rag/source": "2770", "user_db/rag/source/texte.txt": "660"}
     assert {p: _mode(depot / p) for p in attendus} == attendus
     assert _mode(depot.parent / "cible") == "644" and (db / "lien").is_symlink()
     conf = _sys(depot) / "etc/elpis/config"
     assert (depot / "config.json").is_symlink() and os.readlink(depot / "config.json") == str(conf / "config.json")
     assert _mode(conf) == "2750" and _mode(conf / "config.json") == "640"
-    assert f"ranger_secrets {depot}/user_db/.rag_service_token elpis-admin" in t
+    jeton = _sys(depot) / "etc/elpis/rag.token"
+    assert f"ranger_secrets {jeton} elpis-admin" in t and not (db / ".rag_service_token").exists()
+    assert jeton.read_text(encoding="utf-8") == "r" * 43 + "\n" and _mode(jeton) == "440"
     secret = (db / ".session_secret").read_text(encoding="utf-8")
     assert re.fullmatch(r"ELPIS_[0-9a-f]{64}", secret), secret
     assert _mode(_sys(depot) / "var/lib/elpis-toolhost") == "700"
@@ -224,7 +233,8 @@ def test_reinstallation_separee_ne_change_rien(depot):
     _etat(depot)
     assert _harnais(depot, INSTALLE_SEPARE).returncode == 0
     contenu = [depot / p for p in ("user_db/app.db", "user_db/.session_secret", "user_db/browser-relay-ca/ca.key",
-                                   "user_sandboxes/alice/skills/s.md", "mcp.json")]
+                                   "user_sandboxes/alice/skills/s.md", "mcp.json", "user_db/rag/source/texte.txt")]
+    contenu.append(_sys(depot) / "etc/elpis/rag.token")
     avant = {p: p.stat().st_ctime_ns for p in contenu}
     (_sys(depot) / "etc/trace").write_text("", encoding="utf-8")
     r = _harnais(depot, INSTALLE_SEPARE)
@@ -266,6 +276,7 @@ def test_compte_unique_choisi_sans_avertissement(depot):
     conf = _sys(depot) / "etc/elpis/config"
     assert (depot / "config.json").is_symlink() and _mode(conf) == "700" and _mode(conf / "config.json") == "600"
     assert f"install -d -m 700 -o {MOI} {depot}/backups" not in t
+    assert f"ranger_secrets {depot}/user_db/.rag_service_token {MOI}" in t
 
 
 def test_config_deja_rangee_puis_fichier_remis_a_sa_place(depot):
@@ -283,6 +294,16 @@ def test_config_deja_rangee_puis_fichier_remis_a_sa_place(depot):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "a remplacé son lien (modifié en place, il l'emporte)" in r.stderr
     assert (depot / "config.json").is_symlink() and (conf / "config.json").read_text() == '{"modifie": true}'
+
+
+def test_jeton_du_rag_ecrivable_par_d_autres_ignore(depot):
+    _unite_bloc4(depot)
+    _etat(depot)
+    (depot / "user_db/.rag_service_token").chmod(0o620)
+    r = _harnais(depot, INSTALLE_SEPARE)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert f"{depot}/user_db/.rag_service_token ignoré (à {MOI}, en 620" in r.stderr
+    assert (_sys(depot) / "etc/elpis/rag.token").read_text(encoding="utf-8") != "r" * 43 + "\n"
 
 
 def test_secret_de_session_garde_si_donne_par_l_environnement(depot):
@@ -518,9 +539,13 @@ def test_unites_du_mode_separe(depot):
         assert f"ReadWritePaths=-{depot}/backups" not in lignes, s
         assert ("ReadWritePaths=-/etc/elpis/config" in lignes) is (s == "admin"), s
         assert not any(l in (f"ReadWritePaths={depot}", f"ReadWritePaths=-{depot}") for l in lignes), s
-    for s, umask in (("rag", "0027"), ("qdrant", "0077")):
+    for s in ("rag", "qdrant"):
         lignes = u[f"elpis-{s}.service"].splitlines()
-        assert f"UMask={umask}" in lignes and not any("ELPIS_COMPTES" in l or "GROUPE_DONNEES" in l for l in lignes), s
+        assert "UMask=0077" in lignes and not any("ELPIS_COMPTES" in l or "GROUPE_DONNEES" in l for l in lignes), s
+    rag = u["elpis-rag.service"].splitlines()
+    assert {"User=elpis-rag", "CacheDirectory=elpis-rag", 'Environment="RAG_CACHE_DIR=/var/cache/elpis-rag"',
+            'Environment="RAG_SERVICE_TOKEN_FILE=/etc/elpis/rag.token"'} <= set(rag)
+    assert not any(l.startswith("ReadWritePaths") for l in rag) and not any("RestrictSUIDSGID" in l or "DynamicUser" in l for l in rag)
     assert u["tmpfiles.d/elpis.conf"].strip().splitlines()[-1] == "d /run/elpis 2770 root elpis-donnees -"
     assert f"InaccessiblePaths=-{depot}/user_db/.session_secret -{depot}/user_db/.encryption_key" \
         in u["elpis-toolhost.service"].splitlines()

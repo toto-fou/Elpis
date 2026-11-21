@@ -145,7 +145,8 @@ effect **close to root** on the host: dedicate a machine or VM to Elpis. The oth
 never reach Docker, and each file is reserved to the accounts that use it: the vault key,
 the session secret and the remote backup credentials to main and the console (`elpis-cle`),
 the signing key to the journal writers, the shared state (`user_db/`, sandboxes, logs) to
-the `elpis-donnees` group, the local backups to the operator, nothing to other accounts. When other accounts cannot
+the `elpis-donnees` group, the local backups to the operator, nothing to other accounts. The RAG extractor, which
+converts untrusted documents, runs as `elpis-rag` and only reads the RAG store and its token. When other accounts cannot
 reach the installation (a clone in a home folder) or with `ELPIS_COMPTE_UNIQUE=1`, every service
 keeps one account, which then drives Docker itself; `./elpis doctor` warns about this fallback
 at every run. `user_sandboxes/` is reserved to these accounts (2770): a container's root can

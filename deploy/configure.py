@@ -29,6 +29,7 @@ import re
 import secrets
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import urllib.error
@@ -268,14 +269,37 @@ def write_config(cfg: Dict[str, Any], eteindre_auth: bool = False) -> None:
     write_json(CONFIG, cfg)
 
 
+def keep_owner(fd: int, avant: os.stat_result) -> None:
+    """Propriétaire et groupe de l'ancien fichier repris autant que ce compte le peut (root : les deux), puis ses droits."""
+    for uid, gid in ((avant.st_uid, avant.st_gid), (-1, avant.st_gid)):
+        try:
+            os.fchown(fd, uid, gid)
+            break
+        except PermissionError:
+            continue
+    os.fchmod(fd, stat.S_IMODE(avant.st_mode))
+
+
 def write_private(p: Path, content: str) -> None:
-    """Écriture atomique, droits 0600 dès la création."""
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_name(p.name + f".tmp{os.getpid()}")
+    """Écriture atomique au chemin réel (lien suivi : config.json vers /etc/elpis/config) ; fichier existant : propriétaire, groupe et droits gardés, sinon 0600 dès la création."""
+    cible = Path(os.path.realpath(p))
+    cible.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        avant: Optional[os.stat_result] = os.stat(cible)
+    except FileNotFoundError:
+        avant = None
+    tmp = cible.with_name(cible.name + f".tmp{os.getpid()}")
     fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(content)
-    os.replace(tmp, p)
+        if avant is not None:
+            keep_owner(fh.fileno(), avant)
+    os.replace(tmp, cible)
+
+
+def mode_of(p: Path) -> str:
+    """Droits d'un fichier en octal (« 0640 »), pour les messages."""
+    return f"{stat.S_IMODE(os.stat(p).st_mode):04o}"
 
 
 def write_json(p: Path, data: Dict[str, Any]) -> None:
@@ -1542,7 +1566,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     step_secrets(cfg, a.force)
 
     write_config(cfg, a.force)
-    ok("config.json écrit (0600).")
+    ok(f"config.json écrit ({mode_of(CONFIG)}).")
     # Avant le compte admin : le core poserait le schéma dans la base vide,
     # et le transfert exige une cible vierge.
     if transfer and not apply_db_transfer(transfer):

@@ -18,6 +18,8 @@ export { reponseJson } from "../socle";
 /** Bac du compte vu des routes d'écriture : celui de l'aperçu, avec le client complet de l'agent (écritures, git, archives). */
 export interface BacFichiers extends BacDuCompte {
   agent(uid: number): Promise<AgentClient>;
+  /** Arrête le conteneur du compte (absent : le bac n'est jamais arrêté par ces routes). */
+  arreter?(uid: number): Promise<void>;
 }
 
 /** Bac du registre de @elpis/bac (conteneur Docker du compte, agent posé par la composition). */
@@ -27,6 +29,9 @@ export const BAC_REGISTRE: BacFichiers = {
     const a = (await bacDuCompte(uid)).agent;
     if (!(a instanceof AgentClient)) throw new AgentError("agent_unavailable", "client de fichiers absent");
     return a;
+  },
+  async arreter(uid) {
+    await (await bacDuCompte(uid)).stop();
   },
 };
 

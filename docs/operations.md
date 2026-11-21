@@ -516,7 +516,7 @@ does, when deleted, never has its folders renamed or deleted.
 
 | Method | Use |
 |---|---|
-| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created); each account's `/work` is read by its sandbox's agent (started for the duration of the read if it was asleep); exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (unreadable sandbox; `./elpis upgrade` then continues) |
+| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created); each account's `/work` is read through the tool host, which must be running (`./elpis start`; it starts a sleeping sandbox for the duration of the read); without it, each sandbox line says its `/work` was not saved; exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (tool host stopped or sandbox unreadable; `./elpis upgrade` then continues) |
 | Admin console › System › Data › Backup | download of the same archive |
 | Admin console › System › Maintenance › Remote backup | scheduled upload: SFTP (key), rsync over SSH, or a mounted folder |
 | Admin console › System › Data › Restore | full archive or by scope |

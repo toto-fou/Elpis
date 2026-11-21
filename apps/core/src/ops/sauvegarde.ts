@@ -75,7 +75,7 @@ export function backupIncomplete(nom: string): boolean {
   return nom.endsWith(`${BACKUP_INCOMPLETE_SUFFIX}.zip`);
 }
 
-/** /work des comptes, lu et écrit par l'agent de chaque sandbox (B2) ; absent, le /work est signalé non sauvegardé. */
+/** /work des comptes, lu et écrit par l'hôte d'outils de chaque sandbox ; absent, le /work est signalé non sauvegardé. */
 export interface PortTravail {
   /** `_zip_work` : membres écrits sous `arcroot`, omissions dans `skipped` ; faux si le /work n'a pas pu être lu. */
   sauvegarder(userId: number, arcroot: string, zip: EcrivainZip, skipped: string[]): Promise<boolean>;
@@ -371,7 +371,7 @@ async function construire(
     );
   };
 
-  /** `_add_sandboxes` : partie de l'hôte lue par descripteurs sans suivre de lien, /work de chaque compte par son agent. */
+  /** `_add_sandboxes` : partie de l'hôte lue par descripteurs sans suivre de lien, /work de chaque compte par l'hôte d'outils. */
   const ajouterSandboxes = async (p: string, arcroot: string): Promise<void> => {
     if (!estDossierPy(p)) return;
     const travaux: string[] = [];

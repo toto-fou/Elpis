@@ -2,6 +2,7 @@
 /** apps/toolhost/src/fichiers/routes.ts — routes de fichiers de l'éditeur (sandbox/routes_files.py), hors `pv` et `preview-token` (B2-05, jeton créé par main). */
 import type { DefinitionRoute } from "../app";
 import { routesArchives } from "./archives";
+import { routesTravail } from "./travail";
 import type { ContexteFichiers } from "./commun";
 import { routesEcriture } from "./ecriture";
 import { routesLecture } from "./lecture";
@@ -15,5 +16,6 @@ export function routesFichiers(ctx: ContexteFichiers): DefinitionRoute[] {
     ...routesRecherche(ctx),
     ...routesOutils(),
     ...routesArchives(ctx),
+    ...routesTravail(ctx),
   ];
 }

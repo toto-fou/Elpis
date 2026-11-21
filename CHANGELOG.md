@@ -43,6 +43,10 @@ follow [SemVer](https://semver.org/).
   and main and the console no longer write the installation folder: only their state folders
   stay writable. With one account per service, `./elpis configure` needs `sudo`, followed by
   `sudo ./elpis service install`; after a restore from the console, run `service install` again.
+- **RAG extractor under its own account.** With one account per service, the RAG service runs as
+  `elpis-rag`: it reads the RAG store (`2770 elpis-main:elpis-rag`, read-only in its unit) and
+  the RAG token, moved to `/etc/elpis/rag.token` (`0440`, group `elpis-rag`), and keeps its cache
+  in `/var/cache/elpis-rag`; it no longer reaches the database, the keys nor the sandboxes.
 - **systemd units: versioned and hardened.** The units of the services are rendered from
   templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
   privileges, with the system read-only except the folders it writes, a private `/tmp` and

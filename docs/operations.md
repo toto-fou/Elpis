@@ -96,13 +96,15 @@ password), so that a flaw in one service does not hand over the files of the oth
 | main | `elpis-main`, primary group `elpis-donnees` |
 | admin (console) | `elpis-admin`, primary group `elpis-donnees` |
 | toolhost | `elpis-toolhost`, primary group `elpis-donnees`, home `/var/lib/elpis-toolhost`; the only unit that gets the `docker` group (`SupplementaryGroups=docker`) |
-| rag, qdrant | the operator (below) |
+| rag | `elpis-rag`, primary group `elpis-rag`; cache in `/var/cache/elpis-rag` (`CacheDirectory=`); a static account, since `DynamicUser=` would impose `RestrictSUIDSGID=`, which bubblewrap does not survive |
+| qdrant | the operator (below) |
 
 | Group | Members | For |
 |---|---|---|
 | `elpis-donnees` | `elpis-main`, `elpis-admin`, `elpis-toolhost`, the operator | shared state: database and `user_db/`, sandboxes, `logs/`, `/run/elpis` |
 | `elpis-cle` | `elpis-main`, `elpis-admin` | vault key, legacy encryption key, session secret, remote backup credentials: never the tool host |
 | `elpis-journal` | `elpis-main`, `elpis-admin`, `elpis-toolhost` (writers), `syslog` (reader) | security journal, access log, signing key |
+| `elpis-rag` | `elpis-main`, `elpis-admin`; primary group of `elpis-rag` | RAG store (main and the console write it, the RAG reads it), RAG token |
 
 The **operator** is the account that administers Elpis: `ELPIS_USER`, otherwise the account
 that ran `sudo`, otherwise the owner of the installation. It owns the code, joins
@@ -119,7 +121,9 @@ and without ever entering the `work/` folder of a sandbox (owned by the sandboxe
 |---|---|
 | `user_db/` (and the folder of `app.db_path`, when `APP_DB_PATH` in `.env` names it too) | `2771 root:elpis-donnees`; content group `elpis-donnees`, `g+rwX`, nothing for others |
 | `.vault.key`, `.encryption_key`, `.session_secret` (and their `.lock`) | `0640 root:elpis-cle` |
-| `.local_mcp_token`, `.rag_service_token` | `0640 root:elpis-donnees` |
+| `.local_mcp_token` | `0640 root:elpis-donnees` |
+| RAG token | moved from `user_db/.rag_service_token` (which `./elpis configure` may write again: it then wins at the next `service install` if it belongs to root or the operator, has one link and nobody else can write it) to `/etc/elpis/rag.token`, `0440 root:elpis-rag` (`RAG_SERVICE_TOKEN_FILE` of main, the console and the RAG) |
+| RAG store (`user_db/rag` by default) | `2770 elpis-main:elpis-rag`, content group `elpis-rag`, `g+rwX`; read-only in the RAG unit |
 | `.db_password*` | `0640 elpis-admin:elpis-donnees` (the console rewrites it) |
 | `.backup_ssh_key`, `.backup_rsync_password` | `0640 elpis-admin:elpis-cle` (main runs the scheduled remote backups) |
 | `.backup_known_hosts` | `0660 elpis-admin:elpis-cle` (OpenSSH, run by main or the console, adds new hosts to it) |

@@ -15,6 +15,8 @@ export interface OptionsAppel {
   readonly timeoutS?: number;
   readonly entree?: Buffer;
   readonly signal?: AbortSignal;
+  /** Variables ajoutées à l'environnement du processus docker (valeurs jamais en argument). */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 /** Processus `docker exec` en cours : `fin` rend le `returncode` de Python (négatif si tué par un signal). */
@@ -69,6 +71,7 @@ export class DockerCli implements CliDocker {
         binaire: this.bin,
         ...(options.entree ? { entree: options.entree } : {}),
         ...(options.signal ? { signal: options.signal } : {}),
+        ...(options.env ? { env: options.env } : {}),
       });
     } catch (e) {
       if (estErreurLancement(e)) throw new ErreurLancement(e, this.bin);

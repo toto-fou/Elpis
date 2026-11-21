@@ -101,17 +101,22 @@ function liaisonRelais(b: CorpsDemarrage): LiaisonRelais | null | undefined {
 }
 
 // Refus (400) d'un démarrage au `tls` inconnu ou à la liaison du relais invalide, ou qui enregistrerait cette liaison (HAR, trace) ; null sinon.
-function refusDemarrage(b: CorpsDemarrage) {
+export function refusDemarrage(b: CorpsDemarrage) {
   if (b.tls !== undefined && b.tls !== null && b.tls !== "strict" && b.tls !== "insecure")
     return { error: "tls must be 'strict' or 'insecure'.", code: "invalid_option" };
   const liaison = liaisonRelais(b);
   if (liaison === undefined)
     return { error: "relay_binding must be { key, origins }.", code: "invalid_option" };
-  // La clé de la liaison part dans les requêtes : un HAR ou une trace la garderaient.
   if (liaison && (b.record_har || b.trace))
     return {
       error: "HAR and trace recordings would keep the relay binding of HTTP authentication.",
       code: "recording_with_credentials",
+    };
+  if (b.tls && (b.record_har || b.trace))
+    return {
+      error: "A session for a vault secret cannot record a HAR or a trace.",
+      code: "recording_with_credentials",
+      fix: "Start again without record_har and trace.",
     };
   return null;
 }
@@ -486,6 +491,7 @@ export function registerStartRoutes(app: Application, ctx: ServiceContext) {
         createdAt: now,
         lastActivity: now,
         traceActive: _traceActive,
+        _enregistre: !!(record_har || trace),
         _lock: makeLock(),
         dialogState,
         tls,

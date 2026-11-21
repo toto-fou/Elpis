@@ -3,15 +3,22 @@
 import { closeSync, constants, fstatSync, openSync, readdirSync, readFileSync } from "node:fs";
 
 import { NOMS_HOTE } from "@elpis/bac";
-import { config, pyJoin, safeSandboxName } from "@elpis/config";
+import { config, pyJoin, racineDepot, safeSandboxName } from "@elpis/config";
 import { O_PATH } from "@elpis/securite";
 import { Agent, request } from "undici";
 
 const O_CLOEXEC = 0o2000000;
 /** Dossier de l'agent dans `<P>` (`AGENT_RUN_DIR` de @elpis/bac), monté sur /run/elpis. */
 const DOSSIER_AGENT = ".elpis-agent";
-/** Jeton du service du bac, sur l'hôte seul (`<P>`, jamais monté). */
-const FICHIER_JETON_BAC = ".browser-service.token";
+/** Sous-dossier des jetons dans le dossier d'exécution de l'hôte d'outils. */
+const DOSSIER_JETONS = "navigateur";
+
+/** Dossier des jetons du navigateur des bacs, privé à l'hôte d'outils (0700) : `ELPIS_TOOLHOST_RUN_DIR` (lecteurs hors de l'hôte d'outils), sinon `RUNTIME_DIRECTORY` (son unité systemd), sinon `<racine>/user_db/run` ; jamais dans `<P>`. */
+export function dossierJetonsNavigateur(): string {
+  const run =
+    process.env["ELPIS_TOOLHOST_RUN_DIR"] || ((process.env["RUNTIME_DIRECTORY"] ?? "").split(":")[0] ?? "");
+  return pyJoin(run !== "" ? run : pyJoin(pyJoin(racineDepot(), "user_db"), "run"), DOSSIER_JETONS);
+}
 
 /** Bornes des lectures au service d'un bac (le bac est hostile) ; réglables par les tests. */
 export const reglagesServiceBac = {
@@ -25,13 +32,14 @@ export interface ServiceNavigateur {
   readonly jeton: string;
 }
 
-/** Chemins sur l'hôte du navigateur d'un compte : `<P>` (`<SANDBOX_DIR>/<nom sûr>`), socket du service, socket du relais, certificat, jeton. */
+/** Chemins sur l'hôte du navigateur d'un compte : `<P>` (`<SANDBOX_DIR>/<nom sûr>`), socket du service, socket du relais, certificat, jetons du service et du relais (dossier d'exécution de l'hôte). */
 export function cheminsNavigateurBac(username: string): {
   dossier: string;
   socket: string;
   relais: string;
   ca: string;
   jeton: string;
+  jetonRelais: string;
 } {
   const dossier = pyJoin(config.SANDBOX_DIR, safeSandboxName(username));
   const run = pyJoin(dossier, DOSSIER_AGENT);
@@ -40,11 +48,12 @@ export function cheminsNavigateurBac(username: string): {
     socket: pyJoin(run, NOMS_HOTE.socket),
     relais: pyJoin(run, NOMS_HOTE.relais),
     ca: pyJoin(run, NOMS_HOTE.ca),
-    jeton: pyJoin(dossier, FICHIER_JETON_BAC),
+    jeton: pyJoin(dossierJetonsNavigateur(), `${safeSandboxName(username)}.service.token`),
+    jetonRelais: pyJoin(dossierJetonsNavigateur(), `${safeSandboxName(username)}.relay.token`),
   };
 }
 
-/** Jeton du service du bac (première ligne du fichier de l'hôte), `""` s'il manque. */
+/** Jeton lu dans un fichier de l'hôte (première ligne), `""` s'il manque. */
 export function jetonDuBac(chemin: string): string {
   try {
     return (readFileSync(chemin, "utf8").split("\n")[0] ?? "").trim();
@@ -59,7 +68,7 @@ export function serviceNavigateur(username: string): ServiceNavigateur {
   return { socket: c.socket, jeton: jetonDuBac(c.jeton) };
 }
 
-/** Services des bacs dont le jeton existe (service lancé au moins une fois) : un par dossier de `SANDBOX_DIR`, nom sûr d'un compte. */
+/** Services des bacs dont le jeton existe (service lancé par l'hôte d'outils en marche) : un par dossier de `SANDBOX_DIR`, nom sûr d'un compte. */
 export function servicesDesBacs(): ServiceNavigateur[] {
   let noms: string[];
   try {

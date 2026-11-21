@@ -153,9 +153,9 @@ async function demarrer(
   const coffre = await secretDeSession(s, url, a["secret"]);
   if ("refus" in coffre) return coffre.refus;
   const choix = coffre.choix;
-  if (choix?.secret.kind === "http-auth" && (veritePy(a["record_har"]) || veritePy(a["trace"])))
+  if (choix && (veritePy(a["record_har"]) || veritePy(a["trace"])))
     return errPw("recording_with_credentials", "", {
-      message: `Secret '${choix.secret.name}' applies HTTP authentication to this session: a HAR or a trace would keep it in clear.`,
+      message: `Secret '${choix.secret.name}' is used in this session: a HAR or a trace would keep its session in clear.`,
       fix: "Start again without record_har and trace.",
     });
   if (choix !== null) {

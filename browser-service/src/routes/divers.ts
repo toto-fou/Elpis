@@ -163,6 +163,12 @@ export function registerMiscRoutes(app: Application, ctx: ServiceContext) {
     autoSnapshot,
     async (req: Request<CorpsSession>, res: Response): Promise<Response | void> => {
       try {
+        // Les cookies d'une session ouverte pour un secret ne vont jamais sur disque.
+        if (req.session!.tls || req.session!._aConnecte)
+          return res.status(403).json({
+            error: "This session was used with a vault secret: its cookies and storage are not saved.",
+            code: "secret_session_not_saved",
+          });
         const nom = stateFileName(req.session!.owner, req.body.session_id);
         if (!nom) return res.status(400).json({ error: "Identifiant de session invalide." });
         await req.session!.context.storageState({ path: path.join(COOKIES_DIR, nom) });

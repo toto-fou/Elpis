@@ -75,6 +75,15 @@ describe("lecteur tolérant", () => {
     ]);
   });
 
+  it("niveaux qui prouvent un second facteur absents du fichier : lus comme une liste vide, qui ne prouve rien", () => {
+    const sansCle: Record<string, unknown> = { ...oidcValide() };
+    delete sansCle["mfa_acr"];
+    const r = reglagesAuthDepuis({ providers: [sansCle] });
+    expect(r.invalides).toEqual([]);
+    expect(r.providers.map((p) => p.mfa_acr)).toEqual([[]]);
+    expect(validerFournisseur({ ...oidcValide(), mfa_acr: undefined }).mfa_acr).toEqual([]);
+  });
+
   it("un champ inconnu, `preset` compris, rend le fournisseur invalide à la lecture et est refusé à l'écriture", () => {
     const r = reglagesAuthDepuis({ providers: [{ ...oidcValide(), preset: "keycloak" }] });
     expect(r.providers).toEqual([]);
@@ -169,11 +178,6 @@ describe("validateur strict (une valeur fausse par champ sensible)", () => {
       /mfa_acr/u,
     ],
     ["niveau déclaré vide", () => validerFournisseur(oidcValide({ mfa_acr: [""] })), /mfa_acr/u],
-    [
-      "niveaux déclarés absents",
-      () => validerFournisseur({ ...oidcValide(), mfa_acr: undefined }),
-      /mfa_acr/u,
-    ],
   ];
   it.each(fautes)("%s : 400", (_nom, f, motif) => {
     const r = refus(f);

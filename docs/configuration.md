@@ -440,13 +440,13 @@ Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at 
   `email`), `name_claim` (default `name`), `groups_claim` (default `groups`; claim names of 1 to 64 letters,
   digits, `_`, `-`, `.` or `:`, a dotted path reaches a nested claim), `required_acr` and `required_amr`
   (0 to 10 values of 128 characters at most; empty = no requirement; `acr` compared exactly, `amr` without
-  regard to case), `mfa_acr` (0 to 10 values of 128 characters at most, default empty: the `acr` levels the
+  regard to case), `mfa_acr` (0 to 10 values of 128 characters at most, default empty, an absent key reads as empty: the `acr` levels the
   provider issues only after a second factor, the only ones that prove it; see
   [sso-oidc.md](sso-oidc.md#requiring-a-second-factor)), `max_age_sec` (0 to 604800, 0 = none),
   `clock_skew_sec` (0 to 300, default 60), `session_max_age_sec` (0 to 2592000, 0 = global duration), `logout`
   (`rp_initiated`, `backchannel`, both default `false`).
 
-The defaults are those of a provider created in the console; a section written by hand has none (every key is required).
+The defaults are those of a provider created in the console; a section written by hand has none (every key is required, `mfa_acr` aside).
 
 A provider counts as active only when, at every read: it is switched on, all its settings are valid
 (unknown keys included), `required_groups` is not empty, `public_url` is a valid `https` origin,

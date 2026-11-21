@@ -1043,11 +1043,38 @@ def keep_sqlite_after_failed_transfer(cfg: Dict[str, Any]) -> None:
          "(rapport : user_db/db-transfer-report.json).")
 
 
+# Valeurs d'exemple que le core ignore (WEAK_SESSION_SECRETS de packages/config/src/reglages.ts).
+WEAK_SESSION_SECRETS = {"mysecretsessiontomodify", "changeme", "secret", "session_secret"}
+
+
+def db_dir(cfg: Dict[str, Any]) -> Path:
+    """Dossier de la base comme le core : APP_DB_PATH (environnement, puis .env) > app.db_path > user_db/app.db."""
+    brut = os.environ.get("APP_DB_PATH") or read_env_file().get("APP_DB_PATH") or ""
+    if not brut.strip():
+        brut = str((cfg.get("app") if isinstance(cfg.get("app"), dict) else {}).get("db_path") or "")
+    p = Path(brut if brut.strip() else "user_db/app.db")
+    return p.parent if p.is_absolute() else Path(os.path.realpath(ROOT / p)).parent
+
+
+def session_secret_set(cfg: Dict[str, Any]) -> bool:
+    """Un secret de session que le core retiendrait : APP_SESSION_SECRET, app.session_secret hors valeurs d'exemple, ou fichier .session_secret d'au moins 40 caractères."""
+    if (os.environ.get("APP_SESSION_SECRET") or read_env_file().get("APP_SESSION_SECRET") or "").strip():
+        return True
+    app = cfg.get("app") if isinstance(cfg.get("app"), dict) else {}
+    valeur = app.get("session_secret")
+    if isinstance(valeur, str) and valeur.strip() and valeur.strip().lower() not in WEAK_SESSION_SECRETS:
+        return True
+    try:
+        return len((db_dir(cfg) / ".session_secret").read_text(encoding="utf-8").strip()) >= 40
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
-    app = section(cfg, "app")
-    if force or not str(app.get("session_secret") or "").strip():
-        app["session_secret"] = secrets.token_hex(32)
-        ok("Secret de session généré.")
+    if force or not session_secret_set(cfg):
+        fichier = db_dir(cfg) / ".session_secret"
+        write_private(fichier, "ELPIS_" + secrets.token_hex(32))
+        ok(f"Secret de session généré ({fichier.name}, près de la base).")
     USER_DB.mkdir(exist_ok=True)
     for name, label in ((".local_mcp_token", "de l'hôte d'outils MCP"),
                         (".rag_service_token", "du service RAG")):
@@ -1346,6 +1373,53 @@ def apply_https(https: Dict[str, Any]) -> None:
     (ok if rc == 0 else warn)(f"Caddy : https://{https['domain']}/" if rc == 0 else "Configuration de Caddy échouée.")
 
 
+def ranger_secrets(fichier_jeton_rag: str) -> int:
+    """``--ranger-secrets`` : chaque secret de plateforme de config.json (valeur gagnante au core) va dans son fichier puis sort de config.json ; jamais une valeur affichée ; idempotent."""
+    if not CONFIG.exists():
+        return 0
+    cfg = read_config_strict(CONFIG)
+    if cfg is None:
+        warn("config.json est illisible : secrets non déplacés.")
+        return 1
+    jeton = Path(fichier_jeton_rag)
+    cibles = {("app", "session_secret"): db_dir(cfg) / ".session_secret",
+              ("app", "encryption_key"): db_dir(cfg) / ".encryption_key",
+              ("rag", "service_token"): jeton if jeton.is_absolute() else ROOT / jeton}
+    change = False
+    for (sec, cle), fichier in cibles.items():
+        bloc = cfg.get(sec)
+        if not isinstance(bloc, dict) or cle not in bloc:
+            continue
+        nom, valeur = f"{sec}.{cle}", bloc[cle]
+        if not isinstance(valeur, str):
+            warn(f"{nom} de config.json n'est pas un texte : laissé en place.")
+            continue
+        texte = valeur.strip()
+        faible = nom == "app.session_secret" and texte.lower() in WEAK_SESSION_SECRETS
+        if texte and not faible:
+            if nom == "app.session_secret" and len(texte) < 40:
+                warn(f"{nom} laissé dans config.json (moins de 40 caractères : le core remplacerait un fichier aussi "
+                     "court) : remplacez-le, ou retirez-le pour un secret neuf.")
+                continue
+            try:
+                actuel = fichier.read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeDecodeError):
+                actuel = None
+            try:
+                if actuel != texte:
+                    write_private(fichier, texte + "\n")
+            except OSError as e:
+                warn(f"{nom} non déplacé : {fichier} ({e.strerror}).")
+                return 1
+            ok(f"{nom} déplacé dans {fichier}.")
+        del bloc[cle]
+        change = True
+    if change:
+        write_config(cfg)
+        ok(f"config.json réécrit sans ses secrets de plateforme ({mode_of(CONFIG)}).")
+    return 0
+
+
 # =============================================================================
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="./elpis configure", description=(
@@ -1369,6 +1443,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="teste seulement la connexion à la base retenue, sans rien écrire")
     g.add_argument("--check-llm", action="store_true",
                    help="sonde seulement le serveur LLM retenu (GET /v1/models, clé en Bearer), sans rien écrire (./elpis doctor)")
+    g.add_argument("--ranger-secrets", action="store_true",
+                   help="déplace app.session_secret, app.encryption_key et rag.service_token de config.json "
+                        "vers leurs fichiers (rien à faire : code 0)")
+    g.add_argument("--fichier-jeton-rag", metavar="CHEMIN", default="user_db/.rag_service_token",
+                   help="fichier du jeton du RAG pour --ranger-secrets (défaut : user_db/.rag_service_token)")
     g.add_argument("--conseils-moteur", action="store_true",
                    help="affiche les drapeaux de lancement conseillés pour vLLM et SGLang, sans rien écrire")
     g = ap.add_argument_group("LLM")
@@ -1509,6 +1588,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         migrate_missing_families(chemin)
         migrate_app_entries(chemin)
         return 0
+    if a.ranger_secrets:
+        return ranger_secrets(a.fichier_jeton_rag)
     if a.check_llm:
         return check_llm(a)
     if a.conseils_moteur:

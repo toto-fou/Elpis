@@ -551,65 +551,39 @@ cmd_logs() {
 # =============================================================================
 #  service install / remove (systemd)
 # =============================================================================
-# _render_units DOSSIER UTILISATEUR → écrit les unités, remplit UNITS_WANTS
+# _rendre_gabarit GABARIT → le gabarit, chaque @NOM@ remplacé par GAB[NOM] ; une ligne faite d'un seul @NOM@ reçoit GAB[NOM] tel quel (plusieurs lignes ou aucune) ; @NOM@ inconnu : échec.
+_rendre_gabarit() {
+    local ligne cle
+    while IFS= read -r ligne || [ -n "$ligne" ]; do
+        if [[ "$ligne" =~ ^@([A-Z_]+)@$ ]] && [ -n "${GAB[${BASH_REMATCH[1]}]+x}" ]; then
+            [ -z "${GAB[${BASH_REMATCH[1]}]}" ] || printf '%s\n' "${GAB[${BASH_REMATCH[1]}]}"
+            continue
+        fi
+        for cle in "${!GAB[@]}"; do ligne="${ligne//"@$cle@"/"${GAB[$cle]}"}"; done
+        if [[ "$ligne" =~ @[A-Z_]+@ ]]; then warn "$1 : ${BASH_REMATCH[0]} sans valeur."; return 1; fi
+        printf '%s\n' "$ligne"
+    done < "$1"
+}
+
+# _render_units DOSSIER UTILISATEUR → unités rendues depuis les gabarits de deploy/systemd/, UNITS_WANTS rempli
 _render_units() {
-    local unit_dir="$1" run_user="$2" s e w repli
+    local unit_dir="$1" run_user="$2" s e repli gabarits="$ROOT/deploy/systemd"
+    local -A GAB
     UNITS_WANTS=()
     load_runtime
     need_core
     local db_unit; db_unit="$(_db_local_unit)"
     repli="$(core_cmd config DB_PATH 2>/dev/null)"; repli="${repli:-$ROOT/user_db/app.db}"; repli="${repli%/*}/.vault.key"
+    GAB=([PREFIX]="$UNIT_PREFIX" [USER]="$run_user" [ROOT]="$ROOT" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
+         [VAULT_KEY_REPLI]="$repli" [AFTER_DB]="${db_unit:+ $db_unit}" [WANTS_DB]="${db_unit:+Wants=$db_unit}")
     for s in "${SERVICES[@]}"; do
         svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
         svc_spec "$s"
-        {
-            echo "[Unit]"
-            echo "Description=Elpis — $s"
-            echo "PartOf=${UNIT_PREFIX}.target"
-            case "$s" in
-                rag)        echo "After=${UNIT_PREFIX}-qdrant.service" ;;
-                toolhost)   echo "After=network-online.target docker.service${db_unit:+ $db_unit}" ;;
-                main|admin) echo "After=${UNIT_PREFIX}-toolhost.service ${UNIT_PREFIX}-rag.service caddy.service${db_unit:+ $db_unit}" ;;
-            esac
-            case "$s" in
-                toolhost|main|admin) if [ -n "$db_unit" ]; then echo "Wants=$db_unit"; fi ;;
-            esac
-            echo
-            echo "[Service]"
-            echo "Type=simple"
-            echo "User=$run_user"
-            # Jetons du navigateur des bacs : dossier d'exécution privé de l'hôte d'outils, vidé à l'arrêt ; main n'y accède pas (ses contrôles passent par les routes de l'hôte).
-            case "$s" in
-                toolhost) echo "RuntimeDirectory=${UNIT_PREFIX}-toolhost"; echo "RuntimeDirectoryMode=0700"; echo "RuntimeDirectoryPreserve=restart" ;;
-            esac
-            # Identifiant syslog du service (journald, rsyslog) au lieu de « node » ou « uvicorn ».
-            echo "SyslogIdentifier=${UNIT_PREFIX}-$s"
-            echo "WorkingDirectory=$SPEC_DIR"
-            for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done
-            echo "EnvironmentFile=-$ROOT/.env"
-            case "$s" in
-                main|admin) ;;
-                *) echo "UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH"
-                   echo "InaccessiblePaths=-$VAULT_KEY_SYS"
-                   echo "InaccessiblePaths=-$repli" ;;
-            esac
-            printf 'ExecStart='; printf '%q ' "${SPEC_CMD[@]}"; echo
-            # Core : relancé après SIGHUP (sortie 75, tenue pour un succès) ; 310 s = 300 s de générations + 5 s de fermeture forcée.
-            # Hôte d'outils : relancé après SIGHUP (sortie 75) comme le core ; ses PTY sont tués à l'arrêt.
-            case "$s" in
-                main|admin|toolhost) echo "Restart=always"; echo "SuccessExitStatus=75" ;;
-                *)       echo "Restart=on-failure" ;;
-            esac
-            echo "RestartSec=3"
-            echo "KillMode=mixed"
-            case "$s" in
-                main|admin) echo "KillSignal=SIGTERM"; echo "TimeoutStopSec=310" ;;
-                *)          echo "TimeoutStopSec=30" ;;
-            esac
-            echo
-            echo "[Install]"
-            echo "WantedBy=${UNIT_PREFIX}.target"
-        } > "$unit_dir/${UNIT_PREFIX}-$s.service"
+        GAB[WORKDIR]="$SPEC_DIR"
+        GAB[EXEC]="$(printf '%q ' "${SPEC_CMD[@]}")"
+        GAB[ENV]="$(for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done)"
+        _rendre_gabarit "$gabarits/elpis-$s.service" > "$unit_dir/${UNIT_PREFIX}-$s.service" \
+            || die "Gabarit d'unité invalide : $gabarits/elpis-$s.service"
         UNITS_WANTS+=("${UNIT_PREFIX}-$s.service")
     done
     # Unités installées à côté : Caddy (apt, --with-caddy) quand HTTPS est
@@ -619,15 +593,9 @@ _render_units() {
     if _https_enabled && [ -f /lib/systemd/system/caddy.service ]; then extra+=(caddy.service); fi
     [ -f /etc/systemd/system/elpis-whisper.service ] && extra+=(elpis-whisper.service)
     [ -f /etc/systemd/system/elpis-tts.service ] && extra+=(elpis-tts.service)
-    {
-        echo "[Unit]"
-        echo "Description=Elpis (tous les services)"
-        echo "Wants=${UNITS_WANTS[*]} ${extra[*]}"
-        echo "After=network-online.target"
-        echo
-        echo "[Install]"
-        echo "WantedBy=multi-user.target"
-    } > "$unit_dir/${UNIT_PREFIX}.target"
+    GAB[WANTS]="${UNITS_WANTS[*]}${extra[*]:+ ${extra[*]}}"
+    _rendre_gabarit "$gabarits/elpis.target" > "$unit_dir/${UNIT_PREFIX}.target" \
+        || die "Gabarit d'unité invalide : $gabarits/elpis.target"
 }
 
 cmd_service() {

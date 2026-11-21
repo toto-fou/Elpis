@@ -302,7 +302,9 @@ SERVICES=(qdrant rag toolhost main admin); VAULT_KEY_SYS=/etc/elpis/vault.key
 """
     sortie = depot.parent / "unites"
     sortie.mkdir(exist_ok=True)
-    r = _bash(depot, _fonctions("_render_units"), talons + f'_render_units "{sortie}" {MOI}', **env)
+    if not (depot / "deploy/systemd").exists():
+        shutil.copytree(REPO / "deploy/systemd", depot / "deploy/systemd")
+    r = _bash(depot, _fonctions("_render_units", "_rendre_gabarit"), talons + f'_render_units "{sortie}" {MOI}', **env)
     assert r.returncode == 0, r.stderr
     return {f.name: f.read_text(encoding="utf-8") for f in sortie.iterdir()}
 

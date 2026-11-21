@@ -108,6 +108,7 @@ def racine(tmp_path):
     for f in ("elpis", "deploy/node/node.env", "deploy/node/runtime.sh", "deploy/node/relance.sh", "deploy/prerequis-apt.sh",
               "deploy/prerequis-apt.txt"):
         shutil.copy2(REPO / f, r / f)
+    shutil.copytree(REPO / "deploy/systemd", r / "deploy/systemd")
     (r / "venv/bin/python").symlink_to(sys.executable)
     (r / "venv/bin/uvicorn").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     (r / "venv/bin/uvicorn").chmod(0o755)

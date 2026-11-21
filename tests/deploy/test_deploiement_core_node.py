@@ -26,6 +26,7 @@ def racine(tmp_path):
     for f in ("elpis", "deploy/node/node.env", "deploy/node/runtime.sh", "deploy/node/relance.sh",
               "deploy/prerequis-apt.sh", "deploy/prerequis-apt.txt"):
         shutil.copy2(REPO / f, r / f)
+    shutil.copytree(REPO / "deploy/systemd", r / "deploy/systemd")
     (r / "venv/bin/python").symlink_to(sys.executable)
     _executable(r / "venv/bin/uvicorn", "#!/bin/sh\nexit 0\n")
     (r / "config.json").write_text("{}", encoding="utf-8")
@@ -185,6 +186,14 @@ def test_unites_valides_pour_systemd(racine, tmp_path):
     v = subprocess.run(["systemd-analyze", "verify", "--man=no", "--recursive-errors=no",
                         *sorted(str(p) for p in dossier.iterdir())], capture_output=True, text=True, timeout=120)
     assert v.returncode == 0, v.stderr
+
+
+def test_gabarit_a_repere_inconnu_refuse(racine):
+    gabarit = racine / "deploy/systemd/elpis-main.service"
+    gabarit.write_text(gabarit.read_text(encoding="utf-8") + "Environment=X=@INCONNU@\n", encoding="utf-8")
+    r = _elpis(racine, "service", "print", node=_faux_node(racine))
+    assert r.returncode != 0
+    assert "@INCONNU@ sans valeur" in r.stderr and "Gabarit d'unité invalide" in r.stderr
 
 
 @pytest.mark.parametrize("commande", [("start",), ("service", "print"), ("restart",)])

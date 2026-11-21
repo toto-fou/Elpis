@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis.target — tous les services d'Elpis, avec Caddy et le moteur vocal locaux s'ils sont installés : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis (tous les services)
+Wants=@WANTS@
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target

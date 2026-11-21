@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis-toolhost.service — hôte d'outils (bacs Docker, fichiers, terminal, navigateur, Office) : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis — toolhost
+PartOf=@PREFIX@.target
+After=network-online.target docker.service@AFTER_DB@
+@WANTS_DB@
+
+[Service]
+Type=simple
+User=@USER@
+# Jetons du navigateur des bacs : dossier d'exécution privé, vidé à l'arrêt, gardé d'une relance à l'autre.
+RuntimeDirectory=@PREFIX@-toolhost
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=restart
+SyslogIdentifier=@PREFIX@-toolhost
+WorkingDirectory=@WORKDIR@
+@ENV@
+EnvironmentFile=-@ROOT@/.env
+UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
+InaccessiblePaths=-@VAULT_KEY_SYS@
+InaccessiblePaths=-@VAULT_KEY_REPLI@
+ExecStart=@EXEC@
+# Relancé après SIGHUP (sortie 75) comme le core ; ses PTY sont tués à l'arrêt.
+Restart=always
+SuccessExitStatus=75
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=@PREFIX@.target

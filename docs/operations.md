@@ -33,8 +33,9 @@ protected kernel settings, modules and logs, and memory and task limits
 (`MemoryMax=`, `TasksMax=`). `systemd-analyze security elpis-main` gives the exposure
 score of a unit (every unit stays under 5, "OK"). Per service:
 
-- main and admin: no new namespaces either; they write in the installation folder
-  (configuration, `user_db/`, logs, backups), whose code folders stay read-only.
+- main and admin: no new namespaces either; they write only their state folders (`user_db/`,
+  logs, system prompts, skills, skins, sandboxes, RAG store), and the console the folder
+  of `config.json` (below): the code of the installation stays read-only.
 - toolhost and rag: bubblewrap (Office previews, RAG conversions) needs namespaces and
   a fresh `/proc`, hence no `RestrictNamespaces=`, `ProtectKernelTunables=`,
   `ProtectKernelLogs=`, `ProtectHostname=` (it covers part of `/proc/sys`),
@@ -66,6 +67,24 @@ the RAG and Qdrant (only the tool host drives Docker), and the audit key from th
 Qdrant.
 
 `./elpis start` (without systemd) applies none of this.
+
+### `config.json` under systemd
+
+`service install` moves `config.json` (with `config.json.bak` and `config.json.lock`) to
+`/etc/elpis/config/` and leaves a link at its place: only the console writes it (Admin console),
+main and the tool host read it. With one account per service, the folder and the file belong
+to the console (`elpis-admin`, group `elpis-donnees`): `./elpis configure` then runs with
+`sudo`, followed by `sudo ./elpis service install`. With one account for every service, they
+belong to that account. A `config.json` file put back in place of the link (an edit with
+`sed -i`, for example) wins: the next `service install` moves it over the old one and restores
+the link. Platform secrets found in `config.json` (`app.session_secret`, `app.encryption_key`,
+`rag.service_token`) are moved to their files at each `service install`: `deploy/configure.py
+--ranger-secrets`, run under the account that owns `config.json`, takes them out of it and out of
+`config.json.bak` and hands them over through a pipe; root writes `.session_secret` and
+`.encryption_key` next to the database, the RAG token in its file, never through a link and never
+at a path taken from `config.json` (targets checked first: if one is a link, nothing is moved).
+With one account per service, a missing session secret is created there (`0640 root:elpis-cle`),
+so that main and the console share it.
 
 ## Service accounts
 
@@ -106,7 +125,9 @@ and without ever entering the `work/` folder of a sandbox (owned by the sandboxe
 | `.backup_known_hosts` | `0660 elpis-admin:elpis-cle` (OpenSSH, run by main or the console, adds new hosts to it) |
 | `user_db/browser-relay-ca/` | `0700 elpis-toolhost` |
 | `user_db/run/chat_runs/`, `user_db/run/task_resume/` | `0700 elpis-main`, content included |
-| `mcp.json`, `toolhost.json`, `config.json` | `0640`, operator, group `elpis-donnees` |
+| `mcp.json`, `toolhost.json` | `0640`, operator, group `elpis-donnees` |
+| `/etc/elpis/config/` (`config.json`, `.bak`, `.lock`) | folder `2750 elpis-admin:elpis-donnees`, files `0640 elpis-admin:elpis-donnees`, `config.json.bak` `0600` (console only) |
+| `system_prompts/`, `skills/` | operator, group `elpis-donnees`, `2770`, content `g+rwX` |
 | sandboxes (`user_sandboxes/`) | `2770 root:elpis-donnees`; content `g+rwX`, except each `work/` and `.elpis-agent/` |
 | `logs/`, data folders outside the installation | `2770 root:elpis-donnees`; content `g+rwX` (outside the installation, only the content of Elpis accounts; folders accepted as below) |
 | `backups/` | `0700`, operator and its primary group, content included: only `./elpis backup` writes it (with one account per service, under `sudo`; the archive is then handed to the operator); the services never reach it |

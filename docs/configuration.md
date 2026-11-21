@@ -228,9 +228,10 @@ the connection to the selected database.
 | 7. Database | engine (SQLite, PostgreSQL), host, port, database, user, password (masked), TLS; connection tested; copy of the data from an existing SQLite database to an empty one | `config.json › database`, `user_db/.db_password` (0600) |
 | 8. Admin | name and password (masked, confirmed, 8 characters min.; empty = generated, to change at first sign-in); if accounts exist: password change offered | database `user_db/app.db` |
 
-Generated secrets (0600 files): `app.session_secret`,
-`user_db/.local_mcp_token` (tool host, referenced by `mcp.json`),
-`user_db/.rag_service_token`. Each answer can be given as an option
+Generated secrets (0600 files): `.session_secret` next to the database (only when no session
+secret is set: `APP_SESSION_SECRET`, `app.session_secret` outside the example values, or a file of
+40 characters or more; `--force` regenerates it), `user_db/.local_mcp_token` (tool host,
+referenced by `mcp.json`), `user_db/.rag_service_token`. Each answer can be given as an option
 (`./elpis configure --help`) or an `ELPIS_CFG_*` variable (`ELPIS_CFG_ENGINE`,
 `ELPIS_CFG_LLM_URL`, `ELPIS_CFG_LLM_API_KEY`, `ELPIS_CFG_CLOUD_API_KEY`,
 `ELPIS_CFG_ADMIN_PASSWORD`…); `--yes` asks no questions. Secrets
@@ -475,6 +476,9 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
   (suggested, changeable; `ELPIS_USER=name` with no question), which must be able to read the
   repository and is added to the `docker` group. Details, groups and rights:
   [operations.md](operations.md#service-accounts).
+- `config.json` moves to `/etc/elpis/config/` (a link stays in the repository) and only the
+  console writes it; with one account per service, `./elpis configure` runs with `sudo`, then
+  `sudo ./elpis service install` again ([operations.md](operations.md#configjson-under-systemd)).
 - `elpis.target` also pulls in Caddy when HTTPS is active, and the local
   voice services (`elpis-whisper`, `elpis-tts`) when they are installed.
 - `.env` is read by each unit (`EnvironmentFile`); it overrides the

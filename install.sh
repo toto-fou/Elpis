@@ -159,9 +159,11 @@ case "$DB_MODE" in
         echo "--db : MariaDB/MySQL n'est plus pris en charge (sqlite, postgres-local ou external)." >&2; exit 2 ;;
     *) echo "--db : sqlite, postgres-local ou external." >&2; exit 2 ;;
 esac
+# Configuration en place : config.json, ou son lien vers le dossier de la console (services systemd), même illisible d'ici.
+config_presente() { [ -f "$ROOT/config.json" ] || [ -L "$ROOT/config.json" ]; }
 # Base encore réglée sur un moteur retiré (config.json, APP_DB_BACKEND) : refus avant toute modification.
 DB_RETIRE="$( { printf '%s\n' "${APP_DB_BACKEND:-}"
-    if [ -f "$ROOT/config.json" ] && command -v python3 >/dev/null; then
+    if config_presente && command -v python3 >/dev/null; then
         python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("database") or {}).get("backend") or "")' \
             "$ROOT/config.json" 2>/dev/null
     fi; } | tr -d ' ' | tr '[:upper:]' '[:lower:]' | grep -xE 'mysql|mariadb' | head -n1)"
@@ -582,7 +584,7 @@ fi
 # Sandbox proposée : réinstallation, celle en place (image elpis/sandbox ou conteneur elpis-sb-*, comme l'assistant) ; Docker injoignable, build.
 sandbox_defaut() {
     local image
-    [ -f "$ROOT/config.json" ] || { echo build; return; }
+    config_presente || { echo build; return; }
     have docker || { echo none; return; }
     docker info >/dev/null 2>&1 || { echo build; return; }
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
@@ -600,7 +602,7 @@ if [ "$TUI" -eq 0 ]; then
     fi
     # Réinstallation : le navigateur reste comme il est, installé ou non.
     [ -n "$WITH_BROWSER" ] || WITH_BROWSER="$(ask_yn "Service navigateur (Chromium piloté dans la sandbox : navigation web par l'assistant) ?" \
-        "$([ -f "$ROOT/config.json" ] && [ ! -d "$ROOT/browser-service/node_modules" ] && echo 0 || echo 1)")"
+        "$(config_presente && [ ! -d "$ROOT/browser-service/node_modules" ] && echo 0 || echo 1)")"
     if [ -z "$SANDBOX_MODE" ]; then
         SANDBOX_MODE="$(ask_choice "Image sandbox Docker (terminal, exécution de code) :" "$(sandbox_defaut)" \
             "build:construire l'image ici (10 à 20 min, recommandé)" \
@@ -614,7 +616,7 @@ if [ "$TUI" -eq 0 ]; then
         [ -n "$PULL_REF" ] || die "--sandbox pull : précisez l'image (--pull REGISTRE/IMAGE:TAG ou ELPIS_SANDBOX_PULL_REF)."
     fi
     if [ -z "$DB_MODE" ]; then
-        if [ -f "$ROOT/config.json" ]; then
+        if config_presente; then
             DB_MODE=keep                     # réinstallation : la base ne change pas
         elif [ "$ADMIN_OK" -eq 1 ]; then
             DB_MODE="$(ask_choice "Base de données :" sqlite \
@@ -635,7 +637,7 @@ if [ "$TUI" -eq 0 ]; then
     fi
     [ -n "$WITH_AGPL" ]   || WITH_AGPL="$(ask_yn "Extras AGPL PyMuPDF/pdf2docx (licence AGPL ; plus utilisés depuis le RAG intégré) ?" 0)"
     if [ -z "$DO_CONFIGURE" ]; then
-        if [ -f "$ROOT/config.json" ]; then
+        if config_presente; then
             DO_CONFIGURE="$(ask_yn "Revoir la configuration (./elpis configure) ?" 0)"
         else
             DO_CONFIGURE=1
@@ -779,7 +781,7 @@ plan_dry_run() {
     fi
     if [ "$DO_CONFIGURE" = 1 ]; then
         etape "configuration : ./elpis configure --yes${CONFIGURE_ARGS[*]:+ $(args_masques "${CONFIGURE_ARGS[@]}")} (config.json, .env, mcp.json)"
-    elif [ -f "$ROOT/config.json" ]; then
+    elif config_presente; then
         etape "configuration : gardée (config.json et .env inchangés ; mcp.json suit la version : relais, familles d'outils)"
     fi
     case "$AFTER" in
@@ -788,7 +790,7 @@ plan_dry_run() {
         start)   etape "démarrage : ./elpis start" ;;
         *)       etape "démarrage : aucun (./elpis start ou sudo ./elpis service install ensuite)" ;;
     esac
-    if [ -f "$ROOT/config.json" ]; then
+    if config_presente; then
         [ "$DO_CONFIGURE" = 1 ] || gardes+=(config.json)
         [ -e "$ROOT/.env" ] && gardes+=(.env)
         [ -d "$ROOT/user_db" ] && gardes+=("user_db/ (base$([ -f "$ROOT/user_db/app.db" ] && echo " SQLite app.db"), jetons)")
@@ -1205,7 +1207,7 @@ if [ -z "${ELPIS_USER:-}" ] && [ -n "$COMPTE_UNITES" ] && [ "$COMPTE_UNITES" != 
     info "Services sous « $COMPTE_UNITES » (unités systemd installées) : compte gardé (ELPIS_USER=nom pour en changer)."
 fi
 # Journal de sécurité hors du dépôt : dossiers, groupe de lecture rsyslog et clé de signature (droits administrateur) ; service install le met en place lui-même.
-if [ "$AFTER" = service ] && [ -f "$ROOT/config.json" ]; then
+if [ "$AFTER" = service ] && config_presente; then
     :
 elif [ "$ADMIN_OK" -eq 1 ]; then
     $SUDO env ELPIS_USER="$COMPTE_SERVICES" "$ROOT/elpis" audit setup \
@@ -1214,7 +1216,7 @@ else
     note_warn "Journal de sécurité : droits administrateur requis (sudo ./elpis audit setup)."
 fi
 
-if [ -f "$ROOT/config.json" ]; then
+if config_presente; then
     case "$AFTER" in
         service)
             info "Services systemd…"

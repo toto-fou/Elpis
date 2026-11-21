@@ -3,6 +3,7 @@
 import { randomBytes } from "node:crypto";
 import {
   closeSync,
+  constants,
   fstatSync,
   lstatSync,
   mkdtempSync,
@@ -279,28 +280,55 @@ async function construire(
     skipped.push(`${lieu} — ${classeErreurPy(e)}: ${texteErreurPy(e)}`);
   };
 
-  /** `_safe_write` : `zf.write` du fichier (lien suivi) ; fichier spécial, lien mort ou illisible consigné. */
-  const ecrireFichier = async (abs: string, arcname: string): Promise<void> => {
+  /** `_safe_write` : `zf.write` du fichier (lien suivi ; sansLien : ouvert en O_NOFOLLOW, un lien consigné et jamais lu) ; fichier spécial, lien mort ou illisible consigné. */
+  const ecrireFichier = async (abs: string, arcname: string, sansLien = false): Promise<void> => {
     let st: BigIntStats | null;
-    try {
-      st = estFichierPy(abs) ? statSync(abs, { bigint: true }) : null;
-    } catch (e) {
-      if (!estErreurOs(e)) throw e;
-      signaler(abs, e);
-      return;
-    }
-    if (st === null) {
-      skipped.push(`${abs} — OSError: fichier spécial ou lien mort`);
-      return;
-    }
-    const dateHeure = dateStricte(st);
     let fd: number;
-    try {
-      fd = openSync(abs, "r");
-    } catch (e) {
-      if (!estErreurOs(e)) throw e;
-      signaler(abs, avecChemin(e, abs));
-      return;
+    let dateHeure: DateHeureZip;
+    if (sansLien) {
+      try {
+        fd = openSync(abs, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      } catch (e) {
+        if (!estErreurOs(e)) throw e;
+        if ((e as { code?: unknown }).code === "ELOOP")
+          skipped.push(
+            `${abs} — OSError: ${existePy(abs) ? "lien symbolique, non suivi" : "fichier spécial ou lien mort"}`,
+          );
+        else signaler(abs, avecChemin(e, abs));
+        return;
+      }
+      st = fstatSync(fd, { bigint: true });
+      if (!st.isFile()) {
+        closeSync(fd);
+        skipped.push(`${abs} — OSError: fichier spécial ou lien mort`);
+        return;
+      }
+      try {
+        dateHeure = dateStricte(st);
+      } catch (e) {
+        closeSync(fd);
+        throw e;
+      }
+    } else {
+      try {
+        st = estFichierPy(abs) ? statSync(abs, { bigint: true }) : null;
+      } catch (e) {
+        if (!estErreurOs(e)) throw e;
+        signaler(abs, e);
+        return;
+      }
+      if (st === null) {
+        skipped.push(`${abs} — OSError: fichier spécial ou lien mort`);
+        return;
+      }
+      dateHeure = dateStricte(st);
+      try {
+        fd = openSync(abs, "r");
+      } catch (e) {
+        if (!estErreurOs(e)) throw e;
+        signaler(abs, avecChemin(e, abs));
+        return;
+      }
     }
     try {
       await zip.ajouterFlux(
@@ -320,12 +348,13 @@ async function construire(
     }
   };
 
-  /** `_add_path` : fichier seul, ou arbre parcouru comme `os.walk` (liens vers des dossiers non descendus). */
+  /** `_add_path` : fichier seul, ou arbre parcouru comme `os.walk` (liens vers des dossiers non descendus ; sansLien : liens vers des fichiers non suivis). */
   const ajouterChemin = async (
     p: string,
     arcroot: string,
     exclus: ReadonlySet<string> | null = null,
     sauter: readonly string[] = [],
+    sansLien = false,
   ): Promise<void> => {
     if (!existePy(p)) return;
     if (estFichierPy(p)) {
@@ -351,7 +380,7 @@ async function construire(
       for (const f of fichiers) {
         const abs = `${top}/${f}`;
         if (exclus && exclus.has(realpathPy(abs))) continue;
-        await ecrireFichier(abs, `${arcroot}/${relatif(p, abs)}`);
+        await ecrireFichier(abs, `${arcroot}/${relatif(p, abs)}`, sansLien);
       }
       for (const d of dossiers.toReversed()) if (!estLien(`${top}/${d}`)) pile.push(`${top}/${d}`);
     }
@@ -479,7 +508,8 @@ async function construire(
             if (v.startsWith(`${nom}.bak-`) || v.startsWith(`${nom}.new-`))
               exclus.add(realpathPy(pyJoin(parent, v)));
         }
-        await ajouterChemin(userDb, "user_db", exclus, RUNTIME_DIRS);
+        // user_db/ est écrit par les services : un lien vers un fichier n'y est jamais suivi (il ferait entrer dans l'archive un fichier hors de user_db).
+        await ajouterChemin(userDb, "user_db", exclus, RUNTIME_DIRS, true);
       }
       const images = racineImages();
       let dansUserDb = false;

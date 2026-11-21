@@ -218,9 +218,12 @@ In each container, an **agent** (`sandbox-agent/server.py`,
 Python, standard library) executes the operations on `/work` that the host asks of it: HTTP on
 `/run/elpis/agent.sock` (mounted folder `<user>/.elpis-agent`), code mounted
 read-only from the application, started on demand under the container's
-UID, relaunched if it does not have the application's version. The host reaches it
+UID, relaunched if it does not have the application's version. The tool host reaches it
 through `@elpis/fichiers` (`packages/fichiers/src/agent.ts`), which opens the socket
-without following a link and treats every response as untrusted.
+without following a link and treats every response as untrusted. The tool host is the only
+process that runs the `docker` client or reaches a container and its sockets: the core
+(main, console, `./elpis backup`) calls its internal routes (`/api/internal/…`, service
+token and signed identity).
 
 ## External tools (MCP, OAuth, OpenAPI)
 
@@ -279,7 +282,9 @@ secret relay in the tool host (`packages/navigateur/src/relais.ts`).
   `readdir`, `chmod` or `rm` (exceptions, metadata only:
   `docs/sandbox-gateway.md`); no host-side `git` on a sandbox repository;
   every container goes through network profile resolution (a profile imposed
-  by the administrator wins).
+  by the administrator wins). Only the tool host drives Docker and the containers
+  (lint rule `no-restricted-imports` on `apps/core/src`,
+  `apps/core/test/architecture-bacs.test.ts`).
 
 ## Tests
 

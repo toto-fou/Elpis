@@ -829,10 +829,11 @@ installer_prerequis "${GROUPES_APT[@]}"
 # sandboxes : chaque /work appartient à l'utilisateur du conteneur (seul
 # l'agent y écrit) ; seuls user_sandboxes et chaque dossier de compte, sans
 # récursion. Un chown -R ici rendait /work illisible en écriture à l'agent
-# jusqu'au redémarrage de son conteneur. Sous des unités à un compte par service : ni les bacs ni les dossiers d'état, propriétaire seul changé.
+# jusqu'au redémarrage de son conteneur. Sous des unités à un compte par service : ni les bacs ni les dossiers que les services écrivent (état, prompts, skills, sauvegardes), propriétaire seul changé.
 chown_depot() {
     local qui="$APP_USER:" etat=()
-    unites_separees && { qui="$APP_USER"; etat=(-o -path "$ROOT/user_db" -o -path "$ROOT/logs" -o -path "$ROOT/user_skins" -o -path "$ROOT/user_skills"); }
+    unites_separees && { qui="$APP_USER"; etat=(-o -path "$ROOT/user_db" -o -path "$ROOT/logs" -o -path "$ROOT/user_skins" -o -path "$ROOT/user_skills"
+                                                -o -path "$ROOT/system_prompts" -o -path "$ROOT/skills" -o -path "$ROOT/backups"); }
     find "$ROOT" \( -path "$ROOT/user_sandboxes" "${etat[@]}" \) -prune -o -exec chown -h "$qui" {} +
     if [ -d "$ROOT/user_sandboxes" ] && [ "${#etat[@]}" -eq 0 ]; then
         chown "$APP_USER": "$ROOT/user_sandboxes"
@@ -1169,8 +1170,11 @@ case "$SANDBOX_MODE" in
 esac
 [ "$WITH_OFFICE" -eq 1 ] && check_office
 [ "$WITH_CADDY" -eq 1 ] && install_caddy
-mkdir -p "$ROOT/user_db/logs" "$ROOT/user_sandboxes" "$ROOT/logs"
-chmod 700 "$ROOT/user_sandboxes"   # la racine isole les sandboxes des autres comptes de l'hôte
+# Sous des unités à un compte par service, ces dossiers sont aux services (sudo ./elpis service install les pose) : rien n'y est créé ni changé ici.
+if ! unites_separees; then
+    mkdir -p "$ROOT/user_db/logs" "$ROOT/user_sandboxes" "$ROOT/logs"
+    chmod 700 "$ROOT/user_sandboxes"   # la racine isole les sandboxes des autres comptes de l'hôte
+fi
 chmod +x "$ROOT/elpis" 2>/dev/null || true
 
 # =============================================================================

@@ -68,7 +68,8 @@ _render_units() {
     printf '[Service]\nUser=%s\nEnvironment="ELPIS_COMPTES=%s"\n' "$([ "$MODE_COMPTES" = separes ] && echo elpis-main || echo "$2")" "$MODE_COMPTES" \
         > "$SYS_PREFIXE/etc/systemd/system/elpis-main.service"
 }
-audit_setup() { trace audit_setup "$1" "$MODE_COMPTES"; }
+audit_setup() { trace audit_setup "$1" "$MODE_COMPTES"; mkdir -p "$SYS_PREFIXE/etc/elpis"; }
+ranger_secrets() { trace ranger_secrets "$@"; }
 cmd_stop() { trace cmd_stop "$COMPTES_ARRET"; }
 # Dossiers créés ici appartiennent au compte des essais : il tient le rôle de root pour dossier_sur.
 eval "$(declare -f dossier_sur | sed '1s/^dossier_sur/dossier_sur_vrai/')"
@@ -208,6 +209,12 @@ def test_installation_separee_comptes_groupes_et_droits(depot):
                 "backups": "700", "mcp.json": "640", "config.json": "640"}
     assert {p: _mode(depot / p) for p in attendus} == attendus
     assert _mode(depot.parent / "cible") == "644" and (db / "lien").is_symlink()
+    conf = _sys(depot) / "etc/elpis/config"
+    assert (depot / "config.json").is_symlink() and os.readlink(depot / "config.json") == str(conf / "config.json")
+    assert _mode(conf) == "2750" and _mode(conf / "config.json") == "640"
+    assert f"ranger_secrets {depot}/user_db/.rag_service_token elpis-admin" in t
+    secret = (db / ".session_secret").read_text(encoding="utf-8")
+    assert re.fullmatch(r"ELPIS_[0-9a-f]{64}", secret), secret
     assert _mode(_sys(depot) / "var/lib/elpis-toolhost") == "700"
     assert re.search(r"^elpis-cle:x:\d+:elpis-admin,elpis-main$", (_sys(depot) / "etc/group").read_text(), re.M)
 
@@ -256,6 +263,89 @@ def test_compte_unique_choisi_sans_avertissement(depot):
     t = _trace(depot)
     assert f"render unique {MOI}" in t and not [l for l in t if l.startswith("useradd")]
     assert {p: _mode(depot / p) for p in ("user_db", "logs", "user_sandboxes")} == {"user_db": "700", "logs": "700", "user_sandboxes": "700"}
+    conf = _sys(depot) / "etc/elpis/config"
+    assert (depot / "config.json").is_symlink() and _mode(conf) == "700" and _mode(conf / "config.json") == "600"
+    assert f"install -d -m 700 -o {MOI} {depot}/backups" not in t
+
+
+def test_config_deja_rangee_puis_fichier_remis_a_sa_place(depot):
+    _unite_bloc4(depot)
+    (depot / "config.json.bak").write_text("{}", encoding="utf-8")
+    assert _harnais(depot, INSTALLE_SEPARE).returncode == 0
+    conf = _sys(depot) / "etc/elpis/config"
+    assert (conf / "config.json.bak").is_file() and not (depot / "config.json.bak").exists() and _mode(conf / "config.json.bak") == "600"
+    inode = (conf / "config.json").stat().st_ino
+    r = _harnais(depot, INSTALLE_SEPARE)
+    assert r.returncode == 0 and "lien" not in r.stderr and (conf / "config.json").stat().st_ino == inode
+    (depot / "config.json").unlink()
+    (depot / "config.json").write_text('{"modifie": true}', encoding="utf-8")
+    r = _harnais(depot, INSTALLE_SEPARE)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "a remplacé son lien (modifié en place, il l'emporte)" in r.stderr
+    assert (depot / "config.json").is_symlink() and (conf / "config.json").read_text() == '{"modifie": true}'
+
+
+def test_secret_de_session_garde_si_donne_par_l_environnement(depot):
+    _unite_bloc4(depot)
+    _etat(depot)
+    assert _harnais(depot, INSTALLE_SEPARE, APP_SESSION_SECRET="s" * 48).returncode == 0
+    assert (depot / "user_db/.session_secret").read_text(encoding="utf-8") == "x"
+
+
+def test_config_jamais_deplacee_dans_un_lien(depot):
+    _unite_bloc4(depot)
+    conf, autre = _sys(depot) / "etc/elpis/config", depot.parent / "autre"
+    conf.mkdir(parents=True)
+    autre.mkdir()
+    (conf / "config.json.bak").symlink_to(autre)
+    (depot / "config.json.bak").write_text("{}", encoding="utf-8")
+    r = _harnais(depot, INSTALLE_SEPARE)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert list(autre.iterdir()) == [] and not (conf / "config.json.bak").is_symlink() and _mode(conf / "config.json.bak") == "600"
+
+
+FAUX_CONFIGURE = """import json, os, sys
+with open(os.environ["JOURNAL"], "a", encoding="utf-8") as f:
+    f.write(" ".join(sys.argv[1:]) + "\\n")
+if os.environ.get("CODE"):
+    sys.exit(int(os.environ["CODE"]))
+print(json.dumps({"app.session_secret": "s" * 48, "app.encryption_key": "cle", "rag.service_token": "jeton"}))
+"""
+
+
+def test_secrets_de_config_ecrits_par_root_sans_lien_suivi(depot):
+    (depot / "deploy/configure.py").write_text(FAUX_CONFIGURE, encoding="utf-8")
+    (depot / "config.json.bak").write_text('{"app": {"session_secret": "ancien"}}', encoding="utf-8")
+    journal, cible, etc = depot.parent / "journal", depot.parent / "cible", _sys(depot) / "etc/elpis"
+    etc.mkdir(parents=True)
+    cible.write_text("hôte", encoding="utf-8")
+    corps = (f'PY="{sys.executable}"; MODE_COMPTES=separes; BASE_DONNEES="$ROOT/user_db"\n'
+             f'ranger_secrets "{etc}/rag.token" elpis-admin; echo "rc=$?"')
+    talons = TALONS.replace('ranger_secrets() { trace ranger_secrets "$@"; }\n', "")
+    r = _harnais(depot, corps, talons, JOURNAL=str(journal))
+    assert "rc=0" in r.stdout, r.stderr
+    db = depot / "user_db"
+    assert {f: (db / f).read_text(encoding="utf-8") for f in (".session_secret", ".encryption_key")} == {
+        ".session_secret": "s" * 48 + "\n", ".encryption_key": "cle\n"}
+    assert (etc / "rag.token").read_text(encoding="utf-8") == "jeton\n" and _mode(db / ".encryption_key") == "600"
+    assert journal.read_text(encoding="utf-8").splitlines() == ["--ranger-secrets --sortie -"]
+    assert any(l.startswith("runuser -u elpis-admin -- ") for l in _trace(depot)) and not (depot / "config.json.bak").exists()
+    (db / ".encryption_key").unlink()
+    (db / ".encryption_key").symlink_to(cible)
+    journal.unlink()
+    r = _harnais(depot, corps, talons, JOURNAL=str(journal))
+    assert "rc=1" in r.stdout and "secrets laissés dans config.json" in r.stderr and not journal.exists()
+    assert cible.read_text(encoding="utf-8") == "hôte"
+    (db / ".encryption_key").unlink()
+    r = _harnais(depot, corps, talons, JOURNAL=str(journal), CODE="2")
+    assert "rc=1" in r.stdout and "code 2" in r.stderr and not (db / ".encryption_key").exists()
+
+
+def test_lien_de_config_illisible_message_clair(depot):
+    (depot / "config.json").unlink()
+    (depot / "config.json").symlink_to(depot.parent / "absent/config.json")
+    r = _harnais(depot, "charger_instance", talons="")
+    assert r.returncode != 0 and "config.json illisible pour ce compte" in r.stderr and "elpis-donnees" in r.stderr
 
 
 def test_dossier_ferme_premier_dossier_sans_traversee(tmp_path):
@@ -420,6 +510,14 @@ def test_unites_du_mode_separe(depot):
         assert ('Environment="ELPIS_GROUPE_CLE=elpis-cle"' in lignes) is (s != "toolhost"), s
         assert 'Environment="ELPIS_COMPTES=separes"' in lignes and 'Environment="ELPIS_GROUPE_DONNEES=elpis-donnees"' in lignes
         assert ("SupplementaryGroups=docker" in lignes) is (s == "toolhost" and DOCKER), s
+    for s in ("main", "admin"):
+        lignes = u[f"elpis-{s}.service"].splitlines()
+        assert "ReadWritePaths=/run/elpis" in lignes and not any(l.startswith("ReadOnlyPaths=") for l in lignes), s
+        for d in ("user_db", "logs", "system_prompts", "skills", "user_skins", "user_skills", "user_sandboxes"):
+            assert f"ReadWritePaths=-{depot}/{d}" in lignes, (s, d)
+        assert f"ReadWritePaths=-{depot}/backups" not in lignes, s
+        assert ("ReadWritePaths=-/etc/elpis/config" in lignes) is (s == "admin"), s
+        assert not any(l in (f"ReadWritePaths={depot}", f"ReadWritePaths=-{depot}") for l in lignes), s
     for s, umask in (("rag", "0027"), ("qdrant", "0077")):
         lignes = u[f"elpis-{s}.service"].splitlines()
         assert f"UMask={umask}" in lignes and not any("ELPIS_COMPTES" in l or "GROUPE_DONNEES" in l for l in lignes), s
@@ -613,9 +711,9 @@ def test_apercu_des_unites_en_repli_comme_l_installation(depot):
     assert f"User={MOI}" in lignes and 'Environment="ELPIS_COMPTES=repli"' in lignes
 
 
-def _droits(*args: str) -> subprocess.CompletedProcess:
+def _droits(*args: str, entree: str | None = None) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, "-I", str(REPO / "deploy/droits.py"), *args], capture_output=True, text=True,
-                          timeout=60)
+                          timeout=60, input=entree)
 
 
 @pytest.mark.parametrize("spec,mode,dossier,attendu", [
@@ -657,11 +755,41 @@ def test_droits_sans_lien_suivi_ni_lien_physique_ni_sauf(tmp_path):
     assert (d / "f").stat().st_ctime_ns == avant
 
 
+def test_droits_secret_cree_garde_remplace_refuse(tmp_path):
+    assert _droits("secret", str(tmp_path), ".s").returncode == 0
+    texte = (tmp_path / ".s").read_text(encoding="ascii")
+    assert re.fullmatch(r"ELPIS_[0-9a-f]{64}", texte) and _mode(tmp_path / ".s") == "600"
+    assert _droits("secret", str(tmp_path), ".s").returncode == 0 and (tmp_path / ".s").read_text() == texte
+    (tmp_path / ".court").write_text("court", encoding="utf-8")
+    assert _droits("secret", str(tmp_path), ".court").returncode == 0 and len((tmp_path / ".court").read_text()) == 70
+    cible = tmp_path / "cible"
+    cible.write_text("c", encoding="utf-8")
+    (tmp_path / ".lien").symlink_to(cible)
+    r = _droits("secret", str(tmp_path), ".lien")
+    assert r.returncode == 1 and "lien ou fichier spécial" in r.stderr and cible.read_text() == "c"
+
+
 def test_droits_retirent_setuid_et_setgid_des_fichiers(tmp_path):
     (tmp_path / "f").write_text("x", encoding="utf-8")
     os.chmod(tmp_path / "f", 0o6755)
     assert _droits("arbre", str(tmp_path), "-", "g+w", "-").returncode == 0
     assert _mode(tmp_path / "f") == "775"
+
+
+def test_droits_ranger_ecrit_les_secrets_sans_suivre_de_lien(tmp_path):
+    base, cible = tmp_path / "base", tmp_path / "cible"
+    base.mkdir()
+    cible.write_text("hôte", encoding="utf-8")
+    (base / ".encryption_key").symlink_to(cible)
+    valeurs = '{"app.session_secret": "%s", "app.encryption_key": "cle", "rag.service_token": "jeton", "autre": "x"}' % ("s" * 48)
+    r = _droits("ranger", str(base), str(tmp_path / "rag.token"), entree=valeurs)
+    assert r.returncode == 1 and "lien ou fichier spécial" in r.stderr and cible.read_text(encoding="utf-8") == "hôte"
+    assert (base / ".session_secret").read_text(encoding="utf-8") == "s" * 48 + "\n" and _mode(base / ".session_secret") == "600"
+    assert (tmp_path / "rag.token").read_text(encoding="utf-8") == "jeton\n" and sorted(os.listdir(base)) == [".encryption_key", ".session_secret"]
+    avant = (base / ".session_secret").stat().st_ctime_ns
+    (base / ".encryption_key").unlink()
+    assert _droits("ranger", str(base), str(tmp_path / "rag.token"), entree=valeurs).returncode == 0
+    assert (base / ".session_secret").stat().st_ctime_ns == avant and (base / ".encryption_key").read_text(encoding="utf-8") == "cle\n"
 
 
 def test_droits_fichiers_par_motif_et_comptes(tmp_path):

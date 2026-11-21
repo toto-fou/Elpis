@@ -75,6 +75,8 @@ AUDIT_KEY_SYS="$SYS_PREFIXE/etc/elpis/audit.key"
 # Clé du coffre « Secrets » (sudo ./elpis vault setup), lue par le core (ELPIS_VAULT_KEY_PATH à défaut).
 VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vault.key"
 APPLOG_DIR_SYS="$SYS_PREFIXE/var/log/elpis"
+# config.json des services systemd, écrit par la console seule ; un lien le remplace dans le dépôt.
+CONFIG_SYS="$SYS_PREFIXE/etc/elpis/config"
 GROUPE_JOURNAL="${ELPIS_GROUPE_JOURNAL:-elpis-journal}"
 # Groupe de la clé de signature quand le groupe primaire du compte des services n'est pas le sien seul ; en mode séparé, clés de main et de la console.
 GROUPE_CLE="${ELPIS_GROUPE_CLE:-elpis-cle}"
@@ -316,6 +318,9 @@ charger_env() {
 
 # Instance : config.json, .env, Node, écoute et dossiers, lus par le core (sans le venv).
 charger_instance() {
+    if [ -L "$ROOT/config.json" ] && [ ! -f "$ROOT/config.json" ]; then
+        die "config.json illisible pour ce compte ($(readlink -- "$ROOT/config.json")) : membre du groupe $GROUPE_DONNEES dans une nouvelle session, ou sudo."
+    fi
     [ -f "$ROOT/config.json" ] || die "config.json absent : lancez ./elpis configure"
     charger_env
     NODE="$(node_bin)"
@@ -593,11 +598,13 @@ _chemins_hors_depot() {
     lanceur ecritures
 }
 
-# Dossiers d'état d'un service hors du dépôt : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris) ; dossier venu des réglages et refusé (dossier_etat_sur) : ignoré.
+# Dossiers d'état d'un service : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris ; pour main et la console, ceux de la racine, config.json étant chez la console) ; dossier venu des réglages et refusé (dossier_etat_sur) : ignoré.
 _ecritures_du_service() {
     local d s l=() vu=" "
     case "$1" in
-        main|admin) l=("$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR" "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS") ;;
+        main|admin) l=("$ROOT/user_db" "$LOG_DIR" "$ROOT/system_prompts" "$ROOT/skills" "$ROOT/user_skins"
+                       "$ROOT/user_skills" "$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR" "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS")
+                    [ "$1" = main ] || l+=("$CONFIG_SYS") ;;
         toolhost)   l=("$ROOT/user_db" "$LOG_DIR" "$SANDBOX_DIR" "$CHART_DIR" "$AUDIT_DIR_SYS") ;;
         rag)        l=("$RAG_CACHE") ;;
     esac
@@ -607,7 +614,7 @@ _ecritures_du_service() {
     for d in "${l[@]}"; do
         [ -n "$d" ] || continue
         case "$vu" in *" $d "*) continue ;; esac
-        case "$d" in "$AUDIT_DIR_SYS"|"$APPLOG_DIR_SYS"|"$ROOT/system_prompts"|"$ROOT/skills") ;; *) dossier_etat_sur "$d" || continue ;; esac
+        case "$d" in "$AUDIT_DIR_SYS"|"$APPLOG_DIR_SYS"|"$CONFIG_SYS"|"$ROOT/system_prompts"|"$ROOT/skills") ;; *) dossier_etat_sur "$d" || continue ;; esac
         vu+="$d "
         _valeur_sure "Dossier d'écriture de $1" "$d" || return 1
         printf 'ReadWritePaths=-%s\n' "$d"
@@ -670,7 +677,7 @@ base_sure() {
 
 # _render_units DOSSIER COMPTE [DOSSIER_TMPFILES] → unités du mode MODE_COMPTES (COMPTE : compte unique, ou opérateur en mode séparé) rendues depuis deploy/systemd/ (UNITS_WANTS, ECRITURES et BASE_DONNEES remplis) ; dossier d'exécution partagé dans DOSSIER_TMPFILES s'il est donné ; tout est rendu à part, puis déplacé : un échec ne laisse aucune unité tronquée
 _render_units() {
-    local unit_dir="$1" run_user="$2" tmpfiles_dir="${3:-}" s e f repli gabarits="$ROOT/deploy/systemd" code=() ecr db hors=() groupe run nav=""
+    local unit_dir="$1" run_user="$2" tmpfiles_dir="${3:-}" s e repli gabarits="$ROOT/deploy/systemd" ecr db hors=() groupe run nav=""
     local -A GAB
     UNITS_WANTS=(); MODE_COMPTES="${MODE_COMPTES:-unique}"
     load_runtime
@@ -689,15 +696,10 @@ _render_units() {
     fi
     # Dossiers de config.json jugés une fois ici : les unités et les droits n'en reprennent que les acceptés.
     while IFS= read -r e; do dossier_etat_sur "$e" || true; done < <(printf '%s\n' "$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR"; printf '%s\n' "$ecr" | cut -s -f2)
-    for e in apps packages frontend node node_modules venv deploy office rag_app shared_infra sandbox-agent \
-             browser-service desktop-agent tools elpis install.sh .env .git .npmrc package.json package-lock.json \
-             pyproject.toml toolhost.json mcp.json make_release.sh migration-kit; do code+=("-$ROOT/$e"); done
-    for f in "$ROOT"/requirements*.txt; do [ -e "$f" ] && code+=("-$f"); done
     for e in "$ROOT" "$VAULT_KEY_SYS" "$repli" "$AUDIT_KEY_SYS"; do _valeur_sure "Chemin d'unité" "$e" || exit 1; done
     mapfile -t hors < <(printf '%s\n' "$ecr" | cut -s -f2; printf '%s\n' "${NODE:-}" "$nav"; readlink -f "${PY:-}" 2>/dev/null)
     GAB=([PREFIX]="$UNIT_PREFIX" [RUN]="$run" [ROOT]="$ROOT" [BASE]="${db%/*}" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
          [VAULT_KEY_REPLI]="$repli" [AUDIT_KEY_SYS]="$AUDIT_KEY_SYS" [AFTER_DB]="${db_unit:+ $db_unit}" [WANTS_DB]="${db_unit:+Wants=$db_unit}"
-         [CODE_RO]="${code[*]}"
          [PROTECT_HOME]="$(_protection_home "$([ "$MODE_COMPTES" = separes ] && echo "$UNIT_PREFIX-toolhost" || echo "$run_user")" "${hors[@]}")")
     for s in "${SERVICES[@]}"; do
         svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
@@ -857,7 +859,7 @@ dossier_donnees() {
     dossier_etat_sur "$1" && dossier_sur "$1" "$2" "${4:-root}" "${5:-$GROUPE_DONNEES}" "$3"
 }
 
-# Droits du mode séparé, à chaque passage, services arrêtés, sur les seuls dossiers d'état acceptés (dossier_etat_sur) : dossiers au groupe des données (contenu g+rwX ; hors du dépôt, celui des comptes d'Elpis seul), run/chat_runs et run/task_resume privés à main, secrets un à un (clés et envois des sauvegardes à main et à la console), autorité du relais à l'hôte d'outils, backups/ privé à l'opérateur (./elpis backup seul l'écrit) ; aucun lien suivi, aucun /work touché.
+# Droits du mode séparé, à chaque passage, services arrêtés, sur les seuls dossiers d'état acceptés (dossier_etat_sur) : dossiers au groupe des données (contenu g+rwX ; hors du dépôt, celui des comptes d'Elpis seul), run/chat_runs et run/task_resume privés à main, secrets un à un (clés et envois des sauvegardes à main et à la console), autorité du relais à l'hôte d'outils, backups/ privé à l'opérateur (./elpis backup seul l'écrit), prompts et skills versionnés gardés à l'opérateur ; aucun lien suivi, aucun /work touché.
 droits_separes() {
     local base="$1" op="$2" admis="$3 $2 $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost" G="$GROUPE_DONNEES" og d n e=0 comptes=""
     og="$(id -gn "$op")" || return 1
@@ -883,6 +885,10 @@ droits_separes() {
     { dossier_donnees "$SANDBOX_DIR" 2770 "$admis" && poser_droits arbre "$SANDBOX_DIR" "$G" g+rwX g+rwXs --sauf work --sauf .elpis-agent; } || e=1
     { dossier_donnees "$LOG_DIR" 2770 "$admis" && poser_droits arbre "$LOG_DIR" "$G" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
     { dossier_sur "$ROOT/backups" 00700 "$op" "$og" "$admis" && poser_droits arbre "$ROOT/backups" "$og" go-rwx go-rwxs --proprio "$op"; } || e=1
+    for d in "$ROOT/system_prompts" "$ROOT/skills"; do
+        [ -d "$d" ] && [ ! -L "$d" ] || continue
+        { dossier_sur "$d" 2770 "$(stat -c %U -- "$d")" "$G" "$admis" && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
+    done
     mapfile -t hors < <({ printf '%s\n' "${ECRITURES:-}" | cut -s -f2; printf '%s\n' "$RAG_STORE" "$RAG_CACHE"; } | sed '/^$/d' | sort -u)
     for d in "${hors[@]}"; do
         case "$d/" in "$ROOT/user_db/"*|"${base:-/nonexistent}/"*|"$SANDBOX_DIR/"*|"$LOG_DIR/"*|"$ROOT/backups/"*) continue ;; esac
@@ -903,6 +909,45 @@ droits_unique() {
     done
     [ -z "$base" ] || poser_droits fichiers "$base" "$u" "$g" 0600 .session_secret .encryption_key || e=1
     return "$e"
+}
+
+# Secrets de config.json rangés dans leurs fichiers sans prendre de chemin à config.json : deploy/configure.py --ranger-secrets les retire sous son propriétaire COMPTE et les donne par un tube ; root les écrit (deploy/droits.py ranger) près de la base de confiance et dans JETON, cibles vérifiées avant (sans quoi rien n'est retiré), puis retire le config.json.bak resté dans le dépôt.
+ranger_secrets() {
+    local jeton="$1" c="$2" f sortie rc
+    [ -n "$BASE_DONNEES" ] || return 1
+    for f in "$BASE_DONNEES/.session_secret" "$BASE_DONNEES/.encryption_key" "$jeton"; do
+        [ -d "${f%/*}" ] && [ ! -L "${f%/*}" ] && [ ! -L "$f" ] && { [ ! -e "$f" ] || [ -f "$f" ]; } \
+            || { warn "$f : dossier absent, lien ou fichier spécial : secrets laissés dans config.json (à vérifier, puis sudo ./elpis service install)."; return 1; }
+    done
+    sortie="$(runuser -u "$c" -- "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?
+    if [ "$rc" -ne 0 ]; then
+        warn "Secrets de config.json non rangés (deploy/configure.py --ranger-secrets, code $rc) : relancez sudo ./elpis service install une fois corrigé."
+        return 1
+    fi
+    printf '%s' "$sortie" | poser_droits ranger "$BASE_DONNEES" "$jeton" \
+        || { warn "Secrets retirés de config.json mais pas tous écrits (voir ci-dessus) : ceux qui manquent sont à saisir de nouveau."; return 1; }
+    [ ! -f "$ROOT/config.json.bak" ] || [ -L "$ROOT/config.json.bak" ] || rm -f -- "$ROOT/config.json.bak"
+}
+
+# config.json chez la console (COMPTE : compte unique ou opérateur ; ADMIS : anciens propriétaires) : déplacé dans CONFIG_SYS avec .bak (0600, à elle seule) et .lock, lien laissé à sa place ; un fichier ordinaire remis à la place du lien (sed -i…) l'emporte ; dossier et fichier à la console en mode séparé, au compte unique sinon ; jamais un déplacement dans un lien.
+config_vers_console() {
+    local lien="$ROOT/config.json" d="$CONFIG_SYS" f proprio="$1" groupe md=0700 mf=0600
+    if [ "$MODE_COMPTES" = separes ]; then proprio="$UNIT_PREFIX-admin"; groupe="$GROUPE_DONNEES"; md=2750; mf=0640
+    else groupe="$(id -gn "$1")" || return 1; fi
+    dossier_sur "$d" "$md" "$proprio" "$groupe" "$2" || return 1
+    if [ -L "$lien" ]; then
+        [ "$(readlink -- "$lien")" = "$d/config.json" ] || { warn "$lien : lien vers $(readlink -- "$lien"), pas vers $d/config.json : laissé (à vérifier)."; return 1; }
+    elif [ -f "$lien" ]; then
+        [ ! -e "$d/config.json" ] || warn "$lien a remplacé son lien (modifié en place, il l'emporte) : déplacé sur $d/config.json."
+        mv -fT -- "$lien" "$d/config.json" && ln -s -- "$d/config.json" "$lien" || return 1
+        info "config.json rangé dans $d (lien $lien) : la console seule l'écrit."
+    elif [ -f "$d/config.json" ]; then
+        ln -s -- "$d/config.json" "$lien" || return 1
+    fi
+    for f in config.json.bak config.json.lock; do
+        [ ! -f "$ROOT/$f" ] || [ -L "$ROOT/$f" ] || mv -fT -- "$ROOT/$f" "$d/$f" || return 1
+    done
+    poser_droits fichiers "$d" "$proprio" "$groupe" "$mf" config.json config.json.lock && poser_droits fichiers "$d" "$proprio" "$groupe" 0600 config.json.bak
 }
 
 cmd_service() {
@@ -952,8 +997,8 @@ cmd_service() {
                 id "$run_user" >/dev/null 2>&1 || die "Utilisateur $run_user inexistant (créez-le, ou ELPIS_USER=nom)."
                 ecrivain="$run_user"
                 # Il doit lire le dépôt et piloter Docker (sandbox).
-                sudo -u "$run_user" test -r "$ROOT/config.json" \
-                    || die "$run_user ne peut pas lire $ROOT/config.json : choisissez le propriétaire du dépôt."
+                sudo -u "$run_user" test -r "$ROOT/elpis" \
+                    || die "$run_user ne peut pas lire le dépôt ($ROOT) : choisissez son propriétaire."
                 if getent group docker >/dev/null && ! id -nG "$run_user" | tr ' ' '\n' | grep -qx docker; then
                     warn "Le groupe docker équivaut à root sur l'hôte : $run_user en deviendra membre. Machine dédiée conseillée (SECURITY.md)."
                     usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
@@ -963,6 +1008,8 @@ cmd_service() {
                 || warn "Journal de sécurité incomplet (voir ci-dessus) : sudo ./elpis audit setup une fois corrigé."
             cle_regroupee "$VAULT_KEY_SYS" "$([ "$MODE_COMPTES" = separes ] && echo "$GROUPE_CLE" || echo "${GRP_CLE:-}")" \
                 || warn "Clé du coffre $VAULT_KEY_SYS non remise au groupe des services (sudo ./elpis vault setup)."
+            # Avant les unités : sans config.json chez la console, main et la console ne pourraient plus l'écrire.
+            config_vers_console "$run_user" "$ancien" || die "config.json non rangé dans $CONFIG_SYS (voir ci-dessus) : unités et services laissés tels quels."
             _render_units "$unit_dir" "$run_user" /etc/tmpfiles.d
             systemd-tmpfiles --create "/etc/tmpfiles.d/${UNIT_PREFIX}.conf" \
                 || warn "Dossier d'exécution /run/${UNIT_PREFIX} non créé (systemd-tmpfiles)."
@@ -979,7 +1026,11 @@ cmd_service() {
             # Cible arrêtée : le contenu de /run/<préfixe> garderait l'ancien propriétaire si le compte change ; droits posés services arrêtés.
             systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
             [ -d "/run/${UNIT_PREFIX}" ] && find "/run/${UNIT_PREFIX}" -xdev -mindepth 1 -delete 2>/dev/null
+            ranger_secrets "$ROOT/user_db/.rag_service_token" "$([ "$MODE_COMPTES" = separes ] && echo "$UNIT_PREFIX-admin" || echo "$run_user")"
             if [ "$MODE_COMPTES" = separes ]; then
+                # Secret de session créé ici (0640 au groupe de la clé) : créé par main, il resterait illisible pour la console.
+                [ -n "${APP_SESSION_SECRET:-}" ] || [ -z "$BASE_DONNEES" ] || poser_droits secret "$BASE_DONNEES" .session_secret \
+                    || warn "Secret de session non créé dans $BASE_DONNEES (voir ci-dessus)."
                 droits_separes "$BASE_DONNEES" "$run_user" "$ancien" || warn "Droits du mode séparé incomplets (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             else
                 droits_unique "$BASE_DONNEES" "$run_user" "$ancien" \
@@ -1428,7 +1479,11 @@ cmd_doctor() {
     fi
     check "dépendances de l'extracteur du RAG" "venv/bin/pip install -r requirements-rag.txt" "$PY" -c 'import pdfplumber, pypdfium2, pypdf, openpyxl, docx, pptx' 
     check "moteur Office (worker de l'hôte d'outils)" "venv/bin/pip install -r requirements.txt" doctor_office
-    check "config.json" "./elpis configure" test -f "$ROOT/config.json"
+    if [ -L "$ROOT/config.json" ] && [ ! -f "$ROOT/config.json" ]; then
+        warn "config.json : illisible pour ce compte ($(readlink -- "$ROOT/config.json") : groupe $GROUPE_DONNEES dans une nouvelle session, ou sudo ./elpis doctor)"; bad=$((bad+1))
+    else
+        check "config.json" "./elpis configure" test -f "$ROOT/config.json"
+    fi
     check "mcp.json" "./elpis configure" test -f "$ROOT/mcp.json"
     check "jeton MCP" "./elpis configure" test -s "$ROOT/user_db/.local_mcp_token"
     check "jeton du service RAG" "./elpis configure" test -s "$ROOT/user_db/.rag_service_token"

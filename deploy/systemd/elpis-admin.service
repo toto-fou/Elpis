@@ -30,9 +30,8 @@ TimeoutStopSec=310
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
-ReadWritePaths=@ROOT@ /run/@PREFIX@
+ReadWritePaths=/run/@PREFIX@
 @RW@
-ReadOnlyPaths=@CODE_RO@
 # Le socket Docker (compte du groupe docker) n'est qu'à l'hôte d'outils.
 InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock
 ProtectHome=@PROTECT_HOME@

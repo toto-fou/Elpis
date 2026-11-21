@@ -38,6 +38,11 @@ follow [SemVer](https://semver.org/).
   are copied for the tool host instead). For a server, install in `/opt/elpis`
   ([operations.md](docs/operations.md#service-accounts)); then run `sudo ./elpis service install`
   again. `./install.sh --service` no longer adds the application account to the `docker` group.
+- **`config.json` written by the console only.** Under systemd, `config.json` moves to
+  `/etc/elpis/config/` (a link stays in the repository), its platform secrets go to their files,
+  and main and the console no longer write the installation folder: only their state folders
+  stay writable. With one account per service, `./elpis configure` needs `sudo`, followed by
+  `sudo ./elpis service install`; after a restore from the console, run `service install` again.
 - **systemd units: versioned and hardened.** The units of the services are rendered from
   templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
   privileges, with the system read-only except the folders it writes, a private `/tmp` and

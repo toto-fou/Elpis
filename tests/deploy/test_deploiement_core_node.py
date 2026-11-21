@@ -222,9 +222,8 @@ def test_unites_durcies(racine):
         assert any(ligne.startswith("SystemCallFilter=") for ligne in lignes) is (s == "qdrant"), s
     for s in ("main", "admin"):
         lignes = _directives(unites[f"elpis-{s}.service"])
-        assert f"ReadWritePaths={racine} /run/elpis" in lignes and "UMask=0007" in lignes, s
-        ro = next(ligne for ligne in lignes if ligne.startswith("ReadOnlyPaths="))
-        assert {f"-{racine}/apps", f"-{racine}/node", f"-{racine}/elpis", f"-{racine}/deploy"} <= set(ro.split("=", 1)[1].split()), s
+        assert "ReadWritePaths=/run/elpis" in lignes and "UMask=0007" in lignes, s
+        assert f"ReadWritePaths=-{racine}/user_db" in lignes and not any(ligne.startswith("ReadOnlyPaths=") for ligne in lignes), s
     lignes = _directives(unites["elpis-toolhost.service"])
     assert "UMask=0007" in lignes and f"ReadWritePaths=-{racine}/user_db" in lignes
     assert not any(ligne in (f"ReadWritePaths={racine}", f"ReadWritePaths=-{racine}") for ligne in lignes)

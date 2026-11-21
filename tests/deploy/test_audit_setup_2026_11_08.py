@@ -78,7 +78,7 @@ info() {{ printf '[elpis] %s\\n' "$*"; }}; ok() {{ printf '[ ok  ] %s\\n' "$*"; 
 warn() {{ printf '[warn ] %s\\n' "$*" >&2; }}; die() {{ printf '[err  ] %s\\n' "$*" >&2; exit 1; }}
 SYS_PREFIXE="$ELPIS_PREFIXE_SYSTEME"; AUDIT_DIR_SYS="$SYS_PREFIXE/var/lib/elpis/audit"
 AUDIT_KEY_SYS="$SYS_PREFIXE/etc/elpis/audit.key"; APPLOG_DIR_SYS="$SYS_PREFIXE/var/log/elpis"
-VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vault.key"
+VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vault.key"; CONFIG_SYS="$SYS_PREFIXE/etc/elpis/config"
 GROUPE_JOURNAL=elpis-journal; GROUPE_CLE=elpis-cle; UNIT_PREFIX=elpis
 ROOT={depot}; RUN_DIR="$ROOT/user_db/run"; LOG_DIR="$ROOT/logs"; SERVICES=(main); SERVICES_RETIRES=()
 """
@@ -264,8 +264,9 @@ def test_service_install_garde_le_compte_des_unites(depot, explicite):
     talons = """
 id() { if [ "$#" -eq 1 ] && [ "$1" = -u ]; then echo 0; else command id "$@"; fi; }
 systemctl() { :; }; usermod() { :; }; sudo() { :; }; getent() { return 1; }; chown() { :; }; install() { :; }
-systemd-tmpfiles() { :; }; load_runtime() { :; }; need_core() { :; }
-_render_units() { UNITS_WANTS=(); RAG_STORE=/x; RAG_CACHE=/x; }
+systemd-tmpfiles() { :; }; load_runtime() { :; }; need_core() { :; }; config_vers_console() { :; }; ranger_secrets() { :; }
+jeton_rag() { :; }; droits_unique() { :; }
+_render_units() { UNITS_WANTS=(); RAG_STORE=/x; RAG_CACHE=/x; ECRITURES=""; }
 audit_setup() { echo "audit_setup $1 | $2"; }; cmd_stop() { echo "cmd_stop $COMPTES_ARRET"; }
 """
     r = _bash(depot, _fonctions("cmd_service", "compte_services", "mode_installe", "compte_unique", "cle_regroupee",

@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: MIT
-"""deploy/droits.py — droits posés par « sudo ./elpis service install » sans suivre de lien : entrée ouverte en O_PATH|O_NOFOLLOW sous le descripteur de son dossier, changée par ce descripteur si elle diffère."""
+"""deploy/droits.py — droits posés et secrets écrits par « sudo ./elpis service install » sans suivre de lien : entrée ouverte en O_PATH|O_NOFOLLOW sous le descripteur de son dossier, changée par ce descripteur si elle diffère."""
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import grp
+import json
 import os
 import pwd
 import re
+import secrets
 import stat
 import sys
 
@@ -19,6 +22,12 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           son contenu à COMPTE seul (go-rwx)
         droits.py fichiers DOSSIER PROPRIO GROUPE MODE MOTIF...
           fichiers ordinaires de DOSSIER nommés d'après un MOTIF : PROPRIO (« - » : gardé), GROUPE, MODE octal
+        droits.py secret DOSSIER NOM
+          secret aléatoire (ELPIS_ et 64 chiffres hexadécimaux, 0600) créé dans DOSSIER s'il manque ou fait moins de
+          40 caractères ; un lien ou un fichier spécial à ce nom est refusé
+        droits.py ranger BASE JETON
+          secrets de l'objet JSON de l'entrée standard (deploy/configure.py --ranger-secrets) dans BASE/.session_secret,
+          BASE/.encryption_key et JETON (0600) s'ils diffèrent ; un lien ou un fichier spécial est refusé
 Hors de root : modes seulement. Fichier à plusieurs liens physiques : laissé, signalé. Code 1 au moindre refus."""
 CLAUSE = re.compile(r"([ugo]+)([+-])([rwxXs]+)")
 
@@ -135,6 +144,65 @@ def fichiers(args: list[str]) -> bool:
         os.close(dfd)
 
 
+def _poser_texte(dossier: str, nom: str, texte_de) -> bool:
+    """NOM de DOSSIER remplacé par texte_de(contenu actuel, None s'il manque) quand il rend un texte : temporaire au nom aléatoire (O_EXCL|O_NOFOLLOW, 0600) écrit, synchronisé, puis renommé ; lien ou fichier spécial : refusé, signalé."""
+    dfd = os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        try:
+            fd = os.open(nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
+        except FileNotFoundError:
+            actuel = None
+        except OSError:
+            print(f"[warn ] {os.path.join(dossier, nom)} : lien ou fichier spécial, laissé (à vérifier).", file=sys.stderr)
+            return False
+        else:
+            with os.fdopen(fd, "rb") as f:
+                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                    print(f"[warn ] {os.path.join(dossier, nom)} : fichier spécial, laissé (à vérifier).", file=sys.stderr)
+                    return False
+                actuel = f.read(65536).decode("utf-8", "replace")
+        texte = texte_de(actuel)
+        if texte is None:
+            return True
+        tmp = f".{nom}.{secrets.token_hex(8)}"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(texte)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, nom, src_dir_fd=dfd, dst_dir_fd=dfd)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp, dir_fd=dfd)
+            raise
+        return True
+    finally:
+        os.close(dfd)
+
+
+def secret(args: list[str]) -> bool:
+    dossier, nom = args
+    return _poser_texte(dossier, nom, lambda a: None if a is not None and len(a.strip()) >= 40 else "ELPIS_" + secrets.token_hex(32))
+
+
+def ranger(args: list[str]) -> bool:
+    base, jeton = args
+    valeurs = json.loads(sys.stdin.read() or "{}")
+    cibles = {"app.session_secret": (base, ".session_secret"), "app.encryption_key": (base, ".encryption_key"),
+              "rag.service_token": os.path.split(jeton)}
+    reussi = True
+    for cle, valeur in valeurs.items():
+        if cle in cibles and isinstance(valeur, str) and valeur.strip():
+            texte = valeur.strip() + "\n"
+            try:
+                reussi &= _poser_texte(*cibles[cle], lambda a, t=texte: None if a == t else t)
+            except OSError as e:
+                print(f"[warn ] {os.path.join(*cibles[cle])} : {e.strerror} : {cle} non écrit.", file=sys.stderr)
+                reussi = False
+    return reussi
+
+
 def _existe(compte: str) -> bool:
     try:
         pwd.getpwnam(compte)
@@ -144,7 +212,7 @@ def _existe(compte: str) -> bool:
 
 
 if __name__ == "__main__":
-    commandes = {"arbre": (arbre, 4), "fichiers": (fichiers, 5)}
+    commandes = {"arbre": (arbre, 4), "fichiers": (fichiers, 5), "secret": (secret, 2), "ranger": (ranger, 2)}
     if len(sys.argv) < 2 or sys.argv[1] not in commandes or len(sys.argv) - 2 < commandes[sys.argv[1]][1]:
         raise SystemExit(USAGE)
     sys.exit(0 if commandes[sys.argv[1]][0](sys.argv[2:]) else 1)

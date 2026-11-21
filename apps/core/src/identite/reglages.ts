@@ -2,6 +2,7 @@
 /** apps/core/src/identite/reglages.ts — réglages `config.json › auth` : types, lecteur tolérant lu à chaud et validateur strict des écritures. */
 import { createHash, X509Certificate } from "node:crypto";
 
+import { DUREE_MAX_SESSION_S } from "@elpis/auth";
 import { estDict, FlottantPy, HttpError } from "@elpis/commun";
 import { configView, gelerProfond } from "@elpis/config";
 
@@ -309,7 +310,7 @@ function fournisseurDe(o: Record<string, unknown>): Fournisseur {
     required_amr: listeTextes(o["required_amr"], "required_amr", 10, 128),
     max_age_sec: entier(o["max_age_sec"], "max_age_sec", 0, 604_800),
     clock_skew_sec: entier(o["clock_skew_sec"], "clock_skew_sec", 0, 300),
-    session_max_age_sec: entier(o["session_max_age_sec"], "session_max_age_sec", 0, 2_592_000),
+    session_max_age_sec: entier(o["session_max_age_sec"], "session_max_age_sec", 0, DUREE_MAX_SESSION_S),
     logout: deconnexion(o["logout"]),
   };
 }
@@ -399,13 +400,6 @@ export function validerReglagesGeneraux(
   return { public_url: publicUrl, local: { mode } };
 }
 
-/** Fournisseur du fichier sans l'ancien champ `preset`, que le lecteur ignore. */
-function sansPreset(brut: unknown): unknown {
-  if (!estDict(brut)) return brut;
-  const { preset: _ancien, ...reste } = brut;
-  return reste;
-}
-
 /** Réglages lus d'une section : tolérant (section absente ou corrompue : réglages d'aujourd'hui), fournisseurs invalides mis à part. */
 export function reglagesAuthDepuis(section: unknown): ReglagesAuthLus {
   const d = estDict(section) ? section : {};
@@ -419,7 +413,7 @@ export function reglagesAuthDepuis(section: unknown): ReglagesAuthLus {
   };
   for (const brut of liste.slice(0, FOURNISSEURS_MAX + 20)) {
     try {
-      const f = validerFournisseur(sansPreset(brut));
+      const f = validerFournisseur(brut);
       if (lus.providers.some((p) => p.id === f.id)) throw new HttpError(400, "doublon");
       lus.providers.push(f);
     } catch (e) {

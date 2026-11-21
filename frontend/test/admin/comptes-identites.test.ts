@@ -22,7 +22,7 @@ afterEach(() => {
   reinitialiserSuiviChargement();
 });
 
-const IDENTITE = { provider_id: "sso", ext_username: "alice.martin", linked_at: 1 };
+const IDENTITE = { provider_id: "sso", ext_username: "alice.martin" };
 const UTIL = [
   compteConsole(1, "root", { is_admin: 1 }),
   compteConsole(2, "alice", { identity: IDENTITE, has_local_password: false }),

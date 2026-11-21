@@ -57,6 +57,20 @@ describe("échéance figée (_exp)", () => {
     expect((await validerSession(s, 1, deps({ max_age_sec: 10_000 }, t))).valide).toBe(true);
   });
 
+  it("session sans _exp : la durée de configuration ne dépasse jamais 30 jours, même relevée à 90 jours", async () => {
+    const s = new Session();
+    poserIdentite(s, { user_id: 1, _login_ts: 1000 });
+    const quatreVingtDixJours = 90 * 86_400;
+    const t = { now: 1000 + 31 * 86_400 };
+    expect((await validerSession(s, 1, deps({ max_age_sec: quatreVingtDixJours }, t))).valide).toBe(false);
+    expect(
+      await fluxEncoreValide(1, 1000, undefined, {
+        ...deps({ max_age_sec: quatreVingtDixJours }, t),
+        sessionMinTs: async () => 0,
+      }),
+    ).toBe(false);
+  });
+
   it("_exp illisible : session refusée", async () => {
     const s = ouverte(1000, 500);
     poserIdentite(s, { _exp: "demain" });

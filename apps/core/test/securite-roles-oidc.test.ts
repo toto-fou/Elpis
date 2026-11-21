@@ -158,6 +158,21 @@ describe.each(MOTEURS)("rôles et groupes du fournisseur : décisions communes (
       expect(ouvertes).toBe(1);
     });
 
+    it("l'état du compte est relu sous le verrou d'écriture : une appartenance posée entre-temps n'est ni doublée ni comptée", async () => {
+      regler({ group_map: { enabled: true, map: [{ external: "equipe", group_id: gEquipe }] } });
+      const jean = await compte("jean");
+      const ecriture = b.t.base.ecriture.bind(b.t.base);
+      b.t.base.ecriture = ((f: never) => {
+        b.t.base.ecriture = ecriture;
+        return b.t.base
+          .run("INSERT INTO user_groups(user_id, group_id) VALUES(?,?)", [jean, gEquipe])
+          .then(() => ecriture(f));
+      }) as typeof b.t.base.ecriture;
+      expect(await appliquer(jean, ["equipe"])).toEqual(rien);
+      expect(await groupesDeCompte(b.t.base, "jean")).toEqual([gEquipe]);
+      expect(audits("auth.groups.sync")).toEqual([]);
+    });
+
     it("un rôle n'est dit géré que si l'option agit : allumée sans groupe utilisable, il reste modifiable à la main", () => {
       const brut = (extra: Record<string, unknown>): Record<string, unknown> => ({
         ...(b.fournisseurs[0] as Fournisseur),

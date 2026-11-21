@@ -58,10 +58,16 @@ export async function leverMinSession(x: Executeur, userId: number, ts: number):
   return r.changes > 0;
 }
 
-/** Durée de vie maximale d'une session en secondes (`security.session.max_age_sec`), comme la lit `validerSession`. */
+/** Borne serveur de la durée de vie d'une session : 30 jours, quelle que soit la configuration. */
+export const DUREE_MAX_SESSION_S = 2_592_000;
+
+/** Durée de vie maximale d'une session en secondes (`security.session.max_age_sec`, bornée à 30 jours), comme la lit `validerSession`. */
 export function dureeMaxSession(config: unknown): number {
   try {
-    return intPy(lire(sousObjet(sousObjet(config, "security"), "session"), "max_age_sec", 86400));
+    return Math.min(
+      intPy(lire(sousObjet(sousObjet(config, "security"), "session"), "max_age_sec", 86400)),
+      DUREE_MAX_SESSION_S,
+    );
   } catch {
     return 86400;
   }

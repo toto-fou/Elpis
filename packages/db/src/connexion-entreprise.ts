@@ -3,7 +3,7 @@
 import type { Executeur } from "./base";
 import type { Migration } from "./migration";
 
-/** 0032 : rien à convertir (colonnes, tables et index sont créés avec le schéma) ; l'index sur `revoked_at`, plus lu par la purge, est retiré. */
+/** 0032 : rien à convertir (colonnes, tables et index sont créés avec le schéma) ; l'ancien index sur `revoked_at` est retiré, la purge passe par celui sur `expires_at`. */
 export const MIGRATION_CONNEXION_ENTREPRISE: Migration = {
   name: "0032_connexion_entreprise",
   tables: [],

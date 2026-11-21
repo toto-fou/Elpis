@@ -5,6 +5,7 @@ import { estTableAbsente } from "@elpis/db";
 
 import { lire, sousObjet } from "./dict";
 import { compteSuspendu } from "./etat-compte";
+import { DUREE_MAX_SESSION_S } from "./revocations";
 
 const CLES_RESERVEES: ReadonlySet<string> = new Set([
   "uid",
@@ -130,7 +131,7 @@ export async function validerSession(
   dep: DependancesSession,
 ): Promise<{ valide: boolean; ligne?: LigneUtilisateur }> {
   const cfg = reglages(dep.config());
-  const maxAge = intPy(lire(cfg, "max_age_sec", 86400));
+  const maxAge = Math.min(intPy(lire(cfg, "max_age_sec", 86400)), DUREE_MAX_SESSION_S);
   const inactivite = intPy(lire(cfg, "idle_timeout_sec", 0));
   const minGlobal = floatPy(lire(cfg, "global_min_ts", 0.0));
   const refus = () => {
@@ -199,7 +200,7 @@ export async function fluxEncoreValide(
     return false;
   }
   const cfg = reglages(dep.config());
-  const maxAge = intPy(lire(cfg, "max_age_sec", 86400));
+  const maxAge = Math.min(intPy(lire(cfg, "max_age_sec", 86400)), DUREE_MAX_SESSION_S);
   const minGlobal = floatPy(lire(cfg, "global_min_ts", 0.0));
   const maintenant = dep.maintenant();
   if (maintenant - login > maxAge) return false;

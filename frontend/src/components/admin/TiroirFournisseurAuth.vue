@@ -13,6 +13,7 @@ import {
   phraseDecision,
 } from "../../features/admin/identite";
 import EtapesEssai from "./EtapesEssai.vue";
+import ListeGroupesFournisseur from "./ListeGroupesFournisseur.vue";
 import SectionDroitsFournisseur from "./SectionDroitsFournisseur.vue";
 
 const adm = domaineAdmin();
@@ -158,44 +159,13 @@ const titre = computed(() => {
               </div>
             </div>
 
-            <div class="adm-field">
-              <label class="adm-field__label" for="ent-groupe">Groupes requis</label>
-              <ul v-if="f.required_groups.length" class="flex flex-wrap gap-1.5" aria-label="Groupes requis">
-                <li v-for="(g, i) in f.required_groups" :key="g" class="adm-pill">
-                  <span class="font-mono">{{ g }}</span>
-                  <button
-                    type="button"
-                    class="adm-link"
-                    :aria-label="'Retirer ' + g"
-                    :disabled="!!general"
-                    @click="adm.authRetirerGroupe('required_groups', i)"
-                  >
-                    <i class="ph ph-x" aria-hidden="true"></i>
-                  </button>
-                </li>
-              </ul>
-              <div class="adm-field__row">
-                <input
-                  id="ent-groupe"
-                  v-model="f.groupe_saisi"
-                  class="set-input flex-1"
-                  placeholder="elpis-utilisateurs"
-                  :disabled="!!general"
-                  :title="
-                    general || 'Seules les personnes membres d\'un de ces groupes peuvent se connecter.'
-                  "
-                  @keydown.enter.prevent="adm.authAjouterGroupe()"
-                />
-                <button
-                  type="button"
-                  class="adm-btn adm-btn--quiet adm-btn--sm"
-                  :disabled="!!general || f.groupe_saisi.trim() === ''"
-                  @click="adm.authAjouterGroupe()"
-                >
-                  Ajouter
-                </button>
-              </div>
-            </div>
+            <ListeGroupesFournisseur
+              liste="required_groups"
+              champ="ent-groupe"
+              label="Groupes requis"
+              exemple="elpis-utilisateurs"
+              indice="Seules les personnes membres d'un de ces groupes peuvent se connecter."
+            />
 
             <div class="adm-field">
               <label class="adm-field__label" for="ent-secret">Secret client</label>

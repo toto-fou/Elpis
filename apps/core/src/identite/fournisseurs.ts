@@ -77,14 +77,9 @@ export function hmacCoffre(contexte: string, valeur: string): string | null {
 /** Contexte du HMAC du secret testé : propre au fournisseur, deux fournisseurs au même secret n'ont pas la même valeur. */
 export const contexteSecretTeste = (id: string): string => `${CONTEXTE_SECRET_TESTE}:${id}`;
 
-/** Pose l'empreinte du test réussi (le seul appelant de production est le test du fournisseur) et le HMAC du secret employé (`undefined` : le secret enregistré aujourd'hui). */
-export async function enregistrerTestReussi(
-  x: Executeur,
-  f: Fournisseur,
-  publicUrl: string,
-  secret?: string | null,
-): Promise<void> {
-  const employe = secret === undefined ? await secretFournisseur(x, f) : secret;
+/** Pose l'empreinte du test réussi (le seul appelant de production est le test du fournisseur) et le HMAC du secret enregistré aujourd'hui. */
+export async function enregistrerTestReussi(x: Executeur, f: Fournisseur, publicUrl: string): Promise<void> {
+  const employe = await secretFournisseur(x, f);
   const valeur = JSON.stringify({
     h: empreinteFournisseur(f, publicUrl),
     s: employe === null ? null : hmacCoffre(contexteSecretTeste(f.id), employe),

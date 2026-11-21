@@ -18,7 +18,6 @@ import { json, vider } from "../aides";
 export const BORNES = {
   providers_max: 10,
   label_max: 40,
-  ca_pem_max: 65536,
   required_groups_max: 20,
   secret_max: 16384,
   freshness_days: { min: 1, max: 90, default: 14 },
@@ -27,7 +26,6 @@ export const BORNES = {
 
 const COMMUN = {
   enabled: true,
-  preset: "",
   ca_pem: "",
   required_groups: ["elpis"],
   roles: { enabled: false, admin_groups: [], moderator_groups: [] },

@@ -108,5 +108,6 @@ describe.each(MOTEURS)("révocations (%s)", (moteur) => {
     expect(dureeMaxSession({ security: { session: { max_age_sec: 120 } } })).toBe(120);
     expect(dureeMaxSession({})).toBe(86400);
     expect(dureeMaxSession(null)).toBe(86400);
+    expect(dureeMaxSession({ security: { session: { max_age_sec: 90 * 86400 } } })).toBe(2_592_000);
   });
 });

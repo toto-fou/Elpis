@@ -4,19 +4,18 @@
 import { computed } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
+import ListeGroupesFournisseur from "./ListeGroupesFournisseur.vue";
 
 const LISTES = [
   {
     liste: "admin_groups",
-    saisie: "admin_saisi",
-    id: "ent-admin-groupe",
+    champ: "ent-admin-groupe",
     label: "Groupes administrateurs",
     attr: { "data-admin-ajouter": "" },
   },
   {
     liste: "moderator_groups",
-    saisie: "moderator_saisi",
-    id: "ent-mod-groupe",
+    champ: "ent-mod-groupe",
     label: "Groupes modérateurs",
     attr: { "data-mod-ajouter": "" },
   },
@@ -51,42 +50,15 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
           alors plus qu'être rétrogradé.
         </p>
 
-        <div v-for="r in LISTES" :key="r.id" class="adm-field">
-          <label class="adm-field__label" :for="r.id">{{ r.label }}</label>
-          <ul v-if="f[r.liste].length" class="flex flex-wrap gap-1.5" :aria-label="r.label">
-            <li v-for="(g, i) in f[r.liste]" :key="g" class="adm-pill">
-              <span class="font-mono">{{ g }}</span>
-              <button
-                type="button"
-                class="adm-link"
-                :aria-label="'Retirer ' + g"
-                :disabled="!!general"
-                @click="adm.authRetirerGroupe(r.liste, i)"
-              >
-                <i class="ph ph-x" aria-hidden="true"></i>
-              </button>
-            </li>
-          </ul>
-          <div class="adm-field__row">
-            <input
-              :id="r.id"
-              v-model="f[r.saisie]"
-              class="set-input flex-1"
-              :disabled="!!general"
-              :title="general || 'Valeur exacte du groupe, telle que le fournisseur la transmet.'"
-              @keydown.enter.prevent="adm.authAjouterGroupe(r.liste)"
-            />
-            <button
-              type="button"
-              class="adm-btn adm-btn--quiet adm-btn--sm"
-              v-bind="r.attr"
-              :disabled="!!general || f[r.saisie].trim() === ''"
-              @click="adm.authAjouterGroupe(r.liste)"
-            >
-              Ajouter
-            </button>
-          </div>
-        </div>
+        <ListeGroupesFournisseur
+          v-for="r in LISTES"
+          :key="r.champ"
+          :liste="r.liste"
+          :champ="r.champ"
+          :label="r.label"
+          indice="Valeur exacte du groupe, telle que le fournisseur la transmet."
+          :attr-ajouter="r.attr"
+        />
 
         <label class="adm-checks__item">
           <input

@@ -146,7 +146,7 @@ type Correspondance = FournisseurAuth["group_map"]["map"][number];
 const GROUPES_ROLE_MAX = 20;
 const CORRESPONDANCES_MAX = 50;
 const MOT_CONFIRMATION_ADMIN = "administrateur";
-const SAISIES = {
+export const SAISIES = {
   required_groups: "groupe_saisi",
   admin_groups: "admin_saisi",
   moderator_groups: "moderator_saisi",
@@ -791,8 +791,6 @@ export function creerIdentite(b: BaseAdmin) {
       }
       window.open(url, "_blank", "noopener");
       attendreTrial(id, depuis, precedent);
-    } catch {
-      if (jeton === sequenceTrial) authTrialErreur.value = "Erreur réseau.";
     } finally {
       if (jeton === sequenceTrial) authTrialEnCours.value = false;
     }

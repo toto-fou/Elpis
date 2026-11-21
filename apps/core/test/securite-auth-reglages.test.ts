@@ -11,7 +11,7 @@ import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { configureAudit, oublierConfigurationAudit } from "@elpis/securite";
 import type { FastifyInstance, FastifyRequest, LightMyRequestResponse } from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { creerFamilleAdminConfig } from "../src/familles/admin-config";
 import { creerFamilleAdminIdentite } from "../src/familles/admin-identite";
@@ -389,6 +389,26 @@ describe("connexion d'entreprise : réglages, secrets, droits (SQLite)", () => {
         ((lireConfig()["auth"] as { providers: { enabled: boolean }[] }).providers[0] as { enabled: boolean })
           .enabled,
       ).toBe(false);
+    });
+
+    it("extinction : les publications `session_revoked` des huit premiers comptes partent avant la réponse, les suivantes ensuite, aucune n'est perdue", async () => {
+      const uids: number[] = [];
+      for (let i = 0; i < 10; i++) {
+        const uid = await createUser(t.base, `lot${i}`, `mdp-lot-${i}-1`);
+        uids.push(uid);
+        await t.base.run(
+          "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?,?,?,?,?,?)",
+          [uid, "sso", `s-lot${i}`, "i", "admin", 1],
+        );
+      }
+      revoques.length = 0;
+      const r = await appeler(admin, "POST", "/api/admin/auth/providers/sso/disable", chef);
+      expect(r.statusCode, r.body).toBe(200);
+      expect(revoques.length).toBeGreaterThanOrEqual(8);
+      await vi.waitFor(() => expect(revoques.length).toBe(11));
+      expect(uids.every((u) => revoques.includes(u))).toBe(true);
+      await t.base.run("DELETE FROM user_identities WHERE user_id IN (" + uids.join(",") + ")");
+      await t.base.run("DELETE FROM users WHERE id IN (" + uids.join(",") + ")");
     });
 
     it("fournisseur avec des comptes rattachés : champs figés, suppression refusée ; sans compte : supprimé avec son secret et son état", async () => {

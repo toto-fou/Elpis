@@ -75,10 +75,10 @@ describe("lecteur tolérant", () => {
     ]);
   });
 
-  it("l'ancien champ `preset` d'un fournisseur écrit à la main est ignoré à la lecture et refusé à l'écriture", () => {
+  it("un champ inconnu, `preset` compris, rend le fournisseur invalide à la lecture et est refusé à l'écriture", () => {
     const r = reglagesAuthDepuis({ providers: [{ ...oidcValide(), preset: "keycloak" }] });
-    expect(r.providers.map((p) => p.id)).toEqual(["sso"]);
-    expect(r.invalides).toEqual([]);
+    expect(r.providers).toEqual([]);
+    expect(r.invalides).toEqual([{ id: "sso", label: "SSO", enabled: false }]);
     expect(refus(() => validerFournisseur({ ...oidcValide(), preset: "keycloak" }))).toBe(
       "400 Champ « fournisseur.preset » : champ inconnu.",
     );

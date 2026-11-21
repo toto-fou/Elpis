@@ -28,18 +28,15 @@ describe("rattachements préparés", () => {
   const PRE = "/api/admin/auth/providers/sso/prelinks";
   const ITEM = {
     id: 7,
-    user_id: 2,
     username: "alice",
     expected: "alice@sso",
     waiver: true,
-    created_by: 1,
-    created_at: 1,
     expires_at: 2000000000,
   };
   const UTIL = [
     compteConsole(1, "root", { is_admin: 1 }),
     compteConsole(2, "alice"),
-    compteConsole(3, "bob", { identity: { provider_id: "sso", ext_username: "bob", linked_at: 1 } }),
+    compteConsole(3, "bob", { identity: { provider_id: "sso", ext_username: "bob" } }),
     compteConsole(4, "carole", { is_admin: 2 }),
   ];
 

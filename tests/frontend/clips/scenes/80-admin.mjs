@@ -18,12 +18,11 @@ async function ouvrirConsole() {
     return { ...plateau, page, api, chemin: '/#users', core: { ...core, urlMain: core.urlAdmin } };
 }
 
-// Retire le compte du clip, la règle de mot de passe et la révocation de sessions laissée par l'amorçage d'alice, puis relit la page Comptes du core.
+// Retire le compte du clip, la règle de mot de passe, puis relit la page Comptes du core.
 async function remettre(plateau) {
     const { api, page } = plateau;
     const { users } = await api.req('GET', '/api/admin/users-with-groups');
     for (const u of users.filter((x) => x.username === NOUVEAU.identifiant)) await api.req('DELETE', `/api/admin/users/${u.id}`);
-    for (const u of users.filter((x) => x.username === 'alice')) await api.req('POST', `/api/admin/security/sessions/clear-user-revocation/${u.id}`).catch(() => {});
     await api.req('PATCH', '/api/admin/config', { changes: [{ path: 'security.password_policy', delete: true }], force: true }).catch(() => {});
     await revenirAuDepart(plateau);
     await page.reload();

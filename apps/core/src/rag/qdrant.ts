@@ -4,7 +4,7 @@ import { closeSync, constants, openSync, readdirSync, unlinkSync } from "node:fs
 
 import { configRag } from "@elpis/config";
 import { ClientQdrant, ErreurRag } from "@elpis/rag";
-import type { Distance, InfoCollection, PointAEcrire } from "@elpis/rag";
+import type { Distance, InfoCollection, OptionsQdrant, PointAEcrire } from "@elpis/rag";
 import { ouvrirDossierSous } from "@elpis/securite";
 
 import { journal } from "../journal";
@@ -37,9 +37,32 @@ export interface PortQdrantRag {
   supprimerCollection(nom: string, signal?: AbortSignal): Promise<boolean>;
 }
 
+const sansBarre = (u: string): string => u.replace(/\/+$/u, "");
+let dernierRefus = 0;
+
+/** Journal serveur d'un refus d'accès de Qdrant (une ligne par minute) : nomme la variable que l'utilisateur ne voit jamais. */
+function journaliserRefus(statut: number): void {
+  const maintenant = Date.now();
+  if (maintenant - dernierRefus < 60_000) return;
+  dernierRefus = maintenant;
+  log.error(
+    `Qdrant a refusé l'accès (HTTP ${statut}) : vérifier QDRANT_API_KEY_FILE (ou QDRANT_API_KEY) du service.`,
+  );
+}
+
+/** Seul constructeur de `ClientQdrant` du cœur : porte la clé d'API de l'environnement, seulement vers l'adresse configurée (jamais vers une adresse saisie à l'essai). */
+export function clientQdrant(
+  url: string = configRag().qdrant_url,
+  options: Pick<OptionsQdrant, "delaiMs" | "fetch"> = {},
+): ClientQdrant {
+  const conf = configRag();
+  const cleApi = sansBarre(url) === sansBarre(conf.qdrant_url) ? conf.qdrant_api_key : "";
+  return new ClientQdrant({ ...options, url, cleApi, surRefusAcces: journaliserRefus });
+}
+
 /** Client Qdrant de la configuration courante (`rag.qdrant_url`, relue à chaque appel). */
 export function clientQdrantRag(): PortQdrantRag {
-  return new ClientQdrant({ url: configRag().qdrant_url });
+  return clientQdrant();
 }
 
 const DOSSIER_MARQUEURS = ".purges";

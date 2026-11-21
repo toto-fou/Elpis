@@ -2,11 +2,13 @@
 /** packages/config/test/rag.test.ts — section `rag` de config.json : défauts, bornes, adresses, groupes, quotas, magasin, relecture à chaud. */
 import { DOSSIER_TEST } from "./environnement";
 
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { config, configRag, lireQuotasRag, QUOTAS_RAG_DEFAUT, writeConfigJson } from "../src/index";
-import { groupesRag, urlHttp } from "../src/rag";
+import { cleApiQdrant, groupesRag, urlHttp } from "../src/rag";
 
 const avantEnv = process.env["RAG_STORE_DIR"];
 
@@ -20,6 +22,7 @@ describe("configRag", () => {
     expect(configRag({})).toEqual({
       store_dir: path.join(path.dirname(config.DB_PATH), "rag"),
       qdrant_url: "http://127.0.0.1:6333",
+      qdrant_api_key: "",
       embed: { url: "", model: "bge-m3", api_key: "", batch: 32, timeout_s: 60 },
       reranker: { enabled: false, url: "", model: "bge-reranker-v2-m3" },
       ocr: { url: "", model: "", api_key: "", timeout_s: 180, max_side_px: 1280, max_tokens: 8192 },
@@ -111,5 +114,40 @@ describe("configRag", () => {
     expect(configRag().groups).toEqual([5]);
     writeConfigJson({ rag: { groups: [] } });
     expect(configRag().groups).toEqual([]);
+  });
+});
+
+describe("clé d'API de Qdrant (environnement seulement)", () => {
+  const fichier = (contenu: string): string => {
+    const f = path.join(mkdtempSync(path.join(tmpdir(), "elpis-qdrant-")), "qdrant.key");
+    writeFileSync(f, contenu);
+    return f;
+  };
+
+  it("sans variable : vide, et rag.qdrant_api_key de config.json est ignorée", () => {
+    expect(cleApiQdrant({})).toBe("");
+    expect(configRag({ rag: { qdrant_api_key: "dans-config" } }).qdrant_api_key).toBe("");
+  });
+
+  it("la valeur l'emporte sur le fichier ; le fichier est lu sans blancs", () => {
+    const f = fichier("cle-fichier\n");
+    expect(cleApiQdrant({ QDRANT_API_KEY: " cle-valeur ", QDRANT_API_KEY_FILE: f })).toBe("cle-valeur");
+    expect(cleApiQdrant({ QDRANT_API_KEY_FILE: f })).toBe("cle-fichier");
+  });
+
+  it("fichier absent : clé vide et avertissement qui nomme la variable", () => {
+    const ecrits: string[] = [];
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation(((m: string) => {
+      ecrits.push(m);
+      return true;
+    }) as typeof process.stderr.write);
+    try {
+      expect(cleApiQdrant({ QDRANT_API_KEY_FILE: path.join(tmpdir(), "elpis-absent", "qdrant.key") })).toBe(
+        "",
+      );
+    } finally {
+      espion.mockRestore();
+    }
+    expect(ecrits.join("")).toContain("QDRANT_API_KEY_FILE");
   });
 });

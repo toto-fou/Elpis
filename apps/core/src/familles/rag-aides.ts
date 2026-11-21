@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/rag-aides.ts — dépendances et aides communes aux familles de routes RAG : définition d'une route de session, collection de la requête avec le rôle du compte, service d'indexation. */
-import { configRag } from "@elpis/config";
 import type { Base } from "@elpis/db";
-import { ClientQdrant } from "@elpis/rag";
-import type { ClientEmbeddings, ClientReranker } from "@elpis/rag";
+import type { ClientEmbeddings, ClientQdrant, ClientReranker } from "@elpis/rag";
 import type { FastifyRequest } from "fastify";
 
 import { accesCollection } from "../rag/acces";
 import type { RoleRag } from "../rag/acces";
 import type { DependancesEtatRag } from "../rag/etat";
+import { clientQdrant } from "../rag/qdrant";
 import {
   avecErreursRag,
   ErreurRouteRag,
@@ -52,7 +51,7 @@ export function resoudreDependancesRag(dep: DependancesFamilleRag): RoutesRagRes
   return {
     base: dep.base,
     service: dep.service ?? serviceIndexationRag,
-    qdrant: dep.qdrant ?? (() => new ClientQdrant({ url: configRag().qdrant_url })),
+    qdrant: dep.qdrant ?? (() => clientQdrant()),
     embeddings: dep.embeddings,
     reranker: dep.reranker,
     sondeExtracteur: dep.sondeExtracteur,

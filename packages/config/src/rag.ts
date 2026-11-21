@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/config/src/rag.ts — section `rag` de config.json relue à chaque appel : magasin, Qdrant, embeddings, reranker, OCR, groupes autorisés, quotas, indexation. */
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { stripPy } from "@elpis/commun";
@@ -20,6 +21,8 @@ export interface ConfigRag {
   /** Racine absolue du magasin : `RAG_STORE_DIR`, sinon `rag.store_dir`, sinon `<dossier de la base>/rag`. */
   store_dir: string;
   qdrant_url: string;
+  /** Clé d'API de Qdrant, lue de l'environnement seulement (`QDRANT_API_KEY`, sinon fichier `QDRANT_API_KEY_FILE`) ; vide = Qdrant sans clé. */
+  qdrant_api_key: string;
   embed: { url: string; model: string; api_key: string; batch: number; timeout_s: number };
   reranker: { enabled: boolean; url: string; model: string };
   /** Modèle de vision qui lit les pages scannées (OpenAI-compatible) ; `url` vide = pas d'OCR. Envoyé à l'extracteur à chaque extraction. */
@@ -108,6 +111,27 @@ export function lireQuotasRag(v: unknown, defaut: Readonly<QuotasRag> = QUOTAS_R
   };
 }
 
+/** `QDRANT_API_KEY` (valeur), sinon le fichier `QDRANT_API_KEY_FILE` (lu seulement, blancs retirés) ; absent ou illisible : clé vide et avertissement nommant la variable. */
+export function cleApiQdrant(env: NodeJS.ProcessEnv = process.env): string {
+  const valeur = stripPy(env["QDRANT_API_KEY"] ?? "");
+  if (valeur) return valeur;
+  const fichier = stripPy(env["QDRANT_API_KEY_FILE"] ?? "");
+  if (!fichier) return "";
+  try {
+    return stripPy(readFileSync(fichier, "utf8"));
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code ?? "erreur";
+    if (!avertis.has(fichier)) {
+      avertis.add(fichier);
+      process.stderr.write(
+        `[WARNING] QDRANT_API_KEY_FILE (${fichier}) illisible (${code}) : Qdrant sera appelé sans clé.\n`,
+      );
+    }
+    return "";
+  }
+}
+const avertis = new Set<string>();
+
 function dossierMagasin(v: unknown): string {
   const env = stripPy(process.env["RAG_STORE_DIR"] ?? "");
   const choisi = env || texte(v, "");
@@ -128,6 +152,7 @@ export function configRag(vue: unknown = configView()): ConfigRag {
   return {
     store_dir: dossierMagasin(rag["store_dir"]),
     qdrant_url: urlHttp(rag["qdrant_url"], QDRANT_URL_DEFAUT),
+    qdrant_api_key: cleApiQdrant(),
     embed: {
       url: urlHttp(embed["url"], ""),
       model: texte(embed["model"], MODELE_EMBED_DEFAUT),

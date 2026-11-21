@@ -469,6 +469,28 @@ describe("santé, authentification, pannes", () => {
     expect(s.requetes[0]?.entetes["api-key"]).toBe("secret");
   });
 
+  it("sans clé, aucun en-tête api-key n'est envoyé", async () => {
+    const { q, s } = await monter(() => ({ json: { result: { count: 0 } } }));
+    await q.compter("c");
+    expect(s.requetes[0]?.entetes["api-key"]).toBeUndefined();
+  });
+
+  it("un 401 ou 403 : message sans détail interne, rappel à l'appelant, santé lisible", async () => {
+    const vus: number[] = [];
+    const s = await demarrerServeurFaux(() => ({
+      statut: 401,
+      json: { status: { error: "Must provide an API key" } },
+    }));
+    serveurs.push(s);
+    const q = new ClientQdrant({ url: s.url, surRefusAcces: (n) => vus.push(n) });
+    const e = await q.listerCollections().catch((x: unknown) => x);
+    expect(e).toMatchObject({ code: "qdrant_http", statut: 401 });
+    expect((e as Error).message).toContain("demandez à votre administrateur");
+    expect((e as Error).message).not.toContain("API key");
+    expect(await q.sante()).toMatchObject({ ok: false, erreur: expect.stringContaining("administrateur") });
+    expect(vus).toEqual([401, 401]);
+  });
+
   it("rend qdrant_injoignable quand rien n'écoute", async () => {
     const q = new ClientQdrant({ url: "http://127.0.0.1:1", delaiMs: 1000 });
     await expect(q.compter("c")).rejects.toMatchObject({ code: "qdrant_injoignable" });

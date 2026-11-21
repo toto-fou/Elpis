@@ -16,6 +16,8 @@ export type Distance = "Cosine" | "Dot" | "Euclid";
 export interface OptionsQdrant {
   url: string;
   cleApi?: string | undefined;
+  /** Appelé sur un 401/403 de Qdrant (le message d'erreur reste sans détail interne) : l'appelant journalise la cause. */
+  surRefusAcces?: ((statut: number) => void) | undefined;
   delaiMs?: number;
   delaiEcritureMs?: number;
   fetch?: FetchRag;
@@ -274,6 +276,7 @@ function pointsDe(json: unknown): PointTrouve[] {
 export class ClientQdrant {
   readonly url: string;
   private readonly cleApi: string | undefined;
+  private readonly surRefusAcces: ((statut: number) => void) | undefined;
   private readonly delaiMs: number;
   private readonly delaiEcritureMs: number;
   private readonly fetchImpl: FetchRag;
@@ -281,6 +284,7 @@ export class ClientQdrant {
   constructor(options: OptionsQdrant) {
     this.url = sansBarresFinales(options.url);
     this.cleApi = options.cleApi && options.cleApi !== "" ? options.cleApi : undefined;
+    this.surRefusAcces = options.surRefusAcces;
     this.delaiMs = options.delaiMs ?? DELAI_LECTURE_MS;
     this.delaiEcritureMs = options.delaiEcritureMs ?? DELAI_ECRITURE_MS;
     this.fetchImpl = options.fetch ?? fetch;
@@ -308,6 +312,14 @@ export class ClientQdrant {
   /** Réponse 2xx lue en JSON ; toute autre réponse est une `ErreurRag` au message de Qdrant. */
   private async exiger(rep: ReponseHttp, action: string): Promise<unknown> {
     if (rep.statut >= 200 && rep.statut < 300) return jsonOuNul(rep.texte);
+    if (rep.statut === 401 || rep.statut === 403) {
+      this.surRefusAcces?.(rep.statut);
+      throw new ErreurRag(
+        "qdrant_http",
+        `Qdrant : ${action} refusé (HTTP ${rep.statut}) : accès refusé, demandez à votre administrateur.`,
+        rep.statut,
+      );
+    }
     const message = messageQdrant(rep);
     throw new ErreurRag(
       codeHttp(rep, message),
@@ -325,6 +337,10 @@ export class ClientQdrant {
       ]);
       const json = jsonOuNul(racine.texte);
       const version = estObjet(json) && typeof json["version"] === "string" ? json["version"] : undefined;
+      if (racine.statut === 401 || racine.statut === 403) {
+        this.surRefusAcces?.(racine.statut);
+        return { ok: false, erreur: `accès refusé (HTTP ${racine.statut}), demandez à votre administrateur` };
+      }
       if (racine.statut !== 200) return { ok: false, erreur: `HTTP ${racine.statut}` };
       if (pret.statut !== 200)
         return { ok: false, ...(version ? { version } : {}), erreur: `non prêt : ${extrait(pret.texte)}` };

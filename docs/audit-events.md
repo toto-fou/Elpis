@@ -380,6 +380,7 @@ text and is not logged.
 | `user.sandbox.set_aside` | success | Tool host: the folder of a deleted account (and its snapshots) renamed `.supprime-<uid>-<timestamp>` (container removed first), whether or not its sandbox is then deleted. | `container`, `renamed` |
 | `user.sandbox.restore` | success | Tool host: the renamed folder put back under the account's name because the account could not be deleted after all. | `stamp` |
 | `user.sandbox.discard` | success | Tool host: the renamed folder and snapshots of a deleted account deleted (deletion with its sandbox). | `deleted` |
+| `admin.sandbox.purge_work` | success | Tool host: the `/work` of a deleted account's renamed folder emptied by the container's root, the console having no right to delete its files. | `container`, `stamp` |
 | `user.toolhost.purge`                         | success | Account's data purged from a toolhost.                                                        | `credentials`                                                                                                 |
 | `code.exec.<kind>`                            | success | Command or code run in a sandbox. Kinds: `tools.shell`, `tools.shell_job`, `tools.skill_run`. | `code_sha256`, `code_len`, `pipeline_id`, `run_id`, `node_id`, `executor`, plus `cmd_argv` for shell commands |
 

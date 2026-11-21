@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/bac/interne.ts — routes internes du bac pour la console (hors des préfixes relayés par main : jamais atteintes depuis un navigateur) : mise de côté, remise en place et suppression du bac, et identifiants de sites, d'un compte supprimé. */
+/** apps/toolhost/src/bac/interne.ts — routes internes du bac pour la console (hors des préfixes relayés par main : jamais atteintes depuis un navigateur) : mise de côté, remise en place, /work vidé et suppression du bac, et identifiants de sites, d'un compte supprimé. */
 import {
   forgetPreviewIp,
   getUserSandbox,
@@ -9,6 +9,7 @@ import {
   remettreBacMisDeCote,
   resetUserSandboxCache,
   supprimerBacMisDeCote,
+  which,
   WORK_SUBDIR,
 } from "@elpis/bac";
 import { estDict, HttpError, pyJsonLoadsOctets } from "@elpis/commun";
@@ -107,6 +108,30 @@ async function supprimerBacMisDeCoteDuCompte(
   }
 }
 
+/** /work du bac mis de côté sous l'horodatage vidé par le root du conteneur (fichiers à l'UID du conteneur), conteneur retiré, action de l'admin auditée ; sans docker, rien à faire ; refus → 502. */
+async function purgerTravail(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
+  const uid = uidDe(requete);
+  const username = await usernameFor(uid);
+  const stamp = horodatageDuCorps(requete, true);
+  const dossier = pyJoin(realpathPy(config.SANDBOX_DIR), nomMisDeCote(uid, stamp));
+  const sb = getUserSandbox(uid, username, pyJoin(dossier, WORK_SUBDIR));
+  try {
+    if (which("docker") === null) return reponseJson(reponse, { ok: true });
+    await sb.purge().catch((e: unknown) => {
+      throw new HttpError(502, messageSuppression(e));
+    });
+    auditEvent({
+      userId: uid,
+      username,
+      action: "admin.sandbox.purge_work",
+      details: { container: sb.containerName, stamp },
+    });
+    return reponseJson(reponse, { ok: true });
+  } finally {
+    resetUserSandboxCache(uid);
+  }
+}
+
 /** Identifiants de sites du compte de l'enveloppe retirés de la base de l'hôte (distincte de celle du core quand `db_path` est posé). */
 async function purgerCompte(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
   const uid = uidDe(requete);
@@ -140,6 +165,13 @@ export function routesInternes(): DefinitionRoute[] {
       processus: ["toolhost"],
       acces: "enveloppe",
       traiter: supprimerBacMisDeCoteDuCompte,
+    },
+    {
+      methode: "POST",
+      chemin: "/api/internal/sandbox/purge-work",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: purgerTravail,
     },
     {
       methode: "POST",

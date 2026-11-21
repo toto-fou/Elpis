@@ -48,15 +48,13 @@ describe("résolveur du service navigateur", () => {
     expect(servicesDesBacs()).toEqual([{ socket: c.socket, jeton: "jeton-du-bac" }]);
   });
 
-  it("dossier des jetons : ELPIS_TOOLHOST_RUN_DIR, sinon RUNTIME_DIRECTORY (première entrée), sinon <racine>/user_db/run ; jamais dans <P>", () => {
+  it("dossier des jetons : RUNTIME_DIRECTORY (première entrée), sinon <racine>/user_db/run ; jamais dans <P>", () => {
     expect(dossierJetonsNavigateur()).toBe(path.join(tmp, "run", "navigateur"));
     process.env["RUNTIME_DIRECTORY"] = `${path.join(tmp, "autre")}:${path.join(tmp, "run")}`;
     expect(cheminsNavigateurBac("alice").jetonRelais).toBe(
       path.join(tmp, "autre", "navigateur", "alice.relay.token"),
     );
-    process.env["ELPIS_TOOLHOST_RUN_DIR"] = path.join(tmp, "hote");
-    expect(dossierJetonsNavigateur()).toBe(path.join(tmp, "hote", "navigateur"));
-    delete process.env["ELPIS_TOOLHOST_RUN_DIR"];
+    expect(dossierJetonsNavigateur()).toBe(path.join(tmp, "autre", "navigateur"));
     delete process.env["RUNTIME_DIRECTORY"];
     expect(dossierJetonsNavigateur()).toBe(path.join(racineDepot(), "user_db", "run", "navigateur"));
     process.env["RUNTIME_DIRECTORY"] = path.join(tmp, "run");

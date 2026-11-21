@@ -1,20 +1,46 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/outils/integres/task/controles.test.ts — appels du harnais de `task` à l'hôte d'outils : branche relue par un seul `git_query(action="branches")`, en lecture seule, `null` sur toute panne ; navigateur des sous-agents (fix du quota, sessions orphelines fermées au démarrage). */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-import { surchargerConfig } from "@elpis/config";
-import type { ServiceNavigateur } from "@elpis/navigateur";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as Hotes from "../../../../src/relais/hotes";
+import type { SandboxHost } from "../../../../src/relais/hotes";
 import type { Dict } from "../../../../src/python";
 
 const etat = vi.hoisted(() => ({
   appels: [] as { nom: string; args: unknown; categories: unknown }[],
   outils: ["git_query"] as string[],
   reponse: "" as string | Error,
+  hotes: new Map<string, Dict>(),
+  envois: [] as { hote: string; uid: number; username: string; chemin: string; json: unknown }[],
+  repHote: (_h: string): unknown => ({ cleaned: 2 }),
+}));
+
+vi.mock("../../../../src/relais/hotes", async (orig) => {
+  const vrai = await orig<typeof Hotes>();
+  return {
+    ...vrai,
+    lireHotes: () => ({ hotes: etat.hotes, placement: {} }),
+    sandboxHostFor: async () => {
+      const [id, spec] = [...etat.hotes][0] ?? [];
+      return id === undefined || spec === undefined ? null : vrai.hostFromSpec(id, spec);
+    },
+  };
+});
+vi.mock("../../../../src/admin/pilote-bac", async (orig) => ({
+  ...(await orig<object>()),
+  appelerHote: async (
+    h: SandboxHost,
+    uid: number,
+    username: string,
+    _m: string,
+    chemin: string,
+    o: { json: unknown },
+  ) => {
+    etat.envois.push({ hote: h.id, uid, username, chemin, json: o.json });
+    const r = etat.repHote(h.id);
+    if (r instanceof Error) throw r;
+    return r;
+  },
 }));
 
 vi.mock("../../../../src/outils/catalogue", async (orig) => ({
@@ -81,62 +107,52 @@ describe("navigateur des sous-agents", () => {
     expect(fix.indexOf("action='stop'")).toBeLessThan(fix.indexOf("action='cleanup'"));
   });
 
-  it("démarrage : un POST /cleanup_children sans propriétaire par service de bac, nombres additionnés ; service en panne : 0", async () => {
+  it("démarrage : un nettoyage par compte, quatre comptes à la fois, âge relu avant chaque lot, nombres additionnés ; panne, réponse sans nombre ou liste illisible : 0", async () => {
     const corps: unknown[] = [];
-    const a: ServiceNavigateur = { socket: "/a", jeton: "j" };
-    const b: ServiceNavigateur = { socket: "/b", jeton: "j" };
-    const services = (): ServiceNavigateur[] => [a, b];
+    const comptes = async () => [1, 2, 3, 4, 5].map((id) => ({ id, username: `c${id}` }));
     const n = await fermerNavigateursEnfantsOrphelins({
       ageMs: () => 4200,
-      services,
-      poster: async (s, c) => (corps.push([s === a ? "a" : "b", c]), { cleaned: s === a ? 3 : 1 }),
+      comptes,
+      poster: async (c, x) => (corps.push([c.username, x]), { cleaned: c.id === 1 ? 3 : 1 }),
     });
-    expect(n).toBe(4);
-    expect(corps).toEqual([
-      ["a", { older_than_ms: 4200 }],
-      ["b", { older_than_ms: 4200 }],
-    ]);
-    expect(await fermerNavigateursEnfantsOrphelins({ services, poster: async () => null })).toBe(0);
-    expect(await fermerNavigateursEnfantsOrphelins({ services, poster: async () => ({ error: "x" }) })).toBe(
+    expect(n).toBe(7);
+    expect(corps).toEqual([1, 2, 3, 4, 5].map((id) => [`c${id}`, { older_than_ms: 4200 }]));
+    let horloge = 100;
+    const vus: number[] = [];
+    await fermerNavigateursEnfantsOrphelins({
+      ageMs: () => (horloge += 50),
+      comptes,
+      poster: async (_c, x) => void vus.push(x["older_than_ms"] as number),
+    });
+    expect(vus).toEqual([150, 150, 150, 150, 200]);
+    expect(await fermerNavigateursEnfantsOrphelins({ comptes, poster: async () => null })).toBe(0);
+    expect(await fermerNavigateursEnfantsOrphelins({ comptes, poster: async () => ({ error: "x" }) })).toBe(
       0,
     );
+    const illisible = async (): Promise<never> => Promise.reject(new Error("base"));
+    expect(await fermerNavigateursEnfantsOrphelins({ comptes: illisible })).toBe(0);
+    expect(await fermerNavigateursEnfantsOrphelins({})).toBe(0);
   });
 
-  it("démarrage : socket de chaque bac à jeton de SANDBOX_DIR joint avec son jeton ; bac sans jeton ignoré, service arrêté : 0 sans lever", async () => {
-    const sb = mkdtempSync(join(tmpdir(), "elpis-sb-"));
-    const restaurer = surchargerConfig({ SANDBOX_DIR: sb });
-    process.env["ELPIS_TOOLHOST_RUN_DIR"] = join(sb, "run");
-    const recus: { url: string; auth: unknown; corps: unknown }[] = [];
-    const serveur = createServer((req, res) => {
-      let texte = "";
-      req.on("data", (b: Buffer) => (texte += b.toString()));
-      req.on("end", () => {
-        recus.push({
-          url: `${req.method} ${req.url}`,
-          auth: req.headers.authorization,
-          corps: JSON.parse(texte),
-        });
-        res.setHeader("content-type", "application/json");
-        res.end(JSON.stringify({ cleaned: 2 }));
-      });
-    });
-    try {
-      for (const compte of ["alice", "bob"]) mkdirSync(join(sb, compte, ".elpis-agent"), { recursive: true });
-      mkdirSync(join(sb, "run", "navigateur"), { recursive: true });
-      writeFileSync(join(sb, "run", "navigateur", "alice.service.token"), "jeton-a\n");
-      await new Promise<void>((ok) => serveur.listen(join(sb, "alice", ".elpis-agent", "browser.sock"), ok));
-      expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7 })).toBe(2);
-      expect(recus).toEqual([
-        { url: "POST /cleanup_children", auth: "Bearer jeton-a", corps: { older_than_ms: 7 } },
-      ]);
-      serveur.closeAllConnections();
-      await new Promise<void>((ok) => serveur.close(() => ok()));
-      expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7 })).toBe(0);
-    } finally {
-      delete process.env["ELPIS_TOOLHOST_RUN_DIR"];
-      restaurer();
-      if (serveur.listening) serveur.close();
-      rmSync(sb, { recursive: true, force: true });
-    }
+  it("démarrage : POST /api/internal/browser/cleanup-children à l'hôte du bac de chaque compte, enveloppe à l'identité du compte (jamais uid 0) ; hôte sans jeton ignoré, hôte muet : 0 sans lever", async () => {
+    etat.hotes = new Map<string, Dict>([["local", { url: "http://127.0.0.1:1/", token: "j1" }]]);
+    etat.envois = [];
+    const comptes = async () => [{ id: 3, username: "alice" }];
+    expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7, comptes })).toBe(2);
+    expect(etat.envois).toEqual([
+      {
+        hote: "local",
+        uid: 3,
+        username: "alice",
+        chemin: "/api/internal/browser/cleanup-children",
+        json: { older_than_ms: 7 },
+      },
+    ]);
+    etat.repHote = () => new Error("hors ligne");
+    expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7, comptes })).toBe(0);
+    etat.hotes = new Map<string, Dict>([["sans", { url: "http://127.0.0.1:2/" }]]);
+    etat.envois = [];
+    expect(await fermerNavigateursEnfantsOrphelins({ ageMs: () => 7, comptes })).toBe(0);
+    expect(etat.envois).toEqual([]);
   });
 });

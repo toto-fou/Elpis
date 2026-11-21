@@ -33,7 +33,9 @@ import {
   detectSitesFromText,
   renderFocusedDomForPrompt,
   renderSiteContextual,
+  serviceNavigateur,
   siteSignal,
+  urlCouranteDeSession,
 } from "@elpis/navigateur";
 import { sessionIndexMessages } from "../../src/memoire/sessions";
 import { lireVecteurs } from "../vecteurs-moteur";
@@ -265,7 +267,9 @@ describe("URL de la session Playwright (service simulé du bac du compte, vecteu
           corps = reponse;
           demandes.length = 0;
           const attendu = V.sessions_obtenues[k++]!;
-          const obtenu = await detectSessionUrl(messages, owner);
+          const obtenu = await detectSessionUrl(messages, owner, (id) =>
+            urlCouranteDeSession(serviceNavigateur(owner), owner, id),
+          );
           const ctx = `${JSON.stringify(messages).slice(0, 80)} ${owner} ${reponse}`;
           expect(obtenu, ctx).toBe(attendu.resultat);
           expect(demandes, ctx).toEqual(

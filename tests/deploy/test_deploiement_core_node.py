@@ -108,8 +108,8 @@ def test_hote_d_outils_ts_sans_elpis_tools(racine):
                      "After=network-online.target docker.service", "RuntimeDirectory=elpis-toolhost",
                      "RuntimeDirectoryMode=0700", "RuntimeDirectoryPreserve=restart"):
         assert attendue in hote, attendue
-    assert "Environment=ELPIS_TOOLHOST_RUN_DIR=/run/elpis-toolhost" in unites["elpis-main.service"].splitlines()
-    assert not any("ELPIS_TOOLHOST_RUN_DIR" in l or "RuntimeDirectory" in l for l in unites["elpis-admin.service"].splitlines())
+    for nom in ("elpis-main.service", "elpis-admin.service"):
+        assert not any("ELPIS_TOOLHOST_RUN_DIR" in l or "RuntimeDirectory" in l for l in unites[nom].splitlines())
     assert not any(m in ligne for ligne in hote for m in ("-m toolhost", "UPSTREAM", "elpis-tools"))
     assert "elpis-tools.service" not in unites
     (racine / ".env").write_text("ELPIS_TOOLS_PORT=9917\n", encoding="utf-8")

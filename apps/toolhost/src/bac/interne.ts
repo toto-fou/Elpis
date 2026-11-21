@@ -14,12 +14,13 @@ import {
 } from "@elpis/bac";
 import { estDict, HttpError, pyJsonLoadsOctets } from "@elpis/commun";
 import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
-import { deleteOwnerCredentials } from "@elpis/navigateur";
+import { deleteOwnerCredentials, requeteService, urlCouranteDeSession } from "@elpis/navigateur";
 import { auditEvent, usernameFor } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import type { DefinitionRoute } from "../app";
 import { baseHote } from "../base-hote";
+import { serviceLu } from "../mcp/browser/bac";
 import { reponseJson } from "../socle";
 import { uidDe } from "./routes-me";
 
@@ -143,6 +144,50 @@ async function purgerCompte(requete: FastifyRequest, reponse: FastifyReply): Pro
   return reponseJson(reponse, { ok: true, credentials });
 }
 
+/** Corps JSON de la requête en objet ; 400 s'il est illisible ou n'est pas un objet. */
+function corpsObjet(requete: FastifyRequest): Record<string, unknown> {
+  const corps = ((): unknown => {
+    try {
+      return JSON.parse(Buffer.from(requete.corpsBrut ?? "{}").toString("utf8") || "{}");
+    } catch {
+      return null;
+    }
+  })();
+  if (typeof corps === "object" && corps !== null && !Array.isArray(corps))
+    return corps as Record<string, unknown>;
+  throw new HttpError(400, "corps JSON invalide");
+}
+
+/** `POST /cleanup_children` au service navigateur du bac du compte de l'enveloppe, sans le démarrer : `{cleaned}`, 0 si le service est arrêté ou muet. */
+async function fermerEnfantsOrphelins(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
+  const age = corpsObjet(requete)["older_than_ms"];
+  if (typeof age !== "number" || !Number.isFinite(age) || age < 0)
+    throw new HttpError(400, "older_than_ms invalide");
+  const username = await usernameFor(uidDe(requete));
+  const cleaned = await requeteService(serviceLu(username), "/cleanup_children", {
+    methode: "POST",
+    entetes: { "content-type": "application/json" },
+    corps: JSON.stringify({ older_than_ms: age }),
+    delaiMs: 5000,
+  })
+    .then((r) => {
+      const d =
+        r.statut === 200 ? (JSON.parse(r.corps.toString("utf8")) as { cleaned?: unknown } | null) : null;
+      return typeof d?.cleaned === "number" ? d.cleaned : 0;
+    })
+    .catch(() => 0);
+  return reponseJson(reponse, { cleaned });
+}
+
+/** URL courante de la session Playwright `session_id` du compte de l'enveloppe, lue au service de son bac (sans le démarrer) ; `url` nul au moindre échec. */
+async function urlDeSession(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
+  const id = corpsObjet(requete)["session_id"];
+  if (typeof id !== "string" || id === "") throw new HttpError(400, "session_id invalide");
+  const username = await usernameFor(uidDe(requete));
+  const url = await urlCouranteDeSession(serviceLu(username), username, id).catch(() => null);
+  return reponseJson(reponse, { url });
+}
+
 export function routesInternes(): DefinitionRoute[] {
   return [
     {
@@ -179,6 +224,20 @@ export function routesInternes(): DefinitionRoute[] {
       processus: ["toolhost"],
       acces: "enveloppe",
       traiter: purgerCompte,
+    },
+    {
+      methode: "POST",
+      chemin: "/api/internal/browser/cleanup-children",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: fermerEnfantsOrphelins,
+    },
+    {
+      methode: "POST",
+      chemin: "/api/internal/browser/session-url",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: urlDeSession,
     },
   ];
 }

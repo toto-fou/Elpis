@@ -16,6 +16,7 @@ RuntimeDirectoryPreserve=restart
 SyslogIdentifier=@PREFIX@-toolhost
 WorkingDirectory=@WORKDIR@
 @ENV@
+Environment="ELPIS_RUNTIME_DIR=/run/@PREFIX@"
 EnvironmentFile=-@ROOT@/.env
 UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
 InaccessiblePaths=-@VAULT_KEY_SYS@
@@ -27,6 +28,27 @@ SuccessExitStatus=75
 RestartSec=3
 KillMode=mixed
 TimeoutStopSec=30
+
+# Durcissement : ni espaces de noms, ni réglages du noyau, ni nom d'hôte protégés, ni setuid filtré (bubblewrap des aperçus Office monte un /proc neuf, essayé sous systemd), umask 022 (fichiers lus par le compte des bacs).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths=/run/@PREFIX@
+@RW@
+ProtectHome=@PROTECT_HOME@
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectProc=invisible
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+UMask=0022
+MemoryMax=50%
+TasksMax=4096
 
 [Install]
 WantedBy=@PREFIX@.target

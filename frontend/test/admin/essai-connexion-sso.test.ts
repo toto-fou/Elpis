@@ -366,9 +366,11 @@ describe("tiroir SSO : essai de connexion", () => {
       "prouvé par les méthodes amr",
     );
     expect(ligne({ acr: "loa-2", second_factor: null })).toBe(
-      "non prouvé : le niveau acr reçu n'est pas déclaré comme second facteur",
+      "non prouvé : le niveau acr reçu n'est pas déclaré comme second facteur ; les méthodes amr reçues ne suffisent pas (mfa, mca, ou deux familles comme pwd et otp)",
     );
-    expect(ligne({ acr: null, second_factor: null })).toBe("non prouvé : aucun niveau acr reçu");
+    expect(ligne({ acr: null, amr: [], second_factor: null })).toBe(
+      "non prouvé : aucun niveau acr reçu ; aucune méthode amr reçue",
+    );
     expect(ligne({ acr: "1", amr: ["pwd"], second_factor: null }, AMR)).toBe(
       "non prouvé : les méthodes amr reçues ne suffisent pas (mfa, mca, ou deux familles comme pwd et otp)",
     );
@@ -376,7 +378,7 @@ describe("tiroir SSO : essai de connexion", () => {
       "non prouvé : aucune méthode amr reçue",
     );
     expect(ligne({ acr: "1", amr: ["pwd"], second_factor: null }, LES_DEUX)).toBe(
-      "non prouvé : ni niveau acr déclaré, ni méthodes amr qui suffisent",
+      "non prouvé : le niveau acr reçu n'est pas déclaré comme second facteur ; les méthodes amr reçues ne suffisent pas (mfa, mca, ou deux familles comme pwd et otp)",
     );
     expect(ligne({ acr: "1", second_factor: null }, RIEN)).toBe(
       "non prouvé : aucun second facteur n'est demandé à ce fournisseur (section 4)",

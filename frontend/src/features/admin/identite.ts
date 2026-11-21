@@ -235,7 +235,7 @@ export function identifiantDe(libelle: string): string {
 
 const PREUVES = { acr: "prouvé par le niveau acr", amr: "prouvé par les méthodes amr" } as const;
 
-/** Ce qui manque quand le jeton ne prouve pas de second facteur, selon ce que les réglages du fournisseur permettent : niveau `acr` déclaré, méthodes `amr`, ou les deux. */
+/** Ce qui manque quand le jeton ne prouve pas de second facteur : avec des niveaux déclarés, le niveau `acr` ET les méthodes `amr` (qui prouvent toujours), sinon les méthodes seules. */
 function preuveManquante(c: NonNullable<ResultatEssaiBlanc["claims"]>, e: ExigencesSecondFacteur): string {
   const parAcr = e.mfa_acr.length > 0;
   const parAmr = amrFortExige(e);
@@ -247,8 +247,7 @@ function preuveManquante(c: NonNullable<ResultatEssaiBlanc["claims"]>, e: Exigen
     c.acr !== null && c.acr !== ""
       ? "le niveau acr reçu n'est pas déclaré comme second facteur"
       : "aucun niveau acr reçu";
-  if (parAcr && parAmr) return `non prouvé : ni niveau acr déclaré, ni méthodes amr qui suffisent`;
-  if (parAcr) return `non prouvé : ${acrNonDeclare}`;
+  if (parAcr) return `non prouvé : ${acrNonDeclare} ; ${amrInsuffisantes}`;
   if (parAmr) return `non prouvé : ${amrInsuffisantes}`;
   return "non prouvé : aucun second facteur n'est demandé à ce fournisseur (section 4)";
 }

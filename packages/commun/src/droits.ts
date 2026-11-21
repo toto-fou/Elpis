@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/commun/src/droits.ts — droits de l'état partagé entre services : privés au compte, ou au groupe des données (`ELPIS_GROUPE_DONNEES`) quand chaque service a son compte. */
+/** packages/commun/src/droits.ts — droits de l'état partagé entre services : privés au compte, ou au groupe des données (`ELPIS_GROUPE_DONNEES`) et au groupe de clé (`ELPIS_GROUPE_CLE`) quand chaque service a son compte. */
 import { readFileSync } from "node:fs";
 
 /** Groupe des données des services (`ELPIS_GROUPE_DONNEES`), `null` en compte unique. */
@@ -35,15 +35,23 @@ function gidDansAnnuaire(nom: string): number | null {
   return null;
 }
 
-let gidConnu: { nom: string; gid: number | null } | null = null;
+const gidsConnus = new Map<string, number | null>();
 
-/** GID du groupe des données : valeur numérique, sinon `/etc/group`, sinon le groupe principal du process. */
+/** GID d'un groupe nommé par l'environnement : valeur numérique, sinon `/etc/group` (mis en cache), `null` s'il est introuvable. */
+function gidDuNom(nom: string): number | null {
+  if (!gidsConnus.has(nom)) gidsConnus.set(nom, /^\d+$/u.test(nom) ? Number(nom) : gidDansAnnuaire(nom));
+  return gidsConnus.get(nom) ?? null;
+}
+
+/** GID du groupe des données : celui de son nom, sinon le groupe principal du process. */
 function gidDonnees(nom: string): number | null {
-  if (gidConnu?.nom !== nom) {
-    const gid = /^\d+$/u.test(nom) ? Number(nom) : gidDansAnnuaire(nom);
-    gidConnu = { nom, gid: gid ?? process.getgid?.() ?? null };
-  }
-  return gidConnu.gid;
+  return gidDuNom(nom) ?? process.getgid?.() ?? null;
+}
+
+/** GID du groupe de clé (`ELPIS_GROUPE_CLE` : secrets de main et de la console seuls) ; `null` sans lui ou s'il est introuvable, jamais un autre groupe. */
+export function gidGroupeCle(): number | null {
+  const nom = (process.env["ELPIS_GROUPE_CLE"] ?? "").trim();
+  return nom ? gidDuNom(nom) : null;
 }
 
 /** Dossier sûr : à ce compte sans droit pour le groupe ni les autres, ou, sous le groupe des données, à ce groupe sans droit pour les autres. */

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/admin/essai-fournisseur.test.ts — console › Connexion d'entreprise : étapes d'un test (niveaux, regroupement par cible, liste vide) et bouton Tester du tiroir (réglages non enregistrés sans secret, effacement à la saisie, test incomplet, 429). */
+/** frontend/test/admin/essai-fournisseur.test.ts — console › SSO OpenID Connect : étapes d'un test (niveaux, regroupement par cible, liste vide) et bouton « Contrôler les réglages » du tiroir (réglages non enregistrés sans secret, effacement à la saisie, test incomplet, 429). */
 import { createApp, defineComponent, h } from "vue";
 import type { App } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -88,7 +88,7 @@ describe("EtapesEssai", () => {
   });
 });
 
-describe("Connexion d'entreprise : bouton Tester", () => {
+describe("SSO OpenID Connect : bouton « Contrôler les réglages »", () => {
   it("envoie les réglages du formulaire non enregistrés, jamais le secret saisi", async () => {
     const m = monter(etat({ providers: [OIDC] }));
     m.reponses[TEST] = [json({ ok: true, steps: [ETAPES[0]] })];
@@ -113,7 +113,7 @@ describe("Connexion d'entreprise : bouton Tester", () => {
     await ouvrirTiroir(m);
     await clic("#ent-tester");
     expect(el("#ent-essai-synthese")?.textContent).toBe(
-      "Lancez un essai de connexion pour pouvoir activer ce fournisseur.",
+      "Les contrôles passent. Faites ensuite « Se connecter pour essayer » pour pouvoir activer ce fournisseur.",
     );
     expect(document.querySelectorAll("[data-etape]")).toHaveLength(1);
     expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
@@ -205,7 +205,7 @@ describe("Connexion d'entreprise : bouton Tester", () => {
     await clic("#ent-tester");
     const b = el<HTMLButtonElement>("#ent-tester");
     expect(b?.disabled).toBe(true);
-    expect(b?.textContent).toContain("Test en cours");
+    expect(b?.textContent).toContain("Contrôle en cours");
     expect(b?.querySelector(".animate-spin")).not.toBeNull();
     await clic("#ent-tester");
     expect(m.appels.filter((a) => a === TEST)).toHaveLength(1);

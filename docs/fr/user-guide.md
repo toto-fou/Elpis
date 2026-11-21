@@ -2458,7 +2458,7 @@ Ce qu'il faut savoir :
 - **Vue d'ensemble** : **À traiter**, l'état des **Services** avec **Tout tester**, les chiffres des **Dernières 24 h** et l'**Installation**.
 - **Supervision** : **Métriques** (widgets au choix, export CSV, collecte Prometheus), **Rapport** (digest quotidien archivé, aperçu avant impression), **Activité** (onglets **Exécutions** et **Appels d'outils**, avec recherche, tri et filtres des erreurs), **Journaux** (onglet **Technique**, et onglet **Sécurité** pour les administrateurs).
 - **Modèles & services** : **Inférence** (moteurs, planification des requêtes), **Compression**, **RAG**, **Vision & machines** (annotation, machines cibles du Studio), **Voix**, **Images**, **Outils MCP**, **Prompts** (prompts système par catégorie), **Secrets** (ceux de l'instance).
-- **Utilisateurs & accès** : **Comptes**, **Groupes**, **Droits par défaut** (fonctionnalités, fournisseurs ouverts aux comptes), **Mots de passe & sessions**, **Connexion d'entreprise** (fournisseurs d'authentification unique, comptes à rattacher).
+- **Utilisateurs & accès** : **Comptes**, **Groupes**, **Droits par défaut** (fonctionnalités, fournisseurs ouverts aux comptes), **Mots de passe & sessions**, **SSO OpenID Connect** (fournisseurs d'authentification unique, comptes à rattacher).
 - **Sandbox** : **Limites & politique** (mémoire, processeur, processus, durée d'une commande, arrêt d'inactivité), **Réseau** (profils), **Hôtes d'outils**, **Conteneurs**, **Sous-agents**.
 - **Système** : **Instance** (identité, écran d'accueil, page de connexion), **Apparence** (habillages proposés), **Accès HTTPS**, **Données** (sauvegarde, base de données, restauration), **Journalisation**, **Entretien** (entretien périodique, redémarrage, purge des métriques).
 

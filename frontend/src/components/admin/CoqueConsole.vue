@@ -140,7 +140,7 @@ const heure = formateurDate({ timeStyle: "short" });
         <PageSousAgents />
         <PageEntretien />
         <PageDonnees />
-        <PageConnexionEntreprise v-if="adm.adminTab === 'enterprise-login'" />
+        <PageConnexionEntreprise v-if="adm.adminTab === 'oidc'" />
         <PageJournalisation v-if="adm.adminTab === 'audit-logging'" />
       </div>
     </main>

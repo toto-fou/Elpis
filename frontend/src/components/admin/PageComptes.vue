@@ -173,7 +173,7 @@ function ajouterAuGroupe(ev: Event): void {
                   v-if="colonneConnexion"
                   scope="col"
                   class="px-3 py-2.5"
-                  title="Mot de passe local ou fournisseur d'entreprise"
+                  title="Mot de passe local ou SSO OpenID Connect"
                 >
                   Connexion
                 </th>

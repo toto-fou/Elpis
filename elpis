@@ -38,7 +38,7 @@
 #  ./elpis vault rekey --from FICHIER   rechiffre avec la clé courante les
 #                                secrets de l'ancienne clé FICHIER
 #  ./elpis secret ls [--user COMPTE]   secrets du coffre : métadonnées seules
-#  ./elpis auth status           connexion d'entreprise : fournisseurs (allumé,
+#  ./elpis auth status           SSO OpenID Connect : fournisseurs (allumé,
 #                                actif, testé), mot de passe local, administrateurs
 #  ./elpis auth off              issue de secours : éteint tous les fournisseurs
 #                                et rouvre le mot de passe local à tous
@@ -914,7 +914,7 @@ lignes_doctor() {
     done < <("$@" 2>&1)
 }
 
-# Connexion d'entreprise vue par le core (lecture seule, sans réseau) : une ligne « niveau<TAB>texte » par contrôle ; rien si le core ou config.json manque.
+# SSO OpenID Connect vu par le core (lecture seule, sans réseau) : une ligne « niveau<TAB>texte » par contrôle ; rien si le core ou config.json manque.
 doctor_connexion() {
     local illisible=0 dossier="${VAULT_KEY_SYS%/*}"
     # Même garde que doctor_coffre : sous un compte qui ne lit pas la clé, le core ne lit aucun secret (aucune ligne de journal dans la sortie).
@@ -923,9 +923,9 @@ doctor_connexion() {
         illisible=1
     fi
     if [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
-        info "connexion d'entreprise : non vérifiée (core non construit ou config.json absent)"; return 0
+        info "SSO OpenID Connect : non vérifié (core non construit ou config.json absent)"; return 0
     fi
-    ELPIS_DOCTOR_COFFRE_ILLISIBLE="$illisible" lignes_doctor "connexion d'entreprise" vault_core auth doctor
+    ELPIS_DOCTOR_COFFRE_ILLISIBLE="$illisible" lignes_doctor "SSO OpenID Connect" vault_core auth doctor
 }
 
 # Pilotes cités par les règles rsyslog d'Elpis, lignes commentées exclues (gtls : rsyslog-gnutls, omrelp : rsyslog-relp) : rsyslogd -N1 ne signale pas leur absence.
@@ -1184,7 +1184,7 @@ cmd_secret() {
     vault_core secret "$@"
 }
 
-# Connexion d'entreprise : état et coupure de secours des fournisseurs d'identité (config.json relu à chaud, rien à redémarrer).
+# SSO OpenID Connect : état et coupure de secours des fournisseurs d'identité (config.json relu à chaud, rien à redémarrer).
 cmd_auth() {
     case "${1:-}" in
         status|doctor|off) [ $# -eq 1 ] || die "Usage : ./elpis auth status | ./elpis auth doctor | ./elpis auth off | ./elpis auth reactivate <compte>" ;;

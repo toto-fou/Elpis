@@ -743,8 +743,8 @@ restarted, then delete the fallback:
 rm user_db/.vault.key
 ```
 
-`rekey` also renews the test fingerprints of the enterprise sign-in providers whose registered secret is
-unchanged: enterprise sign-in providers stay active after a key change.
+`rekey` also renews the test fingerprints of the OpenID Connect single sign-on providers whose registered
+secret is unchanged: these providers stay active after a key change.
 
 ### Updating: connector and image engine keys
 
@@ -842,10 +842,10 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
   that cannot be read or is invalid, for secrets encrypted with another key
   (`./elpis vault rekey`), and for secrets left without any key (restore it).
 
-## Enterprise sign-in: emergency exit
+## SSO (OpenID Connect): emergency exit
 
-Settings: [configuration.md](configuration.md#enterprise-sign-in-auth); setup guide and troubleshooting:
-[enterprise-sign-in.md](enterprise-sign-in.md). Three commands run on the host,
+Settings: [configuration.md](configuration.md#openid-connect-single-sign-on-auth); setup guide and troubleshooting:
+[sso-oidc.md](sso-oidc.md). Three commands run on the host,
 with the core bundle, as the service account (with `sudo` they switch to it):
 
 | Command | Role |

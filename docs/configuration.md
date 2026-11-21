@@ -10,7 +10,7 @@
 - [Startup](#startup)
 - [Configuration](#configuration)
   - [`config.json` file](#configjson-file)
-  - [Enterprise sign-in](#enterprise-sign-in-auth)
+  - [OpenID Connect single sign-on](#openid-connect-single-sign-on-auth)
   - [RAG](#rag-rag)
   - [Cloud providers for accounts](#cloud-providers-for-accounts-llmallowed_provider_types)
   - [Environment variables](#environment-variables)
@@ -400,12 +400,12 @@ the section, and deletes nothing if `config.json` cannot be read.
 Full backups include the journal unless `backup.include_audit` is `false`; a scheduled remote send
 includes it only if `backup.remote.include_audit` is `true`.
 
-### Enterprise sign-in (`auth`)
+### OpenID Connect single sign-on (`auth`)
 
-Setup guide: [enterprise-sign-in.md](enterprise-sign-in.md).
+Setup guide: [sso-oidc.md](sso-oidc.md).
 
-Single sign-on (OpenID Connect) providers. A directory is connected through an identity provider that federates it, see [enterprise-sign-in.md](enterprise-sign-in.md#connecting-a-directory). The section is read from disk on every
-use, with no restart, and is written only by Administration › Users & access › Enterprise sign-in and
+Single sign-on (OpenID Connect) providers. A directory is connected through an identity provider that federates it, see [sso-oidc.md](sso-oidc.md#connecting-a-directory). The section is read from disk on every
+use, with no restart, and is written only by Administration › Users & access › SSO OpenID Connect and
 by `./elpis auth off`: the raw editor and `PATCH /api/admin/config` can neither create nor overwrite
 it. `./elpis configure` re-reads it from disk just before writing and keeps it as it is; `--force` starts again from the example file (the old one is kept as `config.json.bak`) but carries the section over with every provider switched off and the local password open to everyone. Without the section nothing changes: no new route
 answers, no outgoing call is made, the login page is the same. Client secrets are
@@ -425,7 +425,7 @@ Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at 
 `required_groups` (0 to 20 entries of 512 characters at most; at least one is needed to switch on), `roles`,
 `group_map` and `freshness_days` (1 to 90, default 14). Texts contain no control character (the pasted certificate authority aside).
 
-- `roles` (all three keys required; see [enterprise-sign-in.md](enterprise-sign-in.md#roles-and-groups-from-the-provider)):
+- `roles` (all three keys required; see [sso-oidc.md](sso-oidc.md#roles-and-groups-from-the-provider)):
   `enabled` (default `false`), `admin_groups` and `moderator_groups` (0 to 20 entries of 512 characters at
   most each, no duplicate). The role of the accounts of the provider follows these groups; administrator groups
   of a provider count only when it invites a second factor (`required_amr` with a method of possession or inherence, `mfa` or `mca`, or `required_acr` with a level other than `0` and `1`), and a sign-in only gives the role when the received token proves it.

@@ -223,7 +223,7 @@ describe("section Rôles et groupes : SSO sans second facteur", () => {
     await cocher(el<HTMLInputElement>("#ent-roles-actif"));
     await ajouterAdmin("cn=admins");
     expect(el("[data-exiger-second-facteur]")?.textContent).toContain(
-      "Exigez d'abord une vérification en deux étapes pour ce fournisseur.",
+      "Exigez d'abord un second facteur (section 4).",
     );
     expect(enregistrer()?.disabled).toBe(true);
     await clic("#ent-enregistrer-fournisseur");
@@ -231,11 +231,25 @@ describe("section Rôles et groupes : SSO sans second facteur", () => {
     expect(m.mots).toEqual([]);
   });
 
+  it("une exigence à un seul facteur (acr 1, amr pwd) laisse l'enregistrement indisponible, comme au serveur", async () => {
+    const m = await ouvrir(OIDC, "sso");
+    await cocher(el<HTMLInputElement>("#ent-roles-actif"));
+    await ajouterAdmin("cn=admins");
+    await saisir("#ent-acr", "1");
+    await saisir("#ent-amr", "pwd");
+    expect(el("[data-exiger-second-facteur]")?.textContent).toContain(
+      "Exigez d'abord un second facteur (section 4).",
+    );
+    expect(enregistrer()?.disabled).toBe(true);
+    await clic("#ent-enregistrer-fournisseur");
+    expect(m.corps[PUT_SSO]).toBeUndefined();
+  });
+
   it("exiger un niveau d'authentification rend l'enregistrement disponible", async () => {
     await ouvrir(OIDC, "sso");
     await cocher(el<HTMLInputElement>("#ent-roles-actif"));
     await ajouterAdmin("cn=admins");
-    await saisir("details input.set-input.font-mono:not([placeholder])", "mfa");
+    await saisir("#ent-acr", "mfa");
     expect(el("[data-exiger-second-facteur]")).toBeNull();
     expect(enregistrer()?.disabled).toBe(false);
   });
@@ -318,7 +332,7 @@ describe("lignesDroits", () => {
   it("administrateurs ignorés et groupes Elpis disparus", () => {
     const l = lignesDroits({ ...DROITS, admin_ignored: true, missing_group_ids: [4, 5] });
     expect(l).toContain(
-      "Les groupes administrateurs sont ignorés tant qu'une vérification en deux étapes n'est pas exigée.",
+      "Les groupes administrateurs sont ignorés tant qu'un second facteur n'est pas exigé.",
     );
     expect(l).toContain("2 groupes Elpis de la correspondance n'existent plus.");
     expect(lignesDroits({ ...DROITS, missing_group_ids: [4] })).toContain(

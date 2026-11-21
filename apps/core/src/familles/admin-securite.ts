@@ -223,7 +223,7 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       if (!actif && [...auth.providers, ...auth.invalides].some((p) => p.enabled))
         throw new HttpError(
           409,
-          "Éteignez d'abord les fournisseurs de connexion d'entreprise : sans https, les mots de passe circuleraient en clair.",
+          "Éteignez d'abord les fournisseurs SSO OpenID Connect : sans https, les mots de passe circuleraient en clair.",
         );
       const sec = sectionDict(cfg, "security");
       const https = sectionDict(sec, "https");

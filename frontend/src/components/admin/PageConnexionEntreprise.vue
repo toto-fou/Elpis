@@ -1,8 +1,12 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/admin/PageConnexionEntreprise.vue — page Utilisateurs & accès › Connexion d'entreprise : état, prérequis, réglages généraux et fournisseurs d'identité OpenID Connect, admins. -->
+<!-- frontend/src/components/admin/PageConnexionEntreprise.vue — page Utilisateurs & accès › SSO OpenID Connect : état, puis prérequis, fournisseurs, comptes existants et mots de passe locaux, dans l'ordre du parcours. -->
 <script setup lang="ts">
+import type { FournisseurAuth } from "@elpis/contracts";
+import { computed } from "vue";
+
 import { domaineAdmin } from "../../features/admin/domaine";
-import { etatFournisseur } from "../../features/admin/identite";
+import { heureCourte } from "../../features/admin/horodatage";
+import { etatFournisseur, raisonActivation } from "../../features/admin/identite";
 import TiroirFournisseurAuth from "./TiroirFournisseurAuth.vue";
 
 const adm = domaineAdmin();
@@ -13,12 +17,17 @@ const MODES = [
 ] as const;
 
 const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché${n > 1 ? "s" : ""}`;
+const prerequis = computed(() => adm.authEtat?.prerequisites ?? null);
+const carteGrisee = computed(() => adm.prelinkRaison !== "");
+/** Raison écrite dans la ligne d'un fournisseur inopérant (activé mais pas actif). */
+const raisonInoperant = (p: FournisseurAuth): string =>
+  (adm.authEtat ? raisonActivation(adm.authEtat, p) : "") || "Conditions d'activation non remplies.";
 </script>
 
 <template>
-  <div v-if="adm.adminTab === 'enterprise-login'" class="animate-[fadeIn_0.2s]">
-    <div v-if="!adm.authEtat" class="space-y-6 min-w-0" aria-busy="true">
-      <section v-for="n in 3" :key="n" class="adm-card">
+  <div v-if="adm.adminTab === 'oidc'" class="animate-[fadeIn_0.2s]">
+    <div v-if="!adm.authEtat || !prerequis" class="space-y-6 min-w-0" aria-busy="true">
+      <section v-for="n in 5" :key="n" class="adm-card">
         <div class="adm-card__head"><div class="adm-skeleton w-40"></div></div>
         <div class="adm-rows">
           <div class="adm-row">
@@ -35,7 +44,7 @@ const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché
           <i class="ph ph-plugs-connected adm-card__icon" aria-hidden="true"></i>
           <div>
             <h3 class="adm-card__title">
-              {{ adm.authActifs.length ? "Connexion d'entreprise active" : "Connexion locale seule" }}
+              {{ adm.authActifs.length ? "SSO OpenID Connect actif" : "Connexion locale seule" }}
             </h3>
             <p class="adm-card__hint" role="status">
               <template v-if="adm.authActifs.length">
@@ -47,120 +56,118 @@ const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché
             </p>
           </div>
         </header>
+      </section>
+
+      <section id="ent-prerequis" class="adm-card scroll-mt-32" aria-labelledby="ent-prerequis-h">
+        <header class="adm-card__head">
+          <i class="ph ph-list-checks adm-card__icon" aria-hidden="true"></i>
+          <div>
+            <h3 id="ent-prerequis-h" class="adm-card__title">1. Prérequis</h3>
+            <p class="adm-card__hint">À réunir avant d'activer un fournisseur.</p>
+          </div>
+        </header>
         <ul class="adm-rows" aria-label="Prérequis">
-          <li class="adm-row" :class="{ 'ent-ko': !adm.authEtat.prerequisites.public_url_https }">
+          <li
+            class="adm-row adm-row--top"
+            :class="{ 'ent-ko': !prerequis.public_url_https }"
+            data-prerequis="public_url"
+          >
             <div>
               <span class="adm-row__label">
-                {{ adm.authEtat.prerequisites.public_url_https ? "✓" : "✗" }} Adresse publique en https
+                {{ prerequis.public_url_https ? "✓" : "✗" }} Adresse publique en https
               </span>
-              <p v-if="!adm.authEtat.prerequisites.public_url_https" class="adm-card__hint">
-                Renseignez l'adresse publique ci-dessous.
+              <p class="adm-card__hint">
+                {{
+                  prerequis.public_url_https
+                    ? "Renseignée."
+                    : "Renseignez l'adresse publique ci-contre, puis enregistrez."
+                }}
               </p>
             </div>
-          </li>
-          <li class="adm-row" :class="{ 'ent-ko': !adm.authEtat.prerequisites.cookie_secure }">
             <div>
-              <span class="adm-row__label">
-                {{ adm.authEtat.prerequisites.cookie_secure ? "✓" : "✗" }} Cookie de session sécurisé
-              </span>
-              <p v-if="!adm.authEtat.prerequisites.cookie_secure" class="adm-card__hint">
-                Activez l'accès HTTPS, puis redémarrez.
+              <div class="adm-field__row">
+                <input
+                  id="ent-url"
+                  v-model="adm.authUrl"
+                  type="url"
+                  class="set-input flex-1 font-mono text-xs"
+                  placeholder="https://elpis.example.lan"
+                  autocomplete="off"
+                  aria-label="Adresse publique"
+                  aria-describedby="ent-url-aide"
+                  :disabled="!!adm.authUrlFigee"
+                  :title="adm.authUrlFigee"
+                />
+                <button
+                  id="ent-enregistrer-url"
+                  type="button"
+                  class="adm-btn adm-btn--primary adm-btn--sm"
+                  :disabled="adm.authBusy || !adm.authUrlModifiee || !!adm.authUrlFigee"
+                  @click="adm.authEnregistrerReglages('url')"
+                >
+                  Enregistrer
+                </button>
+              </div>
+              <p id="ent-url-aide" class="adm-card__hint" data-url-aide>
+                {{
+                  adm.authUrlFigee ||
+                  "Adresse https par laquelle vos utilisateurs ouvrent Elpis, sans chemin."
+                }}
               </p>
+              <p v-if="adm.authUrlErreur" class="adm-field__warn" role="alert">{{ adm.authUrlErreur }}</p>
             </div>
           </li>
-          <li class="adm-row" :class="{ 'ent-ko': adm.authEtat.prerequisites.local_admins < 1 }">
+          <li class="adm-row" :class="{ 'ent-ko': !prerequis.cookie_secure }" data-prerequis="https">
+            <div>
+              <span class="adm-row__label">{{ prerequis.cookie_secure ? "✓" : "✗" }} Accès HTTPS</span>
+              <p class="adm-card__hint">
+                {{
+                  prerequis.cookie_secure
+                    ? "En service : le cookie de session est sécurisé."
+                    : "Activez l'accès HTTPS, puis redémarrez."
+                }}
+              </p>
+            </div>
+            <div>
+              <button
+                id="ent-ouvrir-https"
+                type="button"
+                class="adm-btn adm-tool adm-btn--sm"
+                @click="adm.goAdminPage('https')"
+              >
+                <i class="ph ph-lock-key" aria-hidden="true"></i> Ouvrir Accès HTTPS
+              </button>
+            </div>
+          </li>
+          <li class="adm-row" :class="{ 'ent-ko': prerequis.local_admins < 1 }" data-prerequis="local_admin">
             <div>
               <span class="adm-row__label">
-                {{ adm.authEtat.prerequisites.local_admins >= 1 ? "✓" : "✗" }} Administrateur local présent
+                {{ prerequis.local_admins >= 1 ? "✓" : "✗" }} Administrateur à mot de passe local
               </span>
-              <p v-if="adm.authEtat.prerequisites.local_admins < 1" class="adm-card__hint">
-                Gardez au moins un administrateur avec un mot de passe local.
+              <p class="adm-card__hint">
+                {{
+                  prerequis.local_admins >= 1
+                    ? "Présent : il reste l'accès de secours."
+                    : "Gardez au moins un administrateur avec un mot de passe local."
+                }}
               </p>
             </div>
           </li>
         </ul>
       </section>
 
-      <section id="ent-reglages" class="adm-card scroll-mt-32">
-        <header class="adm-card__head">
-          <i class="ph ph-gear-six adm-card__icon" aria-hidden="true"></i>
-          <div>
-            <h3 class="adm-card__title">Réglages généraux</h3>
-          </div>
-        </header>
-        <div class="adm-rows">
-          <div class="adm-row">
-            <div>
-              <label
-                class="adm-row__label"
-                for="ent-url"
-                title="Adresse https par laquelle vos utilisateurs ouvrent Elpis, sans chemin."
-                >Adresse publique</label
-              >
-            </div>
-            <div>
-              <input
-                id="ent-url"
-                v-model="adm.authUrl"
-                type="url"
-                class="set-input w-full font-mono text-xs"
-                placeholder="https://elpis.example.lan"
-                autocomplete="off"
-                :disabled="adm.authEtat.providers.some((p) => p.enabled)"
-                :title="
-                  adm.authEtat.providers.some((p) => p.enabled)
-                    ? 'Désactivez d\'abord les fournisseurs pour changer l\'adresse publique.'
-                    : ''
-                "
-              />
-            </div>
-          </div>
-          <div class="adm-row">
-            <div>
-              <span
-                id="ent-mode-lbl"
-                class="adm-row__label"
-                title="Qui peut encore se connecter avec un mot de passe local."
-                >Connexion locale</span
-              >
-            </div>
-            <div class="adm-seg" role="group" aria-labelledby="ent-mode-lbl">
-              <button
-                v-for="m in MODES"
-                :key="m.id"
-                type="button"
-                :class="['adm-seg__btn', adm.authMode === m.id ? 'is-active' : '']"
-                :aria-pressed="adm.authMode === m.id ? 'true' : 'false'"
-                @click="adm.authMode = m.id"
-              >
-                {{ m.label }}
-              </button>
-            </div>
-          </div>
-          <div class="adm-row adm-row--full">
-            <div class="flex items-center gap-3 flex-wrap">
-              <button
-                id="ent-enregistrer"
-                type="button"
-                class="adm-btn adm-btn--primary"
-                :disabled="adm.authBusy || !adm.authReglagesModifies"
-                @click="adm.authEnregistrerReglages()"
-              >
-                Enregistrer
-              </button>
-              <span v-if="adm.authReglagesErreur" class="adm-field__warn" role="alert">{{
-                adm.authReglagesErreur
-              }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="ent-fournisseurs" class="adm-card scroll-mt-32">
         <header class="adm-card__head">
           <i class="ph ph-identification-card adm-card__icon" aria-hidden="true"></i>
           <div>
-            <h3 class="adm-card__title">Fournisseurs</h3>
+            <h3 class="adm-card__title">2. Fournisseurs</h3>
+            <p class="adm-card__hint">
+              {{
+                adm.authEtat.providers.length >= adm.authEtat.bounds.providers_max
+                  ? `${adm.authEtat.bounds.providers_max} fournisseurs au plus : supprimez-en un pour en ajouter.`
+                  : "Chaque fournisseur est créé éteint, puis activé une fois ses conditions remplies."
+              }}
+            </p>
           </div>
           <div class="adm-card__actions">
             <button
@@ -184,11 +191,21 @@ const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché
           class="adm-rows"
           aria-label="Fournisseurs déclarés"
         >
-          <li v-for="p in adm.authEtat.providers" :key="p.id" class="adm-row adm-row--full">
+          <li
+            v-for="p in adm.authEtat.providers"
+            :key="p.id"
+            class="adm-row adm-row--full"
+            :data-fournisseur="p.id"
+          >
             <div class="flex items-center gap-3 min-w-0">
               <div class="min-w-0 flex-1">
                 <div class="font-medium text-sm truncate">{{ p.label }}</div>
-                <div class="adm-card__hint">SSO OpenID Connect · {{ comptes(p.identities) }}</div>
+                <div class="adm-card__hint">
+                  SSO OpenID Connect · {{ comptes(p.identities)
+                  }}<span v-if="etatFournisseur(p).alerte" data-raison-inoperant>
+                    · {{ raisonInoperant(p) }}</span
+                  >
+                </div>
               </div>
               <span class="adm-pill" :class="{ 'adm-pill--warn': etatFournisseur(p).alerte }">{{
                 etatFournisseur(p).libelle
@@ -233,6 +250,213 @@ const comptes = (n: number): string => `${n} compte${n > 1 ? "s" : ""} rattaché
           </li>
         </ul>
         <p v-else class="adm-empty px-5 py-4">Aucun fournisseur déclaré.</p>
+        <p v-if="adm.authListeErreur" class="adm-field__warn px-5 pb-3" role="alert">
+          {{ adm.authListeErreur }}
+        </p>
+      </section>
+
+      <section id="ent-comptes" class="adm-card scroll-mt-32" aria-labelledby="ent-prelien-h" data-prelinks>
+        <header class="adm-card__head">
+          <i class="ph ph-link adm-card__icon" aria-hidden="true"></i>
+          <div>
+            <h3 id="ent-prelien-h" class="adm-card__title">3. Comptes existants</h3>
+            <p class="adm-card__hint">
+              À sa première connexion par ce fournisseur, la personne devra saisir une fois son ancien mot de
+              passe Elpis.
+            </p>
+          </div>
+        </header>
+        <div class="adm-rows">
+          <div class="adm-row adm-row--top">
+            <div><label class="adm-row__label" for="ent-prelien-fournisseur">Fournisseur</label></div>
+            <div>
+              <select
+                id="ent-prelien-fournisseur"
+                v-model="adm.prelinkFournisseur"
+                class="set-select w-full"
+                aria-describedby="ent-prelien-raison"
+                :disabled="adm.authEtat.providers.length === 0"
+              >
+                <option value="">—</option>
+                <option v-for="p in adm.authEtat.providers" :key="p.id" :value="p.id">{{ p.label }}</option>
+              </select>
+              <p id="ent-prelien-raison" class="adm-card__hint" data-prelinks-raison>
+                {{ adm.prelinkRaison || "Les rattachements ci-dessous valent pour ce fournisseur." }}
+              </p>
+            </div>
+          </div>
+          <div class="adm-row adm-row--full">
+            <ul v-if="adm.prelinks.length" class="space-y-2" aria-label="Rattachements préparés">
+              <li v-for="p in adm.prelinks" :key="p.id" data-prelink>
+                <div class="flex items-center gap-2 min-w-0">
+                  <div class="min-w-0 flex-1 text-xs">
+                    <span class="font-medium">{{ p.username ?? "Compte supprimé" }}</span>
+                    <span class="font-mono text-slate-500"> {{ p.expected }}</span>
+                    <div class="adm-card__hint">
+                      {{ p.waiver ? "Sans ancien mot de passe · " : "" }}Échéance :
+                      {{ heureCourte(p.expires_at) }}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="adm-btn adm-btn--icon adm-btn--danger-hover"
+                    data-prelink-supprimer
+                    :aria-label="'Supprimer le rattachement préparé de ' + (p.username ?? 'ce compte')"
+                    :disabled="adm.prelinksBusy"
+                    @click="adm.prelinkSupprimer(p)"
+                  >
+                    <i class="ph ph-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p v-else class="adm-card__hint">Aucun rattachement préparé.</p>
+          </div>
+          <div class="adm-row">
+            <div><label class="adm-row__label" for="ent-prelien-compte">Compte local</label></div>
+            <select
+              id="ent-prelien-compte"
+              v-model.number="adm.prelinkForm.user_id"
+              class="set-select w-full"
+              :disabled="carteGrisee"
+            >
+              <option :value="0">—</option>
+              <option v-for="u in adm.prelinkComptes" :key="u.id" :value="u.id">
+                {{ u.username
+                }}{{ u.is_admin === 1 ? " (administrateur)" : u.is_admin === 2 ? " (modérateur)" : "" }}
+              </option>
+            </select>
+          </div>
+          <div class="adm-row">
+            <div>
+              <label class="adm-row__label" for="ent-prelien-attendu">Identifiant attendu</label>
+              <p class="adm-card__hint">Chez le fournisseur.</p>
+            </div>
+            <input
+              id="ent-prelien-attendu"
+              v-model="adm.prelinkForm.expected"
+              class="set-input font-mono text-xs"
+              maxlength="256"
+              autocomplete="off"
+              :disabled="carteGrisee"
+            />
+          </div>
+          <div class="adm-row adm-row--full">
+            <div class="space-y-1">
+              <label
+                class="flex items-center gap-2 text-xs"
+                :title="
+                  adm.prelinkAdmin
+                    ? 'Un administrateur ou un modérateur doit toujours prouver son ancien mot de passe.'
+                    : ''
+                "
+              >
+                <input
+                  id="ent-prelien-dispense"
+                  v-model="adm.prelinkForm.waiver"
+                  type="checkbox"
+                  :disabled="carteGrisee || adm.prelinkAdmin"
+                />
+                <span>Identité vérifiée hors ligne : ne pas demander l'ancien mot de passe</span>
+              </label>
+              <p class="adm-card__hint" data-prelink-dispense-aide>
+                À n'utiliser que si votre fournisseur ne laisse pas les personnes changer leur identifiant.
+              </p>
+              <p class="adm-card__hint" data-prelink-dispense-admin>
+                Un administrateur ou un modérateur doit toujours prouver son ancien mot de passe.
+              </p>
+              <label class="flex items-center gap-2 text-xs" :class="{ 'ent-ko': adm.prelinkAdmin }">
+                <input
+                  id="ent-prelien-admin"
+                  v-model="adm.prelinkForm.confirm_admin"
+                  type="checkbox"
+                  aria-describedby="ent-prelien-admin-aide"
+                  :disabled="carteGrisee || !adm.prelinkAdmin"
+                />
+                <span class="adm-row__label"
+                  >Je confirme le rattachement de cet administrateur ou modérateur</span
+                >
+              </label>
+              <p id="ent-prelien-admin-aide" class="adm-card__hint" data-prelink-confirmation-aide>
+                {{
+                  adm.prelinkAdmin
+                    ? "Obligatoire pour un administrateur ou un modérateur."
+                    : "Sans objet : seulement pour un administrateur ou un modérateur."
+                }}
+              </p>
+            </div>
+          </div>
+          <div class="adm-row adm-row--full">
+            <div class="flex items-center gap-3 flex-wrap">
+              <button
+                id="ent-prelien-ajouter"
+                type="button"
+                class="adm-btn adm-tool adm-btn--sm"
+                :disabled="adm.prelinksBusy || !adm.prelinkPret"
+                @click="adm.prelinkAjouter()"
+              >
+                <i class="ph ph-plus" aria-hidden="true"></i> Préparer le rattachement
+              </button>
+              <span v-if="adm.prelinksErreur" class="adm-field__warn" role="alert" data-prelinks-erreur>
+                {{ adm.prelinksErreur }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="ent-local" class="adm-card scroll-mt-32" aria-labelledby="ent-local-h">
+        <header class="adm-card__head">
+          <i class="ph ph-password adm-card__icon" aria-hidden="true"></i>
+          <div>
+            <h3 id="ent-local-h" class="adm-card__title">4. Mots de passe locaux</h3>
+            <p class="adm-card__hint">Qui peut encore se connecter avec un mot de passe local.</p>
+          </div>
+        </header>
+        <div class="adm-rows">
+          <div class="adm-row adm-row--top">
+            <div><span id="ent-mode-lbl" class="adm-row__label">Connexion locale</span></div>
+            <div>
+              <div
+                class="adm-seg"
+                role="group"
+                aria-labelledby="ent-mode-lbl"
+                aria-describedby="ent-mode-aide"
+              >
+                <button
+                  v-for="m in MODES"
+                  :key="m.id"
+                  type="button"
+                  :data-mode="m.id"
+                  class="disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="['adm-seg__btn', adm.authMode === m.id ? 'is-active' : '']"
+                  :aria-pressed="adm.authMode === m.id ? 'true' : 'false'"
+                  :disabled="m.id === 'admins' && !!adm.authModeAdminsRaison"
+                  @click="adm.authMode = m.id"
+                >
+                  {{ m.label }}
+                </button>
+              </div>
+              <p id="ent-mode-aide" class="adm-card__hint" data-mode-aide>{{ adm.authModeAide }}</p>
+            </div>
+          </div>
+          <div class="adm-row adm-row--full">
+            <div class="flex items-center gap-3 flex-wrap">
+              <button
+                id="ent-enregistrer-mode"
+                type="button"
+                class="adm-btn adm-btn--primary"
+                :disabled="adm.authBusy || !adm.authModeModifie"
+                @click="adm.authEnregistrerReglages('mode')"
+              >
+                Enregistrer
+              </button>
+              <span v-if="adm.authModeErreur" class="adm-field__warn" role="alert">{{
+                adm.authModeErreur
+              }}</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       <TiroirFournisseurAuth />

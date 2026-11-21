@@ -35,8 +35,8 @@ avec un agent :
 - **RAG** : collections de documents par compte, publiées aux groupes,
   interrogées par le chat avec sources citées et visionneuse ; OCR.
 - **Administration** : utilisateurs et groupes, connecteurs LLM, métriques.
-- **Connexion d'entreprise** : authentification unique OpenID Connect, éteinte
-  par défaut ([guide](docs/enterprise-sign-in.md), en anglais).
+- **SSO OpenID Connect** : authentification unique par un fournisseur OpenID
+  Connect, éteinte par défaut ([guide](docs/sso-oidc.md), en anglais).
 
 ## Pourquoi Elpis
 
@@ -238,7 +238,7 @@ La documentation est en anglais ; seul le guide utilisateur existe aussi en fran
 - [CHANGELOG.md](CHANGELOG.md) — journal des modifications.
 - [Guide utilisateur](docs/fr/user-guide.md)
 - [Installation et configuration](docs/configuration.md)
-- [Connexion d'entreprise](docs/enterprise-sign-in.md) (en anglais) : authentification
+- [SSO OpenID Connect](docs/sso-oidc.md) (en anglais) : authentification
   unique (OpenID Connect)
 - [Exploitation](docs/operations.md) — installation hors ligne, mise à
   jour, retour à la version Python (tag `python-final`), sauvegardes,

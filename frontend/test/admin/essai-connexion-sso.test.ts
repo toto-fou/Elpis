@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/admin/essai-connexion-sso.test.ts — console › fournisseur SSO : algorithme du jeton, aide du second facteur, essai de connexion (ouverture https seulement, interrogation bornée et arrêtée, décision, activation dégrisée). */
+/** frontend/test/admin/essai-connexion-sso.test.ts — console › fournisseur SSO : algorithme du jeton, ligne du second facteur, « Se connecter pour essayer » (ouverture https seulement, interrogation bornée et arrêtée, décision, activation dégrisée, raison du grisé). */
 import * as Vue from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -84,14 +84,25 @@ describe("tiroir SSO : réglages", () => {
     ).toBe("ES256");
   });
 
-  it("l'aide du second facteur n'apparaît que si acr et amr sont vides", async () => {
+  it("la ligne du second facteur reste en place et suit la règle du serveur : vide ou à un seul facteur, avertissement ; sinon ce qui est exigé", async () => {
     const m = monter(etat({ providers: [OIDC] }));
     await ouvrir(m);
-    const aide = "Sans ce réglage, aucune vérification en deux étapes n'est garantie par Elpis.";
-    expect(document.querySelector("[data-aide-second-facteur]")?.textContent?.trim()).toBe(aide);
+    const ligne = () => document.querySelector("[data-aide-second-facteur]")?.textContent?.trim();
+    expect(ligne()).toBe("⚠ Aucun second facteur garanti par Elpis.");
     m.A.authTiroir.value!.required_amr = "mfa";
     await vider();
-    expect(document.querySelector("[data-aide-second-facteur]")).toBeNull();
+    expect(ligne()).toBe("Second facteur exigé : amr mfa.");
+    m.A.authTiroir.value!.required_acr = "gold silver";
+    m.A.authTiroir.value!.required_amr = "otp, hwk";
+    await vider();
+    expect(ligne()).toBe("Second facteur exigé : acr gold ou silver ; amr otp ou hwk.");
+    m.A.authTiroir.value!.required_acr = "1";
+    m.A.authTiroir.value!.required_amr = "pwd";
+    await vider();
+    expect(ligne()).toBe("⚠ acr 1 ; amr pwd ne demande pas de second facteur.");
+    const avance = document.querySelector("details[data-section-tiroir='avance']");
+    expect(avance?.querySelector("#ent-acr")).toBeNull();
+    expect(document.querySelector("[data-section-tiroir='acces'] #ent-acr")).not.toBeNull();
   });
 });
 
@@ -216,10 +227,32 @@ describe("tiroir SSO : essai de connexion", () => {
     const m = monter(etat({ providers: [OIDC] }));
     await ouvrir(m);
     expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(true);
-    expect(el<HTMLButtonElement>("#ent-activer")?.title).toBe("Lancez d'abord un essai de connexion.");
+    expect(el<HTMLButtonElement>("#ent-activer")?.title).toBe(
+      "Réussissez d'abord « Se connecter pour essayer ».",
+    );
     m.reponses["GET /api/admin/auth"] = [json(etat({ providers: [{ ...OIDC, tested: true }] }))];
     await m.A.loadEnterpriseAuth();
     await vider();
     expect(el<HTMLButtonElement>("#ent-activer")?.disabled).toBe(false);
+  });
+});
+
+describe("tiroir SSO : « Se connecter pour essayer » toujours visible", () => {
+  it("grisé avec sa raison écrite : fournisseur activé, puis adresse publique absente", async () => {
+    const m = monter(etat({ providers: [{ ...OIDC, enabled: true, active: true, tested: true }] }));
+    await ouvrir(m);
+    expect(el<HTMLButtonElement>("#ent-trial")?.disabled).toBe(true);
+    expect(el("[data-raison-essai]")?.textContent?.trim()).toBe(
+      "Désactivez d'abord ce fournisseur pour l'essayer.",
+    );
+    await clic("#ent-trial");
+    expect(m.appels.some((a) => a.startsWith("POST " + TRIAL))).toBe(false);
+    demonter();
+    const sansAdresse = monter(etat({ public_url: "", providers: [OIDC] }));
+    await ouvrir(sansAdresse);
+    expect(el<HTMLButtonElement>("#ent-trial")?.disabled).toBe(true);
+    expect(el("[data-raison-essai]")?.textContent?.trim()).toBe(
+      "Renseignez d'abord l'adresse publique en https.",
+    );
   });
 });

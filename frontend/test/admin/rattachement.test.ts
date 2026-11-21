@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/admin/rattachement.test.ts — console › Connexion d'entreprise : rattachements préparés d'un fournisseur SSO. */
+/** frontend/test/admin/rattachement.test.ts — console › SSO OpenID Connect : rattachements préparés, depuis la carte « Comptes existants » de la page (fournisseur choisi ou seul enregistré). */
 import { afterEach, describe, expect, it } from "vitest";
 
 import { reinitialiserSuiviChargement } from "../../src/features/admin/suivi-chargement";
@@ -45,12 +45,76 @@ describe("rattachements préparés", () => {
     m.reponses["GET " + PRE] = [json({ items })];
     await m.A.loadEnterpriseAuth();
     await vider();
-    m.A.authModifier("sso");
-    await vider();
     await attendre(20);
     await vider();
     return m;
   }
+
+  it("la carte de la page porte les rattachements, sans ouvrir le tiroir ; seul fournisseur présélectionné", async () => {
+    const m = await ouvrirSso();
+    expect(m.A.authTiroir.value).toBeNull();
+    expect(document.querySelector(".adm-drawer")).toBeNull();
+    const carte = m.hote.querySelector("#ent-comptes[data-prelinks]");
+    expect(carte?.querySelector("[data-prelink]")?.textContent).toContain("alice@sso");
+    expect(el<HTMLSelectElement>("#ent-prelien-fournisseur")?.value).toBe("sso");
+    expect(m.appels).toContain("GET " + PRE);
+  });
+
+  it("aucun fournisseur : carte visible, grisée, avec sa raison écrite", async () => {
+    const m = monter(etat([]), { utilisateurs: UTIL });
+    await m.A.loadEnterpriseAuth();
+    await vider();
+    expect(el("[data-prelinks-raison]")?.textContent?.trim()).toBe(
+      "Enregistrez d'abord un fournisseur (carte « 2. Fournisseurs »).",
+    );
+    for (const sel of [
+      "#ent-prelien-fournisseur",
+      "#ent-prelien-compte",
+      "#ent-prelien-attendu",
+      "#ent-prelien-dispense",
+      "#ent-prelien-admin",
+      "#ent-prelien-ajouter",
+    ])
+      expect(el<HTMLInputElement>(sel)?.disabled, sel).toBe(true);
+    expect(m.appels.some((a) => a.includes("/prelinks"))).toBe(false);
+  });
+
+  it("plusieurs fournisseurs : rien n'est choisi d'office, le choix charge la liste de ce fournisseur", async () => {
+    const AUTRE = { ...OIDC, id: "autre", label: "Autre" };
+    const m = monter(etat([OIDC, AUTRE]), { utilisateurs: UTIL });
+    m.reponses["GET /api/admin/auth/providers/autre/prelinks"] = [json({ items: [ITEM] })];
+    m.reponses["POST /api/admin/auth/providers/autre/prelinks"] = [json(ITEM)];
+    await m.A.loadEnterpriseAuth();
+    await vider();
+    expect(el<HTMLSelectElement>("#ent-prelien-fournisseur")?.value).toBe("");
+    expect(el("[data-prelinks-raison]")?.textContent?.trim()).toBe("Choisissez d'abord le fournisseur.");
+    expect(el<HTMLSelectElement>("#ent-prelien-compte")?.disabled).toBe(true);
+    expect(m.appels.some((a) => a.includes("/prelinks"))).toBe(false);
+    await saisir("#ent-prelien-fournisseur", "autre");
+    await attendre(20);
+    await vider();
+    expect(m.appels).toContain("GET /api/admin/auth/providers/autre/prelinks");
+    expect(el("[data-prelink]")?.textContent).toContain("alice@sso");
+    await saisir("#ent-prelien-compte", "2");
+    await saisir("#ent-prelien-attendu", "alice@sso");
+    await clic("#ent-prelien-ajouter");
+    expect(m.corps["POST /api/admin/auth/providers/autre/prelinks"]).toHaveLength(1);
+    expect(m.corps["POST " + PRE]).toBeUndefined();
+  });
+
+  it("la case de confirmation reste affichée : grisée et sans objet pour un compte ordinaire", async () => {
+    await ouvrirSso([]);
+    await saisir("#ent-prelien-compte", "2");
+    expect(el<HTMLInputElement>("#ent-prelien-admin")?.disabled).toBe(true);
+    expect(el("[data-prelink-confirmation-aide]")?.textContent?.trim()).toBe(
+      "Sans objet : seulement pour un administrateur ou un modérateur.",
+    );
+    await saisir("#ent-prelien-compte", "1");
+    expect(el<HTMLInputElement>("#ent-prelien-admin")?.disabled).toBe(false);
+    expect(el("[data-prelink-confirmation-aide]")?.textContent?.trim()).toBe(
+      "Obligatoire pour un administrateur ou un modérateur.",
+    );
+  });
 
   it("liste les rattachements préparés et propose les seuls comptes sans identité", async () => {
     await ouvrirSso();

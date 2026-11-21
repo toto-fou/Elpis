@@ -75,6 +75,19 @@ describe("arbre déplié", () => {
     expect(labels("", true)).toContain("accounts");
   });
 
+  it("trouve la page SSO OpenID Connect par « oidc », « openid », « sso » et « entreprise », sans accent ni casse", () => {
+    const ids = (q: string, admin = true) =>
+      filtrerArbre(NAV_ADMIN.pages, admin, q).flatMap((g) => g.pagesVisibles.map((p) => p.id));
+    for (const q of ["oidc", "OpenID", "SSO", "entreprise", "Entreprise", "authentification unique"])
+      expect(ids(q), q).toContain("oidc");
+    expect(ids("oidc")).toEqual(["oidc"]);
+    expect(ids("entreprise", false)).not.toContain("oidc");
+    expect(NAV_ADMIN.pages["oidc"]?.label).toBe("SSO OpenID Connect");
+    expect(groupeDeplie("oidc")).toBe("Utilisateurs & accès");
+    expect(NAV_ADMIN.resolveLien("#oidc")).toEqual({ page: "oidc", onglet: "" });
+    expect(NAV_ADMIN.resolveLien("#enterprise-login")).toBeNull();
+  });
+
   it("onglet réservé aux admins dans une page staff : Sécurité des Journaux, et Journalisation du Système", () => {
     const ids = (admin: boolean) =>
       filtrerArbre(NAV_ADMIN.pages, admin, "").flatMap((g) => g.pagesVisibles.map((p) => p.id));

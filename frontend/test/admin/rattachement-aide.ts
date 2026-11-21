@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/admin/rattachement-aide.ts — montage de la page Connexion d'entreprise avec un faux serveur, pour les tests des rattachements préparés et des identités des comptes. */
+/** frontend/test/admin/rattachement-aide.ts — montage de la page SSO OpenID Connect avec un faux serveur, pour les tests des rattachements préparés et des identités des comptes. */
 import * as Vue from "vue";
 import { createApp, defineComponent, h, reactive, ref } from "vue";
 import type { App } from "vue";
@@ -110,7 +110,7 @@ export function demonter(): void {
 
 export function monter(
   initial: unknown = etat([]),
-  opts: { page?: "enterprise-login" | "accounts"; utilisateurs?: unknown[]; accepter?: boolean } = {},
+  opts: { page?: "oidc" | "accounts"; utilisateurs?: unknown[]; accepter?: boolean } = {},
 ) {
   const appels: string[] = [];
   const corps: Record<string, unknown[]> = {};
@@ -128,6 +128,8 @@ export function monter(
     const r = file && file.length > 1 ? file.shift() : file?.[0];
     if (r) return Promise.resolve(typeof r === "function" ? r() : r.clone());
     if (cle === "GET /api/admin/auth") return Promise.resolve(json(initial));
+    if (/^GET \/api\/admin\/auth\/providers\/[^/]+\/prelinks$/u.test(cle))
+      return Promise.resolve(json({ items: [] }));
     if (cle === "GET /api/admin/users-with-groups")
       return Promise.resolve(
         json({ users: opts.utilisateurs ?? [], groups: [], network_profiles: [], desktop_targets: [] }),
@@ -158,7 +160,7 @@ export function monter(
     systemAlert: ref(""),
   };
   const A = setupAdmin(Vue, refs, ctx, new ClientHttp(new GestionnaireSession(), fetchFaux));
-  A.adminTab.value = opts.page ?? "enterprise-login";
+  A.adminTab.value = opts.page ?? "oidc";
   const adm = reactive({ ...A, user: { id: 1, username: "root" } }) as unknown as DomaineAdmin;
   const hote = document.createElement("div");
   document.body.appendChild(hote);

@@ -2247,6 +2247,8 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
    dimensionne sur son contenu et l'aide se replie sur trois lignes au milieu
    d'une carte à moitié vide. */
 .adm-card__head > div:not(.adm-card__actions) { flex: 1 1 auto; min-width: 0; }
+/* Carte d'état sans rangées : pas de filet sous l'en-tête. */
+.adm-card__head:last-child { border-bottom: 0; }
 /* Icône : monochrome, alignée sur la ligne du titre (plus de tuile). */
 .adm-card__icon {
     flex-shrink: 0;
@@ -2325,7 +2327,7 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
     text-underline-offset: 4px;
     cursor: help;
 }
-/* Connexion d'entreprise : prérequis non satisfait. */
+/* SSO OpenID Connect : prérequis non satisfait. */
 .ent-ko .adm-row__label { color: var(--danger-text); }
 .adm-row__hint {
     margin-top: 0.125rem;

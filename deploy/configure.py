@@ -226,7 +226,7 @@ def audit_settings_of(d: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
 
 
 def auth_section_of(d: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Section auth (connexion d'entreprise), ou None."""
+    """Section auth (SSO OpenID Connect), ou None."""
     auth = d.get("auth") if isinstance(d, dict) else None
     return auth if isinstance(auth, dict) else None
 

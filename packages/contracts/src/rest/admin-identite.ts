@@ -1,8 +1,30 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/admin-identite.ts — console › connexion d'entreprise : réglages `auth`, fournisseurs d'identité (OIDC), secret et activation. */
+/** packages/contracts/src/rest/admin-identite.ts — console › SSO OpenID Connect : réglages `auth`, fournisseurs d'identité (OIDC), secret et activation. */
 import { z } from "zod";
 
 import { entier } from "./commun";
+
+/** Niveaux `acr` à un seul facteur : ils n'invitent jamais à un second facteur. */
+export const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
+
+/** Famille de chaque méthode `amr` de la RFC 8176 (connaissance, possession, inhérence). */
+export const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
+  ...["pwd", "pin", "kba"].map((m): [string, string] => [m, "connaissance"]),
+  ...["otp", "hwk", "swk", "sms", "tel", "sc"].map((m): [string, string] => [m, "possession"]),
+  ...["face", "fpt", "iris", "retina", "vbm"].map((m): [string, string] => [m, "inherence"]),
+]);
+
+/** Vrai si les exigences invitent le fournisseur à un second facteur : `amr` `mfa`, `mca` ou de possession ou d'inhérence, ou `acr` autre que 0 ou 1. */
+export function secondFacteurDemande(acr: readonly string[], amr: readonly string[]): boolean {
+  const fort = (m: string): boolean => {
+    const f = FAMILLES_AMR.get(m);
+    return m === "mfa" || m === "mca" || (f !== undefined && f !== "connaissance");
+  };
+  return (
+    amr.some((m) => fort(m.trim().toLowerCase())) ||
+    acr.some((a) => a.trim() !== "" && !ACR_FAIBLES.has(a.trim()))
+  );
+}
 
 const modeLocal = z.enum(["all", "admins"]);
 const roles = z.object({

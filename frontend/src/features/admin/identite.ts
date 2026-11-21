@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › Connexion d'entreprise : lecture et écritures des réglages `auth`, formulaire d'un fournisseur OpenID Connect, secret, activation. */
+/** frontend/src/features/admin/identite.ts — console › Utilisateurs & accès › SSO OpenID Connect : lecture et écritures des réglages `auth`, formulaire d'un fournisseur OpenID Connect, secret, activation. */
 import {
   schemaHoteNonCanonique,
   schemaReglagesAuth,
   schemaReponseDernierEssai,
   schemaReponseEssaiFournisseur,
   schemaReponseLancementEssai,
+  secondFacteurDemande,
 } from "@elpis/contracts";
 import type {
   FournisseurAuth,
@@ -77,7 +78,7 @@ const RAISONS_REFUS: Record<string, string> = {
   groups_unknown: "les groupes de la personne ne se lisent pas",
   conflict: "un compte existe déjà pour cet identifiant",
   suspended: "le compte est suspendu",
-  mfa_required: "la vérification en deux étapes exigée n'est pas satisfaite",
+  mfa_required: "le second facteur exigé n'est pas prouvé",
   unavailable: "le fournisseur ne répond pas",
   failed: "le parcours n'a pas abouti",
 };
@@ -91,13 +92,86 @@ export function phraseDecision(d: ResultatEssaiBlanc["decision"]): string {
   return d.outcome === "refuse" ? `Connexion refusée : ${raison}.` : `L'essai a échoué : ${raison}.`;
 }
 
-/** Libellé d'état d'un fournisseur ; `alerte` quand il est activé mais pas encore testé. */
+/** Libellé d'état d'un fournisseur ; `alerte` quand il est activé mais pas actif (inopérant). */
 export function etatFournisseur(p: { enabled: boolean; active: boolean }): {
   libelle: string;
   alerte: boolean;
 } {
   if (p.active) return { libelle: "Actif", alerte: false };
-  return p.enabled ? { libelle: "À tester", alerte: true } : { libelle: "Éteint", alerte: false };
+  return p.enabled ? { libelle: "Inopérant", alerte: true } : { libelle: "Éteint", alerte: false };
+}
+
+export interface ConditionActivation {
+  id: "public_url" | "https" | "local_admin" | "required_group" | "secret" | "trial";
+  libelle: string;
+  ok: boolean;
+  raison: string;
+}
+
+/** Les six conditions d'activation d'un fournisseur enregistré, dans l'ordre où le serveur les vérifie. */
+export function conditionsActivation(
+  etat: ReglagesAuthConsole,
+  p: FournisseurAuth | null,
+): ConditionActivation[] {
+  return [
+    {
+      id: "public_url",
+      libelle: "Adresse publique en https",
+      ok: etat.public_url !== "",
+      raison: "Renseignez d'abord l'adresse publique en https.",
+    },
+    {
+      id: "https",
+      libelle: "Accès HTTPS en service",
+      ok: etat.prerequisites.cookie_secure,
+      raison: "Activez d'abord l'accès HTTPS.",
+    },
+    {
+      id: "local_admin",
+      libelle: "Administrateur à mot de passe local",
+      ok: etat.prerequisites.local_admins >= 1,
+      raison: "Un administrateur avec mot de passe local est requis.",
+    },
+    {
+      id: "required_group",
+      libelle: "Au moins un groupe requis",
+      ok: (p?.required_groups.length ?? 0) > 0,
+      raison: "Indiquez d'abord au moins un groupe requis.",
+    },
+    {
+      id: "secret",
+      libelle: "Secret client enregistré",
+      ok: p?.has_secret ?? false,
+      raison: "Enregistrez d'abord le secret.",
+    },
+    {
+      id: "trial",
+      libelle: "Connexion d'essai réussie",
+      ok: p?.tested ?? false,
+      raison: "Réussissez d'abord « Se connecter pour essayer ».",
+    },
+  ];
+}
+
+/** Première condition d'activation manquante (texte vide : toutes remplies). */
+export function raisonActivation(etat: ReglagesAuthConsole, p: FournisseurAuth | null): string {
+  return conditionsActivation(etat, p).find((c) => !c.ok)?.raison ?? "";
+}
+
+/** Identifiant du serveur : minuscules, chiffres et tirets, 31 caractères au plus, sans tiret en tête. */
+export const MOTIF_IDENTIFIANT = /^[a-z0-9][a-z0-9-]{0,30}$/u;
+const IDENTIFIANT_MAX = 31;
+
+/** Identifiant déduit d'un libellé : sans accent, en minuscules, chaque suite d'autres caractères devient un tiret. */
+export function identifiantDe(libelle: string): string {
+  return libelle
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+/u, "")
+    .slice(0, IDENTIFIANT_MAX)
+    .replace(/-+$/u, "");
 }
 
 /** Revendications reçues en liste compacte (libellé, valeur). */
@@ -127,9 +201,7 @@ export function lignesDroits(d: ResultatEssaiBlanc["rights"]): string[] {
       l.push(`Groupes Elpis : ${d.groups.length ? d.groups.map((g) => g.name).join(", ") : "aucun"}.`);
   }
   if (d.admin_ignored)
-    l.push(
-      "Les groupes administrateurs sont ignorés tant qu'une vérification en deux étapes n'est pas exigée.",
-    );
+    l.push("Les groupes administrateurs sont ignorés tant qu'un second facteur n'est pas exigé.");
   const n = d.missing_group_ids.length;
   if (n > 0)
     l.push(
@@ -144,6 +216,8 @@ type ModeLocal = ReglagesAuthConsole["local"]["mode"];
 type Correspondance = FournisseurAuth["group_map"]["map"][number];
 
 const GROUPES_ROLE_MAX = 20;
+const FIGES_PAR_COMPTES = ["issuer", "client_id", "subject_claim"];
+const MODIFIABLES_ACTIF = ["label", "freshness_days"];
 const CORRESPONDANCES_MAX = 50;
 const MOT_CONFIRMATION_ADMIN = "administrateur";
 export const SAISIES = {
@@ -158,6 +232,8 @@ interface FormFournisseur {
   nouveau: boolean;
   type: "oidc";
   id: string;
+  /** Vrai dès que l'administrateur saisit l'identifiant : il n'est plus déduit du libellé. */
+  id_touche: boolean;
   label: string;
   ca_pem: string;
   required_groups: string[];
@@ -196,11 +272,24 @@ interface FormFournisseur {
 const chiffre = (n: number): string => String(n);
 const mots = (t: string): string[] => t.split(/[\s,]+/u).filter((x) => x !== "");
 
+/** Ligne d'état du second facteur exigé (`acr` / `amr`), toujours affichée, selon la règle du serveur. */
+export function phraseSecondFacteur(acr: string, amr: string): string {
+  const parts = [
+    ...(mots(acr).length ? [`acr ${mots(acr).join(" ou ")}`] : []),
+    ...(mots(amr).length ? [`amr ${mots(amr).join(" ou ")}`] : []),
+  ];
+  if (parts.length === 0) return "⚠ Aucun second facteur garanti par Elpis.";
+  return secondFacteurDemande(mots(acr), mots(amr))
+    ? `Second facteur exigé : ${parts.join(" ; ")}.`
+    : `⚠ ${parts.join(" ; ")} ne demande pas de second facteur.`;
+}
+
 function formVide(): FormFournisseur {
   return {
     nouveau: true,
     type: "oidc",
     id: "",
+    id_touche: false,
     label: "",
     ca_pem: "",
     required_groups: [],
@@ -254,6 +343,7 @@ function formDe(f: FournisseurAuth): FormFournisseur {
     ...formVide(),
     nouveau: false,
     id: f.id,
+    id_touche: true,
     label: f.label,
     ca_pem: f.ca_pem,
     required_groups: [...f.required_groups],
@@ -287,9 +377,9 @@ function formDe(f: FournisseurAuth): FormFournisseur {
   };
 }
 
-/** Entier saisi : `undefined` si vide, message d'erreur si ce n'est pas un entier. */
-function entierSaisi(v: string, nom: string): number | undefined | string {
-  const t = v.trim();
+/** Entier saisi (texte, ou nombre rendu par un champ `type="number"`) : `undefined` si vide, message d'erreur si ce n'est pas un entier. */
+function entierSaisi(v: string | number, nom: string): number | undefined | string {
+  const t = String(v).trim();
   if (t === "") return undefined;
   return /^\d{1,9}$/u.test(t) ? Number(t) : `Champ « ${nom} » : nombre entier attendu.`;
 }
@@ -297,7 +387,7 @@ function entierSaisi(v: string, nom: string): number | undefined | string {
 const REQUIS: readonly (readonly [keyof FormFournisseur, string])[] = [
   ["id", "Identifiant"],
   ["label", "Libellé"],
-  ["issuer", "Autorité"],
+  ["issuer", "Adresse de l'émetteur"],
   ["client_id", "Identifiant client"],
 ];
 
@@ -350,6 +440,16 @@ function corpsFournisseur(f: FormFournisseur): Record<string, unknown> | string 
   return corps;
 }
 
+/** Corps d'un fournisseur activé : le libellé et la fraîcheur, seuls modifiables sans le désactiver ; `null` si rien ne change. */
+function corpsActif(f: FormFournisseur, p: FournisseurAuth): Record<string, unknown> | string | null {
+  const corps: Record<string, unknown> = {};
+  if (f.label.trim() !== p.label) corps["label"] = f.label.trim();
+  const n = entierSaisi(f.freshness_days, "Fraîcheur");
+  if (typeof n === "string") return n;
+  if (n !== undefined && n !== p.freshness_days) corps["freshness_days"] = n;
+  return Object.keys(corps).length ? corps : null;
+}
+
 interface Retour {
   r?: ReglagesAuthConsole;
   erreur?: string;
@@ -363,7 +463,9 @@ export function creerIdentite(b: BaseAdmin) {
   const authEtat: Ref<ReglagesAuthConsole | null> = ref(null);
   const authUrl = ref("");
   const authMode: Ref<ModeLocal> = ref("all");
-  const authReglagesErreur = ref("");
+  const authUrlErreur = ref("");
+  const authModeErreur = ref("");
+  const authListeErreur = ref("");
   const authBusy = ref(false);
   const authTiroir: Ref<FormFournisseur | null> = ref(null);
   const authTiroirErreur = ref("");
@@ -382,19 +484,23 @@ export function creerIdentite(b: BaseAdmin) {
   let sequenceTrial = 0;
   let minuteurTrial: ReturnType<typeof setTimeout> | null = null;
 
-  const authReglagesModifies = computed(
-    () =>
-      authEtat.value !== null &&
-      (authUrl.value.trim() !== authEtat.value.public_url || authMode.value !== authEtat.value.local.mode),
+  const authUrlModifiee = computed(
+    () => authEtat.value !== null && authUrl.value.trim() !== authEtat.value.public_url,
   );
+  const authModeModifie = computed(
+    () => authEtat.value !== null && authMode.value !== authEtat.value.local.mode,
+  );
+  const authReglagesModifies = computed(() => authUrlModifiee.value || authModeModifie.value);
   const authFournisseur = computed<FournisseurAuth | null>(() => {
     const f = authTiroir.value;
     return f && !f.nouveau ? (authEtat.value?.providers.find((p) => p.id === f.id) ?? null) : null;
   });
-  /** Groupes administrateurs saisis alors que ce SSO n'exige ni niveau ni méthode d'authentification. */
+  /** Groupes administrateurs saisis alors que ce SSO ne demande pas de second facteur (même règle que le serveur). */
   const authAdminSansSecondFacteur = computed(() => {
     const f = authTiroir.value;
-    return !!f && f.admin_groups.length > 0 && f.required_acr.trim() === "" && f.required_amr.trim() === "";
+    return (
+      !!f && f.admin_groups.length > 0 && !secondFacteurDemande(mots(f.required_acr), mots(f.required_amr))
+    );
   });
   /** Enregistrer est indisponible : le serveur refuse des groupes administrateurs actifs sans second facteur exigé. */
   const authRolesBloque = computed(
@@ -417,15 +523,33 @@ export function creerIdentite(b: BaseAdmin) {
     );
   });
   const authActifs = computed(() => (authEtat.value?.providers ?? []).filter((p) => p.active));
+  /** Raison pour laquelle l'adresse publique ne se modifie pas (texte vide : modifiable). */
+  const authUrlFigee = computed(() =>
+    authEtat.value?.providers.some((p) => p.enabled)
+      ? "Désactivez d'abord les fournisseurs pour changer l'adresse publique."
+      : "",
+  );
+  /** Raison pour laquelle « Administrateurs seulement » ne se choisit pas : aucun fournisseur actif (revenir à « Tous les comptes » reste possible). */
+  const authModeAdminsRaison = computed(() => {
+    const etat = authEtat.value;
+    if (!etat || etat.local.mode === "admins" || authActifs.value.length > 0) return "";
+    return "Indisponible tant qu'aucun fournisseur n'est actif : les autres comptes ne pourraient plus se connecter.";
+  });
+  /** Ligne d'aide de la carte « Mots de passe locaux » : la raison du grisé, ou l'effet du mode enregistré. */
+  const authModeAide = computed(() => {
+    if (authModeAdminsRaison.value) return authModeAdminsRaison.value;
+    if (authEtat.value?.local.mode === "admins" && authActifs.value.length === 0)
+      return "⚠ Aucun fournisseur actif : seuls les administrateurs peuvent se connecter. Revenez à « Tous les comptes ».";
+    return "Avec « Administrateurs seulement », les autres comptes se connectent par un fournisseur actif.";
+  });
 
-  /** Recopie l'état lu ; le formulaire des réglages n'est écrasé que s'il n'a pas été modifié. */
-  function appliquer(r: ReglagesAuthConsole, forcer = false): void {
-    const propre = !authReglagesModifies.value || forcer;
+  /** Recopie l'état lu ; un champ des réglages modifié à l'écran n'est écrasé que pour la carte enregistrée (`forcer`). */
+  function appliquer(r: ReglagesAuthConsole, forcer: "url" | "mode" | null = null): void {
+    const garderUrl = authUrlModifiee.value && forcer !== "url";
+    const garderMode = authModeModifie.value && forcer !== "mode";
     authEtat.value = r;
-    if (propre) {
-      authUrl.value = r.public_url;
-      authMode.value = r.local.mode;
-    }
+    if (!garderUrl) authUrl.value = r.public_url;
+    if (!garderMode) authMode.value = r.local.mode;
   }
 
   /** Appel de l'API : état complet validé, ou message du serveur. */
@@ -452,31 +576,34 @@ export function creerIdentite(b: BaseAdmin) {
     );
   }
 
-  async function authEnregistrerReglages(): Promise<boolean> {
+  /** Enregistre la carte « Adresse publique » ou « Mots de passe locaux » : seul son champ part. */
+  async function authEnregistrerReglages(partie: "url" | "mode"): Promise<boolean> {
     const etat = authEtat.value;
     if (!etat || authBusy.value) return false;
     const corps: Record<string, unknown> = {};
-    if (authUrl.value.trim() !== etat.public_url) corps["public_url"] = authUrl.value.trim();
-    if (authMode.value !== etat.local.mode) corps["local"] = { mode: authMode.value };
+    if (partie === "url" && authUrlModifiee.value) corps["public_url"] = authUrl.value.trim();
+    if (partie === "mode" && authModeModifie.value) corps["local"] = { mode: authMode.value };
     if (Object.keys(corps).length === 0) return true;
     if (corps["local"] && authMode.value === "admins") {
+      if (authModeAdminsRaison.value !== "") return false;
       const ok = await ctx.openConfirm(
         "Connexion locale réservée aux administrateurs",
-        "Seuls les administrateurs pourront encore se connecter avec un mot de passe local. Les autres comptes devront passer par un fournisseur d'entreprise actif. Les jetons, accès d'outils et routines de leurs comptes locaux seront aussi suspendus ; ils reprendront au retour au mode « Tous les comptes ».",
+        "Seuls les administrateurs pourront encore se connecter avec un mot de passe local. Les autres comptes devront passer par un fournisseur SSO OpenID Connect actif. Les jetons, accès d'outils et routines de leurs comptes locaux seront aussi suspendus ; ils reprendront au retour au mode « Tous les comptes ».",
         true,
         "Confirmer",
       );
       if (!ok) return false;
     }
+    const erreurCarte = partie === "url" ? authUrlErreur : authModeErreur;
     authBusy.value = true;
-    authReglagesErreur.value = "";
+    erreurCarte.value = "";
     try {
       const { r, erreur } = await appeler("PUT", "/settings", corps);
       if (!r) {
-        authReglagesErreur.value = erreur ?? "";
+        erreurCarte.value = erreur ?? "";
         return false;
       }
-      appliquer(r, true);
+      appliquer(r, partie);
       showToast("Réglages enregistrés", "success");
       return true;
     } finally {
@@ -536,8 +663,17 @@ export function creerIdentite(b: BaseAdmin) {
 
   watch(authTiroir, effacerEssai, { deep: true });
 
+  // Identifiant d'un nouveau fournisseur déduit du libellé tant que l'administrateur ne l'a pas saisi.
+  watch(
+    () => authTiroir.value?.label,
+    (libelle) => {
+      const f = authTiroir.value;
+      if (f && f.nouveau && !f.id_touche) f.id = identifiantDe(libelle ?? "");
+    },
+  );
+
   watch(e.adminTab, (page) => {
-    if (page !== "enterprise-login") {
+    if (page !== "oidc") {
       effacerTrial();
       authTiroir.value = null;
     }
@@ -577,29 +713,51 @@ export function creerIdentite(b: BaseAdmin) {
     authTiroir.value?.map.splice(i, 1);
   }
 
-  /** Raison pour laquelle un champ ne se modifie pas (texte vide : modifiable). */
+  /** Raison pour laquelle un champ ne se modifie pas (texte vide : modifiable) : comptes rattachés, puis fournisseur activé (libellé et fraîcheur exceptés). */
   function authFige(champ: string): string {
     const p = authFournisseur.value;
     if (!p) return "";
-    if (p.enabled) return "Désactivez ce fournisseur pour modifier ses réglages.";
-    const figes = ["issuer", "client_id", "subject_claim"];
-    return p.identities > 0 && figes.includes(champ)
-      ? "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur."
+    if (p.identities > 0 && FIGES_PAR_COMPTES.includes(champ))
+      return "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur.";
+    return p.enabled && !MODIFIABLES_ACTIF.includes(champ)
+      ? "Désactivez d'abord ce fournisseur pour modifier ce réglage."
       : "";
   }
 
+  /** Phrase d'état en tête du tiroir : ce qui se modifie selon que le fournisseur est nouveau, éteint ou activé. */
+  const authEtatTiroir = computed(() => {
+    const f = authTiroir.value;
+    const p = authFournisseur.value;
+    if (!f) return "";
+    if (f.nouveau || !p) return "Nouveau fournisseur : il reste éteint jusqu'à son activation (section 8).";
+    if (p.enabled)
+      return "Fournisseur activé : seuls le libellé et la fraîcheur se modifient. Pour le reste, désactivez-le (section 8) ; les sessions des comptes rattachés seront fermées.";
+    return p.identities > 0
+      ? "Fournisseur éteint : ses réglages se modifient, sauf l'adresse de l'émetteur, l'identifiant client et la revendication sujet, figés par les comptes rattachés."
+      : "Fournisseur éteint : ses réglages se modifient.";
+  });
+
+  /** Conditions d'activation d'après les réglages enregistrés. */
+  const authConditions = computed(() =>
+    authEtat.value ? conditionsActivation(authEtat.value, authFournisseur.value) : [],
+  );
+
   /** Raison pour laquelle le fournisseur ne peut pas être activé (texte vide : activable). */
   const authRaisonActiver = computed(() => {
-    const p = authFournisseur.value;
     const etat = authEtat.value;
-    if (!p || !etat) return "";
-    if (etat.public_url === "") return "Renseignez d'abord l'adresse publique en https.";
-    if (!etat.prerequisites.cookie_secure) return "Activez d'abord l'accès HTTPS.";
-    if (etat.prerequisites.local_admins < 1) return "Un administrateur avec mot de passe local est requis.";
-    if (p.required_groups.length === 0) return "Indiquez d'abord au moins un groupe requis.";
-    if (!p.has_secret) return "Enregistrez d'abord le secret.";
-    if (!p.tested) return "Lancez d'abord un essai de connexion.";
-    return "";
+    if (!etat || !authTiroir.value) return "";
+    if (!authFournisseur.value) return "Enregistrez d'abord ce fournisseur.";
+    return raisonActivation(etat, authFournisseur.value);
+  });
+
+  /** Raison pour laquelle « Se connecter pour essayer » est indisponible (texte vide : disponible). */
+  const authRaisonTrial = computed(() => {
+    const f = authTiroir.value;
+    if (!f) return "";
+    if (f.nouveau || !authFournisseur.value)
+      return "Enregistrez d'abord ce fournisseur : l'essai part des réglages enregistrés.";
+    if (authFournisseur.value.enabled) return "Désactivez d'abord ce fournisseur pour l'essayer.";
+    return authEtat.value?.public_url === "" ? "Renseignez d'abord l'adresse publique en https." : "";
   });
 
   /** Adresses à déclarer chez un fournisseur OIDC ; vides tant que l'adresse publique ou l'identifiant manque. */
@@ -607,11 +765,21 @@ export function creerIdentite(b: BaseAdmin) {
     const f = authTiroir.value;
     const base = authEtat.value?.public_url ?? "";
     const id = f?.id.trim() ?? "";
-    if (!f || base === "" || id === "") return null;
+    if (!f || base === "" || !MOTIF_IDENTIFIANT.test(id)) return null;
     return {
       retour: `${base}/api/auth/oidc/${id}/callback`,
       deconnexion: `${base}/api/auth/oidc/${id}/backchannel-logout`,
     };
+  });
+  /** Ce qui manque pour écrire les adresses à déclarer (texte vide : rien). */
+  const authAdressesManque = computed(() => {
+    const id = authTiroir.value?.id.trim() ?? "";
+    if ((authEtat.value?.public_url ?? "") === "")
+      return "Adresse publique manquante : renseignez-la dans la carte « 1. Prérequis ».";
+    if (id === "") return "Identifiant manquant : renseignez-le en section 1.";
+    return MOTIF_IDENTIFIANT.test(id)
+      ? ""
+      : "Identifiant invalide : minuscules, chiffres et tirets, 31 caractères au plus.";
   });
 
   async function envoyerSecret(id: string, secret: string): Promise<boolean> {
@@ -630,9 +798,9 @@ export function creerIdentite(b: BaseAdmin) {
     const etat = authEtat.value;
     if (!f || !etat || authBusy.value) return false;
     authTiroirErreur.value = "";
-    const fige = !!authFournisseur.value?.enabled;
-    if (!fige && authRolesBloque.value) return false;
-    const confirmer = !fige && authAdminAConfirmer.value;
+    const actif = authFournisseur.value?.enabled ? authFournisseur.value : null;
+    if (!actif && authRolesBloque.value) return false;
+    const confirmer = !actif && authAdminAConfirmer.value;
     if (
       confirmer &&
       !(await confirmerParMot(
@@ -647,7 +815,21 @@ export function creerIdentite(b: BaseAdmin) {
     if (authBusy.value) return false;
     authBusy.value = true;
     try {
-      if (!fige) {
+      if (actif) {
+        const corps = corpsActif(f, actif);
+        if (typeof corps === "string") {
+          authTiroirErreur.value = corps;
+          return false;
+        }
+        if (corps) {
+          const { r, erreur } = await appeler("PUT", `/providers/${encodeURIComponent(f.id)}`, corps);
+          if (!r) {
+            authTiroirErreur.value = erreur ?? "";
+            return false;
+          }
+          appliquer(r);
+        }
+      } else {
         const corps = corpsFournisseur(f);
         if (typeof corps === "string") {
           authTiroirErreur.value = corps;
@@ -841,12 +1023,12 @@ export function creerIdentite(b: BaseAdmin) {
     if (!ok) return false;
     authBusy.value = true;
     authTiroirErreur.value = "";
-    authReglagesErreur.value = "";
+    authListeErreur.value = "";
     try {
       const { erreur } = await appeler("DELETE", `/providers/${encodeURIComponent(id)}`);
       if (erreur !== undefined) {
         if (ouvert) authTiroirErreur.value = erreur;
-        else authReglagesErreur.value = erreur;
+        else authListeErreur.value = erreur;
         return false;
       }
       if (ouvert) authFermer();
@@ -871,8 +1053,15 @@ export function creerIdentite(b: BaseAdmin) {
     authEtat,
     authUrl,
     authMode,
-    authReglagesErreur,
+    authUrlErreur,
+    authModeErreur,
+    authListeErreur,
+    authUrlModifiee,
+    authModeModifie,
     authReglagesModifies,
+    authUrlFigee,
+    authModeAdminsRaison,
+    authModeAide,
     authBusy,
     authTiroir,
     authTiroirErreur,
@@ -884,7 +1073,11 @@ export function creerIdentite(b: BaseAdmin) {
     authAjouterCorrespondance,
     authRetirerCorrespondance,
     authAdresses,
+    authAdressesManque,
+    authEtatTiroir,
+    authConditions,
     authRaisonActiver,
+    authRaisonTrial,
     authEssai,
     authEssaiEnCours,
     authEssaiErreur,

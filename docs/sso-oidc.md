@@ -1,13 +1,13 @@
-# Enterprise sign-in: single sign-on (OpenID Connect)
+# OpenID Connect single sign-on (SSO)
 
 Let people sign in to Elpis with the account their organization already manages, instead of a password
 created in Elpis. Elpis sends the person to an OpenID Connect provider (Keycloak, Authentik, LemonLDAP::NG,
 AD FS…) and receives a signed identity token. The password never reaches Elpis. Up to five providers can be
 declared. Elpis does not talk to a directory itself: see [Connecting a directory](#connecting-a-directory).
 
-Reference of every setting: [configuration.md](configuration.md#enterprise-sign-in-auth). Emergency exit:
-[operations.md](operations.md#enterprise-sign-in-emergency-exit). Journal events:
-[audit-events.md](audit-events.md#enterprise-sign-in-admin). What people see:
+Reference of every setting: [configuration.md](configuration.md#openid-connect-single-sign-on-auth). Emergency exit:
+[operations.md](operations.md#sso-openid-connect-emergency-exit). Journal events:
+[audit-events.md](audit-events.md#openid-connect-single-sign-on-admin). What people see:
 [user-guide.md](user-guide.md#signing-in-with-your-organizations-account).
 
 ## What it is, and what it is not
@@ -38,53 +38,84 @@ Reference of every setting: [configuration.md](configuration.md#enterprise-sign-
    local password. Do not link your own administrator account to a provider.
 4. **The certificate authority.** The provider (https) is verified against the
    certificate authorities of the Elpis server. If yours is internal, paste it in the **Autorité de
-   certification** (Certificate authority) field of the provider: PEM, 64 KiB at most; when present it is the
+   certification** (Certificate authority) field of the provider (section **3. Client**): PEM, 64 KiB at most; when present it is the
    only trust anchor of that provider. The name in the address must be one of the **subject alternative
    names** of the certificate: the common name is not read, a wildcard only counts as a whole first label
    (`*.example.lan`), and an address given as an IP needs an IP entry. The server must offer TLS 1.2 or 1.3
    with a forward-secret key exchange and an authenticated cipher (see [Compatibility](#compatibility)).
-5. **The clocks.** Elpis and the provider must agree on the time. The test measures the difference and fails
-   beyond the tolerance (**Écart (s)**, 60 s by default, 0 to 300).
+5. **The clocks.** Elpis and the provider must agree on the time. **Contrôler les réglages** measures the difference and fails
+   beyond the tolerance (**Écart d'horloge, s**, clock skew, 60 s by default, 0 to 300).
 6. **The network.** The Elpis host must reach the provider over https.
    Private addresses of your network are fine; loopback, link-local, unspecified and multicast addresses are
    refused. No proxy is used and redirects are not followed.
 7. **A dedicated host name.** Serve nothing else on the host name of Elpis: browsers share cookies between
    all the services of a host name, whatever their port.
 
-The console page is Administration › **Utilisateurs & accès** (Users & access) › **Connexion d'entreprise**
-(Enterprise sign-in). Its first card lists the three prerequisites above (public address, secure session
-cookie, local administrator) and says what is missing.
+The console page is Administration › **Utilisateurs & accès** (Users & access) › **SSO OpenID Connect**; the
+search of the console also finds it by `oidc`, `openid`, `sso` or `entreprise`. A status card says
+**Connexion locale seule** (Local sign-in only) or **SSO OpenID Connect actif** (OpenID Connect SSO on) with the
+active providers, then four numbered cards follow the order of the setup:
+
+1. **Prérequis** (Prerequisites): the three prerequisites above, each marked ✓ or ✗ with what to do, the
+   **Adresse publique** (Public address) field with its own **Enregistrer** (Save), and **Ouvrir Accès HTTPS**
+   (Open HTTPS access).
+2. **Fournisseurs** (Providers): the list, with **Ajouter** (Add). A provider is **Actif** (Active),
+   **Éteint** (Off) or **Inopérant** (Inoperative: switched on but not active), and an inoperative one says in
+   its line which condition is missing.
+3. **Comptes existants** (Existing accounts): the prepared links, see [Accounts](#accounts).
+4. **Mots de passe locaux** (Local passwords): **Tous les comptes** (All accounts) or **Administrateurs
+   seulement** (Administrators only), with its own **Enregistrer**.
+
+Nothing appears or disappears on this page or in the provider drawer as you fill, save or switch on: what is
+not available yet is greyed out, with the reason written next to it.
 
 ## Setting up a provider
 
-1. On **Connexion d'entreprise**, **Réglages généraux** (General settings): enter the **Adresse publique**
-   (Public address) and save with **Enregistrer** (Save). **Connexion locale** (Local sign-in) stays on
-   **Tous les comptes** (All accounts) for now.
-2. In **Fournisseurs** (Providers), click **Ajouter** (Add). A provider is always created switched off.
-3. Fill the drawer (the values are below), including **Groupes requis** (Required groups): at least one is
-   needed to switch on, and only the members of one of them can sign in. Type a group and press `Enter` or
-   **Ajouter**.
-4. Enter the **Secret client** (Client secret). Click **Ajouter** or **Enregistrer**. The secret goes to the
-   secrets vault, is never shown again (the field then says **Enregistré**, with **Supprimer** to remove it) and
-   is bound to the provider address and its certificate authority: changing either asks for it again.
-5. Click **Tester** (Test). See [What the test checks](#what-the-test-checks).
-6. Save, then, with the provider still switched off, click **Essayer la connexion**
-   (Try the sign-in) and sign in with a real account. See [The sign-in trial](#the-sign-in-trial).
-7. Click **Activer** (Switch on). The button explains what is missing when it is disabled.
-8. Test it as a person would, in a private window.
-9. When everything works, you may set **Connexion locale** to **Administrateurs seulement** (Administrators
-   only): other accounts then cannot use a local password. Elpis refuses it unless an active administrator
-   with a local password remains.
+1. In **1. Prérequis**, enter the **Adresse publique** and save it with the card's **Enregistrer**. Leave
+   **4. Mots de passe locaux** on **Tous les comptes** for now.
+2. In **2. Fournisseurs**, click **Ajouter**. A provider is always created switched off. The drawer has eight
+   numbered sections, in the order of the procedure; they are the same for a new, a saved and an active
+   provider.
+3. **1. Fournisseur** (Provider): the **Libellé** (Label), the **Identifiant** (Identifier, derived from the
+   label until you type it yourself: lowercase letters, digits and dashes, 31 characters at most, fixed once
+   the provider is added) and the **Adresse de l'émetteur (issuer)**.
+4. **2. À déclarer chez le fournisseur** (To declare at the provider): the **Adresse de retour
+   (redirect_uri)** and the **Déconnexion par canal arrière (backchannel_logout_uri)**, with **Copier**
+   (Copy). Until the public address and the identifier are filled, each line says what is missing.
+5. **3. Client**: the **Identifiant client (client_id)** and the **Secret client (client_secret)**, and the
+   **Autorité de certification** if the certificate of the provider is not recognized. The secret goes to the
+   secrets vault when you click **Ajouter** or **Enregistrer**, is never shown again (the field then says
+   **Enregistré**, with **Supprimer** to remove it) and is bound to the provider address and its certificate
+   authority: changing either asks for it again.
+6. **4. Accès** (Access): the **Groupes requis** (Required groups): at least one is needed to switch on, and
+   only the members of one of them can sign in. Type a group and press `Enter` or **Ajouter**. Then the second
+   factor, **Niveaux exigés (acr)** and **Méthodes exigées (amr)**: a fixed line says **Second facteur
+   exigé : …** (Second factor required) or **⚠ Aucun second facteur garanti par Elpis** (No second factor
+   guaranteed by Elpis). See [Requiring a second factor](#requiring-a-second-factor).
+7. **5. Rôles et groupes** (Roles and groups, folded, off by default) and **6. Avancé** (Advanced, folded):
+   see below.
+8. **7. Vérification** (Verification): **a. Contrôler les réglages** (Check the settings; see [What the check
+   covers](#what-the-check-covers)), then save and, with the provider still switched off, **b. Se connecter
+   pour essayer** (Sign in to try) with a real account (see [The sign-in trial](#the-sign-in-trial)). The
+   second is greyed out until the provider is saved.
+9. **8. Activation**: the six conditions (public address, HTTPS, local administrator, required group, secret
+   saved, successful sign-in trial) are listed with ✓ or ✗, then **Activer** (Switch on), which says what is
+   missing while it is disabled.
+10. Test it as a person would, in a private window.
+11. When everything works, you may set **4. Mots de passe locaux** to **Administrateurs seulement**: other
+    accounts then cannot use a local password. The console greys this choice out, with its reason, while no
+    provider is active; the server refuses it unless an active administrator with a local password remains.
 
-While a provider is on, its settings are locked: switch it off (**Désactiver**, which closes the sessions of
-the accounts attached to it), change, test again, switch on. Only the label and **Fraîcheur (jours)** do not
-require a new test. Once accounts are attached, the settings that identify a person cannot change any more:
-the **Identifiant client**, the **Autorité** and the **Revendication sujet**. A provider
-with attached accounts cannot be deleted: detach them first.
+While a provider is switched on, only its **Libellé** and its **Fraîcheur (jours)** (freshness, under
+**6. Avancé**) can change, as the drawer says at the top; the rest is greyed out. To change anything else,
+switch it off (**Désactiver**, in **8. Activation**, which closes the sessions of the accounts attached to it),
+change, try again, switch on. Once accounts are attached, the settings that identify a person cannot change
+any more: the **Identifiant client**, the **Adresse de l'émetteur** and the **Revendication sujet**, each with
+the reason written under it. A provider with attached accounts cannot be deleted: detach them first.
 
-### What the test checks
+### What the check covers
 
-**Tester** checks the settings shown, saved or not, and only reads. Steps are listed with their level.
+**Contrôler les réglages** checks the settings shown, saved or not, and only reads. Steps are listed with their level.
 **Réglages** (valid settings), **Prérequis** (public address, secure session cookie,
 local administrator), **Résolution** (name resolves), **Adresse** (allowed address, with a warning when it is
 the address of the Elpis host itself), **Certificat** (TLS 1.2 or later, trusted, valid; a warning below 30
@@ -98,12 +129,14 @@ days left).
   from `sub`) and **Requête poussée** (the provider announces pushed authorization requests, which Elpis then
   uses).
 
-A provider can be switched on after a test whose settings are saved and a successful sign-in trial. After any
-later change, run the test again.
+A provider can be switched on after a successful sign-in trial on its saved settings: the condition **Connexion
+d'essai réussie** (Successful sign-in trial) of **8. Activation**. After any later change, check and try
+again.
 
 ### The sign-in trial
 
-**Essayer la connexion** (available while the provider is switched off, on the saved settings) opens the
+**Se connecter pour essayer** (available once the provider is saved and while it is switched off, on the
+saved settings; otherwise greyed out with the reason) opens the
 provider in a new tab and walks through a real sign-in. No account and no session is created. The console
 then shows the decision, for example **Cette
 personne se connecterait au compte…** (This person would sign in as…), **Un compte … serait créé** (An
@@ -146,11 +179,11 @@ Whatever the product, the requirements that matter to the directory are settled 
 Create a client for Elpis at the provider:
 
 - **Confidential client** (it has a secret) using the **authorization code** flow, with **PKCE S256**.
-- **Return address** (redirect URI) and **back-channel logout address**: copy them from the drawer, **À
-  déclarer chez le fournisseur** (To declare at the provider), with **Copier** (Copy). They are
+- **Return address** (redirect URI) and **back-channel logout address**: copy them from the drawer, section
+  **2. À déclarer chez le fournisseur** (To declare at the provider), with **Copier** (Copy). They are
   `<public address>/api/auth/oidc/<id>/callback` and `<public address>/api/auth/oidc/<id>/backchannel-logout`;
-  they appear once the public address and the **Identifiant** (Identifier) are filled. For sign-out, also
-  allow `<public address>/` as post-logout address.
+  they are written once the public address and the **Identifiant** (Identifier) are filled, and the line says
+  what is missing until then. For sign-out, also allow `<public address>/` as post-logout address.
 - **Groups in the identity token**: a claim holding a list of strings (default name `groups`). Some providers
   send a person's single group as one string: a string that is exactly a **required group** lets the person
   in, as long as roles and groups do not follow this provider. When they do
@@ -158,28 +191,31 @@ Create a client for Elpis at the provider:
   single string does not say whether it is the whole list. Any other string, such as several groups glued
   together (`a;b`), is unreadable. If the identity token lacks the groups or the login name and the provider
   announces a user-information endpoint on the same origin as the issuer, Elpis reads it there as well; an
-  endpoint on another origin is never called, and the test says so.
+  endpoint on another origin is never called, and **Contrôler les réglages** says so.
 - **The identity token is for Elpis alone**: a token that lists another audience next to the client
   identifier is refused.
-- A **signature algorithm** for the identity token that matches **Algorithme de signature du jeton** (default
-  `RS256`; an asymmetric one). Symmetric and unsigned algorithms are never accepted.
+- A **signature algorithm** for the identity token that matches **Signature du jeton
+  (id_token_signed_response_alg)** (default `RS256`; an asymmetric one). Symmetric and unsigned algorithms are
+  never accepted.
 
-Then in the drawer: **Autorité** (issuer address, exactly as the provider announces it, such as
-`https://sso.example.lan/realms/entreprise`), **Identifiant client** (Client identifier), **Secret client**,
-**Groupes requis** (the group names as they appear in the claim), and under **Avancé** (Advanced):
+Then in the drawer: **Adresse de l'émetteur (issuer)** (exactly as the provider announces it, such as
+`https://sso.example.lan/realms/entreprise`), **Identifiant client (client_id)**, **Secret client
+(client_secret)**, **Groupes requis** (the group names as they appear in the claim), and under **6. Avancé**
+(Advanced). Every standard field carries its OpenID Connect name in brackets, to find the same field in the
+console of the provider:
 
-| Field (setting)                                                       | Default                | Meaning                                                                                        |
-| --------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| **Authentification client** (`client_auth`)                           | `basic`                | **En-tête (basic)** or **Corps de requête (post)**; the test checks the provider supports it   |
-| **Algorithme de signature du jeton** (`id_token_alg`)                 | `RS256`                | Must be announced by the provider and have a published key                                     |
-| **Portées** (`scopes`)                                                | `openid profile email` | Space separated, `openid` mandatory; add the one that releases groups if the provider needs it |
-| **Revendication sujet** (`subject_claim`)                             | `sub`                  | The stable key of the person. Never a name that can be reassigned                              |
-| **Revendication nom** (`username_claim`)                              | `preferred_username`   | The login name; the Elpis name is derived from it                                              |
-| **Revendication e-mail** / **affichée** (`email_claim`, `name_claim`) | `email`, `name`        | The email is kept only when `email_verified` is true                                           |
-| **Revendication groupes** (`groups_claim`)                            | `groups`               | A dotted path (`realm_access.roles`) works                                                     |
-| **Âge max. (s)** (`max_age_sec`)                                      | `0`                    | Asks the provider for a recent authentication, 0 to 604800; 0 asks nothing                     |
-| **Écart (s)** (`clock_skew_sec`)                                      | `60`                   | Clock difference tolerated, 0 to 300                                                           |
-| **Session (s)** (`session_max_age_sec`)                               | `0`                    | Session length for this provider, 0 to 2592000; 0 follows the global session length            |
+| Field (setting)                                                                                | Default                | Meaning                                                                                                        |
+| ---------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Authentification client (token_endpoint_auth_method)** (`client_auth`)                       | `basic`                | **En-tête (client_secret_basic)** or **Corps de requête (client_secret_post)**; the check verifies the provider supports it |
+| **Signature du jeton (id_token_signed_response_alg)** (`id_token_alg`)                         | `RS256`                | Must be announced by the provider and have a published key                                                     |
+| **Portées (scope)** (`scopes`)                                                                 | `openid profile email` | Space separated, `openid` mandatory; add the one that releases groups if the provider needs it                 |
+| **Revendication sujet (sub)** (`subject_claim`)                                                | `sub`                  | The stable key of the person. Never a name that can be reassigned                                              |
+| **Revendication nom (preferred_username)** (`username_claim`)                                  | `preferred_username`   | The login name; the Elpis name is derived from it                                                              |
+| **Revendication e-mail (email)** / **affichée (name)** (`email_claim`, `name_claim`)           | `email`, `name`        | The email is kept only when `email_verified` is true                                                           |
+| **Revendication groupes (groups)** (`groups_claim`)                                            | `groups`               | A dotted path (`realm_access.roles`) works                                                                     |
+| **Âge max., s (max_age)** (`max_age_sec`)                                                      | `0`                    | Asks the provider for a recent authentication, 0 to 604800; 0 asks nothing                                     |
+| **Écart d'horloge, s** (`clock_skew_sec`)                                                      | `60`                   | Clock difference tolerated, 0 to 300                                                                           |
+| **Session, s** (`session_max_age_sec`)                                                         | `0`                    | Session length for this provider, 0 to 2592000; 0 follows the global session length                            |
 
 Starting a sign-in is limited per client address (in IPv6, per /64 prefix), and the number of sign-ins in
 progress is capped per address and per provider; at the per-address cap the oldest sign-in in progress of the
@@ -197,11 +233,13 @@ never changes. The trial warns when the subject equals the login name.
 
 ### Requiring a second factor
 
-Set the second factor at the provider, then make Elpis require it: **Niveaux d'authentification (acr)**
-(`required_acr`) and **Méthodes d'authentification (amr)** (`required_amr`), space-separated lists. A sign-in
+Set the second factor at the provider, then make Elpis require it, in section **4. Accès** of the drawer:
+**Niveaux exigés (acr)** (`required_acr`) and **Méthodes exigées (amr)** (`required_amr`), space-separated
+lists. A sign-in
 is accepted when the identity token carries one of the listed `acr` values and, if set, one of the listed
-`amr` methods (any one of them is enough to sign in); the `acr` values are also sent in the request. Empty means no requirement, and the drawer says
-that no two-step check is then guaranteed by Elpis. Becoming an administrator through a group is judged on what the received token proves. The settings only have to invite the provider to a second factor: `required_amr` lists at least one method of possession or inherence (for example `pwd otp`), `mfa` or `mca`, or `required_acr` lists a level other than `0` and `1`; `pwd` alone or `acr` `1` alone is refused when you save. Then, at each sign-in, the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
+`amr` methods (any one of them is enough to sign in); the `acr` values are also sent in the request. Empty means no requirement: the fixed line under the two
+fields then says **⚠ Aucun second facteur garanti par Elpis**, otherwise **Second facteur exigé : …** with
+the values. Becoming an administrator through a group is judged on what the received token proves. The settings only have to invite the provider to a second factor: `required_amr` lists at least one method of possession or inherence (for example `pwd otp`), `mfa` or `mca`, or `required_acr` lists a level other than `0` and `1`; `pwd` alone or `acr` `1` alone is refused when you save. Then, at each sign-in, the token must carry `mfa` or `mca` in `amr`, or two methods of different families (RFC 8176: knowledge `pwd`
 `pin` `kba`; possession `otp` `hwk` `swk` `sms` `tel` `sc`; inherence `face` `fpt` `iris` `retina` `vbm`), or an
 `acr` listed in `required_acr` that is not `0` or `1`. A sign-in whose token lists an administrator group without
 such a proof is refused (`mfa_required`, cause `admin_without_mfa`), even when it satisfies the settings: with `required_amr` set to `pwd otp`, a token carrying only `pwd` is refused. A refusal shows "Une vérification en deux étapes est
@@ -232,7 +270,7 @@ exigée".
   Issuer: the portal address, such as `https://auth.example.lan`.
 - **The default subject is the user name.** Set the attribute used as subject to a unique value that never
   changes, then use `sub`; otherwise the trial warns.
-- Set **Authentification client** to **Corps de requête (post)**: with the header method, a client identifier
+- Set **Authentification client** to **Corps de requête (client_secret_post)**: with the header method, a client identifier
   or a secret holding a character other than letters and digits is refused by the provider.
 - Expose the groups as a claim through the relying party's attributes, as a list (array type `auto` or
   `always`), and check in the trial that **Groupes** lists them one by one. A person with a single group is
@@ -285,8 +323,9 @@ files are kept), closes its sessions and ties it to one identity of the provider
 API tokens and the access granted to applications by the account, which the person must create again. An administrator or moderator account needs an explicit confirmation, the
 last local administrator cannot be linked, and a suspended account must be reactivated first.
 
-In the provider drawer, **Comptes existants** (Existing accounts): choose the **Compte
-  local**, enter the **Identifiant attendu chez le fournisseur** (the value of the login claim: letters, digits,
+On the page, card **3. Comptes existants** (Existing accounts), available as soon as a provider is saved:
+  choose the **Fournisseur** (preselected when there is only one), the **Compte local**, enter the
+  **Identifiant attendu** (Expected identifier, at the provider: the value of the login claim: letters, digits,
   `.`, `_`, `@` and `-`, 255 characters at most, compared exactly except for the case), click **Préparer le
   rattachement** (Prepare the link). It is valid for 30 days. A login that is an email address matches only
   when the provider says the email is verified. On their first sign-in the person enters their old Elpis
@@ -294,7 +333,8 @@ In the provider drawer, **Comptes existants** (Existing accounts): choose the **
   five wrong passwords the prepared link is deleted and you must prepare it again. A ticked **Identité vérifiée
   hors ligne : ne pas demander l'ancien mot de passe** (Identity verified offline: do not ask for the old
   password) skips that step; it exists for ordinary users only, and such a link is valid 72 hours.
-  Administrators and moderators always prove their old password and the console asks for a confirmation.
+  Administrators and moderators always prove their old password and the console asks for a confirmation (the
+  box stays on the card, greyed out for an ordinary account).
   Changing the **Revendication nom** of the provider deletes its prepared links. A prepared link always
   revokes the personal API tokens and the application access of the account.
 
@@ -356,7 +396,7 @@ or a `required_amr` with a method of possession or inherence, `mfa` or `mca`; se
 groups of a provider that does not require one are ignored, and `./elpis doctor` warns about
 it. At sign-in the received token must prove the second factor, or the sign-in is refused. A mapping to an Elpis group that does not exist is refused when you save.
 
-**In the drawer.** The section **Rôles et groupes** (Roles and groups) is folded by default. Its first box,
+**In the drawer.** The section **5. Rôles et groupes** (Roles and groups) is folded by default. Its first box,
 **Donner les rôles d'après les groupes du fournisseur** (Give roles from the provider groups), turns on the
 role decision; **Groupes administrateurs** (Administrator groups) and **Groupes modérateurs** (Moderator
 groups) take the groups, one at a time, with **Ajouter**. The second box, **Affecter aux groupes Elpis
@@ -364,15 +404,15 @@ d'après les groupes du fournisseur** (Assign Elpis groups from the provider gro
 pick the external group (**Groupe du fournisseur**) and the **Groupe Elpis…** (Elpis group) it feeds, then
 **Ajouter**. With administrator groups, a fixed notice reminds you that an administrator of Elpis can run
 commands on the server. For single sign-on without a second factor, the section asks you to require a
-two-step verification first and the save stays unavailable.
+two-step verification first (section **4. Accès**) and the save stays unavailable.
 
-**Changing these settings** follows the general rule: switch the provider off, change them, test again, switch
-on. They are part of what the test covers.
+**Changing these settings** follows the general rule: switch the provider off, change them, try again, switch
+on. They are part of what the sign-in trial covers.
 
 ### Testing the settings
 
 Check what each kind of person would get before switching on, with at least one member of an administrator
-group, one of a moderator group and one plain member. Nothing is written by a test.
+group, one of a moderator group and one plain member. A trial creates no account and changes no role or group.
 
 - The result of the [sign-in trial](#the-sign-in-trial) reports the same for the person who
   signed in: the role and the Elpis groups, whether the groups were readable, the mapped Elpis groups that no
@@ -447,10 +487,11 @@ old-password step waited too long), "Cette demande n'est plus valable. Reconnect
 organisation ou demandez à votre administrateur." (the prepared link is gone: expired, deleted, or five wrong
 passwords) and "Trop de tentatives, réessayez dans un instant." (rate limit).
 
-Commands on the host, described in [operations.md](operations.md#enterprise-sign-in-emergency-exit):
+Commands on the host, described in [operations.md](operations.md#sso-openid-connect-emergency-exit):
 
 - `./elpis auth status`: public address, local mode, and per provider switched on / active / tested. A
-  provider that is on but not active has an unmet condition (test, secret, groups, public address).
+  provider that is on but not active (**Inopérant** in the console) has an unmet condition (sign-in trial,
+  secret, groups, public address).
 - `./elpis doctor` (or `./elpis auth doctor`): provider state, certificate authorities nearing their end,
   providers whose roles or groups are managed, last local
   administrator.
@@ -466,10 +507,10 @@ Commands on the host, described in [operations.md](operations.md#enterprise-sign
   certificate authority. For each linked account Elpis keeps the provider, the stable key, and the login, email
   and name last read.
 - **What is logged.** The security journal records sign-ins and refusals, links, suspensions, provider changes
-  and tests (see [audit-events.md](audit-events.md#enterprise-sign-in-admin)). Passwords, secrets, tokens and
+  and tests (see [audit-events.md](audit-events.md#openid-connect-single-sign-on-admin)). Passwords, secrets, tokens and
   anything the provider says in its own words are never logged; a typed login is only kept as a hash.
 - **TLS is always verified.** There is no switch to disable certificate verification. Without a trusted
-  authority the test fails and tells you to paste yours. The server name is checked against the subject
+  authority **Contrôler les réglages** fails and tells you to paste yours. The server name is checked against the subject
   alternative names only, and only forward-secret, authenticated cipher suites are accepted.
 - **Trust.** The provider is trusted to say who a person is and which groups they belong to.
   The host name of Elpis is its trust boundary: dedicated to it, in HTTPS. See [SECURITY.md](../SECURITY.md).
@@ -486,7 +527,7 @@ Commands on the host, described in [operations.md](operations.md#enterprise-sign
 What follows comes from two kinds of proof. **Played on a real server**: the whole journey (test, sign-in,
 refusals, sign-out) ran against that product in a container. **Played on its profile**: the automated tests
 replay what the product documents (discovery, token shapes, group formats) against a local provider. A product that is not listed has not been looked at; one that follows the standards below should
-work, and **Tester** then **Essayer la connexion** will say so.
+work, and **Contrôler les réglages** then **Se connecter pour essayer** will say so.
 
 ### What Elpis expects from any server
 

@@ -1223,6 +1223,19 @@ describe("setupAdmin", () => {
       expect(A.adminChangeSecret({ path: chemin }), chemin).toBe(false);
   });
 
+  it("palette : la page SSO OpenID Connect se trouve par ses mots-clés (oidc, openid, sso, entreprise)", () => {
+    const { A } = monter(() => json({}));
+    for (const q of ["oidc", "openid", "sso", "entreprise"]) {
+      A.openPalette();
+      A.paletteQuery.value = q;
+      expect(
+        A.paletteResults.value.some((r) => r.page === "oidc" && r.label === "SSO OpenID Connect"),
+        q,
+      ).toBe(true);
+      A.closePalette();
+    }
+  });
+
   it("la palette classe les pages avant les réglages et retrouve un réglage par son libellé", () => {
     const { A } = monter(() => json({}));
     A.openPalette();

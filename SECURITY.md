@@ -71,7 +71,7 @@ run Elpis on a dedicated machine or VM. Details below.
   the administrator, and revoked along with the account's sessions. The relay
   never passes the client's token to the tool service (signed
   delegation) and refuses undeclared browser origins.
-- Enterprise sign-in (optional, off by default): an OpenID Connect provider
+- OpenID Connect single sign-on (SSO; optional, off by default): an OpenID Connect provider
   decides who a person is and which groups they belong to; Elpis only signs in members of the required
   groups, never links a person to an existing account by name or email, and keeps the secrets of the
   providers in the vault. In scope: the sign-in and linking flows, the provider
@@ -82,7 +82,7 @@ run Elpis on a dedicated machine or VM. Details below.
   only, a membership that cannot be read changes nothing, and administrator groups need an explicit
   confirmation and a second factor proven by the token. Provider-side sign-out and back-channel
   logout end the sessions of that provider only, on a signed logout token.
-  See [docs/enterprise-sign-in.md](docs/enterprise-sign-in.md).
+  See [docs/sso-oidc.md](docs/sso-oidc.md).
 - Driven browser: it runs inside each account's sandbox; its traffic
   leaves through the account's relay on the host, which applies the
   sandbox network profile and refuses loopback, link-local and the

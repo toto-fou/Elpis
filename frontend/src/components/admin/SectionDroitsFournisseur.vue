@@ -31,9 +31,9 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
 </script>
 
 <template>
-  <div v-if="f" class="space-y-2" data-droits-fournisseur>
+  <div v-if="f" class="space-y-2" data-droits-fournisseur data-section-tiroir="droits">
     <details class="adm-details adm-details--rows" data-droits-section>
-      <summary>Rôles et groupes</summary>
+      <summary>5. Rôles et groupes</summary>
       <div class="space-y-3 mt-2">
         <label class="adm-checks__item">
           <input
@@ -142,7 +142,7 @@ const absent = (id: number): boolean => !groupesElpis.value.some((g) => g.id ===
         role="alert"
         data-exiger-second-facteur
       >
-        Exigez d'abord une vérification en deux étapes pour ce fournisseur.
+        Exigez d'abord un second facteur (section 4).
       </p>
     </template>
   </div>

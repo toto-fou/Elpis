@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/correspondance.ts — correspondance exacte groupes du jeton → rôle et groupes Elpis, en lecture seule : des groupes illisibles ne sont jamais un « non » et suspendent toute décision. */
+import { ACR_FAIBLES, FAMILLES_AMR, secondFacteurDemande } from "@elpis/contracts";
 import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import type { Executeur } from "@elpis/db";
 
@@ -27,23 +28,11 @@ export function estPlusHaut(a: RoleElpis, b: RoleElpis): boolean {
   return RANG[a] > RANG[b];
 }
 
-export const ACR_FAIBLES: ReadonlySet<string> = new Set(["0", "1"]);
+export { ACR_FAIBLES, FAMILLES_AMR };
 
-export const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
-  ...["pwd", "pin", "kba"].map((m): [string, string] => [m, "connaissance"]),
-  ...["otp", "hwk", "swk", "sms", "tel", "sc"].map((m): [string, string] => [m, "possession"]),
-  ...["face", "fpt", "iris", "retina", "vbm"].map((m): [string, string] => [m, "inherence"]),
-]);
-
-/** Le fournisseur est invité à un second facteur : `amr` exigé avec une méthode de possession ou d'inhérence, `mfa` ou `mca`, ou `acr` exigé avec un niveau autre que 0 ou 1 ; la preuve du jeton décide ensuite à la connexion. */
+/** Le fournisseur est invité à un second facteur (règle partagée avec la console) ; la preuve du jeton décide ensuite à la connexion. */
 export function adminAdmis(f: Fournisseur): boolean {
-  const amr = f.required_amr.map((m) => m.trim().toLowerCase());
-  const famille = (m: string): string | undefined => FAMILLES_AMR.get(m);
-  return (
-    amr.some(
-      (m) => m === "mfa" || m === "mca" || (famille(m) !== undefined && famille(m) !== "connaissance"),
-    ) || f.required_acr.some((a) => !ACR_FAIBLES.has(a.trim()))
-  );
+  return secondFacteurDemande(f.required_acr, f.required_amr);
 }
 
 function groupesDeRoles(f: Fournisseur): { admin: readonly string[]; moderateur: readonly string[] } {

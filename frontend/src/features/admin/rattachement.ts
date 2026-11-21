@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/rattachement.ts — console › Connexion d'entreprise : rattachements préparés (SSO) et détachement d'un compte. */
+/** frontend/src/features/admin/rattachement.ts — console › SSO OpenID Connect : rattachements préparés (carte « Comptes existants », fournisseur choisi) et détachement d'un compte. */
 import { schemaReponseRattachementsPrepares } from "@elpis/contracts";
 import type { CompteConsole, RattachementPrepare } from "@elpis/contracts";
 import type { Ref } from "vue";
@@ -29,13 +29,14 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
   const { vue, ctx, e, lien } = b;
   const { computed, ref, watch } = vue;
   const { fetchAuth, showToast } = ctx;
-  const { authTiroir } = identite;
+  const { authEtat } = identite;
 
   // ── Rattachements préparés (fournisseur SSO) ─────────────────────────────
   const prelinks: Ref<RattachementPrepare[]> = ref([]);
   const prelinksErreur = ref("");
   const prelinksBusy = ref(false);
   const prelinkForm: Ref<FormPrelink> = ref(formPrelinkVide());
+  const prelinkChoix = ref("");
   let sequencePrelinks = 0;
 
   const prelinkComptes = computed<CompteConsole[]>(() => e.usersList.value.filter((u) => !u.identity));
@@ -44,9 +45,25 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
   );
   const prelinkAdmin = computed(() => [1, 2].includes(Number(prelinkCompte.value?.is_admin)));
 
+  const fournisseurs = computed(() => authEtat.value?.providers ?? []);
+  /** Fournisseur de la carte sur la page SSO : le choix, ou le seul enregistré ; `null` sinon. */
   const idPrelinks = computed<string | null>(() => {
-    const f = authTiroir.value;
-    return f && !f.nouveau ? f.id : null;
+    if (e.adminTab.value !== "oidc") return null;
+    const liste = fournisseurs.value;
+    if (liste.some((p) => p.id === prelinkChoix.value)) return prelinkChoix.value;
+    return liste.length === 1 ? (liste[0]?.id ?? null) : null;
+  });
+  const prelinkFournisseur = computed({
+    get: (): string => idPrelinks.value ?? "",
+    set: (v: string) => {
+      prelinkChoix.value = v;
+    },
+  });
+  /** Raison pour laquelle la carte est grisée (texte vide : disponible). */
+  const prelinkRaison = computed(() => {
+    if (fournisseurs.value.length === 0)
+      return "Enregistrez d'abord un fournisseur (carte « 2. Fournisseurs »).";
+    return idPrelinks.value === null ? "Choisissez d'abord le fournisseur." : "";
   });
 
   async function prelinksCharger(): Promise<void> {
@@ -66,14 +83,16 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     } else prelinksErreur.value = res?.ok ? "Réponse du serveur inattendue." : erreurServeur(statut, donnees);
   }
 
-  watch(idPrelinks, (id) => {
-    sequencePrelinks += 1;
-    prelinks.value = [];
-    prelinksErreur.value = "";
-    prelinkForm.value = formPrelinkVide();
-    if (id === null) return;
-    if (e.usersList.value.length === 0) void lien.loadUsers();
-    void prelinksCharger();
+  // Autre fournisseur : liste et formulaire repartent de zéro ; état relu (enregistrement, activation) : liste relue.
+  watch([idPrelinks, authEtat], ([id], [avant]) => {
+    if (id !== avant) {
+      sequencePrelinks += 1;
+      prelinks.value = [];
+      prelinksErreur.value = "";
+      prelinkForm.value = formPrelinkVide();
+      if (id !== null && e.usersList.value.length === 0) void lien.loadUsers();
+    }
+    if (id !== null) void prelinksCharger();
   });
 
   /** Un administrateur ou un modérateur ne reçoit jamais la dispense : la case est décochée avec lui. */
@@ -87,7 +106,12 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
 
   const prelinkPret = computed(() => {
     const f = prelinkForm.value;
-    return f.user_id > 0 && f.expected.trim() !== "" && (!prelinkAdmin.value || f.confirm_admin);
+    return (
+      idPrelinks.value !== null &&
+      f.user_id > 0 &&
+      f.expected.trim() !== "" &&
+      (!prelinkAdmin.value || f.confirm_admin)
+    );
   });
 
   async function prelinkAjouter(): Promise<void> {
@@ -193,6 +217,8 @@ export function creerRattachement(b: BaseAdmin, identite: ReturnType<typeof cree
     prelinksErreur,
     prelinksBusy,
     prelinkForm,
+    prelinkFournisseur,
+    prelinkRaison,
     prelinkComptes,
     prelinkAdmin,
     prelinkPret,

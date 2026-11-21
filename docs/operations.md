@@ -60,7 +60,13 @@ live outside the installation (`MCP_SERVERS_DIR`, the folder of `app.db_path`, `
 `USER_SKILLS_DIR`, `SKINS_DIR`, `APP_FILE_HISTORY_DIR`, `office_preview.cache_dir`, and
 `backup.remote.dest_path` of the "mounted" connector) are made writable for the services
 that write them; after changing one of them, run `sudo ./elpis service install` again (or add
-`ReadWritePaths=` in a drop-in). A path containing `%` or a space is refused. Main and the
+`ReadWritePaths=` in a drop-in). With one account per service, these folders come from `.env`
+only (see [Service accounts](#service-accounts)). Every value written into a unit is checked
+first, before any other test, and `service install` stops with nothing installed when one
+fails: a path must be absolute and made of letters, digits and `. _ @ + / -` only; any other
+value (URL, host) may not contain a control character (a line break among them), `"`, `\`,
+`%`, `$` or a backtick; values are inserted in one pass (a value is never read again as a
+template marker). Main and the
 console keep their turn journals and task resumes in `user_db/run/` (`/run` is in memory);
 locks and stamps stay in `/run/elpis`. The Docker socket is hidden from main, the console,
 the RAG and Qdrant (only the tool host drives Docker), and the audit key from the RAG and
@@ -114,15 +120,44 @@ a key run with `sudo` (`sudo ./elpis backup`, `sudo ./elpis vault status`, `sudo
 verify`). An `elpis-*` account that already exists must be a system account without shell (uid 1
 to 999, `nologin` or `false`): otherwise `service install` stops.
 
-Rights are set again at every `service install`, services stopped, without following any link
-and without ever entering the `work/` folder of a sandbox (owned by the sandboxes' user):
+Root runs no code of the application. Every call `./elpis` makes under `sudo` to the core
+(`exploitation.mjs`: settings, migrations, vault, backup, doctor checks), to the tool host, to the
+browser service or to `deploy/configure.py` and `deploy/wizard.py` goes through one function,
+`app_console`, which runs it under the console's account (`runuser -u elpis-admin`), from the
+installation folder, with an environment built for it (the console unit's paths and groups,
+`.env`; never passed on a command line) and never root's terminal (`sudo ./elpis configure` gets
+a new pseudo-terminal). Root reads no path from `config.json`: the data folders it prepares come
+from `.env` (or root's environment) and the installation's defaults, and the units fix them for
+the services (`APP_SANDBOX_DIR`, `APP_DB_PATH`, `RAG_STORE_DIR`, `APP_MEMORY_DIR`,
+`APP_SKILLS_DIR`, `APP_USER_SKILLS_DIR`, `APP_SKINS_DIR`, `MCP_SERVERS_DIR`,
+`APP_FILE_HISTORY_DIR`, `APP_OFFICE_CACHE_DIR`, `CHART_CACHE_DIR`), so that a path setting of
+`config.json` has no effect: `service install` and `./elpis doctor` warn about each one that
+differs, with the line to put in `.env`. A mounted remote backup destination outside these
+folders is reported too: open it to main and the console with a drop-in
+(`sudo systemctl edit elpis-main elpis-admin`, `ReadWritePaths=`). `.env` must be absent or a
+regular file of root or the operator, with one link, that no service account can write or
+replace (nor its folder): otherwise these commands stop. `./elpis start`, `restart` and
+`upgrade` refuse to run as root under such units (`sudo systemctl start|restart elpis.target`;
+`./elpis upgrade` from the operator's account).
+
+Rights are set again at every `service install`, services stopped, by `deploy/droits.py`, at
+the very moment they are set (no verdict kept from earlier): each folder is opened component by
+component from `/` without following any link, and refused if a service account could replace
+one of its parent folders (owner, write right of its group or of everyone, unless the sticky bit
+protects an entry that is not a service's), or if it is a mount point owned by a service; the
+walk never crosses into another file system and never enters the `work/` folder of a sandbox
+(owned by the sandboxes' user). Folders that overlap (the same, one inside the other) are
+refused, except the RAG store inside the database folder. Inside each folder, only entries of
+the operator and of former single accounts are taken over, plus root's folders: never a file of
+root or of a service account, which a service could have moved there. Every walk leaves the
+secrets, the relay authority, `run/chat_runs` and `run/task_resume` to their own line below:
 
 | Path | Rights |
 |---|---|
 | `user_db/` (and the folder of `app.db_path`, when `APP_DB_PATH` in `.env` names it too) | `2771 root:elpis-donnees`; content group `elpis-donnees`, `g+rwX`, nothing for others |
 | `.vault.key`, `.encryption_key`, `.session_secret` (and their `.lock`) | `0640 root:elpis-cle` |
 | `.local_mcp_token` | `0640 root:elpis-donnees` |
-| RAG token | moved from `user_db/.rag_service_token` (which `./elpis configure` may write again: it then wins at the next `service install` if it belongs to root or the operator, has one link and nobody else can write it) to `/etc/elpis/rag.token`, `0440 root:elpis-rag` (`RAG_SERVICE_TOKEN_FILE` of main, the console and the RAG) |
+| RAG token | moved from `user_db/.rag_service_token` (which `./elpis configure` may write again: it then wins at the next `service install` if it belongs to the operator, has one link and nobody else can write it; read through its descriptor, copied, then removed) to `/etc/elpis/rag.token`, `0440 root:elpis-rag` (`RAG_SERVICE_TOKEN_FILE` of main, the console and the RAG) |
 | RAG store (`user_db/rag` by default) | `2770 elpis-main:elpis-rag`, content group `elpis-rag`, `g+rwX`; read-only in the RAG unit |
 | `.db_password*` | `0640 elpis-admin:elpis-donnees` (the console rewrites it) |
 | `.backup_ssh_key`, `.backup_rsync_password` | `0640 elpis-admin:elpis-cle` (main runs the scheduled remote backups) |
@@ -141,12 +176,13 @@ and without ever entering the `work/` folder of a sandbox (owned by the sandboxe
 | `/var/lib/elpis/audit`, `/var/log/elpis` | `2770 root:elpis-journal`, files `0660` |
 | `/run/elpis` | `2770 root:elpis-donnees` (systemd-tmpfiles) |
 
-Folders named by the settings (`config.json`, `.env`) are used by root, for rights and for the
-units' `ReadWritePaths=`, only if they are, inside the installation, one of its state folders
-(`user_db`, `user_sandboxes`, `logs`, `user_skins`, `user_skills`) or a folder below them and,
-elsewhere, a folder that already exists and belongs to `root:elpis-donnees` or to an Elpis account
-(the default MCP folder next to the installation is created); never `/`, the installation or one
-of its parents, a home folder, a system or Elpis folder, nor a mount point. A refused folder is
+Folders named by the settings (`.env`; with one account for every service, `config.json` too)
+are used by root, for rights and for the units' `ReadWritePaths=`, only if they are, inside the
+installation, one of its state folders (`user_db`, `user_sandboxes`, `logs`, `user_skins`,
+`user_skills`) or a folder below them and, elsewhere, a folder that already exists and belongs to
+`root:elpis-donnees` or to an Elpis account (the default MCP folder next to the installation is
+created); never `/`, the installation or one of its parents, a home folder, nor a system or Elpis
+folder. A refused folder is
 reported at each `service install` and left as it is: create it yourself
 (`sudo install -d -o root -g elpis-donnees -m 2770 /srv/elpis-data`), then run `service install`
 again. With one account for every service, a folder of that account is accepted too, and each
@@ -692,7 +728,7 @@ does, when deleted, never has its folders renamed or deleted.
 
 | Method | Use |
 |---|---|
-| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created; with one account per service, `sudo ./elpis backup`, then handed to the operator, and `./elpis upgrade` takes its backup through `sudo`); each account's `/work` is read through the tool host, which must be running (`./elpis start`; it starts a sleeping sandbox for the duration of the read); without it, each sandbox line says its `/work` was not saved; exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (tool host stopped or sandbox unreadable; `./elpis upgrade` then continues) |
+| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created; with one account per service, `sudo ./elpis backup`, without `--dest`: the core runs under the console's account, builds the archive in `/var/tmp` and writes it to its output, which root stores in `backups/` and hands to the operator; `./elpis upgrade` takes its backup through `sudo`); each account's `/work` is read through the tool host, which must be running (`./elpis start`; it starts a sleeping sandbox for the duration of the read); without it, each sandbox line says its `/work` was not saved; exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (tool host stopped or sandbox unreadable; `./elpis upgrade` then continues) |
 | Admin console › System › Data › Backup | download of the same archive |
 | Admin console › System › Maintenance › Remote backup | scheduled upload: SFTP (key), rsync over SSH, or a mounted folder |
 | Admin console › System › Data › Restore | full archive or by scope |
@@ -709,6 +745,11 @@ texts), the sandboxes, the MCP servers, the skins, the personal skills
 store and the security journal (`audit/`, see
 [Security journal and log forwarding](#security-journal-and-log-forwarding)). In the sandboxes, only regular files are backed up; other entries are
 listed in `backup-warnings.txt`.
+
+In `user_db/`, a link to a file is never followed: it is listed in `backup-warnings.txt`. With one
+account per service, the archive does not hold the tool host's private browser relay authority
+(`user_db/browser-relay-ca/`, its account's alone, listed as unreadable): it is created again when
+missing, and the sandboxes' browsers then trust the new one.
 
 Not included, to be backed up separately: `config.json`, `.env`, `mcp.json`,
 the key of the secrets vault (`/etc/elpis/vault.key`, see

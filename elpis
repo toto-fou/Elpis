@@ -82,9 +82,11 @@ GROUPE_JOURNAL="${ELPIS_GROUPE_JOURNAL:-elpis-journal}"
 GROUPE_CLE="${ELPIS_GROUPE_CLE:-elpis-cle}"
 # Mode séparé (un compte par service) : état partagé par main, la console, l'hôte d'outils et l'opérateur ; magasin et jeton du RAG.
 GROUPE_DONNEES=elpis-donnees
-# Dossiers d'état déjà jugés pour root (dossier_etat_sur : 0 accepté, 1 refusé) ; COMPTE_ETAT : compte unique, propriétaire admis.
+# Dossiers d'état déjà jugés d'après leur seul chemin (chemin_etat_sur : 0 accepté, 1 refusé) ; COMPTE_ETAT : compte unique, propriétaire admis.
 declare -A ETAT_VU=()
 COMPTE_ETAT=""
+# Paires de .env (charger_env) et chemins fixés par les unités à un compte par service (chemins_separes), passés au code que root lance (app_console).
+ENV_PAIRES=(); CHEMINS_FIXES=(); ENV_CHARGE=0; ECARTS_CONFIG=0
 GROUPE_RAG=elpis-rag
 JETON_RAG_SYS="$SYS_PREFIXE/etc/elpis/rag.token"
 NODE_DIR="$ROOT/node"
@@ -131,22 +133,79 @@ need_exploitation() {
     [ -f "$CORE_DIST/exploitation.mjs" ] || die "Core non construit ($CORE_DIST/exploitation.mjs absent) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
     node_ok || die "Node.js « $("$NODE" -v 2>/dev/null || echo "$NODE absent") » : le core demande Node 24.x, $NODE_MIN au moins (./install.sh installe $NODE_VERSION dans node/, ou ELPIS_NODE=chemin)."
 }
-# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services, l'hôte d'outils local (/work des comptes pour « backup ») et, sous des unités à un compte par service, le groupe des données (fichiers créés partagés).
+# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services, l'hôte d'outils local (/work des comptes pour « backup ») et, sous des unités à un compte par service, le groupe des données (fichiers créés partagés) ; root sous un compte par service : sous le compte de la console (app_console).
 core_cmd() {
+    if racine_separee; then app_console "$NODE" "$CORE_DIST/exploitation.mjs" "$@"; return; fi
     local e=("ELPIS_RACINE=$ROOT")
     [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
     e+=("LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp")
-    [ "$(mode_installe)" != separes ] || e+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES")
+    [ "$(mode_installe)" != separes ] || e+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "${CHEMINS_FIXES[@]}")
     # Dossier d'exécution des services (repères partagés) : jamais sous root, qui y créerait des fichiers illisibles pour leur compte.
     if [ "$(id -u)" -ne 0 ] && [ -d "/run/${UNIT_PREFIX}" ] && [ -w "/run/${UNIT_PREFIX}" ]; then e+=("ELPIS_RUNTIME_DIR=/run/${UNIT_PREFIX}"); fi
     env "${e[@]}" "$NODE" "$CORE_DIST/exploitation.mjs" "$@"
 }
-# lanceur QUESTION : réglage lu par le core dans config.json et l'environnement (exploitation.mjs lanceur) ; rien si le core n'est pas construit.
+# lanceur QUESTION : réglage lu par le core dans config.json et l'environnement (exploitation.mjs lanceur) ; rien si le core n'est pas construit ; root sous un compte par service : sous le compte de la console.
 lanceur() {
     [ -f "$CORE_DIST/exploitation.mjs" ] || return 0
+    if racine_separee; then
+        app_console "${NODE:-$(node_bin)}" "$CORE_DIST/exploitation.mjs" lanceur "$1" 2>/dev/null \
+            || warn "Le core ne répond pas pour « $1 » (bundle d'une autre version ? ./install.sh) : valeur par défaut."
+        return 0
+    fi
     ELPIS_RACINE="$ROOT" "${NODE:-$(node_bin)}" "$CORE_DIST/exploitation.mjs" lanceur "$1" 2>/dev/null \
         || warn "Le core ne répond pas pour « $1 » (bundle d'une autre version ? ./install.sh) : valeur par défaut."
 }
+# Un compte par service : celui visé par l'installation en cours (MODE_COMPTES), sinon celui des unités installées.
+separe_vise() { if [ -n "${MODE_COMPTES:-}" ]; then [ "$MODE_COMPTES" = separes ]; else [ "$(mode_installe)" = separes ]; fi; }
+
+# Root sous un compte par service : il ne lance aucun code de l'application lui-même (app_console).
+racine_separee() { [ "$(id -u)" -eq 0 ] && separe_vise; }
+
+# Environnement de app_console, une ligne NOM=VALEUR : PATH et compte de la console, .env, chemins fixés par les unités (CHEMINS_FIXES), groupes, jeton du RAG, journaux et dossier d'exécution s'ils existent.
+env_console() {
+    local e
+    printf '%s\n' "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" "HOME=/nonexistent" \
+        "USER=$UNIT_PREFIX-admin" "LOGNAME=$UNIT_PREFIX-admin" "LANG=${LANG:-C.UTF-8}" "TMPDIR=/var/tmp" ${TERM:+"TERM=$TERM"}
+    for e in "${ENV_PAIRES[@]}" "${CHEMINS_FIXES[@]}"; do printf '%s\n' "$e"; done
+    printf '%s\n' "ELPIS_RACINE=$ROOT" "LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp" "ELPIS_COMPTES=separes" \
+        "ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS"
+    [ ! -d "$AUDIT_DIR_SYS" ] || printf 'ELPIS_AUDIT_DIR=%s\n' "$AUDIT_DIR_SYS"
+    [ ! -d "$APPLOG_DIR_SYS" ] || printf 'ELPIS_APP_LOG_DIR=%s\n' "$APPLOG_DIR_SYS"
+    [ ! -d "/run/$UNIT_PREFIX" ] || printf 'ELPIS_RUNTIME_DIR=/run/%s\n' "$UNIT_PREFIX"
+}
+
+# app_console [--terminal] [--env NOM=VALEUR]… COMMANDE… : seul chemin de root vers le code de l'application sous un compte par service (core, lanceur, coffre, configure.py, wizard.py, sauvegarde, migrations) : sous le compte de la console, jamais root, depuis la racine, environnement construit (env_console, plus --env) et exporté (aucune valeur sur une ligne de commande) ; terminal de root jamais confié (entrée /dev/null, sorties relayées), sauf --terminal : nouveau pseudo-terminal.
+app_console() {
+    local pty=0 rc p1="" p2="" v e=() plus=()
+    while :; do
+        case "${1:-}" in
+            --terminal) pty=1; shift ;;
+            --env) plus+=("$2"); shift 2 ;;
+            *) break ;;
+        esac
+    done
+    [ "${ENV_CHARGE:-0}" = 1 ] || charger_env_sur
+    [ "${#CHEMINS_FIXES[@]}" -gt 0 ] || chemins_separes
+    mapfile -t e < <(env_console)
+    (
+        cd "$ROOT" || exit 1
+        for v in $(compgen -e); do unset "$v" 2>/dev/null; done
+        export "${e[@]}" ${plus[@]+"${plus[@]}"}
+        [ "$pty" -eq 0 ] || exec runuser --pty -u "$UNIT_PREFIX-admin" -- "$@"
+        [ ! -t 0 ] || exec </dev/null
+        if [ -t 1 ]; then exec > >(cat); p1=$!; fi
+        if [ -t 2 ]; then exec 2> >(cat >&2); p2=$!; fi
+        runuser -u "$UNIT_PREFIX-admin" -- "$@"; rc=$?
+        exec >&- 2>&-
+        [ -z "$p1" ] || wait "$p1"
+        [ -z "$p2" ] || wait "$p2"
+        exit "$rc"
+    )
+}
+
+# app_cmd COMMANDE… : code de l'application ; sous le compte de la console quand root le lance sous un compte par service (app_console), tel quel sinon.
+app_cmd() { if racine_separee; then app_console "$@"; else "$@"; fi; }
+
 # Autorités de confiance de .env : SSL_CERT_FILE avec un certificat, sinon un seul dossier SSL_CERT_DIR (--use-system-ca ne lit pas de liste) aux noms hachés.
 ca_ok() {
     if [ -n "${SSL_CERT_FILE:-}" ]; then grep -q -- '-----BEGIN CERTIFICATE-----' "$SSL_CERT_FILE"; return; fi
@@ -295,6 +354,7 @@ svc_port() {
 # .env : surcharges locales facultatives (KEY=VALUE, une par ligne), puis les ports qui en dépendent.
 # Lu comme des données, jamais sourcé : clé validée, valeur littérale (ni substitution ni commande), guillemets de bordure retirés.
 charger_env() {
+    ENV_PAIRES=(); ENV_CHARGE=1
     [ -f "$ROOT/.env" ] || return 0
     local ligne cle val
     while IFS= read -r ligne || [ -n "$ligne" ]; do
@@ -314,12 +374,20 @@ charger_env() {
         else
             val="${val%%[[:space:]]#*}"; val="${val%"${val##*[![:space:]]}"}"
         fi
-        export "$cle=$val"
+        export "$cle=$val"; ENV_PAIRES+=("$cle=$val")
     done < "$ROOT/.env"
 }
 
-# Instance : config.json, .env, Node, écoute et dossiers, lus par le core (sans le venv).
+# .env sous root et un compte par service : absent, ou fichier ordinaire de root ou de l'opérateur qu'aucun compte des services ne peut écrire ni remplacer (deploy/droits.py sur), sinon arrêt ; puis lu comme des données.
+charger_env_sur() {
+    poser_droits sur "$ROOT/.env" --proprio "root,$(stat -c %U -- "$ROOT")" \
+        || die "$ROOT/.env refusé (voir ci-dessus) : root n'y lit aucun chemin tant qu'un compte des services peut l'écrire ; fichier de l'opérateur, sans lien, fermé aux autres comptes."
+    charger_env
+}
+
+# Instance : config.json, .env, Node, écoute et dossiers, lus par le core (sans le venv) ; sous des unités à un compte par service : chemins de .env et du dépôt seulement, ceux des unités (charger_chemins_separes).
 charger_instance() {
+    if separe_vise; then charger_chemins_separes; return; fi
     if [ -L "$ROOT/config.json" ] && [ ! -f "$ROOT/config.json" ]; then
         die "config.json illisible pour ce compte ($(readlink -- "$ROOT/config.json")) : membre du groupe $GROUPE_DONNEES dans une nouvelle session, ou sudo."
     fi
@@ -340,6 +408,57 @@ charger_instance() {
     [ "$(id -u)" -eq 0 ] || mkdir -p "$SANDBOX_DIR"
     dossiers_rag
 }
+
+# Instance sous un compte par service : config.json présent, .env (vérifié sous root), Node, chemins de .env et du dépôt (chemins_separes) ; ni le core ni une création de dossier.
+charger_chemins_separes() {
+    [ -e "$ROOT/config.json" ] || [ -L "$ROOT/config.json" ] || die "config.json absent : lancez ./elpis configure"
+    if [ "$(id -u)" -ne 0 ] && [ -L "$ROOT/config.json" ] && [ ! -f "$ROOT/config.json" ]; then
+        die "config.json illisible pour ce compte ($(readlink -- "$ROOT/config.json")) : membre du groupe $GROUPE_DONNEES dans une nouvelle session, ou sudo."
+    fi
+    if [ "$(id -u)" -eq 0 ]; then charger_env_sur; else charger_env; fi
+    NODE="$(node_bin)"; BIND_DEFAULT=127.0.0.1
+    chemins_separes
+}
+
+# chemin_absolu CHEMIN : absolu (relatif à la racine), « // », « . » et « .. » résolus sans lire le disque ; un chemin à fin de ligne est rendu tel quel (refusé ensuite).
+chemin_absolu() {
+    local p="$1" c r=() parties=()
+    case "$p" in *$'\n'*|*$'\r'*) printf '%s' "$p"; return ;; esac
+    [[ "$p" == /* ]] || p="$ROOT/$p"
+    IFS=/ read -r -a parties <<< "$p"
+    for c in "${parties[@]}"; do
+        case "$c" in ''|.) ;; ..) [ "${#r[@]}" -eq 0 ] || unset 'r[-1]' ;; *) r+=("$c") ;; esac
+    done
+    (IFS=/; printf '/%s\n' "${r[*]}")
+}
+
+# defaut_donnees DOSSIER_BASE NOM DÉFAUT : défaut d'un dossier de données comme le core (defautDonnees) : DÉFAUT (relatif à la racine) si la base est dans user_db, sinon NOM près de la base, sauf s'il manque et que l'ancien dossier n'est pas vide.
+defaut_donnees() {
+    [ "$1" != "$ROOT/user_db" ] || { printf '%s\n' "$3"; return; }
+    if [ ! -e "$1/$2" ] && [ -n "$(ls -A -- "$(chemin_absolu "$3")" 2>/dev/null)" ]; then printf '%s\n' "$3"; else printf '%s\n' "$1/$2"; fi
+}
+
+# Chemins des données sous un compte par service, de .env (ou de l'environnement) et des défauts du dépôt, jamais de config.json : ceux que root traite, fixés dans les unités et passés au code (CHEMINS_FIXES) ; chemin hors du motif sûr : arrêt.
+chemins_separes() {
+    local base e
+    SANDBOX_DIR="$(chemin_absolu "${APP_SANDBOX_DIR:-user_sandboxes}")"
+    DB_FICHIER="$(chemin_absolu "${APP_DB_PATH:-user_db/app.db}")"; base="${DB_FICHIER%/*}"
+    RAG_STORE="$(chemin_absolu "${RAG_STORE_DIR:-$base/rag}")"
+    RAG_CACHE="$(chemin_absolu "${RAG_CACHE_DIR:-${RAG_STORE%/}-cache}")"
+    CHART_DIR="$(chemin_absolu "${CHART_CACHE_DIR:-$RUN_DIR/charts}")"
+    CHEMINS_FIXES=("APP_SANDBOX_DIR=$SANDBOX_DIR" "APP_DB_PATH=$DB_FICHIER" "RAG_STORE_DIR=$RAG_STORE" "CHART_CACHE_DIR=$CHART_DIR"
+        "APP_MEMORY_DIR=$(chemin_absolu "${APP_MEMORY_DIR:-$SANDBOX_DIR}")"
+        "APP_SKILLS_DIR=$(chemin_absolu "${APP_SKILLS_DIR:-skills}")"
+        "APP_USER_SKILLS_DIR=$(chemin_absolu "${APP_USER_SKILLS_DIR:-$(defaut_donnees "$base" user_skills user_skills)}")"
+        "APP_SKINS_DIR=$(chemin_absolu "${APP_SKINS_DIR:-$(defaut_donnees "$base" user_skins user_skins)}")"
+        "MCP_SERVERS_DIR=$(chemin_absolu "${MCP_SERVERS_DIR:-$(defaut_donnees "$base" mcp_custom_servers ../mcp_custom_servers)}")"
+        "APP_FILE_HISTORY_DIR=$(chemin_absolu "${APP_FILE_HISTORY_DIR:-user_db/file_history}")"
+        "APP_OFFICE_CACHE_DIR=$(chemin_absolu "${APP_OFFICE_CACHE_DIR:-$SANDBOX_DIR/.office-cache}")")
+    for e in "${CHEMINS_FIXES[@]}" "RAG_CACHE_DIR=$RAG_CACHE"; do _chemin_unite "${e%%=*} (.env)" "${e#*=}"; done
+}
+
+# Valeur d'un chemin fixé (CHEMINS_FIXES) : fixe NOM.
+fixe() { local e; for e in "${CHEMINS_FIXES[@]}"; do [ "${e%%=*}" != "$1" ] || { printf '%s\n' "${e#*=}"; return 0; }; done; return 1; }
 
 # Magasin du RAG (lu par le core et l'extracteur, le même pour les deux) et cache de l'extracteur, calculés par le core.
 dossiers_rag() {
@@ -426,6 +545,7 @@ tourner_journal() {
 cmd_start() {
     local foreground=0
     [ "${1:-}" = "--foreground" ] && foreground=1
+    refuser_racine_separee start
     systemd_active && die "Les services systemd ${UNIT_PREFIX}.target tournent déjà (systemctl status ${UNIT_PREFIX}.target)."
     load_runtime
     need_core
@@ -480,7 +600,7 @@ tuer_fils() {
 arreter() {
     local s i n pid vivant attente=40 pids=() noms=()
     for s in "$@"; do
-        pid="$(pid_of "$s")" || { rm -f "$RUN_DIR/$s.pid"; continue; }
+        pid="$(pid_of "$s")" || { retirer_pid "$s"; continue; }
         if ! pid_signalable "$pid"; then warn "$s : pid « $pid » de $RUN_DIR/$s.pid hors des comptes d'Elpis : non signalé (à vérifier)."; continue; fi
         info "Arrêt de $s (pid $pid)…"
         kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
@@ -498,8 +618,19 @@ arreter() {
         pid="${pids[$i]}"
         case "${noms[$i]}" in main|admin) kill -0 "$pid" 2>/dev/null && tuer_fils "$pid" ;; esac
         kill -0 "$pid" 2>/dev/null && { kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null; }
-        rm -f "$RUN_DIR/${noms[$i]}.pid"
+        retirer_pid "${noms[$i]}"
     done
+}
+
+# Fichier PID d'un service retiré ; root : par deploy/droits.py, sans suivre de lien (user_db/run est aux services).
+retirer_pid() {
+    if [ "$(id -u)" -eq 0 ]; then poser_droits retirer "$RUN_DIR" "$1.pid" || true; else rm -f "$RUN_DIR/$1.pid"; fi
+}
+
+# Root sous des unités à un compte par service : jamais de service lancé à la main (il tournerait sous root).
+refuser_racine_separee() {
+    [ "$(id -u)" -ne 0 ] || [ "$(mode_installe)" != separes ] \
+        || die "Un compte par service : les services se lancent par systemd (sudo systemctl $1 ${UNIT_PREFIX}.target), jamais à la main sous root."
 }
 
 # Le core d'abord, main et admin ensemble : outils et RAG servent encore pendant qu'il finit.
@@ -568,30 +699,72 @@ cmd_logs() {
 # =============================================================================
 #  service install / remove (systemd)
 # =============================================================================
-# _valeur_sure NOM VALEUR → échec (message en français) si VALEUR contient « % » (spécificateur systemd) ou une espace : elle serait changée ou coupée dans une directive de chemin.
-_valeur_sure() {
-    [[ "$2" =~ [%[:space:]] ]] || return 0
-    warn "$1 : « $2 » contient « % » ou une espace, que systemd interpréterait dans une unité : choisissez un chemin sans ces caractères."
-    return 1
+# _chemin_unite NOM VALEUR : chemin rendu dans une unité systemd : absolu, lettres, chiffres et « . _ @ + / - » seulement, 4096 caractères au plus ; sinon arrêt, rien n'est installé.
+_chemin_unite() {
+    [[ "$2" =~ ^/[A-Za-z0-9._@+/-]+$ ]] && [ "${#2}" -le 4096 ] && return 0
+    die "$1 : « ${2//[[:cntrl:]]/?} » refusé pour une unité systemd (chemin absolu ; lettres, chiffres et . _ @ + / - seulement) : rien n'est installé."
 }
 
-# _rendre_gabarit GABARIT → le gabarit, chaque @NOM@ remplacé par GAB[NOM] ; une ligne faite d'un seul @NOM@ reçoit GAB[NOM] tel quel (plusieurs lignes ou aucune) ; @NOM@ inconnu : échec.
+# _valeur_unite NOM VALEUR : autre valeur rendue dans une unité : ni caractère de contrôle (fin de ligne comprise) ni « " \ % $ ` », 4096 caractères au plus ; sinon arrêt.
+_valeur_unite() {
+    local interdit=$'[[:cntrl:]"\\%$`]'
+    [[ ! "$2" =~ $interdit ]] && [ "${#2}" -le 4096 ] && return 0
+    die "$1 : « ${2//[[:cntrl:]]/?} » refusé pour une unité systemd (caractère de contrôle, \", \\, %, \$ ou \`) : rien n'est installé."
+}
+
+# _mot_unite NOM VALEUR nom|unite|arg|variable : compte ou groupe, unité systemd, argument de commande ou nom de variable d'une unité, à son motif ; sinon arrêt.
+_mot_unite() {
+    local motif
+    case "$3" in
+        nom) motif='^[A-Za-z0-9_][A-Za-z0-9._-]*$' ;;
+        unite) motif='^[A-Za-z0-9_][A-Za-z0-9@._:-]*\.(service|target)$' ;;
+        arg) motif='^[A-Za-z0-9._@+/:=-]+$' ;;
+        *) motif='^[A-Za-z_][A-Za-z0-9_]*$' ;;
+    esac
+    [[ "$2" =~ $motif ]] && [ "${#2}" -le 256 ] && return 0
+    die "$1 : « ${2//[[:cntrl:]]/?} » refusé pour une unité systemd : rien n'est installé."
+}
+
+# _env_unite_sure NOM=VALEUR : variable d'environnement d'une unité : nom de variable ; valeur d'un chemin (…_DIR, …_PATH, …_FILE, ELPIS_RACINE) au motif des chemins, sinon sans caractère dangereux.
+_env_unite_sure() {
+    _mot_unite "Variable d'unité" "${1%%=*}" variable
+    case "${1%%=*}" in
+        *_DIR|*_PATH|*_FILE|ELPIS_RACINE) _chemin_unite "${1%%=*}" "${1#*=}" ;;
+        *) _valeur_unite "${1%%=*}" "${1#*=}" ;;
+    esac
+}
+
+# _rendre_gabarit GABARIT → le gabarit, chaque @NOM@ remplacé par GAB[NOM] en une passe (une valeur n'est jamais relue) ; une ligne faite d'un seul @NOM@ reçoit GAB[NOM] tel quel (plusieurs lignes ou aucune) ; @NOM@ inconnu : échec.
 _rendre_gabarit() {
-    local ligne cle
+    local ligne cle reste sortie
     while IFS= read -r ligne || [ -n "$ligne" ]; do
         if [[ "$ligne" =~ ^@([A-Z_]+)@$ ]] && [ -n "${GAB[${BASH_REMATCH[1]}]+x}" ]; then
             [ -z "${GAB[${BASH_REMATCH[1]}]}" ] || printf '%s\n' "${GAB[${BASH_REMATCH[1]}]}"
             continue
         fi
-        for cle in "${!GAB[@]}"; do ligne="${ligne//"@$cle@"/"${GAB[$cle]}"}"; done
-        if [[ "$ligne" =~ @[A-Z_]+@ ]]; then warn "$1 : ${BASH_REMATCH[0]} sans valeur."; return 1; fi
-        printf '%s\n' "$ligne"
+        sortie=""; reste="$ligne"
+        while [[ "$reste" =~ @([A-Z_]+)@ ]]; do
+            cle="${BASH_REMATCH[1]}"
+            [ -n "${GAB[$cle]+x}" ] || { warn "$1 : @$cle@ sans valeur."; return 1; }
+            sortie+="${reste%%"@$cle@"*}${GAB[$cle]}"; reste="${reste#*"@$cle@"}"
+        done
+        printf '%s\n' "$sortie$reste"
     done < "$1"
 }
 
-# _chemins_hors_depot DOSSIER_BASE → lignes « services<TAB>dossier » des dossiers de données que le core place hors du dépôt (il les connaît, pas ce script).
+# _chemins_hors_depot DOSSIER_BASE → lignes « services<TAB>dossier » des dossiers de données que le core place hors du dépôt (il les connaît, pas ce script) ; un compte par service : ceux que les unités fixent (CHEMINS_FIXES) et le dossier de la base, jamais config.json.
 _chemins_hors_depot() {
-    local nom d
+    local nom d e
+    if [ "${MODE_COMPTES:-}" = separes ]; then
+        for e in "${CHEMINS_FIXES[@]}"; do
+            case "${e%%=*}" in
+                MCP_SERVERS_DIR|APP_MEMORY_DIR|APP_SKILLS_DIR|APP_USER_SKILLS_DIR|APP_SKINS_DIR) printf 'main admin\t%s\n' "${e#*=}" ;;
+                APP_FILE_HISTORY_DIR|APP_OFFICE_CACHE_DIR) printf 'main admin toolhost\t%s\n' "${e#*=}" ;;
+            esac
+        done
+        printf 'main admin\t%s\n' "$1"
+        return 0
+    fi
     for nom in MCP_SERVERS_DIR MEMORY_DIR USER_SKILLS_DIR SKINS_DIR; do
         d="$(core_cmd config "$nom" 2>/dev/null)" || continue
         [ -z "$d" ] || printf 'main admin\t%s\n' "$d"
@@ -600,7 +773,7 @@ _chemins_hors_depot() {
     lanceur ecritures
 }
 
-# Dossiers d'état d'un service : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris ; pour main et la console, ceux de la racine, config.json étant chez la console ; Qdrant sous un compte unique : son dossier du dépôt, binaire et réglages en lecture seule) ; dossier venu des réglages et refusé (dossier_etat_sur) : ignoré.
+# Dossiers d'état d'un service : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris ; pour main et la console, ceux de la racine, config.json étant chez la console ; Qdrant sous un compte unique : son dossier du dépôt, binaire et réglages en lecture seule) ; chaque chemin validé d'abord (_chemin_unite), puis un dossier refusé d'après son chemin (chemin_etat_sur) est écarté.
 _ecritures_du_service() {
     local d s l=() vu=" "
     case "$1" in
@@ -618,10 +791,10 @@ _ecritures_du_service() {
     done <<< "${2:-}"
     for d in "${l[@]}"; do
         [ -n "$d" ] || continue
+        _chemin_unite "Dossier d'écriture de $1" "$d"
         case "$vu" in *" $d "*) continue ;; esac
-        case "$d" in "$AUDIT_DIR_SYS"|"$APPLOG_DIR_SYS"|"$CONFIG_SYS"|"$ROOT/system_prompts"|"$ROOT/skills") ;; *) dossier_etat_sur "$d" || continue ;; esac
+        case "$d" in "$AUDIT_DIR_SYS"|"$APPLOG_DIR_SYS"|"$CONFIG_SYS"|"$ROOT/system_prompts"|"$ROOT/skills") ;; *) chemin_etat_sur "$d" || continue ;; esac
         vu+="$d "
-        _valeur_sure "Dossier d'écriture de $1" "$d" || return 1
         printf 'ReadWritePaths=-%s\n' "$d"
     done
 }
@@ -663,13 +836,16 @@ _umask_unite() {
     esac
 }
 
-# Environnement et dossier propres au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG), le cache systemd du RAG, le stockage de Qdrant dans son dossier d'état et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
+# Environnement et dossier propres au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, les chemins des données fixés (CHEMINS_FIXES : config.json ne les change plus), ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG), le cache systemd du RAG, le stockage de Qdrant dans son dossier d'état et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
 _env_comptes() {
+    local e
     case "$1" in main|admin|toolhost) SPEC_ENV+=("ELPIS_COMPTES=$MODE_COMPTES") ;; esac
     [ "$MODE_COMPTES" = separes ] || return 0
     case "$1" in
-        main|admin) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS") ;;
-        toolhost) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES"); [ -z "$2" ] || SPEC_ENV+=("PLAYWRIGHT_BROWSERS_PATH=$2") ;;
+        main|admin) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS")
+                    for e in "${CHEMINS_FIXES[@]}"; do _env_unite "$e"; done ;;
+        toolhost) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES"); [ -z "$2" ] || SPEC_ENV+=("PLAYWRIGHT_BROWSERS_PATH=$2")
+                  for e in "${CHEMINS_FIXES[@]}"; do _env_unite "$e"; done ;;
         rag) _env_unite "RAG_CACHE_DIR=/var/cache/$UNIT_PREFIX-rag"; _env_unite "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS" ;;
         qdrant) SPEC_DIR="/var/lib/$UNIT_PREFIX-qdrant"
                 SPEC_ENV+=("QDRANT__STORAGE__STORAGE_PATH=$SPEC_DIR/storage" "QDRANT__STORAGE__SNAPSHOTS_PATH=$SPEC_DIR/storage/snapshots") ;;
@@ -692,28 +868,35 @@ base_sure() {
     warn "Base de config.json ($1) non confirmée par APP_DB_PATH (.env) : secrets et droits de ce dossier non posés (APP_DB_PATH=$1/… dans .env, puis sudo ./elpis service install)."
 }
 
-# _render_units DOSSIER COMPTE [DOSSIER_TMPFILES] → unités du mode MODE_COMPTES (COMPTE : compte unique, ou opérateur en mode séparé) rendues depuis deploy/systemd/ (UNITS_WANTS, ECRITURES et BASE_DONNEES remplis) ; dossier d'exécution partagé dans DOSSIER_TMPFILES s'il est donné ; tout est rendu à part, puis déplacé : un échec ne laisse aucune unité tronquée
+# _render_units DOSSIER COMPTE [DOSSIER_TMPFILES] → unités du mode MODE_COMPTES (COMPTE : compte unique, ou opérateur en mode séparé) rendues depuis deploy/systemd/ (UNITS_WANTS, ECRITURES et BASE_DONNEES remplis) ; un compte par service : chemins de .env et du dépôt (charger_chemins_separes), réglages du core lus sous le compte de la console ; chaque valeur rendue validée avant tout filtre, rendue en une passe ; dossier d'exécution partagé dans DOSSIER_TMPFILES s'il est donné ; tout est rendu à part, puis déplacé : un échec ne laisse aucune unité tronquée
 _render_units() {
-    local unit_dir="$1" run_user="$2" tmpfiles_dir="${3:-}" s e repli gabarits="$ROOT/deploy/systemd" ecr db hors=() groupe run nav=""
+    local unit_dir="$1" run_user="$2" tmpfiles_dir="${3:-}" s e repli gabarits="$ROOT/deploy/systemd" ecr db hors=() groupe run nav="" db_unit valeurs=()
     local -A GAB
     UNITS_WANTS=(); MODE_COMPTES="${MODE_COMPTES:-unique}"
-    load_runtime
+    if [ "$MODE_COMPTES" = separes ]; then need_venv; charger_chemins_separes; else load_runtime; fi
     need_core
+    _mot_unite "Compte des services" "$run_user" nom
     STAGE_RENDU="$(mktemp -d)" || die "Dossier temporaire indisponible."
     trap _nettoyer_rendu EXIT
     local stage="$STAGE_RENDU"
-    local db_unit; db_unit="$(_db_local_unit)"
-    db="$(core_cmd config DB_PATH 2>/dev/null)"; db="${db:-$ROOT/user_db/app.db}"; repli="${db%/*}/.vault.key"
-    ecr="$(_chemins_hors_depot "${db%/*}")"; ECRITURES="$ecr"; BASE_DONNEES="$(base_sure "${db%/*}")"
+    db_unit="$(_db_local_unit)"
+    [ -z "$db_unit" ] || _mot_unite "Unité de la base" "$db_unit" unite
     if [ "$MODE_COMPTES" = separes ]; then
+        db="$DB_FICHIER"; BASE_DONNEES="${db%/*}"
         run="2770 root $GROUPE_DONNEES"; nav="$(_navigateurs "$run_user")"; COMPTE_ETAT=""
+        avertir_chemins_config
     else
+        db="$(core_cmd config DB_PATH 2>/dev/null)"; db="${db:-$ROOT/user_db/app.db}"; BASE_DONNEES="$(base_sure "${db%/*}")"
         groupe="$(id -gn "$run_user" 2>/dev/null)" || die "Groupe de $run_user introuvable (id -gn)."
+        _mot_unite "Groupe de $run_user" "$groupe" nom
         run="0700 $run_user $groupe"; COMPTE_ETAT="$run_user"
     fi
-    # Dossiers de config.json jugés une fois ici : les unités et les droits n'en reprennent que les acceptés.
-    while IFS= read -r e; do dossier_etat_sur "$e" || true; done < <(printf '%s\n' "$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR"; printf '%s\n' "$ecr" | cut -s -f2)
-    for e in "$ROOT" "$VAULT_KEY_SYS" "$repli" "$AUDIT_KEY_SYS"; do _valeur_sure "Chemin d'unité" "$e" || exit 1; done
+    repli="${db%/*}/.vault.key"
+    ecr="$(_chemins_hors_depot "${db%/*}")"; ECRITURES="$ecr"
+    # Toute valeur venue de .env, du core ou du système validée ici, avant le moindre filtre.
+    mapfile -t valeurs < <(printf '%s\n' "$ROOT" "$VAULT_KEY_SYS" "$repli" "$AUDIT_KEY_SYS" "$SANDBOX_DIR" "$RAG_STORE" "$RAG_CACHE" \
+        "$CHART_DIR" "${db%/*}" "$nav"; printf '%s\n' "$ecr" | cut -s -f2)
+    for e in "${valeurs[@]}"; do [ -z "$e" ] || _chemin_unite "Chemin d'unité" "$e"; done
     mapfile -t hors < <(printf '%s\n' "$ecr" | cut -s -f2; printf '%s\n' "${NODE:-}" "$nav"; readlink -f "${PY:-}" 2>/dev/null)
     GAB=([PREFIX]="$UNIT_PREFIX" [RUN]="$run" [ROOT]="$ROOT" [BASE]="${db%/*}" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
          [VAULT_KEY_REPLI]="$repli" [AUDIT_KEY_SYS]="$AUDIT_KEY_SYS" [AFTER_DB]="${db_unit:+ $db_unit}" [WANTS_DB]="${db_unit:+Wants=$db_unit}"
@@ -722,12 +905,14 @@ _render_units() {
         svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
         svc_spec "$s"
         _env_comptes "$s" "$nav"
-        _valeur_sure "Dossier de travail de $s" "$SPEC_DIR" || exit 1
+        _chemin_unite "Dossier de travail de $s" "$SPEC_DIR"
+        for e in "${SPEC_ENV[@]}"; do _env_unite_sure "$e"; done
+        for e in "${SPEC_CMD[@]}"; do _mot_unite "Commande de $s" "$e" arg; done
         GAB[COMPTE]="$(_compte_unite "$s" "$run_user")"
         GAB[UMASK]="$(_umask_unite "$s")"
         GAB[WORKDIR]="$SPEC_DIR"
-        GAB[EXEC]="$(printf '%q ' "${SPEC_CMD[@]}")"; GAB[EXEC]="${GAB[EXEC]//%/%%}"
-        GAB[ENV]="$(for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "${e//%/%%}"; done)"
+        GAB[EXEC]="$(printf '%q ' "${SPEC_CMD[@]}")"
+        GAB[ENV]="$(for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done)"
         GAB[RW]="$(_ecritures_du_service "$s" "$ecr")" || exit 1
         _rendre_gabarit "$gabarits/elpis-$s.service" > "$stage/${UNIT_PREFIX}-$s.service" \
             || die "Gabarit d'unité invalide : $gabarits/elpis-$s.service"
@@ -750,6 +935,28 @@ _render_units() {
     fi
     mv -f -- "$stage"/* "$unit_dir"/ || die "Écriture de $unit_dir impossible."
     rm -rf "$stage"; STAGE_RENDU=""
+}
+
+# Réglages de chemins de config.json sans effet sous un compte par service (les unités fixent ceux de .env et du dépôt) : un avertissement par écart (compté dans ECARTS_CONFIG), avec la marche à suivre ; destination « montée » de la sauvegarde distante hors des dossiers des services signalée.
+avertir_chemins_config() {
+    local cle v nom d rw
+    while IFS=$'\t' read -r cle v; do
+        [ -n "$cle" ] && [ -n "$v" ] || continue
+        v="${v//[[:cntrl:]]/?}"
+        case "$cle" in
+            app.sandbox_dir) nom=APP_SANDBOX_DIR ;; app.db_path) nom=APP_DB_PATH ;; rag.store_dir) nom=RAG_STORE_DIR ;;
+            app.memory_dir) nom=APP_MEMORY_DIR ;; skills.dir) nom=APP_SKILLS_DIR ;; skills.user_dir) nom=APP_USER_SKILLS_DIR ;;
+            skins.dir) nom=APP_SKINS_DIR ;; mcp.servers_dir) nom=MCP_SERVERS_DIR ;; office_preview.cache_dir) nom=APP_OFFICE_CACHE_DIR ;;
+            backup.remote.dest_path)
+                rw=0
+                for d in "$SANDBOX_DIR" "$ROOT/user_db" "$LOG_DIR" "$(fixe APP_FILE_HISTORY_DIR)"; do case "$v/" in "$d/"*) rw=1 ;; esac; done
+                [ "$rw" -eq 1 ] || { warn "config.json : sauvegarde distante « montée » vers $v, hors des dossiers que main et la console écrivent : à leur ouvrir (sudo systemctl edit ${UNIT_PREFIX}-main ${UNIT_PREFIX}-admin, ReadWritePaths=$v)."; ECARTS_CONFIG=$((ECARTS_CONFIG + 1)); }
+                continue ;;
+            *) continue ;;
+        esac
+        d="$(chemin_absolu "$v")"
+        [ "$d" = "$(fixe "$nom")" ] || { warn "config.json : $cle ($v) sans effet sous un compte par service : les unités fixent $nom=$(fixe "$nom") (.env ou défaut) ; pour le garder : $nom=$v dans .env, puis sudo ./elpis service install."; ECARTS_CONFIG=$((ECARTS_CONFIG + 1)); }
+    done < <(lanceur chemins)
 }
 
 # Premier dossier, de CHEMIN à « / », que les autres comptes ne traversent pas (sans o+x) ; échec si tous le permettent.
@@ -840,31 +1047,26 @@ comptes_separes() {
     membre "$1" "$GROUPE_DONNEES"
 }
 
-# deploy/droits.py par le Python du système, isolé : droits posés sans suivre de lien.
-poser_droits() { python3 -I "$ROOT/deploy/droits.py" "$@"; }
+# deploy/droits.py par le Python du système, isolé : droits posés sans suivre de lien, dossiers ouverts depuis « / » et refusés si un compte des services peut en remplacer un parent.
+poser_droits() {
+    ELPIS_DROITS_SERVICES="$UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag" ELPIS_DROITS_GROUPES=docker \
+        python3 -I "$ROOT/deploy/droits.py" "$@"
+}
 
-# Dossier d'état venu de config.json ou de .env, que root peut poser et ouvrir aux services : dans le dépôt, un dossier d'état fixe ou dessous ; ailleurs, un dossier existant à root:<groupe des données>, à un compte d'Elpis ou au compte unique (COMPTE_ETAT), ou le dossier MCP par défaut, voisin du dépôt ; jamais « / », le dépôt ou un de ses parents, une maison, un dossier système ou d'Elpis, ni un point de montage ; refus signalé une fois.
-dossier_etat_sur() {
-    local d="${1%/}" r p proprio pourquoi=""
+# chemin_etat_sur DOSSIER : dossier d'état que root peut ouvrir aux services, d'après son seul chemin (rien n'est lu sur le disque, sinon les maisons des comptes) : absolu, sans « . », « .. » ni « // » ; dans le dépôt, sous un dossier d'état ; ailleurs, ni « / », ni un parent du dépôt, ni une maison, ni un dossier système ou d'Elpis ; refus signalé une fois.
+chemin_etat_sur() {
+    local d="${1%/}" pourquoi=""
     [ -n "$1" ] || return 1
     [ -z "${ETAT_VU[$1]+x}" ] || return "${ETAT_VU[$1]}"
-    r="$(cd -P -- "$ROOT" && pwd -P)"
-    p="$(cd -P -- "$(dirname -- "$d")" 2>/dev/null && pwd -P)" && p="${p%/}/${d##*/}"
-    if [[ "$d" != /?* || "$d/" == */./* || "$d/" == */../* || "$d" == *//* ]] || [ -z "$p" ] || [ -L "$d" ]; then
-        pourquoi="chemin relatif, avec . ou .., lien ou sans dossier parent"
-    elif [[ "$p/" == "$r/"* ]]; then
-        case "${p#"$r"/}/" in user_db/*|user_sandboxes/*|logs/*|user_skins/*|user_skills/*) ;; *) pourquoi="dans le dépôt, hors de ses dossiers d'état" ;; esac
-    elif [[ "$r/" == "$p/"* ]]; then pourquoi="parent du dépôt"
-    elif [ "$p" = /home ] || getent passwd | cut -d: -f6 | grep -qxF -- "$p"; then pourquoi="dossier personnel"
-    elif case "$p/" in /etc/*|/run/*|/proc/*|/sys/*|/dev/*|/usr/*|/boot/*|/var/log/*|/var/lib/private/*|"$SYS_PREFIXE"/etc/*|"$SYS_PREFIXE"/var/log/*|\
+    if [[ "$d" != /?* || "$d/" == */./* || "$d/" == */../* || "$d" == *//* ]]; then
+        pourquoi="chemin relatif ou avec . ou .."
+    elif [[ "$d/" == "$ROOT/"* ]]; then
+        case "${d#"$ROOT"/}/" in user_db/*|user_sandboxes/*|logs/*|user_skins/*|user_skills/*) ;; *) pourquoi="dans le dépôt, hors de ses dossiers d'état" ;; esac
+    elif [[ "$ROOT/" == "$d/"* ]]; then pourquoi="parent du dépôt"
+    elif [ "$d" = /home ] || getent passwd | cut -d: -f6 | grep -qxF -- "$d"; then pourquoi="dossier personnel"
+    elif case "$d/" in /etc/*|/run/*|/proc/*|/sys/*|/dev/*|/usr/*|/boot/*|/var/log/*|/var/lib/private/*|"$SYS_PREFIXE"/etc/*|"$SYS_PREFIXE"/var/log/*|\
             "$SYS_PREFIXE/var/lib/$UNIT_PREFIX"/*|"$SYS_PREFIXE/var/lib/$UNIT_PREFIX"-*|"$SYS_PREFIXE/var/cache/$UNIT_PREFIX"-*) true ;; *) false ;; esac; then
         pourquoi="dossier système ou d'Elpis"
-    elif command -v mountpoint >/dev/null && mountpoint -q -- "$p"; then pourquoi="point de montage"
-    elif [ ! -d "$p" ]; then
-        [ "$p" = "${r%/*}/mcp_custom_servers" ] || pourquoi="absent : à créer par l'administrateur, root:$GROUPE_DONNEES et 2770"
-    else
-        proprio="$(stat -c '%U:%G' -- "$p" 2>/dev/null)"
-        case "$proprio" in "root:$GROUPE_DONNEES"|"$UNIT_PREFIX"-*:*|"${COMPTE_ETAT:-/}":*) ;; *) pourquoi="à $proprio, ni à root:$GROUPE_DONNEES ni à un compte d'Elpis" ;; esac
     fi
     ETAT_VU[$1]=0
     [ -n "$pourquoi" ] || return 0
@@ -873,53 +1075,97 @@ dossier_etat_sur() {
     return 1
 }
 
-# Dossier d'état accepté (dossier_etat_sur) mis à PROPRIO:GROUPE (root et le groupe des données par défaut) en MODE ; ADMIS : propriétaires actuels admis.
+# Dossier d'état accepté d'après son chemin (chemin_etat_sur) mis à PROPRIO:GROUPE (root et le groupe des données par défaut) en MODE par deploy/droits.py, au moment même (aucun verdict gardé) ; ADMIS : propriétaires actuels admis ; dans le dépôt (et le dossier MCP par défaut, voisin du dépôt), créé s'il manque ; ailleurs, existant, à un compte d'Elpis, au compte unique (COMPTE_ETAT) ou à root:<groupe des données>.
 dossier_donnees() {
-    dossier_etat_sur "$1" && dossier_sur "$1" "$2" "${4:-root}" "${5:-$GROUPE_DONNEES}" "$3"
+    local opts=(--admis "$3" --creer)
+    chemin_etat_sur "$1" || return 1
+    case "$1/" in
+        "$ROOT/"*|"${ROOT%/*}/mcp_custom_servers/") ;;
+        *) opts=(--admis "$UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag ${COMPTE_ETAT:-}" --groupe-racine "$GROUPE_DONNEES") ;;
+    esac
+    poser_droits dossier "$1" "$2" "${4:-root}" "${5:-$GROUPE_DONNEES}" "${opts[@]}"
 }
 
-# Droits du mode séparé, à chaque passage, services arrêtés, sur les seuls dossiers d'état acceptés (dossier_etat_sur) : dossiers au groupe des données (contenu g+rwX ; hors du dépôt, celui des comptes d'Elpis seul), run/chat_runs et run/task_resume privés à main, secrets un à un (clés et envois des sauvegardes à main et à la console), autorité du relais à l'hôte d'outils, backups/ privé à l'opérateur (./elpis backup seul l'écrit), prompts et skills versionnés gardés à l'opérateur, magasin du RAG ; aucun lien suivi, aucun /work touché.
+# Premier des DOSSIERS que DOSSIER chevauche (le même, dedans, autour) ; échec s'il n'en chevauche aucun.
+chevauchement() {
+    local d="$1" x; shift
+    for x in "$@"; do
+        [ -n "$x" ] || continue
+        if [ "$d" = "$x" ] || [[ "$d/" == "$x/"* ]] || [[ "$x/" == "$d/"* ]]; then printf '%s\n' "$x"; return 0; fi
+    done
+    return 1
+}
+
+# Droits du mode séparé, à chaque passage, services arrêtés, posés par deploy/droits.py au moment même : dossiers fixes du dépôt et dossiers de .env (jamais de config.json), refusés s'ils se chevauchent (le magasin du RAG peut être dans le dossier de la base) ; dossiers au groupe des données, contenu g+rwX ; seules les entrées de l'opérateur et des anciens comptes uniques sont reprises (jamais celles de root ni d'un service, qu'un service aurait pu y déplacer), dossiers de root compris ; secrets un à un, autorité du relais à l'hôte d'outils, run/chat_runs et run/task_resume privés à main, exclusions sur chaque parcours ; backups/ privé à l'opérateur ; aucun lien suivi, aucun /work touché.
 droits_separes() {
-    local base="$1" op="$2" admis="$3 $2 $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost" G="$GROUPE_DONNEES" og d n e=0 comptes=""
+    local base="$1" op="$2" G="$GROUPE_DONNEES" og d n e=0 legs="" admis U="$ROOT/user_db" S="$SANDBOX_DIR" B="" R="$RAG_STORE" sousR="" x h
     og="$(id -gn "$op")" || return 1
-    for n in $admis; do [ "$n" = root ] || [ "$n" = "$op" ] || comptes+="$n "; done
+    # Anciens propriétaires repris : l'opérateur et les anciens comptes uniques, jamais root ni un compte des services.
+    for n in $op ${3:-}; do
+        case "$n" in root|"$UNIT_PREFIX"-*) continue ;; esac
+        case " $legs " in *" $n "*) ;; *) legs+="$n " ;; esac
+    done
+    admis="$legs $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost"
     local cle=(.vault.key .vault.key.lock .encryption_key .encryption_key.lock .session_secret .session_secret.lock)
     local partages=(.local_mcp_token .rag_service_token) base_console=('.db_password*') envois=(.backup_ssh_key .backup_rsync_password)
-    local bases=("$ROOT/user_db") sauf=(--sauf "$SANDBOX_DIR" --sauf "$RAG_STORE" --sauf browser-relay-ca) hors=()
-    [ -z "$base" ] || [ "$base" = "$ROOT/user_db" ] || bases+=("$base")
-    sauf+=(--prive "$UNIT_PREFIX-main:$ROOT/user_db/run/chat_runs" --prive "$UNIT_PREFIX-main:$ROOT/user_db/run/task_resume")
-    for n in "${cle[@]}" "${partages[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do sauf+=(--sauf "$n"); done
-    for d in "${bases[@]}"; do
+    local fixes=("$U" "$LOG_DIR" "$ROOT/backups" "$ROOT/system_prompts" "$ROOT/skills") commun=() hors=() geres=()
+    commun=(--comptes "$legs" --comptes-dossiers root --sauf work --sauf .elpis-agent
+            --prive "$UNIT_PREFIX-main:$U/run/chat_runs" --prive "$UNIT_PREFIX-main:$U/run/task_resume")
+    for n in "${cle[@]}" "${partages[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do commun+=(--sauf "$n"); done
+    [ -z "$base" ] || [ "$base" = "$U" ] || B="$base"
+    # Chevauchements : sandboxes et base ni l'une dans l'autre ni sur un dossier fixe ; magasin du RAG dans la base ou à part.
+    if x="$(chevauchement "$S" "${fixes[@]}" "$B")"; then warn "Dossier des sandboxes $S refusé : il chevauche $x."; S=""; e=1; fi
+    if [ -n "$B" ] && x="$(chevauchement "$B" "${fixes[@]}" "$S")"; then warn "Dossier de la base $B refusé : il chevauche $x."; B=""; e=1; fi
+    for x in "$U" "$B"; do [ -z "$x" ] || [[ "$R/" != "$x/"?* ]] || sousR="$x"; done
+    if [ -n "$sousR" ]; then
+        case "$R/" in "$sousR/run/"*|"$sousR/browser-relay-ca/"*|"$sousR/rag-cache/"*) warn "Magasin du RAG $R refusé : dans un dossier réservé de $sousR."; R=""; e=1 ;; esac
+    elif x="$(chevauchement "$R" "${fixes[@]}" "$S" "$B")"; then warn "Magasin du RAG $R refusé : il chevauche $x."; R=""; e=1; fi
+    geres=("${fixes[@]}" "$S" "$B" "$R")
+    while IFS= read -r h; do
+        [ -n "$h" ] || continue
+        if x="$(chevauchement "$h" "${geres[@]}" "${hors[@]}")"; then
+            [[ "$h/" == "$x/"* ]] || { warn "Dossier $h refusé : il contient $x."; e=1; }
+            continue
+        fi
+        hors+=("$h")
+    done < <(printf '%s\n' "${ECRITURES:-}" | cut -s -f2 | sort -u)
+    for d in "$U" "$B"; do
+        [ -n "$d" ] || continue
         dossier_donnees "$d" 2771 "$admis" || { e=1; continue; }
-        poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${sauf[@]}" || e=1
-        poser_droits fichiers "$d" root "$GROUPE_CLE" 0640 "${cle[@]}" || e=1
-        poser_droits fichiers "$d" root "$G" 0640 "${partages[@]}" || e=1
-        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$G" 0640 "${base_console[@]}" || e=1
-        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0640 "${envois[@]}" || e=1
-        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0660 .backup_known_hosts || e=1
-        [ ! -d "$d/browser-relay-ca" ] || { dossier_sur "$d/browser-relay-ca" 0700 "$UNIT_PREFIX-toolhost" "$G" "$admis" \
-            && poser_droits arbre "$d/browser-relay-ca" "$G" - - --proprio "$UNIT_PREFIX-toolhost"; } || e=1
+        poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" ${R:+--sauf "$R"} \
+            --regle "$UNIT_PREFIX-toolhost:$G:-:go-rwxs:$d/browser-relay-ca" || e=1
+        poser_droits fichiers "$d" root "$GROUPE_CLE" 0640 "${cle[@]}" --comptes "root $legs" || e=1
+        poser_droits fichiers "$d" root "$G" 0640 "${partages[@]}" --comptes "root $legs" || e=1
+        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$G" 0640 "${base_console[@]}" --comptes "$legs" || e=1
+        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0640 "${envois[@]}" --comptes "$legs" || e=1
+        poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0660 .backup_known_hosts --comptes "$legs" || e=1
     done
-    poser_droits fichiers "$ROOT" "$op" "$G" 0640 mcp.json toolhost.json config.json || e=1
-    { dossier_donnees "$SANDBOX_DIR" 2770 "$admis" && poser_droits arbre "$SANDBOX_DIR" "$G" g+rwX g+rwXs --sauf work --sauf .elpis-agent; } || e=1
-    { dossier_donnees "$LOG_DIR" 2770 "$admis" && poser_droits arbre "$LOG_DIR" "$G" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
-    { dossier_sur "$ROOT/backups" 00700 "$op" "$og" "$admis" && poser_droits arbre "$ROOT/backups" "$og" go-rwx go-rwxs --proprio "$op"; } || e=1
+    poser_droits fichiers "$ROOT" "$op" "$G" 0640 mcp.json toolhost.json config.json --comptes "root $legs" || e=1
+    if [ -n "$S" ]; then { dossier_donnees "$S" 2770 "$admis" && poser_droits arbre "$S" "$G" g+rwX g+rwXs "${commun[@]}" --sauf browser-relay-ca; } || e=1; fi
+    { dossier_donnees "$LOG_DIR" 2770 "$admis" && poser_droits arbre "$LOG_DIR" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" --sauf browser-relay-ca; } || e=1
+    { poser_droits dossier "$ROOT/backups" 00700 "$op" "$og" --admis "$admis" --creer \
+        && poser_droits arbre "$ROOT/backups" "$og" go-rwx go-rwxs --proprio "$op" --comptes "root $legs"; } || e=1
     for d in "$ROOT/system_prompts" "$ROOT/skills"; do
         [ -d "$d" ] && [ ! -L "$d" ] || continue
-        { dossier_sur "$d" 2770 "$(stat -c %U -- "$d")" "$G" "$admis" && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
+        { poser_droits dossier "$d" 2770 "$(stat -c %U -- "$d")" "$G" --admis "$admis" \
+            && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" --sauf browser-relay-ca; } || e=1
     done
-    { dossier_donnees "$RAG_STORE" 2770 "$admis" "$UNIT_PREFIX-main" "$GROUPE_RAG" \
-        && poser_droits arbre "$RAG_STORE" "$GROUPE_RAG" g+rwX,o-rwx g+rwXs,o-rwx; } || e=1
-    mapfile -t hors < <(printf '%s\n' "${ECRITURES:-}" | cut -s -f2 | sed '/^$/d' | sort -u)
+    if [ -n "$R" ]; then
+        if [ -n "$sousR" ]; then
+            { poser_droits dossier "$R" 2770 "$UNIT_PREFIX-main" "$GROUPE_RAG" --admis "$legs" --creer --sous "$sousR" \
+                && poser_droits arbre "$R" "$GROUPE_RAG" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" --sauf browser-relay-ca --sous "$sousR"; } || e=1
+        else
+            { dossier_donnees "$R" 2770 "$legs" "$UNIT_PREFIX-main" "$GROUPE_RAG" \
+                && poser_droits arbre "$R" "$GROUPE_RAG" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" --sauf browser-relay-ca; } || e=1
+        fi
+    fi
     for d in "${hors[@]}"; do
-        case "$d/" in "$ROOT/user_db/"*|"${base:-/nonexistent}/"*|"$SANDBOX_DIR/"*|"$LOG_DIR/"*|"$ROOT/backups/"*|"$RAG_STORE/"*) continue ;; esac
-        { dossier_donnees "$d" 2770 "$admis" && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx --comptes "$comptes" \
-            --sauf "$SANDBOX_DIR" --sauf "$ROOT/user_db" --sauf "${base:-/nonexistent}" --sauf "$RAG_STORE"; } || e=1
+        { dossier_donnees "$d" 2770 "$admis" && poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" --sauf browser-relay-ca; } || e=1
     done
     return "$e"
 }
 
-# Compte unique, à chaque passage, services arrêtés : dossiers d'état acceptés (dossier_etat_sur : base, sandboxes hors de leurs /work, journaux, magasin et cache du RAG, dossiers hors du dépôt) rendus au compte COMPTE en 0700, contenu u+rwX à lui (ce qui était à root, à un ancien compte ANCIENS ou à un compte d'Elpis), secrets de la base à lui seul ; aucun lien suivi.
+# Compte unique, à chaque passage, services arrêtés : dossiers d'état acceptés d'après leur chemin (base, sandboxes hors de leurs /work, journaux, magasin et cache du RAG, dossiers hors du dépôt) rendus au compte COMPTE en 0700 par deploy/droits.py, contenu u+rwX à lui (ce qui était à root, à un ancien compte ANCIENS ou à un compte d'Elpis), secrets de la base à lui seul ; aucun lien suivi.
 droits_unique() {
     local base="$1" u="$2" g d e=0 comptes="root $2 ${3:-} $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag" liste=() sauf
     g="$(id -gn "$u")" || return 1
@@ -928,11 +1174,11 @@ droits_unique() {
         sauf=(); [ "$d" != "$SANDBOX_DIR" ] || sauf=(--sauf work --sauf .elpis-agent)
         { dossier_donnees "$d" 00700 "$comptes" "$u" "$g" && poser_droits arbre "$d" "$g" u+rwX u+rwx,g-s --proprio "$u" --comptes "$comptes" "${sauf[@]}"; } || e=1
     done
-    [ -z "$base" ] || poser_droits fichiers "$base" "$u" "$g" 0600 .session_secret .encryption_key || e=1
+    [ -z "$base" ] || poser_droits fichiers "$base" "$u" "$g" 0600 .session_secret .encryption_key --avec-root || e=1
     return "$e"
 }
 
-# Secrets de config.json rangés dans leurs fichiers sans prendre de chemin à config.json : deploy/configure.py --ranger-secrets les retire sous son propriétaire COMPTE et les donne par un tube ; root les écrit (deploy/droits.py ranger) près de la base de confiance et dans JETON, cibles vérifiées avant (sans quoi rien n'est retiré), puis retire le config.json.bak resté dans le dépôt.
+# Secrets de config.json rangés dans leurs fichiers sans prendre de chemin à config.json : deploy/configure.py --ranger-secrets les retire sous son propriétaire COMPTE (la console en mode séparé, par app_console) et les donne par un tube ; root les écrit (deploy/droits.py ranger) près de la base de confiance et dans JETON, cibles vérifiées avant (sans quoi rien n'est retiré), puis retire le config.json.bak resté dans le dépôt.
 ranger_secrets() {
     local jeton="$1" c="$2" f sortie rc
     [ -n "$BASE_DONNEES" ] || return 1
@@ -940,7 +1186,8 @@ ranger_secrets() {
         [ -d "${f%/*}" ] && [ ! -L "${f%/*}" ] && [ ! -L "$f" ] && { [ ! -e "$f" ] || [ -f "$f" ]; } \
             || { warn "$f : dossier absent, lien ou fichier spécial : secrets laissés dans config.json (à vérifier, puis sudo ./elpis service install)."; return 1; }
     done
-    sortie="$(runuser -u "$c" -- "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?
+    if [ "$MODE_COMPTES" = separes ]; then sortie="$(app_console "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?
+    else sortie="$(runuser -u "$c" -- "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?; fi
     if [ "$rc" -ne 0 ]; then
         warn "Secrets de config.json non rangés (deploy/configure.py --ranger-secrets, code $rc) : relancez sudo ./elpis service install une fois corrigé."
         return 1
@@ -950,18 +1197,11 @@ ranger_secrets() {
     [ ! -f "$ROOT/config.json.bak" ] || [ -L "$ROOT/config.json.bak" ] || rm -f -- "$ROOT/config.json.bak"
 }
 
-# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de root ou de l'opérateur, à un seul lien et sans écriture d'autrui), créé s'il manque ; compte unique, user_db/.rag_service_token ; secrets de config.json rangés au passage.
+# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; compte unique, user_db/.rag_service_token ; secrets de config.json rangés au passage.
 jeton_rag() {
-    local depot="$ROOT/user_db/.rag_service_token" sys="$JETON_RAG_SYS" u m n
+    local depot="$ROOT/user_db/.rag_service_token" sys="$JETON_RAG_SYS"
     if [ "$MODE_COMPTES" = separes ]; then
-        if [ -f "$depot" ] && [ ! -L "$depot" ]; then
-            read -r u m n < <(stat -c '%U %a %h' -- "$depot")
-            if { [ "$u" = root ] || [ "$u" = "$1" ]; } && [ $(( 8#$m & 8#022 )) -eq 0 ] && [ "$n" = 1 ]; then
-                mv -fT -- "$depot" "$sys" || return 1
-            else
-                warn "$depot ignoré (à $u, en $m, $n lien(s) : seul un fichier de root ou de $1, sans écriture d'autrui, remplace le jeton du RAG) : à vérifier, puis à retirer."
-            fi
-        fi
+        poser_droits reprendre "${depot%/*}" "${depot##*/}" "$1" "$sys"; [ "$?" -ne 1 ] || return 1
         [ ! -L "$sys" ] || rm -f -- "$sys"
         ranger_secrets "$sys" "$UNIT_PREFIX-admin"
         poser_droits secret "${sys%/*}" "${sys##*/}" && poser_droits fichiers "${sys%/*}" root "$GROUPE_RAG" 0440 "${sys##*/}"
@@ -1006,7 +1246,8 @@ config_vers_console() {
     for f in config.json.bak config.json.lock; do
         [ ! -f "$ROOT/$f" ] || [ -L "$ROOT/$f" ] || mv -fT -- "$ROOT/$f" "$d/$f" || return 1
     done
-    poser_droits fichiers "$d" "$proprio" "$groupe" "$mf" config.json config.json.lock && poser_droits fichiers "$d" "$proprio" "$groupe" 0600 config.json.bak
+    poser_droits fichiers "$d" "$proprio" "$groupe" "$mf" config.json config.json.lock --avec-root \
+        && poser_droits fichiers "$d" "$proprio" "$groupe" 0600 config.json.bak --avec-root
 }
 
 cmd_service() {
@@ -1027,7 +1268,10 @@ cmd_service() {
         install)
             # Mode : un compte par service, sauf ELPIS_COMPTE_UNIQUE=1 (unique) ou chemin lu par les services fermé aux autres comptes (repli) ; ELPIS_USER : l'opérateur, ou le compte unique (celui des unités en place par défaut, invite comprise).
             local unique run_user ans ancien ecrivain
-            load_runtime
+            # Root ne lance pas le core avant de connaître le mode : .env vérifié et lu, Node ; les chemins viennent avec les unités.
+            need_venv
+            charger_env_sur
+            NODE="$(node_bin)"
             need_core
             unique="$(compte_unique)"
             ancien="$(compte_services) $(stat -c %U -- "$AUDIT_DIR_SYS" 2>/dev/null)"
@@ -1152,15 +1396,17 @@ sonde_du_core() {
     done <<< "$lignes"
 }
 
-# /health du service navigateur d'un bac (socket $1, jeton du fichier $2) : socket saisi sans suivre de lien (le bac écrit dans son dossier) en O_PATH|O_NOFOLLOW, vérifié, joint par /proc/self/fd ; vrai s'il répond ok.
+# /health du service navigateur d'un bac (socket $1, jeton du fichier $2) : socket saisi sans suivre de lien (le bac écrit dans son dossier) en O_PATH|O_NOFOLLOW, vérifié, joint par /proc/self/fd ; jeton lu sans suivre de lien (fichier ordinaire seulement : root n'envoie au bac aucun autre fichier) ; vrai s'il répond ok.
 sante_navigateur_bac() {
     "${PY:-python3}" -I - "$1" "$2" <<'PY' 2>/dev/null
 import os, socket, stat, sys
 fd = os.open(sys.argv[1], os.O_PATH | os.O_NOFOLLOW)
 if not stat.S_ISSOCK(os.fstat(fd).st_mode):
     sys.exit(1)
-with open(sys.argv[2], encoding="utf-8") as f:
-    jeton = f.readline().strip()
+t = os.open(sys.argv[2], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+if not stat.S_ISREG(os.fstat(t).st_mode):
+    sys.exit(1)
+jeton = os.read(t, 4096).decode("utf-8", "replace").splitlines()[0].strip()
 s = socket.socket(socket.AF_UNIX)
 s.settimeout(3)
 s.connect(f"/proc/self/fd/{fd}")
@@ -1194,10 +1440,10 @@ doctor_isolation_bac() {
     case "$majeure" in ''|*[!0-9]*) ;; *) if [ "$majeure" -lt 26 ]; then warn "Docker $version : la coupure entre bacs demande Docker 26 ou plus récent (avant, l'IPv6 lien-local des interfaces relie les conteneurs)"; bad=$((bad + 1)); fi ;; esac
     [ "$(docker info --format '{{.SwapLimit}}' 2>/dev/null)" != false ] || warn "noyau sans limite du swap des conteneurs : un bac peut dépasser sa mémoire en swap (cgroup swap à activer)"
     py="${PY:-python3}"; [ -x "$py" ] || py=python3
-    runtime="$("$py" -c 'import json, sys
+    runtime="$(app_cmd "$py" -c 'import json, sys
 try: print(((json.load(open(sys.argv[1])).get("executors") or {}).get("runtime") or ""))
 except Exception: print("")' "$ROOT/config.json" 2>/dev/null)"
-    sudo_permis="$("$py" -c 'import json, sys
+    sudo_permis="$(app_cmd "$py" -c 'import json, sys
 lu = True
 try: v = (json.load(open(sys.argv[1])).get("executors") or {}).get("allow_sudo", True)
 except FileNotFoundError: v = True
@@ -1212,7 +1458,7 @@ print(("oui" if v is True else "non") if lu else "")' "$ROOT/config.json" 2>/dev
         non) ok "bacs durcis : sudo refusé (executors.allow_sudo)" ;;
         *) warn "réglage executors.allow_sudo non lu (config.json ou Python indisponible)" ;;
     esac
-    ouverts="$("$py" -c 'import json, sys
+    ouverts="$(app_cmd "$py" -c 'import json, sys
 try: p = (json.load(open(sys.argv[1])).get("executors") or {}).get("network_profiles") or []
 except Exception: p = []
 print(" ".join(str(x.get("id")) for x in p if isinstance(x, dict) and x.get("mode") == "bridge" and not any(x.get(k) for k in ("block_metadata", "block_lan", "block_host"))))' "$ROOT/config.json" 2>/dev/null)"
@@ -1242,7 +1488,7 @@ except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
     nm="$(readlink -f "$ROOT/browser-service/node_modules" 2>/dev/null)"
     check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules} browser-service/dist ; chmod o+r browser-service/dist/main.mjs" \
         test "$(find "$ROOT/browser-service" "$ROOT/browser-service/dist" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 4 -a -n "$(find "$ROOT/browser-service/dist/main.mjs" -perm -o+r 2>/dev/null)"
-    sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"
+    if separe_vise; then sb="$SANDBOX_DIR"; else sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"; fi
     # Jetons du service : dossier d'exécution de l'hôte d'outils (unité systemd) ou, sans systemd, $RUN_DIR/navigateur.
     jt="$RUN_DIR/navigateur"
     if systemd_active && [ "$(systemctl show -p WorkingDirectory --value "${UNIT_PREFIX}-toolhost.service" 2>/dev/null)" = "$ROOT" ]; then jt="/run/${UNIT_PREFIX}-toolhost/navigateur"; fi
@@ -1277,7 +1523,9 @@ doctor_comptes() {
     if id -nG "$(id -un)" | tr ' ' '\n' | grep -qxF -- "$GROUPE_DONNEES" && ! id -Gn | tr ' ' '\n' | grep -qxF -- "$GROUPE_DONNEES"; then
         warn "groupe $GROUPE_DONNEES absent de cette session (ouverte avant son ajout) : données des services illisibles d'ici (nouvelle session, ou sg $GROUPE_DONNEES -c './elpis doctor')"; bad=$((bad+1))
     fi
-    sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"; rs="$(core_cmd config RAG_STORE_DIR 2>/dev/null)"
+    [ "${#CHEMINS_FIXES[@]}" -gt 0 ] || chemins_separes
+    sb="$SANDBOX_DIR"; rs="$RAG_STORE"
+    ECARTS_CONFIG=0; avertir_chemins_config; bad=$((bad + ECARTS_CONFIG))
     for c in "$ROOT/user_db|2771 root $GROUPE_DONNEES" "${sb:-$ROOT/user_sandboxes}|2770 root $GROUPE_DONNEES" "$LOG_DIR|2770 root $GROUPE_DONNEES" \
              "$ROOT/backups|700" "$SYS_PREFIXE/etc/elpis|751 root root" \
              "${rs:-$ROOT/user_db/rag}|2770 $UNIT_PREFIX-main $GROUPE_RAG" "$JETON_RAG_SYS|440 root $GROUPE_RAG"; do
@@ -1476,17 +1724,28 @@ doctor_paquets_rsyslog() {
 
 cmd_doctor() {
     local bad=0 sortie
-    charger_env
-    NODE="$(node_bin)"
+    if separe_vise; then
+        if [ "$(id -u)" -eq 0 ]; then charger_env_sur; else charger_env; fi
+        NODE="$(node_bin)"; chemins_separes
+    else
+        charger_env
+        NODE="$(node_bin)"
+    fi
     # Contrôles : check LIBELLÉ CONSEIL COMMANDE [ARGUMENTS...] (la commande est un argv, jamais évaluée par un shell).
     check() { local lib="$1" conseil="$2"; shift 2; if "$@" >/dev/null 2>&1; then ok "$lib"; else warn "$lib : NON ($conseil)"; bad=$((bad+1)); fi; }
     # Facultatif : signalé, sans compter comme un problème.
     check_opt() { local lib="$1" conseil="$2"; shift 2; if "$@" >/dev/null 2>&1; then ok "$lib"; else info "$lib : absent ($conseil)"; fi; }
     check_out() { local lib="$1" conseil="$2"; shift 2; if sortie="$("$@" 2>&1)"; then ok "$lib : $sortie"; else warn "$lib : NON (${sortie:+$sortie ; }$conseil)"; bad=$((bad+1)); fi; }
     doctor_runtime() { [ "$(runtime_empreinte "$NODE_DIR")" = "$1" ]; }
-    doctor_office() { (cd "$ROOT/office" && "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'); }
-    doctor_hote_empreinte() { ELPIS_RACINE="$ROOT" "$NODE" "$HOTE_DIST/main.mjs" --empreinte; }
-    doctor_llm() { ELPIS_CFG_LLM_API_KEY="$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"; }
+    doctor_office() {
+        if racine_separee; then app_console env -C "$ROOT/office" "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'
+        else (cd "$ROOT/office" && "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'); fi
+    }
+    doctor_hote_empreinte() { app_cmd env ELPIS_RACINE="$ROOT" "$NODE" "$HOTE_DIST/main.mjs" --empreinte; }
+    doctor_llm() {
+        if racine_separee; then app_console --env "ELPIS_CFG_LLM_API_KEY=$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"
+        else ELPIS_CFG_LLM_API_KEY="$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"; fi
+    }
     # Paquets apt d'un groupe : manquants = problème si le groupe sert ici, sinon simple information.
     check_apt() {
         local manquants=() l liste="" cmd
@@ -1507,7 +1766,7 @@ cmd_doctor() {
         info "paquets apt : dpkg-query absent, prérequis non vérifiés (deploy/prerequis-apt.txt)"
     fi
     check "venv Python" "./install.sh" test -x "$PY"
-    check "dépendances Python" "./install.sh" "$PY" -c 'import fastapi, httpx, uvicorn' 
+    check "dépendances Python" "./install.sh" app_cmd "$PY" -c 'import fastapi, httpx, uvicorn'
     local v_runtime="NODE_RUNTIME_SHA256_$(uname -m)" runtime_attendu
     runtime_attendu="${!v_runtime:-absente}"
     if [ "$NODE" = "$NODE_DIR/bin/node" ]; then
@@ -1530,7 +1789,7 @@ cmd_doctor() {
         check_out "bundle de l'hôte d'outils" "./install.sh, ou ./install.sh --offline <paquet de cette version>" \
             doctor_hote_empreinte
         check_out "modules natifs de l'hôte d'outils" "bundle incomplet ou d'une autre architecture : paquet hors ligne de cette architecture, ou construction sur place (build-essential, python3 : npm ci y compile node-pty)" \
-            timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --natif
+            app_cmd timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --natif
     fi
     if [ -n "${SSL_CERT_FILE:-}${SSL_CERT_DIR:-}" ]; then
         check "autorités de confiance (${SSL_CERT_FILE:-SSL_CERT_DIR=$SSL_CERT_DIR})" \
@@ -1538,7 +1797,7 @@ cmd_doctor() {
     else
         info "autorités de confiance : magasins par défaut (core : Node et /etc/ssl/certs ; httpx : certifi) ; PKI interne : ./elpis configure --ca-file systeme"
     fi
-    check "dépendances de l'extracteur du RAG" "venv/bin/pip install -r requirements-rag.txt" "$PY" -c 'import pdfplumber, pypdfium2, pypdf, openpyxl, docx, pptx' 
+    check "dépendances de l'extracteur du RAG" "venv/bin/pip install -r requirements-rag.txt" app_cmd "$PY" -c 'import pdfplumber, pypdfium2, pypdf, openpyxl, docx, pptx'
     check "moteur Office (worker de l'hôte d'outils)" "venv/bin/pip install -r requirements.txt" doctor_office
     if [ -L "$ROOT/config.json" ] && [ ! -f "$ROOT/config.json" ]; then
         warn "config.json : illisible pour ce compte ($(readlink -- "$ROOT/config.json") : groupe $GROUPE_DONNEES dans une nouvelle session, ou sudo ./elpis doctor)"; bad=$((bad+1))
@@ -1556,15 +1815,15 @@ cmd_doctor() {
     check "hôte d'outils ($th_host:$MCP_PORT)" "./elpis logs toolhost" curl --noproxy '*' -fsS -m 3 -o /dev/null "http://$th_host:$MCP_PORT/health"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
         local natives
-        natives="$(ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
+        natives="$(app_cmd env ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
         info "hôte d'outils : familles servies ${natives:-aucune} (toolhost.json › families)"
         local th_conf="${TOOLHOST_CONFIG:-$ROOT/toolhost.json}"; case "$th_conf" in /*) ;; *) th_conf="$ROOT/$th_conf" ;; esac
         if [ -f "$th_conf" ] && grep -qE '"(familles_natives|mcp_upstream|mcp_upstream_sse)"[[:space:]]*:[[:space:]]*([^[:space:]"]|"[^"])' "$th_conf"; then
             warn "toolhost.json : familles_natives / mcp_upstream sont obsolètes (elpis-tools n'existe plus), ignorés : à retirer"
         fi
     fi
-    check "outils du compte servis par main (mcp.json sans URL d'appmcp)" "./elpis configure" "$PY" "$ROOT/deploy/configure.py" --verifier-mcp
-    check "familles d'outils de mcp.example.json présentes dans mcp.json" "./elpis configure" "$PY" "$ROOT/deploy/configure.py" --verifier-familles-mcp
+    check "outils du compte servis par main (mcp.json sans URL d'appmcp)" "./elpis configure" app_cmd "$PY" "$ROOT/deploy/configure.py" --verifier-mcp
+    check "familles d'outils de mcp.example.json présentes dans mcp.json" "./elpis configure" app_cmd "$PY" "$ROOT/deploy/configure.py" --verifier-familles-mcp
     local retire
     for retire in ELPIS_TOOLHOST ELPIS_APPMCP ELPIS_CLI; do
         [ "${!retire:-}" = python ] && info "$retire=python : ignoré depuis la 0.1.0 (retour à la version Python : tag python-final, docs/operations.md), à retirer de .env"
@@ -1573,7 +1832,7 @@ cmd_doctor() {
     check "service navigateur (monté dans la sandbox de chaque compte)" "./install.sh" test -d "$ROOT/browser-service/node_modules"
     if [ -d "$ROOT/browser-service/node_modules" ]; then
         check "service navigateur construit pour ces sources (browser-service/dist)" "deploy/node/installer.sh navigateur" \
-            env ELPIS_RACINE="$ROOT" "$NODE" "$ROOT/browser-service/dist/empreinte.mjs"
+            app_cmd env ELPIS_RACINE="$ROOT" "$NODE" "$ROOT/browser-service/dist/empreinte.mjs"
     fi
     doctor_navigateur_bac
     # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
@@ -1619,12 +1878,13 @@ cmd_doctor() {
             check_out "serveur LLM" "./elpis configure" doctor_llm "$py" "$moteur" "$llm" "$cle"
             local conseil
             while IFS= read -r conseil; do info "$conseil"; done \
-                < <(ELPIS_CFG_LLM_API_KEY="$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}" 2>/dev/null)
+                < <(if racine_separee; then app_console --env "ELPIS_CFG_LLM_API_KEY=$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}"
+                    else ELPIS_CFG_LLM_API_KEY="$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}"; fi 2>/dev/null)
         fi
     fi
     if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
         # Extracteur, jeton et magasin partagés, Qdrant, embeddings, reclassement et OCR : vus par le core.
-        lignes_doctor "RAG" env ELPIS_RACINE="$ROOT" timeout 120 "$NODE" --use-system-ca "$CORE_DIST/exploitation.mjs" rag
+        lignes_doctor "RAG" app_cmd env ELPIS_RACINE="$ROOT" timeout 120 "$NODE" --use-system-ca "$CORE_DIST/exploitation.mjs" rag
     else
         info "RAG : non vérifié (core non construit ou config.json absent)"
     fi
@@ -1642,27 +1902,34 @@ cmd_doctor() {
 # =============================================================================
 #  backup / upgrade
 # =============================================================================
-# Sauvegarde par le core ; un compte par service : sous root seul (lui seul lit toutes les clés), archives de backups/ rendues ensuite à l'opérateur (0600).
+# Sauvegarde par le core ; un compte par service : sous root seul, le core sous le compte de la console (app_console : il lit les clés de elpis-cle, pas l'autorité privée du relais de l'hôte d'outils) écrit l'archive sur sa sortie, que root reçoit dans backups/ et rend à l'opérateur (0600) ; ni --dest ni chemin pris à config.json.
 cmd_backup() {
-    local rc=0 op og
-    charger_env
+    local rc=0 op og tmp nom libelle
     charger_instance
     need_exploitation
     if [ "$(mode_installe)" != separes ]; then core_cmd backup "$@"; return; fi
     [ "$(id -u)" -eq 0 ] || die "Un compte par service : seul root lit toutes les clés à sauvegarder ; lancez sudo ./elpis backup${*:+ $*}"
-    core_cmd backup "$@" || rc=$?
+    case " $* " in *" --dest"*) die "Un compte par service : l'archive va dans backups/ (--dest refusé), copiez-la ensuite." ;; esac
+    case "${1:-full}" in
+        full) libelle=complet ;; db|sandboxes|mcp) libelle="$1" ;;
+        -h|--help) app_console "$NODE" "$CORE_DIST/exploitation.mjs" backup --help; return ;;
+        *) die "Usage : sudo ./elpis backup [full|db|sandboxes|mcp]" ;;
+    esac
     op="${SUDO_USER:-}"; [ -n "$op" ] && [ "$op" != root ] || op="$(stat -c %U -- "$ROOT")"
     og="$(id -gn "$op")" || return 1
-    if [ -d "$ROOT/backups" ]; then
-        { dossier_sur "$ROOT/backups" 00700 "$op" "$og" && poser_droits arbre "$ROOT/backups" "$og" go-rwx go-rwxs --proprio "$op" --comptes root; } \
-            || warn "Archives de backups/ non rendues à $op (voir ci-dessus)."
-    fi
+    poser_droits dossier "$ROOT/backups" 0700 "$op" "$og" --creer || die "Dossier $ROOT/backups refusé (voir ci-dessus)."
+    tmp="$(mktemp "$ROOT/backups/.sauvegarde.XXXXXX")" || die "Archive temporaire impossible dans $ROOT/backups."
+    app_console --env ELPIS_SAUVEGARDE_SUR_SORTIE=1 "$NODE" "$CORE_DIST/exploitation.mjs" backup "$@" > "$tmp"; rc=$?
+    if [ ! -s "$tmp" ] || { [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ] && [ "$rc" -ne 3 ]; }; then rm -f -- "$tmp"; return "$rc"; fi
+    nom="backup_${libelle}_$(date +%s)$([ "$rc" -ne 3 ] || echo _incomplet).zip"
+    { chown -- "$op:$og" "$tmp" && chmod 0600 -- "$tmp" && mv -n -T -- "$tmp" "$ROOT/backups/$nom"; } \
+        || { rm -f -- "$tmp"; die "Archive non rangée dans $ROOT/backups."; }
+    printf '%s\n' "$ROOT/backups/$nom"
     return "$rc"
 }
 
 # Base de données : état, test d'une cible, copie, choix du moteur (« use sqlite » ne touche à aucune base).
 cmd_db() {
-    charger_env
     charger_instance
     need_exploitation
     core_cmd db "$@"
@@ -1701,7 +1968,6 @@ cmd_audit() {
         if [ "$MODE_COMPTES" = separes ]; then ok "Journal de sécurité en place (un compte par service)."; else ok "Journal de sécurité en place (compte $COMPTE_SETUP)."; fi
         return 0
     fi
-    charger_env
     charger_instance
     need_exploitation
     core_cmd audit "$@"
@@ -1715,7 +1981,6 @@ cmd_vault() {
             [ $# -eq 1 ] || die "Usage : sudo ./elpis vault setup"
             vault_setup ;;
         status|rekey|doctor)
-            charger_env
             charger_instance
             need_exploitation
             if [ "$1" = rekey ] && [ "${2:-}" = --from ] && [ -n "${3:-}" ]; then
@@ -1730,7 +1995,6 @@ cmd_vault() {
 # Secrets du coffre : métadonnées seules (jamais de valeur).
 cmd_secret() {
     [ "${1:-}" = ls ] || die "Usage : ./elpis secret ls [--user COMPTE]"
-    charger_env
     charger_instance
     need_exploitation
     vault_core secret "$@"
@@ -1749,19 +2013,15 @@ cmd_auth() {
     vault_core auth "$@"
 }
 
-# Commande du coffre par le core : sous le compte des services quand root la lance (la console en mode séparé ; runuser, ses groupes compris : clé lisible, fichiers de la base jamais créés par root), telle quelle sinon.
+# Commande du coffre par le core : sous le compte des services quand root la lance (la console en mode séparé, par core_cmd et app_console ; compte unique : runuser, ses groupes compris : clé lisible, fichiers de la base jamais créés par root), telle quelle sinon.
 vault_core() {
-    local compte groupe=""
-    if [ "$(id -u)" -ne 0 ]; then core_cmd "$@"; return; fi
-    if [ "$(mode_installe)" = separes ]; then
-        compte="$UNIT_PREFIX-admin"; groupe="ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES"
-    else
-        compte="$(compte_services)"
-        compte="${compte:-${ELPIS_USER:-${SUDO_USER:-}}}"
-    fi
+    local compte
+    if [ "$(id -u)" -ne 0 ] || separe_vise; then core_cmd "$@"; return; fi
+    compte="$(compte_services)"
+    compte="${compte:-${ELPIS_USER:-${SUDO_USER:-}}}"
     [ -n "$compte" ] && [ "$compte" != root ] \
         || die "Compte des services inconnu : relancez sans sudo sous ce compte, ou ELPIS_USER=nom."
-    (cd / && runuser -u "$compte" -- env "ELPIS_RACINE=$ROOT" ${SANDBOX_DIR:+"APP_SANDBOX_DIR=$SANDBOX_DIR"} ${groupe:+"$groupe"} \
+    (cd / && runuser -u "$compte" -- env "ELPIS_RACINE=$ROOT" ${SANDBOX_DIR:+"APP_SANDBOX_DIR=$SANDBOX_DIR"} \
         "$NODE" "$CORE_DIST/exploitation.mjs" "$@")
 }
 
@@ -1838,31 +2098,9 @@ groupe_de_cle() {
     groupe_propre "$GRP_CLE" "$compte" || { warn "Groupe $GRP_CLE : groupe primaire d'un autre compte, clé non confiée."; return 1; }
 }
 
-# Dossier système posé sans suivre de lien : créé s'il manque, refusé si c'est un lien, un fichier, le bien d'un autre compte ou (parent inscriptible par d'autres) un dossier de root non vide à céder ; droits posés sur « . » une fois dedans.
+# Dossier système posé sans suivre de lien (deploy/droits.py dossier : ouvert depuis « / », parents fermés aux services) : créé s'il manque, refusé si c'est un lien, un fichier, le bien d'un autre compte ou (parent inscriptible par d'autres) un dossier de root non vide à céder ; droits posés par descripteur.
 dossier_sur() {
-    local d="$1" mode="$2" proprio="$3" groupe="$4" admis=" root $3 ${5:-} " attendu parent
-    [ "$(id -u)" -eq 0 ] || admis+="$(id -un) "
-    if [ ! -e "$d" ] && [ ! -L "$d" ]; then
-        mkdir -m "$mode" -- "$d" || return 1
-        info "Dossier $d créé."
-    fi
-    parent="$(cd -P -- "$(dirname -- "$d")" && pwd -P)" || return 1
-    attendu="$parent/${d##*/}"
-    (
-        { [ ! -L "$d" ] && cd -P -- "$d" 2>/dev/null && [ "$(pwd -P)" = "$attendu" ]; } \
-            || { warn "$d : lien symbolique, fichier ou dossier déplacé : refusé (à vérifier)."; exit 1; }
-        p="$(stat -c %U .)"
-        case "$admis" in
-            *" $p "*) ;;
-            *) warn "$d appartient à $p, pas à $proprio : refusé (services sous $p : ELPIS_USER=$p ; passage à $proprio : sudo ELPIS_USER=$proprio ./elpis service install)."; exit 1 ;;
-        esac
-        if [ "$p" = root ] && [ "$proprio" != root ] && [ -n "$(ls -A .)" ] \
-                && [ $(( 8#$(stat -c %a -- "$parent") & 8#022 )) -ne 0 ]; then
-            warn "$d : dossier de root non vide à céder à $proprio : refusé (à vérifier)."; exit 1
-        fi
-        if [ "$(id -u)" -eq 0 ]; then chown -h "$proprio:$groupe" . || exit 1; fi
-        chmod "$mode" .
-    )
+    poser_droits dossier "$1" "$2" "$3" "$4" --admis "${5:-}" --creer
 }
 
 # Clé de signature : fichier ordinaire, jamais un lien, créée si absente ou vide (jamais remplacée sinon), puis 0440 root:GRP_CLE à chaque passage.
@@ -2086,6 +2324,8 @@ ensure_sandbox_image() {
 cmd_upgrade() {
     local backup=1 req="$ROOT/requirements-rag.txt"
     case "${1:-}" in --no-backup) backup=0 ;; "") ;; *) die "Usage : ./elpis upgrade [--no-backup]" ;; esac
+    [ "$(id -u)" -ne 0 ] || [ "$(mode_installe)" != separes ] \
+        || die "Un compte par service : ./elpis upgrade se lance sans sudo, depuis le compte de l'opérateur (la sauvegarde et le redémarrage demandent sudo d'eux-mêmes)."
     load_runtime
     git -C "$ROOT" diff --quiet HEAD -- \
         || die "Modifications locales dans le dépôt (git status) : mise à jour annulée."
@@ -2159,7 +2399,7 @@ case "${1:-}" in
     configure) shift; cmd_configure "$@" ;;
     start)     shift; cmd_start "$@" ;;
     stop)      cmd_stop ;;
-    restart)   load_runtime; need_core; cmd_migrations; cmd_stop; cmd_start ;;
+    restart)   refuser_racine_separee restart; load_runtime; need_core; cmd_migrations; cmd_stop; cmd_start ;;
     status)    cmd_status ;;
     logs)      shift; cmd_logs "$@" ;;
     service)   shift; cmd_service "$@" ;;

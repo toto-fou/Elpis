@@ -44,7 +44,7 @@ def depot(tmp_path):
     for d in ("deploy/node", "logs/audit", "user_db/run", "apps/core/dist"):
         (r / d).mkdir(parents=True)
     for f in ("elpis", "deploy/node/node.env", "deploy/node/runtime.sh", "deploy/prerequis-apt.sh",
-              "deploy/prerequis-apt.txt"):
+              "deploy/prerequis-apt.txt", "deploy/droits.py"):
         shutil.copy2(REPO / f, r / f)
     (r / "apps/core/dist/exploitation.mjs").write_text(TALON_CORE, encoding="utf-8")
     (tmp_path / "sys").mkdir()
@@ -295,7 +295,7 @@ def _unites(depot: Path, **env: str) -> dict[str, str]:
     """Unités rendues par `_render_units` (dépendances du rendu remplacées par des talons)."""
     talons = """
 load_runtime() { :; }; need_core() { :; }; _db_local_unit() { :; }; _https_enabled() { return 1; }
-svc_available() { :; }; dossier_etat_sur() { :; }; base_sure() { printf '%s\n' "$1"; }
+svc_available() { :; }; chemin_etat_sur() { :; }; base_sure() { printf '%s\n' "$1"; }
 svc_spec() { SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true "$1"); SPEC_ENV=(A=1); }
 core_cmd() {
     case "$*" in "config DB_PATH") echo /srv/donnees/app.db ;; "config MCP_SERVERS_DIR") echo /srv/mcp_custom_servers ;;
@@ -310,7 +310,7 @@ APPLOG_DIR_SYS=/var/log/elpis; NODE=/usr/bin/node
     sortie.mkdir(exist_ok=True)
     if not (depot / "deploy/systemd").exists():
         shutil.copytree(REPO / "deploy/systemd", depot / "deploy/systemd")
-    fonctions = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_valeur_sure",
+    fonctions = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_chemin_unite", "_valeur_unite", "_mot_unite", "_env_unite_sure",
                           "_chemins_hors_depot", "_nettoyer_rendu", "_compte_unite", "_umask_unite", "_env_comptes")
     r = _bash(depot, fonctions, talons + f'_render_units "{sortie}" {MOI}', **env)
     assert r.returncode == 0, r.stderr
@@ -427,11 +427,11 @@ def test_unites_main_et_console_sans_ecriture_dans_le_code(depot):
 
 @pytest.mark.parametrize("chemin", ["/srv/avec espace", "/srv/pour%cent"])
 def test_unites_chemin_a_espace_ou_pourcent_refuse_sans_rien_installer(depot, chemin):
-    texte = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_valeur_sure",
+    texte = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_chemin_unite", "_valeur_unite", "_mot_unite", "_env_unite_sure",
                        "_chemins_hors_depot", "_nettoyer_rendu", "_compte_unite", "_umask_unite", "_env_comptes")
     talons = f"""
 load_runtime() {{ :; }}; need_core() {{ :; }}; _db_local_unit() {{ :; }}; _https_enabled() {{ return 1; }}
-svc_available() {{ :; }}; dossier_etat_sur() {{ :; }}; base_sure() {{ printf '%s\n' "$1"; }}; svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true); SPEC_ENV=(); }}
+svc_available() {{ :; }}; chemin_etat_sur() {{ :; }}; base_sure() {{ printf '%s\n' "$1"; }}; svc_spec() {{ SPEC_DIR="$ROOT"; SPEC_CMD=(/bin/true); SPEC_ENV=(); }}
 core_cmd() {{ [ "$*" = "config MCP_SERVERS_DIR" ] && echo '{chemin}'; return 0; }}; lanceur() {{ :; }}
 SERVICES=(main); VAULT_KEY_SYS=/etc/elpis/vault.key; AUDIT_KEY_SYS=/etc/elpis/audit.key; CONFIG_SYS=/etc/elpis/config
 SANDBOX_DIR=/srv/bacs; RAG_STORE=/srv/rag; RAG_CACHE=/srv/rag-cache; CHART_DIR=/srv/g; AUDIT_DIR_SYS=/a; APPLOG_DIR_SYS=/l; NODE=/n
@@ -439,5 +439,5 @@ SANDBOX_DIR=/srv/bacs; RAG_STORE=/srv/rag; RAG_CACHE=/srv/rag-cache; CHART_DIR=/
     sortie = depot.parent / "unites-refus"
     sortie.mkdir()
     r = _bash(depot, texte, talons + f'_render_units "{sortie}" {MOI}')
-    assert r.returncode != 0 and "contient" in r.stderr
+    assert r.returncode != 0 and "refusé pour une unité systemd" in r.stderr
     assert list(sortie.iterdir()) == []

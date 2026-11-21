@@ -45,6 +45,7 @@ esac
     tete = """set -uo pipefail
 info() { printf '[elpis] %s\\n' "$*"; }; ok() { printf '[ ok  ] %s\\n' "$*"; }
 warn() { printf '[warn ] %s\\n' "$*" >&2; }
+app_cmd() { "$@"; }
 """
     script = f'{tete}ROOT={racine}; bad=0\n{_fonction()}\ndoctor_isolation_bac; echo "bad=$bad"'
     env = {"PATH": f"{faux}:{os.environ.get('PATH', '/usr/bin:/bin')}", "LANG": "C.UTF-8", "HOME": str(tmp_path)}

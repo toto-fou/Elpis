@@ -35,7 +35,7 @@ def depot(tmp_path):
     for d in ("deploy/node", "logs/audit", "user_db/run"):
         (r / d).mkdir(parents=True)
     for f in ("elpis", "deploy/node/node.env", "deploy/node/runtime.sh", "deploy/prerequis-apt.sh",
-              "deploy/prerequis-apt.txt"):
+              "deploy/prerequis-apt.txt", "deploy/droits.py"):
         shutil.copy2(REPO / f, r / f)
     (tmp_path / "sys").mkdir()
     return r

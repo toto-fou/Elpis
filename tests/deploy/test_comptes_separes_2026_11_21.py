@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import getpass
 import grp
+import json
 import os
 import re
 import shutil
@@ -63,8 +64,10 @@ chown() { trace chown "$@"; }; systemctl() { trace systemctl "$@"; }; systemd-tm
 install() { trace install "$@"; }; sudo() { :; }
 load_runtime() { SANDBOX_DIR="$ROOT/user_sandboxes"; RAG_STORE="$ROOT/user_db/rag"; RAG_CACHE="$ROOT/user_db/rag-cache"; CHART_DIR="$ROOT/user_db/run/charts"; NODE=/bin/true; }
 need_core() { :; }
+node_bin() { echo /bin/true; }
 _render_units() {
-    trace render "$MODE_COMPTES" "$2"; UNITS_WANTS=(); BASE_DONNEES="$ROOT/user_db"; ECRITURES=""
+    trace render "$MODE_COMPTES" "$2"; if [ "$MODE_COMPTES" = separes ]; then chemins_separes; else load_runtime; fi
+    UNITS_WANTS=(); BASE_DONNEES="$ROOT/user_db"; ECRITURES=""
     printf '[Service]\nUser=%s\nEnvironment="ELPIS_COMPTES=%s"\n' "$([ "$MODE_COMPTES" = separes ] && echo elpis-main || echo "$2")" "$MODE_COMPTES" \
         > "$SYS_PREFIXE/etc/systemd/system/elpis-main.service"
 }
@@ -343,7 +346,10 @@ def test_secrets_de_config_ecrits_par_root_sans_lien_suivi(depot):
     corps = (f'PY="{sys.executable}"; MODE_COMPTES=separes; BASE_DONNEES="$ROOT/user_db"\n'
              f'ranger_secrets "{etc}/rag.token" elpis-admin; echo "rc=$?"')
     talons = TALONS.replace('ranger_secrets() { trace ranger_secrets "$@"; }\n', "")
-    r = _harnais(depot, corps, talons, JOURNAL=str(journal))
+    # Sous la console (app_console), seul l'environnement construit passe : .env compris.
+    (depot / ".env").write_text(f"JOURNAL={journal}\n", encoding="utf-8")
+    (depot / ".env").chmod(0o600)
+    r = _harnais(depot, corps, talons)
     assert "rc=0" in r.stdout, r.stderr
     db = depot / "user_db"
     assert {f: (db / f).read_text(encoding="utf-8") for f in (".session_secret", ".encryption_key")} == {
@@ -354,11 +360,12 @@ def test_secrets_de_config_ecrits_par_root_sans_lien_suivi(depot):
     (db / ".encryption_key").unlink()
     (db / ".encryption_key").symlink_to(cible)
     journal.unlink()
-    r = _harnais(depot, corps, talons, JOURNAL=str(journal))
+    r = _harnais(depot, corps, talons)
     assert "rc=1" in r.stdout and "secrets laissés dans config.json" in r.stderr and not journal.exists()
     assert cible.read_text(encoding="utf-8") == "hôte"
     (db / ".encryption_key").unlink()
-    r = _harnais(depot, corps, talons, JOURNAL=str(journal), CODE="2")
+    (depot / ".env").write_text(f"JOURNAL={journal}\nCODE=2\n", encoding="utf-8")
+    r = _harnais(depot, corps, talons)
     assert "rc=1" in r.stdout and "code 2" in r.stderr and not (db / ".encryption_key").exists()
 
 
@@ -521,9 +528,12 @@ def test_doctor_sauvegardes_privees_au_mode_seul(depot):
 
 def test_vault_core_sous_la_console_en_mode_separe(depot):
     _unite(depot, "main", "elpis-main", "separes")
-    r = _harnais(depot, 'NODE=/bin/node; vault_core vault status',
-                 talons='id() { [ "$*" = -u ] && echo 0 || command id "$@"; }\nrunuser() { echo "runuser $*"; }')
-    assert "runuser -u elpis-admin -- env " in r.stdout and "ELPIS_GROUPE_DONNEES=elpis-donnees" in r.stdout, r.stderr
+    talons = ('id() { [ "$*" = -u ] && echo 0 || command id "$@"; }\n'
+              'runuser() { echo "runuser $*"; env | grep -E "^(ELPIS_GROUPE_DONNEES|USER|APP_SANDBOX_DIR)=" | sort; }')
+    r = _harnais(depot, 'NODE=/bin/node; vault_core vault status', talons=talons)
+    lignes = r.stdout.splitlines()
+    assert lignes[0] == f"runuser -u elpis-admin -- /bin/node {depot}/apps/core/dist/exploitation.mjs vault status", r.stderr
+    assert {"ELPIS_GROUPE_DONNEES=elpis-donnees", "USER=elpis-admin", f"APP_SANDBOX_DIR={depot}/user_sandboxes"} <= set(lignes)
 
 
 def test_audit_setup_du_mode_separe(depot, tmp_path):
@@ -661,16 +671,23 @@ def test_dossiers_d_etat_acceptes_ou_refuses_pour_root(depot):
     (depot.parent / "lien").symlink_to(hors)
     passwd = _sys(depot) / "etc/passwd"
     passwd.write_text(passwd.read_text(encoding="utf-8").replace(f"/nonexistent-{MOI}", str(maison)), encoding="utf-8")
+    # D'après le seul chemin (rien n'est lu sur le disque) : chemin_etat_sur.
     attendus = {f"{depot}": "non", f"{depot}/deploy": "non", f"{depot}/user_db/rag": "oui", f"{depot}/logs": "oui",
                 f"{depot.parent}": "non", "/": "non", f"{maison}": "non", f"{_sys(depot)}/etc/elpis/config": "non",
-                f"{depot}/user_db/../deploy": "non", f"{depot.parent}/lien": "non", f"{hors}": "non",
-                f"{depot.parent}/absent": "non", f"{depot.parent}/mcp_custom_servers": "oui", f"{srv}": "oui"}
-    corps = (f'stat() {{ if [ "$*" = "-c %U:%G -- {srv}" ]; then echo root:elpis-donnees; else command stat "$@"; fi; }}\n'
-             + "".join(f'dossier_etat_sur "{c}" && echo "oui {c}" || echo "non {c}"\n' for c in attendus)
-             + f'dossier_etat_sur "{depot}/deploy" || true\nCOMPTE_ETAT="$MOI"; dossier_etat_sur "{hors}/" && echo "unique oui"')
+                f"{depot}/user_db/../deploy": "non", f"{depot.parent}/lien": "oui", f"{hors}": "oui",
+                f"{depot.parent}/absent": "oui", f"{srv}": "oui"}
+    corps = ("".join(f'chemin_etat_sur "{c}" && echo "oui {c}" || echo "non {c}"\n' for c in attendus)
+             + f'chemin_etat_sur "{depot}/deploy" || true')
     r = _harnais(depot, corps)
     assert {l.split(" ", 1)[1]: l.split(" ", 1)[0] for l in r.stdout.splitlines() if l[:4] in ("oui ", "non ")} == attendus
-    assert "unique oui" in r.stdout and r.stderr.count(f"Dossier {depot}/deploy refusé (dans le dépôt") == 1, r.stderr
+    assert r.stderr.count(f"Dossier {depot}/deploy refusé (dans le dépôt") == 1, r.stderr
+    # Sur le disque, au moment même (deploy/droits.py) : lien et dossier absent hors du dépôt refusés, dossier MCP par défaut créé.
+    corps = "".join(f'dossier_donnees "{c}" 2770 "" && echo "oui {c}" || echo "non {c}"\n'
+                    for c in (f"{depot.parent}/lien", f"{depot.parent}/absent", f"{depot.parent}/mcp_custom_servers"))
+    r = _harnais(depot, corps)
+    assert [l for l in r.stdout.splitlines() if l[:4] in ("oui ", "non ")] == [
+        f"non {depot.parent}/lien", f"non {depot.parent}/absent", f"oui {depot.parent}/mcp_custom_servers"], r.stderr
+    assert _mode(depot.parent / "mcp_custom_servers") == "2770" and not (depot.parent / "absent").exists()
 
 
 def test_ecritures_des_unites_sans_dossier_refuse(depot):
@@ -690,14 +707,17 @@ def test_chemins_de_config_hors_des_dossiers_surs_sans_effet_sous_root(depot):
     (victime / "f").chmod(0o644)
     (victime / ".encryption_key").symlink_to(depot.parent / "cible")
     avant = {d: _mode(d) for d in (depot / "deploy", depot / "deploy/node", victime, victime / "f")}
-    rendu = ('_render_units() { trace render "$MODE_COMPTES" "$2"; UNITS_WANTS=(); BASE_DONNEES=""\n'
-             f"""    ECRITURES="$(printf 'main admin\t%s\nmain admin\t%s' "$ROOT/deploy" "{victime}")"\n"""
+    # Chemins de config.json : ni droits ni écritures sous un compte par service (seuls .env et les défauts comptent).
+    (depot / "config.json").write_text(json.dumps({"mcp": {"servers_dir": str(victime)}, "skins": {"dir": f"{depot}/deploy"},
+                                                   "office_preview": {"cache_dir": str(victime)}}), encoding="utf-8")
+    rendu = ('_render_units() { trace render "$MODE_COMPTES" "$2"; chemins_separes; UNITS_WANTS=(); BASE_DONNEES="$ROOT/user_db"\n'
+             '    ECRITURES="$(_chemins_hors_depot "$BASE_DONNEES")"\n'
              """    printf '[Service]\nUser=elpis-main\nEnvironment="ELPIS_COMPTES=separes"\n' > "$SYS_PREFIXE/etc/systemd/system/elpis-main.service"; }\n""")
     r = _harnais(depot, INSTALLE_SEPARE.replace("cmd_service install", rendu + "cmd_service install"))
     assert r.returncode == 0, r.stdout + r.stderr
     assert {d: _mode(d) for d in avant} == avant
     assert (depot.parent / "cible").read_text(encoding="utf-8") == "secret de l'hôte" and not (victime / ".session_secret").exists()
-    assert f"Dossier {depot}/deploy refusé (dans le dépôt" in r.stderr and f"Dossier {victime} refusé (à {MOI}" in r.stderr
+    assert str(victime) not in r.stderr and _mode(depot.parent / "mcp_custom_servers") == "2770"
 
 
 def test_base_de_confiance_d_app_db_path_ou_de_user_db(depot):
@@ -750,17 +770,24 @@ def test_installeur_garde_les_dossiers_d_etat_sous_des_unites_separees(tmp_path)
 def test_sauvegarde_et_mise_a_jour_sous_root_en_mode_separe(depot):
     _unite(depot, "main", "elpis-main", "separes")
     talons = TALONS + """
-charger_env() { :; }; charger_instance() { :; }; need_exploitation() { :; }; poser_droits() { echo "droits $*"; }
-core_cmd() { echo "core $*"; mkdir -p "$ROOT/backups"; : > "$ROOT/backups/backup_full.zip"; return 3; }
+need_exploitation() { :; }
+app_console() { echo "console $*" >&2; printf 'ARCHIVE'; return 3; }
 """
     r = _harnais(depot, "cmd_backup full", talons=talons, FAUX_UID="1000")
-    assert r.returncode != 0 and "lancez sudo ./elpis backup full" in r.stderr and "core " not in r.stdout
+    assert r.returncode != 0 and "lancez sudo ./elpis backup full" in r.stderr and "console " not in r.stderr
     r = _harnais(depot, 'cmd_backup full; echo "rc=$?"', talons=talons)
-    assert "core backup full" in r.stdout and "rc=3" in r.stdout, r.stderr
-    assert f"droits arbre {depot}/backups {GROUPE} go-rwx go-rwxs --proprio {MOI} --comptes root" in r.stdout
-    maj = talons + 'git() { case "$*" in *pull*) return 1 ;; esac; }\nsudo() { echo "sudo $*"; }\nload_runtime() { :; }\n'
+    assert "rc=3" in r.stdout, r.stderr
+    assert f"console --env ELPIS_SAUVEGARDE_SUR_SORTIE=1 /bin/true {depot}/apps/core/dist/exploitation.mjs backup full" in r.stderr
+    archive = next((depot / "backups").glob("backup_complet_*_incomplet.zip"))
+    assert archive.read_bytes() == b"ARCHIVE" and _mode(archive) == "600" and _mode(depot / "backups") == "700"
+    assert f"chown -- {MOI}:{GROUPE} {depot}/backups/." in "\n".join(_trace(depot))
+    r = _harnais(depot, "cmd_backup full --dest /tmp", talons=talons)
+    assert r.returncode != 0 and "--dest refusé" in r.stderr
+    maj = TALONS + 'git() { case "$*" in *pull*) return 1 ;; esac; }\nsudo() { echo "sudo $*"; }\nload_runtime() { :; }\n'
     r = _harnais(depot, "cmd_upgrade", talons=maj, FAUX_UID="1000")
     assert f"sudo {depot}/elpis backup full" in r.stdout and "core " not in r.stdout, r.stdout + r.stderr
+    r = _harnais(depot, "cmd_upgrade", talons=maj)
+    assert r.returncode != 0 and "./elpis upgrade se lance sans sudo" in r.stderr
 
 
 def test_compte_de_service_existant_hors_comptes_systeme_refuse(depot):

@@ -453,5 +453,5 @@ def test_migrer_et_verifier_les_familles_sans_question(conf, tmp_path, monkeypat
 
 def test_doctor_verifie_les_familles():
     texte = (REPO / "elpis").read_text(encoding="utf-8")
-    assert re.search(r'^\s*check "[^"]*" "\./elpis configure" "\$PY" "\$ROOT/deploy/configure\.py" --verifier-familles-mcp$', texte, re.M)
+    assert re.search(r'^\s*check "[^"]*" "\./elpis configure" (app_cmd )?"\$PY" "\$ROOT/deploy/configure\.py" --verifier-familles-mcp$', texte, re.M)
     assert re.search(r'^migrer_mcp\(\) \{ "\$PY" "\$ROOT/deploy/configure\.py" --migrer-mcp', texte, re.M)

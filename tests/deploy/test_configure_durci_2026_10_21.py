@@ -152,7 +152,12 @@ def test_env_lu_comme_des_donnees_aucune_substitution_ni_commande(racine):
                                            ('APP_SANDBOX_DIR="/tmp/a$HOME"\n', "/tmp/a$HOME")])
 def test_env_valeurs_entre_guillemets_et_commentaires_de_fin(racine, ligne, attendu):
     (racine / ".env").write_text(ligne, encoding="utf-8")
-    assert f'Environment="APP_SANDBOX_DIR={attendu}"' in _elpis(racine, "service", "print").stdout.splitlines()
+    r = _elpis(racine, "service", "print")
+    if "$" in attendu:
+        # Lu tel quel, jamais développé ; un « $ » n'entre dans aucune unité.
+        assert r.returncode != 0 and f"« {attendu} » refusé pour une unité systemd" in r.stderr
+    else:
+        assert f'Environment="APP_SANDBOX_DIR={attendu}"' in r.stdout.splitlines()
 
 
 def test_charger_env_n_utilise_plus_source_et_doctor_n_evalue_plus():

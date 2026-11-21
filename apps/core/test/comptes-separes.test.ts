@@ -4,11 +4,14 @@ import {
   chmodSync,
   closeSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
@@ -169,5 +172,31 @@ describe("compte unique : modes d'aujourd'hui", () => {
     vi.stubEnv("CHART_CACHE_DIR", join(dossier, "graphiques"));
     const id = saveChartConfig({ series: [] }, "bob");
     expect([mode(chartsDir("bob")), mode(join(chartsDir("bob"), `${id}.json`))]).toEqual([0o700, 0o600]);
+  });
+});
+
+describe("mot de passe de base écrit sans suivre de lien", () => {
+  it("lien planté au nom final : remplacé par un fichier neuf (0600, 0640 sous le groupe), sa cible intacte", () => {
+    const ailleurs = join(dossier, "ailleurs");
+    writeFileSync(ailleurs, "intact");
+    symlinkSync(ailleurs, join(dossier, ".db_password"));
+    symlinkSync(ailleurs, join(dossier, ".db_password.pending"));
+    const restaurer = surchargerConfig({ DB_PATH: join(dossier, "app.db") });
+    try {
+      savePassword("mdp");
+      vi.stubEnv("ELPIS_GROUPE_DONNEES", String(GID));
+      savePassword("mdp-en-attente", true);
+    } finally {
+      restaurer();
+    }
+    const etat = (nom: string): [boolean, number, string] => {
+      const p = join(dossier, nom);
+      return [lstatSync(p).isFile(), mode(p), readFileSync(p, "utf8")];
+    };
+    expect([etat(".db_password"), etat(".db_password.pending")]).toEqual([
+      [true, 0o600, "mdp"],
+      [true, 0o640, "mdp-en-attente"],
+    ]);
+    expect(readFileSync(ailleurs, "utf8")).toBe("intact");
   });
 });

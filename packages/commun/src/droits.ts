@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** packages/commun/src/droits.ts — droits de l'état partagé entre services : privés au compte, ou au groupe des données (`ELPIS_GROUPE_DONNEES`) et au groupe de clé (`ELPIS_GROUPE_CLE`) quand chaque service a son compte. */
-import { readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import {
+  closeSync,
+  constants,
+  fchmodSync,
+  fchownSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import path from "node:path";
 
 /** Groupe des données des services (`ELPIS_GROUPE_DONNEES`), `null` en compte unique. */
 export function groupeDonnees(): string | null {
@@ -59,4 +71,35 @@ export function dossierDeConfiance(st: { uid: number; gid: number; mode: number 
   if (st.uid === process.geteuid?.() && (st.mode & 0o077) === 0) return true;
   const nom = groupeDonnees();
   return nom !== null && st.gid === gidDonnees(nom) && (st.mode & 0o007) === 0;
+}
+
+/** Secret écrit sans suivre de lien : temporaire au nom aléatoire du même dossier, créé exclusif en 0600, groupe et droits posés sur son descripteur, puis renommé (jamais laissé). */
+export function ecrireSecret(
+  chemin: string,
+  corps: Uint8Array,
+  mode: number,
+  gid: number | null = null,
+): void {
+  const tmp = path.join(
+    path.dirname(chemin),
+    `.${path.basename(chemin)}.${randomBytes(6).toString("hex")}.tmp`,
+  );
+  const fd = openSync(
+    tmp,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    try {
+      writeFileSync(fd, corps);
+      if (gid !== null) fchownSync(fd, -1, gid);
+      fchmodSync(fd, mode);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(tmp, chemin);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
 }

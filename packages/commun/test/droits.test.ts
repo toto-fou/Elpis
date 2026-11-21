@@ -1,9 +1,27 @@
 // SPDX-License-Identifier: MIT
-/** packages/commun/test/droits.test.ts — droits de l'état partagé : modes privés en compte unique, modes du groupe des données sous `ELPIS_GROUPE_DONNEES`, dossier sûr (à ce compte, ou à ce groupe sans droit pour les autres). */
-import { readFileSync } from "node:fs";
+/** packages/commun/test/droits.test.ts — droits de l'état partagé : modes privés en compte unique, modes du groupe des données sous `ELPIS_GROUPE_DONNEES`, dossier sûr (à ce compte, ou à ce groupe sans droit pour les autres), secret écrit sans suivre de lien. */
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { bitsInterdits, dossierDeConfiance, gidGroupeCle, groupeDonnees, modePartage } from "../src/droits";
+import {
+  bitsInterdits,
+  dossierDeConfiance,
+  ecrireSecret,
+  gidGroupeCle,
+  groupeDonnees,
+  modePartage,
+} from "../src/droits";
 
 const UID = process.geteuid?.() ?? 0;
 const GID = process.getgid?.() ?? 0;
@@ -85,6 +103,34 @@ describe("groupe de clé (ELPIS_GROUPE_CLE)", () => {
     if (nom !== null) {
       vi.stubEnv("ELPIS_GROUPE_CLE", nom);
       expect(gidGroupeCle()).toBe(GID);
+    }
+  });
+});
+
+describe("secret écrit par un temporaire exclusif (ecrireSecret)", () => {
+  it("lien planté au nom final ou à l'ancien temporaire fixe : remplacé ou ignoré, jamais suivi ; groupe et droits posés ; rien ne reste", () => {
+    const dossier = mkdtempSync(join(tmpdir(), "elpis-secret-"));
+    try {
+      const chemin = join(dossier, ".cle");
+      const ailleurs = join(dossier, "ailleurs");
+      writeFileSync(ailleurs, "intact");
+      symlinkSync(ailleurs, chemin);
+      symlinkSync(ailleurs, `${chemin}.tmp`);
+      ecrireSecret(chemin, Buffer.from("secret\n"), 0o640, GID);
+      const st = lstatSync(chemin);
+      expect([st.isFile(), st.mode & 0o7777, st.gid, readFileSync(chemin, "utf8")]).toEqual([
+        true,
+        0o640,
+        GID,
+        "secret\n",
+      ]);
+      expect(readFileSync(ailleurs, "utf8")).toBe("intact");
+      expect(readdirSync(dossier).sort()).toEqual([".cle", ".cle.tmp", "ailleurs"]);
+      mkdirSync(join(dossier, "dossier"));
+      expect(() => ecrireSecret(join(dossier, "dossier"), Buffer.from("x"), 0o600)).toThrow();
+      expect(readdirSync(dossier).sort()).toEqual([".cle", ".cle.tmp", "ailleurs", "dossier"]);
+    } finally {
+      rmSync(dossier, { recursive: true, force: true });
     }
   });
 });

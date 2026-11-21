@@ -87,7 +87,17 @@ export function adressesEpinglables(
 /** Ce que la protection « hôte » refuse en plus des adresses de la machine : diffusion générale et multidiffusion. */
 const DIFFUSIONS: readonly string[] = ["255.255.255.255/32", "224.0.0.0/4"];
 
-/** Réseaux IPv4 que refusent les protections cochées d'un profil ouvert ; « hôte » : adresses IPv4 de la machine et diffusions de ses sous-réseaux, hors boucle, relevées à l'appel (aucune trouvée : erreur) ; vide sans protection. */
+/** Ce que la protection « hôte » lit de la machine : ses adresses IPv4 et les diffusions IPv4 de ses sous-réseaux, boucle exclue, sans doublon, triées (la console en montre les règles). */
+export function releveHote(h: HoteMachine): { adresses: string[]; diffusions: string[] } {
+  const ipv4 = (l: readonly AdresseIp[]): string[] =>
+    [...new Set(l.filter((a) => a.version === 4).map((a) => texteIp(a)))].sort(comparePointsDeCode);
+  return {
+    adresses: ipv4(h.adresses).filter((t) => !t.startsWith("127.")),
+    diffusions: ipv4(h.diffusions ?? []).filter((t) => !t.startsWith("127.")),
+  };
+}
+
+/** Réseaux IPv4 que refusent les protections cochées d'un profil ouvert ; « hôte » : le relevé de la machine fait à l'appel (`releveHote`, aucune adresse : erreur) ; vide sans protection. */
 export async function plagesRefusees(
   protections: readonly string[],
   machine: () => Promise<HoteMachine> = hostAddresses,
@@ -96,17 +106,9 @@ export async function plagesRefusees(
   if (protections.includes("metadata")) for (const p of PLAGES_METADONNEES) plages.add(p);
   if (protections.includes("lan")) for (const p of PLAGES_LOCALES) plages.add(p);
   if (protections.includes("host")) {
-    const h = await machine();
-    const hote = h.adresses
-      .filter((a) => a.version === 4)
-      .map((a) => texteIp(a))
-      .filter((t) => !t.startsWith("127."));
-    if (hote.length === 0) throw new Error("aucune adresse IPv4 de la machine relevée");
-    const diffusions = (h.diffusions ?? [])
-      .filter((a) => a.version === 4)
-      .map((a) => texteIp(a))
-      .filter((t) => !t.startsWith("127."));
-    for (const ip of [...hote, ...diffusions]) plages.add(`${ip}/32`);
+    const { adresses, diffusions } = releveHote(await machine());
+    if (adresses.length === 0) throw new Error("aucune adresse IPv4 de la machine relevée");
+    for (const ip of [...adresses, ...diffusions]) plages.add(`${ip}/32`);
     for (const p of DIFFUSIONS) plages.add(p);
   }
   return [...plages].sort(comparePointsDeCode);

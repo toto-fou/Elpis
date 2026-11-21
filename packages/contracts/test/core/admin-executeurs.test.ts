@@ -99,12 +99,15 @@ describe("contrats REST : exécuteurs de la console (core réel)", () => {
     });
     expect(
       schemaReponseEtatExecuteurs.parse(await core.appeler("GET", "/api/admin/executors/status", { cookie })),
-    ).toEqual({ ok: true, domains_status: {}, stale_containers: [] });
+    ).toMatchObject({ ok: true, domains_status: {}, stale_containers: [] });
     await core.appeler("GET", "/api/admin/executors/status", { cookie: cookieLou });
     const etat = {
       ok: true,
       domains_status: { web: { "pypi.org": ["192.0.2.7"], "absent.test": [], "lent.test": null } },
       stale_containers: [{ user_id: 1, username: "zoe", container: "elpis-sb-zoe", profile_id: "web" }],
+      accounts: [{ user_id: 1, username: "zoe", profile_id: "web", origin: "chosen" as const }],
+      machine: { addresses: ["192.0.2.7"], broadcasts: ["192.0.2.255"] },
+      remote_toolhosts: false,
     };
     expect(schemaReponseEtatExecuteurs.parse(etat)).toEqual(etat);
     await core.appeler("GET", "/api/admin/sandbox/containers", { cookie });
@@ -144,6 +147,25 @@ describe("contrats REST : exécuteurs de la console (core réel)", () => {
       count: 1,
     };
     expect(schemaReponseConteneurs.parse(liste)).toEqual(liste);
+  });
+
+  it("état : chaque compte et le profil de sa sandbox, relevé de la machine ; refusé à un compte ordinaire", async () => {
+    const etat = schemaReponseEtatExecuteurs.parse(
+      await core.appeler("GET", "/api/admin/executors/status", { cookie }),
+    );
+    expect(etat.accounts.filter((c) => ["lou", "zoe"].includes(c.username))).toEqual([
+      { user_id: 2, username: "lou", profile_id: "isolated", origin: "default" },
+      { user_id: 1, username: "zoe", profile_id: "isolated", origin: "default" },
+    ]);
+    expect(etat.machine === null || etat.machine.addresses.every((a) => !a.startsWith("127."))).toBe(true);
+    expect(etat.remote_toolhosts).toBe(false);
+    await core.appeler("GET", "/api/admin/executors/status", { cookie: cookieLou });
+    const refus = await core.app.inject({
+      method: "GET",
+      url: "/api/admin/executors/status",
+      headers: { cookie: cookieLou },
+    });
+    expect(refus.statusCode).toBe(403);
   });
 
   it("hôtes d'outils : liste, placement inconnu refusé, placements existants", async () => {

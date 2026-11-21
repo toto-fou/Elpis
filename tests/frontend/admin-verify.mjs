@@ -1067,7 +1067,7 @@ try {
        && !(await page.locator('#np-ips-1').isVisible().catch(() => false)));
     ok('sandbox : badge de mode par profil',
        (await page.locator('.np-badge--block:has-text("Bloqué")').count()) === 1
-       && (await page.locator('.np-badge--filter:has-text("Filtré")').count()) === 1);
+       && (await page.locator('.np-badge--filter:has-text("Liste")').count()) === 1);
     ok('sandbox : résumé des règles sans déplier',
        await bodyHas(/Aucune sortie réseau/) && await bodyHas(/1 réseau · 1 domaine · ports 443/));
     // Déplier le profil filtré pour l'éditer.

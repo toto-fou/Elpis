@@ -92,7 +92,7 @@ function monter() {
   return { A, corps, demandesEtat, profil };
 }
 const etat = (domains_status: unknown, stale_containers: unknown[] = []): Response =>
-  json({ ok: true, domains_status, stale_containers });
+  json({ ok: true, domains_status, stale_containers, accounts: [], machine: null, remote_toolhosts: false });
 
 describe("console › Sandbox › protections d'un profil ouvert", () => {
   it("les trois cases : métadonnées du cloud, réseau local, machine hôte", () => {

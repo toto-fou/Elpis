@@ -28,7 +28,8 @@ import {
   profilReseauDepuis,
   RUN_SPEC,
 } from "@elpis/bac";
-import { pyJsonDumps, pyJsonLoads } from "@elpis/commun";
+import { adresseIpOuNul, pyJsonDumps, pyJsonLoads } from "@elpis/commun";
+import type { AdresseIp } from "@elpis/commun";
 import { DEFAUTS_SEUILS_DISQUE } from "@elpis/contracts";
 import { invalidateConfigCache, surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
@@ -36,6 +37,7 @@ import type { Base } from "@elpis/db";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { oublierConfigurationAudit } from "@elpis/securite";
+import type { HoteMachine } from "@elpis/securite";
 import { avecVerrou } from "@elpis/verrous";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -205,6 +207,8 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
   let d: string;
   let restaurer: () => void;
   let miroirs: number[];
+  /** Relevé de la machine servi à la famille : boucle, adresses de documentation, IPv6 et diffusions. */
+  let releve: () => Promise<HoteMachine>;
 
   async function monter(mode: "main" | "admin"): Promise<FastifyInstance> {
     const dep: DependancesAuth & DependancesJetons = {
@@ -227,6 +231,7 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
             base: t.base,
             journal: journalMuet,
             synchroniserMiroir: async (uid) => void miroirs.push(uid),
+            machine: () => releve(),
           })
         : f,
     );
@@ -326,6 +331,17 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     remplacerBase(t.base);
     hotes = await FauxServeur.demarrer({ "*": repondreHote });
     miroirs = [];
+    const ip = (texte: string): AdresseIp => {
+      const a = adresseIpOuNul(texte);
+      if (a === null) throw new Error(texte);
+      return a;
+    };
+    releve = () =>
+      Promise.resolve({
+        adresses: ["127.0.0.1", "198.51.100.7", "192.0.2.10", "::1"].map(ip),
+        reseaux: [],
+        diffusions: ["127.255.255.255", "192.0.2.255"].map(ip),
+      });
     app = await monter("admin");
   });
 
@@ -749,14 +765,21 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     it("adresses du moment des domaines et conteneurs à recréer ; vide sans conteneur", async () => {
       config();
       preparer("DOCKER", { "ps-netcfg.out": "" });
-      expect(await etat()).toEqual({
-        statut: 200,
-        corps: {
-          ok: true,
-          domains_status: { web: { "web.example": ["198.51.100.1"] } },
-          stale_containers: [],
-        },
-      });
+      const r = await etat();
+      expect(r.statut).toBe(200);
+      expect([r.corps["ok"], r.corps["domains_status"], r.corps["stale_containers"]]).toEqual([
+        true,
+        { web: { "web.example": ["198.51.100.1"] } },
+        [],
+      ]);
+      expect(Object.keys(r.corps).sort()).toEqual([
+        "accounts",
+        "domains_status",
+        "machine",
+        "ok",
+        "remote_toolhosts",
+        "stale_containers",
+      ]);
     });
 
     it("conteneur dont les adresses épinglées ne sont plus rendues : listé ; encore rendues : absent", async () => {
@@ -782,6 +805,32 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
       const r = await etat();
       expect(r.corps["domains_status"]).toEqual({});
       expect((r.corps["stale_containers"] as Dict[]).map((c) => c["container"])).toEqual(["elpis-sb-bob"]);
+    });
+
+    it("relevé de la machine : IPv4 hors boucle, triées ; relevé en échec : null", async () => {
+      config();
+      preparer("DOCKER", { "ps-netcfg.out": "" });
+      expect((await etat()).corps["machine"]).toEqual({
+        addresses: ["192.0.2.10", "198.51.100.7"],
+        broadcasts: ["192.0.2.255"],
+      });
+      releve = () => Promise.reject(new Error("interfaces illisibles"));
+      const r = await etat();
+      expect([r.statut, r.corps["machine"]]).toEqual([200, null]);
+    });
+
+    it("hôtes d'outils : distant s'il n'est ni en boucle locale ni sur une adresse relevée de la machine", async () => {
+      config();
+      preparer("DOCKER", { "ps-netcfg.out": "" });
+      expect((await etat()).corps["remote_toolhosts"]).toBe(false);
+      const declarer = (hotesOutils: Dict): void => {
+        preparer("MCP", { toolHosts: hotesOutils, mcpServers: {} });
+        oublierHotes();
+      };
+      declarer({ main: { url: "{h}" }, voisin: { url: "http://192.0.2.10:8765" } });
+      expect((await etat()).corps["remote_toolhosts"]).toBe(false);
+      declarer({ main: { url: "http://localhost:8765" }, autre: { url: "http://198.51.100.20:8765" } });
+      expect((await etat()).corps["remote_toolhosts"]).toBe(true);
     });
 
     it("réservé à l'administrateur", async () => {

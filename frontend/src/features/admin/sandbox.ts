@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/sandbox.ts — console › Sandbox : limites et politique, profils réseau (cartes repliables, puces validées à la saisie), conteneurs des comptes et nettoyage. */
+/** frontend/src/features/admin/sandbox.ts — console › Sandbox : limites et politique, profils réseau (cartes repliables, puces validées à la saisie, ce que voient leurs sandboxes), conteneurs des comptes et nettoyage. */
 import {
   schemaReponseConteneurs,
   schemaReponseEtatExecuteurs,
@@ -8,11 +8,16 @@ import {
   schemaReponseNettoyageBacs,
   schemaReponseSanteDocker,
 } from "@elpis/contracts";
+import type { CompteProfilReseau, MachineReseau } from "@elpis/contracts";
 import type { Ref } from "vue";
 
+import { copierTexte } from "../../utils/dom";
 import { lireSchema } from "../../utils/lecture-json";
 import { DISQUE_PAR_DEFAUT, JOBS_PAR_DEFAUT } from "./etat";
 import type { BaseAdmin, ConfigExecEditee, ProfilReseauEdite } from "./etat";
+import { pluriel } from "./formats";
+import { domainesSansAdresse, IPV4, profilDurci, reglesPosees, texteRegles } from "./reseau-vue";
+import type { ContexteVue, EtatServeur } from "./reseau-vue";
 import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
@@ -66,7 +71,8 @@ export interface ChampReseau {
   key: CleListe;
   label: string;
   ph: string;
-  hint: string;
+  /** Aide visible sous le champ ; `title` garde le détail. */
+  aide: string;
   title: string;
   quick?: { label: string; values: number[] }[];
 }
@@ -74,25 +80,25 @@ export interface ChampReseau {
 export const CHAMPS_RESEAU: readonly ChampReseau[] = Object.freeze([
   {
     key: "ips",
-    label: "Réseaux & IP",
-    ph: "10.0.0.0/24",
-    hint: "IPv4 ou réseau IPv4",
+    label: "Adresses et réseaux",
+    ph: "203.0.113.10 ou 10.20.0.0/16",
+    aide: "IPv4 ou réseau IPv4 ; l'IPv6 est refusée.",
     title:
       "Une IP (10.0.0.5) ou un réseau CIDR (10.0.0.0/24). Plusieurs valeurs acceptées, séparées par un espace ou une virgule.",
   },
   {
     key: "domains",
     label: "Domaines",
-    ph: "github.com",
-    hint: "résolu au démarrage",
+    ph: "api.exemple.com",
+    aide: "Résolus à la création de la sandbox : la première adresse est épinglée, toutes sont autorisées.",
     title:
-      "Résolu côté hôte à la création du conteneur et épinglé dans /etc/hosts : pas besoin d'ouvrir le DNS, et le rebinding est neutralisé.",
+      "Résolu côté hôte à la création du conteneur : sa première adresse est épinglée dans /etc/hosts, toutes sont autorisées ; pas besoin d'ouvrir le DNS, et le rebinding est neutralisé.",
   },
   {
     key: "ports",
     label: "Ports",
     ph: "443",
-    hint: "TCP sortant",
+    aide: "Liste : TCP sur ces ports ; Tous : tous ports et protocoles.",
     title: "Ports TCP sortants autorisés, pour toutes les destinations du profil.",
     quick: [
       { label: "Web", values: [80, 443] },
@@ -102,29 +108,48 @@ export const CHAMPS_RESEAU: readonly ChampReseau[] = Object.freeze([
   {
     key: "dns",
     label: "Résolveurs DNS",
-    ph: "10.0.0.1",
-    hint: "IPv4 du serveur",
+    ph: "10.0.0.53",
+    aide: "Joignables sur le port 53 seulement ; sans résolveur, seuls les domaines listés ont une adresse.",
     title:
       "Résolveurs joignables (--dns + port 53). Utile seulement si le conteneur doit résoudre en direct ; les domaines listés ci-dessus n'en ont pas besoin.",
   },
 ]);
 
 /** Règle Git d'un profil : ce que le relais Git joint pour ses sandboxes, quel que soit le mode réseau. */
-export const ACCES_GIT: readonly { key: string; label: string; title: string }[] = Object.freeze([
-  { key: "all", label: "Tous", title: "Tous les dépôts que le relais Git peut joindre (par défaut)." },
-  {
-    key: "servers",
-    label: "Serveurs choisis",
-    title:
-      "Seuls les serveurs listés, entiers (git.exemple.lan) ou limités à une organisation (github.com/acme).",
-  },
-  {
-    key: "accounts",
-    label: "Comptes Git",
-    title:
-      "Seuls les dépôts que couvrent les comptes Git de chaque utilisateur (Paramètres › Secrets › Comptes Git).",
-  },
-]);
+export const ACCES_GIT: readonly { key: string; label: string; title: string; aide: string }[] =
+  Object.freeze([
+    {
+      key: "all",
+      label: "Tous",
+      title: "Tous les dépôts que le relais Git peut joindre (par défaut).",
+      aide: "Le relais Git joint tous les dépôts (par défaut).",
+    },
+    {
+      key: "servers",
+      label: "Serveurs choisis",
+      title:
+        "Seuls les serveurs listés, entiers (git.exemple.lan) ou limités à une organisation (github.com/acme).",
+      aide: "Seuls les serveurs listés, entiers (git.exemple.lan) ou limités à une organisation (github.com/acme).",
+    },
+    {
+      key: "accounts",
+      label: "Comptes Git",
+      title:
+        "Seuls les dépôts que couvrent les comptes Git de chaque utilisateur (Paramètres › Secrets › Comptes Git).",
+      aide: "Seuls les dépôts que couvrent les comptes Git vérifiés de chaque utilisateur.",
+    },
+  ]);
+
+/** Aide visible du mode réseau d'un profil. */
+const AIDES_MODE: Readonly<Record<string, string>> = {
+  none: "Le conteneur n'a aucune interface réseau ; seuls les relais de l'hôte (Git, navigateur) répondent.",
+  allowlist_ip:
+    "Tout est refusé, sauf les destinations listées ci-dessous ; les sandboxes tournent sans sudo.",
+  bridge: "Internet ouvert ; cochez ce qu'il faut refuser en plus.",
+};
+/** Onglets du panneau « Ce que voient les sandboxes ». */
+export const VUES_RESEAU = ["graphe", "tableau", "regles"] as const;
+export type VueReseau = (typeof VUES_RESEAU)[number];
 const SERVEUR_GIT =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::[1-9][0-9]{0,4})?(?:\/[A-Za-z0-9._~-]+)*$/;
 
@@ -142,7 +167,6 @@ function serveurGitSaisi(brut: string): string | null {
   return SERVEUR_GIT.test(s) && !s.split("/").some((x) => x === "." || x === "..") ? s : null;
 }
 
-const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 const DOMAINE = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 
 /** Le serveur revalide tout ; ici une faute de frappe ne se découvre pas qu'au 400 de la sauvegarde. */
@@ -181,7 +205,7 @@ export function netModeKey(prof: Pick<ProfilReseauEdite, "mode">): string {
   return prof.mode === "bridge" ? "open" : prof.mode === "allowlist_ip" ? "filter" : "block";
 }
 export function netModeLabel(prof: Pick<ProfilReseauEdite, "mode">): string {
-  return prof.mode === "bridge" ? "Ouvert" : prof.mode === "allowlist_ip" ? "Filtré" : "Bloqué";
+  return prof.mode === "bridge" ? "Ouvert" : prof.mode === "allowlist_ip" ? "Liste" : "Bloqué";
 }
 export function netModeIcon(prof: Pick<ProfilReseauEdite, "mode">): string {
   return prof.mode === "bridge"
@@ -207,6 +231,21 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   const staleNetBusy = ref(false);
   /** Résolution du moment des domaines des profils filtrés : par profil puis par domaine (`[]` irrésoluble, `null` sans réponse). */
   const etatDomaines: Ref<Record<string, Record<string, string[] | null>>> = ref({});
+  /** Comptes et profil effectif de leur sandbox ; `null` tant que l'état n'est pas lu. */
+  const comptesReseau: Ref<CompteProfilReseau[] | null> = ref(null);
+  /** Relevé de la machine, ce que refuse la protection « hôte » ; `null` s'il manque. */
+  const machineReseau: Ref<MachineReseau | null> = ref(null);
+  /** État de `/api/admin/executors/status` : attendu, en échec ou reçu. */
+  const etatReseau: Ref<EtatServeur> = ref("attente");
+  /** Hôtes d'outils distants déclarés : leurs sandboxes reçoivent les adresses de leur hôte, pas celles relevées ici. */
+  const hotesDistants = ref(false);
+  /** Ce que la vue d'un profil sait en plus du profil édité : sudo, machine, adresses des domaines par nom, état du serveur. */
+  const contexteReseau = computed<ContexteVue>(() => ({
+    sudo: execConfig.value.allow_sudo,
+    machine: machineReseau.value,
+    domaines: Object.assign({}, ...Object.values(etatDomaines.value)) as Record<string, string[] | null>,
+    etat: etatReseau.value,
+  }));
   let compteurProfils = 0;
   /** Sauvegardes lancées depuis le chargement : un état demandé avant la dernière est ignoré. */
   let generationEtat = 0;
@@ -233,7 +272,9 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       ips: [],
       ...p,
       _uid: `np${++compteurProfils}`,
+      _idCharge: p.id,
       _open: false,
+      _onglet: "graphe",
       _portsMode: (p.ports || []).length ? "list" : "all",
       _draft: { ips: "", domains: "", ports: "", dns: "", git_servers: (p.git_servers || []).join("\n") },
       _err: { ips: "", domains: "", ports: "", dns: "", git_servers: "" },
@@ -454,25 +495,67 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       execLoading.value = false;
     }
   }
-  /** Domaines résolus et conteneurs à recréer, en arrière-plan : une résolution lente ne retient pas la page. */
+  /** Domaines résolus, conteneurs à recréer, comptes et relevé de la machine, en arrière-plan : une résolution lente ne retient pas la page, un échec est dit par la vue. */
   async function loadExecStatus(): Promise<void> {
     const generation = generationEtat;
     try {
       const d = await lireSchema(await fetchAuth("/api/admin/executors/status"), schemaReponseEtatExecuteurs);
-      if (!d || generation !== generationEtat) return;
+      if (generation !== generationEtat) return;
+      if (!d) {
+        etatReseau.value = "echec";
+        return;
+      }
       etatDomaines.value = d.domains_status;
+      comptesReseau.value = d.accounts;
+      machineReseau.value = d.machine;
+      hotesDistants.value = d.remote_toolhosts;
+      etatReseau.value = "charge";
       if (d.stale_containers.length) staleNetContainers.value = d.stale_containers as ConteneurPerime[];
     } catch {
-      /* état facultatif : la page reste utilisable */
+      if (generation === generationEtat) etatReseau.value = "echec";
     }
   }
   /** Domaines d'un profil sans adresse à l'instant (irrésolus, ou sans réponse à temps). */
   function domainesNonResolus(prof: ProfilReseauEdite): string[] {
-    const etat = etatDomaines.value[prof.id];
-    if (!etat || prof.mode !== "allowlist_ip") return [];
-    return Object.entries(etat)
-      .filter(([, ips]) => ips === null || ips.length === 0)
-      .map(([dom]) => dom);
+    return domainesSansAdresse(prof, contexteReseau.value);
+  }
+  /** Comptes dont la sandbox suit ce profil, rattachés par son identifiant enregistré. */
+  function comptesDuProfil(prof: ProfilReseauEdite): CompteProfilReseau[] {
+    return (comptesReseau.value ?? []).filter((c) => c.profile_id === prof._idCharge);
+  }
+  /** Identifiant changé alors que des comptes suivent le profil : à l'enregistrement, ils repassent sur le profil isolé ; `""` sinon. */
+  function avertissementIdentifiant(prof: ProfilReseauEdite): string {
+    const n = prof.id === prof._idCharge ? 0 : comptesDuProfil(prof).length;
+    if (n === 0) return "";
+    const [verbe, leur] = n > 1 ? ["repasseront", "leur"] : ["repassera", "son"];
+    return `Identifiant changé : à l'enregistrement, ${pluriel(n, "compte")} ${verbe} sur le profil isolé, car ${leur} réglage vise « ${prof._idCharge} ».`;
+  }
+  /** Sandboxes du profil durcies : sans sudo, système en lecture seule. */
+  function sansSudo(prof: ProfilReseauEdite): boolean {
+    return profilDurci(prof, execConfig.value.allow_sudo);
+  }
+  function aideMode(prof: ProfilReseauEdite): string {
+    return (
+      (prof.id === "isolated" ? "Profil de repli : toujours sans réseau. " : "") +
+      (AIDES_MODE[prof.mode] ?? "")
+    );
+  }
+  function aideAccesGit(prof: ProfilReseauEdite): string {
+    return ACCES_GIT.find((g) => g.key === (prof.git_access || "all"))?.aide ?? "";
+  }
+  function choisirVueReseau(prof: ProfilReseauEdite, vue: VueReseau): void {
+    prof._onglet = vue;
+  }
+  /** Copie les règles qu'une sandbox du profil recevrait maintenant. */
+  async function copierReglesReseau(prof: ProfilReseauEdite): Promise<void> {
+    const r = reglesPosees(prof, contexteReseau.value);
+    if (r.genre !== "regles") return;
+    try {
+      await copierTexte(texteRegles(r));
+      showToast("Règles copiées", "success");
+    } catch {
+      showToast("Copie impossible : sélectionnez le texte", "error");
+    }
   }
   async function loadExecHealthcheck(): Promise<void> {
     try {
@@ -500,6 +583,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       });
       if (!r || !r.ok) throw new Error(r ? await r.text() : "no response");
       const d = await lireSchema(r, schemaReponseExecuteursEcrits);
+      for (const p of execConfig.value.network_profiles) p._idCharge = p.id;
       for (const w of d?.warnings ?? []) showToast(w, "warn");
       staleNetContainers.value = (d?.stale_containers ?? []) as typeof staleNetContainers.value;
       await loadExecHealthcheck();
@@ -586,6 +670,16 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     recreateStaleNetContainers,
     etatDomaines,
     domainesNonResolus,
+    comptesReseau,
+    contexteReseau,
+    hotesDistants,
+    comptesDuProfil,
+    avertissementIdentifiant,
+    sansSudo,
+    aideMode,
+    aideAccesGit,
+    choisirVueReseau,
+    copierReglesReseau,
     netProtections: PROTECTIONS_RESEAU,
     accesGit: ACCES_GIT,
     commitGitServers,

@@ -44,7 +44,14 @@ function monter() {
     }
     if (url === "/api/admin/executors") return json({ config: CONFIG, image: "elpis/sandbox:1.0.0" });
     if (url === "/api/admin/executors/status")
-      return json({ ok: true, domains_status: {}, stale_containers: [] });
+      return json({
+        ok: true,
+        domains_status: {},
+        stale_containers: [],
+        accounts: [],
+        machine: null,
+        remote_toolhosts: false,
+      });
     return json({});
   };
   const fetchFaux = (url: string, init?: RequestInit): Promise<Response> => Promise.resolve(route(url, init));

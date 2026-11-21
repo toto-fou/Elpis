@@ -93,6 +93,7 @@ export {
   PLAGES_METADONNEES,
   plagesRefusees,
   PONT_BACS,
+  releveHote,
   RESEAU_BACS,
   RESEAU_CONFORME,
 } from "./reseau";

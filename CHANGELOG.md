@@ -6,6 +6,22 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Console: what the sandboxes of a network profile reach.** Admin console › Sandbox › Network: a
+  folded profile card also says whether its sandboxes run without `sudo`, how many of its domains
+  have no address at the moment and how many accounts use it. Unfolded, the editor (same fields,
+  in titled sections, each with a one-line help) sits next to *What the sandboxes see*, computed
+  in the browser as the profile is edited: the iptables rules a sandbox created now would receive,
+  ready to copy, and a graph and a table of the destinations whose verdicts are read from those
+  rules (allowed, partial with what gets through, inactive, refused, or reached through a host
+  relay, each with its cause; the open accesses to protect marked); below, the profile's accounts
+  (chosen, enforced, default) and a link to Users to enforce one. Cards slide open and closed and
+  tabs fade, both cut under reduced motion. `GET /api/admin/executors/status` also returns each
+  account with its sandbox's profile, the machine's addresses that the host protection refuses,
+  and whether tool hosts are declared on other machines (their sandboxes get those hosts'
+  addresses, which the console then says).
+
 ### Security
 
 - **Sandbox: a Git rule per network profile.** In the profile editor, *Git*: all repositories

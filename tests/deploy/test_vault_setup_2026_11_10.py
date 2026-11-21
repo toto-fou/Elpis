@@ -210,7 +210,7 @@ ROOT={depot}; CORE_DIST="$ROOT/apps/core/dist"
 compte_services() {{ :; }}; groupe_propre() {{ return 0; }}; compte_lit() {{ return 0; }}
 vault_core() {{ {talon_core}; }}
 """
-    return subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
+    return subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre", "lignes_doctor") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
                           env=_env(depot), capture_output=True, text=True, timeout=60, cwd=str(depot),
                           stdin=subprocess.DEVNULL)
 
@@ -303,7 +303,7 @@ SYS_PREFIXE="$ELPIS_PREFIXE_SYSTEME"; VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vaul
 CORE_DIST="$ROOT/apps/core/dist"; compte_services() {{ echo {MOI}; }}
 vault_core() {{ echo "ne doit pas être appelé" >&2; }}
 """
-        r = subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
+        r = subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre", "lignes_doctor") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
                            env=_env(depot, PATH=f"{faux}:{os.environ.get('PATH', '/usr/bin:/bin')}"),
                            capture_output=True, text=True, timeout=60, cwd=str(depot), stdin=subprocess.DEVNULL)
     finally:

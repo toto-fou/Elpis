@@ -41,7 +41,8 @@ score of a unit (every unit stays under 5, "OK"). Per service:
   `RestrictSUIDSGID=` (its filter refuses a call bubblewrap makes) nor `PrivateUsers=`; the tool host keeps umask 022, since the
   sandboxes' account reads some of the files it creates.
 - qdrant: system call filter, no memory both writable and executable, only its folder
-  writable.
+  writable, and reachable on the loopback only (`IPAddressDeny=any`,
+  `IPAddressAllow=localhost`): a `qdrant_url` on the machine's LAN address is refused.
 
 `ProtectHome=` is `yes`, or `read-only` when the installation, a data folder, the
 services' account or the Playwright browsers sit under `/home`, `/root` or `/run/user`.

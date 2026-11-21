@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/admin/aides-bac.ts — console d'administration composée comme en service (session d'administrateur, base du process posée) pour les essais du pilote du bac. */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { createUser, signerSession } from "@elpis/auth";
+import { surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
@@ -12,6 +17,9 @@ import { installerCrochetJournal } from "../../src/journal";
 import { installerRelaisModeles } from "../../src/llm/cache-modeles";
 import { installerDiffusion } from "../../src/llm/ports";
 import { appTest, journalMuet } from "../aides";
+import { JETON } from "../relais/aides";
+import { fermerBaseHote, ouvrirBaseHote } from "../../../toolhost/src/base-hote";
+import { configTest, hoteTest, journalMuet as journalHote } from "../../../toolhost/test/aides";
 
 const T = 1_791_331_200;
 const SECRET = "secret-de-test";
@@ -71,6 +79,32 @@ export async function ouvrirConsole(
       installerRelaisModeles(null);
       remplacerBase(undefined);
       await t.fermer();
+    },
+  };
+}
+
+export interface HoteReel {
+  readonly url: string;
+  arreter(): Promise<void>;
+}
+
+/** Vrai hôte d'outils du process (routes du bac, faux docker du PATH, base jetable) en écoute locale, au jeton de service des essais. */
+export async function demarrerHoteReel(): Promise<HoteReel> {
+  const dossier = mkdtempSync(join(tmpdir(), "elpis-hote-reel-"));
+  const restaurer = surchargerConfig({ DB_BACKEND: "sqlite", DB_PATH: join(dossier, "hote.db") });
+  await ouvrirBaseHote(() => journalHote);
+  const h = await hoteTest(configTest({ token: JETON }));
+  const url = await h.app.listen({ port: 0, host: "127.0.0.1" });
+  let arrete = false;
+  return {
+    url,
+    async arreter() {
+      if (arrete) return;
+      arrete = true;
+      await h.fermer();
+      await fermerBaseHote();
+      restaurer();
+      rmSync(dossier, { recursive: true, force: true });
     },
   };
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/admin/suppression-bac.test.ts — pilote du bac branché dans la console composée (faux docker, faux hôte distant) : suppression d'un compte avec son bac, profil réseau imposé. */
+/** apps/core/test/admin/suppression-bac.test.ts — pilote du bac branché dans la console composée (faux docker, vrai hôte d'outils local, faux hôte distant) : suppression d'un compte avec son bac, profil réseau imposé. */
 import {
   chmodSync,
   existsSync,
@@ -22,8 +22,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { oublierHotes } from "../../src/relais/hotes";
 import { FauxToolhost, JETON } from "../relais/aides";
-import { MOTEURS, ouvrirConsole } from "./aides-bac";
-import type { ConsoleDeTest } from "./aides-bac";
+import { demarrerHoteReel, MOTEURS, ouvrirConsole } from "./aides-bac";
+import type { ConsoleDeTest, HoteReel } from "./aides-bac";
 
 const PROFILS = [
   { id: "isolated", name: "Isolé", mode: "none", ips: [] },
@@ -36,6 +36,7 @@ let c: ConsoleDeTest;
 let restaurer: () => void;
 let compte: number;
 let distant: FauxToolhost | null = null;
+let reel: HoteReel | null = null;
 const manifesteAvant = process.env["APP_MCP_MANIFEST"];
 
 /** Bac du compte : conteneur démarré, /work garni d'un dossier refusé à l'hôte (fichiers à l'UID du conteneur), P d'un fichier. */
@@ -51,21 +52,32 @@ async function bacGarni(): Promise<{ dossier: string; refuse: string }> {
   return { dossier, refuse };
 }
 
-/** Hôte d'outils déclaré dans mcp.json, seul hôte d'un placement `by_user` : distant (127.0.0.2) ou en boucle locale. */
-async function hoteDistant(adresse = "127.0.0.2"): Promise<FauxToolhost> {
-  distant = await new FauxToolhost().demarrer(adresse);
+/** Manifeste mcp.json déclarant l'hôte d'outils `url`, seul hôte d'un placement `by_user`. */
+function declarerHote(url: string): void {
   const manifeste = join(tmp, "mcp.json");
   writeFileSync(
     manifeste,
     JSON.stringify({
       mcpServers: {},
-      sandboxHosts: { loin: { url: distant.url, token: JETON } },
+      sandboxHosts: { loin: { url, token: JETON } },
       placement: { strategy: "by_user" },
     }),
   );
   process.env["APP_MCP_MANIFEST"] = manifeste;
   oublierHotes();
+}
+
+/** Faux hôte d'outils déclaré dans mcp.json : distant (127.0.0.2) ou en boucle locale. */
+async function hoteDistant(adresse = "127.0.0.2"): Promise<FauxToolhost> {
+  distant = await new FauxToolhost().demarrer(adresse);
+  declarerHote(distant.url);
   return distant;
+}
+
+/** Vrai hôte d'outils du process (faux docker) déclaré comme hôte local du compte. */
+async function hoteLocal(): Promise<void> {
+  reel = await demarrerHoteReel();
+  declarerHote(reel.url);
 }
 
 function supprimer(): Promise<{ statusCode: number; json(): unknown }> {
@@ -102,6 +114,8 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
     await c.fermer();
     await distant?.arreter();
     distant = null;
+    await reel?.arreter();
+    reel = null;
     reglagesBac.attenteCreationMs = 800;
     resetUserSandboxCache();
     oublierConfigurationAudit();
@@ -118,6 +132,7 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
   describe("suppression d'un compte avec son bac (delete_sandbox=true)", () => {
     it("bac local : conteneur retiré, /work refusé à l'hôte vidé par le root du conteneur recréé, P supprimé", async () => {
       const { dossier } = await bacGarni();
+      await hoteLocal();
       const avant = docker.appels().length;
       const r = await supprimer();
       expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
@@ -143,6 +158,7 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       await getUserSandbox(compte, "pbacfaux", join(tmp, "sb", "pbacfaux", WORK_SUBDIR)).ensureRunning();
       resetUserSandboxCache();
       writeFileSync(join(tmp, "sb", "pbacfaux", WORK_SUBDIR, "f"), "x");
+      await hoteLocal();
       const avant = docker.appels().length;
       const r = await supprimer();
       expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
@@ -156,15 +172,78 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       ).toEqual(["rm -fv elpis-sb-pbacfaux"]);
     });
 
-    it("hôte d'outils déclaré en boucle locale : bac local (purge par Docker), l'hôte n'est appelé que pour les identifiants de sites", async () => {
+    it("hôte d'outils en boucle locale : P renommé ici, conteneur retiré et /work refusé vidé par ses routes internes (même horodatage), aucun appel docker du core", async () => {
       const { dossier } = await bacGarni();
       const hote = await hoteDistant("127.0.0.1");
+      const corps: unknown[] = [];
+      hote.traitements.set("/api/internal/sandbox/purge-work", async (req, rep) => {
+        const morceaux: Buffer[] = [];
+        for await (const m of req) morceaux.push(m as Buffer);
+        corps.push(JSON.parse(Buffer.concat(morceaux).toString("utf-8")));
+        for (const n of readdirSync(join(tmp, "sb")).filter((m) => m.startsWith(".supprime-"))) {
+          chmodSync(join(tmp, "sb", n, WORK_SUBDIR, "d"), 0o700);
+          rmSync(join(tmp, "sb", n, WORK_SUBDIR), { recursive: true, force: true });
+        }
+        rep.writeHead(200, { "content-type": "application/json" });
+        rep.end(JSON.stringify({ ok: true }));
+      });
+      const avant = docker.appels().length;
       const r = await supprimer();
       expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
       expect(existsSync(dossier)).toBe(false);
+      expect(readdirSync(join(tmp, "sb")).filter((n) => n.startsWith(".supprime-"))).toEqual([]);
+      expect(docker.appels().length).toBe(avant);
       expect(hote.requetes.map((q) => [q.methode, q.url, q.identite?.user_id, q.identite?.username])).toEqual(
-        [["POST", "/api/internal/account/purge", compte, "pbacfaux"]],
+        [
+          ["POST", "/api/internal/sandboxes/destroy", compte, "pbacfaux"],
+          ["POST", "/api/internal/account/purge", compte, "pbacfaux"],
+          ["POST", "/api/internal/sandbox/purge-work", compte, "pbacfaux"],
+        ],
       );
+      expect(corps).toEqual([{ stamp: expect.any(Number) }]);
+    });
+
+    it("compte placé sur un autre hôte : le reliquat local est retiré par l'hôte de cette machine, jamais par l'hôte du compte", async () => {
+      const { dossier } = await bacGarni();
+      await hoteLocal();
+      distant = await new FauxToolhost().demarrer("127.0.0.2");
+      writeFileSync(
+        process.env["APP_MCP_MANIFEST"] ?? "",
+        JSON.stringify({
+          mcpServers: {},
+          sandboxHosts: {
+            loin: { url: distant.url, token: JETON },
+            ici: { url: reel?.url ?? "", token: JETON },
+          },
+          placement: { strategy: "by_user" },
+        }),
+      );
+      oublierHotes();
+      await c.t.base.run(
+        "INSERT INTO sandbox_placements(user_id, host_id, created_at, updated_at) VALUES (?, 'loin', 1, 1)",
+        [compte],
+      );
+      const r = await supprimer();
+      expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
+      expect(existsSync(dossier)).toBe(false);
+      expect(readdirSync(join(tmp, "sb")).filter((n) => n.startsWith(".supprime-"))).toEqual([]);
+      expect(existsSync(join(docker.etat, "elpis-sb-pbacfaux.run"))).toBe(false);
+      expect(distant.requetes.map((q) => q.url)).toEqual([
+        "/api/internal/sandbox/set-aside",
+        "/api/internal/account/purge",
+        "/api/internal/sandbox/discard",
+      ]);
+    });
+
+    it("hôte d'outils de cette machine arrêté : suppression refusée, compte et bac intacts", async () => {
+      const { dossier } = await bacGarni();
+      await hoteLocal();
+      await reel?.arreter();
+      const r = await supprimer();
+      expect(r.statusCode).toBe(502);
+      expect(await c.t.base.all("SELECT id FROM users WHERE id=?", [compte])).toEqual([{ id: compte }]);
+      expect(existsSync(join(dossier, "miroir"))).toBe(true);
+      expect(readdirSync(join(tmp, "sb")).filter((n) => n.startsWith(".supprime-"))).toEqual([]);
     });
 
     it("hôte distant qui partage le disque : dossiers mis de côté supprimés par l'hôte, suppression rendue vraie", async () => {
@@ -195,6 +274,7 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
       expect(hote.requetes.map((q) => [q.methode, q.url, q.identite?.user_id, q.identite?.username])).toEqual(
         [
+          ["POST", "/api/internal/sandboxes/destroy", compte, "pbacfaux"],
           ["POST", "/api/internal/sandbox/set-aside", compte, "pbacfaux"],
           ["POST", "/api/internal/account/purge", compte, "pbacfaux"],
           ["POST", "/api/internal/sandbox/discard", compte, "pbacfaux"],
@@ -257,6 +337,7 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       const r = await supprimer();
       expect(r.statusCode).toBe(502);
       expect(hote.requetes.map((q) => q.url)).toEqual([
+        "/api/internal/sandboxes/destroy",
         "/api/internal/sandbox/set-aside",
         "/api/internal/account/purge",
         "/api/internal/sandbox/restore",
@@ -282,8 +363,9 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
   });
 
   describe("profil réseau imposé par la console", () => {
-    it("bac local : conteneur détruit tout de suite (la restriction mord sans attendre la recréation)", async () => {
+    it("bac local : conteneur détruit tout de suite par l'hôte local (la restriction mord sans attendre la recréation)", async () => {
       await bacGarni();
+      await hoteLocal();
       const r = await c.app.inject({
         method: "POST",
         url: `/api/admin/users/${compte}/network-profile`,
@@ -294,7 +376,7 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       expect(existsSync(join(docker.etat, "elpis-sb-pbacfaux.run"))).toBe(false);
     });
 
-    it("bac d'un hôte distant : conteneur détruit par l'hôte (DELETE /api/sandbox/me)", async () => {
+    it("bac d'un hôte distant : conteneur détruit par l'hôte (POST /api/internal/sandboxes/destroy)", async () => {
       const hote = await hoteDistant();
       const r = await c.app.inject({
         method: "POST",
@@ -304,7 +386,7 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       });
       expect(r.json()).toMatchObject({ ok: true, container_destroyed: true });
       expect(hote.requetes.map((q) => [q.methode, q.url, q.identite?.username])).toEqual([
-        ["DELETE", "/api/sandbox/me", "pbacfaux"],
+        ["POST", "/api/internal/sandboxes/destroy", "pbacfaux"],
       ]);
     });
   });

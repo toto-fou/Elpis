@@ -11,8 +11,9 @@ import { oublierConfigurationAudit } from "@elpis/securite";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { oublierHotes } from "../../src/relais/hotes";
-import { ouvrirConsole } from "./aides-bac";
-import type { ConsoleDeTest } from "./aides-bac";
+import { JETON } from "../relais/aides";
+import { demarrerHoteReel, ouvrirConsole } from "./aides-bac";
+import type { ConsoleDeTest, HoteReel } from "./aides-bac";
 
 const ACTIF = process.env["ELPIS_INTEROP_DOCKER"] === "1";
 const LABEL = "elpis.lot=portbac";
@@ -27,6 +28,7 @@ describe.skipIf(!ACTIF)("pilote du bac de la console (docker réel)", () => {
   const noms = [`pbac${suffixe}`, `pbacp${suffixe}`];
   let tmp = "";
   let c: ConsoleDeTest;
+  let hote: HoteReel | null = null;
   let restaurer: () => void = () => undefined;
   const manifesteAvant = process.env["APP_MCP_MANIFEST"];
 
@@ -68,7 +70,13 @@ describe.skipIf(!ACTIF)("pilote du bac de la console (docker réel)", () => {
     oublierConfigurationAudit();
     restaurer = surchargerConfig({ SANDBOX_DIR: join(tmp, "sb"), CONFIG_JSON_PATH: config });
     invalidateConfigCache();
-    process.env["APP_MCP_MANIFEST"] = join(tmp, "absent.json");
+    hote = await demarrerHoteReel();
+    const manifeste = join(tmp, "mcp.json");
+    writeFileSync(
+      manifeste,
+      JSON.stringify({ mcpServers: {}, sandboxHosts: { local: { url: hote.url, token: JETON } } }),
+    );
+    process.env["APP_MCP_MANIFEST"] = manifeste;
     oublierHotes();
     c = await ouvrirConsole(noms);
   });
@@ -80,6 +88,7 @@ describe.skipIf(!ACTIF)("pilote du bac de la console (docker réel)", () => {
       if (docker("inspect", `elpis-sb-${nom}`).status === 0) docker("rm", "-f", `elpis-sb-${nom}`);
     }
     await c.fermer();
+    await hote?.arreter();
     resetUserSandboxCache();
     reglagesBac.attenteCreationMs = 800;
     restaurer();
@@ -101,7 +110,8 @@ describe.skipIf(!ACTIF)("pilote du bac de la console (docker réel)", () => {
       url: `/api/admin/users/${c.ids.get(nom)}?delete_sandbox=true`,
       headers: c.entetes,
     });
-    expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({ ok: true, sandbox_deleted: true });
     expect(existsSync(travail)).toBe(false);
     expect(existsSync(join(tmp, "sb", nom))).toBe(false);
     expect(docker("inspect", `elpis-sb-${nom}`).status).not.toBe(0);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/test/bac.test.ts — routes du cycle de vie du bac sur l'hôte TS (faux docker, faux agent) : /api/sandbox/me (imposition de l'enveloppe), redémarrage, destruction, instantanés en NDJSON. */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -369,6 +369,54 @@ describe("/api/internal/sandbox/restore et /discard (bac mis de côté sous l'ho
     );
     expect(r.statusCode).toBe(502);
     expect(existsSync(path.join(tmp, "sb", "_snapshots", "autre"))).toBe(true);
+  });
+});
+
+describe("/api/internal/sandbox/purge-work (/work d'un bac mis de côté vidé par le root du conteneur)", () => {
+  const FAUX = entetesId({ nom: "pbacfaux" });
+
+  it("/work refusé à l'hôte du dossier mis de côté sous l'horodatage vidé par le root du conteneur, conteneur retiré, dossier gardé ; sans horodatage : 400 ; sans enveloppe : refusé", async () => {
+    await requete("GET", "/api/sandbox/me", undefined, FAUX);
+    await requete("POST", "/api/internal/sandbox/set-aside", { stamp: 1234 }, FAUX);
+    const dossier = path.join(tmp, "sb", ".supprime-7-1234");
+    const refuse = path.join(dossier, "work", "d");
+    mkdirSync(refuse, { recursive: true });
+    writeFileSync(path.join(refuse, "f"), "x");
+    chmodSync(refuse, 0o500);
+    expect((await requete("POST", "/api/internal/sandbox/purge-work", undefined, FAUX)).statusCode).toBe(400);
+    const avant = docker.appels().length;
+    const r = await requete("POST", "/api/internal/sandbox/purge-work", { stamp: 1234 }, FAUX);
+    expect([r.statusCode, r.json()]).toEqual([200, { ok: true }]);
+    expect(existsSync(path.join(refuse, "f"))).toBe(false);
+    expect(existsSync(dossier)).toBe(true);
+    expect(existsSync(path.join(docker.etat, "elpis-sb-pbacfaux.run"))).toBe(false);
+    expect(
+      docker
+        .appels()
+        .slice(avant)
+        .some((a) => a.includes("find /work -xdev -mindepth 1 -delete")),
+    ).toBe(true);
+    const audit = readdirSync(path.join(tmp, "audit"))
+      .map((f) => readFileSync(path.join(tmp, "audit", f), "utf-8"))
+      .join("");
+    expect(audit).toContain('"action":"admin.sandbox.purge_work"');
+    const sans = await h.app.inject({ method: "POST", url: "/api/internal/sandbox/purge-work" });
+    expect(sans.statusCode).toBe(401);
+  });
+
+  it("sans binaire docker : rien à faire, ok", async () => {
+    vi.stubEnv("PATH", path.join(tmp, "vide"));
+    const r = await requete("POST", "/api/internal/sandbox/purge-work", { stamp: 1234 }, FAUX);
+    expect([r.statusCode, r.json()]).toEqual([200, { ok: true }]);
+  });
+
+  it("conteneur impossible à démarrer : 502 avec la raison", async () => {
+    await requete("GET", "/api/sandbox/me", undefined, FAUX);
+    await requete("POST", "/api/internal/sandbox/set-aside", { stamp: 1234 }, FAUX);
+    docker.poser("run-ko");
+    const r = await requete("POST", "/api/internal/sandbox/purge-work", { stamp: 1234 }, FAUX);
+    expect(r.statusCode).toBe(502);
+    expect(String(r.json().detail)).toContain("La sandbox ne peut pas démarrer.");
   });
 });
 

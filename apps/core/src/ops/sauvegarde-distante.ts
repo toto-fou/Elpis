@@ -4,9 +4,13 @@ import { spawn } from "node:child_process";
 import {
   accessSync,
   chmodSync,
+  closeSync,
   constants,
   copyFileSync,
+  fchmodSync,
+  fchownSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -25,6 +29,7 @@ import {
   FlottantPy,
   floatPy,
   getPy,
+  gidGroupeCle,
   intPy,
   modePartage,
   ouPy,
@@ -265,11 +270,67 @@ export function encoderTexte(s: string): Buffer {
   throw new ErreurPython("ValueError", raison);
 }
 
-/** `store_ssh_key` : clé privée en fichier 0600 (temporaire puis renommage) ; rend son chemin. */
+/** Secret sous le groupe de clé (lu par main et la console) : temporaire du même dossier au groupe et aux droits du fichier existant, sinon au groupe de clé et en `modeNeuf`, puis renommé. */
+function ecrireSecretDuGroupe(chemin: string, corps: Buffer, gid: number, modeNeuf: number): void {
+  let avant: { gid: number; mode: number } | null = null;
+  try {
+    const st = statSync(chemin);
+    avant = { gid: st.gid, mode: st.mode & 0o7777 };
+  } catch (e) {
+    if ((e as { code?: unknown }).code !== "ENOENT") throw e;
+  }
+  const tmp = `${chemin}.tmp`;
+  const fd = openSync(tmp, "w", 0o600);
+  try {
+    writeFileSync(fd, corps);
+    try {
+      fchownSync(fd, -1, avant?.gid ?? gid);
+    } catch (e) {
+      if ((e as { code?: unknown }).code !== "EPERM" || avant === null) throw e;
+      fchownSync(fd, -1, gid);
+    }
+    fchmodSync(fd, avant?.mode ?? modeNeuf);
+  } finally {
+    closeSync(fd);
+  }
+  renameSync(tmp, chemin);
+}
+
+/** `known_hosts` absent sous le groupe de clé : créé vide (groupe de clé, 0660) avant qu'OpenSSH y ajoute un hôte, hors de portée de l'hôte d'outils ; au mieux. */
+function assurerKnownHosts(cfg: Dict): void {
+  const gid = gidGroupeCle();
+  const chemin = strPy(cfg["known_hosts"]);
+  if (gid === null || !chemin) return;
+  let fd: number;
+  try {
+    fd = openSync(
+      chemin,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    );
+  } catch {
+    return;
+  }
+  try {
+    fchownSync(fd, -1, gid);
+    fchmodSync(fd, 0o660);
+  } catch {
+    rmSync(chemin, { force: true });
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** `store_ssh_key` : clé privée en fichier 0600 (temporaire puis renommage ; sous le groupe de clé, groupe et droits gardés, 0640 si neuve) ; rend son chemin. */
 export function storeSshKey(contenu: string, keyPath?: string): string {
   const chemin = keyPath || (getRemoteConfig()["key_path"] as string);
   mkdirParentsPy(path.dirname(chemin));
   const corps = encoderTexte(contenu.endsWith("\n") ? contenu : `${contenu}\n`);
+  const gid = gidGroupeCle();
+  if (gid !== null) {
+    ecrireSecretDuGroupe(chemin, corps, gid, 0o640);
+    return chemin;
+  }
   const tmp = `${chemin}.tmp`;
   writeFileSync(tmp, corps, { mode: 0o600 });
   chmodSync(tmp, 0o600);
@@ -278,7 +339,7 @@ export function storeSshKey(contenu: string, keyPath?: string): string {
   return chemin;
 }
 
-/** `store_rsync_password` : mot de passe en fichier 0600, vide = retrait ; vrai s'il est désormais enregistré. */
+/** `store_rsync_password` : mot de passe en fichier 0600 (sous le groupe de clé, groupe et droits gardés, 0640 si neuf), vide = retrait ; vrai s'il est désormais enregistré. */
 export function storeRsyncPassword(motDePasse: string): boolean {
   const chemin = rsyncPasswordPath();
   if (!motDePasse) {
@@ -294,6 +355,11 @@ export function storeRsyncPassword(motDePasse: string): boolean {
   mkdirParentsPy(path.dirname(chemin));
   const tmp = pyJoin(path.dirname(chemin), `${path.basename(chemin)}.tmp`);
   const corps = encoderTexte(`${motDePasse}\n`);
+  const gid = gidGroupeCle();
+  if (gid !== null) {
+    ecrireSecretDuGroupe(chemin, corps, gid, 0o640);
+    return true;
+  }
   writeFileSync(tmp, corps, { mode: 0o600 });
   chmodSync(tmp, 0o600);
   renameSync(tmp, chemin);
@@ -570,6 +636,7 @@ export async function runTest(): Promise<Dict> {
     if (!dossierInscriptible(d)) return { ok: false, error: "Dossier non inscriptible" };
     return { ok: true, error: "" };
   }
+  assurerKnownHosts(cfg);
   if (cfg["connector"] === "rsync") {
     return avecMotDePasse(async (env) => {
       if (env === null) return { ok: false, error: "Mot de passe absent — enregistrez-le d'abord." };
@@ -673,6 +740,7 @@ async function envoyer(base: Base, scope: unknown, trigger: string, journal?: Jo
         res = { ok: true, error: "", filename: nom };
       }
     } else if (cfg["connector"] === "rsync") {
+      assurerKnownHosts(cfg);
       res = await avecMotDePasse(async (env) => {
         if (env === null) return { ok: false, error: "Mot de passe absent" };
         const [ok2, msg] = await executerCommande(
@@ -685,6 +753,7 @@ async function envoyer(base: Base, scope: unknown, trigger: string, journal?: Jo
     } else if (!existeOs(cfg["key_path"] as string)) {
       res = { ok: false, error: "Clé SSH absente" };
     } else {
+      assurerKnownHosts(cfg);
       const [ok2, msg] = await avecClePrivee(cfg, (c) =>
         executerCommande(buildSendArgv(c, chemin, nom), cfg["timeout_sec"] as number),
       );

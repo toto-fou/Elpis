@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { bitsInterdits, dossierDeConfiance, groupeDonnees, modePartage } from "../src/droits";
+import { bitsInterdits, dossierDeConfiance, gidGroupeCle, groupeDonnees, modePartage } from "../src/droits";
 
 const UID = process.geteuid?.() ?? 0;
 const GID = process.getgid?.() ?? 0;
@@ -70,5 +70,21 @@ describe("groupe des données", () => {
     vi.stubEnv("ELPIS_GROUPE_DONNEES", "groupe-absent-de-l-annuaire");
     expect(dossierDeConfiance({ uid: UID + 1, gid: GID, mode: 0o42770 })).toBe(true);
     expect(dossierDeConfiance({ uid: UID + 1, gid: GID + 1, mode: 0o42770 })).toBe(false);
+  });
+});
+
+describe("groupe de clé (ELPIS_GROUPE_CLE)", () => {
+  it("absent : aucun ; valeur numérique ou nom de /etc/group : son GID ; introuvable : aucun, jamais le groupe principal", () => {
+    vi.stubEnv("ELPIS_GROUPE_CLE", "");
+    expect(gidGroupeCle()).toBeNull();
+    vi.stubEnv("ELPIS_GROUPE_CLE", String(GID));
+    expect(gidGroupeCle()).toBe(GID);
+    vi.stubEnv("ELPIS_GROUPE_CLE", "groupe-de-cle-absent-de-l-annuaire");
+    expect(gidGroupeCle()).toBeNull();
+    const nom = nomGroupePrincipal();
+    if (nom !== null) {
+      vi.stubEnv("ELPIS_GROUPE_CLE", nom);
+      expect(gidGroupeCle()).toBe(GID);
+    }
   });
 });

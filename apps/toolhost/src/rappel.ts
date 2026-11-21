@@ -652,7 +652,7 @@ export interface SecretApplicable {
   readonly subagents: boolean;
 }
 
-/** Ligne d'`ax_credentials` remise au core, mot de passe déchiffré. */
+/** Ligne d'`ax_credentials` remise au core, mot de passe tel que stocké (jeton Fernet compris : le core le déchiffre). */
 export interface LigneAxRemise {
   readonly site: string;
   readonly username: string;

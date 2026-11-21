@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/import-ax.ts — reprise des anciens identifiants AX (`ax_credentials`) en secrets `http-auth` à vérifier : lignes remises par l'hôte d'outils pour un compte, et lignes de la base du core reprises à chaque démarrage tant qu'il en reste (Fernet déchiffré) ; nom tiré de l'hôte, doublons écartés, clés sans origine listées, lignes effacées sans trace, journal sans valeur. */
+/** apps/core/src/secrets/import-ax.ts — reprise des anciens identifiants AX (`ax_credentials`) en secrets `http-auth` à vérifier : lignes remises par l'hôte d'outils pour un compte (valeurs telles que stockées : le core déchiffre un jeton Fernet avec sa clé, que l'hôte n'a pas), et lignes de la base du core reprises à chaque démarrage tant qu'il en reste (Fernet déchiffré) ; nom tiré de l'hôte, doublons écartés, clés sans origine listées, lignes effacées sans trace, journal sans valeur. */
 import { nomCanonique } from "@elpis/auth";
 import type { IssueImportAx, LigneAx, ResultatImportAx } from "@elpis/contracts";
 import { hasTable, supprimerSansTrace } from "@elpis/db";
@@ -138,7 +138,7 @@ function journaliserBilan(
   });
 }
 
-/** Lignes remises par l'hôte d'outils pour le compte `uid` (enveloppe signée) : chaque secret créé est journalisé, puis le bilan. */
+/** Lignes remises par l'hôte d'outils pour le compte `uid` (enveloppe signée) : jeton Fernet déchiffré ici (clé absente : `failed`, gardée pour plus tard ; illisible : `skipped`, `undecryptable`) ; chaque secret créé est journalisé, puis le bilan. */
 export async function importerLignesAx(
   base: Base,
   uid: number,
@@ -147,7 +147,22 @@ export async function importerLignesAx(
   source: "toolhost" | "core",
 ): Promise<ResultatImportAx[]> {
   if (!lignes.length) return [];
-  const results = await importerPourCompte(base, uid, lignes, acteur);
+  let fernet: boolean | null = null;
+  const issues: (ResultatImportAx | null)[] = [];
+  const lisibles: LigneAx[] = [];
+  for (const l of lignes) {
+    const chiffre = estJetonFernet(l.password);
+    if (chiffre) fernet ??= cleFernetPresente();
+    const clair = chiffre && fernet ? dechiffrer(l.password) : l.password;
+    if (chiffre && !fernet) issues.push(issue(l.site, "failed", "no_key"));
+    else if (chiffre && !clair) issues.push(issue(l.site, "skipped", "undecryptable"));
+    else {
+      issues.push(null);
+      lisibles.push({ ...l, password: clair });
+    }
+  }
+  const importees = await importerPourCompte(base, uid, lisibles, acteur);
+  const results = issues.map((r) => r ?? importees.shift()!);
   journaliserBilan(acteur, results, source);
   return results;
 }

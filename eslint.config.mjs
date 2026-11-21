@@ -32,6 +32,89 @@ const ratioJetons = [
     message: `invariant 3 : le ratio chars/token se lit dans @elpis/config (${RATIO}), il ne se redéfinit pas.`,
   },
 ];
+/** Seul l'hôte d'outils pilote Docker et joint les conteneurs et sockets des bacs : le cœur n'importe de leurs paquets que réglages, validateurs, textes, disque et sonde bubblewrap. */
+const MESSAGE_BACS =
+  "Docker et bacs réservés à l'hôte d'outils : le cœur passe par ses routes internes (/api/internal/…), le nom importé n'est pas permis (eslint.config.mjs, PERMIS_BACS).";
+const PERMIS_BACS = [
+  [
+    "@elpis/bac",
+    [
+      "ACCES_GIT",
+      "DEFAULT_IMAGE",
+      "DOMAIN_RE",
+      "PROFILE_ID_RE",
+      "RUN_SPEC",
+      "WORK_SUBDIR",
+      "adressesEpinglables",
+      "argsRunPermis",
+      "assainirSeuilsDisque",
+      "bwrap",
+      "chargerConfigBac",
+      "configuredImage",
+      "domainesEpingles",
+      "domainesPerimes",
+      "ipv4Canonique",
+      "messageSuppression",
+      "netcfgHash",
+      "oublierOccupations",
+      "profilFiltre",
+      "profilParId",
+      "profilReseauDepuis",
+      "protectionsDe",
+      "regleGitDepuis",
+      "releveHote",
+      "resolveurValide",
+      "resoudreIpv4",
+      "sandboxUsageBytes",
+      "serveurGitCanonique",
+      "seuilsDisqueDepuis",
+      "supprimerDossierBac",
+      "tailleBac",
+      "verifierMontages",
+    ],
+  ],
+  [
+    "@elpis/navigateur",
+    [
+      "deleteCredentials",
+      "deleteSite",
+      "deleteSitesBulk",
+      "detectSessionUrl",
+      "detectSitesFromText",
+      "extractPwScreenshotUrl",
+      "extractPwVisionCapture",
+      "getSiteStats",
+      "getTreeJson",
+      "listSitesWithStats",
+      "markSiteStale",
+      "normalizeUrl",
+      "pwVerbOf",
+      "renderFullDomForPrompt",
+      "renderSiteContextual",
+      "trackPwSessionOwnership",
+      "wipeAll",
+    ],
+  ],
+  ["@elpis/fichiers", ["cleServeurGit", "regleCouvre", "regleDuProfil"]],
+].map(([name, allowImportNames]) => ({
+  name,
+  allowImportNames,
+  allowTypeImports: true,
+  message: MESSAGE_BACS,
+}));
+const CHEMINS_BACS = [
+  {
+    group: [
+      "@elpis/bac/*",
+      "@elpis/navigateur/*",
+      "@elpis/fichiers/*",
+      "**/packages/bac/**",
+      "**/packages/navigateur/**",
+      "**/packages/fichiers/**",
+    ],
+    message: MESSAGE_BACS,
+  },
+];
 /** contexte/config-contexte.ts estime aussi des tokens (`estTokens`, ratio réglable de context_config.json) : avertissement des budgets au chargement, comme le Python, pas un compteur. */
 const TESTS = ["apps/*/test/**/*.ts", "packages/*/test/**/*.ts", "browser-service/test/**/*.ts"];
 
@@ -249,6 +332,10 @@ export default defineConfig(
     },
   },
   { files: [RATIO], rules: { "no-restricted-syntax": ["error", ...requeteJetons] } },
+  {
+    files: ["apps/core/src/**/*.ts"],
+    rules: { "no-restricted-imports": ["error", { paths: PERMIS_BACS, patterns: CHEMINS_BACS }] },
+  },
   {
     files: ["frontend/src/**/*.{ts,vue}", "frontend/test/**/*.ts", "frontend/*.mts"],
     extends: [

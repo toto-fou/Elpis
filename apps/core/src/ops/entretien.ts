@@ -26,7 +26,6 @@ export type NomPurge =
   | "session_messages"
   | "action_cache"
   | "stale_locks"
-  | "orphan_parts"
   | "office_cache"
   | "generated_images"
   | "audit_files";
@@ -115,7 +114,6 @@ export async function runMaintenanceOnce(
   await tenter("audit_files", "audit_files", 0);
   if (options.balayagesFs ?? true) {
     await tenter("stale_locks", "stale_locks", 0);
-    await tenter("orphan_parts", "orphan_parts", 0);
     try {
       out["run_journals"] = balayerJournauxRuns();
     } catch (e) {

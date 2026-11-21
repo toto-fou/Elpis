@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/securite-oidc-essai-parite.test.ts — « Se connecter pour essayer » rend la même décision qu'une vraie connexion (administrateur sans preuve d'un second facteur refusé sans rôle annoncé, rattachement préparé avec ou sans preuve, suspension, conflit de nom, groupes), sans créer ni compte ni session ni rien écrire ; la décision partagée ne fait aucune écriture (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+/** apps/core/test/securite-oidc-essai-parite.test.ts — « Se connecter pour essayer » rend la même décision qu'une vraie connexion, raison notée comprise (administrateur sans preuve d'un second facteur refusé sans rôle annoncé, rattachement préparé avec ou sans preuve, préparé qui ne vaut plus ou du dernier administrateur local, émetteur changé, nom invalide ou pris, aucun administrateur local, suspension, groupes), sans créer ni compte ni session ni rien écrire ; la décision partagée ne fait aucune écriture (SQLite, PostgreSQL si ELPIS_TEST_PG). */
 import { readFileSync } from "node:fs";
 
-import { createUser } from "@elpis/auth";
+import { createUser, MARQUEUR_SANS_MOT_DE_PASSE } from "@elpis/auth";
 import { schemaReponseDernierEssai } from "@elpis/contracts";
 import type { ResultatEssaiBlanc } from "@elpis/contracts";
 import type { Executeur } from "@elpis/db";
@@ -11,13 +11,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ancreIdentite } from "../src/identite/ancre";
 import { deciderIdentite } from "../src/identite/decision";
 import { preparerRattachement } from "../src/identite/rattachement";
+import { lignesAuditRecentes } from "./aides";
 import { MOTEURS } from "./identite/banc";
-import { cookies, ELPIS, HOTE_PUBLIC, ouvrirBancOidc } from "./identite/banc-oidc";
+import { adresseNeuve, cookies, ELPIS, HOTE_PUBLIC, ouvrirBancOidc } from "./identite/banc-oidc";
 import type { BancOidc } from "./identite/banc-oidc";
 import { OPENSSL_DISPONIBLE } from "./identite/pki-openssl";
 
 type Utilisateur = ReturnType<typeof ELPIS>;
-type Issue = { type: "refus"; code: string } | { type: "preuve" } | { type: "session"; compte: string };
+type Issue =
+  | { type: "refus"; code: string; cause: unknown }
+  | { type: "inoperant" }
+  | { type: "preuve" }
+  | { type: "session"; compte: string };
 
 /** Code rendu au navigateur par la vraie connexion pour une raison de l'essai. */
 const CODE_DE_RAISON: Readonly<Record<string, string>> = {
@@ -25,12 +30,17 @@ const CODE_DE_RAISON: Readonly<Record<string, string>> = {
   not_in_group: "not_in_group",
   groups_unknown: "groups_unknown",
   suspended: "suspended",
-  no_local_admin: "unavailable",
 };
 
-/** Ce que la vraie connexion ferait, selon la décision de l'essai. */
+/** Cause que la vraie connexion note pour une raison de l'essai : la même pour un refus du compte ; second facteur non prouvé : admin_without_mfa ou acr_amr. */
+const causeDe = (raison: string | null): unknown =>
+  raison === "mfa_required" ? expect.stringMatching(/^(admin_without_mfa|acr_amr)$/u) : raison;
+
+/** Ce que la vraie connexion ferait, selon la décision de l'essai ; sans administrateur local, le fournisseur est inopérant avant toute décision. */
 function attendue(d: ResultatEssaiBlanc["decision"]): Issue {
-  if (d.outcome === "refuse") return { type: "refus", code: CODE_DE_RAISON[d.reason ?? ""] ?? "conflict" };
+  if (d.reason === "no_local_admin") return { type: "inoperant" };
+  if (d.outcome === "refuse")
+    return { type: "refus", code: CODE_DE_RAISON[d.reason ?? ""] ?? "conflict", cause: causeDe(d.reason) };
   if (d.outcome === "proof") return { type: "preuve" };
   return { type: "session", compte: d.username ?? "" };
 }
@@ -70,10 +80,10 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc et vraie conn
       await b.t.base.valeurs("SELECT COUNT(*) FROM tool_tokens"),
     ]);
 
-  /** Essai à blanc complet pour cette personne : rien d'écrit hors de son résultat, résultat valide pour le schéma. */
-  async function essayer(u: Utilisateur): Promise<ResultatEssaiBlanc> {
+  /** Essai à blanc complet pour cette personne (`pendant` agit sur la base avant le retour) : rien d'écrit hors de son résultat, résultat valide pour le schéma. */
+  async function essayer(u: Utilisateur, pendant?: () => Promise<unknown>): Promise<ResultatEssaiBlanc> {
     await b.reglages({ enabled: false });
-    const avant = await etatEcrit();
+    let avant = await etatEcrit();
     const l = await b.console.inject({
       method: "POST",
       url: "/api/admin/auth/providers/sso/trial",
@@ -82,6 +92,11 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc et vraie conn
     });
     expect(l.statusCode, l.body).toBe(200);
     const { retour } = b.idp.autoriser(l.json<{ url: string }>().url, u);
+    if (pendant !== undefined) {
+      expect(await etatEcrit(), `départ de l'essai de ${u.sub}`).toBe(avant);
+      await pendant();
+      avant = await etatEcrit();
+    }
     const r = await b.retourner(retour, { cookie: `${cookies(l)}; ${admin}` });
     expect(r.statusCode, r.body).toBe(200);
     expect(String(r.headers["set-cookie"] ?? "")).not.toContain("mcpwebui_session");
@@ -98,15 +113,24 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc et vraie conn
     return resultat;
   }
 
-  /** Vraie connexion de cette personne, fournisseur actif : refus et son code, preuve demandée, ou session du compte. */
-  async function connecter(u: Utilisateur): Promise<Issue> {
+  /** Vraie connexion de cette personne, fournisseur actif (`pendant` agit sur la base avant le retour) : refus, son code et la cause notée au journal de sécurité, fournisseur devenu inopérant, preuve demandée, ou session du compte. */
+  async function connecter(u: Utilisateur, pendant?: () => Promise<unknown>): Promise<Issue> {
     await b.reglages({ enabled: true });
-    const { retour } = await b.connecter(u);
+    const adresse = adresseNeuve();
+    const depart = await b.demarrer({ adresse });
+    if (depart.url === null) throw new Error(`départ refusé : ${depart.reponse.statusCode}`);
+    const { retour: adresseRetour } = b.idp.autoriser(depart.url, u);
+    await pendant?.();
+    const retour = await b.retourner(adresseRetour, { cookie: depart.cookie, adresse });
+    if (retour.statusCode === 404) return { type: "inoperant" };
     const lieu = String(retour.headers.location ?? "");
     if (retour.statusCode === 302) {
-      const code = /^\/\?auth_error=([a-z_]+)&/u.exec(lieu)?.[1];
-      if (code === undefined) throw new Error(`retour inattendu : ${lieu}`);
-      return { type: "refus", code };
+      const [, code, ref] = /^\/\?auth_error=([a-z_]+)&ref=([\w-]+)$/u.exec(lieu) ?? [];
+      if (code === undefined || ref === undefined) throw new Error(`retour inattendu : ${lieu}`);
+      const details = lignesAuditRecentes({ actionPrefix: "auth.login.denied" })
+        .map((l) => l["details"] as Record<string, unknown> | undefined)
+        .find((d) => d?.["ref"] === ref);
+      return { type: "refus", code, cause: details?.["reason"] };
     }
     expect(retour.statusCode, retour.body).toBe(200);
     if (retour.body.includes("url=/?auth_link=1")) return { type: "preuve" };
@@ -118,15 +142,26 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc et vraie conn
     return { type: "session", compte: String(l?.username ?? "") };
   }
 
-  /** L'essai puis la vraie connexion de la même personne : même décision. */
-  async function memeDecision(u: Utilisateur, decision: Partial<ResultatEssaiBlanc["decision"]>) {
-    const essai = await essayer(u);
+  /** L'essai puis la vraie connexion de la même personne : même décision ; `pendant` change la base entre l'autorisation et le retour de chacun, `apres` la remet en état. */
+  async function memeDecision(
+    u: Utilisateur,
+    decision: Partial<ResultatEssaiBlanc["decision"]>,
+    o: { pendant?: () => Promise<unknown>; apres?: () => Promise<unknown> } = {},
+  ) {
+    const essai = await essayer(u, o.pendant);
+    await o.apres?.();
     expect(essai.decision, u.sub).toMatchObject(decision);
-    expect(await connecter(u), u.sub).toEqual(attendue(essai.decision));
+    expect(await connecter(u, o.pendant), u.sub).toEqual(attendue(essai.decision));
+    await o.apres?.();
     return essai;
   }
 
-  const preparer = async (uid: number, attendu: string, dispense: boolean): Promise<void> => {
+  const preparer = async (
+    uid: number,
+    attendu: string,
+    dispense: boolean,
+    confirmeAdmin = false,
+  ): Promise<void> => {
     const r = await b.t.base.ecriture((x) =>
       preparerRattachement(x, {
         uid,
@@ -134,7 +169,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc et vraie conn
         ancre: ancreIdentite(b.fournisseur),
         attendu,
         dispense,
-        confirmeAdmin: false,
+        confirmeAdmin,
         par: b.chef,
         t: Date.now() / 1000,
       }),
@@ -155,6 +190,7 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc et vraie conn
       outcome: "refuse",
       username: "p-homonyme",
       reason: "account_conflict",
+      conflict_linked: false,
     });
 
     const prouve = await createUser(b.t.base, "p-prouve", "mdp-prouve-1");
@@ -213,6 +249,128 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("essai à blanc et vraie conn
       reason: "mfa_required",
     });
     expect(sansOtp.rights).toBeNull();
+  });
+
+  it("émetteur changé, nom invalide, nom d'un compte rattaché ailleurs, préparé échu ou qui ne vaut plus, dernier administrateur local, aucun administrateur local : l'essai dit ce que la connexion fait", async () => {
+    const lierA = (uid: number, fournisseur: string, sub: string, ancre: string): Promise<unknown> =>
+      b.t.base.run(
+        "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?, ?, ?, ?, 'auto', 1)",
+        [uid, fournisseur, sub, ancre],
+      );
+    const ANCIENNE_ANCRE = "oidc:https://ancien.exemple.lan";
+
+    await lierA(
+      await createUser(b.t.base, "p-emetteur", "mdp-emetteur-1"),
+      "sso",
+      "s-emetteur",
+      ANCIENNE_ANCRE,
+    );
+    await memeDecision(ELPIS("s-emetteur"), {
+      outcome: "refuse",
+      username: "p-emetteur",
+      reason: "issuer_mismatch",
+    });
+
+    await memeDecision(ELPIS("s-reserve", { preferred_username: "root" }), {
+      outcome: "refuse",
+      username: null,
+      reason: "name_invalid",
+    });
+    await memeDecision(ELPIS("s-long", { preferred_username: "x".repeat(256) }), {
+      outcome: "refuse",
+      username: null,
+      reason: "name_invalid",
+    });
+
+    await lierA(
+      await createUser(b.t.base, "p-ailleurs", "mdp-ailleurs-1"),
+      "autre",
+      "s-autre",
+      ANCIENNE_ANCRE,
+    );
+    await memeDecision(ELPIS("s-ailleurs", { preferred_username: "p.ailleurs" }), {
+      outcome: "refuse",
+      username: "p-ailleurs",
+      reason: "account_conflict",
+      conflict_linked: true,
+    });
+
+    const echu = await createUser(b.t.base, "p-echu", "mdp-echu-1");
+    await preparer(echu, "p-echu", false);
+    await b.t.base.run("UPDATE auth_prelinks SET expires_at=? WHERE user_id=?", [
+      Math.floor(Date.now() / 1000) - 1,
+      echu,
+    ]);
+    await memeDecision(ELPIS("s-echu", { preferred_username: "p-echu" }), {
+      outcome: "refuse",
+      username: "p-echu",
+      reason: "account_conflict",
+      conflict_linked: false,
+    });
+
+    const ancre = await createUser(b.t.base, "p-ancre", "mdp-ancre-1");
+    await preparer(ancre, "p-ancre", true);
+    await b.t.base.run("UPDATE auth_prelinks SET issuer=? WHERE user_id=?", [ANCIENNE_ANCRE, ancre]);
+    await memeDecision(ELPIS("s-ancre", { preferred_username: "p-ancre" }), {
+      outcome: "refuse",
+      username: "p-ancre",
+      reason: "prelink_invalid",
+    });
+
+    const promu = await createUser(b.t.base, "p-promu", "mdp-promu-1");
+    await preparer(promu, "p-promu", true);
+    await b.t.base.run("UPDATE users SET is_admin=2 WHERE id=?", [promu]);
+    await memeDecision(ELPIS("s-promu", { preferred_username: "p-promu" }), {
+      outcome: "refuse",
+      username: "p-promu",
+      reason: "prelink_invalid",
+    });
+    expect(await b.t.base.valeurs("SELECT COUNT(*) FROM auth_prelinks WHERE user_id=?", [promu])).toEqual([
+      [0],
+    ]);
+
+    const sansMotDePasse = (uid: number): Promise<unknown> =>
+      b.t.base.run("UPDATE users SET pass_hash=? WHERE id=?", [MARQUEUR_SANS_MOT_DE_PASSE, uid]);
+    await b.ajouter("autre", { enabled: true });
+    const parSso = await createUser(b.t.base, "a-sso", "mdp-a-sso-1", { isAdmin: 1 });
+    await lierA(parSso, "autre", "s-a-sso", ancreIdentite(b.fournisseur));
+    await sansMotDePasse(parSso);
+    const ici = adresseNeuve();
+    const d = await b.demarrer({
+      id: "autre",
+      process: "console",
+      corps: { target: "console" },
+      adresse: ici,
+    });
+    expect(d.url, d.reponse.body).not.toBeNull();
+    const { retour } = b.idp.autoriser(d.url ?? "", ELPIS("s-a-sso"));
+    const r = await b.retourner(retour, { id: "autre", cookie: d.cookie, adresse: ici });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(String(r.headers["set-cookie"] ?? "")).toContain("mcpwebui_session");
+    admin = cookies(r, d.cookie);
+
+    const dernier = await createUser(b.t.base, "p-dernier", "mdp-dernier-1", { isAdmin: 1 });
+    await preparer(dernier, "p-dernier", false, true);
+    await sansMotDePasse(b.chef);
+    await memeDecision(ELPIS("s-dernier", { preferred_username: "p-dernier" }), {
+      outcome: "refuse",
+      username: "p-dernier",
+      reason: "prelink_invalid",
+    });
+
+    const motDePasse = String(
+      (await b.t.base.get<{ pass_hash: string }>("SELECT pass_hash FROM users WHERE id=?", [dernier]))
+        ?.pass_hash,
+    );
+    await memeDecision(
+      ELPIS("s-seul"),
+      { outcome: "refuse", username: null, reason: "no_local_admin" },
+      {
+        pendant: () => sansMotDePasse(dernier),
+        apres: () => b.t.base.run("UPDATE users SET pass_hash=? WHERE id=?", [motDePasse, dernier]),
+      },
+    );
+    expect(await b.utilisateurs()).not.toContain("s-seul");
   });
 
   it("administrateur : sans preuve d'un second facteur, refusé comme à la connexion et sans rôle annoncé, même hors des groupes requis ; avec preuve, administrateur", async () => {

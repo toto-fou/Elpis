@@ -172,7 +172,8 @@ would be asked first; at that first sign-in the rights can only go down), **…s
 sans ancien mot de passe** (a prepared link with the offline-verified option), or **Connexion refusée**
 (Sign-in refused) with the account concerned when there is one and the reason: no proof of a second factor
 for an administrator group, account suspended by an administrator, a local account already has the name
-(prepare its link), prepared link no longer valid, groups. When the sign-in does not get that far, **L'essai
+(prepare its link), an account linked to a provider already has the name (see **One identity per account**
+below), prepared link no longer valid, groups. When the sign-in does not get that far, **L'essai
 a échoué** (The trial failed) names the cause and what to do where: client secret or client authentication
 method refused (sections 3 and 6), token signed with another algorithm (section 6), extra audiences of the
 client at the provider, issuer or client that do not match (sections 1 and 3), clock, subject, no identity
@@ -460,6 +461,8 @@ revoked. You cannot detach your own account.
 at two providers is two identities: when both give the same login name, the second is refused (`conflict`);
 otherwise it gets an account of its own. An account already linked cannot be linked to a second provider. To move an account from one
 provider to another, detach it, then prepare its link to the other provider (card **3. Comptes existants**).
+When the sign-in trial says that an account linked to a provider already has the name, rename the login at one
+of the providers (that identity then gets an account of its own), or delete the extra Elpis account in **Comptes**.
 
 ## Roles and groups from the provider
 

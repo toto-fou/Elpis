@@ -88,6 +88,8 @@ export const schemaResultatEssaiBlanc = z.object({
     username: z.string().nullable(),
     /** Raison d'un refus ou cause d'un échec, d'une liste fermée ; jamais un message du fournisseur. */
     reason: z.enum(RAISONS_ESSAI).nullable(),
+    /** Avec `account_conflict` : vrai si tout compte qui porte ce nom est déjà rattaché à un fournisseur (aucun ne peut être préparé), faux si l'un est local ; absent pour les autres décisions. */
+    conflict_linked: z.boolean().optional(),
   }),
   /** Rôle et groupes Elpis qu'obtiendrait ce compte à cette connexion (rien n'est écrit) ; `null` quand la connexion serait refusée ou que le parcours n'a pas abouti. */
   rights: z

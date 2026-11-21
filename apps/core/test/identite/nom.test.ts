@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/identite/nom.test.ts — le nom Elpis dérivé d'un identifiant externe : forme stricte, noms réservés refusés, jamais de suffixe. */
+/** apps/core/test/identite/nom.test.ts — le nom Elpis dérivé d'un identifiant externe : forme stricte, noms réservés refusés, jamais de suffixe ; un nom pris seulement par des comptes rattachés est repéré (SQLite, PostgreSQL si ELPIS_TEST_PG). */
+import { createUser } from "@elpis/auth";
+import { initialiserBase } from "@elpis/db";
+import { ouvrirBaseDeTest } from "@elpis/db/test";
 import { describe, expect, it } from "vitest";
 
-import { nomDerive } from "../../src/identite/nom";
+import { nomDerive, nomPris, nomPrisParRattaches } from "../../src/identite/nom";
+import { MOTEURS } from "./banc";
 
 describe("nomDerive", () => {
   it.each([
@@ -43,5 +47,34 @@ describe("nomDerive", () => {
     expect(nomDerive("user_abc")).toBe("user_abc");
     expect(nomDerive("administrateur")).toBe("administrateur");
     expect(nomDerive("jean.dupont")).toBe(nomDerive("Jean-Dupont"));
+  });
+});
+
+describe.each(MOTEURS)("nom pris par des comptes rattachés (%s)", (moteur) => {
+  it("vrai seulement si tout compte qui porte le nom est rattaché : un homonyme local peut encore être préparé", async () => {
+    const t = ouvrirBaseDeTest(moteur);
+    try {
+      await initialiserBase(t.base);
+      const lier = (uid: number, sub: string): Promise<unknown> =>
+        t.base.run(
+          "INSERT INTO user_identities(user_id, provider_id, subject, issuer, linked_by, linked_at) VALUES(?, 'autre', ?, 'oidc:https://autre.exemple.lan', 'auto', 1)",
+          [uid, sub],
+        );
+      expect(await nomPrisParRattaches(t.base, "chloe-martin")).toBe(false);
+      const tiret = await createUser(t.base, "chloe-martin", "mdp-chloe-1");
+      expect([
+        await nomPris(t.base, "chloe-martin"),
+        await nomPrisParRattaches(t.base, "chloe-martin"),
+      ]).toEqual([true, false]);
+      await lier(tiret, "s-tiret");
+      expect(await nomPrisParRattaches(t.base, "Chloe.Martin")).toBe(true);
+      const souligne = await createUser(t.base, "chloe_martin", "mdp-chloe-2");
+      expect(await nomPrisParRattaches(t.base, "chloe-martin")).toBe(false);
+      await lier(souligne, "s-souligne");
+      expect(await nomPrisParRattaches(t.base, "chloe-martin")).toBe(true);
+      expect(await nomPrisParRattaches(t.base, "chloe-martine")).toBe(false);
+    } finally {
+      await t.fermer();
+    }
   });
 });

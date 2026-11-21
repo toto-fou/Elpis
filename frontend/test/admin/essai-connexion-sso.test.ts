@@ -336,6 +336,44 @@ describe("tiroir SSO : essai de connexion", () => {
     );
   });
 
+  it("nom pris par un compte déjà rattaché : pas de rattachement à préparer, mais l'action pour une personne à deux identités ; un compte local garde la sienne", async () => {
+    const LOCAL =
+      "Connexion refusée pour le compte homonyme : un compte local porte déjà ce nom ; préparez son rattachement (carte « 3. Comptes existants »).";
+    const conflit = (conflict_linked?: boolean) =>
+      phraseDecision({
+        outcome: "refuse",
+        username: "chloe-martin",
+        reason: "account_conflict",
+        ...(conflict_linked === undefined ? {} : { conflict_linked }),
+      });
+    expect(conflit(true)).toBe(
+      "Connexion refusée pour le compte chloe-martin : un compte rattaché à un fournisseur porte déjà ce nom, et une personne n'a qu'une identité ; renommez son identifiant chez l'un des fournisseurs, ou supprimez dans Comptes le compte Elpis en trop (voir le guide).",
+    );
+    expect(conflit(true)).not.toMatch(/local|préparez/u);
+    expect(conflit(false)).toBe(LOCAL.replace("homonyme", "chloe-martin"));
+    expect(conflit()).toBe(conflit(false));
+    expect(
+      phraseDecision({ outcome: "refuse", username: null, reason: "name_invalid", conflict_linked: true }),
+    ).toBe(`Connexion refusée : ${RAISONS_ESSAI_PHRASES.name_invalid}.`);
+    const decision = { outcome: "refuse", username: "chloe-martin", reason: "account_conflict" };
+    expect(schemaResultatEssaiBlanc.safeParse({ ...RESULTAT, decision }).success).toBe(true);
+    expect(
+      schemaResultatEssaiBlanc.safeParse({ ...RESULTAT, decision: { ...decision, conflict_linked: true } })
+        .success,
+    ).toBe(true);
+    expect(
+      schemaResultatEssaiBlanc.safeParse({ ...RESULTAT, decision: { ...decision, conflict_linked: "oui" } })
+        .success,
+    ).toBe(false);
+
+    const { m } = await lancer("https://idp.example.lan/auth");
+    m.reponses["GET " + TRIAL] = [
+      json({ result: { ...RESULTAT, ok: false, decision: { ...decision, conflict_linked: true } } }),
+    ];
+    await pomper(2000);
+    expect(el("#ent-trial-decision")?.textContent?.trim()).toBe(conflit(true));
+  });
+
   it("refus : aucun rôle annoncé (les droits d'un refus ne sont pas rendus)", () => {
     expect(lignesDroits(null)).toEqual([]);
     const lisible = {

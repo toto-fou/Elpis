@@ -85,6 +85,11 @@ describe.skipIf(!OPENSSL_DISPONIBLE).each(MOTEURS)("identifiant non fiable (%s)"
       groupesComplets: [],
     } as unknown as RetourVerifie;
     const r = await resultatEssaiBlanc(b.t.base, b.fournisseur, vue, 1);
-    expect(r.decision).toEqual({ outcome: "refuse", username: "jean-dupont", reason: "account_conflict" });
+    expect(r.decision).toEqual({
+      outcome: "refuse",
+      username: "jean-dupont",
+      reason: "account_conflict",
+      conflict_linked: false,
+    });
   });
 });

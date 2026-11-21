@@ -124,6 +124,10 @@ export const RAISONS_ESSAI_PHRASES: Readonly<Record<RaisonEssai, string>> = {
     "le fournisseur n'a pas rendu de jeton d'identité ; vérifiez la portée openid (scope, section 6) et que ce client est un client OpenID Connect chez le fournisseur",
 };
 
+/** Conflit de nom avec un compte déjà rattaché : il ne peut pas être préparé, car un compte ne porte qu'une identité. */
+export const PHRASE_CONFLIT_RATTACHE =
+  "un compte rattaché à un fournisseur porte déjà ce nom, et une personne n'a qu'une identité ; renommez son identifiant chez l'un des fournisseurs, ou supprimez dans Comptes le compte Elpis en trop (voir le guide)";
+
 /** Décision de l'essai en une phrase ; la raison vient d'une liste fermée, jamais du fournisseur. */
 export function phraseDecision(d: ResultatEssaiBlanc["decision"]): string {
   const nom = d.username ?? "";
@@ -134,7 +138,10 @@ export function phraseDecision(d: ResultatEssaiBlanc["decision"]): string {
     return `Cette personne devrait d'abord saisir l'ancien mot de passe du compte ${nom} pour s'y rattacher ; à cette première connexion, ses droits ne peuvent que baisser.`;
   if (d.outcome === "create") return `Un compte ${nom} serait créé.`;
   const phrases: Readonly<Record<string, string | undefined>> = RAISONS_ESSAI_PHRASES;
-  const raison = (d.reason !== null ? phrases[d.reason] : undefined) ?? "cause non précisée";
+  const raison =
+    d.reason === "account_conflict" && d.conflict_linked === true
+      ? PHRASE_CONFLIT_RATTACHE
+      : ((d.reason !== null ? phrases[d.reason] : undefined) ?? "cause non précisée");
   if (d.outcome === "error") return `L'essai a échoué : ${raison}.`;
   return d.username === null
     ? `Connexion refusée : ${raison}.`

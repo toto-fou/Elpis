@@ -23,11 +23,27 @@ export function nomDerive(identifiantExterne: string): string | null {
 /** Forme comparée des noms : casse ignorée, toute suite de `.`, `-`, `_` vaut un seul `-`. */
 const cleHomonyme = (nom: string): string => nom.toLowerCase().replace(/[._-]+/gu, "-");
 
+/** Comptes portant déjà ce nom, à la casse et aux séparateurs `.`, `-`, `_` près, forme canonique comprise. */
+async function homonymes(x: Executeur, nom: string): Promise<number[]> {
+  const cle = cleHomonyme(nom);
+  return (await getAllUsers(x))
+    .filter((u) => {
+      const autre = String(u.username ?? "");
+      return cleHomonyme(autre) === cle || cleHomonyme(nomCanonique(autre)) === cle;
+    })
+    .map((u) => Number(u.id));
+}
+
 /** Compte déjà portant ce nom, à la casse et aux séparateurs `.`, `-`, `_` près, forme canonique comprise. */
 export async function nomPris(x: Executeur, nom: string): Promise<boolean> {
-  const cle = cleHomonyme(nom);
-  return (await getAllUsers(x)).some((u) => {
-    const autre = String(u.username ?? "");
-    return cleHomonyme(autre) === cle || cleHomonyme(nomCanonique(autre)) === cle;
-  });
+  return (await homonymes(x, nom)).length > 0;
+}
+
+/** Vrai si ce nom est pris et que tout compte qui le porte est déjà rattaché à un fournisseur : aucun ne peut être préparé. */
+export async function nomPrisParRattaches(x: Executeur, nom: string): Promise<boolean> {
+  const ids = await homonymes(x, nom);
+  for (const id of ids)
+    if ((await x.get("SELECT 1 AS un FROM user_identities WHERE user_id=?", [id])) === undefined)
+      return false;
+  return ids.length > 0;
 }

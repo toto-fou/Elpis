@@ -5,6 +5,7 @@ import type { Executeur } from "@elpis/db";
 
 import { adminSansPreuve, apercuDroits } from "../correspondance";
 import { deciderIdentite } from "../decision";
+import { nomPrisParRattaches } from "../nom";
 import type { Fournisseur } from "../reglages";
 import type { RetourVerifie } from "./echange";
 import type { RefusOidc } from "./refus";
@@ -40,8 +41,14 @@ async function decider(
     instant: () => maintenant,
   });
   switch (p.type) {
-    case "refus":
-      return issue("refuse", p.compte, p.raison);
+    case "refus": {
+      const refus = issue("refuse", p.compte, p.raison);
+      if (p.raison !== "account_conflict" || p.compte === null) return refus;
+      return {
+        ...refus,
+        decision: { ...refus.decision, conflict_linked: await nomPrisParRattaches(x, p.compte) },
+      };
+    }
     case "connu":
       return issue("login", p.compte);
     case "dispense":

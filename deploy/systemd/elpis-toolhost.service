@@ -8,7 +8,7 @@ After=network-online.target docker.service@AFTER_DB@
 
 [Service]
 Type=simple
-User=@USER@
+@COMPTE@
 # Jetons du navigateur des bacs : dossier d'exécution privé, vidé à l'arrêt, gardé d'une relance à l'autre.
 RuntimeDirectory=@PREFIX@-toolhost
 RuntimeDirectoryMode=0700
@@ -21,6 +21,8 @@ EnvironmentFile=-@ROOT@/.env
 UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
 InaccessiblePaths=-@VAULT_KEY_SYS@
 InaccessiblePaths=-@VAULT_KEY_REPLI@
+# Ni le secret de session ni la clé de chiffrement héritée : main et la console seuls s'en servent.
+InaccessiblePaths=-@BASE@/.session_secret -@BASE@/.encryption_key
 ExecStart=@EXEC@
 # Relancé après SIGHUP (sortie 75) comme le core ; ses PTY sont tués à l'arrêt.
 Restart=always
@@ -46,7 +48,8 @@ RestrictRealtime=yes
 LockPersonality=yes
 SystemCallArchitectures=native
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-UMask=0022
+# 0022 sous un compte unique, 0007 en comptes séparés : le code pose lui-même les modes de ce qu'il partage avec les bacs.
+UMask=@UMASK@
 MemoryMax=50%
 TasksMax=4096
 

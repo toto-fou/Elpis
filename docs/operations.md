@@ -224,12 +224,14 @@ files aside). Every walk leaves the secrets, the relay authority, `run/chat_runs
 | `.backup_known_hosts` | `0660 elpis-admin:elpis-cle` (OpenSSH, run by main or the console, adds new hosts to it) |
 | `user_db/browser-relay-ca/` | `0700 elpis-toolhost` |
 | `user_db/run/chat_runs/`, `user_db/run/task_resume/` | `0700 elpis-main`, content included |
+| chart cache (`user_db/run/charts/`, `CHART_CACHE_DIR`) | `2750 elpis-main:elpis-donnees`, folders `2750`, files `0640`: main writes it, the tool host reads the charts of Office documents; left out of the walk of the folder that holds it |
+| `user_db/run/office_locks/`, `user_db/run/navigateur/` (left by a former single account) | `0700 elpis-toolhost`, content included; under systemd the tool host keeps its locks and browser tokens in its own runtime folder (`/run/elpis-toolhost`) |
 | `mcp.json`, `toolhost.json` | `0640`, operator, group `elpis-donnees` |
 | `/etc/elpis/config/` (`config.json`, `.bak`, `.lock`) | folder `2750 elpis-admin:elpis-donnees`, files `0640 elpis-admin:elpis-donnees`, `config.json.bak` `0600` (console only) |
 | `system_prompts/`, `skills/` | operator, group `elpis-donnees`, `2770`, content `g+rwX` |
-| sandboxes (`user_sandboxes/`) | `2750 elpis-toolhost:elpis-donnees`; content owner `elpis-toolhost`, group `elpis-donnees` with `g+rX` and no write, nothing for others; each `work/` left to the sandboxes' user, each `.elpis-agent/` `1777` with its content untouched, `.elpis-relay/` `0755`; `_snapshots/` in a walk of its own, so that an account named `work` is walked like the others |
+| sandboxes (`user_sandboxes/`) | `2750 elpis-toolhost:elpis-donnees`; content owner `elpis-toolhost`, group `elpis-donnees` with `g+rX` and no write, nothing for others; in each account folder (set-aside ones included), `work/` left to the sandboxes' user and `.elpis-agent/` `1777` with its content untouched; `.elpis-relay/` `0755`; `_snapshots/` in a walk of its own, so that an account named `work` is walked like the others. First, an entry that is not a folder at the root of the sandboxes folder, or in place of an account's `work/` or `.elpis-agent/`, is renamed `.ecarte-<date>-<name>` next to it, without being followed, and reported: check it, then delete it or move it back by hand |
 | file history (`user_db/file_history/`), Office preview cache (`user_sandboxes/.office-cache/`) | `0700 elpis-toolhost`, content included; read-only for main and the console even inside `user_db/` (`ReadOnlyPaths=`) |
-| memory (`user_db/memoire/`) | as `user_db/`: main writes it, the console restores and deletes it |
+| memory (`user_db/memoire/`) | as `user_db/`: main writes it, the console restores it, and sets it aside, puts it back or deletes it with an account's sandbox |
 | `logs/`, data folders outside the installation | `2770 root:elpis-donnees`; content `g+rwX` (outside the installation, only the content of Elpis accounts; folders accepted as below) |
 | `backups/` | `0700`, operator and its primary group, content included: only `./elpis backup` writes it (with one account per service, under `sudo`; the archive is then handed to the operator); the services never reach it |
 | `/etc/elpis` | `0751 root:root` (keys protected one by one) |
@@ -275,21 +277,34 @@ backups) but it is outside their `ReadWritePaths=`, like the file history and th
 Main pushes an account's skills mirror through the tool host's API, on this machine as on a remote
 host; the console sets aside, puts back and deletes an account's sandbox through the tool host's
 internal routes; the tool host sweeps its write locks and prunes the Office cache itself. Before
-it mounts a sandbox, the tool host also checks that only it (or root) can change the sandboxes
-folder and the account's folder, and that no link leads to `/work`, to `.elpis-agent/` or to the
-Git relay; otherwise the sandbox does not start, users are told to ask their administrator, and
-the server journal asks for `sudo ./elpis service install`.
+it creates a sandbox, and before it starts a stopped one again, the tool host also checks that only
+it (or root) can change the sandboxes folder and the account's folder, that the account's folder
+is the entry of its own name (never a link to another account's), and that no link leads to
+`/work`, to `.elpis-agent/` or to the Git relay; otherwise the sandbox does not start, users are
+told to ask their administrator, and the server journal asks for `sudo ./elpis service install`.
+A stopped container whose `/work` is not the account's folder is removed and created again. The
+tool host also uses its browser relay authority, the file history, the Office cache and its Office
+locks only when they belong to it and are closed to the other accounts; otherwise the feature is
+refused at once and the server journal says why.
+
+An account whose skills folder was left in its sandbox by an older version (`<sandboxes>/<account>/skills`
+with no protected store yet) has it taken into `user_skills/<account>` by `service install`, by
+renaming, without following links; the tool host then replaces the sandbox copy with the mirror of
+that store. A link, a file, or a folder that a service can change is reported and left as it is.
 
 Each account's memory lives in `user_db/memoire/<account>/` (`APP_MEMORY_DIR` in `.env` to move
 it; with one account per service, a memory folder inside the sandboxes folder is refused).
 `service install`, and `./elpis start` with one account, move an older `<sandboxes>/<account>/memory`
 (and an `.memory` left by older versions, when there is no `memory`) there before the services
-start, by renaming, without following links; with one account, under that account. A destination
-that already exists, a link or another file system is reported and left as it is: move it by hand,
-then run the command again. Under systemd, the memory moves at the next
-`sudo ./elpis service install`: run it after upgrading (with one account per service, units
-installed before keep their memory folder until then; with one account, the accounts see an
-empty memory until then).
+start, by renaming, without following links; with one account, under that account. An empty
+destination is replaced; a destination that is not empty, a link, a folder that a service can
+change or another file system is reported and left as it is: move it by hand, then run the command
+again. Under systemd with one account, `./elpis upgrade` moves it too, between stopping and
+starting the units; with one account per service, it moves at the next
+`sudo ./elpis service install`: run it after upgrading (units installed before keep their memory
+folder until then). With one account, an account that has no memory folder yet and whose memory
+is still at a former place has it copied (folders and regular files only, no link followed) the
+first time it is read; with one account per service, only `service install` moves it.
 
 ### An installation other accounts can reach
 
@@ -919,7 +934,8 @@ under the same name never inherits anything of the old one:
 
 Without the sandbox (the console default), the renamed folders are kept: an administrator can recover files from
 them on the host (or delete them); they are not listed anywhere in the console. The account's memory
-(`user_db/memoire/<name>`) is outside the sandbox folder: it is deleted with the account, like its personal skills.
+(`user_db/memoire/<name>`) is renamed with them, under the same `.supprime-<account id>-<timestamp>` name in the
+memory folder, put back with them and deleted with them; its personal skills are deleted with the account.
 
 Account names cannot start with `_` (the sandbox directory keeps `_snapshots` there); an older account whose name
 does, when deleted, never has its folders renamed or deleted.
@@ -941,8 +957,10 @@ tool host's own entries (markers, skills mirrors, Office cache, locks) are made 
 and the snapshots are not restored (the console lists them among the errors, the server journal
 too).
 
-Wherever the archive keeps it (`user_db/memoire/` now, `sandboxes/<account>/memory/` in older
-archives), the memory is restored into the memory folder of the instance.
+Wherever the archive keeps it, the memory is restored into the memory folder of the instance,
+with the scope that holds it: an archive made by this version keeps it in `user_db/memoire/`
+(**Database** or **Full** scope), an older archive under `sandboxes/<account>/memory/`
+(**Sandboxes** or **Full** scope).
 
 The full archive contains the database (SQLite snapshot, whatever the engine),
 `user_db/` (including the encryption key, the session secret and, while no vault
@@ -951,7 +969,9 @@ accordingly, the RAG store `user_db/rag`: uploaded documents and extracted
 texts, and the accounts' memory `user_db/memoire`, also in the **Database** scope), the sandboxes, the MCP servers, the skins, the personal skills
 store and the security journal (`audit/`, see
 [Security journal and log forwarding](#security-journal-and-log-forwarding)). In the sandboxes, only regular files are backed up; other entries are
-listed in `backup-warnings.txt`.
+listed in `backup-warnings.txt`. The tool host's own folders at the root of the sandboxes folder
+(Git relay, upload spool, write and lifecycle locks, Office preview cache) are made again when
+needed: they are neither backed up nor listed.
 
 In `user_db/`, a link to a file is never followed: it is listed in `backup-warnings.txt`. With one
 account per service, the archive does not hold the tool host's private browser relay authority

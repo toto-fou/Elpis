@@ -547,9 +547,13 @@ export async function listerConteneurs(acteur: Acteur | undefined): Promise<Dict
 
 // ── Cycle de vie : arrêt, destruction, GC ──────────────────────────────────
 
-/** Arrêt ou destruction du conteneur du compte par l'hôte d'outils du relevé (celui qui l'a listé), sous son verrou de cycle de vie. */
+/** Arrêt ou destruction du conteneur du compte (suspendu compris) par l'hôte d'outils du relevé (celui qui l'a listé), sous son verrou de cycle de vie. */
 export async function actionConteneur(compte: Acteur, action: "stop" | "destroy"): Promise<void> {
-  await appelerConsole(undefined, "POST", `/api/internal/sandboxes/${action}`, { delaiS: 150, compte });
+  await appelerConsole(undefined, "POST", `/api/internal/sandboxes/${action}`, {
+    delaiS: 150,
+    compte,
+    tolererSuspension: true,
+  });
 }
 
 /** `gc_idle_containers` : l'hôte d'outils arrête les conteneurs dont le `/work` est inactif depuis `idle_kill_hours` ; rend leurs noms, `[]` si l'hôte ne répond pas. */

@@ -904,25 +904,26 @@ doctor_coffre() {
     lignes_doctor "coffre (Secrets)" vault_core vault doctor
 }
 
-# Lignes « niveau<TAB>texte » de la sortie d'un diagnostic du core, rendues par ok / warn / info ; toute autre ligne, ou un échec, compte comme un défaut (son journal sur stderr n'est montré qu'en cas d'échec).
+# Lignes « niveau<TAB>texte » de la sortie d'un diagnostic du core, rendues par ok / warn / info ; toute autre ligne, une alerte [CRITICAL] de son journal ou un échec sans défaut déjà compté sont des défauts (le reste du journal est tu).
 lignes_doctor() {
-    local libelle="$1" niveau texte sortie code erreur vu=0 f
+    local libelle="$1" niveau texte sortie code erreur defaut=0 f
     shift
     f="$(mktemp)" || { warn "$libelle : NON (fichier temporaire impossible)"; bad=$((bad+1)); return 0; }
     sortie="$("$@" 2>"$f")"; code=$?
-    erreur="$(grep -v '^[[:space:]]*$' -- "$f" | tail -n 1)"
-    rm -f -- "$f"
     while IFS=$'\t' read -r niveau texte; do
         case "$niveau" in
-            ok) ok "$texte"; vu=1 ;;
-            warn) warn "$texte"; bad=$((bad+1)); vu=1 ;;
-            info) info "$texte"; vu=1 ;;
-            *) [ -n "$niveau$texte" ] && { warn "$libelle : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
+            ok) ok "$texte" ;;
+            warn) warn "$texte"; bad=$((bad+1)); defaut=1 ;;
+            info) info "$texte" ;;
+            *) [ -n "$niveau$texte" ] && { warn "$libelle : NON ($niveau $texte)"; bad=$((bad+1)); defaut=1; } ;;
         esac
     done <<< "$sortie"
-    if [ "$code" -ne 0 ] && { [ -n "$erreur" ] || [ "$vu" -eq 0 ]; }; then
-        warn "$libelle : NON (${erreur:-échec, code $code})"; bad=$((bad+1))
-    fi
+    while IFS= read -r texte; do
+        warn "$libelle : NON ($texte)"; bad=$((bad+1)); defaut=1
+    done < <(grep -a '\[CRITICAL\]' -- "$f")
+    erreur="$(grep -av -e '^[[:space:]]*$' -e '^Node\.js v' -- "$f" | tail -n 1)"
+    rm -f -- "$f"
+    [ "$code" -eq 0 ] || [ "$defaut" -eq 1 ] || { warn "$libelle : NON (${erreur:-échec, code $code})"; bad=$((bad+1)); }
 }
 
 # SSO OpenID Connect vu par le core (lecture seule, sans réseau) : une ligne « niveau<TAB>texte » par contrôle ; rien si le core ou config.json manque.
@@ -1092,16 +1093,8 @@ cmd_doctor() {
         fi
     fi
     if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
-        local niveau texte
         # Extracteur, jeton et magasin partagés, Qdrant, embeddings, reclassement et OCR : vus par le core.
-        while IFS=$'\t' read -r niveau texte; do
-            case "$niveau" in
-                ok) ok "$texte" ;;
-                warn) warn "$texte"; bad=$((bad+1)) ;;
-                info) info "$texte" ;;
-                *) [ -n "$niveau$texte" ] && { warn "RAG : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
-            esac
-        done < <(ELPIS_RACINE="$ROOT" timeout 120 "$NODE" --use-system-ca "$CORE_DIST/exploitation.mjs" rag 2>&1)
+        lignes_doctor "RAG" env ELPIS_RACINE="$ROOT" timeout 120 "$NODE" --use-system-ca "$CORE_DIST/exploitation.mjs" rag
     else
         info "RAG : non vérifié (core non construit ou config.json absent)"
     fi
@@ -1550,7 +1543,7 @@ puis ./elpis restart. Sans elle, fichiers, éditeur et git des sandboxes ne marc
         cmd_start || die "L'application ne répond pas après la mise à jour (voir ci-dessus) : ./elpis logs main"
     fi
     local base
-    base="$(core_cmd migrations 2>&1)" || die "Base après la mise à jour : ${base:-injoignable} (./elpis db info, ./elpis logs main)"
+    base="$(core_cmd migrations 2>/dev/null)" || die "Base après la mise à jour : ${base:-injoignable} (./elpis db info, ./elpis logs main)"
     case "$base" in
         "à jour"*) ok "Base : $base" ;;
         *) die "Migrations non appliquées après le redémarrage : $base (./elpis logs main)" ;;

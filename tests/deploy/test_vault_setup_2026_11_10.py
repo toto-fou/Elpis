@@ -240,10 +240,15 @@ info() {{ printf '[elpis] %s\\n' "$*"; }}; ok() {{ printf '[ ok  ] %s\\n' "$*"; 
 warn() {{ printf '[warn ] %s\\n' "$*" >&2; }}
 diag() {{ {corps}; }}
 """
-    return subprocess.run(["bash", "-c", tete + _fonctions("lignes_doctor")
-                           + '\nbad=0; lignes_doctor "SSO OpenID Connect" diag; echo "bad=$bad"'],
-                          env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C.UTF-8"},
-                          capture_output=True, text=True, timeout=30, cwd=str(tmp_path), stdin=subprocess.DEVNULL)
+    tmp = tmp_path / "tmp"
+    tmp.mkdir(exist_ok=True)
+    r = subprocess.run(["bash", "-c", tete + _fonctions("lignes_doctor")
+                        + '\nbad=0; lignes_doctor "SSO OpenID Connect" diag; echo "bad=$bad"'],
+                       env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C.UTF-8", "TMPDIR": str(tmp)},
+                       capture_output=True, text=True, errors="replace", timeout=30, cwd=str(tmp_path),
+                       stdin=subprocess.DEVNULL)
+    assert list(tmp.iterdir()) == [], "fichier temporaire laissé"
+    return r
 
 
 def test_doctor_journal_du_core_n_est_pas_un_controle(tmp_path):
@@ -252,6 +257,15 @@ def test_doctor_journal_du_core_n_est_pas_un_controle(tmp_path):
                           "echo 'WARNING [coffre] coffre : clé de repli /x en usage' >&2")
     assert "[ ok  ] SSO OpenID Connect : keycloak" in r.stdout
     assert "NON" not in r.stdout + r.stderr and "bad=0" in r.stdout
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : sans fin de ligne'")
+    assert "[ ok  ] SSO OpenID Connect : sans fin de ligne" in r.stdout and "bad=0" in r.stdout
+
+
+def test_doctor_alerte_critique_du_journal_comptee(tmp_path):
+    # Secret de session faible : seule alerte du journal qui reste un défaut, même si la commande réussit.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; "
+                          "printf '\\n[CRITICAL] Elpis SESSION_SECRET FAIBLE/PAR DÉFAUT (len=8)\\n\\n' >&2")
+    assert "NON ([CRITICAL] Elpis SESSION_SECRET FAIBLE/PAR DÉFAUT (len=8))" in r.stderr and "bad=1" in r.stdout
 
 
 def test_doctor_echec_du_core_compte_comme_un_defaut(tmp_path):
@@ -260,10 +274,17 @@ def test_doctor_echec_du_core_compte_comme_un_defaut(tmp_path):
     assert "bruit" not in r.stderr and "bad=1" in r.stdout
     r = _lignes(tmp_path, "return 3")
     assert "NON (échec, code 3)" in r.stderr and "bad=1" in r.stdout
-    r = _lignes(tmp_path, "printf 'warn\\tSSO OpenID Connect : secret absent\\n'; return 1")
+    # Mort par signal après des lignes vertes : le contrôle manquant ne passe pas pour vert.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; return 137")
+    assert "NON (échec, code 137)" in r.stderr and "bad=1" in r.stdout
+    # Échec qui suit un défaut déjà compté : une seule fois.
+    r = _lignes(tmp_path, "printf 'warn\\tSSO OpenID Connect : secret absent\\n'; echo 'WARNING [x] bruit' >&2; return 1")
     assert r.stderr.count("[warn ]") == 1 and "bad=1" in r.stdout
     r = _lignes(tmp_path, "echo 'ligne hors format'")
     assert "NON (ligne hors format" in r.stderr and "bad=1" in r.stdout
+    # Plantage de Node hors du try : la ligne de version n'est pas l'erreur ; journal non UTF-8 lu quand même.
+    r = _lignes(tmp_path, "printf 'Error: pool \\xff fermé\\n\\nNode.js v24.21.0\\n' >&2; return 1")
+    assert "NON (Error: pool" in r.stderr and "Node.js" not in r.stderr and "bad=1" in r.stdout
 
 
 def _unites(depot: Path, **env: str) -> dict[str, str]:

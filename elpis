@@ -904,18 +904,25 @@ doctor_coffre() {
     lignes_doctor "coffre (Secrets)" vault_core vault doctor
 }
 
-# Lignes « niveau<TAB>texte » d'une commande de diagnostic du core, rendues par ok / warn / info ; toute autre ligne compte comme un défaut.
+# Lignes « niveau<TAB>texte » de la sortie d'un diagnostic du core, rendues par ok / warn / info ; toute autre ligne, ou un échec, compte comme un défaut (son journal sur stderr n'est montré qu'en cas d'échec).
 lignes_doctor() {
-    local libelle="$1" niveau texte
+    local libelle="$1" niveau texte sortie code erreur vu=0 f
     shift
+    f="$(mktemp)" || { warn "$libelle : NON (fichier temporaire impossible)"; bad=$((bad+1)); return 0; }
+    sortie="$("$@" 2>"$f")"; code=$?
+    erreur="$(grep -v '^[[:space:]]*$' -- "$f" | tail -n 1)"
+    rm -f -- "$f"
     while IFS=$'\t' read -r niveau texte; do
         case "$niveau" in
-            ok) ok "$texte" ;;
-            warn) warn "$texte"; bad=$((bad+1)) ;;
-            info) info "$texte" ;;
+            ok) ok "$texte"; vu=1 ;;
+            warn) warn "$texte"; bad=$((bad+1)); vu=1 ;;
+            info) info "$texte"; vu=1 ;;
             *) [ -n "$niveau$texte" ] && { warn "$libelle : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
         esac
-    done < <("$@" 2>&1)
+    done <<< "$sortie"
+    if [ "$code" -ne 0 ] && { [ -n "$erreur" ] || [ "$vu" -eq 0 ]; }; then
+        warn "$libelle : NON (${erreur:-échec, code $code})"; bad=$((bad+1))
+    fi
 }
 
 # SSO OpenID Connect vu par le core (lecture seule, sans réseau) : une ligne « niveau<TAB>texte » par contrôle ; rien si le core ou config.json manque.

@@ -234,6 +234,38 @@ def test_doctor_sans_core_non_verifie(depot):
     assert "non vérifié (core non construit" in r.stdout and "bad=0" in r.stdout
 
 
+def _lignes(tmp_path: Path, corps: str) -> subprocess.CompletedProcess:
+    tete = f"""set -uo pipefail
+info() {{ printf '[elpis] %s\\n' "$*"; }}; ok() {{ printf '[ ok  ] %s\\n' "$*"; }}
+warn() {{ printf '[warn ] %s\\n' "$*" >&2; }}
+diag() {{ {corps}; }}
+"""
+    return subprocess.run(["bash", "-c", tete + _fonctions("lignes_doctor")
+                           + '\nbad=0; lignes_doctor "SSO OpenID Connect" diag; echo "bad=$bad"'],
+                          env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C.UTF-8"},
+                          capture_output=True, text=True, timeout=30, cwd=str(tmp_path), stdin=subprocess.DEVNULL)
+
+
+def test_doctor_journal_du_core_n_est_pas_un_controle(tmp_path):
+    # Avertissement de journal du core sur stderr (clé de repli du coffre) : le contrôle reste vert.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; "
+                          "echo 'WARNING [coffre] coffre : clé de repli /x en usage' >&2")
+    assert "[ ok  ] SSO OpenID Connect : keycloak" in r.stdout
+    assert "NON" not in r.stdout + r.stderr and "bad=0" in r.stdout
+
+
+def test_doctor_echec_du_core_compte_comme_un_defaut(tmp_path):
+    r = _lignes(tmp_path, "echo 'WARNING [x] bruit' >&2; echo 'Error: base illisible' >&2; return 1")
+    assert "[warn ] SSO OpenID Connect : NON (Error: base illisible)\n" in r.stderr
+    assert "bruit" not in r.stderr and "bad=1" in r.stdout
+    r = _lignes(tmp_path, "return 3")
+    assert "NON (échec, code 3)" in r.stderr and "bad=1" in r.stdout
+    r = _lignes(tmp_path, "printf 'warn\\tSSO OpenID Connect : secret absent\\n'; return 1")
+    assert r.stderr.count("[warn ]") == 1 and "bad=1" in r.stdout
+    r = _lignes(tmp_path, "echo 'ligne hors format'")
+    assert "NON (ligne hors format" in r.stderr and "bad=1" in r.stdout
+
+
 def _unites(depot: Path, **env: str) -> dict[str, str]:
     """Unités rendues par `_render_units` (dépendances du rendu remplacées par des talons)."""
     talons = """

@@ -431,6 +431,19 @@ def test_hote_installe_depuis_le_paquet_verifie_et_idempotent(depot, tmp_path):
     assert sorted(p.name for p in (depot / "apps/toolhost").iterdir()) == ["dist"]
 
 
+def test_hote_verifie_comme_le_service(depot, tmp_path):
+    """Empreinte et modules natifs de l'hôte vérifiés sous APP_SERVICE=toolhost : sa configuration ne lit ni ne crée de secret de session."""
+    node = _faux_node(depot)
+    appels = tmp_path / "appels"
+    node.write_text(FAUX_NODE.replace("#!/bin/sh\n", f'#!/bin/sh\n[ "$1" = -v ] || echo "$2 ${{APP_SERVICE:-aucun}}" >> "{appels}"\n', 1),
+                    encoding="utf-8")
+    paquet = tmp_path / "paquet"
+    _paquet_hote(paquet, "aaa")
+    r = _installer(depot, "hote", "--offline", str(paquet), ELPIS_NODE=str(node))
+    assert r.returncode == 0, r.stderr
+    assert sorted(set(appels.read_text(encoding="utf-8").splitlines())) == ["--empreinte toolhost", "--natif toolhost"]
+
+
 @pytest.mark.parametrize("panne,motif", [("message", "module natif inutilisable pour linux-x64"),
                                          ("signal", "contrôle interrompu (code 135)")])
 def test_hote_aux_modules_natifs_inutilisables_refuse_et_ancien_garde(depot, tmp_path, panne, motif):

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""tests/deploy/test_cles_systemd_2026_11_22.py — bloc 6, clés de la plateforme remises par systemd (un compte par service, systemd 250 ou plus) : systemd-creds et systemd-run simulés ; rendu par unité, rangement depuis les fichiers du bloc 5 (sources retirées après relecture, liens et autres comptes refusés), second passage, retour à un compte, systemd trop ancien, commandes de root par une unité transitoire, setup sans fichier en clair, config.json rangé en deux temps, jeton du RAG, clé et lanceur de Qdrant, doctor."""
+"""tests/deploy/test_cles_systemd_2026_11_22.py — bloc 6, clés de la plateforme remises par systemd (un compte par service, systemd 250 ou plus) : systemd-creds et systemd-run simulés ; rendu par unité, rangement depuis les fichiers du bloc 5 (sources retirées après relecture, liens et autres comptes refusés), second passage, retour à un compte, systemd trop ancien, commandes de root par une unité transitoire, setup sans fichier en clair, config.json rangé en deux temps, jeton du RAG, clé et lanceur de Qdrant, doctor, commandes de l'opérateur sans le code qui lit la configuration des services."""
 from __future__ import annotations
 
 import base64
@@ -297,9 +297,10 @@ def test_doctor_de_l_operateur_sans_les_cles_du_rag(racine):
     assert [l for l in trace if "exploitation.mjs rag" in l], r.stdout + r.stderr
     (systeme / "etc/systemd/system").mkdir(parents=True)
     (systeme / "etc/systemd/system/elpis-main.service").write_text(
-        "[Service]\nLoadCredentialEncrypted=qdrant.key:/etc/elpis/credentials/qdrant.key\n", encoding="utf-8")
+        '[Service]\nEnvironment="ELPIS_COMPTES=separes"\nLoadCredentialEncrypted=qdrant.key:/etc/elpis/credentials/qdrant.key\n',
+        encoding="utf-8")
     r, trace = _lt._elpis(racine, "doctor", ELPIS_PREFIXE_SYSTEME=str(systeme))
-    assert "RAG : jeton du service et clé de Qdrant remis par systemd aux seuls services" in r.stdout + r.stderr
+    assert "RAG : non vérifié par ce compte (configuration et clés des services : sudo ./elpis doctor)" in r.stdout + r.stderr
     assert not [l for l in trace if "exploitation.mjs rag" in l]
 
 
@@ -626,6 +627,12 @@ def test_ancienne_cle_remise_par_systemd_au_rekey(depot):
     assert "rc=2" in r.stdout and f"{ancienne} ignoré" in r.stderr and not _lignes(depot, "run.trace")
 
 
+# Compte de la console (id -un) : celui des commandes que root lui fait lancer.
+CONSOLE = r'''eval "$(declare -f id | sed '1s/^id /id_faux /')"
+id() { if [ "$*" = -un ]; then echo elpis-admin; else id_faux "$@"; fi; }
+'''
+
+
 def test_commandes_de_l_operateur_demandent_sudo(depot):
     (_sys(depot) / "etc/systemd/system/elpis-main.service").write_text(
         '[Service]\nUser=elpis-main\nEnvironment="ELPIS_COMPTES=separes"\nLoadCredentialEncrypted=vault.key:/x/vault.key\n'
@@ -633,11 +640,71 @@ def test_commandes_de_l_operateur_demandent_sudo(depot):
     talons = CREDS + "need_exploitation() { :; }\ncore_cmd() { echo \"core $*\"; }\n"
     for corps, attendu in (("cmd_vault status", "lancez sudo ./elpis vault status"),
                            ("cmd_secret ls", "lancez sudo ./elpis secret ls"),
-                           ("cmd_audit verify --from 2026-01-01", "lancez sudo ./elpis audit verify --from 2026-01-01")):
+                           ("cmd_audit verify --from 2026-01-01", "lancez sudo ./elpis audit verify --from 2026-01-01"),
+                           ("cmd_audit verify --key /srv/copie.key", "lancez sudo ./elpis audit verify --key /srv/copie.key"),
+                           ("cmd_db info", "lancez sudo ./elpis db info")):
         r = _harnais(depot, corps, talons, FAUX_UID="1000")
         assert r.returncode != 0 and attendu in r.stderr and "core " not in r.stdout, (corps, r.stderr)
-    r = _harnais(depot, "cmd_audit verify --key /srv/copie.key", talons, FAUX_UID="1000")
+    # Sous root, et sous le compte de la console (sudo ./elpis configure, dans son unité), rien n'est refusé.
+    r = _harnais(depot, "cmd_audit verify --key /srv/copie.key", talons)
     assert "core audit verify --key /srv/copie.key" in r.stdout, r.stderr
+    r = _harnais(depot, "cmd_db info", talons + CONSOLE, FAUX_UID="990")
+    assert r.returncode == 0 and "core db info" in r.stdout, r.stderr
+
+
+# Faux Node : comme le core sans les clés des services, une commande qui lit la configuration crée près de la base celles qui manquent ; les sondes sans configuration et l'hôte d'outils sous APP_SERVICE=toolhost n'en créent pas.
+FAUX_NODE_REPLI = r'''#!/bin/bash
+[ "$1" = -v ] && { echo v24.21.0; exit 0; }
+printf '%s\n' "node $* | APP_SERVICE=${APP_SERVICE:-}" >> "$TRACE"
+case "$*" in
+    *"exploitation.mjs natif"|*"exploitation.mjs empreinte"|*"exploitation.mjs bwrap"|*"exploitation.mjs lanceur "*|*"dist/empreinte.mjs") exit 0 ;;
+    *"toolhost/dist/main.mjs "*) [ "${APP_SERVICE:-}" = toolhost ] && exit 0 ;;
+esac
+for f in .session_secret .encryption_key .vault.key; do : > "$REPLI/$f"; done
+'''
+REPLIS = (".session_secret", ".encryption_key", ".vault.key")
+
+
+def test_operateur_sans_code_sur_la_configuration_des_services(racine):
+    systeme = racine.parent / "systeme"
+    (systeme / "etc/systemd/system").mkdir(parents=True)
+    for s in ("main", "admin", "toolhost"):
+        cle = "" if s == "toolhost" else "LoadCredentialEncrypted=session.secret:/etc/elpis/credentials/session.secret\n"
+        (systeme / f"etc/systemd/system/elpis-{s}.service").write_text(
+            f'[Service]\nUser=elpis-{s}\nEnvironment="ELPIS_COMPTES=separes"\n{cle}', encoding="utf-8")
+    _executable(racine / "faux-node", FAUX_NODE_REPLI)
+    env = {"ELPIS_PREFIXE_SYSTEME": str(systeme), "REPLI": str(racine / "user_db")}
+    for args, attendu in ((("db", "info"), "lancez sudo ./elpis db info"),
+                          (("audit", "verify", "--key", "/srv/copie.key"), "lancez sudo ./elpis audit verify --key /srv/copie.key"),
+                          (("vault", "status"), "lancez sudo ./elpis vault status"),
+                          (("secret", "ls"), "lancez sudo ./elpis secret ls"),
+                          (("configure", "--check-db", "--db-password", "s3cret"), "lancez sudo ./elpis configure (mêmes options)"),
+                          (("start",), "(sudo systemctl start elpis.target), jamais à la main."),
+                          (("restart",), "(sudo systemctl restart elpis.target), jamais à la main.")):
+        r, trace = _lt._elpis(racine, *args, **env)
+        assert r.returncode != 0 and attendu in r.stderr and "s3cret" not in r.stdout + r.stderr, (args, r.stderr)
+        assert not [l for l in trace if l.startswith(("node ", "python "))], (args, trace)
+    r, trace = _lt._elpis(racine, "doctor", **env)
+    sortie = r.stdout + r.stderr
+    for saute in ("verrous de fichiers : non vérifiés", "base de données et serveur LLM : non vérifiés", "RAG : non vérifié",
+                  "coffre (Secrets) : secrets non vérifiés"):
+        assert f"{saute} par ce compte (configuration et clés des services : sudo ./elpis doctor)" in sortie, (saute, sortie)
+    appels = [l for l in trace if l.startswith("node ")]
+    assert any(l.endswith("exploitation.mjs bwrap | APP_SERVICE=") for l in appels), appels
+    assert any("toolhost/dist/main.mjs --natif | APP_SERVICE=toolhost" in l for l in appels), appels
+    assert "SERVICE" in sortie and not [f for f in REPLIS if (racine / "user_db" / f).exists()], appels
+
+
+def test_upgrade_de_l_operateur_finit_par_sudo_doctor(depot):
+    for s in ("main", "admin", "toolhost"):
+        _unite(depot, s, f"elpis-{s}", "separes")
+    _executable(depot / "deploy/node/installer.sh", "#!/bin/sh\nexit 0\n")
+    talons = TALONS + ('git() { :; }\nensure_sandbox_image() { :; }\nmigrer_mcp() { :; }\nsystemd_installed() { return 0; }\n'
+                       'wait_port() { return 0; }\nnode_ok() { return 0; }\nsudo() { echo "sudo $*"; }\n'
+                       'core_cmd() { echo "APPEL-CORE $*"; }\ncmd_doctor() { echo "doctor sans sudo"; }\nPY=/bin/true\n')
+    r = _harnais(depot, "cmd_upgrade --no-backup", talons, FAUX_UID="1000", ELPIS_NODE="/bin/true")
+    assert r.returncode == 0 and f"sudo {depot}/elpis doctor" in r.stdout, r.stdout + r.stderr
+    assert "APPEL-CORE" not in r.stdout and "doctor sans sudo" not in r.stdout
 
 
 # vault setup et audit setup : clé créée en mémoire et chiffrée, aucun fichier en clair, commande de copie affichée.
@@ -650,9 +717,9 @@ def _setup(depot: Path) -> str:
     (depot / "apps/core/dist/exploitation.mjs").write_text("", encoding="utf-8")
     node = _executable(depot / "faux-node", '#!/bin/sh\n[ "$1" = -v ] && { echo v24.21.0; exit 0; }\n'
                        '[ "$2 $3" = "vault check-key" ] && { cat > /dev/null; echo "kid 0123abcd"; }\nexit 0\n')
-    # audit setup réel (celui de TALONS retiré), sous un compte ordinaire : droits contrôlés par leur mode seul.
+    # audit setup réel (celui de TALONS retiré), sous un compte ordinaire qui tient lieu de root (jamais l'opérateur) : droits contrôlés par leur mode seul.
     talons = CREDS.replace('audit_setup() { trace audit_setup "$1" "$MODE_COMPTES"; mkdir -p "$SYS_PREFIXE/etc/elpis"; }\n', "")
-    return talons + f'node_bin() {{ echo "{node}"; }}\naudit_deplacer() {{ :; }}\n'
+    return talons + f'node_bin() {{ echo "{node}"; }}\naudit_deplacer() {{ :; }}\noperateur_separe() {{ return 1; }}\n'
 
 
 def test_setup_sans_fichier_en_clair(depot):

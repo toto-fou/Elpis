@@ -352,11 +352,12 @@ describe.skipIf(!CIBLES.includes(CIBLE))("bundle de production du core", () => {
     expect(exploitation(dist, instance, "autre").code).toBe(2);
   });
 
-  it("natif et empreinte ne lisent pas la configuration : une instance vierge reste vide", () => {
+  it("natif, empreinte et la sonde bubblewrap ne lisent pas la configuration : une instance vierge reste vide", () => {
     const vierge = path.join(dossier, "vierge");
     mkdirSync(vierge);
     expect(exploitation(dist, vierge, "natif").code).toBe(0);
     expect(exploitation(dist, vierge, "empreinte").code).toBe(0);
+    exploitation(dist, vierge, "bwrap");
     expect(readdirSync(vierge)).toEqual([]);
   });
 

@@ -73,6 +73,15 @@ follow [SemVer](https://semver.org/).
   `config.json` are ignored, and the console refuses to set or change `app.session_secret`,
   `app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key` and `agent_memory.qdrant_api_key`;
   `service install` imports such a value only into a missing key, checking its length or format.
+- **The operator runs no code on the services' configuration.** With one account per service, the
+  commands the operator runs without `sudo` no longer start the core on the services'
+  configuration, where, without their keys, it created new ones next to the database
+  (`user_db/.session_secret`, `.encryption_key`, a fallback vault key): `db`, `vault`, `secret`,
+  `audit verify` (`--key` included) and `configure` (except `--migrer-mcp` and the checks that run
+  no core) say `lancez sudo ./elpis …`, `start` and `restart` refuse as under root, `doctor` skips
+  the core's checks (`sudo ./elpis doctor`) and `upgrade` ends with `sudo ./elpis doctor`. The
+  checks of the tool host bundle run as the tool host (`APP_SERVICE=toolhost`: no session secret
+  read or created) and the bubblewrap probe no longer loads the configuration.
 - **Qdrant with an API key.** With these keys, Qdrant runs with an API key (the key `qdrant.key`,
   taken from `rag.qdrant_api_key` of `config.json` or created), read from its credentials by
   `deploy/qdrant/lancer.sh`; main and the console send it (`QDRANT_API_KEY_FILE`), any other

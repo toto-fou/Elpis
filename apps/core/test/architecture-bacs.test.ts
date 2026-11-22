@@ -13,7 +13,7 @@ const DYNAMIQUE =
 /** Seul import dynamique permis : la sonde bubblewrap de `./elpis bwrap`, rien d'autre de ce paquet. */
 const SONDE = {
   fichier: "apps/core/src/exploitation.ts",
-  texte: 'const { bwrap: prison } = await import("@elpis/bac");',
+  texte: 'const { probe } = await import("@elpis/bac/bwrap");',
 };
 
 const fichiers = readdirSync(SOURCES, { recursive: true, encoding: "utf8" })
@@ -25,7 +25,7 @@ describe("Docker et bacs réservés à l'hôte d'outils", () => {
   it("le cœur n'importe dynamiquement des paquets des bacs que la sonde bubblewrap", () => {
     expect(fichiers.length).toBeGreaterThan(100);
     const vus = fichiers.flatMap((f) => [...texte(f).matchAll(DYNAMIQUE)].map((m) => `${f} : ${m[0]}`));
-    expect(vus).toEqual([`${SONDE.fichier} : import("@elpis/bac")`]);
+    expect(vus).toEqual([`${SONDE.fichier} : import("@elpis/bac/bwrap")`]);
     expect(texte(SONDE.fichier)).toContain(SONDE.texte);
   });
 

@@ -158,7 +158,9 @@ kept for `vault rekey --from` until its secrets are re-encrypted (`./elpis docto
 values of `config.json` no longer choose these keys: when the units point the core at the key files,
 `config.json` is ignored, and the console refuses to set them. The commands root runs under the console's
 account are a transient unit (`systemd-run`) that gets the console's keys the same way; copies of
-the keys are kept off the machine (`docs/operations.md`, "Platform keys"). The RAG extractor, which
+the keys are kept off the machine (`docs/operations.md`, "Platform keys"). The operator's commands
+never run the application's code on the services' configuration (without their keys, the core would
+create new ones next to the database): those that need it ask for `sudo`. The RAG extractor, which
 converts untrusted documents, runs as `elpis-rag` and only reads the RAG store and its token. When other accounts cannot
 reach the installation (a clone in a home folder) or with `ELPIS_COMPTE_UNIQUE=1`, every service
 keeps one account, which then drives Docker itself; `./elpis doctor` warns about this fallback

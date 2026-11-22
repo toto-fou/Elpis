@@ -2,6 +2,7 @@
 """tests/deploy/test_racine_filtre_2026_11_22.py — quatrième relecture : filtre en une passe (rien de retiré ne se recolle) toujours appliqué aux sorties d'un compte, tube et pseudo-terminal compris, configure de l'installeur sur le terminal, config.json et journaux lus par root sans lien ni attente ; chaque attaque rejouée, rien ne se passe."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -104,6 +105,17 @@ def test_conf_json_jamais_ouvert_au_travers_d_un_lien(depot, tmp_path):
     texte = (REPO / "install.sh").read_text(encoding="utf-8")
     assert 'os.readlink(p) != "/etc/elpis/config/config.json"' in texte and "os.O_NOFOLLOW | os.O_NONBLOCK" in texte
 
+
+
+def test_conf_json_lit_une_grande_configuration_entiere(depot):
+    # Une configuration de plus de 4 Mio (images intégrées) se lit entière ; au-delà de 64 Mio, refus.
+    grand = {"executors": {"allow_sudo": False}, "remplissage": "x" * (5 << 20)}
+    (depot / "config.json").write_text(json.dumps(grand), encoding="utf-8")
+    corps = 'conf_json \'print((conf(sys.argv[1]).get("executors") or {}).get("allow_sudo"))\' "$ROOT/config.json"'
+    r = _harnais(depot, corps, talons='app_cmd() { "$@"; }', FAUX_UID="1000")
+    assert r.stdout.strip() == "False", r.stdout + r.stderr
+    texte = (REPO / "install.sh").read_text(encoding="utf-8")
+    assert "st.st_size > 64 << 20" in texte and "os.read(fd, 4 << 20)" not in texte
 
 def test_journaux_sous_root_bornes_et_filtres(depot):
     logs = depot / "logs"

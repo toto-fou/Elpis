@@ -173,9 +173,16 @@ def conf():
         p = os.readlink(p)
     fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_size > 64 << 20:
             raise ValueError(sys.argv[1])
-        return json.loads(os.read(fd, 4 << 20))
+        morceaux = []
+        while True:
+            m = os.read(fd, 1 << 20)
+            if not m:
+                break
+            morceaux.append(m)
+        return json.loads(b"".join(morceaux))
     finally:
         os.close(fd)
 '"$1" "$ROOT/config.json"

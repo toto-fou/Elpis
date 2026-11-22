@@ -75,7 +75,7 @@ else:
         f.write(blob)
 '''
 
-# systemd-run simulé : argv noté, unité transitoire rejouée (fichier d'environnement, credentials dans FAUX_RUN_CREDS, « $$ » rendu « $ »).
+# systemd-run simulé : argv noté, unité transitoire rejouée (fichier d'environnement lu comme systemd, valeurs sur plusieurs lignes comprises ; credentials dans FAUX_RUN_CREDS, « $$ » rendu « $ »).
 FAUX_RUN = r'''#!/usr/bin/env python3
 import json, os, re, shutil, subprocess, sys
 args = sys.argv[1:]
@@ -95,9 +95,9 @@ for p in props:
     k, _, v = p.partition("=")
     if k == "EnvironmentFile":
         fichier_env = open(v, encoding="utf-8").read()
-        for l in fichier_env.splitlines():
-            m = re.fullmatch(r'([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"', l)
-            env[m[1]] = re.sub(r"\\(.)", r"\1", m[2])
+        lignes = re.findall(r'^([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"[ \t]*$', fichier_env, re.M | re.S)
+        for n, val in lignes:
+            env[n] = re.sub(r'\\([\\"`$])', r"\1", re.sub(r"\\\n", "", val))
     elif k == "Environment":
         n, _, val = v.partition("=")
         env[n] = ici(val)
@@ -566,6 +566,30 @@ def test_commandes_de_root_par_une_unite_transitoire(depot):
     assert env_fichier.startswith(f"{_sys(depot)}/run/elpis-cli.") and not os.path.exists(env_fichier)
     assert f"systemctl stop --no-block -- {unite}.service" in _trace(depot)
     assert not [l for l in _trace(depot) if l.startswith("runuser")]
+
+
+def test_unite_transitoire_durcie_comme_la_console_sauf_la_sonde_de_bubblewrap(depot):
+    _unite(depot, "main", "elpis-main", "separes")
+    (_sys(depot) / "etc/systemd/system/elpis-admin.service").write_text("[Service]\nProtectHome=yes\n", encoding="utf-8")
+    corps = "NODE=/bin/true; core_cmd migrations; core_cmd bwrap"
+    r = _harnais(depot, corps, CREDS, **_faux(depot))
+    assert r.returncode == 0, r.stdout + r.stderr
+    console, sonde = ([argv[i + 1] for i, a in enumerate(argv) if a == "-p"]
+                      for argv in (json.loads(l)["argv"] for l in _lignes(depot, "run.trace")))
+    durci = ["RestrictNamespaces=yes", "RestrictSUIDSGID=yes", "ProtectKernelTunables=yes", "ProtectKernelLogs=yes",
+             "ProtectHostname=yes", "PrivateIPC=yes", "MemoryMax=25%", "TasksMax=512"]
+    assert all(p in console for p in durci) and "ProtectHome=yes" in console, console
+    assert not any(p in sonde for p in durci) and "ProtectHome=yes" in sonde and "NoNewPrivileges=yes" in sonde, sonde
+
+
+def test_environnement_de_l_unite_transitoire_sans_rien_perdre(depot):
+    _unite(depot, "main", "elpis-main", "separes")
+    valeur = 'a"b\\c`d$e\nf $(id) \\'
+    corps = "app_console --env $'VALEUR=a\"b\\\\c`d$e\\nf $(id) \\\\' sh -c 'printf \"%s|\" \"$VALEUR\"'"
+    r = _harnais(depot, corps, CREDS, **_faux(depot))
+    assert r.returncode == 0 and r.stdout == valeur + "|", (r.stdout, r.stderr)
+    (appel,) = [json.loads(l) for l in _lignes(depot, "run.trace")]
+    assert valeur not in " ".join(appel["argv"]) and "$(id)" not in " ".join(appel["argv"])
 
 
 def test_terminal_par_un_nouveau_pseudo_terminal_filtre(depot):

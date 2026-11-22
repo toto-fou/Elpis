@@ -585,7 +585,7 @@ export class UserSandbox implements BacPourAgent {
       async () => {
         const cur = await this.status(signal);
         if (cur.running && !(await this.workMountMatches(signal))) {
-          this.exigerMontages(true);
+          this.preparerArbre();
           await this.appel(["rm", "-fv", this.containerName], 10, signal);
           await this.create(signal);
         }
@@ -724,7 +724,7 @@ export class UserSandbox implements BacPourAgent {
         const cur = await this.status(signal);
         if (cur.running && (await this.stale(signal))) {
           try {
-            this.exigerMontages(true);
+            this.preparerArbre();
           } catch (e) {
             this.configVerified = false;
             throw e;
@@ -865,6 +865,7 @@ export class UserSandbox implements BacPourAgent {
         journalDe("sandbox").info(
           `[sandbox] container ${this.containerName} en état exited (code=${exitCode}${perime ? ", options périmées" : ""}) → destroy + recreate`,
         );
+        this.preparerArbre();
         await this.appel(["rm", "-fv", this.containerName], 10, signal);
         await this.create(signal);
       } else {
@@ -873,6 +874,7 @@ export class UserSandbox implements BacPourAgent {
           journalDe("sandbox").info(
             `[sandbox] container ${this.containerName} arrêté, montages à revérifier → destroy + recreate`,
           );
+          this.preparerArbre();
           await this.appel(["rm", "-fv", this.containerName], 10, signal);
           await this.create(signal);
           return this.status(signal);
@@ -883,6 +885,7 @@ export class UserSandbox implements BacPourAgent {
           journalDe("sandbox").warn(
             `[sandbox ${this.containerName}] start KO, recreate: ${decoderRemplace(err)}`,
           );
+          this.preparerArbre();
           await this.appel(["rm", "-f", this.containerName], 10, signal);
           await this.create(signal);
         }
@@ -953,7 +956,7 @@ export class UserSandbox implements BacPourAgent {
       "--label",
       label("user_id", String(this.userId)),
       "--label",
-      label("username", this.username),
+      label("username", this.entreeDuCompte()),
       "--security-opt",
       `no-new-privileges:${durci ? "true" : "false"}`,
       "--cap-drop",
@@ -1112,17 +1115,12 @@ export class UserSandbox implements BacPourAgent {
     return gardes;
   }
 
-  private async create(signal?: AbortSignal): Promise<void> {
-    const pre = await this.status(signal);
-    if (pre.running) return;
-    this.entreesVerifiees.clear();
+  /** Arbre du bac prêt avant tout retrait ni création de conteneur : contrôle (absents permis), racine, `/work`, dossier de l'agent, relais, puis contrôle entier ; un refus laisse le conteneur en place. */
+  private preparerArbre(): void {
     this.exigerMontages(true);
-    if (pre.exists) await this.appel(["rm", "-fv", this.containerName], 10, signal);
-    await this.ensureImage(signal);
     if (sousRacine(this.sandboxPath, config.SANDBOX_DIR)) racinePrivee(config.SANDBOX_DIR);
     mkdirSync(this.sandboxPath, { recursive: true });
-    const dossierAgent = this.dossierAgent();
-    dossierAgentPret(dossierAgent);
+    dossierAgentPret(this.dossierAgent());
     const dossierRelais = pyJoin(pyParent(pyParent(this.sandboxPath)), RELAY_DIR);
     try {
       if (!existsSync(dossierRelais) || !statSync(dossierRelais).isDirectory()) {
@@ -1135,6 +1133,16 @@ export class UserSandbox implements BacPourAgent {
       );
       throw new ExecError(DEMARRAGE_IMPOSSIBLE);
     }
+    this.exigerMontages();
+  }
+
+  private async create(signal?: AbortSignal): Promise<void> {
+    const pre = await this.status(signal);
+    if (pre.running) return;
+    this.entreesVerifiees.clear();
+    await this.ensureImage(signal);
+    this.preparerArbre();
+    if (pre.exists) await this.appel(["rm", "-fv", this.containerName], 10, signal);
     const profil = this.networkProfile;
     let resolus: Record<string, string[]> = {};
     if (profil.mode === "allowlist_ip" && profil.domains.length > 0) {
@@ -1158,7 +1166,7 @@ export class UserSandbox implements BacPourAgent {
       throw new ExecError("La sandbox ne peut pas démarrer. Demandez à votre administrateur.");
     }
     this.exigerMontages();
-    viderDossierAgent(dossierAgent, this.uidExec());
+    viderDossierAgent(this.dossierAgent(), this.uidExec());
     const lancement = await verifierMontages(this.buildRunArgs(profil, resolus, refusees));
     for (const r of lancement.refus)
       journalDe("sandbox").warn(
@@ -1227,7 +1235,7 @@ export class UserSandbox implements BacPourAgent {
         `[sandbox] ${this.containerName} : /work ne monte pas ${this.sandboxPath} → recréation avant de le vider`,
       );
       st = await sousVerrouDeCycle(this.userId, async () => {
-        this.exigerMontages(true);
+        this.preparerArbre();
         await this.appel(["rm", "-fv", this.containerName], 10);
         await this.create();
         return this.status();
@@ -1268,9 +1276,15 @@ export class UserSandbox implements BacPourAgent {
       throw new ExecError(this.recreationReportee);
   }
 
-  /** Entrée vérifiée une fois par conteneur et par utilisateur (`null` : étape root de l'hôte) ; refus si le conteneur garderait la main sur son filtre réseau. */
+  /** Entrée vérifiée une fois par conteneur et par utilisateur (`null` : étape root de l'hôte, jamais dans un conteneur aux options périmées dont la recréation est reportée) ; refus si le conteneur garderait la main sur son filtre réseau. */
   private async exigerEntree(execUser: string | null, signal?: AbortSignal): Promise<void> {
     const cle = execUser ?? "";
+    if (execUser === null && this.recreationReportee) {
+      journalDe("sandbox").warn(
+        `[sandbox] ${this.containerName} : étape root écartée (options du conteneur périmées, étiquette d'utilisateur comprise, recréation reportée)`,
+      );
+      throw new ExecError(BAC_A_RELANCER);
+    }
     if (this.entreesVerifiees.has(cle)) return;
     const [rc, out] = await this.appel(["inspect", "--format", FORMAT_ENTREE, this.containerName], 5, signal);
     if (rc !== 0 || !entreePermise(decoderRemplace(out), execUser, this.durci(this.networkProfile))) {

@@ -6,6 +6,8 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+## 0.1.5 — 2026-11-22
+
 ### Added
 
 - **SSO (OpenID Connect).** People sign in with the account their organization manages, through an OpenID Connect provider

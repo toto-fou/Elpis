@@ -214,8 +214,8 @@ def test_installation_separee_comptes_groupes_et_droits(depot):
                 "user_db/.local_mcp_token": "640", "user_db/.db_password": "640", "user_db/.backup_ssh_key": "640",
                 "user_db/.backup_known_hosts": "660", "backups/backup_complet.zip": "600", "user_db/run/chat_runs": "700",
                 "user_db/run/chat_runs/tour.json": "600",
-                "user_db/browser-relay-ca": "700", "user_db/browser-relay-ca/ca.key": "600", "user_sandboxes": "2770",
-                "user_sandboxes/alice": "2770", "user_sandboxes/alice/skills/s.md": "664",
+                "user_db/browser-relay-ca": "700", "user_db/browser-relay-ca/ca.key": "600", "user_sandboxes": "2750",
+                "user_sandboxes/alice": "2750", "user_sandboxes/alice/skills/s.md": "640",
                 "user_sandboxes/alice/work/projet/f": "600", "user_sandboxes/alice/.elpis-agent": "1777", "logs": "2770",
                 "backups": "700", "mcp.json": "640", "config.json": "640", "user_db/rag": "2770",
                 "user_db/rag/source": "2770", "user_db/rag/source/texte.txt": "660"}
@@ -545,8 +545,11 @@ def test_doctor_sauvegardes_privees_au_mode_seul(depot):
     r = _harnais(depot, corps, talons="")
     assert f"{depot}/backups" not in r.stderr, r.stderr
     (depot / "backups").chmod(0o2770)
+    (depot / "user_sandboxes").mkdir()
+    (depot / "user_sandboxes").chmod(0o2770)
     r = _harnais(depot, corps, talons="")
     assert f"droits : {depot}/backups en 2770 " in r.stderr and "(attendu 700 : sudo ./elpis service install)" in r.stderr
+    assert f"droits : {depot}/user_sandboxes en 2770 " in r.stderr and "(attendu 2750 elpis-toolhost elpis-donnees" in r.stderr
 
 
 def test_vault_core_sous_la_console_en_mode_separe(depot):
@@ -597,15 +600,18 @@ def test_unites_du_mode_separe(depot):
     u = _unites(depot)
     for s in ("main", "admin", "toolhost"):
         lignes = u[f"elpis-{s}.service"].splitlines()
-        assert f"User=elpis-{s}" in lignes and "UMask=0007" in lignes, s
+        assert f"User=elpis-{s}" in lignes and f"UMask={'0027' if s == 'toolhost' else '0007'}" in lignes, s
         assert ('Environment="ELPIS_GROUPE_CLE=elpis-cle"' in lignes) is (s != "toolhost"), s
         assert 'Environment="ELPIS_COMPTES=separes"' in lignes and 'Environment="ELPIS_GROUPE_DONNEES=elpis-donnees"' in lignes
         assert ("SupplementaryGroups=docker" in lignes) is (s == "toolhost" and DOCKER), s
     for s in ("main", "admin"):
         lignes = u[f"elpis-{s}.service"].splitlines()
-        assert "ReadWritePaths=/run/elpis" in lignes and not any(l.startswith("ReadOnlyPaths=") for l in lignes), s
-        for d in ("user_db", "logs", "system_prompts", "skills", "user_skins", "user_skills", "user_sandboxes"):
+        assert "ReadWritePaths=/run/elpis" in lignes, s
+        for d in ("user_db", "logs", "system_prompts", "skills", "user_skins", "user_skills"):
             assert f"ReadWritePaths=-{depot}/{d}" in lignes, (s, d)
+        assert not any(l.startswith(f"ReadWritePaths=-{depot}/user_sandboxes") for l in lignes), s
+        assert [l for l in lignes if l.startswith("ReadOnlyPaths=")] == [
+            f"ReadOnlyPaths=-{depot}/user_db/file_history", f"ReadOnlyPaths=-{depot}/user_sandboxes/.office-cache"], s
         assert f"ReadWritePaths=-{depot}/backups" not in lignes, s
         assert ("ReadWritePaths=-/etc/elpis/config" in lignes) is (s == "admin"), s
         assert not any(l in (f"ReadWritePaths={depot}", f"ReadWritePaths=-{depot}") for l in lignes), s
@@ -717,7 +723,10 @@ def test_ecritures_des_unites_sans_dossier_refuse(depot):
     corps = ('MODE_COMPTES=separes; SANDBOX_DIR="$ROOT/user_sandboxes"; RAG_STORE="$ROOT/user_db/rag"; CHART_DIR="$ROOT/user_db/run/charts"\n'
              '_ecritures_du_service main "$(printf \'main admin\\t%s\' "$ROOT/deploy")"')
     lignes = _harnais(depot, corps).stdout.splitlines()
-    assert f"ReadWritePaths=-{depot}/user_sandboxes" in lignes and not any(f"{depot}/deploy" in l for l in lignes), lignes
+    assert f"ReadWritePaths=-{depot}/user_db" in lignes and not any(f"{depot}/deploy" in l for l in lignes), lignes
+    assert not any("user_sandboxes" in l for l in lignes), lignes
+    lignes = _harnais(depot, corps.replace("MODE_COMPTES=separes", "MODE_COMPTES=unique")).stdout.splitlines()
+    assert f"ReadWritePaths=-{depot}/user_sandboxes" in lignes, lignes
 
 
 def test_chemins_de_config_hors_des_dossiers_surs_sans_effet_sous_root(depot):
@@ -758,7 +767,7 @@ def test_retour_au_compte_unique_rend_les_dossiers_d_etat(depot):
     r = _harnais(depot, INSTALLE_SEPARE, ELPIS_COMPTE_UNIQUE="1")
     assert r.returncode == 0, r.stdout + r.stderr
     attendus = {"user_db": "700", "user_db/rag": "700", "user_db/.session_secret": "600",
-                "user_sandboxes": "700", "user_sandboxes/alice": "770", "user_sandboxes/alice/.elpis-agent": "1777",
+                "user_sandboxes": "700", "user_sandboxes/alice": "750", "user_sandboxes/alice/.elpis-agent": "1777",
                 "user_sandboxes/alice/work/projet/f": "600", "logs": "700", "user_db/run/chat_runs": "700"}
     assert {p: _mode(depot / p) for p in attendus} == attendus
 

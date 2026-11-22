@@ -98,7 +98,7 @@ def test_b2_lien_intermediaire_pose_a_l_arret_jamais_suivi(depot):
     assert r.returncode == 0, r.stdout + r.stderr
     assert (depot / "user_db/a").is_symlink()
     assert {p.name: _mode(p) for p in (victime, victime / "sshd.service")} == {"system": "755", "sshd.service": "644"}
-    assert _mode(depot / "user_sandboxes") == "2770"
+    assert _mode(depot / "user_sandboxes") == "2750"
 
 
 def test_b2_droits_par_descripteur_lien_et_parent_ouvert_refuses(tmp_path):

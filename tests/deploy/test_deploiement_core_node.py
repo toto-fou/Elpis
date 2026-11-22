@@ -223,9 +223,12 @@ def test_unites_durcies(racine):
     for s in ("main", "admin"):
         lignes = _directives(unites[f"elpis-{s}.service"])
         assert "ReadWritePaths=/run/elpis" in lignes and "UMask=0007" in lignes, s
-        assert f"ReadWritePaths=-{racine}/user_db" in lignes and not any(ligne.startswith("ReadOnlyPaths=") for ligne in lignes), s
+        assert f"ReadWritePaths=-{racine}/user_db" in lignes and f"ReadWritePaths=-{racine}/user_sandboxes" not in lignes, s
+        assert [ligne for ligne in lignes if ligne.startswith("ReadOnlyPaths=")] == [
+            f"ReadOnlyPaths=-{racine}/user_db/file_history", f"ReadOnlyPaths=-{racine}/user_sandboxes/.office-cache"], s
     lignes = _directives(unites["elpis-toolhost.service"])
-    assert "UMask=0007" in lignes and f"ReadWritePaths=-{racine}/user_db" in lignes
+    assert "UMask=0027" in lignes and f"ReadWritePaths=-{racine}/user_db" in lignes
+    assert f"ReadWritePaths=-{racine}/user_sandboxes" in lignes
     assert not any(ligne in (f"ReadWritePaths={racine}", f"ReadWritePaths=-{racine}") for ligne in lignes)
     assert "RuntimeDirectory=elpis-toolhost" in lignes and "RuntimeDirectoryMode=0700" in lignes
     lignes = _directives(unites["elpis-qdrant.service"])

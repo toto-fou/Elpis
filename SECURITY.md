@@ -128,6 +128,12 @@ run Elpis on a dedicated machine or VM. Details below.
 - The site map of screen vision (sites and paths already visited
   by the control agent) is a memory shared by the team: an account
   sees the sites mapped by the others.
+- With one account per service, main and the console read the sandboxes folder (sizes,
+  backups, every account's files) but never write it: only the tool host does, and it
+  starts a sandbox only when no other account can change the folders it mounts. The
+  console reaches an account's sandbox through the tool host, never by itself.
+- The operator, the account that runs `sudo ./elpis`, owns the code and the settings root
+  reads: it is equivalent to root.
 
 **Responsibilities**
 
@@ -150,8 +156,9 @@ accounts"). Only the tool host unit gets the `docker` group, which makes that ac
 effect **close to root** on the host: dedicate a machine or VM to Elpis. The other services
 never reach Docker, and each file is reserved to the accounts that use it: the vault key,
 the session secret and the remote backup credentials to main and the console (`elpis-cle`),
-the signing key to the journal writers, the shared state (`user_db/`, sandboxes, logs) to
-the `elpis-donnees` group, the local backups to the operator, nothing to other accounts. With
+the signing key to the journal writers, the shared state (`user_db/`, logs) to
+the `elpis-donnees` group, the sandboxes folder, the file history and the Office cache to the
+tool host (the group reads the sandboxes, never writes them), the local backups to the operator, nothing to other accounts. With
 systemd 250 or later, the platform keys are no longer files a group reads: the vault key, the
 legacy encryption key, the session secret and the signing key are encrypted by `systemd-creds` in
 `/etc/elpis/credentials/` (root only; bound to the TPM2 when there is one) and systemd hands each
@@ -170,7 +177,7 @@ create new ones next to the database): those that need it ask for `sudo`. The RA
 converts untrusted documents, runs as `elpis-rag` and only reads the RAG store and its token. When other accounts cannot
 reach the installation (a clone in a home folder) or with `ELPIS_COMPTE_UNIQUE=1`, every service
 keeps one account, which then drives Docker itself; `./elpis doctor` warns about this fallback
-at every run. `user_sandboxes/` is reserved to these accounts (2770): a container's root can
+at every run. `user_sandboxes/` is reserved to these accounts (2750, the tool host's): a container's root can
 place setuid files there; a dedicated `nosuid,nodev` mount point neutralizes them for the
 service accounts too.
 

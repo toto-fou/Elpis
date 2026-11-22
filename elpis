@@ -1356,7 +1356,7 @@ chevauchement() {
 # Dossiers de comptes du dossier des sandboxes (relatifs à lui) : noms sans point initial (instantanés à part), et bacs mis de côté ; jamais le relais, les verrous ni le cache.
 BACS_COMPTES=('[!.]*' '.supprime-*')
 
-# Droits du mode séparé, à chaque passage, services arrêtés, posés par deploy/droits.py au moment même : dossiers fixes du dépôt et dossiers de .env (jamais de config.json), refusés s'ils se chevauchent (le magasin du RAG peut être dans le dossier de la base) ; dossiers au groupe des données, contenu g+rwX ; seules les entrées de l'opérateur et des anciens comptes uniques sont reprises (jamais celles de root ni d'un service, qu'un service aurait pu y déplacer), dossiers de root compris ; secrets un à un (jeton du RAG laissé dans user_db, source refusée ou réécrite : fermé à son propriétaire, jamais partagé), autorité du relais à l'hôte d'outils, run/chat_runs et run/task_resume privés à main, exclusions sur chaque parcours ; dossier des sandboxes à l'hôte d'outils seul (2750, ce que les anciens comptes et les services y ont laissé compris, sans écriture du groupe ; ce qui n'y est pas un dossier, à sa racine ou au /work et au dossier de l'agent d'un compte, mis à part d'abord ; dans chaque dossier de compte, /work laissé au compte des bacs, dossier de l'agent en 1777 sans toucher à son contenu ; relais en 0755, instantanés à part), historique des fichiers, cache des aperçus, verrous Office et jetons du navigateur laissés dans run/ privés à l'hôte d'outils, cache des graphiques à main et lisible du groupe (2750, 0640 ; tous écartés du parcours du dossier géré qui les contient, refusés s'ils en contiennent un) ; ailleurs, aucun dossier nommé work ni .elpis-agent parcouru ; backups/ privé à l'opérateur ; aucun lien suivi, aucun /work touché.
+# Droits du mode séparé, à chaque passage, services arrêtés, posés par deploy/droits.py au moment même : dossiers fixes du dépôt et dossiers de .env (jamais de config.json), refusés s'ils se chevauchent (le magasin du RAG peut être dans le dossier de la base) ; dossiers au groupe des données, contenu g+rwX ; seules les entrées de l'opérateur et des anciens comptes uniques sont reprises (jamais celles de root ni d'un service, qu'un service aurait pu y déplacer), dossiers de root compris ; secrets un à un (jeton du RAG laissé dans user_db, source refusée ou réécrite : fermé à son propriétaire, jamais partagé), autorité du relais à l'hôte d'outils, run/chat_runs et run/task_resume privés à main, exclusions sur chaque parcours ; dossier des sandboxes à l'hôte d'outils seul (2750, ce que les anciens comptes et les services y ont laissé compris, sans écriture du groupe ; ce qui n'y est pas un dossier, à sa racine ou au /work et au dossier de l'agent d'un compte, mis à part d'abord ; dans chaque dossier de compte, /work laissé au compte des bacs, dossier de l'agent en 1707 (à l'hôte d'outils et au compte des bacs, fermé au groupe) sans toucher à son contenu ; relais en 0755, instantanés à part), historique des fichiers, cache des aperçus, verrous Office et jetons du navigateur laissés dans run/ privés à l'hôte d'outils, cache des graphiques à main et lisible du groupe (2750, 0640 ; tous écartés du parcours du dossier géré qui les contient, refusés s'ils en contiennent un) ; ailleurs, aucun dossier nommé work ni .elpis-agent parcouru ; backups/ privé à l'opérateur ; aucun lien suivi, aucun /work touché.
 droits_separes() {
     local base="$1" op="$2" G="$GROUPE_DONNEES" og d n e=0 legs="" admis U="$ROOT/user_db" S="$SANDBOX_DIR" B="" R="$RAG_STORE" sousR="" x h
     og="$(id -gn "$op")" || return 1
@@ -1373,7 +1373,7 @@ droits_separes() {
             --prive "$UNIT_PREFIX-main:$U/run/chat_runs" --prive "$UNIT_PREFIX-main:$U/run/task_resume"
             --prive "$UNIT_PREFIX-toolhost:$U/run/office_locks" --prive "$UNIT_PREFIX-toolhost:$U/run/navigateur")
     for c in "${BACS_COMPTES[@]}"; do
-        motifs+=(--sauf "$c/work" --sauf "$c/.elpis-agent/*" --regle "$UNIT_PREFIX-toolhost:-:-:1777:$c/.elpis-agent")
+        motifs+=(--sauf "$c/work" --sauf "$c/.elpis-agent/*" --regle "$UNIT_PREFIX-toolhost:-:-:1707:$c/.elpis-agent")
     done
     for n in "${cle[@]}" "${partages[@]}" "${prives[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do commun+=(--sauf "$n"); done
     bacs=(g+rX,g-w,o-rwx g+rXs,g-w,o-rwx --proprio "$UNIT_PREFIX-toolhost" --comptes "$admis" "${commun[@]}")
@@ -1481,19 +1481,35 @@ rendre_dossiers_separes() {
         && droits_unique "${DB_FICHIER%/*}" "$1" "${2:-}" )
 }
 
-# Ancien magasin des skills des comptes (SANDBOXES/<compte>/skills, d'avant le magasin protégé) repris dans MAGASIN/<compte> par root, services arrêtés, quand il n'y en a pas encore (l'hôte d'outils remplacerait sinon ce dossier par le miroir) : par deploy/droits.py, sans suivre de lien ; un refus est signalé, rien n'est arrêté.
+# Ancien magasin des skills des comptes (SANDBOXES/<compte>/skills, d'avant le magasin protégé) repris dans MAGASIN/<compte> par root, services arrêtés, quand il n'y en a pas encore (l'hôte d'outils remplacerait sinon ce dossier par le miroir) : par deploy/droits.py, sans suivre de lien ; ce qui est laissé est signalé (un dossier n'est pas toujours un compte), rien n'est arrêté.
 adopter_skills() {
     [ -n "$1" ] && [ -n "$2" ] && [ -d "$1" ] || return 0
     poser_droits skills "$1" "$2" \
-        || warn "Skills des comptes pas tous repris de $1 vers $2 (voir ci-dessus) : à faire à la main, puis relancez."
+        || warn "Skills de comptes laissés dans $1 (voir ci-dessus) : à reprendre à la main."
 }
 
-# Mémoire des comptes hors du dossier des sandboxes, services arrêtés : SANDBOXES/<compte>/memory (et l'ancien .memory) déplacés dans MEMOIRE/<compte>/ par deploy/droits.py, sans suivre de lien ni changer de système de fichiers, sous le compte COMPTE s'il est donné (compte unique : jamais au nom de root), seulement vers le dossier par défaut (user_db/memoire) ; un refus est signalé, rien n'est arrêté.
+# Un compte par service, services arrêtés : conteneurs des sandboxes de cette instance (étiquette elpis.user_id, /work monté sous SANDBOXES) retirés par le seul client docker, identifiants et chemins vérifiés ; recréés au premier usage, montages revérifiés, /work gardé.
+retirer_conteneurs_bacs() {
+    local S="${1%/}" R id src n=0
+    [ -n "$S" ] && command -v docker >/dev/null 2>&1 || return 0
+    R="$(realpath -e -- "$S" 2>/dev/null)" || R="$S"
+    while IFS= read -r id; do
+        motif "$id" '^[0-9a-f]{64}$' || continue
+        src="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/work"}}{{.Source}}{{end}}{{end}}' "$id" 2>/dev/null)" || continue
+        [[ ( "$src" == "$S"/* || "$src" == "$R"/* ) && "$src" != *$'\n'* && "$src/" != */../* ]] || continue
+        if docker rm -f "$id" >/dev/null 2>&1; then n=$((n + 1)); else warn "Conteneur de sandbox ${id:0:12} non retiré : docker rm -f ${id:0:12} à la main."; fi
+    done < <(docker ps -aq --no-trunc --filter label=elpis.user_id 2>/dev/null)
+    [ "$n" -eq 0 ] || info "$n conteneur(s) de sandbox retiré(s) : recréés au premier usage, /work gardé."
+}
+
+# Mémoire des comptes hors du dossier des sandboxes, services arrêtés : SANDBOXES/<compte>/memory (et l'ancien .memory) déplacés dans MEMOIRE/<compte>/ par deploy/droits.py, sans suivre de lien ni changer de système de fichiers, sous le compte COMPTE s'il est donné (compte unique : jamais au nom de root), donnés à main avec un compte par service, seulement vers le dossier par défaut (user_db/memoire) ; ce qui est laissé est signalé, rien n'est arrêté.
 deplacer_memoire() {
+    local donner=()
     [ -n "$1" ] && [ "${2%/}" = "$ROOT/user_db/memoire" ] && [ -d "$1" ] || return 0
+    ! separe_vise || donner=("$UNIT_PREFIX-main" "$GROUPE_DONNEES")
     if [ -n "${3:-}" ]; then (cd / && _hors_terminal runuser -u "$3" -- python3 -I "$ROOT/deploy/droits.py" memoire "$1" "$2")
-    else poser_droits memoire "$1" "$2"; fi \
-        || warn "Mémoire des comptes pas toute déplacée de $1 vers $2 (voir ci-dessus) : à faire à la main, puis relancez."
+    else poser_droits memoire "$1" "$2" ${donner[@]+"${donner[@]}"}; fi \
+        || warn "Mémoire de comptes laissée dans $1 (voir ci-dessus) : à déplacer à la main."
 }
 
 # ranger_cfg COMPTE ARGUMENT… : deploy/configure.py --ranger-secrets ARGUMENT… sous le propriétaire de config.json : la console en mode séparé (app_console), le compte unique COMPTE sinon (runuser, hors du terminal de root).
@@ -1740,6 +1756,7 @@ cmd_service() {
             if [ "$MODE_COMPTES" = separes ]; then
                 deplacer_memoire "$SANDBOX_DIR" "$(fixe APP_MEMORY_DIR)"
                 adopter_skills "$SANDBOX_DIR" "$(fixe APP_USER_SKILLS_DIR)"
+                retirer_conteneurs_bacs "$SANDBOX_DIR"
                 # Secret de session créé ici (0640 au groupe de la clé) : créé par main, il resterait illisible pour la console ; clés remises par systemd : déjà au magasin.
                 cles_systemd || [ -n "${APP_SESSION_SECRET:-}" ] || [ -z "$BASE_DONNEES" ] || poser_droits secret "$BASE_DONNEES" .session_secret \
                     || warn "Secret de session non créé dans $BASE_DONNEES (voir ci-dessus)."
@@ -2890,13 +2907,15 @@ ensure_sandbox_image() {
     return 1
 }
 
-# Unités relancées après une mise à jour ; compte unique (ses unités ne fixent pas le dossier de la mémoire) : arrêtées, mémoire des comptes déplacée (deplacer_memoire, sous le compte des unités si c'est root qui lance), puis démarrées.
+# Unités relancées après une mise à jour ; compte unique (ses unités ne fixent pas le dossier de la mémoire) : arrêtées, mémoire des comptes déplacée sous le compte des unités (deplacer_memoire ; lancé par un autre compte : laissée, le core la recopie au premier usage), puis démarrées.
 relancer_unites() {
     local u=""
     if [ "$(mode_installe)" = separes ]; then sudo systemctl restart "${UNIT_PREFIX}.target"; return; fi
     sudo systemctl stop "${UNIT_PREFIX}.target" || return 1
-    if [ "$(id -u)" -ne 0 ]; then deplacer_memoire "${SANDBOX_DIR:-}" "$(core_cmd config MEMORY_DIR 2>/dev/null)"
-    elif u="$(compte_unique)" && [ -n "$u" ]; then deplacer_memoire "${SANDBOX_DIR:-}" "$(core_cmd config MEMORY_DIR 2>/dev/null)" "$u"; fi
+    if u="$(compte_unique)" && [ -n "$u" ]; then
+        if [ "$(id -u)" -eq 0 ]; then deplacer_memoire "${SANDBOX_DIR:-}" "$(core_cmd config MEMORY_DIR 2>/dev/null)" "$u"
+        elif [ "$u" = "$(id -un)" ]; then deplacer_memoire "${SANDBOX_DIR:-}" "$(core_cmd config MEMORY_DIR 2>/dev/null)"; fi
+    fi
     sudo systemctl start "${UNIT_PREFIX}.target"
 }
 

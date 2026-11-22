@@ -69,6 +69,7 @@ import { creerFamilleIdentite } from "./familles/identite";
 import { lireReglagesAuth } from "./identite/reglages";
 import { maintenirDecouvertesChaudes } from "./identite/oidc/rechauffement";
 import { FabriqueConfigurations } from "./identite/oidc/configuration";
+import { adresseDeFinDeSession } from "./identite/oidc/deconnexion";
 import { methodesPubliques } from "./identite/oidc/publique";
 import type { OptionsSortant } from "./identite/sortant";
 import { fraicheursDe, lecteurActifs } from "./identite/fraicheur";
@@ -280,7 +281,7 @@ function brancherBus(
     mode,
     surOuvertureFlux,
     redemarrage: SOURCE_REDEMARRAGE,
-    fermerTerminaux: (uid) => relais?.fermerTerminauxDuCompte(uid) ?? 0,
+    fermerTerminaux: (uid, sid) => relais?.fermerTerminauxDuCompte(uid, sid) ?? 0,
     arreterExecutions: (uid) => arreterExecutionsDuCompte(uid),
     rafraichirModeles,
   });
@@ -544,10 +545,21 @@ export async function composer(
         demarrerHistoriqueFichiers: comptes.demarrerHistoriqueFichiers,
         logMetric: comptes.logMetric,
         publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
-        revoquer: (uid) => evenements.revoquer(uid),
+        revoquer: (uid, sid) => evenements.revoquer(uid, sid),
         bac: piloteBac(),
       }),
-      creerFamilleComptes(comptes),
+      creerFamilleComptes({
+        ...comptes,
+        finDeSessionSso: (sid) =>
+          adresseDeFinDeSession(
+            {
+              base,
+              configurations: configurationsOidc,
+              cookieSecure: () => auth.attributsCookie().https_only === true,
+            },
+            sid,
+          ),
+      }),
       creerFamilleJetons(comptes),
       creerFamilleOAuth({ auth, oauth }),
       pont.famille,

@@ -84,7 +84,7 @@ export interface Evenements {
   /** Appel interne de l'admin vers main (révocation, bannière, rafraîchissement des modèles) ; absent dans main. */
   readonly versMain: AppelInterne | undefined;
   /** Révocation : flux de ce process fermés ; depuis l'admin, main est prévenu par un appel interne. */
-  revoquer(uid: number | null): Promise<BilanRevocation | null>;
+  revoquer(uid: number | null, sid?: string): Promise<BilanRevocation | null>;
   /** Suspension : comme la révocation, plus les exécutions du compte coupées dans main (appel interne depuis l'admin) ; `propage` faux si main ne l'a pas reçue. */
   suspendre(uid: number): Promise<{ bilan: BilanRevocation | null; propage: boolean }>;
   /** Diffusion à tous les process : ici, et vers main quand on est l'admin (bannière de redémarrage…). */
@@ -161,7 +161,11 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
       empreinte,
       abonnement: undefined,
       versMain: undefined,
-      revoquer: (uid) => applySessionRevocation({ type: "session_revoked", uid }, ciblesMain),
+      revoquer: (uid, sid) =>
+        applySessionRevocation(
+          sid === undefined ? { type: "session_revoked", uid } : { type: "session_revoked", uid, sid },
+          ciblesMain,
+        ),
       suspendre: async (uid) => ({
         bilan: await applyAccountSuspension({ type: "account_suspended", uid }, ciblesMain),
         propage: true,
@@ -210,8 +214,13 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     empreinte: undefined,
     abonnement,
     versMain,
-    revoquer: async (uid) => {
-      const evenement: Message = { type: "session_revoked", uid, ts: Date.now() / 1000 };
+    revoquer: async (uid, sid) => {
+      const evenement: Message = {
+        type: "session_revoked",
+        uid,
+        ...(sid === undefined ? {} : { sid }),
+        ts: Date.now() / 1000,
+      };
       const bilan = await applySessionRevocation(evenement, ciblesAdmin);
       await publierVersMain(evenement, versMain);
       return bilan;

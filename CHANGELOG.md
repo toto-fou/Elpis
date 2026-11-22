@@ -13,8 +13,8 @@ follow [SemVer](https://semver.org/).
   Switching on needs a required group, the secret in the vault and a
   successful dry-run sign-in. Accounts are created at the first sign-in or linked (prepared link plus the old
   password once). Optionally, the role and some Elpis groups follow the groups of the provider
-  (administrator groups need a confirmation and a required second factor).
-  `./elpis auth status|off|reactivate` keep an emergency exit.
+  (administrator groups need a confirmation and a required second factor), and sign-out reaches the provider (RP-initiated and back-channel logout).
+  `./elpis auth status|doctor|off|reactivate` keep an emergency exit.
 - **Account suspension.** Administration › Accounts can switch an account off (**Désactiver**) and back on
   (**Réactiver**). A suspended account is refused everywhere (sessions, API tokens, OAuth, routines, webhooks,
   background jobs, sandbox) and its running work and container are stopped. The last active local

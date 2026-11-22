@@ -134,8 +134,9 @@ and is no longer added to the `docker` group nor to the key groups. It runs no c
 application on the services' configuration: without their keys, the core would create new ones
 next to the database. The commands that run it ask for `sudo` (`sudo ./elpis db info`,
 `sudo ./elpis backup`, `sudo ./elpis vault status`, `sudo ./elpis secret ls`, `sudo ./elpis audit
-verify`, `--key` included, `sudo ./elpis configure`); `./elpis doctor` skips the core's checks (file
-locks, database, LLM server, RAG, vault), which `sudo ./elpis doctor` runs. The checks of the tool
+verify`, `--key` included, `sudo ./elpis auth status`, `sudo ./elpis configure`); `./elpis doctor`
+skips the core's checks (file locks, database, LLM server, RAG, vault, SSO), which
+`sudo ./elpis doctor` runs. The checks of the tool
 host bundle (`./elpis doctor`, the installer) run as the tool host does (`APP_SERVICE=toolhost`,
 which never reads nor creates the session secret), and the bubblewrap probe reads no
 configuration. An `elpis-*` account that already exists must be a system account without shell (uid 1
@@ -1271,7 +1272,8 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
 
 Settings: [configuration.md](configuration.md#openid-connect-single-sign-on-auth); setup guide and troubleshooting:
 [sso-oidc.md](sso-oidc.md). Three commands run on the host,
-with the core bundle, as the service account (with `sudo` they switch to it):
+with the core bundle, as the service account (with `sudo` they switch to it; with one account per
+service, they need `sudo` and run as the console's account):
 
 | Command | Role |
 |---|---|

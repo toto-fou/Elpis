@@ -49,12 +49,25 @@ Pour ouvrir l'aide, cliquez sur votre nom en bas de la barre latérale, puis sur
 
 Ce qu'il faut savoir :
 
-- **Les comptes sont créés par un administrateur.** Il n'y a pas d'inscription libre.
+- **Les comptes sont créés par un administrateur**, ou à votre première connexion si votre organisation a branché ses propres comptes (voir plus bas). Il n'y a pas d'inscription libre.
 - L'icône en forme d'œil, dans le champ du mot de passe, affiche ce que vous tapez.
 - **Identifiant ou mot de passe incorrect** : vérifiez la saisie, les majuscules en particulier. Après plusieurs échecs, l'application demande de patienter quelques minutes.
 - **Nouveau mot de passe** : si l'administrateur vous a attribué un mot de passe, l'application vous demande d'en choisir un autre à la première connexion. Saisissez-le deux fois, puis cliquez sur **Appliquer et continuer**. Les règles (longueur, majuscules, chiffres, caractères spéciaux) sont fixées par l'administrateur.
 - **Personne ne peut lire votre mot de passe**, pas même un administrateur. Il peut seulement vous en attribuer un nouveau.
 - **Durée de la session.** Par défaut, une session dure 24 heures : passé ce délai, l'application redemande votre identifiant et votre mot de passe. L'administrateur peut régler cette durée, et fermer vos sessions à distance.
+
+### Se connecter avec le compte de votre organisation
+
+Si votre administrateur a branché les comptes de votre organisation, vous vous connectez avec eux, et non avec un mot de passe créé dans Elpis.
+
+- **Authentification unique (SSO)** : la page de connexion propose un bouton **Se connecter avec** suivi du nom du service de votre organisation. Cliquez dessus, connectez-vous là-bas comme d'habitude, et vous revenez dans Elpis connecté.
+- **Compte local** : quand la page montre les boutons d'authentification unique, **Compte local** ouvre le formulaire d'un compte créé dans Elpis.
+- **Votre mot de passe est géré par votre organisation.** Dans Paramètres › **Profil**, le message **Votre mot de passe est géré par votre organisation** remplace le changement de mot de passe. Changez-le ou réinitialisez-le là où votre organisation le fait.
+- **Première connexion.** Si vous appartenez au groupe autorisé, votre compte est créé automatiquement ; son nom est dérivé de votre identifiant.
+- **Vous aviez déjà un compte Elpis.** À votre première connexion avec le compte de votre organisation, la page de connexion vous demande **une dernière fois** votre mot de passe Elpis. Saisissez-le et cliquez sur **Relier mon compte**. Après cinq mots de passe faux, la demande est annulée : demandez à votre administrateur de la préparer de nouveau. Ensuite, vous vous connectez avec le seul compte de votre organisation, et les jetons d'API personnels et les accès d'applications que vous aviez créés sont supprimés : recréez-les si vous en avez besoin. Si votre administrateur a vérifié lui-même votre identité, la question n'est pas posée.
+- **Si vous êtes refusé.** Le message **Votre compte n'est pas autorisé à utiliser Elpis** s'affiche quand vous n'appartenez pas au groupe autorisé, quand votre compte est désactivé ou quand son nom est déjà pris ; **Une vérification en deux étapes est exigée** quand votre organisation en demande une ; **Le service de connexion de votre organisation ne répond pas** quand ce service est en panne : réessayez plus tard. Une courte **Référence** peut apparaître sous le message : transmettez-la à votre administrateur.
+- **Votre rôle et vos groupes** peuvent être fixés par votre organisation d'après vos groupes chez elle : ils les suivent alors à chaque connexion.
+- **Si vous quittez le groupe ou votre organisation**, votre compte est désactivé à la vérification suivante : vos sessions se terminent et vos outils cessent de fonctionner. Vos conversations et vos fichiers sont conservés.
 
 ### Le menu du compte
 
@@ -2445,7 +2458,7 @@ Ce qu'il faut savoir :
 - **Vue d'ensemble** : **À traiter**, l'état des **Services** avec **Tout tester**, les chiffres des **Dernières 24 h** et l'**Installation**.
 - **Supervision** : **Métriques** (widgets au choix, export CSV, collecte Prometheus), **Rapport** (digest quotidien archivé, aperçu avant impression), **Activité** (onglets **Exécutions** et **Appels d'outils**, avec recherche, tri et filtres des erreurs), **Journaux** (onglet **Technique**, et onglet **Sécurité** pour les administrateurs).
 - **Modèles & services** : **Inférence** (moteurs, planification des requêtes), **Compression**, **RAG**, **Vision & machines** (annotation, machines cibles du Studio), **Voix**, **Images**, **Outils MCP**, **Prompts** (prompts système par catégorie), **Secrets** (ceux de l'instance).
-- **Utilisateurs & accès** : **Comptes**, **Groupes**, **Droits par défaut** (fonctionnalités, fournisseurs ouverts aux comptes), **Mots de passe & sessions**.
+- **Utilisateurs & accès** : **Comptes**, **Groupes**, **Droits par défaut** (fonctionnalités, fournisseurs ouverts aux comptes), **Mots de passe & sessions**, **SSO OpenID Connect** (fournisseurs d'authentification unique, comptes à rattacher).
 - **Sandbox** : **Limites & politique** (mémoire, processeur, processus, durée d'une commande, arrêt d'inactivité), **Réseau** (profils), **Hôtes d'outils**, **Conteneurs**, **Sous-agents**.
 - **Système** : **Instance** (identité, écran d'accueil, page de connexion), **Apparence** (habillages proposés), **Accès HTTPS**, **Données** (sauvegarde, base de données, restauration), **Journalisation**, **Entretien** (entretien périodique, redémarrage, purge des métriques).
 

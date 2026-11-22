@@ -485,6 +485,31 @@ connector (`connecteur`, API key encrypted by the core); `admin` and `connecteur
 a JSON request on stdin, so no secret goes on a command line. The configuration
 therefore needs the core bundle, which `./install.sh` builds before configuring.
 
+## Deleted accounts and their sandbox folder
+
+Deleting an account, with or without its sandbox, always runs in the same order, so that an account created later
+under the same name never inherits anything of the old one:
+
+1. Access is cut (sessions revoked, container removed).
+2. The sandbox folder and its snapshots (`user_sandboxes/_snapshots/<name>`) are renamed
+   `.supprime-<account id>-<timestamp>` in the sandbox directory (`user_sandboxes/`), locally and on the remote
+   tool host of the account. If a rename fails, the account is not deleted, everything is put back and the console
+   reports a failure: retry once the host answers.
+3. The site credentials of the account are removed on every declared tool host that has a URL and a service token
+   (a host without them holds none and is skipped). If a host cannot be reached or fails, the account is not deleted, everything is put back and the failing host is named in the
+   server log: fix it, or remove the host from the manifest, then retry.
+4. The account is deleted from the database. If that fails, the renamed folders are put back; if the account was
+   already deleted by a concurrent request, nothing is put back.
+5. With the sandbox (`delete_sandbox=true`), the renamed folders are then deleted, locally and on the remote host.
+   A failure here does not bring the account back: the console reports the reason (`sandbox_error`) and the
+   renamed folders stay out of reach of any account name until an administrator deletes them on the host.
+
+Without the sandbox (the console default), the renamed folders are kept: an administrator can recover files from
+them on the host (or delete them); they are not listed anywhere in the console.
+
+Account names cannot start with `_` (the sandbox directory keeps `_snapshots` there); an older account whose name
+does, when deleted, never has its folders renamed or deleted.
+
 ## Backing up and restoring
 
 | Method | Use |
@@ -514,6 +539,17 @@ backed up nor restored. The Qdrant index (`rag_app/qdrant/storage/`) is not
 there either: after a restore on another machine, Admin console › Models & services ›
 RAG › Embedding model change › "Reindex all collections" (checkbox "Even those
 already using this model") rebuilds it from the store's extracted texts.
+
+A restore from the console that replaces the database (**Full** or
+**Database** scope) cuts every session (global cut in `config.json`) as soon
+as the database is replaced, before the rest of the archive is written (an
+error in the rest leaves them cut): the administrator who ran it sees the
+result, then the page reloads on the sign-in screen (with errors, the message
+says so and the next action leads there). The accounts come back as they were
+in the archive, and the confirmation says so: suspensions, token revocations
+and password changes made since the backup are undone, make them again after
+the restore. SSO accounts are checked again by their provider at their next
+sign-in.
 
 The `*.lock` files in `user_db/`, in the sandboxes and in `skills/` are locks
 in use: useless in a backup, taken over automatically if their process has
@@ -718,6 +754,9 @@ restarted, then delete the fallback:
 rm user_db/.vault.key
 ```
 
+`rekey` also renews the test fingerprints of the OpenID Connect single sign-on providers whose registered
+secret is unchanged: these providers stay active after a key change.
+
 ### Updating: connector and image engine keys
 
 From the version that adds migration `0028_vault_llm_images`, the API keys of the LLM connectors
@@ -813,6 +852,25 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
 - the key in use, as the core sees it: a warning for the fallback `user_db/.vault.key`, for a key
   that cannot be read or is invalid, for secrets encrypted with another key
   (`./elpis vault rekey`), and for secrets left without any key (restore it).
+
+## SSO (OpenID Connect): emergency exit
+
+Settings: [configuration.md](configuration.md#openid-connect-single-sign-on-auth); setup guide and troubleshooting:
+[sso-oidc.md](sso-oidc.md). Three commands run on the host,
+with the core bundle, as the service account (with `sudo` they switch to it):
+
+| Command | Role |
+|---|---|
+| `./elpis auth status` | Public address, local password mode, whether the secure connection (https) holds as of the next start of the services, number of active administrators with a local password, and for each provider: id, type, switched on, active (`non (inopérant)` when switched on but not active), tested |
+| `./elpis auth off` | Switches off every provider, reopens the local password to every account (`auth.local.mode` back to `all`), cuts the sessions of every account attached to a provider recorded in the database, whatever the file says (run it again if the database was unreachable), and writes `auth.cli.off` to the security journal. Nothing else in `config.json` changes; no restart is needed |
+| `./elpis auth reactivate <account>` | Lifts the suspension of an account through the same function as the console (sessions opened during the suspension stay refused) and writes `auth.cli.reactivate` to the security journal, a failed attempt (unknown account, account not suspended) included. The way back in when every administrator is suspended |
+
+The provider test (console) warns when a target address is one of this machine's own: that is allowed (an identity provider installed on the same host is legitimate), but the address is then not that of a separate server.
+
+At least one active administrator with a local password must always remain: suspending, deleting
+or demoting the last one, switching the local mode to `admins` or switching a provider on is
+refused otherwise. An account created by a provider has no local password (it cannot sign in or
+change one with a password), so keep an administrator that has one.
 
 ## Browser in the sandbox
 

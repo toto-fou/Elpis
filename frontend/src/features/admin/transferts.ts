@@ -291,7 +291,7 @@ export function creerTransferts(b: BaseAdmin) {
       "Les données existantes seront remplacées par celles de l'archive. Sans retour arrière." +
       (base
         ? " Les suspensions, révocations de jetons et changements de mot de passe faits depuis la sauvegarde " +
-          "seront annulés : refaites-les ensuite."
+          "seront annulés : refaites-les ensuite. Les comptes SSO sont revérifiés à leur prochaine connexion."
         : "");
     const confirme = ctx.openTypedConfirm
       ? await ctx.openTypedConfirm(`Restauration ${libelle}`, avertissement, "RESTAURER", "Choisir l'archive")

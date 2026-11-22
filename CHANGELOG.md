@@ -9,12 +9,13 @@ follow [SemVer](https://semver.org/).
 ### Added
 
 - **SSO (OpenID Connect).** People sign in with the account their organization manages, through an OpenID Connect provider
-  (code flow with PKCE; Keycloak, Authentik, LemonLDAP::NG, AD FS; a directory is connected behind such a provider). Off by default.
-  Switching on needs a required group, the secret in the vault and a
+  (code flow with PKCE; Keycloak, Authentik, LemonLDAP::NG, AD FS; a directory is connected behind such a provider). Off by default. Administration › Users &
+  access › SSO OpenID Connect sets a provider up in numbered steps, with a settings check (**Contrôler les réglages**) and a dry-run sign-in (**Se connecter pour essayer**); switching on needs a required group, the secret in the vault and a
   successful dry-run sign-in. Accounts are created at the first sign-in or linked (prepared link plus the old
   password once). Optionally, the role and some Elpis groups follow the groups of the provider
   (administrator groups need a confirmation and a required second factor), and sign-out reaches the provider (RP-initiated and back-channel logout).
   `./elpis auth status|doctor|off|reactivate` keep an emergency exit.
+  Guide: [docs/sso-oidc.md](docs/sso-oidc.md).
 - **Account suspension.** Administration › Accounts can switch an account off (**Désactiver**) and back on
   (**Réactiver**). A suspended account is refused everywhere (sessions, API tokens, OAuth, routines, webhooks,
   background jobs, sandbox) and its running work and container are stopped. The last active local

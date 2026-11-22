@@ -49,12 +49,25 @@ To open the help, click your name at the bottom of the sidebar, then **Aide** (H
 
 What to know:
 
-- **Accounts are created by an administrator.** There is no open registration.
+- **Accounts are created by an administrator**, or at your first sign-in if your organization connected its own accounts (see below). There is no open registration.
 - The eye icon, in the password field, shows what you type.
 - **Wrong username or password**: check what you typed, capital letters in particular. After several failures, the application asks you to wait a few minutes.
 - **New password**: if the administrator assigned you a password, the application asks you to choose another one the first time you sign in. Enter it twice, then click **Appliquer et continuer** (Apply and continue). The rules (length, capital letters, digits, special characters) are set by the administrator.
 - **Nobody can read your password**, not even an administrator. They can only assign you a new one.
 - **Session length.** By default, a session lasts 24 hours: after that, the application asks for your username and password again. The administrator can adjust this length, and can close your sessions remotely.
+
+### Signing in with your organization's account
+
+If your administrator connected the accounts of your organization, you sign in with them and not with a password created in Elpis.
+
+- **Single sign-on**: the login page offers a **Se connecter avec** (Sign in with) button named after your organization's service. Click it, sign in there as usual, and you come back to Elpis signed in.
+- **Local account**: if the page shows the single sign-on buttons, **Compte local** (Local account) opens the username and password form of an account created in Elpis.
+- **Your password is managed by your organization.** In Paramètres › **Profil**, the message **Votre mot de passe est géré par votre organisation** (Your password is managed by your organization) replaces the password change. Change or reset it where your organization does it.
+- **First sign-in.** If you belong to the authorized group, your account is created automatically; its name is derived from your username.
+- **You already had an Elpis account.** At your first sign-in with your organization's account, the login page asks for your Elpis password **one last time**. Enter it and click **Relier mon compte** (Link my account). After five wrong passwords the request is cancelled: ask your administrator to prepare it again. From then on you sign in with your organization's account only, and the personal API tokens and application access you had created are removed: create them again if you use them. If your administrator verified your identity themselves, the question is not asked.
+- **If you are refused.** The message says **Votre compte n'est pas autorisé à utiliser Elpis** (Your account is not allowed to use Elpis) when you do not belong to the authorized group, when your account is deactivated or when its name is already taken; **Une vérification en deux étapes est exigée** (A two-step check is required) when your organization asks for one; **Le service de connexion de votre organisation ne répond pas** (Your organization's sign-in service does not respond) when its service is down, in which case try again later. A short **Référence** (Reference) may appear under the message: pass it on to your administrator.
+- **Your role and groups** may be set by your organization from your groups there: they then follow them at each sign-in.
+- **If you leave the group or your organization**, your account is deactivated at the next check: your sessions end and your tools stop working. Your conversations and files are kept.
 
 ### The account menu
 
@@ -2445,7 +2458,7 @@ What you need to know:
 - **Vue d'ensemble**: **À traiter**, the state of the **Services** with **Tout tester** (Test all), the figures for the **Dernières 24 h** (Last 24 h) and the **Installation**.
 - **Supervision**: **Métriques** (Metrics) (widgets of your choice, CSV export, Prometheus collection), **Rapport** (Report) (archived daily digest, preview before printing), **Activité** (Activity) (**Exécutions** (Runs) and **Appels d'outils** (Tool calls) tabs, with search, sorting and error filters), **Journaux** (Logs) (**Technique** (Technical) tab, and **Sécurité** (Security) tab for administrators).
 - **Modèles & services** (Models & services): **Inférence** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, the Studio's target machines), **Voix**, **Images**, **Outils MCP** (MCP tools), **Prompts** (system prompts by category), **Secrets** (those of the instance).
-- **Utilisateurs & accès**: **Comptes**, **Groupes**, **Droits par défaut** (Default rights) (features, providers open to accounts), **Mots de passe & sessions**.
+- **Utilisateurs & accès**: **Comptes**, **Groupes**, **Droits par défaut** (Default rights) (features, providers open to accounts), **Mots de passe & sessions**, **SSO OpenID Connect** (OpenID Connect single sign-on: providers, accounts to link).
 - **Sandbox**: **Limites & politique** (Limits & policy) (memory, processor, processes, duration of a command, inactivity shutdown), **Réseau** (profiles), **Hôtes d'outils** (Tool hosts), **Conteneurs** (Containers), **Sous-agents** (Subagents).
 - **Système** (System): **Instance** (identity, welcome screen, login page), **Apparence** (skins offered), **Accès HTTPS** (HTTPS access), **Données** (Data) (backup, database, restore), **Journalisation** (Logging), **Entretien** (Maintenance) (periodic maintenance, restart, metrics purge).
 

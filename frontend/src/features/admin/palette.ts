@@ -193,7 +193,7 @@ export function creerPalette(b: BaseAdmin, navigation: SurfaceNavigation) {
           meta: en.label !== p.label ? en.label : "",
           icon: en.icon,
           page: p.id,
-          keywords: "",
+          keywords: nav.pages[p.id]?.motsCles.join(" ") ?? "",
         });
         const def = nav.pages[p.id];
         for (const o of def?.onglets ?? []) {

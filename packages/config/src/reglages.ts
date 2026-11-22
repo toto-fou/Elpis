@@ -447,19 +447,26 @@ function lireSecretExplicite(fichier: string): string {
   return secret;
 }
 
-/** Précédence : `APP_SESSION_SECRET` > `app.session_secret` (hors valeurs d'exemple publiées) > `APP_SESSION_SECRET_FILE` (lu seulement) > fichier près de la base, que l'hôte d'outils (`APP_SERVICE=toolhost`, sans usage du secret) ne lit, ne crée ni ne touche jamais. */
+let sessionJsonSignale = false;
+
+/** Précédence : `APP_SESSION_SECRET` > `APP_SESSION_SECRET_FILE` s'il est donné (lu seulement ; l'installation le pose : `app.session_secret` de config.json alors ignoré, signalé une fois) > `app.session_secret` (hors valeurs d'exemple publiées) > fichier près de la base, que l'hôte d'outils (`APP_SERVICE=toolhost`, sans usage du secret) ne lit, ne crée ni ne touche jamais. */
 function resoudreSecretSession(env: Env, sessionJson: string, dbPath: string): string {
   const sessionEnv = asStr(env["APP_SESSION_SECRET"], "");
   if (sessionEnv) {
     avertirSecretFaible(sessionEnv, "env");
     return sessionEnv;
   }
-  if (sessionJson && !WEAK_SESSION_SECRETS.has(stripPy(sessionJson).toLowerCase())) {
+  const explicite = asStr(env["APP_SESSION_SECRET_FILE"], "");
+  if (sessionJson && explicite && !sessionJsonSignale) {
+    sessionJsonSignale = true;
+    process.stderr.write(
+      "[WARNING] app.session_secret de config.json ignoré : le secret de session vient de APP_SESSION_SECRET_FILE (installation).\n",
+    );
+  } else if (sessionJson && !explicite && !WEAK_SESSION_SECRETS.has(stripPy(sessionJson).toLowerCase())) {
     avertirSecretFaible(sessionJson, "config.json");
     return sessionJson;
   }
   if ((env["APP_SERVICE"] ?? "").toLowerCase() === "toolhost") return secretEphemere();
-  const explicite = asStr(env["APP_SESSION_SECRET_FILE"], "");
   if (explicite) return lireSecretExplicite(explicite);
   const secret = chargerOuCreerSecret(pyParent(dbPath));
   if (secret === null) {

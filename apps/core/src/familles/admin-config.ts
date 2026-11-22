@@ -45,6 +45,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { auditer, entierPy, exigerTexte, lireConfigPourEcrire } from "../admin/aides";
 import {
   applySectionOwnership,
+  cheminsGeresChanges,
   dig,
   estSecretMasque,
   MASQUE_SECRET,
@@ -53,6 +54,7 @@ import {
   PATCH_MAX_CHANGES,
   PATCH_PATH_RE,
   plant,
+  refusGereInstallation,
   tropProfond,
   removePath,
   restaurerSecretsMasques,
@@ -144,6 +146,9 @@ function messageDe(e: unknown, chemin: string): string {
       ? e.message
       : String(e);
 }
+
+/** Issue d'un PATCH sous verrou : fichier illisible, conflits, clés gérées par l'installation, ou nombre de champs écrits. */
+type IssuePatch = ["illisible"] | ["conflit", Dict[]] | ["gere", string[]] | ["ok", number];
 
 export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
   const fermerClient = dep.fermerClientCompression ?? closeEndpointClient;
@@ -333,6 +338,14 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         );
         throw new HttpError(500, "Enregistrement impossible : le fichier n'a pas été modifié.");
       }
+      let final: unknown;
+      try {
+        final = pyJsonLoads(texte);
+      } catch {
+        final = {};
+      }
+      const geres = cheminsGeresChanges(estDict(final) ? final : {}, avantDisque);
+      if (geres.length) throw new HttpError(400, refusGereInstallation(geres));
       try {
         copierConfigJson(chemin);
         writeTextAtomic(chemin, texte);
@@ -378,7 +391,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       });
     const chemin = config.CONFIG_JSON_PATH;
     let ecrits: ReturnType<typeof diffConfig> = { changes: [] };
-    const issue = await sousVerrouConfigJson((): ["illisible"] | ["conflit", Dict[]] | ["ok", number] => {
+    const issue = await sousVerrouConfigJson((): IssuePatch => {
       let disque: unknown = {};
       let texte = "{}";
       if (existePy(chemin)) {
@@ -406,6 +419,10 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         }
         if (conflits.length) return ["conflit", conflits];
       }
+      const vise: Dict = {};
+      for (const [parties, c] of lus) if (!veritePy(getPy(c, "delete", null))) plant(vise, parties, c["to"]);
+      const geres = cheminsGeresChanges(vise, d);
+      if (geres.length) return ["gere", geres];
       // Copie relue avant modification : le journal compare les deux configs entières, secrets masqués à toute profondeur.
       const relu = pyJsonLoads(texte);
       const avant = estDict(relu) ? relu : {};
@@ -419,6 +436,8 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       return ["ok", lus.length];
     });
     if (issue[0] === "illisible") throw new HttpError(500, CONFIG_ILLISIBLE);
+    if (issue[0] === "gere")
+      return reponseJsonPy(rep.code(400), { detail: refusGereInstallation(issue[1]), paths: issue[1] });
     if (issue[0] === "conflit")
       return reponseJsonPy(rep.code(409), { detail: "Modifié ailleurs entre-temps.", conflicts: issue[1] });
     invalidateConfigCache();

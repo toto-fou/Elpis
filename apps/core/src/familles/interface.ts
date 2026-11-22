@@ -140,7 +140,7 @@ function configPublique(req: FastifyRequest, mode: ModeApp): Dict {
         ? vue["app_info"]
         : {
             name: "Elpis",
-            version: "0.1.4",
+            version: "0.1.5",
             team_name: "Elpis",
             engine: "llama.cpp",
             description: "",

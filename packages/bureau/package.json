@@ -1,6 +1,6 @@
 {
   "name": "@elpis/bureau",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -9,11 +9,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.4",
-    "@elpis/config": "0.1.4",
-    "@elpis/db": "0.1.4",
-    "@elpis/http": "0.1.4",
-    "@elpis/securite": "0.1.4",
+    "@elpis/commun": "0.1.5",
+    "@elpis/config": "0.1.5",
+    "@elpis/db": "0.1.5",
+    "@elpis/http": "0.1.5",
+    "@elpis/securite": "0.1.5",
     "undici": "8.12.4"
   }
 }

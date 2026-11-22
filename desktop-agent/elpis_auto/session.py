@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .report import Report
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 
 class StepError(RuntimeError):

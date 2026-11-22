@@ -15,12 +15,12 @@ export interface Acteur {
   readonly username: string | null;
 }
 
-/** Appel JSON de l'hôte d'outils ; refus 502 de l'hôte rendu tel quel, hôte absent ou refus d'accès : 502 clair, panne interne de l'hôte : erreur interne. */
+/** Appel JSON de l'hôte d'outils (suspension du compte visé tolérée pour un arrêt ou une destruction) ; refus 502 de l'hôte rendu tel quel, hôte absent ou refus d'accès : 502 clair, panne interne de l'hôte : erreur interne. */
 export async function appelerConsole(
   acteur: Acteur | undefined,
   methode: "GET" | "POST",
   chemin: string,
-  options: { delaiS: number; json?: unknown; compte?: Acteur } = { delaiS: 60 },
+  options: { delaiS: number; json?: unknown; compte?: Acteur; tolererSuspension?: boolean } = { delaiS: 60 },
 ): Promise<unknown> {
   const signataire = options.compte ?? acteur;
   if (signataire === undefined) throw new HttpError(502, MESSAGE_INJOIGNABLE);
@@ -38,6 +38,7 @@ export async function appelerConsole(
       chemin,
       {
         delaiS: options.delaiS,
+        tolererSuspension: options.tolererSuspension === true,
         ...(options.json === undefined ? {} : { json: options.json }),
       },
     );

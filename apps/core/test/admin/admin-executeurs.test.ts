@@ -513,6 +513,20 @@ describe.each(MOTEURS)("famille /api/admin des exécuteurs et hôtes d'outils (%
     expect(existsSync(path.join(d, "sb", ".lifecycle_locks", "u3.lock"))).toBe(false);
   });
 
+  it("compte suspendu : arrêt et destruction de son conteneur passent par l'hôte d'outils (suspension tolérée)", async () => {
+    await t.base.run("UPDATE users SET suspended_at=?, suspended_by='admin' WHERE id=?", [T, 3]);
+    for (const [methode, url] of [
+      ["POST", "/api/admin/sandbox/containers/3/stop"],
+      ["DELETE", "/api/admin/sandbox/containers/3"],
+    ] as const) {
+      const r = await appel(1, methode, url);
+      expect([r.statusCode, r.json()], url).toEqual([200, { ok: true }]);
+    }
+    expect(readFileSync(path.join(d, "docker", "appels.log"), "utf-8")).toBe(
+      "stop -t 5 elpis-sb-bob\nrm -fv elpis-sb-bob\n",
+    );
+  });
+
   it("hôte d'outils arrêté : santé en démon absent, liste et arrêt en 502 clair, GC vide, jamais de détail interne", async () => {
     await hoteOutils.close();
     const message = "L'hôte d'outils ne répond pas. Vérifiez qu'il est démarré, puis réessayez.";

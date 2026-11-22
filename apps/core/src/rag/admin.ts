@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/rag/admin.ts — console d'administration du RAG : état des services, essais, collections (métadonnées seulement), suppression, quotas par compte, progression de la réindexation globale, travaux. */
 import { getUserSettings, reglagesDepuis } from "@elpis/auth";
+import { sansBarresFinales } from "@elpis/commun";
 import { configRag, lireQuotasRag, QUOTAS_RAG_MAX } from "@elpis/config";
 import type { QuotasRag } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
@@ -212,15 +213,13 @@ export type ResultatEssaiRag =
     }
   | { ok: false; service: ServiceEssai; error: string };
 
-const sansBarre = (u: string): string => u.replace(/\/+$/u, "");
-
 /** Adresse http(s) du formulaire, sinon celle qui est enregistrée ; vide si aucune n'est exploitable. */
 function adresseEssai(saisie: string | undefined, enregistree: string): string {
   const brute = (saisie ?? "").trim();
   if (brute === "") return enregistree;
   try {
     const u = new URL(brute);
-    return (u.protocol === "http:" || u.protocol === "https:") && u.hostname ? sansBarre(brute) : "";
+    return (u.protocol === "http:" || u.protocol === "https:") && u.hostname ? sansBarresFinales(brute) : "";
   } catch {
     return "";
   }
@@ -243,7 +242,7 @@ export async function essaiServiceRag(
       const saisie = (corps.api_key ?? "").trim();
       const cle =
         (saisie === MASQUE_SECRET ? "" : saisie) ||
-        (sansBarre(url) === sansBarre(conf.embed.url) ? conf.embed.api_key : "");
+        (sansBarresFinales(url) === sansBarresFinales(conf.embed.url) ? conf.embed.api_key : "");
       const client = new ClientEmbeddings({
         url,
         modele: (corps.model ?? "").trim() || conf.embed.model,
@@ -285,7 +284,7 @@ export async function essaiServiceRag(
       const saisie = (corps.api_key ?? "").trim();
       const cle =
         (saisie === MASQUE_SECRET ? "" : saisie) ||
-        (sansBarre(url) === sansBarre(conf.ocr.url) ? conf.ocr.api_key : "");
+        (sansBarresFinales(url) === sansBarresFinales(conf.ocr.url) ? conf.ocr.api_key : "");
       const vus = await modelesVision(url, cle, ESSAI_MS);
       if ("erreur" in vus) return echec(vus.erreur);
       const modeles = vus.modeles;

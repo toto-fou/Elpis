@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { stripPy } from "@elpis/commun";
+import { stripPy, sansBarresFinales } from "@elpis/commun";
 
 import { estDict } from "./brut";
 import type { Dict } from "./brut";
@@ -87,7 +87,7 @@ export function urlHttp(v: unknown, defaut: string): string {
   } catch {
     return defaut;
   }
-  return brut.replace(/\/+$/u, "");
+  return sansBarresFinales(brut);
 }
 
 /** Identifiants de groupes positifs, dédoublonnés, 200 au plus ; le reste est ignoré. */

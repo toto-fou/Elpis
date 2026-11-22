@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/rendu/markdown.ts — moteur Markdown du chat : rendu final en cache LRU, rendu incrémental par blocs pendant le flux. */
-import { escapeHtml, looksLikePath } from "../../../utils/utils-purs.ts";
+import { escapeHtml, parsePath, retirerPrefixeWork } from "../../../utils/utils-purs.ts";
 import { reparerFinDeBloc } from "./fin-de-bloc.ts";
 import { copie, creerFlux, etatVide, preparerTexte } from "./flux-blocs.ts";
 import type { EtatFlux, JetonMarked, Liens, LexeurMarked } from "./flux-blocs.ts";
@@ -125,10 +125,11 @@ export function configurerAnalyseur(analyseur: Analyseur, purifier: (html: unkno
   };
   renderer.codespan = (jeton: string | JetonCode): string => {
     const brut = typeof jeton === "string" ? jeton : (jeton.text ?? "");
-    const html = escapeHtml(brut);
-    return looksLikePath(brut)
-      ? `<code class="elpis-path-link" title="Ouvrir dans l'éditeur">${html}</code>`
-      : `<code>${html}</code>`;
+    const chemin = parsePath(brut);
+    // Chemin affiché sans /work ; la racine reste un simple texte (rien à ouvrir).
+    if (!chemin) return `<code>${escapeHtml(brut)}</code>`;
+    if (!chemin.path) return "<code>/</code>";
+    return `<code class="elpis-path-link" title="Ouvrir dans l'éditeur">${escapeHtml(retirerPrefixeWork(brut.trim()))}</code>`;
   };
   analyseur.use({ renderer, hooks: { postprocess: (html: string) => purifier(html) } });
 }

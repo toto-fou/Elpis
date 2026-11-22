@@ -617,6 +617,14 @@ export function clicMarkdown(event: Event, actions: ActionsClicMarkdown): void {
   const link = cible.closest("a");
   if (!link) return;
   const href = link.getAttribute("href");
+  const chemin =
+    href && (href === "/work" || href.startsWith("/work/")) ? actions.analyserChemin?.(href) : null;
+  if (chemin && actions.ouvrirDansEditeur) {
+    // Lien Markdown vers un fichier du bac : ouvert dans l'éditeur, jamais suivi comme une URL.
+    event.preventDefault();
+    if (chemin.path) actions.ouvrirDansEditeur(chemin.path, chemin.line, chemin.col);
+    return;
+  }
   if (!href || !href.startsWith("#") || href.length < 2) return;
   event.preventDefault();
   const el = cibleAncre(href, cible.closest(".markdown-body") || document);

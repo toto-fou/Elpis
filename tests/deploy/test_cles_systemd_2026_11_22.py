@@ -199,6 +199,40 @@ def test_unites_ne_portent_que_leurs_cles_presentes(depot):
     assert _credentials(_print(depot)["elpis-main.service"]) == {"encryption.key", "audit.key"}
 
 
+
+def test_jeton_du_rag_remis_au_rag_seul(depot):
+    m = _poser(depot, vault_key=VAULT, audit_key=JOURNAL, rag_token="jeton\n")
+    u = _print(depot)
+    for s in ("main", "admin"):
+        lignes = u[f"elpis-{s}.service"].splitlines()
+        assert f"LoadCredentialEncrypted=rag.token:{m}/rag.token" in lignes and 'Environment="RAG_SERVICE_TOKEN_FILE=%d/rag.token"' in lignes
+        assert [l for l in lignes if "RAG_SERVICE_TOKEN_FILE" in l] == ['Environment="RAG_SERVICE_TOKEN_FILE=%d/rag.token"'], s
+    rag = u["elpis-rag.service"].splitlines()
+    assert _credentials(u["elpis-rag.service"]) == {"rag.token"}
+    assert [l for l in rag if "RAG_SERVICE_TOKEN_FILE" in l] == ['Environment="RAG_SERVICE_TOKEN_FILE=%d/rag.token"']
+    assert "rag.token" not in u["elpis-toolhost.service"] and "rag.token" not in u["elpis-qdrant.service"]
+
+
+def test_jeton_du_rag_repris_de_ses_fichiers(depot):
+    etc, db = _sys(depot) / "etc/elpis", depot / "user_db"
+    etc.mkdir(parents=True)
+    (etc / "rag.token").write_text("jeton-bloc5\n", encoding="utf-8")
+    (etc / "rag.token").chmod(0o440)
+    corps = 'MODE_COMPTES=separes; BASE_DONNEES="$ROOT/user_db"; jeton_rag "$MOI"; echo "rc=$?"'
+    r = _harnais(depot, corps, CREDS, **_faux(depot))
+    assert "rc=0" in r.stdout and _clair(_magasin(depot) / "rag.token") == "jeton-bloc5\n", r.stdout + r.stderr
+    assert not (etc / "rag.token").exists() and "ranger_secrets" in "\n".join(_trace(depot))
+    # Jeton réécrit par ./elpis configure dans user_db (à l'opérateur) : il l'emporte, puis il est retiré.
+    (db / ".rag_service_token").write_text("jeton-configure\n", encoding="utf-8")
+    (db / ".rag_service_token").chmod(0o600)
+    r = _harnais(depot, corps, CREDS, **_faux(depot))
+    assert "rc=0" in r.stdout and _clair(_magasin(depot) / "rag.token") == "jeton-configure\n"
+    assert not (db / ".rag_service_token").exists()
+    (_magasin(depot) / "rag.token").unlink()
+    r = _harnais(depot, corps, CREDS, **_faux(depot))
+    assert re.fullmatch(r"ELPIS_[0-9a-f]{64}\n", _clair(_magasin(depot) / "rag.token")), r.stderr
+
+
 @pytest.mark.parametrize("version,env", [("249", {}), ("257", {"ELPIS_COMPTE_UNIQUE": "1"})])
 def test_sans_cles_systemd_unites_du_bloc5(depot, version, env):
     _poser(depot, vault_key=VAULT, audit_key=JOURNAL)
@@ -292,8 +326,9 @@ def test_installation_separee_range_les_cles_avant_les_unites(depot):
     assert r.returncode == 0, r.stdout + r.stderr
     t = _trace(depot)
     assert t.index(next(l for l in t if l.startswith("cmd_stop"))) < t.index(f"render separes {MOI}")
-    assert sorted(p.name for p in _magasin(depot).iterdir()) == ["audit.key", "encryption.key", "session.secret", "vault.key"]
-    assert not any(p.exists() for p in src.values()) and (_sys(depot) / "etc/elpis/rag.token").is_file()
+    assert sorted(p.name for p in _magasin(depot).iterdir()) == ["audit.key", "encryption.key", "rag.token", "session.secret", "vault.key"]
+    assert not any(p.exists() for p in src.values()) and _clair(_magasin(depot) / "rag.token") == "r" * 43 + "\n"
+    assert not (_sys(depot) / "etc/elpis/rag.token").exists() and not (depot / "user_db/.rag_service_token").exists()
     avant = {p.name: p.stat().st_ctime_ns for p in _magasin(depot).iterdir()}
     r = _harnais(depot, INSTALLE_SEPARE, CREDS, **_faux(depot))
     assert r.returncode == 0 and {p.name: p.stat().st_ctime_ns for p in _magasin(depot).iterdir()} == avant
@@ -302,12 +337,12 @@ def test_installation_separee_range_les_cles_avant_les_unites(depot):
 # Retour à un compte et retrait des services : chaque clé rendue à son fichier du compte unique, magasin retiré.
 def test_retour_au_compte_unique_rend_les_fichiers(depot):
     _unite_bloc4(depot)
-    _poser(depot, vault_key=VAULT, encryption_key=FERNET, session_secret=SESSION, audit_key=JOURNAL)
+    _poser(depot, vault_key=VAULT, encryption_key=FERNET, session_secret=SESSION, audit_key=JOURNAL, rag_token="jeton-rag\n")
     r = _harnais(depot, INSTALLE_SEPARE, CREDS, ELPIS_COMPTE_UNIQUE="1", **_faux(depot))
     assert r.returncode == 0, r.stdout + r.stderr
     etc, db = _sys(depot) / "etc/elpis", depot / "user_db"
     attendus = {etc / "vault.key": (VAULT, "440"), etc / "audit.key": (JOURNAL, "440"), db / ".encryption_key": (FERNET, "600"),
-                db / ".session_secret": (SESSION, "600")}
+                db / ".session_secret": (SESSION, "600"), db / ".rag_service_token": ("jeton-rag\n", "600")}
     assert {p: (p.read_text(encoding="utf-8"), _mode(p)) for p in attendus} == attendus
     assert not _magasin(depot).exists() and "rendues à leurs fichiers" in r.stdout
     r = _harnais(depot, INSTALLE_SEPARE, CREDS, ELPIS_COMPTE_UNIQUE="1", **_faux(depot))
@@ -481,12 +516,13 @@ def test_config_json_range_en_deux_temps(depot):
     r = _harnais(depot, corps, talons, **{**_faux(depot), "FAUX_CREDS_ECHEC": "encrypt"})
     assert "rc=1" in r.stdout and "pas tous écrits" in r.stderr, r.stdout + r.stderr
     cfg = json.loads((depot / "config.json").read_text(encoding="utf-8"))
-    assert cfg == {"app": {"session_secret": "s" * 48, "encryption_key": "cle-heritee"}, "rag": {}}
-    assert (etc / "rag.token").read_text(encoding="utf-8") == "jeton-du-rag\n"
+    assert cfg == {"app": {"session_secret": "s" * 48, "encryption_key": "cle-heritee"}, "rag": {"service_token": "jeton-du-rag"}}
+    assert not (etc / "rag.token").exists()
     r = _harnais(depot, corps, talons, **_faux(depot))
     assert "rc=0" in r.stdout, r.stdout + r.stderr
     assert json.loads((depot / "config.json").read_text(encoding="utf-8")) == {"app": {}, "rag": {}}
     assert _clair(_magasin(depot) / "session.secret") == "s" * 48 + "\n" and _clair(_magasin(depot) / "encryption.key") == "cle-heritee\n"
+    assert _clair(_magasin(depot) / "rag.token") == "jeton-du-rag\n" and not (etc / "rag.token").exists()
     assert all("s" * 48 not in a and "cle-heritee" not in a for l in _lignes(depot, "run.trace") for a in json.loads(l)["argv"])
 
 
@@ -506,8 +542,8 @@ def test_doctor_des_cles_remises_par_systemd(depot):
     assert "clés de la plateforme remises par systemd 257" in sortie
     assert "clé audit.key illisible par systemd-creds" in sortie and "unité toolhost : clé vault.key remise à tort" in sortie
     assert "unité main sans la clé vault.key" in sortie and f"clé en clair restée : {depot}/user_db/.encryption_key" in sortie
-    # Clé illisible 1, main et la console sans leurs 4 clés, l'hôte d'outils 2 (clé à tort, clé du journal absente), copie en clair 1.
-    assert re.search(r"bad=([0-9]+)", r.stdout)[1] == str(1 + 4 + 4 + 2 + 1), sortie
+    # Clé illisible 1, jeton du RAG absent 1, main et la console sans leurs 4 clés, l'hôte d'outils 2 (clé à tort, clé du journal absente), copie en clair 1.
+    assert re.search(r"bad=([0-9]+)", r.stdout)[1] == str(1 + 1 + 4 + 4 + 2 + 1), sortie
     r = _harnais(depot, corps, TALONS + "version_systemd() { echo 249; }\n", **_faux(depot))
     assert "systemd 249 : 250 ou plus et systemd-creds" in r.stderr and "bad=1" in r.stdout
 

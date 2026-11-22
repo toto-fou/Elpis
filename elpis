@@ -222,11 +222,12 @@ cles_systemd() {
     [ "$CLES_SYSTEMD" = oui ]
 }
 
-# Clés remises par systemd à un service : main, la console et les commandes que root lance sous son compte (console), toutes ; l'hôte d'outils, la clé du journal seule.
+# Clés remises par systemd à un service : main, la console et les commandes que root lance sous son compte (console), toutes ; l'hôte d'outils, la clé du journal seule ; le RAG, son jeton seul.
 cles_du_service() {
     case "$1" in
-        main|admin|console) echo vault.key encryption.key session.secret audit.key ;;
+        main|admin|console) echo vault.key encryption.key session.secret audit.key rag.token ;;
         toolhost) echo audit.key ;;
+        rag) echo rag.token ;;
     esac
 }
 
@@ -235,6 +236,7 @@ variable_de_cle() {
     case "$1" in
         vault.key) echo ELPIS_VAULT_KEY_PATH ;; encryption.key) echo APP_ENCRYPTION_KEY_PATH ;;
         session.secret) echo APP_SESSION_SECRET_FILE ;; audit.key) echo ELPIS_AUDIT_KEY_PATH ;;
+        rag.token) echo RAG_SERVICE_TOKEN_FILE ;;
     esac
 }
 
@@ -1029,17 +1031,19 @@ _umask_unite() {
     esac
 }
 
-# Environnement et dossier propres au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, les chemins des données fixés (CHEMINS_FIXES : config.json ne les change plus), ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG), le cache systemd du RAG, le stockage de Qdrant dans son dossier d'état et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
+# Environnement et dossier propres au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, les chemins des données fixés (CHEMINS_FIXES : config.json ne les change plus), ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG ; remis par systemd, il passe par _cles_unite), le cache systemd du RAG, le stockage de Qdrant dans son dossier d'état et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
 _env_comptes() {
-    local e
+    local e jeton=()
     case "$1" in main|admin|toolhost) SPEC_ENV+=("ELPIS_COMPTES=$MODE_COMPTES") ;; esac
     [ "$MODE_COMPTES" = separes ] || return 0
+    jeton=("RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS"); ! cles_systemd || ! cle_presente rag.token || jeton=()
     case "$1" in
-        main|admin) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS")
+        main|admin) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" ${jeton[@]+"${jeton[@]}"})
                     for e in "${CHEMINS_FIXES[@]}"; do _env_unite "$e"; done ;;
         toolhost) SPEC_ENV+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES"); [ -z "$2" ] || SPEC_ENV+=("PLAYWRIGHT_BROWSERS_PATH=$2")
                   for e in "${CHEMINS_FIXES[@]}"; do _env_unite "$e"; done ;;
-        rag) _env_unite "RAG_CACHE_DIR=/var/cache/$UNIT_PREFIX-rag"; _env_unite "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS" ;;
+        rag) _env_unite "RAG_CACHE_DIR=/var/cache/$UNIT_PREFIX-rag"
+             if [ "${#jeton[@]}" -eq 0 ]; then _env_retire RAG_SERVICE_TOKEN_FILE; else _env_unite "${jeton[0]}"; fi ;;
         qdrant) SPEC_DIR="/var/lib/$UNIT_PREFIX-qdrant"
                 SPEC_ENV+=("QDRANT__STORAGE__STORAGE_PATH=$SPEC_DIR/storage" "QDRANT__STORAGE__SNAPSHOTS_PATH=$SPEC_DIR/storage/snapshots") ;;
     esac
@@ -1055,12 +1059,15 @@ _cles_unite() {
     done
 }
 
-# NOM=VALEUR dans l'environnement de l'unité en cours (SPEC_ENV), à la place d'une valeur déjà donnée.
-_env_unite() {
+# NOM retiré de l'environnement de l'unité en cours (SPEC_ENV).
+_env_retire() {
     local e l=()
-    for e in "${SPEC_ENV[@]}"; do [ "${e%%=*}" = "${1%%=*}" ] || l+=("$e"); done
-    SPEC_ENV=("${l[@]}" "$1")
+    for e in "${SPEC_ENV[@]}"; do [ "${e%%=*}" = "$1" ] || l+=("$e"); done
+    SPEC_ENV=(${l[@]+"${l[@]}"})
 }
+
+# NOM=VALEUR dans l'environnement de l'unité en cours (SPEC_ENV), à la place d'une valeur déjà donnée.
+_env_unite() { _env_retire "${1%%=*}"; SPEC_ENV+=("$1"); }
 
 # Dossier de la base pour root : celui d'APP_DB_PATH (environnement, .env), sinon user_db ; celui du core (DOSSIER, config.json compris) doit être le même, sinon rien, avec la marche à suivre.
 base_sure() {
@@ -1400,8 +1407,8 @@ ranger_secrets() {
     local jeton="$1" c="$2" f sortie liste rc magasin=() cibles=() cles=()
     [ -n "$BASE_DONNEES" ] || return 1
     cibles=("$BASE_DONNEES/.session_secret" "$BASE_DONNEES/.encryption_key" "$jeton")
-    if [ "$MODE_COMPTES" = separes ] && cles_systemd; then magasin=(--magasin "$CLES_SYS"); cibles=("$jeton"); fi
-    for f in "${cibles[@]}"; do
+    if [ "$MODE_COMPTES" = separes ] && cles_systemd; then magasin=(--magasin "$CLES_SYS"); cibles=(); fi
+    for f in ${cibles[@]+"${cibles[@]}"}; do
         [ -d "${f%/*}" ] && [ ! -L "${f%/*}" ] && [ ! -L "$f" ] && { [ ! -e "$f" ] || [ -f "$f" ]; } \
             || { warn "$f : dossier absent, lien ou fichier spécial : secrets laissés dans config.json (à vérifier, puis sudo ./elpis service install)."; return 1; }
     done
@@ -1421,10 +1428,15 @@ ranger_secrets() {
     return "$rc"
 }
 
-# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; compte unique, user_db/.rag_service_token ; secrets de config.json rangés au passage.
+# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; clés remises par systemd : la clé rag.token, reprise de JETON_RAG_SYS puis de user_db/.rag_service_token (chacun l'emporte sur la précédente, puis retiré), créée sinon ; compte unique, user_db/.rag_service_token ; secrets de config.json rangés au passage.
 jeton_rag() {
-    local depot="$ROOT/user_db/.rag_service_token" sys="$JETON_RAG_SYS"
-    if [ "$MODE_COMPTES" = separes ]; then
+    local depot="$ROOT/user_db/.rag_service_token" sys="$JETON_RAG_SYS" e=0
+    if [ "$MODE_COMPTES" = separes ] && cles_systemd; then
+        { magasin_cles && poser_droits cle "$CLES_SYS" rag.token --source "$sys" --proprio "root,$1" --source-gagne; } || e=1
+        poser_droits cle "$CLES_SYS" rag.token --source "$depot" --proprio "$1" --source-gagne --creer jeton || e=1
+        ranger_secrets "$sys" "$UNIT_PREFIX-admin"
+        return "$e"
+    elif [ "$MODE_COMPTES" = separes ]; then
         poser_droits reprendre "${depot%/*}" "${depot##*/}" "$1" "$sys"; [ "$?" -ne 1 ] || return 1
         [ ! -L "$sys" ] || rm -f -- "$sys"
         ranger_secrets "$sys" "$UNIT_PREFIX-admin"
@@ -1453,7 +1465,7 @@ cles_vers_systemd() {
     return "$e"
 }
 
-# cles_rendues COMPTE GROUPE : clés remises par systemd que le mode en place n'emploie pas (retour à un compte, retrait des services, systemd trop ancien) rendues à leurs fichiers du compte unique, sans suivre de lien : clés du coffre et du journal 0440 root:GROUPE dans /etc/elpis, clé de chiffrement et secret de session 0600 à COMPTE près de la base des unités séparées ; une cible différente garde la clé ; magasin retiré une fois vide ; rien sans magasin.
+# cles_rendues COMPTE GROUPE : clés remises par systemd que le mode en place n'emploie pas (retour à un compte, retrait des services, systemd trop ancien) rendues à leurs fichiers du compte unique, sans suivre de lien : clés du coffre et du journal 0440 root:GROUPE dans /etc/elpis, clé de chiffrement et secret de session 0600 à COMPTE près de la base des unités séparées, jeton du RAG 0600 à root dans /etc/elpis (que jeton_rag reprend) ; une cible différente garde la clé ; magasin retiré une fois vide ; rien sans magasin.
 cles_rendues() {
     local proprio="$1" g="$2" gb base e=0
     [ -d "$CLES_SYS" ] || return 0
@@ -1464,6 +1476,7 @@ cles_rendues() {
     poser_droits cle-rendre "$CLES_SYS" audit.key "$AUDIT_KEY_SYS" root "$g" 0440 || e=1
     poser_droits cle-rendre "$CLES_SYS" encryption.key "$base/.encryption_key" "$proprio" "$gb" 0600 || e=1
     poser_droits cle-rendre "$CLES_SYS" session.secret "$base/.session_secret" "$proprio" "$gb" 0600 || e=1
+    poser_droits cle-rendre "$CLES_SYS" rag.token "$JETON_RAG_SYS" root root 0600 || e=1
     [ "$e" -eq 0 ] || return 1
     rmdir -- "$CLES_SYS" 2>/dev/null || { warn "$CLES_SYS non vide : gardé (à vérifier)."; return 1; }
     info "Clés de la plateforme rendues à leurs fichiers ; $CLES_SYS retiré."
@@ -1933,7 +1946,7 @@ doctor_cles_systemd() {
         done
     done
     base="$(dirname -- "${DB_FICHIER:-$ROOT/user_db/app.db}")"
-    for f in "$VAULT_KEY_SYS" "$AUDIT_KEY_SYS" "$base/.encryption_key" "$base/.session_secret"; do
+    for f in "$VAULT_KEY_SYS" "$AUDIT_KEY_SYS" "$base/.encryption_key" "$base/.session_secret" "$JETON_RAG_SYS" "$ROOT/user_db/.rag_service_token"; do
         [ ! -e "$f" ] || { warn "clé en clair restée : $f (sudo ./elpis service install la chiffre, puis la retire)"; bad=$((bad+1)); }
     done
     [ ! -e "$base/.vault.key" ] || { warn "clé de repli du coffre en clair : $base/.vault.key (sudo ./elpis vault rekey --from $base/.vault.key, puis supprimez-la)"; bad=$((bad+1)); }
@@ -2150,7 +2163,10 @@ cmd_doctor() {
     fi
     check "mcp.json" "./elpis configure" test -f "$ROOT/mcp.json"
     check "jeton MCP" "./elpis configure" test -s "$ROOT/user_db/.local_mcp_token"
-    if [ "$(mode_installe)" = separes ]; then
+    if cle_des_unites rag.token; then
+        if [ "$(id -u)" -eq 0 ]; then check "jeton du service RAG (remis par systemd, $CLES_SYS/rag.token)" "sudo ./elpis service install" cle_presente rag.token
+        else info "jeton du service RAG : remis par systemd ($CLES_SYS réservé à root : sudo ./elpis doctor)"; fi
+    elif [ "$(mode_installe)" = separes ]; then
         check "jeton du service RAG ($JETON_RAG_SYS)" "sudo ./elpis service install" test -s "$JETON_RAG_SYS"
     else
         check "jeton du service RAG" "./elpis configure" test -s "$ROOT/user_db/.rag_service_token"

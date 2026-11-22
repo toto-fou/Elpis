@@ -35,6 +35,8 @@ server:
 - **RAG**: per-account document collections, shared with groups, searched by
   the chat with cited sources and a viewer; OCR.
 - **Administration**: users and groups, LLM connectors, metrics.
+- **SSO (OpenID Connect)**: single sign-on through an OpenID Connect provider,
+  off by default ([guide](docs/sso-oidc.md)).
 
 The core is written in TypeScript and runs on Node.js 24. It talks to
 `llama-server` (llama.cpp) or any OpenAI-compatible endpoint. The interface
@@ -242,6 +244,7 @@ Most of these documents are still in French.
 - [CHANGELOG.md](CHANGELOG.md): change log.
 - [User guide](docs/user-guide.md) ([French](docs/fr/user-guide.md))
 - [Installation and configuration](docs/configuration.md)
+- [OpenID Connect single sign-on (SSO)](docs/sso-oidc.md)
 - [Operations](docs/operations.md): offline installation, upgrades,
   rolling back to the Python version (tag `python-final`), backups,
   monitoring.

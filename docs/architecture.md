@@ -1793,7 +1793,8 @@ slowly, then with `429` and `Retry-After`. A successful login resets the
 
 | Endpoint | Description |
 |---|---|
-| `POST /api/logout-lite` | Log out (server-side revocation + cookie removal with the right attributes) |
+| `POST /api/logout-lite` | Log out (server-side revocation + cookie removal with the right attributes); `logout_url` is added when the single sign-on provider that opened the session also wants its own session ended |
+| `POST /api/auth/oidc/:id/backchannel-logout` | Back-channel logout token from a single sign-on provider (public, form-encoded, 16 KiB, 60 calls per minute and provider per process): closes only that provider's sessions |
 | `GET /api/me-lite` | Info about the signed-in user |
 | `GET /api/auth/check` | Lightweight probe (`auth_request` for a proxied service) |
 | `POST /api/users/change-password` | Change password (strict cross-site guard) |
@@ -2486,7 +2487,7 @@ Console routes: see [Administration](#administration-api).
 | `GET/POST/PUT/DELETE /api/admin/llm/connectors[/{id}]` · `POST /{id}/test` | Shared connectors |
 | `GET/PUT /api/admin/llm/allowed-providers` | Provider types allowed for users |
 | `GET/POST /api/admin/security/https` | HTTPS toggle (with anti-lockout guard) |
-| `GET /api/admin/security/sessions` · `POST /revoke-all` · `/revoke-user/{id}` · `/clear-user-revocation/{id}` | Sessions |
+| `GET /api/admin/security/sessions` · `POST /revoke-all` · `/revoke-user/{id}` | Sessions |
 | `POST /api/admin/rag-service/test` | RAG extractor health (URL and token from the form or saved) |
 | `GET /api/admin/rag/etat` · `POST /api/admin/rag/essai/{service}` | State and test of the RAG services (extractor, Qdrant, embeddings, reranking, OCR) |
 | `GET /api/admin/rag/collections` · `DELETE /{id}` | Metadata of all collections; deletion (never the content) |

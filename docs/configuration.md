@@ -10,6 +10,7 @@
 - [Startup](#startup)
 - [Configuration](#configuration)
   - [`config.json` file](#configjson-file)
+  - [OpenID Connect single sign-on](#openid-connect-single-sign-on-auth)
   - [RAG](#rag-rag)
   - [Cloud providers for accounts](#cloud-providers-for-accounts-llmallowed_provider_types)
   - [Environment variables](#environment-variables)
@@ -398,6 +399,62 @@ the section, and deletes nothing if `config.json` cannot be read.
 
 Full backups include the journal unless `backup.include_audit` is `false`; a scheduled remote send
 includes it only if `backup.remote.include_audit` is `true`.
+
+### OpenID Connect single sign-on (`auth`)
+
+Setup guide: [sso-oidc.md](sso-oidc.md).
+
+Single sign-on (OpenID Connect) providers. A directory is connected through an identity provider that federates it, see [sso-oidc.md](sso-oidc.md#connecting-a-directory). The section is read from disk on every
+use, with no restart, and is written only by Administration › Users & access › SSO OpenID Connect and
+by `./elpis auth off`: the raw editor and `PATCH /api/admin/config` can neither create nor overwrite
+it. `./elpis configure` re-reads it from disk just before writing and keeps it as it is; `--force` starts again from the example file (the old one is kept as `config.json.bak`) but carries the section over with every provider switched off and the local password open to everyone. Without the section nothing changes: no new route
+answers, no outgoing call is made, the login page is the same. Client secrets are
+never in `config.json`: they live in the secrets vault as the instance secrets `auth-<id>`, bound
+to the provider's address and its certificate authority
+(changing either asks for the secret again), and no route
+returns them.
+
+| Key | Default | Description |
+|---|---|---|
+| `public_url` | `""` | `https` origin of the application (no path, query or credentials), the only source of the redirect address. Required to switch a provider on; cannot change while a provider is on |
+| `local.mode` | `all` | `all`: every account signs in with its password; `admins`: only administrators do (others get the usual 401). Refused unless an active administrator with a local password remains |
+| `providers` | `[]` | Five providers at most |
+
+Each provider has `id` (lowercase letters, digits and hyphens, 31 characters at most, never changed),
+`type` (`oidc`, never changed), `label` (1 to 40 characters), `enabled`, `ca_pem` (PEM certificates, 64 KiB at most; when present, the only trust anchor of this provider),
+`required_groups` (0 to 20 entries of 512 characters at most; at least one is needed to switch on), `roles`,
+`group_map` and `freshness_days` (1 to 90, default 14). Texts contain no control character (the pasted certificate authority aside).
+
+- `roles` (all three keys required; see [sso-oidc.md](sso-oidc.md#roles-and-groups-from-the-provider)):
+  `enabled` (default `false`), `admin_groups` and `moderator_groups` (0 to 20 entries of 512 characters at
+  most each, no duplicate). The role of the accounts of the provider follows these groups; administrator groups
+  of a provider count only when it invites a second factor (`required_amr` with a method of possession or inherence, `mfa` or `mca`, or at least one level in `mfa_acr`), and a sign-in only gives the role when the received token proves it.
+- `group_map`: `enabled` (default `false`) and `map`, 0 to 50 pairs `{external, group_id}` (`external`: 1 to 512
+  characters, the exact claim value; `group_id`: identifier of an Elpis group, 1 or more; no
+  duplicate pair).
+- `issuer` (`https`, no credentials, query or fragment, 512 characters at most), `client_id` (1 to 256
+  characters), `client_auth` (`basic`, `post`; default `basic`), `id_token_alg` (`RS256`, `RS384`, `RS512`,
+  `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512` or `EdDSA`; default `RS256`; symmetric and unsigned
+  algorithms are not accepted), `scopes` (1 to 20, must contain `openid`; default `openid profile email`),
+  `subject_claim` (default `sub`), `username_claim` (default `preferred_username`), `email_claim` (default
+  `email`), `name_claim` (default `name`), `groups_claim` (default `groups`; claim names of 1 to 64 letters,
+  digits, `_`, `-`, `.` or `:`, a dotted path reaches a nested claim), `required_acr` and `required_amr`
+  (0 to 10 values of 128 characters at most; empty = no requirement; `acr` compared exactly, `amr` without
+  regard to case), `mfa_acr` (0 to 10 values of 128 characters at most, default empty, an absent key reads as empty: the `acr` levels the
+  provider issues only after a second factor, the only ones that prove it; see
+  [sso-oidc.md](sso-oidc.md#requiring-a-second-factor)), `max_age_sec` (0 to 604800, 0 = none),
+  `clock_skew_sec` (0 to 300, default 60), `session_max_age_sec` (0 to 2592000, 0 = global duration), `logout`
+  (`rp_initiated`, `backchannel`, both default `false`).
+
+The defaults are those of a provider created in the console; a section written by hand has none (every key is required, `mfa_acr` aside).
+
+A provider counts as active only when, at every read: it is switched on, all its settings are valid
+(unknown keys included), `required_groups` is not empty, `public_url` is a valid `https` origin,
+its secret is stored and in scope, and its settings (all but `label`, `enabled` and
+`freshness_days`, plus `public_url`) are those of its last successful test. Whatever is written by
+hand in the file, a provider that fails one of these stays inactive, with one warning line in the
+log. If every provider is locked out, `./elpis auth off` switches them all off and reopens the local
+password for everyone (run on the host; it is logged as `auth.cli.off`).
 
 ### Production mode (systemd)
 
@@ -1229,15 +1286,15 @@ be taken). Routes:
 ``GET /api/admin/toolhosts``, ``POST /api/admin/toolhosts/placements/{uid}``
 (``{host_id}``), ``…/migrate``, ``DELETE …``. Adding a host = one
 ``sandboxHosts`` entry in ``mcp.json`` + ``toolhost.json`` on the machine.
-Deleting an account with its sandbox (``DELETE /api/admin/users/{id}?delete_sandbox=true``)
-also deletes the one on a remote host, through that host's internal route
-``POST /api/internal/sandbox/delete`` (signed envelope, never relayed),
-before the local folder; an enforced network profile destroys the container on the account's host.
+Deleting an account (``DELETE /api/admin/users/{id}``, with or without ``?delete_sandbox=true``) renames
+the sandbox of a remote host out of reach of account names through that host's internal routes
+``POST /api/internal/sandbox/set-aside``, ``…/restore`` (the deletion failed) and, with the sandbox,
+``…/discard`` (signed envelope, never relayed), all given the same timestamp by the console; an enforced network profile destroys the container on the account's host.
 Every account deletion also calls ``POST /api/internal/account/purge`` on
-each declared host (same signed envelope): the site credentials in the account's AX memory
-are removed from the host's database. A host that is unreachable or has no token is
-flagged in the response's ``hosts_purge_errors`` and in the log: its credentials
-must then be removed before recreating an account with the same name.
+each declared host that has a URL and a service token (same signed envelope), before the account is deleted: the site credentials in the account's AX memory
+are removed from the host's database. A host that is unreachable or fails refuses the deletion
+(it is named in the log): fix it, or remove it from the manifest, then retry. See
+[operations.md](operations.md#deleted-accounts-and-their-sandbox-folder).
 
 
 | Variable | Default | Description |

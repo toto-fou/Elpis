@@ -18,6 +18,7 @@ const pageInconnue = (id: string): PageAdmin => ({
   loaders: [],
   onglets: [],
   paths: [],
+  motsCles: [],
   role: "staff",
 });
 

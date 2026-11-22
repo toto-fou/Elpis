@@ -40,7 +40,7 @@ export const ARBRE_DEPLIE: readonly GroupeArbre[] = Object.freeze([
     id: "access",
     label: "Utilisateurs & accès",
     icon: "ph-users",
-    pages: ["accounts", "groups", "rights", "sessions", "https"],
+    pages: ["accounts", "groups", "rights", "sessions", "oidc", "https"],
   },
   {
     id: "sandbox",
@@ -69,7 +69,7 @@ export interface GroupeAffiche extends GroupeArbre {
   readonly ongletTrouve: Readonly<Record<string, string>>;
 }
 
-/** Groupes à afficher : pages permises au rôle, filtrées par le libellé de la page, d'un de ses onglets ou d'un de ses réglages ; un groupe sans page disparaît. */
+/** Groupes à afficher : pages permises au rôle, filtrées par le libellé de la page, un de ses mots-clés, un de ses onglets ou un de ses réglages ; un groupe sans page disparaît. */
 export function filtrerArbre(
   pages: Readonly<Record<string, PageAdmin>>,
   admin: boolean,
@@ -90,7 +90,10 @@ export function filtrerArbre(
       const page = pages[id];
       if (!page || (page.role === "admin" && !admin)) continue;
       if (q) {
-        const parPage = normaliser(page.label).includes(q) || (reglagesParPage.get(id) ?? "").includes(q);
+        const parPage =
+          normaliser(page.label).includes(q) ||
+          page.motsCles.some((m) => normaliser(m).includes(q)) ||
+          (reglagesParPage.get(id) ?? "").includes(q);
         const onglet = page.onglets.find(
           (o) => (o.role !== "admin" || admin) && normaliser(o.label).includes(q),
         );

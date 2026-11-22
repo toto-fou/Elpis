@@ -2,6 +2,7 @@
 """deploy/droits.py — droits posés et secrets écrits par root (« sudo ./elpis service install ») sans suivre de lien : dossier ouvert composant par composant depuis « / », entrées changées par descripteur."""
 from __future__ import annotations
 
+import base64
 import contextlib
 import errno
 import fnmatch
@@ -13,6 +14,7 @@ import re
 import secrets
 import signal
 import stat
+import subprocess
 import sys
 import time
 
@@ -34,9 +36,11 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
         droits.py secret DOSSIER NOM
           secret aléatoire (ELPIS_ et 64 chiffres hexadécimaux, 0600) créé dans DOSSIER s'il manque ou fait moins de
           40 caractères ; un lien ou un fichier spécial à ce nom est refusé
-        droits.py ranger BASE JETON
-          secrets de l'objet JSON de l'entrée standard (deploy/configure.py --ranger-secrets) dans BASE/.session_secret,
-          BASE/.encryption_key et JETON (0600) s'ils diffèrent ; un lien ou un fichier spécial est refusé
+        droits.py ranger BASE JETON [--magasin MAGASIN]
+          secrets de l'objet JSON de l'entrée standard (deploy/configure.py --ranger-secrets --garder) dans
+          BASE/.session_secret, BASE/.encryption_key et JETON (0600) s'ils diffèrent, ou avec --magasin, secret de session
+          et clé de chiffrement en clés de systemd ; un lien ou un fichier spécial est refusé ; sortie : les clés de
+          config.json à retirer (écrites, ou sans valeur retenue), une par ligne
         droits.py reprendre DOSSIER NOM COMPTE CIBLE
           contenu de DOSSIER/NOM, fichier ordinaire de COMPTE à un seul lien que nul autre ne peut écrire, écrit dans
           CIBLE (0600), puis NOM retiré ; code 2 si NOM est refusé
@@ -59,6 +63,20 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           mot de passe de la base locale (48 chiffres hexadécimaux) écrit sur la sortie : lu sans suivre de lien dans un
           fichier ordinaire à un seul lien de PROPRIO, de root ou d'un compte admis, ou créé (0600, à PROPRIO) s'il manque
           ou est vide ; autre contenu : refusé
+        droits.py cle MAGASIN NOM [--source FICHIER] [--proprio A,B] [--min N] [--creer GENRE] [--source-gagne] [--copie]
+          clé NOM du magasin de systemd (systemd-creds encrypt --name=NOM --with-key=auto, clair par un tube, 0600 root,
+          déchiffrée et comparée avant d'être renommée) : reprise de FICHIER (fichier ordinaire à un seul lien d'un des
+          comptes, sans écriture d'autrui, N caractères au moins), qui est retiré ensuite ; FICHIER différent d'une clé en
+          service : laissés tous deux (sauf --source-gagne) ; sinon clé gardée, sinon créée sans FICHIER refusé (GENRE :
+          coffre, fernet, session, journal) ; --copie : commande de copie hors de la machine affichée quand la clé change
+        droits.py cle-rendre MAGASIN NOM CIBLE PROPRIO GROUPE MODE
+          clé NOM déchiffrée dans CIBLE (temporaire exclusif, PROPRIO:GROUPE, MODE octal) si CIBLE manque ou est la même,
+          relue, puis retirée du magasin ; CIBLE « - » : clé retirée seulement ; CIBLE différente : laissées toutes deux
+        droits.py cle-etat MAGASIN NOM...
+          une ligne par clé : « NOM ok LONGUEUR », « NOM absent » ou « NOM illisible » (jamais le contenu)
+        droits.py copier FICHIER DOSSIER NOM [--proprio A,B]
+          FICHIER (fichier ordinaire à un seul lien d'un des comptes, 4 Kio au plus), lu sans suivre de lien, recopié dans
+          DOSSIER/NOM (0600, création exclusive)
 Comptes des services : ELPIS_DROITS_SERVICES (et groupes en plus : ELPIS_DROITS_GROUPES) ; tout dossier au-dessus
 d'un dossier traité (au-dessus de BASE avec --sous) doit leur être fermé en écriture (sticky bit : entrée suivante
 hors de leurs comptes). Hors de root : modes seulement. Fichier à plusieurs liens physiques : laissé, signalé.
@@ -67,6 +85,10 @@ CLAUSE = re.compile(r"([ugo]+)([+-])([rwxXs]+)")
 
 
 MDP_BASE = re.compile(r"[0-9a-f]{48}")
+NOM_CLE = re.compile(r"[a-z0-9][a-z0-9.-]{0,63}")
+# Secrets de config.json rangés en clés de systemd (ranger --magasin) ; les autres vont à leurs fichiers.
+VERS_CLES = {"app.session_secret": "session.secret", "app.encryption_key": "encryption.key"}
+SECRETS_CONFIG = ("app.session_secret", "app.encryption_key", "rag.service_token")
 
 
 class Refus(Exception):
@@ -442,20 +464,377 @@ def secret(args: list[str]) -> bool:
 
 
 def ranger(args: list[str]) -> bool:
-    base, jeton = args
+    base, jeton, *reste = args
+    magasin = (_options(reste, {"--magasin"}).get("--magasin") or [None])[-1]
     valeurs = json.loads(sys.stdin.read() or "{}")
+    valeurs = valeurs if isinstance(valeurs, dict) else {}
     cibles = {"app.session_secret": (base, ".session_secret"), "app.encryption_key": (base, ".encryption_key"),
               "rag.service_token": os.path.split(jeton)}
-    reussi = True
-    for cle, valeur in valeurs.items():
-        if cle in cibles and isinstance(valeur, str) and valeur.strip():
-            texte = valeur.strip() + "\n"
-            try:
-                reussi &= _poser_texte(*cibles[cle], lambda a, t=texte: None if a == t else t)
-            except OSError as e:
-                _dire(f"[warn ] {os.path.join(*cibles[cle])} : {e.strerror} : {cle} non écrit.", file=sys.stderr)
-                reussi = False
+    reussi, a_retirer = True, []
+    for cle_config in SECRETS_CONFIG:
+        valeur = valeurs.get(cle_config)
+        if not (isinstance(valeur, str) and valeur.strip()):
+            a_retirer.append(cle_config)
+            continue
+        texte = valeur.strip() + "\n"
+        try:
+            if magasin and cle_config in VERS_CLES:
+                ecrit = _poser_cle(magasin, VERS_CLES[cle_config], texte.encode())
+            else:
+                ecrit = _poser_texte(*cibles[cle_config], lambda a, t=texte: None if a == t else t)
+        except OSError as e:
+            _dire(f"[warn ] {os.path.join(*cibles[cle_config])} : {e.strerror} : {cle_config} non écrit.", file=sys.stderr)
+            ecrit = False
+        if ecrit:
+            a_retirer.append(cle_config)
+        reussi &= ecrit
+    print("\n".join(a_retirer))
     return reussi
+
+
+class Illisible(Exception):
+    """Clé du magasin que systemd-creds ne déchiffre plus (TPM ou clé de l'hôte changés, nom différent)."""
+
+
+def _creds(*args: str, entree: bytes = b"") -> subprocess.CompletedProcess:
+    """systemd-creds ARGUMENTS : le clair passe par un tube, jamais par la ligne de commande ni par un fichier."""
+    try:
+        return subprocess.run(["systemd-creds", *args], input=entree, capture_output=True, timeout=120, check=False)
+    except subprocess.TimeoutExpired:
+        raise OSError(errno.ETIMEDOUT, "systemd-creds sans réponse") from None
+
+
+def _motif(r: subprocess.CompletedProcess) -> str:
+    return (r.stderr.decode("utf-8", "replace").strip().splitlines() or [f"code {r.returncode}"])[-1]
+
+
+def _dechiffrer(magasin: str, nom: str) -> bytes:
+    r = _creds("decrypt", f"--name={nom}", os.path.join(magasin, nom), "-")
+    if r.returncode != 0:
+        raise Illisible(_motif(r))
+    return r.stdout
+
+
+def _fsync_dossier(dfd: int) -> None:
+    lu = os.open(".", os.O_RDONLY | os.O_DIRECTORY, dir_fd=dfd)
+    try:
+        os.fsync(lu)
+    finally:
+        os.close(lu)
+
+
+def _cle_presente(dfd: int, nom: str) -> bool:
+    try:
+        st = os.stat(nom, dir_fd=dfd, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    if not stat.S_ISREG(st.st_mode):
+        raise Refus(f"{nom} : lien ou fichier spécial dans le magasin")
+    return True
+
+
+def _chiffrer(magasin: str, dfd: int, nom: str, clair: bytes) -> None:
+    """Clé NOM posée : chiffrée par systemd-creds dans un temporaire du magasin, mise à 0600 root, déchiffrée et comparée, puis renommée ; rien de laissé en cas d'échec."""
+    tmp = f".{nom}.{secrets.token_hex(8)}"
+    try:
+        r = _creds("encrypt", f"--name={nom}", "--with-key=auto", "-", os.path.join(magasin, tmp), entree=clair)
+        if r.returncode != 0:
+            raise OSError(errno.EIO, f"systemd-creds encrypt : {_motif(r)}")
+        fd = os.open(tmp, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise OSError(errno.EINVAL, "fichier spécial")
+            if RACINE:
+                os.fchown(fd, 0, 0)
+            os.fchmod(fd, 0o600)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        r = _creds("decrypt", f"--name={nom}", os.path.join(magasin, tmp), "-")
+        if r.returncode != 0 or r.stdout != clair:
+            raise OSError(errno.EIO, "relecture par systemd-creds decrypt différente")
+        os.replace(tmp, nom, src_dir_fd=dfd, dst_dir_fd=dfd)
+        _fsync_dossier(dfd)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp, dir_fd=dfd)
+        raise
+
+
+def _poser_cle(magasin: str, nom: str, clair: bytes) -> bool:
+    """Clé NOM du magasin mise à CLAIR si elle manque, diffère ou ne se déchiffre plus ; vrai si elle le vaut."""
+    try:
+        dfd = ouvrir_dossier(_net(magasin))
+    except (Refus, OSError) as e:
+        return _refus(magasin, e)
+    try:
+        if _cle_presente(dfd, nom):
+            with contextlib.suppress(Illisible):
+                if _dechiffrer(magasin, nom) == clair:
+                    return True
+        _chiffrer(magasin, dfd, nom, clair)
+        return True
+    except (Refus, OSError) as e:
+        return _refus(os.path.join(magasin, nom), e)
+    finally:
+        os.close(dfd)
+
+
+def _octets_cle() -> bytes:
+    """32 octets aléatoires, jamais un seul octet répété (refusé par la règle du coffre)."""
+    while len(set(octets := os.urandom(32))) == 1:
+        pass
+    return octets
+
+
+# Clés créées au format que leur code crée : vault setup (base64), Fernet.generateKey(), secret de session, audit setup.
+GENRES = {"coffre": lambda: base64.b64encode(_octets_cle()) + b"\n", "fernet": lambda: base64.urlsafe_b64encode(os.urandom(32)),
+          "session": lambda: b"ELPIS_" + secrets.token_hex(32).encode(), "journal": lambda: secrets.token_hex(32).encode()}
+
+
+def _lire_source(chemin: str, proprios: set[int], minimum: int, taille: int = 65536):
+    """Source en clair CHEMIN lue sans suivre de lien : (descripteur de son dossier, nom, état, contenu), None si absente, False si refusée (signalé)."""
+    tete, nom = os.path.split(_net(chemin))
+    try:
+        dfd = ouvrir_dossier(tete)
+    except FileNotFoundError:
+        return None
+    except (Refus, OSError) as e:
+        _refus(chemin, e)
+        return False
+    try:
+        fd = os.open(nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
+    except OSError as e:
+        os.close(dfd)
+        if isinstance(e, FileNotFoundError):
+            return None
+        _dire(f"[warn ] {chemin} : lien ou fichier spécial : ignoré (à vérifier, puis à retirer).", file=sys.stderr)
+        return False
+    with os.fdopen(fd, "rb") as f:
+        st = os.fstat(f.fileno())
+        conforme = (stat.S_ISREG(st.st_mode) and st.st_uid in proprios and st.st_nlink == 1
+                    and not st.st_mode & 0o022 and st.st_size <= taille)
+        contenu = f.read(taille + 1) if conforme else b""
+    if not conforme or len(contenu) > taille:
+        try:
+            qui = pwd.getpwuid(st.st_uid).pw_name
+        except KeyError:
+            qui = str(st.st_uid)
+        _dire(f"[warn ] {chemin} ignoré (à {qui}, en {stat.S_IMODE(st.st_mode):o}, {st.st_nlink} lien(s) : seul un fichier "
+              "ordinaire à un seul lien de root, de l'opérateur ou d'un ancien compte unique, sans écriture d'autrui, est "
+              "lu) : à vérifier.", file=sys.stderr)
+        os.close(dfd)
+        return False
+    if len(contenu.strip()) < max(1, minimum):
+        _dire(f"[warn ] {chemin} : vide ou trop court : ignoré (à vérifier).", file=sys.stderr)
+        os.close(dfd)
+        return False
+    return dfd, nom, st, contenu
+
+
+def _retirer_source(dfd: int, nom: str, st: os.stat_result, chemin: str) -> bool:
+    """Source en clair retirée si c'est encore le fichier lu (même inode) ; vrai si elle n'y est plus."""
+    try:
+        vu = os.stat(nom, dir_fd=dfd, follow_symlinks=False)
+    except FileNotFoundError:
+        return True
+    if (vu.st_dev, vu.st_ino) != (st.st_dev, st.st_ino):
+        _dire(f"[warn ] {chemin} : remplacé pendant la reprise : laissé (à vérifier).", file=sys.stderr)
+        return False
+    os.unlink(nom, dir_fd=dfd)
+    return True
+
+
+def cle(args: list[str]) -> bool:
+    magasin, nom, *reste = args
+    o = _options(reste, {"--source", "--proprio", "--min", "--creer"}, {"--source-gagne", "--copie"})
+    genre = (o.get("--creer") or [None])[-1]
+    if not NOM_CLE.fullmatch(nom) or (genre is not None and genre not in GENRES):
+        raise SystemExit(USAGE)
+    magasin = _net(magasin)
+    chemin_cle = os.path.join(magasin, nom)
+    copie = f"[elpis] Copie hors de la machine (support hors ligne) : sudo systemd-creds decrypt --name={nom} {chemin_cle} FICHIER"
+    try:
+        dfd = ouvrir_dossier(magasin)
+    except (Refus, OSError) as e:
+        return _refus(magasin, e)
+    source = None
+    try:
+        present = _cle_presente(dfd, nom)
+        if "--source" in o:
+            source = _lire_source(o["--source"][-1], _uids(",".join(o.get("--proprio", ["root"]))),
+                                  int((o.get("--min") or ["1"])[-1]))
+        if source:
+            sdfd, snom, sst, clair = source
+            src, actuel = o["--source"][-1], None
+            if present:
+                try:
+                    actuel = _dechiffrer(magasin, nom)
+                except Illisible as e:
+                    _dire(f"[warn ] {chemin_cle} : illisible par systemd-creds ({e}) : remplacée par {src}.", file=sys.stderr)
+            if actuel is not None and actuel != clair and "--source-gagne" not in o:
+                _dire(f"[warn ] {src} diffère de la clé {nom} en service ({chemin_cle}) : laissés tous deux ; gardez la bonne "
+                      "(copie hors de la machine d'abord), retirez l'autre, puis relancez sudo ./elpis service install.",
+                      file=sys.stderr)
+                return False
+            if actuel != clair:
+                _chiffrer(magasin, dfd, nom, clair)
+                _dire(f"[elpis] {src} chiffré par systemd-creds : {chemin_cle}.")
+                if "--copie" in o:
+                    _dire(copie)
+            if not _retirer_source(sdfd, snom, sst, src):
+                return False
+            _dire(f"[elpis] {src} retiré : plus de copie en clair sur cette machine.")
+            return True
+        if present:
+            try:
+                _dechiffrer(magasin, nom)
+            except Illisible as e:
+                _dire(f"[warn ] {chemin_cle} : illisible par systemd-creds ({e}) : remettez sa copie hors de la machine à son "
+                      "emplacement d'avant (docs/operations.md, « Platform keys »), puis relancez sudo ./elpis service install.",
+                      file=sys.stderr)
+                return False
+        elif genre is not None and source is None:
+            _chiffrer(magasin, dfd, nom, GENRES[genre]())
+            _dire(f"[elpis] Clé {nom} créée, chiffrée par systemd-creds : {chemin_cle}.")
+            if "--copie" in o:
+                _dire(copie)
+        return source is not False
+    except (Refus, OSError) as e:
+        return _refus(chemin_cle, e)
+    finally:
+        if source:
+            os.close(source[0])
+        os.close(dfd)
+
+
+def _poser_clair(cible: str, clair: bytes, proprio: str, groupe: str, mode: int, nom_cle: str) -> bool:
+    """CIBLE posée à CLAIR (temporaire exclusif à PROPRIO:GROUPE en MODE, relue) si elle manque, gardée (droits reposés) si elle le vaut ; différente, lien ou fichier spécial : laissée, signalée."""
+    tete, nom = os.path.split(_net(cible))
+    try:
+        dfd = ouvrir_dossier(tete)
+    except (Refus, OSError) as e:
+        return _refus(cible, e)
+    try:
+        uid, gid = ident(proprio, pwd), ident(groupe, grp)
+        try:
+            fd = os.open(nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
+        except FileNotFoundError:
+            fd = None
+        except OSError:
+            _dire(f"[warn ] {cible} : lien ou fichier spécial : laissé, clé {nom_cle} gardée (à vérifier).", file=sys.stderr)
+            return False
+        if fd is not None:
+            with os.fdopen(fd, "rb") as f:
+                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode) or f.read(65537) != clair:
+                    _dire(f"[warn ] {cible} existe et diffère de la clé {nom_cle} : laissés tous deux (à vérifier).",
+                          file=sys.stderr)
+                    return False
+                if RACINE:
+                    os.fchown(f.fileno(), uid, gid)
+                os.fchmod(f.fileno(), mode)
+            return True
+        tmp = f".{nom}.{secrets.token_hex(8)}"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(clair)
+                f.flush()
+                if RACINE:
+                    os.fchown(f.fileno(), uid, gid)
+                os.fchmod(f.fileno(), mode)
+                os.fsync(f.fileno())
+            os.replace(tmp, nom, src_dir_fd=dfd, dst_dir_fd=dfd)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp, dir_fd=dfd)
+            raise
+        with os.fdopen(os.open(nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd), "rb") as f:
+            if f.read(65537) != clair:
+                _dire(f"[warn ] {cible} : relu différent de la clé {nom_cle} : clé gardée (à vérifier).", file=sys.stderr)
+                return False
+        _fsync_dossier(dfd)
+        return True
+    finally:
+        os.close(dfd)
+
+
+def cle_rendre(args: list[str]) -> bool:
+    magasin, nom, cible, proprio, groupe, mode = args
+    if not NOM_CLE.fullmatch(nom) or not re.fullmatch(r"0?[0-7]{3}", mode):
+        raise SystemExit(USAGE)
+    magasin = _net(magasin)
+    try:
+        dfd = ouvrir_dossier(magasin)
+    except FileNotFoundError:
+        return True
+    except (Refus, OSError) as e:
+        return _refus(magasin, e)
+    try:
+        if not _cle_presente(dfd, nom):
+            return True
+        if cible != "-":
+            try:
+                clair = _dechiffrer(magasin, nom)
+            except Illisible as e:
+                _dire(f"[warn ] {os.path.join(magasin, nom)} : illisible par systemd-creds ({e}) : gardée ; remettez sa copie "
+                      f"hors de la machine à {cible}.", file=sys.stderr)
+                return False
+            if not _poser_clair(cible, clair, proprio, groupe, int(mode, 8), nom):
+                return False
+        os.unlink(nom, dir_fd=dfd)
+        _dire(f"[elpis] Clé {nom} " + (f"rendue à {cible} ({mode}), " if cible != "-" else "") + f"retirée de {magasin}.")
+        return True
+    except (Refus, OSError) as e:
+        return _refus(os.path.join(magasin, nom), e)
+    finally:
+        os.close(dfd)
+
+
+def cle_etat(args: list[str]) -> bool:
+    magasin, *noms = args
+    if not all(NOM_CLE.fullmatch(n) for n in noms):
+        raise SystemExit(USAGE)
+    magasin = _net(magasin)
+    try:
+        dfd = ouvrir_dossier(magasin)
+    except FileNotFoundError:
+        dfd = None
+    except (Refus, OSError) as e:
+        return _refus(magasin, e)
+    try:
+        for nom in noms:
+            try:
+                if dfd is None or not _cle_presente(dfd, nom):
+                    print(f"{nom} absent")
+                    continue
+                print(f"{nom} ok {len(_dechiffrer(magasin, nom).strip())}")
+            except (Refus, Illisible, OSError):
+                print(f"{nom} illisible")
+        return True
+    finally:
+        if dfd is not None:
+            os.close(dfd)
+
+
+def copier(args: list[str]) -> bool:
+    source, dossier_, nom, *reste = args
+    lu = _lire_source(source, _uids(",".join(_options(reste, {"--proprio"}).get("--proprio", ["root"]))), 1, 4096)
+    if not lu:
+        if lu is None:
+            _dire(f"[warn ] {source} : absent.", file=sys.stderr)
+        return False
+    os.close(lu[0])
+    try:
+        dfd = ouvrir_dossier(_net(dossier_))
+    except (Refus, OSError) as e:
+        return _refus(dossier_, e)
+    try:
+        with os.fdopen(os.open(nom, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd), "wb") as f:
+            f.write(lu[3])
+        return True
+    finally:
+        os.close(dfd)
 
 
 def reprendre(args: list[str]) -> int:
@@ -813,7 +1192,8 @@ def mdp_base(args: list[str]) -> bool:
 if __name__ == "__main__":
     commandes = {"arbre": (arbre, 4), "dossier": (dossier, 4), "fichiers": (fichiers, 5), "secret": (secret, 2),
                  "ranger": (ranger, 2), "reprendre": (reprendre, 4), "retirer": (retirer, 1), "sur": (sur, 1),
-                 "pid": (pid, 2), "mdp-base": (mdp_base, 3), "filtre": (filtre, 0), "journal": (journal, 1)}
+                 "pid": (pid, 2), "mdp-base": (mdp_base, 3), "filtre": (filtre, 0), "journal": (journal, 1),
+                 "cle": (cle, 2), "cle-rendre": (cle_rendre, 6), "cle-etat": (cle_etat, 1), "copier": (copier, 3)}
     if len(sys.argv) < 2 or sys.argv[1] not in commandes or len(sys.argv) - 2 < commandes[sys.argv[1]][1]:
         raise SystemExit(USAGE)
     code = commandes[sys.argv[1]][0](sys.argv[2:])

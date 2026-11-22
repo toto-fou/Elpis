@@ -50,6 +50,22 @@ follow [SemVer](https://semver.org/).
 - **Qdrant under a dynamic account.** With one account per service, Qdrant runs under a dynamic
   account (`DynamicUser=yes`) and keeps its storage in `/var/lib/elpis-qdrant`;
   `service install` moves `rag_app/qdrant/storage` there once, services stopped.
+- **Platform keys handed by systemd.** With one account per service and systemd 250 or later,
+  `sudo ./elpis service install` encrypts the vault key, the legacy encryption key, the session
+  secret and the signing key of the journal with `systemd-creds` into `/etc/elpis/credentials/`
+  (root only; bound to the TPM2 when there is one), and each unit receives only the keys it uses
+  (`LoadCredentialEncrypted=`): main and the console all four, the tool host the signing key only.
+  The plaintext files are taken over and removed once the encrypted copy has been read back;
+  `vault setup` and `audit setup` write no plaintext file and print the command that copies a key
+  off the machine (`sudo systemd-creds decrypt --name=vault.key /etc/elpis/credentials/vault.key
+  FILE`): backups no longer contain these keys, keep that copy. Commands run with `sudo` (vault,
+  secrets, journal, backup, doctor, configure) run in a transient unit of the console
+  (`systemd-run`) that gets its keys from systemd; `vault rekey --from` accepts a copy only root
+  can read; without `sudo` they say so. Going back to one account or `service remove` puts the
+  keys back in their files. `deploy/configure.py --ranger-secrets` now works in two steps
+  (`--garder`, then `--retirer`), so that a write error no longer loses a secret moved out of
+  `config.json`. Run `sudo ./elpis service install` again
+  ([operations.md](docs/operations.md#platform-keys)).
 - **systemd units: versioned and hardened.** The units of the services are rendered from
   templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
   privileges, with the system read-only except the folders it writes, a private `/tmp` and

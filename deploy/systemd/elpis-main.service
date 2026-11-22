@@ -12,6 +12,7 @@ Type=simple
 SyslogIdentifier=@PREFIX@-main
 WorkingDirectory=@WORKDIR@
 @ENV@
+@CLES@
 Environment="ELPIS_RUNTIME_DIR=/run/@PREFIX@"
 # Journaux de tours et reprises de tâches sur disque (jusqu'à 64 Mo et 8 Mo pièce) : /run est en mémoire.
 Environment="ELPIS_CHAT_RUNS_DIR=@ROOT@/user_db/run/chat_runs"

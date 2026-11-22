@@ -145,7 +145,16 @@ effect **close to root** on the host: dedicate a machine or VM to Elpis. The oth
 never reach Docker, and each file is reserved to the accounts that use it: the vault key,
 the session secret and the remote backup credentials to main and the console (`elpis-cle`),
 the signing key to the journal writers, the shared state (`user_db/`, sandboxes, logs) to
-the `elpis-donnees` group, the local backups to the operator, nothing to other accounts. The RAG extractor, which
+the `elpis-donnees` group, the local backups to the operator, nothing to other accounts. With
+systemd 250 or later, the platform keys are no longer files a group reads: the vault key, the
+legacy encryption key, the session secret and the signing key are encrypted by `systemd-creds` in
+`/etc/elpis/credentials/` (root only; bound to the TPM2 when there is one) and systemd hands each
+unit, decrypted for it alone, only the keys it uses: main and the console all four, the tool host
+the signing key only, the other units none. `elpis-cle` then only gives the remote backup
+credentials, rsyslog reads the logs but not the signing key, and no platform key is left in
+`user_db/`, where the tool host could replace it. The commands root runs under the console's
+account are a transient unit (`systemd-run`) that gets the console's keys the same way; copies of
+the keys are kept off the machine (`docs/operations.md`, "Platform keys"). The RAG extractor, which
 converts untrusted documents, runs as `elpis-rag` and only reads the RAG store and its token. When other accounts cannot
 reach the installation (a clone in a home folder) or with `ELPIS_COMPTE_UNIQUE=1`, every service
 keeps one account, which then drives Docker itself; `./elpis doctor` warns about this fallback

@@ -16,6 +16,7 @@ RuntimeDirectoryPreserve=restart
 SyslogIdentifier=@PREFIX@-toolhost
 WorkingDirectory=@WORKDIR@
 @ENV@
+@CLES@
 Environment="ELPIS_RUNTIME_DIR=/run/@PREFIX@"
 EnvironmentFile=-@ROOT@/.env
 UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH

@@ -1591,8 +1591,8 @@ def retirer_secrets(cfg: Dict[str, Any], valeurs: Dict[str, str]) -> bool:
     return change
 
 
-def copie_sans_secrets(reel: Path) -> None:
-    """config.json.bak (copie de la console, près du fichier réel) sans aucun secret de plateforme, au propriétaire seul ; au mieux."""
+def copie_sans_secrets(reel: Path, cles: Optional[Sequence[str]] = None) -> None:
+    """config.json.bak (copie de la console, près du fichier réel) sans les secrets de plateforme CLES (tous par défaut), au propriétaire seul ; au mieux."""
     nom = reel.name
     point = nom.rfind(".")
     bak = reel.with_name((nom[:point] if point > 0 else nom) + ".json.bak")
@@ -1604,6 +1604,8 @@ def copie_sans_secrets(reel: Path) -> None:
         return
     change = False
     for sec, cle in CHAMPS_RANGES:
+        if cles is not None and f"{sec}.{cle}" not in cles:
+            continue
         if isinstance(copie.get(sec), dict) and cle in copie[sec]:
             del copie[sec][cle]
             change = True
@@ -1614,8 +1616,57 @@ def copie_sans_secrets(reel: Path) -> None:
         warn(f"{bak.name} non réécrit ({e.strerror}) : à retirer.")
 
 
-def ranger_secrets(sortie: Optional[str]) -> int:
-    """``--ranger-secrets --sortie FD|-``, sous le compte propriétaire de config.json : secrets de plateforme retirés de config.json et de config.json.bak, valeurs retenues sorties en un objet JSON sur le descripteur (jamais un terminal) avant la réécriture ; aucun autre fichier ; code 0 : config.json sans eux."""
+def retirer_ranges(cles: Sequence[str]) -> int:
+    """``--ranger-secrets --retirer CLE…`` (second temps), sous le compte propriétaire de config.json : chaque CLE retirée de config.json et de config.json.bak si sa valeur est celle de l'objet JSON lu sur l'entrée standard (sortie du premier temps), vide ou d'exemple ; code 0 : config.json sans elles, 1 : une valeur a changé (laissée) ou écriture impossible, 2 : usage, terminal ou autre compte."""
+    connues = {f"{s}.{c}" for s, c in CHAMPS_RANGES}
+    if not cles or any(c not in connues for c in cles):
+        warn(f"--retirer : clés attendues parmi {', '.join(sorted(connues))}.")
+        return 2
+    if os.isatty(0):
+        warn("--retirer lit les valeurs rangées sur l'entrée standard, jamais sur un terminal.")
+        return 2
+    try:
+        imprimees = json.loads(sys.stdin.buffer.read(1 << 20) or b"{}")
+    except ValueError:
+        imprimees = None
+    if not isinstance(imprimees, dict):
+        warn("--retirer : entrée standard sans l'objet JSON du premier temps.")
+        return 2
+    reel = Path(os.path.realpath(CONFIG))
+    if not reel.exists():
+        return 0
+    if os.stat(reel).st_uid != os.geteuid():
+        warn("--ranger-secrets : à lancer sous le compte propriétaire de config.json.")
+        return 2
+    cfg = read_config_strict(reel)
+    if cfg is None:
+        warn("config.json est illisible : secrets laissés en place.")
+        return 1
+    change = laisse = False
+    for nom in cles:
+        sec, cle = nom.split(".", 1)
+        bloc = cfg.get(sec)
+        if not isinstance(bloc, dict) or cle not in bloc or not isinstance(bloc[cle], str):
+            continue
+        texte = bloc[cle].strip()
+        if not texte or (nom == "app.session_secret" and texte.lower() in WEAK_SESSION_SECRETS) or texte == imprimees.get(nom):
+            del bloc[cle]
+            change = True
+        elif not (nom == "app.session_secret" and len(texte) < 40):
+            warn(f"{nom} a changé depuis son rangement : laissé dans config.json (relancez sudo ./elpis service install).")
+            laisse = True
+    try:
+        if change:
+            write_config(cfg)
+    except OSError as e:
+        warn(f"config.json non réécrit ({e.strerror}) : secrets laissés en place.")
+        return 1
+    copie_sans_secrets(reel, cles)
+    return 1 if laisse else 0
+
+
+def ranger_secrets(sortie: Optional[str], garder: bool = False) -> int:
+    """``--ranger-secrets --sortie FD|- [--garder]``, sous le compte propriétaire de config.json : valeurs retenues des secrets de plateforme sorties en un objet JSON sur le descripteur (jamais un terminal) ; sans --garder, puis retirées de config.json et de config.json.bak ; aucun autre fichier ; code 0 : valeurs sorties (et config.json sans eux), 1 : config.json illisible ou sortie impossible, 2 : usage, terminal ou autre compte."""
     try:
         fd = 1 if sortie == "-" else int(sortie or "")
         terminal = os.isatty(fd)
@@ -1644,7 +1695,7 @@ def ranger_secrets(sortie: Optional[str]) -> int:
     except OSError as e:
         warn(f"--sortie non écrite ({e.strerror}) : secrets laissés dans config.json.")
         return 1
-    if cfg is None:
+    if cfg is None or garder:
         return 0
     try:
         if change:
@@ -1681,9 +1732,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help="sonde seulement le serveur LLM retenu (GET /v1/models, clé en Bearer), sans rien écrire (./elpis doctor)")
     g.add_argument("--ranger-secrets", action="store_true",
                    help="retire app.session_secret, app.encryption_key et rag.service_token de config.json et de "
-                        "config.json.bak, valeurs en JSON sur --sortie (compte propriétaire de config.json)")
+                        "config.json.bak, valeurs en JSON sur --sortie (compte propriétaire de config.json) ; en deux "
+                        "temps : --sortie - --garder, puis --retirer")
     g.add_argument("--sortie", metavar="FD",
                    help="descripteur (ou « - ») où --ranger-secrets écrit les valeurs, jamais un terminal")
+    g.add_argument("--garder", action="store_true",
+                   help="premier temps de --ranger-secrets : valeurs sorties, config.json laissé tel quel")
+    g.add_argument("--retirer", nargs="+", metavar="CLE",
+                   help="second temps de --ranger-secrets : CLE retirées si leur valeur est encore celle de l'objet "
+                        "JSON lu sur l'entrée standard")
     g.add_argument("--conseils-moteur", action="store_true",
                    help="affiche les drapeaux de lancement conseillés pour vLLM et SGLang, sans rien écrire")
     g = ap.add_argument_group("LLM")
@@ -1825,7 +1882,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         migrate_app_entries(chemin)
         return 0
     if a.ranger_secrets:
-        return ranger_secrets(a.sortie)
+        return retirer_ranges(a.retirer) if a.retirer is not None else ranger_secrets(a.sortie, a.garder)
     if a.check_llm:
         return check_llm(a)
     if a.conseils_moteur:

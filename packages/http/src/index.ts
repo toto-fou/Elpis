@@ -9,7 +9,14 @@ export { corpsRelaye } from "./corps-relaye";
 export { installerCors } from "./cors";
 export { ENTETES_SECURITE, entetesFlux, installerEntetesSecurite, PREPARATIONS_FLUX } from "./entetes";
 export type { PreparationFlux } from "./entetes";
-export { agentEpingle, CODE_REFUS, ConnexionRefusee, fetchPar, MESSAGE_REFUS } from "./epinglage";
+export {
+  agentEpingle,
+  CODE_REFUS,
+  ConnexionRefusee,
+  fetchPar,
+  MESSAGE_REFUS,
+  rechercheEpinglee,
+} from "./epinglage";
 export type { JugeHote, VerdictHote } from "./epinglage";
 export { ouvrirFlux } from "./flux";
 export type { SortieFlux } from "./flux";
@@ -51,7 +58,7 @@ export {
 } from "./reponse-fichier";
 export type { OptionsFichier } from "./reponse-fichier";
 export { nonFinisEnNul, repondreAnnote, reponseJsonPy, serialiserReponse } from "./reponses";
-export { entete, parametreRequete, premierEntete } from "./requete";
+export { entete, parametreChemin, parametreRequete, premierEntete } from "./requete";
 export { estRouteWs, monterFamilles } from "./routes";
 export type {
   AccesConnus,
@@ -71,7 +78,7 @@ export {
   motifVersRegex,
   routeIntrouvable,
 } from "./routeur-starlette";
-export { autoritesTls } from "./tls";
+export { autoritesTls, certificatsPem } from "./tls";
 export { analyserRequete, decouperCible, desechapper, urlCommeUvicorn } from "./url";
 export { entrees } from "./validation";
 export type { Entrees, SpecEntrees } from "./validation";

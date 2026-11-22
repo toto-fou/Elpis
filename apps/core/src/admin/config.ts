@@ -16,6 +16,8 @@ export const OWNED_PATHS: readonly (readonly string[])[] = [
   ["image", "api_key_enc"],
   // Propre au TS : réglages des sous-agents, écrits et validés par `/api/admin/agents` seulement.
   ["agents"],
+  // Propre au TS : connexion d'entreprise, écrite et validée par `/api/admin/auth*` et `./elpis auth` seulement.
+  ["auth"],
 ];
 
 /** `_PRESERVE_IF_ABSENT` : restaurées seulement si le formulaire ne les porte pas (ou les porte vides). */
@@ -85,14 +87,15 @@ function vide(v: unknown): boolean {
   );
 }
 
-/** `_apply_section_ownership` : sections dont le formulaire n'est pas l'auteur réinjectées depuis le disque ; rend les chemins restaurés (`disqueLu` faux : disque illisible, rien n'y est pris pour absent). */
+/** `_apply_section_ownership` : sections dont le formulaire n'est pas l'auteur réinjectées depuis le disque ; rend les chemins restaurés (`disqueLu` faux : disque illisible, rien n'y est pris pour absent, sauf `auth`). */
 export function applySectionOwnership(entrant: Dict, disque: Dict, disqueLu = true): string[] {
   const restaures: string[] = [];
   for (const chemin of OWNED_PATHS) {
     const [surDisque, valeurDisque] = dig(disque, chemin);
     if (!surDisque) {
-      // Propre au TS : une section réservée absente d'un disque lisible n'est jamais créée par l'éditeur.
-      if (disqueLu && PROPRES_AU_TS.has(chemin.join(".")) && dig(entrant, chemin)[0]) {
+      // Propre au TS : une section réservée absente d'un disque lisible n'est jamais créée par l'éditeur ; `auth` ne l'est jamais, disque lisible ou non.
+      const nom = chemin.join(".");
+      if ((disqueLu ? PROPRES_AU_TS.has(nom) : JAMAIS_PAR_L_EDITEUR.has(nom)) && dig(entrant, chemin)[0]) {
         removePath(entrant, chemin);
         restaures.push(chemin.join("."));
       }
@@ -115,7 +118,26 @@ export function applySectionOwnership(entrant: Dict, disque: Dict, disqueLu = tr
 }
 
 /** Sections réservées propres au TS (sans équivalent Python) : écrites seulement par leur route. */
-const PROPRES_AU_TS: ReadonlySet<string> = new Set(["security.audit", "agents"]);
+const PROPRES_AU_TS: ReadonlySet<string> = new Set(["security.audit", "agents", "auth"]);
+
+/** Parmi elles, celles que l'éditeur ne crée pas même sur un disque illisible (une réparation de config.json n'allume aucun fournisseur d'identité). */
+const JAMAIS_PAR_L_EDITEUR: ReadonlySet<string> = new Set(["auth"]);
+
+export const PROFONDEUR_MAX = 64;
+
+/** Vrai si la valeur JSON s'imbrique de plus de `PROFONDEUR_MAX` niveaux (parcours sans récursion). */
+export function tropProfond(valeur: unknown): boolean {
+  let niveau: unknown[] = [valeur];
+  for (let profondeur = 0; niveau.length > 0; profondeur++) {
+    if (profondeur > PROFONDEUR_MAX) return true;
+    const suivant: unknown[] = [];
+    for (const v of niveau) {
+      if (Array.isArray(v) || estDict(v)) for (const x of Object.values(v)) suivant.push(x);
+    }
+    niveau = suivant;
+  }
+  return false;
+}
 
 /** `_touches_owned` : le chemin est une zone possédée, est dedans, ou la contient. */
 export function touchesOwned(parties: readonly string[]): boolean {

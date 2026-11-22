@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/ouverture.ts — suites communes d'une connexion réussie, quelle que soit la méthode. */
-import { compteSuspendu, ligneUtilisateur, ouvrirSession, revoquerSid } from "@elpis/auth";
+import { compteSuspendu, ligneSession, methodeDuCompte, ouvrirSession, revoquerSid } from "@elpis/auth";
 import type { MethodeConnexion, Session } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import type { Executeur } from "@elpis/db";
@@ -31,7 +31,7 @@ async function terminerSessionCourante(base: Executeur, session: Session, t: num
   await revoquerSid(base, sid, typeof uid === "number" ? uid : null, t, typeof exp === "number" ? exp : 0);
 }
 
-/** Refuse un compte suspendu (audit, `ConnexionRefusee`), sinon ouvre la session puis enchaîne dernière connexion, historique de fichiers, métrique et audit ; seule voie d'ouverture d'une session. */
+/** Refuse un compte suspendu ou dont la méthode de connexion n'est plus celle du compte (audit, `ConnexionRefusee`), sinon ouvre la session puis enchaîne dernière connexion, historique de fichiers, métrique et audit ; seule voie d'ouverture d'une session. */
 export async function etablirConnexion(
   dep: EffetsConnexion,
   e: {
@@ -43,8 +43,13 @@ export async function etablirConnexion(
     userAgent: string | null;
   },
 ): Promise<void> {
-  const ligne = await ligneUtilisateur(dep.base, e.uid);
-  const raison = ligne === undefined || compteSuspendu(ligne) ? "account_suspended" : null;
+  const ligne = await ligneSession(dep.base, e.uid);
+  const raison =
+    ligne === undefined || compteSuspendu(ligne)
+      ? "account_suspended"
+      : methodeDuCompte(e.methode, ligne)
+        ? null
+        : "method_changed";
   if (raison !== null) {
     auditLogin({
       userId: e.uid,

@@ -3,10 +3,12 @@
 
 import { HttpError, intPy, stripPy, veritePy } from "@elpis/commun";
 import type { AttributsCookie } from "@elpis/config";
+import { estTableAbsente } from "@elpis/db";
 import type { Executeur } from "@elpis/db";
 import { egauxEnTempsConstant, jetonInterne } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { COLONNES_IDENTITE, JOINTURE_IDENTITE } from "./etat-compte";
 import { estLocalDirect } from "./local";
 import { estRevoquee } from "./revocations";
 import { fluxEncoreValide, validerSession } from "./session";
@@ -30,6 +32,8 @@ export interface DependancesAuth {
   secret(): string;
   jetonService(): string;
   maintenant?(): number;
+  /** Méthode de connexion d'une session encore admise pour ce compte (relue à chaud par le cœur). */
+  sessionAdmise?(auth: unknown, ligne: LigneUtilisateur): boolean | Promise<boolean>;
   signalerRefus?(requete: FastifyRequest, motif: MotifRefus, details: Record<string, unknown>): void;
 }
 
@@ -61,18 +65,46 @@ export async function ligneUtilisateur(x: Executeur, uid: number): Promise<Ligne
   return x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
 }
 
-/** Suspension d'un compte en une requête ; `undefined` si le compte manque. */
-export async function ligneAcces(x: Executeur, uid: number): Promise<{ suspended_at: unknown } | undefined> {
-  return x.get(`SELECT u.suspended_at FROM users u WHERE u.id=?`, [uid]);
+/** Compte de la session avec le fournisseur de son identité externe (`ident_*`), en une requête : sert la cohérence entre la méthode de connexion et l'état du compte. */
+export async function ligneSession(x: Executeur, uid: number): Promise<LigneUtilisateur | undefined> {
+  try {
+    return await x.get<LigneUtilisateur>(
+      `SELECT u.*, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`,
+      [uid],
+    );
+  } catch (e) {
+    if (!estTableAbsente(e)) throw e;
+    return ligneUtilisateur(x, uid);
+  }
+}
+
+/** Suspension et identité externe d'un compte en une requête (`ident_*` absents pour un compte local) ; `undefined` si le compte manque. */
+export async function ligneAcces(
+  x: Executeur,
+  uid: number,
+): Promise<
+  | { suspended_at: unknown; ident_provider_id: unknown; ident_checked_at: unknown; ident_is_admin: unknown }
+  | undefined
+> {
+  return x.get(`SELECT u.suspended_at, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`, [
+    uid,
+  ]);
+}
+
+/** Porte « méthode de connexion admise » de `dep`, absente quand il n'en fournit pas. */
+function portesAdmise(dep: DependancesAuth): Pick<DependancesSession, "sessionAdmise"> {
+  const admise = dep.sessionAdmise;
+  return admise ? { sessionAdmise: (auth, ligne) => admise.call(dep, auth, ligne) } : {};
 }
 
 /** Portes de session branchées sur la base de `dep` (lecture du compte, révocation par `_sid`). */
 export function dependancesSession(dep: DependancesAuth): DependancesSession {
   return {
     config: () => dep.config(),
-    utilisateur: (uid) => ligneUtilisateur(dep.base, uid),
+    utilisateur: (uid) => ligneSession(dep.base, uid),
     revoquee: (sid) => estRevoquee(dep.base, sid),
     maintenant: () => maintenant(dep),
+    ...portesAdmise(dep),
   };
 }
 
@@ -125,12 +157,21 @@ export function revaliderFlux(
       config: () => dep.config(),
       revoquee: (s) => estRevoquee(dep.base, s),
       maintenant: () => maintenant(dep),
+      ...portesAdmise(dep),
       sessionMinTs: async (id) => {
-        const r = await dep.base.get<{ m: number | null; s: number | null }>(
-          `SELECT u.session_min_ts AS m, u.suspended_at AS s FROM users u WHERE u.id = ?`,
+        const r = await dep.base.get<{
+          m: number | null;
+          s: number | null;
+          a: number | null;
+          h: string | null;
+          p: string | null;
+        }>(
+          `SELECT u.session_min_ts AS m, u.suspended_at AS s, u.is_admin AS a, u.pass_hash AS h, i.provider_id AS p FROM users u ${JOINTURE_IDENTITE} WHERE u.id = ?`,
           [id],
         );
-        return r === undefined ? undefined : { min: r.m ?? null, suspended_at: r.s };
+        return r === undefined
+          ? undefined
+          : { min: r.m ?? null, suspended_at: r.s, is_admin: r.a, pass_hash: r.h, ident_provider_id: r.p };
       },
     },
     meta,

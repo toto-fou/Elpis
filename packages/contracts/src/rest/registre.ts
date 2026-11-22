@@ -19,6 +19,7 @@ import * as adminCycle from "./admin-cycle";
 import * as adminRuns from "./admin-runs";
 import * as adminSecurite from "./admin-securite";
 import * as adminAudit from "./admin-audit";
+import * as adminIdentite from "./admin-identite";
 import * as adminComptes from "./admin-comptes";
 import * as adminVue from "./admin-vue";
 import * as adminConfig from "./admin-config";
@@ -618,6 +619,43 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     "/api/admin/audit/settings",
     adminAudit.schemaReglagesJournal,
     adminAudit.schemaCorpsReglagesJournal,
+  ),
+  c("admin-identite", "GET", "/api/admin/auth", adminIdentite.schemaReglagesAuth),
+  c(
+    "admin-identite",
+    "PUT",
+    "/api/admin/auth/settings",
+    adminIdentite.schemaReglagesAuth,
+    adminIdentite.schemaCorpsReglagesAuth,
+  ),
+  c(
+    "admin-identite",
+    "POST",
+    "/api/admin/auth/providers",
+    adminIdentite.schemaReglagesAuth,
+    adminIdentite.schemaCorpsCreationFournisseur,
+  ),
+  c(
+    "admin-identite",
+    "PUT",
+    "/api/admin/auth/providers/:id",
+    adminIdentite.schemaReglagesAuth,
+    adminIdentite.schemaCorpsMajFournisseur,
+  ),
+  c("admin-identite", "DELETE", "/api/admin/auth/providers/:id", schemaOk),
+  c(
+    "admin-identite",
+    "PUT",
+    "/api/admin/auth/providers/:id/secret",
+    adminIdentite.schemaReglagesAuth,
+    adminIdentite.schemaCorpsSecretFournisseur,
+  ),
+  c(
+    "admin-identite",
+    "POST",
+    "/api/admin/auth/providers/test",
+    adminIdentite.schemaReponseEssaiFournisseur,
+    adminIdentite.schemaCorpsEssaiFournisseur,
   ),
   c("admin-runs", "GET", "/api/admin/runs/accounts", adminRuns.schemaReponseExecutionsParCompte),
   c("admin-runs", "GET", "/api/admin/runs", adminRuns.schemaReponseExecutionsConsole),

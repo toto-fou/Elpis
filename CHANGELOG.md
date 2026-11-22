@@ -8,6 +8,8 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **SSO (OpenID Connect).** Off by default.
+  `./elpis auth status|off|reactivate` keep an emergency exit.
 - **Account suspension.** Administration › Accounts can switch an account off (**Désactiver**) and back on
   (**Réactiver**). A suspended account is refused everywhere (sessions, API tokens, OAuth, routines, webhooks,
   background jobs, sandbox) and its running work and container are stopped. The last active local

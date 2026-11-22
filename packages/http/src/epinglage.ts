@@ -25,7 +25,8 @@ export class ConnexionRefusee extends Error {
   }
 }
 
-function recherche(adresses: readonly string[]): LookupFunction {
+/** `lookup` de Node qui ne rend que ces adresses, sans résolution. */
+export function rechercheEpinglee(adresses: readonly string[]): LookupFunction {
   const liste = adresses.map((a) => ({ address: a, family: a.includes(":") ? 6 : 4 }));
   return (hote, options, rappel) => {
     const premiere = liste[0];
@@ -36,13 +37,12 @@ function recherche(adresses: readonly string[]): LookupFunction {
   };
 }
 
-/** Agent dont chaque nouvelle connexion passe par `juger` ; `connexion` : options TLS et délai, transmises au connecteur. */
-export function agentEpingle(
+/** Connecteur dont chaque connexion passe par `juger` puis rejoint les seules adresses validées ; `connexion` : options TLS et délai. */
+function connecteurEpingle(
   juger: JugeHote,
   connexion: buildConnector.BuildOptions = {},
-  options: Agent.Options = {},
-): Agent {
-  const connecter: buildConnector.connector = (opts, rappel) => {
+): buildConnector.connector {
+  return (opts, rappel) => {
     const hote = opts.hostname.replace(/^\[(.*)\]$/su, "$1");
     const port = Number(opts.port) || (opts.protocol === "https:" ? 443 : 80);
     juger(hote, port).then(
@@ -50,12 +50,20 @@ export function agentEpingle(
         if (v.motif !== null) rappel(new ConnexionRefusee(v.motif), null);
         else if (v.adresses.length === 0)
           rappel(new ConnexionRefusee(`aucune adresse validée (${hote})`), null);
-        else buildConnector({ ...connexion, lookup: recherche(v.adresses) })(opts, rappel);
+        else buildConnector({ ...connexion, lookup: rechercheEpinglee(v.adresses) })(opts, rappel);
       },
       (e: unknown) => rappel(e instanceof Error ? e : new Error(String(e)), null),
     );
   };
-  return new Agent({ ...options, connect: connecter });
+}
+
+/** Agent dont chaque nouvelle connexion passe par `juger` ; `connexion` : options TLS et délai, transmises au connecteur. */
+export function agentEpingle(
+  juger: JugeHote,
+  connexion: buildConnector.BuildOptions = {},
+  options: Agent.Options = {},
+): Agent {
+  return new Agent({ ...options, connect: connecteurEpingle(juger, connexion) });
 }
 
 /** `fetch` passant par `agent` (même implémentation d'undici que l'agent). */

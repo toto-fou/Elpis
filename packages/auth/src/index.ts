@@ -12,6 +12,7 @@ export {
   dependancesSession,
   exigerUtilisateur,
   ligneAcces,
+  ligneSession,
   ligneUtilisateur,
   revaliderFlux,
   signalerRefus,
@@ -37,7 +38,8 @@ export {
   purgerRevocations,
   revoquerSid,
 } from "./revocations";
-export { compteSuspendu } from "./etat-compte";
+export { accesPerime, accesPerimeDe, compteSuspendu, lireFraicheurs, localReserveDe } from "./etat-compte";
+export type { Fraicheurs, PorteFraicheur } from "./etat-compte";
 export { ouvrirSession, renouvelerSession } from "./ouverture";
 export type { MethodeConnexion } from "./ouverture";
 export { fluxEncoreValide, metaSession, Session, validerSession } from "./session";
@@ -67,6 +69,8 @@ export {
 export type { DependancesJetons, Jeton, JetonResolu, Politique, TypeJeton } from "./jetons";
 export { dependancesParDefaut } from "./defaut";
 export {
+  aMotDePasseLocal,
+  methodeDuCompte,
   createUser,
   ErreurNomUtilisateur,
   getAllUsers,

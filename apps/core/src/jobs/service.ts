@@ -2,7 +2,15 @@
 /** apps/core/src/jobs/service.ts — tâches de fond du process main (commandes de l'hôte d'outils, sous-agents en fond) : enregistrement, événements reçus, livraison (résultat d'outil, message, réveil), réveilleur (regroupement, saisie, file par compte, profondeur, quotas), arrêts, plafond de durée, rétention, reprise au démarrage. */
 import { randomBytes } from "node:crypto";
 
-import { compteSuspendu, getUser, getUserSettings, ligneUtilisateur } from "@elpis/auth";
+import {
+  accesPerimeDe,
+  compteSuspendu,
+  getUser,
+  getUserSettings,
+  ligneAcces,
+  ligneUtilisateur,
+} from "@elpis/auth";
+import type { PorteFraicheur } from "@elpis/auth";
 import { estDict, HttpError, poserCle, pyJsonDumps } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -98,6 +106,8 @@ export interface DependancesJobs {
   readonly reglages?: () => ReglagesJobs;
   /** Annule un sous-agent en fond actif dans ce process ; faux s'il n'y est pas (perdu). */
   readonly annulerAgent?: (uid: number, childId: string) => boolean;
+  /** Fraîcheurs et mode local : un compte à l'accès périmé n'a plus de réveil ni de veille. */
+  readonly acces?: PorteFraicheur;
 }
 
 export interface CorpsEnregistrement {
@@ -789,6 +799,7 @@ export class ServiceJobs {
     evts: readonly EvenementEnAttente[],
   ): Promise<string | null> {
     if (compteSuspendu(await ligneUtilisateur(this.base, uid))) return "account_suspended";
+    if (await this.accesPerime(uid)) return "account_recheck";
     const r = this.reglages();
     const reveillants = evts.filter(reveillant);
     if (!reveillants.length)
@@ -802,6 +813,11 @@ export class ServiceJobs {
     const recents = (this.reveils.get(k) ?? []).filter((x) => t - x < 3600);
     this.reveils.set(k, recents);
     return recents.length >= r.wakes_per_hour ? "quota" : null;
+  }
+
+  /** Accès non interactif périmé (compte externe non revu à temps, compte local ordinaire en mode réservé) ; un compte absent n'est pas périmé. */
+  private async accesPerime(uid: number): Promise<boolean> {
+    return accesPerimeDe(this.dep.acces ?? {}, await ligneAcces(this.base, uid), this.maintenant());
   }
 
   /** « Ne pas me réveiller » effectif : réglage de la conversation, sinon défaut du compte (`jobs_wake`, vrai par défaut). */
@@ -862,11 +878,16 @@ export class ServiceJobs {
     const data = donneesReveil(chatId, chat, this.rendre(evts, profondeur), wake, source);
     let tour: Awaited<ReturnType<typeof ouvrirTour>>;
     try {
-      tour = await ouvrirTour({ base: this.base }, uid, data, {
-        origin: "job_wake",
-        wake,
-        depth: profondeur,
-      });
+      tour = await ouvrirTour(
+        { base: this.base, ...(this.dep.acces ? { acces: this.dep.acces } : {}) },
+        uid,
+        data,
+        {
+          origin: "job_wake",
+          wake,
+          depth: profondeur,
+        },
+      );
     } catch (e) {
       await liberer(
         this.base,
@@ -1231,7 +1252,7 @@ export class ServiceJobs {
       parCompte.set(j.userId, [...(parCompte.get(j.userId) ?? []), j.id]);
     for (const [uid, ids] of parCompte) {
       try {
-        if (compteSuspendu(await ligneUtilisateur(this.base, uid))) continue;
+        if (compteSuspendu(await ligneUtilisateur(this.base, uid)) || (await this.accesPerime(uid))) continue;
         await this.hote.veiller(uid, ids, await dernierSeqDuCompte(this.base, uid));
       } catch (e) {
         if (e instanceof HoteIndisponible)

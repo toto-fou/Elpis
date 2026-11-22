@@ -31,6 +31,7 @@ export {
   asInt,
   asStr,
   deepGet,
+  gelerProfond,
   parseJsonPy,
   pyJoin,
   pyParent,

@@ -122,13 +122,62 @@ function jetonAOrigines(t: Titulaire | undefined): boolean {
   return t !== undefined && t.proprietaire === null && t.nom === NOM_CLE_IMAGES;
 }
 
-/** Portée validée et normalisée selon le genre ; un jeton n'a pas de portée, sauf la clé du moteur d'images (origines exactes). */
+/** Préfixe réservé aux secrets des fournisseurs d'identité (secrets d'instance `auth-<id>`). */
+export const PREFIXE_SECRET_AUTH = "auth-";
+
+/** Nom réservé aux fournisseurs d'identité : jamais créé, lu, modifié ni supprimé par les routes du coffre. */
+export function nomReserveAuth(nom: string): boolean {
+  return nom.startsWith(PREFIXE_SECRET_AUTH);
+}
+
+/** Jeton d'instance des fournisseurs d'identité : portée par hôtes et ports. */
+function jetonAHotes(t: Titulaire | undefined): boolean {
+  return t !== undefined && t.proprietaire === null && nomReserveAuth(t.nom);
+}
+
+/** Hôte `hôte:port` d'une portée de fournisseur d'identité, `null` s'il manque. */
+export function hote(p: PorteeSecret): string | null {
+  const h = (p as { host?: unknown }).host;
+  return typeof h === "string" ? h : null;
+}
+
+/** Autorité de certification d'une portée de fournisseur : « system » ou une empreinte SHA-256 en hexadécimal. */
+const RE_AUTORITE = /^(?:system|[0-9a-f]{64})$/u;
+
+/** Autorité de certification (`ca_pem` enregistré) sous la forme de la portée : « system » si vide, sinon son empreinte SHA-256. */
+export function empreinteAutorite(caPem: string): string {
+  return caPem === "" ? "system" : createHash("sha256").update(caPem, "utf8").digest("hex");
+}
+
+/** Autorité de certification d'une portée de fournisseur d'identité (`null` si absente). */
+export function autoriteDePortee(p: PorteeSecret): string | null {
+  const a = (p as { ca?: unknown }).ca;
+  return typeof a === "string" ? a : null;
+}
+
+/** Portée par hôte : `{host: "hôte:port", ca?}`, port explicite. */
+function porteeHote(p: Record<string, unknown>): PorteeSecret {
+  const brut = p["host"];
+  const ca = p["ca"];
+  if (Object.keys(p).some((k) => k !== "host" && k !== "ca"))
+    throw refusPortee("Invalid scope: only 'host' and 'ca' are allowed.");
+  if (ca !== undefined && (typeof ca !== "string" || !RE_AUTORITE.test(ca)))
+    throw refusPortee("Invalid scope: 'ca' is 'system' or a SHA-256 fingerprint.");
+  if (typeof brut !== "string") throw refusPortee("Invalid scope: 'host' must be a host:port entry.");
+  const n = hoteExact(brut);
+  if (n === null || !/:\d{1,5}$/u.test(n))
+    throw refusPortee("Invalid scope: the host is host:port with an explicit port.");
+  return { host: n, ...(ca === undefined ? {} : { ca }) } as unknown as PorteeSecret;
+}
+
+/** Portée validée et normalisée selon le genre ; un jeton n'a pas de portée, sauf la clé du moteur d'images (origines exactes) et les secrets `auth-*` (hôtes et ports). */
 export function normaliserPortee(genre: GenreSecret, brut: unknown, titulaire?: Titulaire): PorteeSecret {
   const objet: unknown = brut === undefined && genre === "token" ? {} : brut;
   if (typeof objet !== "object" || objet === null || Array.isArray(objet))
     throw refusPortee("Invalid scope: an object is expected.");
   const p = objet as Record<string, unknown>;
   const cles = Object.keys(p);
+  if (genre === "token" && jetonAHotes(titulaire)) return porteeHote(p);
   if (parOrigines(genre) || (genre === "token" && cles.length > 0 && jetonAOrigines(titulaire))) {
     const brutes = p["origins"];
     if (cles.length !== 1 || !Array.isArray(brutes) || brutes.length === 0)

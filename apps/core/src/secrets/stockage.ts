@@ -23,6 +23,7 @@ import {
   exigerPolitiqueApplicable,
   fusionnerPolitique,
   lirePolitique,
+  nomReserveAuth,
   normaliserPortee,
   objetJson,
   validerIdentifiant,
@@ -193,6 +194,11 @@ export async function listerSecrets(x: Executeur, p: Proprietaire): Promise<Secr
 
 function introuvable(): ErreurSecret {
   return new ErreurSecret(404, "secret_unknown", "Secret not found.");
+}
+
+/** Secret d'instance d'un fournisseur d'identité : invisible des routes ordinaires du coffre. */
+export function estSecretAuth(l: Pick<LigneSecret, "user_id" | "name">): boolean {
+  return l.user_id === null && nomReserveAuth(l.name);
 }
 
 function nomPris(nom: string): ErreurSecret {
@@ -508,7 +514,7 @@ export async function rotation(
   const t = maintenant();
   const ligne = await base.ecriture(async (x) => {
     const l = await lireLigne(x, p, id);
-    if (l === null) throw introuvable();
+    if (l === null || (o.refuserGeres && estSecretAuth(l))) throw introuvable();
     if (o.refuserGeres && l.kind === "mcp")
       throw new ErreurSecret(
         409,
@@ -573,7 +579,7 @@ export async function supprimerSecret(
 ): Promise<void> {
   const l = await base.ecriture(async (x) => {
     const ligne = await lireLigne(x, p, id);
-    if (ligne === null) throw introuvable();
+    if (ligne === null || (o.refuserGeres && estSecretAuth(ligne))) throw introuvable();
     const gere = o.refuserGeres ? gereParConnecteur(ligne) : null;
     if (gere !== null) throw new ErreurSecret(409, "secret_managed", gere);
     await x.run("DELETE FROM vault_secrets WHERE id = ?", [id]);

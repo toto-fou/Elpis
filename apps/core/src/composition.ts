@@ -26,7 +26,13 @@ import {
 } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { brancherGardeUrl } from "@elpis/mcp";
-import { blockRemoteUrlReason, configureAudit, defaultAuditDir, defaultAuditKeyPath } from "@elpis/securite";
+import {
+  auditCleRequise,
+  blockRemoteUrlReason,
+  configureAudit,
+  defaultAuditDir,
+  defaultAuditKeyPath,
+} from "@elpis/securite";
 
 import type { Extension } from "./app";
 import { CycleDeVie } from "./cycle";
@@ -205,6 +211,7 @@ export function configurerAuditDuCore(
       service: serviceDuProcess(mode, env),
       auditDir: defaultAuditDir(env, racineDepot()),
       hmacKeyPath: defaultAuditKeyPath(env),
+      cleRequise: auditCleRequise(env),
     });
   } catch (e) {
     journal.warn({ err: e }, "[audit] configuration impossible : audit sans signature HMAC");

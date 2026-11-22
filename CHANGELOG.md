@@ -24,6 +24,12 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Security journal: a lost signature is now loud.** On an installation (`elpis` sets
+  `ELPIS_AUDIT_KEY_REQUIRED=1` with the journal folder, for the services and the command line), a
+  missing, unreadable or too short HMAC key makes each process write one `[CRITICAL]` line and one
+  `audit.key.unavailable` event (unsigned, since there is no key), then keep writing; `elpis` warns
+  when it renders a unit without the key. Existing installations get the flag when
+  `sudo ./elpis service install` (or `./elpis start`) runs again.
 - **One account per service.** `sudo ./elpis service install` now runs main, the console and the
   tool host under their own system accounts (`elpis-main`, `elpis-admin`, `elpis-toolhost`, no
   shell), sharing their state through the `elpis-donnees` group. Only the tool host unit gets

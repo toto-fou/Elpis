@@ -37,13 +37,15 @@ export const LIBELLES_ACTIONS: Readonly<Record<string, string>> = Object.freeze(
   "audit.writer.start": "Début d'écriture",
   "audit.writer.heartbeat": "Battement horaire",
   "audit.writer.stop": "Fin d'écriture",
+  "audit.key.unavailable": "Journal non signé (clé indisponible)",
 });
 
 const estMarqueur = (action: string): boolean => action.startsWith("audit.writer.");
 
 /** Style de la colonne Action : refus en rouge, marqueurs et purge en gris. */
 export function classeAction(action: string): string {
-  if (/\.(denied|failed)$/u.test(action)) return "sup-secu-action--refus";
+  if (/\.(denied|failed)$/u.test(action) || action === "audit.key.unavailable")
+    return "sup-secu-action--refus";
   return estMarqueur(action) || action === "audit.purge" ? "sup-secu-action--sys" : "";
 }
 

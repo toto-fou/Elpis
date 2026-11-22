@@ -90,6 +90,7 @@ export {
   cleAuditCourante,
   configureAudit,
   defaultAuditDir,
+  auditCleRequise,
   defaultAuditKeyPath,
   demarrerAudit,
   empreinteIdentifiant,

@@ -1593,6 +1593,11 @@ cmd_service() {
                 fi
             fi
             [ "$MODE_COMPTES" = separes ] || ptrace_restreint "$MODE_COMPTES"
+            # Retour à un seul compte : dossiers d'état du mode séparé (chemins de .env) rendus et fermés au compte unique avant tout le reste, avant d'y rendre la moindre clé.
+            if [ "$MODE_COMPTES" != separes ] && [ "$(mode_installe)" = separes ]; then
+                ( chemins_separes && droits_unique "${DB_FICHIER%/*}" "$run_user" "$ancien" ) \
+                    || warn "Dossiers d'état du mode séparé non tous rendus à $run_user (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
+            fi
             # Clés remises par systemd que ce mode n'emploie pas (retour à un compte, systemd trop ancien) : rendues à leurs fichiers avant audit setup, qui en créerait une neuve.
             if ! { [ "$MODE_COMPTES" = separes ] && cles_systemd; } && ! cles_rendues root root; then
                 systemctl start "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true

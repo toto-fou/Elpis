@@ -30,7 +30,7 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
         droits.py dossier CHEMIN MODE PROPRIO GROUPE [--admis A,B] [--creer] [--sous BASE] [--groupe-racine G]
           dossier CHEMIN (créé s'il manque avec --creer) mis à PROPRIO:GROUPE en MODE ; refusé si c'est un lien, s'il
           appartient à un compte hors de root, PROPRIO et --admis, s'il est à root sans le groupe G, ou à root, non vide
-          et à céder sous un parent ouvert en écriture
+          et à céder sous un parent ouvert en écriture (sauf parent de PROPRIO que nul autre ne peut écrire)
         droits.py fichiers DOSSIER PROPRIO GROUPE MODE MOTIF... [--comptes A,B] [--avec-root]
           fichiers ordinaires de DOSSIER nommés d'après un MOTIF : PROPRIO (« - » : gardé), GROUPE, MODE octal
         droits.py secret DOSSIER NOM
@@ -135,6 +135,17 @@ def ecrivable_par_services(st: os.stat_result) -> bool:
     """Vrai si un compte des services peut changer cette entrée : propriétaire, écriture de son groupe, ou de tous."""
     return (st.st_uid in UIDS_SERVICES or bool(st.st_mode & 0o020 and st.st_gid in GIDS_SERVICES)
             or bool(st.st_mode & 0o002))
+
+
+def a_lui_seul(st: os.stat_result, nom: str) -> bool:
+    """Vrai si seul le compte NOM peut écrire ce dossier : à lui, fermé aux autres, son groupe privé (sans autre compte) s'il l'écrit."""
+    try:
+        p, g = pwd.getpwnam(nom), grp.getgrgid(st.st_gid)
+    except KeyError:
+        return False
+    prive = st.st_gid == p.pw_gid and set(g.gr_mem) <= {nom} and not any(
+        q.pw_gid == st.st_gid and q.pw_name != nom for q in pwd.getpwall())
+    return st.st_uid == p.pw_uid and not st.st_mode & 0o002 and (not st.st_mode & 0o020 or prive)
 
 
 def _net(chemin: str) -> str:
@@ -368,7 +379,7 @@ def dossier(args: list[str]) -> bool:
                 plein = bool(os.listdir(lu))
             finally:
                 os.close(lu)
-            if plein and parent.st_mode & 0o022:
+            if plein and parent.st_mode & 0o022 and not a_lui_seul(parent, proprio):
                 _dire(f"[warn ] {chemin} : dossier de root non vide à céder à {proprio} : refusé (à vérifier).",
                       file=sys.stderr)
                 return False

@@ -29,6 +29,8 @@ interface Jetons {
 interface GraphiqueEcharts {
   setOption(option: unknown, opts?: { notMerge?: boolean }): void;
   resize(): void;
+  getWidth(): number;
+  getHeight(): number;
   dispose(): void;
   getDataURL(opts: { type: string; pixelRatio: number; backgroundColor: string }): string;
 }
@@ -418,6 +420,35 @@ export function renderTable(hote: HTMLElement, table: Tableau, titre?: string): 
 
 // Hôtes vivants : libérés (instance ECharts, observateur) quand ils quittent le document.
 const vivants = new Set<Hote>();
+// Taille stable depuis ce délai : pendant qu'un volet glisse, le dessin s'étire à son hôte (style.css, .elpis-graphique), redessiné une fois arrivé.
+const REDESSIN_MS = 150;
+// Hôtes hors de la vue : leur redimensionnement attend qu'ils y entrent.
+let vue: IntersectionObserver | null = null;
+const visibles = new WeakSet<Element>();
+const enAttente = new WeakSet<Element>();
+
+function redimensionner(hote: Hote): void {
+  if (vue && !visibles.has(hote)) {
+    enAttente.add(hote);
+    return;
+  }
+  const c = hote.__chart;
+  if (c && (c.getWidth() !== hote.clientWidth || c.getHeight() !== hote.clientHeight)) c.resize();
+}
+
+function suivreVue(hote: Hote): void {
+  vue ??= new IntersectionObserver((entrees) => {
+    for (const x of entrees) {
+      if (!x.isIntersecting) {
+        visibles.delete(x.target);
+        continue;
+      }
+      visibles.add(x.target);
+      if (enAttente.delete(x.target)) redimensionner(x.target as Hote);
+    }
+  });
+  vue.observe(hote);
+}
 
 export function render(hote: Hote, raw: OptionBrute, opts: OptionsRendu = {}): GraphiqueEcharts | null {
   enregistrerThemes();
@@ -445,14 +476,20 @@ export function render(hote: Hote, raw: OptionBrute, opts: OptionsRendu = {}): G
   const e = echarts();
   if (!e) throw new Error("ECharts indisponible");
   hote.innerHTML = "";
+  hote.classList.add("elpis-graphique");
   hote.style.height = String(opts.height || el.height || HEIGHT[el.kind || ""] || 320) + "px";
   const chart = e.init(hote, isDark() ? "elpis-dark" : "elpis-light", { renderer: "canvas", locale: "FR" });
   chart.setOption(prepare(raw, opts));
   hote.__chart = chart;
   vivants.add(hote);
   if (!hote.__ro && typeof ResizeObserver !== "undefined") {
-    hote.__ro = new ResizeObserver(() => hote.__chart?.resize());
+    let attente = 0;
+    hote.__ro = new ResizeObserver(() => {
+      clearTimeout(attente);
+      attente = window.setTimeout(() => redimensionner(hote), REDESSIN_MS);
+    });
     hote.__ro.observe(hote);
+    if (typeof IntersectionObserver !== "undefined") suivreVue(hote);
   }
   return chart;
 }
@@ -465,6 +502,7 @@ function liberer(hote: Hote): void {
   }
   try {
     hote.__ro?.disconnect();
+    vue?.unobserve(hote);
   } catch {
     /* déjà déconnecté */
   }

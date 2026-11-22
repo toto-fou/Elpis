@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/test/chat/rendu/graphiques.test.ts — graphiques : jetons résolus et indications « _… » retirées, formateurs posés côté client, tableau échappé et triable, KPI échappés, hôtes libérés hors du document. */
+/** frontend/test/chat/rendu/graphiques.test.ts — graphiques : jetons résolus et indications « _… » retirées, formateurs posés côté client, tableau échappé et triable, KPI échappés, hôtes libérés hors du document, redessin une fois la taille posée. */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -86,5 +86,75 @@ describe("graphiques", () => {
     hote.remove();
     sweep();
     expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it("redessin : aucun tant que la taille ne change pas, un seul une fois la taille posée, hors de la vue à son entrée", async () => {
+    let taille = (): void => {};
+    let vue = (_e: { target: Element; isIntersecting: boolean }[]): void => {};
+    class FauxRO {
+      constructor(cb: () => void) {
+        taille = cb;
+      }
+      observe(): void {}
+      disconnect(): void {}
+    }
+    class FauxIO {
+      constructor(cb: typeof vue) {
+        vue = cb;
+      }
+      observe(): void {}
+      unobserve(): void {}
+    }
+    let largeur = 300;
+    let dessin = 300;
+    const resize = vi.fn(() => {
+      dessin = largeur;
+    });
+    vi.stubGlobal("ResizeObserver", FauxRO);
+    vi.stubGlobal("IntersectionObserver", FauxIO);
+    vi.stubGlobal("echarts", {
+      registerTheme: vi.fn(),
+      init: () => ({
+        setOption: vi.fn(),
+        resize,
+        dispose: vi.fn(),
+        getDataURL: () => "",
+        getWidth: () => dessin,
+        getHeight: () => 320,
+      }),
+    });
+    vi.useFakeTimers();
+    vi.resetModules();
+    const g = await import("../../../src/features/chat/rendu/graphiques");
+    const hote = document.createElement("div");
+    Object.defineProperty(hote, "clientWidth", { get: () => largeur });
+    Object.defineProperty(hote, "clientHeight", { get: () => 320 });
+    document.body.appendChild(hote);
+    try {
+      g.render(hote, { _elpis: { kind: "bar" }, series: [] });
+      expect(hote.classList.contains("elpis-graphique")).toBe(true);
+      vue([{ target: hote, isIntersecting: true }]);
+      taille();
+      vi.advanceTimersByTime(200);
+      expect(resize).not.toHaveBeenCalled();
+      largeur = 420;
+      for (let i = 0; i < 5; i++) {
+        taille();
+        vi.advanceTimersByTime(50);
+      }
+      expect(resize).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(150);
+      expect(resize).toHaveBeenCalledOnce();
+      vue([{ target: hote, isIntersecting: false }]);
+      largeur = 360;
+      taille();
+      vi.advanceTimersByTime(200);
+      expect(resize).toHaveBeenCalledOnce();
+      vue([{ target: hote, isIntersecting: true }]);
+      expect(resize).toHaveBeenCalledTimes(2);
+    } finally {
+      g.disposeAll();
+      vi.useRealTimers();
+    }
   });
 });

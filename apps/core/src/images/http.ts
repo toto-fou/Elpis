@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/images/http.ts — transport des moteurs d'images : TLS du système (+ CA collée), réponses lues en flux et plafonnées, codes HTTP traduits. */
-import { randomBytes, X509Certificate } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { createSecureContext, getCACertificates, rootCertificates } from "node:tls";
 import type { SecureContext } from "node:tls";
 
@@ -8,6 +8,7 @@ import { Agent, request } from "undici";
 import type { Dispatcher } from "undici";
 
 import { chargerJsonPy, reprPy, stripPy, strPy, texteJsonPy, veritePy } from "@elpis/commun";
+import { certificatsPem } from "@elpis/http";
 
 import {
   AGENT_UTILISATEUR,
@@ -36,37 +37,6 @@ function magasinSysteme(): readonly string[] {
   } catch {
     return rootCertificates;
   }
-}
-
-const DEBUT_PEM = /^-----BEGIN (.+)-----$/;
-
-/** `sanitize_line` d'OpenSSL : tout octet ≤ espace retiré en fin de ligne. */
-function sansBlancsFinaux(l: string): string {
-  let fin = l.length;
-  while (fin > 0 && l.charCodeAt(fin - 1) <= 0x20) fin--;
-  return l.slice(0, fin);
-}
-const BASE64_PEM = /^[A-Za-z0-9+/=\s]*$/;
-
-/** `load_verify_locations(cadata=…)` d'OpenSSL : blocs lus dans l'ordre, un bloc de certificat illisible arrête tout, aucun certificat = erreur. */
-export function certificatsPem(texte: string): string[] {
-  const lignes = texte.split("\n").map(sansBlancsFinaux);
-  const certificats: string[] = [];
-  for (let i = 0; i < lignes.length; i++) {
-    const nom = DEBUT_PEM.exec(lignes[i] ?? "")?.[1];
-    if (nom === undefined) continue;
-    const fin = lignes.indexOf(`-----END ${nom}-----`, i + 1);
-    if (fin < 0) throw new Error("bad end line");
-    const corps = lignes.slice(i + 1, fin).join("\n");
-    i = fin;
-    if (nom !== "CERTIFICATE" && nom !== "X509 CERTIFICATE") continue;
-    if (!BASE64_PEM.test(corps)) throw new Error("bad base64 decode");
-    const der = Buffer.from(corps.replace(/\s+/g, ""), "base64");
-    new X509Certificate(der);
-    certificats.push(`-----BEGIN CERTIFICATE-----\n${der.toString("base64")}\n-----END CERTIFICATE-----\n`);
-  }
-  if (certificats.length === 0) throw new Error("no start line: cadata does not contain a certificate");
-  return certificats;
 }
 
 /** Contexte TLS : magasin du système (PKI interne) plus la CA de la console ; `false` si la vérification est décochée. */

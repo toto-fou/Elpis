@@ -6,9 +6,9 @@ import { tokenUrlsafe } from "@elpis/securite";
 import { ECRIRE_IDENTITE } from "./session";
 import type { Session } from "./session";
 
-const FORME_METHODE = /^(password)$/u;
+const FORME_METHODE = /^(password|oidc:[a-z0-9][a-z0-9-]{0,30})$/u;
 
-export type MethodeConnexion = "password";
+export type MethodeConnexion = "password" | `oidc:${string}`;
 
 /** Vide la session, y pose l'identité du compte, la méthode de connexion et l'échéance figée (`maintenant + dureeMax`), rend le `_sid` neuf. */
 export function ouvrirSession(

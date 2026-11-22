@@ -13,6 +13,22 @@ export class ErreurNomUtilisateur extends Error {
   override name = "ErreurNomUtilisateur";
 }
 
+/** Empreinte d'un compte sans mot de passe local : aucune saisie ne la produit. */
+export const MARQUEUR_SANS_MOT_DE_PASSE = "!";
+
+/** Vrai si le compte se connecte par un mot de passe local (empreinte autre que le marqueur). */
+export function aMotDePasseLocal(ligne: Record<string, unknown> | null | undefined): boolean {
+  return String(ligne?.pass_hash ?? "") !== MARQUEUR_SANS_MOT_DE_PASSE;
+}
+
+/** Vrai si la méthode de connexion d'une session est encore celle du compte : mot de passe local pour `password` (ou méthode absente), identité de CE fournisseur pour `oidc:<id>`. */
+export function methodeDuCompte(auth: unknown, ligne: Record<string, unknown> | null | undefined): boolean {
+  if (typeof auth === "string" && /^oidc:/u.test(auth))
+    return ligne?.ident_provider_id === auth.slice(auth.indexOf(":") + 1);
+  if (auth === undefined || auth === null || auth === "password") return aMotDePasseLocal(ligne);
+  return false;
+}
+
 export type CompteResume = {
   id: number;
   username: string;

@@ -204,8 +204,10 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | light-my-request | 6.6.0 | BSD-3-Clause |
 | mime | 3.0.0 | MIT |
 | node-addon-api | 8.9.2 | MIT |
+| oauth4webapi | 3.8.8 | MIT |
 | on-exit-leak-free | 2.1.2 | MIT |
 | once | 1.4.0 | ISC |
+| openid-client | 6.9.0 | MIT |
 | pg | 8.23.1 | MIT |
 | pg-cloudflare | 1.4.1 | MIT |
 | pg-connection-string | 2.14.1 | MIT |

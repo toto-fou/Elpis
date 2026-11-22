@@ -85,16 +85,20 @@ export interface LigneUtilisateur {
 export interface EtatMinSession {
   min: number | null;
   suspended_at?: number | null;
+  is_admin?: number | null;
+  pass_hash?: string | null;
+  ident_provider_id?: string | null;
 }
 
-/** Ce qu'une session porte hors de l'identité du flux : échéance figée. */
+/** Ce qu'une session porte hors de l'identité du flux : échéance figée et méthode de connexion. */
 export interface MetaSession {
   exp?: unknown;
+  auth?: unknown;
 }
 
-/** Échéance figée d'une session. */
+/** Échéance figée et méthode de connexion d'une session. */
 export function metaSession(session: Session): MetaSession {
-  return { exp: session.get("_exp") };
+  return { exp: session.get("_exp"), auth: session.get("_auth") };
 }
 
 /** Faux si l'échéance figée à l'ouverture est dépassée ; absente (session d'avant) : pas de contrainte, illisible : refus. */
@@ -108,6 +112,8 @@ export interface DependancesSession {
   utilisateur(uid: number): Promise<LigneUtilisateur | null | undefined>;
   revoquee(sid: string): Promise<boolean>;
   maintenant(): number;
+  /** Méthode de connexion de la session encore admise pour ce compte ; une erreur refuse la session. */
+  sessionAdmise?(auth: unknown, ligne: LigneUtilisateur): boolean | Promise<boolean>;
 }
 
 function reglages(config: unknown): Record<string, unknown> {
@@ -146,6 +152,7 @@ export async function validerSession(
     if (!ligne || compteSuspendu(ligne)) return refus();
     const minCompte = floatPy(veritePy(ligne.session_min_ts) ? ligne.session_min_ts : 0.0);
     if (minCompte > 0 && loginTs < minCompte) return refus();
+    if (dep.sessionAdmise && !(await dep.sessionAdmise(session.get("_auth"), ligne))) return refus();
   } catch {
     return refus();
   }
@@ -205,7 +212,17 @@ export async function fluxEncoreValide(
     if (typeof etat === "object" && etat !== null && compteSuspendu(etat)) return true;
     const min = typeof etat === "object" && etat !== null ? etat.min : etat;
     const m = floatPy(veritePy(min) ? min : 0.0);
-    return m > 0 && login < m;
+    if (m > 0 && login < m) return true;
+    if (!dep.sessionAdmise) return false;
+    const ligne: LigneUtilisateur =
+      typeof etat === "object" && etat !== null
+        ? {
+            is_admin: etat.is_admin ?? 0,
+            ...(etat.pass_hash === undefined ? {} : { pass_hash: etat.pass_hash }),
+            ...(etat.ident_provider_id === undefined ? {} : { ident_provider_id: etat.ident_provider_id }),
+          }
+        : {};
+    return !(await dep.sessionAdmise(meta.auth, ligne));
   });
   if (compteRefuse) return false;
   return !(veritePy(sid) && (await refusSaufPanne(() => dep.revoquee(String(sid)))));

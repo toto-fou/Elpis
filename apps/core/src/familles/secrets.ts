@@ -36,6 +36,7 @@ import {
   verifierSecret,
 } from "../secrets/stockage";
 import type { Acteur, Proprietaire } from "../secrets/stockage";
+import { nomReserveAuth } from "../secrets/portee";
 import { lireSecretPourUsage, secretsApplicables } from "../secrets/usage";
 import type { ContexteUsage } from "../secrets/usage";
 import { utilisateur } from "./comptes";
@@ -120,7 +121,11 @@ function routesProprietaire(
   proprietaire: (req: FastifyRequest) => Proprietaire,
 ): DefinitionRoute[] {
   return [
-    route("GET", prefixe, acces, async (req) => ({ secrets: await listerSecrets(base, proprietaire(req)) })),
+    route("GET", prefixe, acces, async (req) => ({
+      secrets: (await listerSecrets(base, proprietaire(req))).filter(
+        (s) => !(s.owner === "instance" && nomReserveAuth(s.name)),
+      ),
+    })),
     route("POST", `${prefixe}/:secret_id/rotate`, acces, async (req) => {
       const p = proprietaire(req);
       const { value } = corpsValide(req, schemaCorpsRotationSecret);

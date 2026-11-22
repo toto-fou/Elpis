@@ -8,9 +8,10 @@ import {
   getUser,
   getUsernameById,
   installerAuth,
+  lireFraicheurs,
   mandatairesDuJournal,
 } from "@elpis/auth";
-import type { DependancesAuth, DependancesJetons, DependancesOAuth } from "@elpis/auth";
+import type { DependancesAuth, DependancesJetons, DependancesOAuth, Fraicheurs } from "@elpis/auth";
 import {
   bootRaw,
   config,
@@ -61,6 +62,9 @@ import {
 } from "./bureau";
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
+import { creerFamilleAdminIdentite } from "./familles/admin-identite";
+import { lireReglagesAuth } from "./identite/reglages";
+import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
 import { faitsParDefaut, sondesParDefaut } from "./admin/vue";
@@ -318,9 +322,20 @@ function vueAdmin(
 }
 
 /** Planificateur des routines : dans main seul, leader unique entre process (verrou rendu dès l'annonce de l'arrêt), démarré au cycle, runs drainés à l'arrêt. */
-export function brancherPlanificateur(mode: ModeApp, base: Base, cycle: CycleDeVie): Planificateur {
+export function brancherPlanificateur(
+  mode: ModeApp,
+  base: Base,
+  cycle: CycleDeVie,
+  fraicheurs?: () => Promise<Fraicheurs>,
+  localReserve?: () => boolean,
+): Planificateur {
   const meneur = new Meneur({ arret: cycle.signalArret });
-  const planificateur = new Planificateur({ base, meneur });
+  const planificateur = new Planificateur({
+    base,
+    meneur,
+    ...(fraicheurs === undefined ? {} : { fraicheurs }),
+    ...(localReserve === undefined ? {} : { localReserve }),
+  });
   if (mode !== "main") return planificateur;
   installerMeneur(meneur);
   installerPlanificateur(planificateur);
@@ -386,10 +401,13 @@ export async function composer(
   installerPortsSkills(base);
   installerPortsBureau(base);
   const jc = journal.child({ domaine: "comptes" });
+  const localReserveAuxAdmins = (): boolean => lireReglagesAuth().local.mode === "admins";
   const auth: DependancesAuth & DependancesJetons = {
+    localReserveAuxAdmins,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     informer: (message) => jc.info(message),
     signalerRefus: signalerRefusAuth,
+    sessionAdmise,
     ...dep,
   };
   const jr = journal.child({ domaine: "sandbox-relay" });
@@ -403,7 +421,13 @@ export async function composer(
     demarrerHistoriqueFichiers: async (uid) => void (await ouvrirSessionHistorique(uid, { journal: jr })),
   };
   const cycle = options.cycle ?? new CycleDeVie(journal.child({ domaine: "cycle" }));
-  const planificateur = brancherPlanificateur(mode, base, cycle);
+  const planificateur = brancherPlanificateur(
+    mode,
+    base,
+    cycle,
+    async () => lireFraicheurs(auth),
+    localReserveAuxAdmins,
+  );
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
   brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
@@ -424,7 +448,12 @@ export async function composer(
     diffuser: (message) => evenements.diffuserPartout(message),
     meneur: mode === "main" ? meneur() : null,
   });
-  const jobs = mode === "main" ? brancherJobs(base, cycle, (m) => evenements.diffuserPartout(m)) : null;
+  const jobs =
+    mode === "main"
+      ? brancherJobs(base, cycle, (m) => evenements.diffuserPartout(m), {
+          acces: { fraicheursFournisseurs: async () => lireFraicheurs(auth), localReserveAuxAdmins },
+        })
+      : null;
   brancherHistoriqueJournal((niveau, message, date) =>
     evenements.systemEvents.noterLigneJournal(niveau, message, date),
   );
@@ -442,6 +471,8 @@ export async function composer(
   const oauth: DependancesOAuth = {
     base,
     config: () => auth.config(),
+    fraicheursFournisseurs: async () => lireFraicheurs(auth),
+    localReserveAuxAdmins,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
   };
@@ -520,6 +551,11 @@ export async function composer(
         revoquer: (uid) => evenements.revoquer(uid),
         publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
         bac: piloteBac(),
+      }),
+      creerFamilleAdminIdentite({
+        base,
+        auth,
+        journal: journal.child({ domaine: "admin" }),
       }),
       creerFamilleAdminSecurite({
         base,

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/secrets/cle.ts — clé du coffre vue des commandes d'exploitation : secrets comptés par clé (`kid`), rechiffrement des secrets d'une ancienne clé vers la clé courante ; les secrets de webhook des routines, chiffrés sur place par la même clé, suivent. */
-import { aadWebhookRoutine } from "@elpis/db";
+import { aadWebhookRoutine, estTableAbsente } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
 import { chiffrerSecret, dechiffrerSecret, kidDe } from "@elpis/securite";
 import type { CleCoffre } from "@elpis/securite";
 
+import { contexteSecretTeste, hmacAvecCle, nomSecret } from "../identite/fournisseurs";
 import { estGenre } from "./portee";
-import { aadLigne, COLONNES_SECRET, colonneWebhooks } from "./stockage";
+import { aadLigne, COLONNES_SECRET, colonneWebhooks, dechiffrerLigne, lireLigneParNom } from "./stockage";
 import type { LigneSecret } from "./stockage";
 
 /** Secrets de webhook des routines (chiffrés sur place, hors `vault_secrets`) ; colonne pas encore posée (services pas redémarrés) : aucun. */
@@ -78,6 +79,48 @@ async function rechiffrerWebhooks(
   }
 }
 
+/** Empreintes de test des fournisseurs recalculées sous la clé courante quand le secret enregistré est celui que l'ancienne clé avait signé ; les autres restent « test à refaire ». */
+async function recalculerEmpreintesDeTest(
+  base: Base,
+  ancienne: CleCoffre,
+  courante: CleCoffre,
+): Promise<void> {
+  let lignes: { provider_id: string; tested_hash: string | null }[];
+  try {
+    lignes = await base.all<{ provider_id: string; tested_hash: string | null }>(
+      "SELECT provider_id, tested_hash FROM auth_provider_state WHERE tested_hash IS NOT NULL",
+    );
+  } catch (e) {
+    if (estTableAbsente(e) || (e instanceof Error && /does not exist/iu.test(e.message))) return;
+    throw e;
+  }
+  for (const l of lignes) {
+    let test: { h?: unknown; s?: unknown };
+    try {
+      test = JSON.parse(String(l.tested_hash)) as { h?: unknown; s?: unknown };
+    } catch {
+      continue;
+    }
+    if (typeof test.h !== "string" || typeof test.s !== "string") continue;
+    const ligne = await lireLigneParNom(base, null, nomSecret(l.provider_id));
+    if (ligne === null || ligne.kind !== "token") continue;
+    let valeur: string;
+    try {
+      valeur = dechiffrerLigne(ligne);
+    } catch {
+      continue;
+    }
+    const contexte = contexteSecretTeste(l.provider_id);
+    if (hmacAvecCle(ancienne, contexte, valeur) !== test.s) continue;
+    const neuf = JSON.stringify({ h: test.h, s: hmacAvecCle(courante, contexte, valeur) });
+    await base.run("UPDATE auth_provider_state SET tested_hash=? WHERE provider_id=? AND tested_hash=?", [
+      neuf,
+      l.provider_id,
+      l.tested_hash,
+    ]);
+  }
+}
+
 /** Rechiffre un à un les secrets de `ancienne` avec `courante` (secrets de webhook compris) ; une ligne changée entre-temps (rotation concurrente) est laissée telle quelle. */
 export async function rechiffrerCoffre(
   base: Base,
@@ -113,6 +156,7 @@ export async function rechiffrerCoffre(
     if (fait.changes > 0) r.rechiffres += 1;
   }
   await rechiffrerWebhooks(base, ancienne, courante, r);
+  await recalculerEmpreintesDeTest(base, ancienne, courante);
   const reste = await base.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets WHERE kid <> ?", [
     courante.kid,
   ]);

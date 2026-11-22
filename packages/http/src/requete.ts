@@ -17,6 +17,12 @@ export function premierEntete(requete: FastifyRequest, nom: string): string | un
   return distincts?.[nom]?.[0] ?? entete(requete, nom);
 }
 
+/** Paramètre de chemin `nom` (`id` par défaut), chaîne vide s'il manque. */
+export function parametreChemin(requete: FastifyRequest, nom = "id"): string {
+  const brut = (requete.params as Record<string, unknown> | undefined)?.[nom];
+  return typeof brut === "string" ? brut : "";
+}
+
 /** `request.query_params.get(nom)` : dernière valeur de la requête brute, `null` si absent. */
 export function parametreRequete(requete: FastifyRequest, nom: string): string | null {
   const url = requete.originalUrl;

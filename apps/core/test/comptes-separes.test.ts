@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/comptes-separes.test.ts — un compte par service (`ELPIS_GROUPE_DONNEES`, ici le groupe principal de ce compte) : base SQLite, verrous, journal de sécurité, magasin du RAG, cache d'aperçus, graphiques et mot de passe de base ouverts au groupe ; compte unique inchangé. */
+/** apps/core/test/comptes-separes.test.ts — un compte par service (`ELPIS_GROUPE_DONNEES`, ici le groupe principal de ce compte) : base SQLite, verrous, journal de sécurité, magasin du RAG, graphiques et mot de passe de base ouverts au groupe ; compte unique inchangé. */
 import {
   chmodSync,
   closeSync,
-  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -12,13 +11,12 @@ import {
   rmSync,
   statSync,
   symlinkSync,
-  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { invalidateConfigCache, surchargerConfig } from "@elpis/config";
+import { surchargerConfig } from "@elpis/config";
 import { durcirDroits } from "@elpis/db";
 import { arreterAudit, auditEvent, configureAudit, ouvrirDossierSous } from "@elpis/securite";
 import { VerrouFichier } from "@elpis/verrous";
@@ -26,12 +24,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { chartsDir, saveChartConfig } from "../src/graphiques/moteur/cache";
 import { savePassword } from "../src/ops/bascule";
-import { elaguerCacheOffice } from "../src/ops/balayages";
 import { creerDossiersCollectionRag, modeFichierRag } from "../src/rag/magasin";
 import { noterPurgeQdrant } from "../src/rag/qdrant";
 
 const GID = process.getgid?.() ?? 0;
-const AVEC_PROC_LOCKS = existsSync("/proc/locks");
 let dossier = "";
 
 const mode = (p: string): number => statSync(p).mode & 0o7777;
@@ -107,27 +103,6 @@ describe("sous le groupe des données", () => {
     expect(mode(join(dossier, "a", "b"))).toBe(0o750);
   });
 
-  it.skipIf(!AVEC_PROC_LOCKS)("cache d'aperçus du groupe : élagué par main sans être rechmodé", async () => {
-    const racine = join(dossier, "cache");
-    mkdirSync(racine);
-    chmodSync(racine, 0o770);
-    vi.stubEnv("APP_OFFICE_CACHE_DIR", racine);
-    vi.stubEnv("ELPIS_OFFICE_LOCK_DIR", join(dossier, "verrous"));
-    const restaurer = surchargerConfig({ CONFIG_JSON_PATH: join(dossier, "config.json") });
-    invalidateConfigCache();
-    try {
-      const cle = join(racine, "u", "alice", "a".repeat(40));
-      mkdirSync(cle, { recursive: true });
-      writeFileSync(join(cle, "manifest.json"), "{}");
-      utimesSync(join(cle, "manifest.json"), 1, 1);
-      expect((await elaguerCacheOffice()).removed).toBe(1);
-      expect(mode(racine)).toBe(0o770);
-    } finally {
-      restaurer();
-      invalidateConfigCache();
-    }
-  });
-
   it("graphiques lisibles par l'hôte d'outils (0750/0640), mot de passe de base lisible par le groupe (0640)", () => {
     vi.stubEnv("CHART_CACHE_DIR", join(dossier, "graphiques"));
     const id = saveChartConfig({ series: [] }, "alice");
@@ -146,7 +121,7 @@ describe("sous le groupe des données", () => {
 });
 
 describe("compte unique : modes d'aujourd'hui", () => {
-  it("base 0600, verrou 0600, cache d'aperçus ouvert au groupe rechmodé en 0700, graphiques 0700/0600", async () => {
+  it("base 0600, verrou 0600, graphiques 0700/0600", async () => {
     const base = join(dossier, "user_db", "app.db");
     durcirDroits(base, dossier);
     expect([mode(base), mode(join(dossier, "user_db"))]).toEqual([0o600, 0o700]);
@@ -155,20 +130,6 @@ describe("compte unique : modes d'aujourd'hui", () => {
     await v.acquerir();
     expect(mode(p)).toBe(0o600);
     await v.rendre();
-    const racine = join(dossier, "cache");
-    mkdirSync(racine);
-    chmodSync(racine, 0o770);
-    vi.stubEnv("APP_OFFICE_CACHE_DIR", racine);
-    vi.stubEnv("ELPIS_OFFICE_LOCK_DIR", join(dossier, "verrous"));
-    const restaurer = surchargerConfig({ CONFIG_JSON_PATH: join(dossier, "config.json") });
-    invalidateConfigCache();
-    try {
-      await elaguerCacheOffice();
-    } finally {
-      restaurer();
-      invalidateConfigCache();
-    }
-    if (AVEC_PROC_LOCKS) expect(mode(racine)).toBe(0o700);
     vi.stubEnv("CHART_CACHE_DIR", join(dossier, "graphiques"));
     const id = saveChartConfig({ series: [] }, "bob");
     expect([mode(chartsDir("bob")), mode(join(chartsDir("bob"), `${id}.json`))]).toEqual([0o700, 0o600]);

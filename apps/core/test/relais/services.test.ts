@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fetchRelayedBytes, ouvrirSessionHistorique, pushSkillsMirror } from "../../src/relais/services";
 import { FauxToolhost, JETON, journalTest, lignes, monterBanc } from "./aides";
@@ -106,9 +106,20 @@ describe("pushSkillsMirror", () => {
     rmSync(dossier, { recursive: true, force: true });
   });
 
-  it("hôte en boucle locale : rien n'est poussé (même disque)", async () => {
+  it("hôte en boucle locale : rien n'est poussé sous un compte unique (main écrit le miroir) ; poussé avec un compte par service (l'hôte d'outils seul l'écrit)", async () => {
     expect(await pushSkillsMirror(1, dossier, { journal })).toBe(false);
     expect(hote.requetes).toHaveLength(0);
+    hote.traitements.set("/api/sandbox/skills-mirror", (_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end('{"ok": true, "files": 4}');
+    });
+    vi.stubEnv("ELPIS_GROUPE_DONNEES", "0");
+    try {
+      expect(await pushSkillsMirror(1, dossier, { journal })).toBe(true);
+      expect(hote.requetes.map((r) => r.url)).toEqual(["/api/sandbox/skills-mirror"]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("hôte distant : tar.gz multipart « archive », fichiers ordinaires hors __pycache__, noms longs et accentués", async () => {

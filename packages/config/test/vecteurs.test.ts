@@ -198,15 +198,17 @@ const DONNEES_SOUS_LA_BASE: readonly [string, string, string][] = [
   ["SKINS_DIR", "user_skins", "<RACINE>/user_skins"],
 ];
 
-/** Valeurs attendues du Python, corrigées de l'écart : base hors `<racine>/user_db` et défaut Python pris = dossier voisin de la base. */
+/** Valeurs attendues du Python, corrigées des écarts : mémoire par défaut dans `user_db/memoire` (dans le dossier des bacs en Python) ; base hors `<racine>/user_db` et défaut Python pris = dossier voisin de la base. */
 function avecEcartDonnees(
   attendus: Record<string, unknown>,
   obtenus: Record<string, unknown>,
 ): Record<string, unknown> {
+  const corrige = { ...attendus };
+  if (attendus["MEMORY_DIR"] !== undefined && attendus["MEMORY_DIR"] === attendus["SANDBOX_DIR"])
+    corrige["MEMORY_DIR"] = "<RACINE>/user_db/memoire";
   const base = String(obtenus["DB_PATH"]);
   const dossierBase = base.slice(0, base.lastIndexOf("/"));
-  if (dossierBase === "<RACINE>/user_db") return attendus;
-  const corrige = { ...attendus };
+  if (dossierBase === "<RACINE>/user_db") return corrige;
   for (const [cle, nom, defautPython] of DONNEES_SOUS_LA_BASE)
     if (attendus[cle] === defautPython) corrige[cle] = `${dossierBase}/${nom}`;
   return corrige;

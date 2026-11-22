@@ -301,7 +301,7 @@ core_cmd() {
     case "$*" in "config DB_PATH") echo /srv/donnees/app.db ;; "config MCP_SERVERS_DIR") echo /srv/mcp_custom_servers ;;
         "config SKINS_DIR") echo /srv/skins ;; esac
 }
-lanceur() { printf 'main admin toolhost\t/srv/apercus\nmain admin\t/mnt/sauvegardes\n'; }
+lanceur() { printf 'toolhost\t/srv/apercus\nmain admin\t/mnt/sauvegardes\n'; }
 SERVICES=(qdrant rag toolhost main admin); VAULT_KEY_SYS=/etc/elpis/vault.key; AUDIT_KEY_SYS=/etc/elpis/audit.key; CONFIG_SYS=/etc/elpis/config
 SANDBOX_DIR=/srv/bacs; RAG_STORE=/srv/rag; RAG_CACHE=/srv/rag-cache; CHART_DIR=/srv/graphiques; AUDIT_DIR_SYS=/var/lib/elpis/audit
 APPLOG_DIR_SYS=/var/log/elpis; NODE=/usr/bin/node
@@ -384,8 +384,9 @@ def test_unites_dossiers_hors_du_depot_selon_le_service(depot):
     u = _unites(depot)
     for s in ("main", "admin"):
         lignes = u[f"elpis-{s}.service"].splitlines()
-        for d in ("/srv/mcp_custom_servers", "/srv/skins", "/srv/donnees", "/srv/apercus", "/mnt/sauvegardes"):
+        for d in ("/srv/mcp_custom_servers", "/srv/skins", "/srv/donnees", "/mnt/sauvegardes"):
             assert f"ReadWritePaths=-{d}" in lignes, (s, d)
+        assert "ReadWritePaths=-/srv/apercus" not in lignes, s
     lignes = u["elpis-toolhost.service"].splitlines()
     assert "ReadWritePaths=-/srv/apercus" in lignes and "ReadWritePaths=-/mnt/sauvegardes" not in lignes
     assert "ReadWritePaths=-/srv/skins" not in lignes

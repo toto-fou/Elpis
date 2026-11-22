@@ -8,7 +8,7 @@ import { surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { deleteUserFull } from "../src/comptes/suppression";
 
@@ -101,6 +101,21 @@ describe("suppression d'un compte : données rangées par nom", () => {
     });
     expect(present("bob")).toEqual(TOUT);
     expect(await identifiants()).toEqual(["bob"]);
+  });
+
+  it("un compte par service : miroir du dossier des bacs laissé à l'hôte d'outils (bac mis de côté par lui), le reste effacé", async () => {
+    const alice = await compte("alice", "alice");
+    vi.stubEnv("ELPIS_GROUPE_DONNEES", "0");
+    try {
+      expect(await deleteUserFull(t.base, alice)).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect([present("alice").skills, present("alice").miroir, present("alice").charts]).toEqual([
+      false,
+      true,
+      false,
+    ]);
   });
 
   it("lien à la place d'un dossier : le lien est retiré, sa cible jamais suivie", async () => {

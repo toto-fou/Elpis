@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/admin-bac.test.ts — bac à sable vu de la console : occupation (du, repli, cache), suppression, dossier d'un compte. */
+/** apps/core/test/admin-bac.test.ts — bac à sable vu de la console : occupation (du, repli, cache), suppression, dossier d'un compte, bac de cette machine laissé à son hôte d'outils avec un compte par service. */
 import {
   chmodSync,
   existsSync,
@@ -14,16 +14,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { surchargerConfig } from "@elpis/config";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   mettreBacDeCoteDuCompte,
   oublierOccupations,
-  racineBac,
   sandboxUsageBytes,
   tailleBac,
   travailBac,
 } from "../src/admin/bac";
+import type { PortBac } from "../src/admin/bac";
+import type { SandboxHost } from "../src/relais/hotes";
 
 let dossier: string;
 let restaurer: () => void;
@@ -35,6 +36,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   restaurer();
   rmSync(dossier, { recursive: true, force: true });
 });
@@ -60,11 +62,9 @@ describe("occupation du bac", () => {
     expect(a).toBe(b);
   });
 
-  it("nom vide : dossier `user_<id>` créé par racineBac, jamais par travailBac", () => {
+  it("nom vide : dossier `user_<id>`, jamais créé par la console", () => {
     expect(travailBac(null, 9)).toBe(join(dossier, "sb", "user_9", "work"));
     expect(existsSync(join(dossier, "sb", "user_9"))).toBe(false);
-    expect(racineBac(null, 9)).toBe(join(dossier, "sb", "user_9"));
-    expect(existsSync(join(dossier, "sb", "user_9"))).toBe(true);
   });
 
   it("taille d'un dossier absent : 0", async () => {
@@ -115,5 +115,69 @@ describe("suppression du bac mis de côté", () => {
     expect(await supprimerBac()).toEqual([true, null]);
     expect(gardes()).toEqual([]);
     expect(existsSync(join(dossier, "sb", "bob"))).toBe(false);
+  });
+});
+
+describe("un compte par service : bac de cette machine laissé à son hôte d'outils", () => {
+  const ICI: SandboxHost = { id: "main", url: "http://127.0.0.1:8765", token: "t", relay: false };
+  const LOIN: SandboxHost = { id: "loin", url: "https://hote.example", token: "t", relay: true };
+
+  function pilote(distant: SandboxHost | null, echec = ""): [PortBac, string[]] {
+    const appels: string[] = [];
+    const noter = (quoi: string, hote: SandboxHost): void => {
+      appels.push(`${quoi} ${hote.id}`);
+      if (echec === `${quoi} ${hote.id}`) throw new Error(`hôte d'outils ${hote.id} : refus`);
+    };
+    return [
+      {
+        hoteDistantDuCompte: async () => distant,
+        hoteIci: async () => ICI,
+        mettreDeCoteSurHote: async (h) => (noter("mettre", h), true),
+        remettreSurHote: async (h) => noter("remettre", h),
+        supprimerMisDeCoteSurHote: async (h) => (noter("supprimer", h), true),
+        retirerConteneur: async () => undefined,
+        purgerTravail: async () => {
+          throw new Error("jamais par la console");
+        },
+        detruireConteneur: async () => undefined,
+      },
+      appels,
+    ];
+  }
+
+  beforeEach(() => {
+    vi.stubEnv("ELPIS_GROUPE_DONNEES", String(process.getgid?.() ?? 0));
+    mkdirSync(join(dossier, "sb", "bob", "work"), { recursive: true });
+    writeFileSync(join(dossier, "sb", "bob", "work", "f"), "x");
+  });
+
+  it("mise de côté, remise et suppression par l'hôte de cette machine, puis par l'hôte distant ; dossier des bacs intact", async () => {
+    const [port, appels] = pilote(LOIN);
+    const mis = await mettreBacDeCoteDuCompte(2, "bob", port);
+    await mis.remettre();
+    expect(await mis.supprimer()).toEqual([true, null]);
+    expect(appels).toEqual([
+      "mettre main",
+      "mettre loin",
+      "remettre main",
+      "remettre loin",
+      "supprimer loin",
+      "supprimer main",
+    ]);
+    expect(readdirSync(join(dossier, "sb"))).toEqual(["bob"]);
+    expect(existsSync(join(dossier, "sb", "bob", "work", "f"))).toBe(true);
+  });
+
+  it("refus de l'hôte distant : le bac de cette machine est remis par son hôte, l'erreur remonte", async () => {
+    const [port, appels] = pilote(LOIN, "mettre loin");
+    await expect(mettreBacDeCoteDuCompte(2, "bob", port)).rejects.toThrow("hôte d'outils loin : refus");
+    expect(appels).toEqual(["mettre main", "mettre loin", "remettre main"]);
+  });
+
+  it("suppression refusée par l'hôte de cette machine : erreur rendue, rien supprimé par la console", async () => {
+    const [port] = pilote(null, "supprimer main");
+    const mis = await mettreBacDeCoteDuCompte(2, "bob", port);
+    expect(await mis.supprimer()).toEqual([false, "hôte d'outils main : refus"]);
+    expect(existsSync(join(dossier, "sb", "bob", "work", "f"))).toBe(true);
   });
 });

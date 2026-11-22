@@ -2476,7 +2476,7 @@ La **Vue d'ensemble** signale ce qui manque à une installation neuve. Dans l'or
 
 ### Opérations courantes
 
-- **Sauvegarde et restauration** (**Données**) : archive de la base, des sandboxes et des serveurs MCP ; **Sauvegarde distante** vers un autre serveur (SFTP ou rsync) ; restauration **Complète**, ou limitée à la **Base de données**, aux **Sandboxes** ou aux **Serveurs MCP**.
+- **Sauvegarde et restauration** (**Données**) : archive de la base (avec la mémoire des comptes), des sandboxes et des serveurs MCP ; l'historique des fichiers de l'éditeur (**Historique**) n'est pas sauvegardé ; **Sauvegarde distante** vers un autre serveur (SFTP ou rsync) ; restauration **Complète**, ou limitée à la **Base de données**, aux **Sandboxes** ou aux **Serveurs MCP**.
 - **Changer de base de données** (**Données**) : **Simuler** vérifie la base cible et compte ce qui serait copié. **Migrer et basculer** suspend les écritures, copie et vérifie les données, puis redémarre l'application sur la nouvelle base. **Revenir à SQLite** fait le chemin inverse. Si le serveur de base devient injoignable : `./elpis db use sqlite` sur la machine, puis redémarrage.
 - **Habillages** (**Système**, page **Apparence**) : l'interrupteur **Actif** propose un habillage aux comptes, **Définir** choisit celui par défaut. **Importer** ajoute un paquet, qui arrive désactivé. **Créer** part d'un habillage existant, avec un aperçu en direct. **Habillages personnels** autorise ou non les habillages créés par les comptes, avec un **Plafond par compte**.
 - **Sessions** (**Mots de passe & sessions**) : durée de connexion, déconnexion sur inactivité, **Révoquer toutes les sessions** pour déconnecter tout le monde sauf vous.

@@ -83,6 +83,22 @@ describe("magasin perso et miroir", () => {
     expect(pousse).toHaveBeenCalledWith(1, store);
   });
 
+  it("un compte par service : ni miroir local ni reprise de l'ancien <sandbox>/skills, magasin poussé à l'hôte d'outils", async () => {
+    remises.push(poserEnv({ ELPIS_GROUPE_DONNEES: "0" }));
+    await mkdir(path.join(racine, "sandbox", "1", "skills"), { recursive: true });
+    await writeFile(
+      path.join(racine, "sandbox", "1", "skills", "vieux.md"),
+      "---\nname: vieux\n---\nAncien\n",
+    );
+    const store = (await userSkillsDir(1)) ?? "";
+    await saveUserSkill(store, "Mon skill", "d", "corps", ["t"]);
+    const avant = await empreinteArbre(path.join(racine, "sandbox"));
+    await syncUserMirror(1);
+    expect(await empreinteArbre(path.join(racine, "sandbox"))).toEqual(avant);
+    await expect(readFile(path.join(store, "vieux.md"), "utf8")).rejects.toThrow();
+    expect(pousse).toHaveBeenCalledWith(1, store);
+  });
+
   it("sans port de comptes ni uid : rien n'est lu ni poussé, sans lever", async () => {
     installerComptesSkills(null);
     expect(await userSkillsDir(1)).toBeNull();

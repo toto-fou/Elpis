@@ -860,8 +860,11 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
     "user_sandboxes",
     racine,
   );
-  const dossierMemoire = stripPy(envStr("APP_MEMORY_DIR", "app.memory_dir", ""));
-  const MEMORY_DIR = dossierMemoire ? resolvePath(dossierMemoire, "", racine) : SANDBOX_DIR;
+  const MEMORY_DIR = resolvePath(
+    stripPy(envStr("APP_MEMORY_DIR", "app.memory_dir", "")),
+    "user_db/memoire",
+    racine,
+  );
   const SKILLS_DIR = resolvePath(envStr("APP_SKILLS_DIR", "skills.dir", "skills"), "skills", racine);
   const USER_SKILLS_DIR = resolvePath(
     envStr(

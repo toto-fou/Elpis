@@ -228,7 +228,7 @@ describe("miroir sandbox et réponses", () => {
     }
   });
 
-  it("composer pose le port des comptes des skills : nom du compte, sandbox créée sous SANDBOX_DIR", async () => {
+  it("composer pose le port des comptes des skills : nom du compte, racine de sa sandbox sous SANDBOX_DIR, jamais créée par main", async () => {
     const banc = await monterBanc("sqlite");
     installerComptesSkills(null);
     const remettre = process.env["ELPIS_AUDIT_DIR"];
@@ -245,7 +245,7 @@ describe("miroir sandbox et réponses", () => {
       expect(await comptesSkills().nomUtilisateur(V.ids["bob"] ?? 0)).toBe("bob");
       const racine = await comptesSkills().racineSandbox(V.ids["bob"] ?? 0);
       expect(racine).toBe(join(banc.racine, "sb", "bob"));
-      expect((await stat(racine ?? "")).isDirectory()).toBe(true);
+      expect(await stat(racine ?? "").catch(() => null)).toBeNull();
       expect(await comptesSkills().racineSandbox(999)).toBe(join(banc.racine, "sb", "user_999"));
     } finally {
       if (remettre === undefined) delete process.env["ELPIS_AUDIT_DIR"];

@@ -529,14 +529,16 @@ signaler() {
     if [ "$(id -u)" -eq 0 ]; then kill -s "$1" "$2" 2>/dev/null; else kill -s "$1" -- "-$2" 2>/dev/null || kill -s "$1" "$2" 2>/dev/null; fi
 }
 
-# PID à signaler, lu dans user_db/run (écrit par le compte des services) : nombre > 1 ; en root, processus du compte des services, du propriétaire du dépôt ou de COMPTES_ARRET, jamais de root.
+# PID à signaler, lu dans user_db/run (écrit par le compte des services) : nombre > 1 ; en root, processus du compte des services, du propriétaire du dépôt ou de COMPTES_ARRET, jamais de root ; sous un compte par service, pour SERVICE, de son compte (et de COMPTES_ARRET pendant service install) seulement.
 pid_signalable() {
-    local uid u
+    local uid u comptes
     motif "$1" '^[0-9]{1,9}$' && [ "$1" -gt 1 ] || return 1
     [ "$(id -u)" -eq 0 ] || return 0
     uid="$(awk '$1 == "Uid:" { print $2; exit }' "/proc/$1/status" 2>/dev/null)"
     [ -n "$uid" ] && [ "$uid" != 0 ] || return 1
-    for u in $(compte_services) "$(stat -c %U -- "$ROOT")" ${COMPTES_ARRET:-}; do
+    comptes="$(compte_services) $(stat -c %U -- "$ROOT") ${COMPTES_ARRET:-}"
+    [ -z "${2:-}" ] || [ "$(mode_installe)" != separes ] || comptes="$UNIT_PREFIX-$2 ${COMPTES_ARRET:-}"
+    for u in $comptes; do
         [ "$uid" = "$(id -u "$u" 2>/dev/null)" ] && return 0
     done
     return 1
@@ -649,7 +651,7 @@ arreter() {
     local s i n pid vivant attente=40 pids=() noms=()
     for s in "$@"; do
         pid="$(pid_of "$s")" || { retirer_pid "$s"; continue; }
-        if ! pid_signalable "$pid"; then warn "$s : pid « $pid » de $RUN_DIR/$s.pid hors des comptes d'Elpis : non signalé (à vérifier)."; continue; fi
+        if ! pid_signalable "$pid" "$s"; then warn "$s : pid « $pid » de $RUN_DIR/$s.pid hors des comptes d'Elpis : non signalé (à vérifier)."; continue; fi
         info "Arrêt de $s (pid $pid)…"
         signaler TERM "$pid"
         pids+=("$pid"); noms+=("$s")
@@ -675,18 +677,19 @@ retirer_pid() {
     if [ "$(id -u)" -eq 0 ]; then poser_droits retirer "$RUN_DIR" "$1.pid" || true; else rm -f "$RUN_DIR/$1.pid"; fi
 }
 
-# ptrace_restreint MODE : un compte par service : kernel.yama.ptrace_scope = 1 (défaut d'Ubuntu ; réglage de tout l'hôte) dans /etc/sysctl.d/60-elpis.conf, appliqué : la console ne trace plus les commandes que root lance sous son compte ; jamais abaissé s'il est plus strict ; autre mode : fichier retiré (valeur rendue au prochain démarrage).
+# ptrace_restreint MODE : un compte par service : kernel.yama.ptrace_scope = 1 (défaut d'Ubuntu ; réglage de tout l'hôte) dans /etc/sysctl.d/05-elpis-ptrace.conf (trié en premier : une valeur plus stricte d'un autre fichier l'emporte au démarrage), écrit et appliqué seulement quand la valeur est 0 : la console ne trace plus les commandes que root lance sous son compte ; autre mode : fichier retiré (valeur rendue au prochain démarrage).
 ptrace_restreint() {
-    local f="$SYS_PREFIXE/etc/sysctl.d/60-${UNIT_PREFIX}.conf" v
+    local f="$SYS_PREFIXE/etc/sysctl.d/05-${UNIT_PREFIX}-ptrace.conf" v
+    rm -f -- "$SYS_PREFIXE/etc/sysctl.d/60-${UNIT_PREFIX}.conf"
     if [ "$1" != separes ]; then
         [ ! -e "$f" ] || { rm -f -- "$f" && info "$f retiré (ptrace : réglage de l'hôte, rendu au prochain démarrage)."; }
         return 0
     fi
     v="$(cat -- "$SYS_PREFIXE/proc/sys/kernel/yama/ptrace_scope" 2>/dev/null)" \
         || { warn "ptrace : module Yama absent du noyau : la console peut tracer les commandes que root lance sous son compte (noyau avec Yama conseillé)."; return 1; }
-    case "$v" in 0|1) ;; *) return 0 ;; esac
+    [ "$v" = 0 ] || return 0
     printf '# %s\nkernel.yama.ptrace_scope = 1\n' "Elpis, un compte par service (sudo ./elpis service install) : ptrace limité aux descendants." > "$f" \
-        && sysctl -q -p "$f" >/dev/null && { [ "$v" = 1 ] || info "ptrace limité aux descendants (kernel.yama.ptrace_scope = 1, $f)."; } \
+        && sysctl -q -p "$f" >/dev/null && info "ptrace limité aux descendants (kernel.yama.ptrace_scope = 1, $f)." \
         || { warn "ptrace : $f non écrit ou non appliqué (sysctl) : la console peut tracer les commandes que root lance sous son compte."; return 1; }
 }
 
@@ -1082,6 +1085,10 @@ mode_des_comptes() {
 
 # Mode séparé impossible (chemin lu par les services fermé aux autres comptes) : repli sur un compte unique, avec la marche à suivre.
 avertir_repli() {
+    if [ "${SEPARE_ACQUIS:-0}" = 1 ]; then
+        systemctl start "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
+        die "Un compte par service est en place, mais $1 n'est pas accessible à $UNIT_PREFIX-main (ou sa sonde a échoué) : rien n'est changé (unités et services remis tels quels). Rendez-le accessible aux autres comptes (docs/operations.md, « Service accounts ») et relancez, ou passez à un seul compte explicitement : sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install."
+    fi
     MODE_COMPTES=repli
     warn "Un compte par service impossible : $1 n'est pas accessible aux autres comptes. Services sous un seul compte (repli). Pour en changer : installation dans /opt/elpis, ou dossiers parents traversables et code lisible par les autres comptes (docs/operations.md, « Service accounts »), puis sudo ./elpis service install."
 }
@@ -1341,6 +1348,10 @@ cmd_service() {
             need_core
             unique="$(compte_unique)"
             ancien="$(compte_services) $(stat -c %U -- "$AUDIT_DIR_SYS" 2>/dev/null)"
+            # Avant toute sonde sous un compte des services : services arrêtés (main tuerait ou tracerait les sondes de son compte) et ptrace limité ; un compte par service déjà en place ne retombe jamais sur un seul compte sans ELPIS_COMPTE_UNIQUE=1.
+            SEPARE_ACQUIS=0; { [ "$(mode_installe)" = separes ] || id -u "$UNIT_PREFIX-main" >/dev/null 2>&1; } && SEPARE_ACQUIS=1
+            systemctl stop "${UNIT_PREFIX}.target" "${UNIT_PREFIX}-*.service" >/dev/null 2>&1 || true
+            [ "${ELPIS_COMPTE_UNIQUE:-0}" = 1 ] || ptrace_restreint separes || true
             mode_des_comptes
             if [ "$MODE_COMPTES" = separes ]; then
                 run_user="${ELPIS_USER:-${SUDO_USER:-$(stat -c %U -- "$ROOT")}}"
@@ -1373,7 +1384,7 @@ cmd_service() {
                     usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
                 fi
             fi
-            ptrace_restreint "$MODE_COMPTES" || true
+            [ "$MODE_COMPTES" = separes ] || ptrace_restreint "$MODE_COMPTES"
             audit_setup "$ecrivain" "$ancien" 0 \
                 || warn "Journal de sécurité incomplet (voir ci-dessus) : sudo ./elpis audit setup une fois corrigé."
             cle_regroupee "$VAULT_KEY_SYS" "$([ "$MODE_COMPTES" = separes ] && echo "$GROUPE_CLE" || echo "${GRP_CLE:-}")" \

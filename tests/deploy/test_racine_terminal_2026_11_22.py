@@ -97,7 +97,7 @@ def test_2_enfants_de_root_sans_son_terminal(depot, tmp_path):
 def test_2_ptrace_limite_aux_descendants(depot):
     yama = _sys(depot) / "proc/sys/kernel/yama"
     yama.mkdir(parents=True)
-    conf = _sys(depot) / "etc/sysctl.d/60-elpis.conf"
+    conf = _sys(depot) / "etc/sysctl.d/05-elpis-ptrace.conf"
     conf.parent.mkdir(parents=True)
     _cs._unite_bloc4(depot)
     _cs._etat(depot)

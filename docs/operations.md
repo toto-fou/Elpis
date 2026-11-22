@@ -242,7 +242,11 @@ other accounts through (`o+x`), and the code must be readable by them (Playwrigh
 of their reach are copied, above). A clone in a home folder is not (`/home/<name>`
 is 0700 on Debian, 0750 on Ubuntu): `service install` then keeps one account for every service,
 as before (fallback mode, `ELPIS_COMPTES=repli`), says why, and `./elpis doctor` warns at every
-run. For a server, install in `/opt/elpis`:
+run. This fallback only happens on a first installation: once units with one account per
+service are installed, or the `elpis-main` account exists, a closed folder or a failed probe
+stops `service install` with the reason and leaves the units as they were (a service must not
+be able to force the fallback); one account is then chosen only explicitly
+(`sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`). For a server, install in `/opt/elpis`:
 
 ```bash
 sudo install -d -o "$USER" /opt/elpis

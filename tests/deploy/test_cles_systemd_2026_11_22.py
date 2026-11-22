@@ -229,13 +229,15 @@ def test_jeton_du_rag_repris_de_ses_fichiers(depot):
     corps = 'MODE_COMPTES=separes; BASE_DONNEES="$ROOT/user_db"; jeton_rag "$MOI"; echo "rc=$?"'
     r = _harnais(depot, corps, CREDS, **_faux(depot))
     assert "rc=0" in r.stdout and _clair(_magasin(depot) / "rag.token") == "jeton-bloc5\n", r.stdout + r.stderr
-    assert not (etc / "rag.token").exists() and "ranger_secrets" in "\n".join(_trace(depot))
-    # Jeton réécrit par ./elpis configure dans user_db (à l'opérateur) : il l'emporte, puis il est retiré.
+    assert not (etc / "rag.token").exists()
+    # Autre jeton dans user_db (à l'opérateur) : le jeton en service est gardé, le fichier laissé et signalé ; égal, il est retiré.
     (db / ".rag_service_token").write_text("jeton-configure\n", encoding="utf-8")
     (db / ".rag_service_token").chmod(0o600)
     r = _harnais(depot, corps, CREDS, **_faux(depot))
-    assert "rc=0" in r.stdout and _clair(_magasin(depot) / "rag.token") == "jeton-configure\n"
-    assert not (db / ".rag_service_token").exists()
+    assert "rc=0" in r.stdout and _clair(_magasin(depot) / "rag.token") == "jeton-bloc5\n" and "laissés tous deux" in r.stderr
+    (db / ".rag_service_token").write_text("jeton-bloc5\n", encoding="utf-8")
+    r = _harnais(depot, corps, CREDS, **_faux(depot))
+    assert "rc=0" in r.stdout and not (db / ".rag_service_token").exists()
     (_magasin(depot) / "rag.token").unlink()
     r = _harnais(depot, corps, CREDS, **_faux(depot))
     assert re.fullmatch(r"ELPIS_[0-9a-f]{64}\n", _clair(_magasin(depot) / "rag.token")), r.stderr
@@ -613,9 +615,9 @@ def test_setup_sans_fichier_en_clair(depot):
 def test_config_json_range_en_deux_temps(depot):
     _unite(depot, "main", "elpis-main", "separes")
     shutil.copy2(REPO / "deploy/configure.py", depot / "deploy/configure.py")
-    (depot / "config.json").write_text(json.dumps({"app": {"session_secret": "s" * 48, "encryption_key": "cle-heritee"},
-                                                   "rag": {"service_token": "jeton-du-rag", "qdrant_api_key": "cle-qdrant"}}),
-                                       encoding="utf-8")
+    valeurs = {"app": {"session_secret": "s" * 48, "encryption_key": FERNET},
+               "rag": {"service_token": "j" * 32, "qdrant_api_key": "q" * 32}}
+    (depot / "config.json").write_text(json.dumps(valeurs), encoding="utf-8")
     (depot / "config.json").chmod(0o600)
     etc = _sys(depot) / "etc/elpis"
     etc.mkdir(parents=True)
@@ -624,17 +626,25 @@ def test_config_json_range_en_deux_temps(depot):
     talons = CREDS.replace('ranger_secrets() { trace ranger_secrets "$@"; }\n', "")
     r = _harnais(depot, corps, talons, **{**_faux(depot), "FAUX_CREDS_ECHEC": "encrypt"})
     assert "rc=1" in r.stdout and "pas tous écrits" in r.stderr, r.stdout + r.stderr
-    cfg = json.loads((depot / "config.json").read_text(encoding="utf-8"))
-    assert cfg == {"app": {"session_secret": "s" * 48, "encryption_key": "cle-heritee"},
-                   "rag": {"service_token": "jeton-du-rag", "qdrant_api_key": "cle-qdrant"}}
+    assert json.loads((depot / "config.json").read_text(encoding="utf-8")) == valeurs
     assert not (etc / "rag.token").exists()
     r = _harnais(depot, corps, talons, **_faux(depot))
     assert "rc=0" in r.stdout, r.stdout + r.stderr
     assert json.loads((depot / "config.json").read_text(encoding="utf-8")) == {"app": {}, "rag": {}}
-    assert _clair(_magasin(depot) / "session.secret") == "s" * 48 + "\n" and _clair(_magasin(depot) / "encryption.key") == "cle-heritee\n"
-    assert _clair(_magasin(depot) / "rag.token") == "jeton-du-rag\n" and not (etc / "rag.token").exists()
-    assert _clair(_magasin(depot) / "qdrant.key") == "cle-qdrant\n"
-    assert all("s" * 48 not in a and "cle-heritee" not in a for l in _lignes(depot, "run.trace") for a in json.loads(l)["argv"])
+    assert _clair(_magasin(depot) / "session.secret") == "s" * 48 + "\n" and _clair(_magasin(depot) / "encryption.key") == FERNET + "\n"
+    assert _clair(_magasin(depot) / "rag.token") == "j" * 32 + "\n" and not (etc / "rag.token").exists()
+    assert _clair(_magasin(depot) / "qdrant.key") == "q" * 32 + "\n"
+    assert all("s" * 48 not in a and FERNET not in a for l in _lignes(depot, "run.trace") for a in json.loads(l)["argv"])
+    # Clé déjà en service : une autre valeur ne la remplace pas et reste dans config.json ; trop courte ou hors format, refusée.
+    autres = {"app": {"session_secret": "t" * 48, "encryption_key": "pas-fernet"}, "rag": {"service_token": "court", "qdrant_api_key": "a"}}
+    (depot / "config.json").write_text(json.dumps(autres), encoding="utf-8")
+    (_magasin(depot) / "qdrant.key").unlink()
+    r = _harnais(depot, corps, talons, **_faux(depot))
+    assert "rc=1" in r.stdout and json.loads((depot / "config.json").read_text(encoding="utf-8")) == autres, r.stderr
+    assert "app.session_secret de config.json : diffère de la clé en service" in r.stderr
+    assert "app.encryption_key de config.json refusé (pas une clé Fernet)" in r.stderr
+    assert "rag.qdrant_api_key de config.json refusé (moins de 32 caractères)" in r.stderr
+    assert _clair(_magasin(depot) / "session.secret") == "s" * 48 + "\n" and not (_magasin(depot) / "qdrant.key").exists()
 
 
 # Doctor : version, clés lisibles, portées par les seules unités qui s'en servent, aucune copie en clair.

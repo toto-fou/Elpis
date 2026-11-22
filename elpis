@@ -1434,14 +1434,14 @@ ranger_secrets() {
     return "$rc"
 }
 
-# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; clés remises par systemd : la clé rag.token, reprise de JETON_RAG_SYS puis de user_db/.rag_service_token (chacun l'emporte sur la précédente, puis retiré), créée sinon, aussi quand ce fichier est refusé (laissé, fermé par droits_separes) ; compte unique, user_db/.rag_service_token, au compte unique (0600) ; secrets de config.json rangés au passage.
+# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; clés remises par systemd : la clé rag.token, reprise de JETON_RAG_SYS ou de user_db/.rag_service_token seulement s'il n'y en a pas (fichier égal retiré, autre laissé et signalé, fermé par droits_separes), créée sinon ; compte unique, user_db/.rag_service_token, au compte unique (0600) ; secrets de config.json rangés au passage.
 jeton_rag() {
     local depot="$ROOT/user_db/.rag_service_token" sys="$JETON_RAG_SYS" e=0
     if [ "$MODE_COMPTES" = separes ] && cles_systemd; then
-        { magasin_cles && poser_droits cle "$CLES_SYS" rag.token --source "$sys" --proprio "root,$1" --source-gagne; } || e=1
-        poser_droits cle "$CLES_SYS" rag.token --source "$depot" --proprio "$1" --source-gagne --creer jeton \
-            || { e=1; poser_droits cle "$CLES_SYS" rag.token --creer jeton; }
-        ranger_secrets "$sys" "$UNIT_PREFIX-admin"
+        magasin_cles || return 1
+        poser_droits cle "$CLES_SYS" rag.token --source "$sys" --proprio "root,$1" || true
+        poser_droits cle "$CLES_SYS" rag.token --source "$depot" --proprio "$1" --creer jeton \
+            || poser_droits cle "$CLES_SYS" rag.token --creer jeton || e=1
         return "$e"
     elif [ "$MODE_COMPTES" = separes ]; then
         poser_droits reprendre "${depot%/*}" "${depot##*/}" "$1" "$sys"; [ "$?" -ne 1 ] || return 1
@@ -1614,9 +1614,11 @@ cmd_service() {
             # Avant les unités : sans config.json chez la console, main et la console ne pourraient plus l'écrire.
             config_vers_console "$run_user" "$ancien" || die "config.json non rangé dans $CONFIG_SYS (voir ci-dessus) : unités et services laissés tels quels."
             if [ "$MODE_COMPTES" = separes ] && cles_systemd; then
-                # Clés remises par systemd : rangées avant le rendu, les unités ne portant que les clés présentes ; processus lancés à la main arrêtés d'abord.
+                # Clés remises par systemd : rangées avant le rendu (valeurs de config.json d'abord, prises pour une clé absente seulement), les unités ne portant que les clés présentes ; processus lancés à la main arrêtés d'abord.
                 COMPTES_ARRET="$ancien $run_user" cmd_stop || true
                 chemins_separes; BASE_DONNEES="${DB_FICHIER%/*}"
+                { magasin_cles && ranger_secrets "$JETON_RAG_SYS" "$UNIT_PREFIX-admin"; } \
+                    || warn "Secrets de config.json non rangés (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
                 cles_vers_systemd "$run_user" "$ancien" \
                     || warn "Clés de la plateforme incomplètes dans $CLES_SYS (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
                 jeton_rag "$run_user" || warn "Jeton du service RAG non préparé (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."

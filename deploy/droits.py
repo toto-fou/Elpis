@@ -39,8 +39,10 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
         droits.py ranger BASE JETON [--magasin MAGASIN]
           secrets de l'objet JSON de l'entrée standard (deploy/configure.py --ranger-secrets --garder) dans
           BASE/.session_secret, BASE/.encryption_key et JETON (0600) s'ils diffèrent, ou avec --magasin, secret de session,
-          clé de chiffrement, jeton du RAG et clé d'API de Qdrant (sans fichier : laissée sinon) en clés de systemd ; un lien ou un fichier spécial est refusé ; sortie : les clés de
-          config.json à retirer (écrites, ou sans valeur retenue), une par ligne
+          clé de chiffrement, jeton du RAG et clé d'API de Qdrant (sans fichier : laissée sinon) en clés de systemd posées
+          seulement si elles manquent (40 caractères pour le secret, 32 pour jetons et clés, clé Fernet ; clé en service
+          différente : gardée, valeur laissée) ; un lien ou un fichier spécial est refusé ; sortie : les clés de
+          config.json à retirer (écrites ou égales à la clé, ou sans valeur retenue), une par ligne
         droits.py reprendre DOSSIER NOM COMPTE CIBLE
           contenu de DOSSIER/NOM, fichier ordinaire de COMPTE à un seul lien que nul autre ne peut écrire, écrit dans
           CIBLE (0600), puis NOM retiré ; code 2 si NOM est refusé
@@ -63,11 +65,11 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           mot de passe de la base locale (48 chiffres hexadécimaux) écrit sur la sortie : lu sans suivre de lien dans un
           fichier ordinaire à un seul lien de PROPRIO, de root ou d'un compte admis, ou créé (0600, à PROPRIO) s'il manque
           ou est vide ; autre contenu : refusé
-        droits.py cle MAGASIN NOM [--source FICHIER] [--proprio A,B] [--min N] [--creer GENRE] [--source-gagne] [--copie]
+        droits.py cle MAGASIN NOM [--source FICHIER] [--proprio A,B] [--min N] [--creer GENRE] [--copie]
           clé NOM du magasin de systemd (systemd-creds encrypt --name=NOM --with-key=auto, clair par un tube, 0600 root,
           déchiffrée et comparée avant d'être renommée) : reprise de FICHIER (fichier ordinaire à un seul lien d'un des
           comptes, sans écriture d'autrui, N caractères au moins), qui est retiré ensuite ; FICHIER différent d'une clé en
-          service : laissés tous deux (sauf --source-gagne) ; sinon clé gardée, sinon créée sans FICHIER refusé (GENRE :
+          service : laissés tous deux ; sinon clé gardée, sinon créée sans FICHIER refusé (GENRE :
           coffre, fernet, session, journal, jeton, qdrant) ; --copie : commande de copie hors de la machine affichée quand la clé change
         droits.py cle-rendre MAGASIN NOM CIBLE PROPRIO GROUPE MODE [--remplacer]
           clé NOM déchiffrée dans CIBLE (temporaire exclusif, PROPRIO:GROUPE, MODE octal) si CIBLE manque ou est la même,
@@ -494,7 +496,7 @@ def ranger(args: list[str]) -> bool:
             continue
         try:
             if magasin and cle_config in VERS_CLES:
-                ecrit = _poser_cle(magasin, VERS_CLES[cle_config], texte.encode())
+                ecrit = _importer_cle(magasin, VERS_CLES[cle_config], texte.encode(), cle_config)
             else:
                 ecrit = _poser_texte(*cibles[cle_config], lambda a, t=texte: None if a == t else t)
         except OSError as e:
@@ -576,19 +578,41 @@ def _chiffrer(magasin: str, dfd: int, nom: str, clair: bytes) -> None:
         raise
 
 
-def _poser_cle(magasin: str, nom: str, clair: bytes) -> bool:
-    """Clé NOM du magasin mise à CLAIR si elle manque, diffère ou ne se déchiffre plus ; vrai si elle le vaut."""
+def _format_refuse(nom: str, clair: bytes) -> str:
+    """Motif du refus de CLAIR pour la clé NOM, vide s'il convient : secret de session de 40 caractères, jetons et clés de 32, clé Fernet."""
+    v = clair.strip()
+    if nom == "encryption.key":
+        try:
+            return "" if len(v) == 44 and len(base64.b64decode(v, altchars=b"-_", validate=True)) == 32 else "pas une clé Fernet"
+        except ValueError:
+            return "pas une clé Fernet"
+    minimum = 40 if nom == "session.secret" else 32
+    return "" if len(v) >= minimum else f"moins de {minimum} caractères"
+
+
+def _importer_cle(magasin: str, nom: str, clair: bytes, cle_config: str) -> bool:
+    """Valeur CLE_CONFIG de config.json posée en clé NOM du magasin si celle-ci manque et que le format convient ; vrai si la clé la vaut (valeur à retirer)."""
+    motif = _format_refuse(nom, clair)
+    if motif:
+        _dire(f"[warn ] {cle_config} de config.json refusé ({motif}) : laissé, clé {nom} inchangée.", file=sys.stderr)
+        return False
     try:
         dfd = ouvrir_dossier(_net(magasin))
     except (Refus, OSError) as e:
         return _refus(magasin, e)
     try:
-        if _cle_presente(dfd, nom):
-            with contextlib.suppress(Illisible):
-                if _dechiffrer(magasin, nom) == clair:
-                    return True
-        _chiffrer(magasin, dfd, nom, clair)
-        return True
+        if not _cle_presente(dfd, nom):
+            _chiffrer(magasin, dfd, nom, clair)
+            return True
+        try:
+            if _dechiffrer(magasin, nom) == clair:
+                return True
+            raison = "diffère de la clé en service"
+        except Illisible as e:
+            raison = f"clé en service illisible par systemd-creds ({e})"
+        _dire(f"[warn ] {cle_config} de config.json : {raison} : clé {nom} gardée, valeur laissée dans config.json "
+              "(à retirer).", file=sys.stderr)
+        return False
     except (Refus, OSError) as e:
         return _refus(os.path.join(magasin, nom), e)
     finally:
@@ -663,7 +687,7 @@ def _retirer_source(dfd: int, nom: str, st: os.stat_result, chemin: str) -> bool
 
 def cle(args: list[str]) -> bool:
     magasin, nom, *reste = args
-    o = _options(reste, {"--source", "--proprio", "--min", "--creer"}, {"--source-gagne", "--copie"})
+    o = _options(reste, {"--source", "--proprio", "--min", "--creer"}, {"--copie"})
     genre = (o.get("--creer") or [None])[-1]
     if not NOM_CLE.fullmatch(nom) or (genre is not None and genre not in GENRES):
         raise SystemExit(USAGE)
@@ -688,7 +712,7 @@ def cle(args: list[str]) -> bool:
                     actuel = _dechiffrer(magasin, nom)
                 except Illisible as e:
                     _dire(f"[warn ] {chemin_cle} : illisible par systemd-creds ({e}) : remplacée par {src}.", file=sys.stderr)
-            if actuel is not None and actuel != clair and "--source-gagne" not in o:
+            if actuel is not None and actuel != clair:
                 _dire(f"[warn ] {src} diffère de la clé {nom} en service ({chemin_cle}) : laissés tous deux ; gardez la bonne "
                       "(copie hors de la machine d'abord), retirez l'autre, puis relancez sudo ./elpis service install.",
                       file=sys.stderr)

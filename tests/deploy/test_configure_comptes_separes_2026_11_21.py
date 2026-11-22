@@ -33,6 +33,20 @@ def mode(p: Path) -> int:
     return stat.S_IMODE(os.stat(p).st_mode)
 
 
+
+def test_jeton_du_rag_non_cree_quand_systemd_le_remet(conf, tmp_path, monkeypatch):
+    unites = tmp_path / "sys/etc/systemd/system"
+    unites.mkdir(parents=True)
+    monkeypatch.setenv("ELPIS_PREFIXE_SYSTEME", str(tmp_path / "sys"))
+    (unites / "elpis-main.service").write_text("[Service]\nLoadCredentialEncrypted=rag.token:/etc/elpis/credentials/rag.token\n",
+                                                encoding="utf-8")
+    conf.step_secrets({}, False)
+    assert not (tmp_path / "user_db/.rag_service_token").exists() and (tmp_path / "user_db/.local_mcp_token").exists()
+    (unites / "elpis-main.service").write_text("[Service]\n", encoding="utf-8")
+    conf.step_secrets({}, False)
+    assert (tmp_path / "user_db/.rag_service_token").exists()
+
+
 def test_lien_suivi_droits_et_groupe_gardes(conf, tmp_path):
     reel = tmp_path / "etc" / "config.json"
     reel.parent.mkdir()

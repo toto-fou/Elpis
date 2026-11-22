@@ -94,7 +94,7 @@ export function exigerUtf8(texte: string): void {
 
 export function serialize(entries: readonly string[]): string {
   return entries
-    .map(stripPy)
+    .map((x) => stripPy(x))
     .filter((e) => e !== "")
     .join(`\n${DELIM}\n`);
 }
@@ -104,7 +104,7 @@ export function parseEntries(raw: string): string[] {
   if (!raw || !stripPy(raw)) return [];
   return raw
     .split(SEPARATEUR)
-    .map(stripPy)
+    .map((x) => stripPy(x))
     .filter((p) => p !== "");
 }
 
@@ -112,7 +112,7 @@ export function parseEntries(raw: string): string[] {
 export function decouperReecriture(content: string): string[] {
   return (content || "")
     .split(SEPARATEUR_REECRITURE)
-    .map(stripPy)
+    .map((x) => stripPy(x))
     .filter((p) => p !== "");
 }
 

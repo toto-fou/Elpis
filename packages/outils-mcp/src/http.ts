@@ -17,7 +17,6 @@ import {
   pyJsonLoadsOctets,
   rstripPy,
   texteJsonPy,
-  sansBarresFinales,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { analyserRequete, decouperCible, desechapper } from "@elpis/http";
@@ -465,14 +464,12 @@ export class ServiceMcpHttp {
   }
 
   private bases(): string[] {
-    return [this.http, this.sse]
-      .filter((b): b is string => b !== null)
-      .map((b) => sansBarresFinales(b) || "/");
+    return [this.http, this.sse].filter((b): b is string => b !== null).map((b) => rstripPy(b, "/") || "/");
   }
 
   private couvre(chemin: string): boolean {
     if (this.porteSurTout) return true;
-    const messages = sansBarresFinales(this.messages);
+    const messages = rstripPy(this.messages, "/");
     return [...this.bases(), messages].some((p) => chemin === p || chemin.startsWith(p + "/"));
   }
 
@@ -480,8 +477,7 @@ export class ServiceMcpHttp {
   chemins(): string[] {
     const sortie: string[] = [];
     for (const b of this.bases()) sortie.push(b, `${b}/*`);
-    if (this.sse !== null)
-      sortie.push(sansBarresFinales(this.messages), `${sansBarresFinales(this.messages)}/*`);
+    if (this.sse !== null) sortie.push(rstripPy(this.messages, "/"), `${rstripPy(this.messages, "/")}/*`);
     return sortie;
   }
 
@@ -511,7 +507,7 @@ export class ServiceMcpHttp {
       famille = fam;
       break;
     }
-    const messages = sansBarresFinales(this.messages);
+    const messages = rstripPy(this.messages, "/");
     const route =
       chemin === this.http
         ? "http"

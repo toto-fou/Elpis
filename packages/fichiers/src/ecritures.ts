@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/fichiers/src/ecritures.ts — écritures de l'éditeur dans le bac, faites par son agent (sandbox/exec_bridge.py : agent_http, sandbox_write_*, mkdir, delete, rename, copy, clear, stat_mtime) ; refus de l'agent traduits en erreurs HTTP de l'éditeur. */
-import { getPy, HttpError, intPy, journalDe, stripPy, veritePy, sansBarresAuxBouts } from "@elpis/commun";
+import { getPy, HttpError, intPy, journalDe, stripPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { estErreurAgent } from "@elpis/bac";
 import type { ErreurAgent } from "@elpis/bac";
@@ -107,7 +107,7 @@ export async function sandboxDelete(agent: AgentClient, rel: string): Promise<vo
   const r = stripPy(stripWorkPrefix(rel));
   if (r === "" || r === ".") throw new HttpError(400, "Cible invalide pour suppression");
   const rp = validateRelPath(rel);
-  const norm = sansBarresAuxBouts(rp);
+  const norm = stripPy(rp, "/");
   if (!norm || norm === "." || norm === "/work" || norm === "work")
     throw new HttpError(400, "Cible invalide pour suppression");
   await parAgent(agent, "Suppression", (a) =>

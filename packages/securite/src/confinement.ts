@@ -22,7 +22,7 @@ import {
 import { lstat, open, readdir, rmdir, unlink } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 
-import { pyPath, realpathPy, reprPy, stripPy, sansBarresAuxBouts } from "@elpis/commun";
+import { pyPath, realpathPy, reprPy, stripPy } from "@elpis/commun";
 
 /** `O_PATH` de Linux : saisit une entrée sans l'ouvrir (droit de traverser suffisant). */
 export const O_PATH = 0o10000000;
@@ -410,7 +410,7 @@ export function stripWorkPrefix(chemin: string | null | undefined): string {
 
 /** `to_container` : `""`/`"."` → `/work`, `src/x` → `/work/src/x`. */
 export function toContainer(rel: string | null | undefined): string {
-  const r = sansBarresAuxBouts(stripPy(rel || ""));
+  const r = stripPy(stripPy(rel || ""), "/");
   return r === "" || r === "." ? CONTAINER_ROOT : `${CONTAINER_ROOT}/${r}`;
 }
 

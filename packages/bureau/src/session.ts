@@ -18,10 +18,10 @@ import {
   pyJsonDumps,
   pyJsonLoads,
   reprPy,
+  rstripPy,
   stripPy,
   strPy,
   veritePy,
-  sansBarresFinales,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { config } from "@elpis/config";
@@ -44,7 +44,7 @@ export function joindre(a: string, b: string): string {
 export function dossierParent(p: string): string {
   const i = p.lastIndexOf("/") + 1;
   const tete = p.slice(0, i);
-  return tete && tete !== "/".repeat(tete.length) ? sansBarresFinales(tete) : tete;
+  return tete && tete !== "/".repeat(tete.length) ? rstripPy(tete, "/") : tete;
 }
 
 /** Dossier partagé des trames annotées (`DESKTOP_SCREENS_DIR`). */

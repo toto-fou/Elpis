@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/outils-mcp/src/portee.ts — portée d'une requête : familles cachées selon le client (jeton d'outils, délégation) et l'URL `/mcp/<famille>`. */
-import { strPy, veritePy, sansBarresAuxBouts } from "@elpis/commun";
+import { stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { FAMILY_NAMES } from "@elpis/mcp";
 
@@ -22,7 +22,7 @@ export function famillesCachees(claims: Dict | null, famille: string | null): Se
 
 /** Segment `<famille>` d'un chemin monté : `null` = toutes, `undefined` = famille inconnue (404). */
 export function familleDuChemin(segment: string | null | undefined): string | null | undefined {
-  const fam = sansBarresAuxBouts(segment ?? "").toLowerCase();
+  const fam = stripPy(segment ?? "", "/").toLowerCase();
   if (!fam) return null;
   return FAMILY_NAMES.includes(fam) ? fam : undefined;
 }

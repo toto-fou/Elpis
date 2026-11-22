@@ -33,7 +33,9 @@ export function estBlancPy(code: number): boolean {
   );
 }
 
-export function stripPy(s: string): string {
+/** `s.strip()` ou `s.strip(caracteres)`. */
+export function stripPy(s: string, caracteres?: string): string {
+  if (caracteres !== undefined) return rstripPy(lstripPy(s, caracteres), caracteres);
   let debut = 0;
   let fin = s.length;
   while (debut < fin && estBlancPy(s.charCodeAt(debut))) debut++;

@@ -2,12 +2,11 @@
 /** apps/core/src/llm/moteurs.ts — serveur d'inférence visé par un appel (`EngineRef`) : intégré, connecteur de la cible, ou surcharge explicite. */
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import { ErreurPython, stripPy, urlsplit, veritePy } from "@elpis/commun";
+import { ErreurPython, rstripPy, stripPy, urlsplit, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 
 import { entierPy } from "../python";
 import { cibleDuContexte, resolveLlmTarget } from "./cible";
-import { sansBarresFinales } from "./client-http";
 import { connecteurs } from "./ports";
 import { profilDuType } from "./profils";
 import type { ProfilMoteur } from "./profils";
@@ -105,14 +104,14 @@ export function parseEngineKey(key: string | null | undefined): ["builtin", null
 
 /** Racine d'un serveur OpenAI-compatible : sans `/chat/completions` ni `/v1` final, préfixe de proxy gardé. */
 export function baseRoot(url: string | null | undefined): string {
-  let u = sansBarresFinales(stripPy(url || ""));
+  let u = rstripPy(stripPy(url || ""), "/");
   for (const suffixe of ["/v1/chat/completions", "/chat/completions", "/v1"]) {
     if (u.endsWith(suffixe)) {
       u = u.slice(0, u.length - suffixe.length);
       break;
     }
   }
-  return sansBarresFinales(u);
+  return rstripPy(u, "/");
 }
 
 /** Racine du serveur intégré : `scheme://hôte:port` de `LLAMA_URL` (vide si illisible), relue à chaque appel. */

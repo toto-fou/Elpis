@@ -497,7 +497,7 @@ export function creerFamilleSkills(dep: DependancesSkills): Famille {
         traiter: async (req, rep) => {
           const uid = utilisateur(req);
           const data = { ...corpsObjet(req) };
-          const ident = stripPy(parametre(req, "id") || nomDuChemin(req)).replace(/^\/+|\/+$/gu, "");
+          const ident = stripPy(stripPy(parametre(req, "id") || nomDuChemin(req)), "/");
           const feuille = ident.slice(ident.lastIndexOf("/") + 1);
           if (!Object.hasOwn(data, "name")) data["name"] = feuille;
           const scope = scopeValide(lire(data, "scope") ?? null);

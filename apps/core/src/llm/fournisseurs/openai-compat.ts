@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/llm/fournisseurs/openai-compat.ts — transport OpenAI-compatible : endpoint, en-têtes, sampling distant validé, payload assaini hors llama.cpp (dialecte étendu de vLLM et SGLang gardé). */
-import { ErreurPython, intPy, stripPy, strPy, urlsplit, veritePy } from "@elpis/commun";
+import { ErreurPython, intPy, rstripPy, stripPy, strPy, urlsplit, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 
 import { estDict } from "../../python";
 import type { Dict } from "../../python";
 import type { LlmTarget } from "../cible";
-import { getLlmClient, sansBarresFinales } from "../client-http";
+import { getLlmClient } from "../client-http";
 import type { ClientHttp } from "../client-http";
 import { sanitizeOverride } from "../parametres";
 import { aDialecteEtendu, profilDuType } from "../profils";
@@ -44,7 +44,7 @@ export function isLlamaNative(target: Pick<LlmTarget, "providerType">): boolean 
 }
 
 function joindre(base: string, suffixe: string): string {
-  const b = sansBarresFinales(stripPy(base || ""));
+  const b = rstripPy(stripPy(base || ""), "/");
   return b.endsWith(suffixe) ? b : b + suffixe;
 }
 
@@ -59,9 +59,9 @@ export function modelsUrl(target: CibleTransport): string {
     const p = urlsplit(config.LLAMA_URL);
     return `${p.scheme}://${p.netloc}/v1/models`;
   }
-  let base = sansBarresFinales(stripPy(target.baseUrl || ""));
+  let base = rstripPy(stripPy(target.baseUrl || ""), "/");
   if (base.endsWith("/chat/completions")) base = base.slice(0, -"/chat/completions".length);
-  return sansBarresFinales(base) + "/models";
+  return rstripPy(base, "/") + "/models";
 }
 
 /** En-tête Bearer : clé du connecteur, ou `llama.api_key` du moteur intégré s'il en déclare une. */

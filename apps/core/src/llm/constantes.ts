@@ -229,7 +229,7 @@ export const LLAMA_TOOL_SERIAL_PREFIXES: readonly string[] = (
     "manage_files,skill_save,skill_add_file,task,desktop_,pw_"
 )
   .split(",")
-  .map(stripPy)
+  .map((x) => stripPy(x))
   .filter((p) => p !== "");
 
 export const TASK_CHILD_TIMEOUT_S = config.TASK_CHILD_TIMEOUT_S || 3600;

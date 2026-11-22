@@ -3,7 +3,7 @@
 import { lstat, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
-import { stripPy, sansBarresFinales } from "@elpis/commun";
+import { rstripPy, stripPy } from "@elpis/commun";
 import { config, pyPath } from "@elpis/config";
 
 /** Options à valeur admises telles quelles. */
@@ -77,7 +77,7 @@ function sous(chemin: string, racine: string): boolean {
 function motifChemin(chemin: string): string | null {
   if (!SOURCE_SURE.test(chemin) || chemin.split("/").some((x) => x === "." || x === ".."))
     return "source : chemin absolu fait de lettres, chiffres et . _ @ + - seulement";
-  const net = sansBarresFinales(path.posix.normalize(chemin)) || "/";
+  const net = rstripPy(path.posix.normalize(chemin), "/") || "/";
   if (net === "/") return "racine de l'hôte";
   if (SOURCES_INTERDITES.some((r) => sous(net, r) || sous(r, net))) return "dossier système de l'hôte";
   return null;
@@ -93,7 +93,7 @@ function montage(
   if (!DESTINATION.test(destination)) return { motif: "destination : /mnt/<nom> seulement" };
   const m = motifChemin(source);
   if (m !== null) return { motif: m };
-  const net = sansBarresFinales(path.posix.normalize(source));
+  const net = rstripPy(path.posix.normalize(source), "/");
   return { arg: `--mount=type=bind,source=${net},target=${destination},readonly` };
 }
 

@@ -423,7 +423,11 @@ export async function remoteUrls(
     timeoutS: 10,
     maxOut: 1 << 16,
   });
-  return r.ok ? lignesPy(r.stdout).map(stripPy).filter(Boolean) : [];
+  return r.ok
+    ? lignesPy(r.stdout)
+        .map((x) => stripPy(x))
+        .filter(Boolean)
+    : [];
 }
 
 const FINS_DE_LIGNE = "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029";

@@ -3,7 +3,7 @@
 import { Agent, request } from "undici";
 import type { Dispatcher } from "undici";
 
-import { sansBarresFinales } from "@elpis/commun";
+import { rstripPy } from "@elpis/commun";
 import { configRag } from "@elpis/config";
 import type { ConfigRag } from "@elpis/config";
 import type { Bloc, Boite, GenreBloc } from "@elpis/rag";
@@ -214,7 +214,7 @@ function erreurHttp(statut: number, texte: string): ErreurExtraction {
 
 /** Extrait un document du magasin : progression rapportée, résultat lu de la dernière ligne ; l'abandon de l'appelant est relancé tel quel. */
 export async function extraireDocument(o: OptionsExtraction): Promise<ResultatExtraction> {
-  const base = sansBarresFinales(o.url ?? getServiceUrl());
+  const base = rstripPy(o.url ?? getServiceUrl(), "/");
   if (!base)
     throw new ErreurExtraction(
       "extractor_unavailable",

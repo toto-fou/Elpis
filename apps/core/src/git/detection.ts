@@ -26,7 +26,7 @@ export function detectProvider(remoteUrl: string | null | undefined): DepotDetec
   const m = (url.includes("://") ? URL_HTTP : URL_SSH).exec(url);
   if (!m) return null;
   const host = m[1] ?? "";
-  const parts = (m[2] ?? "").replace(/^\/+|\/+$/gu, "").split("/");
+  const parts = stripPy(m[2] ?? "", "/").split("/");
   if (parts.length < 2) return null;
   const hostLc = lowerPy(host);
   let provider = "unknown";

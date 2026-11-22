@@ -486,7 +486,7 @@ export async function tirer(
 /** Ligne qui dit l'échec d'une commande git : `fatal:`, `error:` ou `CONFLICT` d'abord, sinon la première ligne qui n'est pas un `hint:`. */
 export function ligneEchec(r: Dict): string {
   const lignes = [r["stderr"], r["stdout"]]
-    .flatMap((s) => splitlinesPy(typeof s === "string" ? s : "").map(stripPy))
+    .flatMap((s) => splitlinesPy(typeof s === "string" ? s : "").map((x) => stripPy(x)))
     .filter((l) => l && !l.startsWith("hint:"));
   const ligne = lignes.find((l) => /^(?:fatal:|error:|CONFLICT\b)/u.test(l)) ?? lignes[0];
   return prefixePy(ligne ?? `exit code ${strPy(r["returncode"])}`, 300);

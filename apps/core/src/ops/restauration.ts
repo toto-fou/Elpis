@@ -350,7 +350,8 @@ export async function restoreFromZip(
         } else if (
           parts.length > 2 &&
           (second === MEMORY_SUBDIR || second === LEGACY_MEMORY_SUBDIR) &&
-          !/^[._]/u.test(compte)
+          compte !== INSTANTANES &&
+          !compte.startsWith(".")
         ) {
           ecrire(entree, d.memoryDir, parts.join("/"), await zf.lireNom(entree), memoire);
         } else if (separe) {

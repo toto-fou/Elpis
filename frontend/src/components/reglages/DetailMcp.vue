@@ -14,6 +14,7 @@ const f = computed(() => rg.mcpForm);
 const partage = computed(() => f.value?.portee === "partage");
 const neuf = computed(() => !!f.value && !f.value.id);
 const editable = computed(() => !partage.value || admin.value);
+const modifiable = computed(() => editable.value && f.value?.type !== "stdio");
 const cleTest = computed(() => f.value?.id || "nouveau");
 const test = computed(() => rg.mcpTests[cleTest.value]);
 const conseilSecret = computed(() => /\b40[13]\b/.test(test.value?.msg ?? ""));
@@ -22,7 +23,6 @@ const serveurPartage = computed(() =>
 );
 const desactive = computed(() => !!serveurPartage.value && !serveurPartage.value.enabled);
 const verbe = computed(() => (partage.value ? "Dépublier" : "Supprimer"));
-const modeles = computed(() => MODELES_MCP.filter((m) => m.type !== "stdio" || admin.value));
 const libelleEnregistrer = computed(() =>
   rg.mcpOccupe ? "Enregistrement…" : neuf.value ? (partage.value ? "Publier" : "Ajouter") : "Enregistrer",
 );
@@ -90,11 +90,11 @@ async function enregistrer(): Promise<void> {
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <span v-if="editable" aria-live="polite"
+          <span v-if="modifiable" aria-live="polite"
             ><EtatMcp :id="cleTest" pastille :long="!(test && test.ok === false)"
           /></span>
           <button
-            v-if="editable"
+            v-if="modifiable"
             type="button"
             class="adm-btn adm-tool"
             :disabled="!!test?.busy"
@@ -105,7 +105,7 @@ async function enregistrer(): Promise<void> {
             Tester
           </button>
           <button
-            v-if="editable"
+            v-if="modifiable"
             type="button"
             class="adm-btn elpis-mcp-enr"
             :class="rg.mcpGarde ? 'adm-tool' : 'adm-btn--primary'"
@@ -152,12 +152,10 @@ async function enregistrer(): Promise<void> {
         >
           <span class="text-xs font-semibold text-slate-500 mr-1">Modèle</span>
           <button
-            v-for="m in modeles"
+            v-for="m in MODELES_MCP"
             :key="m.cle"
             type="button"
             class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-slate-200 bg-white text-[13px] font-medium text-slate-700 hover:border-blue-500 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="m.type === 'stdio' && partage"
-            :title="m.type === 'stdio' && partage ? 'Serveur local : portée Moi seulement' : undefined"
             @click="rg.mcpAppliquerModele(m.cle)"
           >
             <i class="ph" :class="ICONES_MCP[m.type]" aria-hidden="true"></i>{{ m.libelle }}

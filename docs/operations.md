@@ -434,7 +434,11 @@ error in the rest leaves them cut): the administrator who ran it sees the
 result, then the page reloads on the sign-in screen (with errors, the message
 says so and the next action leads there). It
 does not carry the current security state over the restored database: the
-accounts come back as they were in the archive.
+accounts come back as they were in the archive, and the confirmation says so.
+Suspensions, token revocations and password changes made since the backup are
+undone: make them again after the restore. SSO accounts are checked again by
+their provider at their next sign-in. To keep that state instead, restore by
+hand with the two commands below.
 
 ### Keeping account security across a database restore
 

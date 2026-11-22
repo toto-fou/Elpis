@@ -154,7 +154,7 @@ def test_4_config_json_vers_une_fifo_ou_dev_zero_sans_effet(depot):
     (conf / "config.json").unlink()
     (conf / "config.json").symlink_to("/dev/zero")
     r = _harnais(depot, corps, talons="app_cmd() { \"$@\"; }", FAUX_UID="1000")
-    assert r.stdout.strip() == "refus ValueError", r.stdout + r.stderr
+    assert r.stdout.strip() == "refus OSError", r.stdout + r.stderr
     # Sous root et un compte par service : par la console (app_console), jamais sous root.
     _unite(depot, "main", "elpis-main", "separes")
     r = _harnais(depot, corps, talons='id() { [ "$*" = -u ] && echo 0 || command id "$@"; }\napp_console() { echo "console $1 $2 $3"; }')
@@ -216,5 +216,5 @@ def test_5_signal_jamais_au_groupe_sous_root_et_flux_filtres(depot):
     assert _harnais(depot, "signaler TERM 4242", talons=talons).stdout.strip() == "kill -s TERM 4242"
     assert _harnais(depot, "signaler TERM 4242", talons=talons, FAUX_UID="1000").stdout.strip() == "kill -s TERM -- -4242"
     (depot / "logs/main.log").write_text("ligne \x1b[1;32mverte\x1b[0m \x1b]52;c;QQ==\x07\x1b[2Jfin\x7f\n", encoding="utf-8")
-    r = _harnais(depot, "cmd_logs main", talons="systemd_active() { return 1; }")
-    assert "ligne \x1b[1;32mverte\x1b[0m fin" in r.stdout and "]52" not in r.stdout and "\x1b[2J" not in r.stdout, r.stdout
+    r = _harnais(depot, "cmd_logs main", talons='systemd_active() { return 1; }\nid() { [ "$*" = -u ] && echo 0 || command id "$@"; }')
+    assert "ligne \x1b[1;32mverte\x1b[0m fin?" in r.stdout and "]52" not in r.stdout and "\x1b[2J" not in r.stdout, r.stdout

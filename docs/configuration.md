@@ -163,7 +163,10 @@ account can write; a link or another file at its place disables it. With one
 account per service, `sudo ./install.sh` asks its questions in plain lines
 (its wizard would read `config.json`, written by the console) and takes no
 decision from `config.json`; the configuration wizard then runs under the
-console's account (`./elpis configure`).
+console's account (`./elpis configure`). Questions asked by `./elpis configure` during
+an interactive installation, and their answers, go to the terminal only, not to the log.
+Everything the installer shows goes through the same filter as `./elpis` (see
+docs/operations.md, « Service accounts ») before the screen and the log.
 `./install.sh --dry-run` prints the plan and does nothing.
 
 **Permissions.** From a normal account: `sudo -v` at launch (a single

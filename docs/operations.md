@@ -154,23 +154,31 @@ replace (nor its folder): otherwise these commands stop. `./elpis start`, `resta
 `./elpis upgrade` from the operator's account).
 
 What root starts under another account never gets root's terminal: each command runs in a
-session of its own (`setsid`), its input is `/dev/null` when it is a terminal and its outputs
-reach the terminal through a filter that drops escape sequences (OSC, DCS, APC, PM, cursor
-moves; colours kept) and control characters; `sudo ./elpis configure` gets a new
-pseudo-terminal (`runuser --pty`). The console's commands run with umask `0007`. Under units
-with one account per service, `service install` also limits `ptrace` to a process's own
-descendants (`kernel.yama.ptrace_scope = 1` in `/etc/sysctl.d/60-elpis.conf`, applied at once;
-Ubuntu's default, a setting of the whole host, never lowered when it is stricter), so that the
-console cannot trace the commands root runs under its account; `service remove` and the return
-to one account remove the file (the kernel's value comes back at the next boot) and
-`./elpis doctor` checks the value. The messages of `./elpis` and `deploy/droits.py` replace
+session of its own (`setsid`), its input is `/dev/null` when it is a terminal, and its outputs,
+to a terminal, a pipe or the installer's log alike, go through a one-pass filter
+(`deploy/droits.py filtre`: OSC, DCS, APC, PM, SOS and C1 controls dropped, other escape
+sequences too except colours, other control characters shown as `?`; nothing removed can
+rejoin into a sequence); only a backup archive passes as it is. `sudo ./elpis configure` gets
+a new pseudo-terminal (`runuser --pty`) whose screen keeps its cursor sequences but loses the
+OSC, DCS, APC, PM, SOS and C1 ones. The console's commands run with umask `0007`. Under units
+with one account per service, `service install` first stops every Elpis unit, so that no
+running service can kill or trace the probes it runs under the services' accounts, and limits
+`ptrace` to a process's own descendants (`kernel.yama.ptrace_scope = 1` in
+`/etc/sysctl.d/05-elpis-ptrace.conf`, applied at once, only when the value is `0`; Ubuntu's
+default, a setting of the whole host; the file sorts first, so a stricter value of another
+file wins at boot); `service remove` and the return to one account remove the file (the
+kernel's value comes back at the next boot) and `./elpis doctor` checks the value. The messages of `./elpis` and `deploy/droits.py` replace
 control characters (line breaks included) by `?`: a file name chosen by a service adds no line
 to the terminal or a log. Root takes from the core only values it can check: the unit of the
 local database is `postgresql.service` or `postgresql@<version>-main.service`, anything else
 stops `service install`; a unit's command must start with an absolute path. PID files are read
 without following links (a regular file of digits), and root signals the process alone, never
-its group. Files the services write (`config.json`, logs) are read by root with a time and size
-limit, as regular files only: a FIFO or `/dev/zero` put at their place blocks nothing.
+its group; under one account per service, a service's PID file only leads to a process of that
+service's account. Files the services write are read by root as regular files only, without
+following links or waiting, with a size limit: `config.json` (through the one link
+`service install` sets), the logs (`./elpis logs` under `sudo`, or with one account per service:
+50 last lines, 1 MiB at most, filtered as above; `journalctl` keeps its own pager on a
+terminal): a FIFO, `/dev/zero` or a device that acts when opened blocks or triggers nothing.
 
 Rights are set again at every `service install`, services stopped, by `deploy/droits.py`, at
 the very moment they are set (no verdict kept from earlier): each folder is opened component by

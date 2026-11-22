@@ -162,11 +162,16 @@ case "$DB_MODE" in
 esac
 # Configuration en place : config.json, ou son lien vers le dossier de la console (services systemd), même illisible d'ici.
 config_presente() { [ -f "$ROOT/config.json" ] || [ -L "$ROOT/config.json" ]; }
-# conf_json CODE : CODE Python avec conf() : config.json au bout de ses liens, fichier ordinaire seulement, ouvert sans attendre, 4 Mio au plus (une FIFO ou /dev/zero mis à sa place par la console n'arrête ni n'épuise rien), 20 s au plus.
+# conf_json CODE : CODE Python avec conf() : config.json, ou le fichier au bout du seul lien que service install pose (vers /etc/elpis/config), ouvert sans suivre de lien ni attendre (ni FIFO, ni /dev/zero, ni périphérique qui agit à l'ouverture), fichier ordinaire, 4 Mio et 20 s au plus.
 conf_json() {
     timeout 20 python3 -I -c 'import json, os, stat, sys
 def conf():
-    fd = os.open(os.path.realpath(sys.argv[1]), os.O_RDONLY | os.O_NONBLOCK)
+    p = sys.argv[1]
+    if os.path.islink(p):
+        if os.readlink(p) != "/etc/elpis/config/config.json":
+            raise ValueError(p)
+        p = os.readlink(p)
+    fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise ValueError(sys.argv[1])
@@ -241,7 +246,9 @@ if [ "$DRY_RUN" -eq 0 ] && JOURNAL_INSTALL="$(journal_install)"; then
     { echo; echo "===== install.sh $(date -Is) $(args_masques "$@") ====="; } >> "$JOURNAL_INSTALL"
     # Tout ce qui s'affiche part aussi dans le journal. L'assistant, lui,
     # écrit sur /dev/tty : ses écrans (et les mots de passe) n'y passent pas.
-    exec > >(tee -a "$JOURNAL_INSTALL") 2>&1
+    # Sorties filtrées en une passe (deploy/droits.py filtre) avant l'écran et le journal : un texte venu des services n'y écrit aucune séquence.
+    if command -v python3 >/dev/null 2>&1; then exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$JOURNAL_INSTALL") 2>&1
+    else exec > >(tee -a "$JOURNAL_INSTALL") 2>&1; fi
 fi
 WARNINGS=()
 note_warn() { warn "$*"; WARNINGS+=("$*"); }
@@ -1017,7 +1024,7 @@ db_failure() {   # rend 0 pour réessayer (réglages éventuellement modifiés)
     fi
     if [ "$TUI" -eq 1 ]; then
         choice="$(python3 "$ROOT/deploy/wizard.py" ask --title "Elpis — base de données" \
-            --question "Base inutilisable : $msg" \
+            --question "Base inutilisable : $(_propre "$msg"; printf '%s' "$MSG")" \
             "retry:Réessayer:après correction côté serveur" \
             "edit:Modifier les réglages:retour à la page Base" \
             "sqlite:Passer à SQLite:fichier local, rien à préparer" \
@@ -1226,14 +1233,14 @@ if [ "$DO_CONFIGURE" = 1 ]; then
         info "Configuration (réponses de l'assistant)…"
         "$ROOT/elpis" configure --answers "$ANSWERS" || note_warn "Configuration incomplète : relancez ./elpis configure."
     else
-        info "Configuration (./elpis configure)…"
+        info "Configuration (./elpis configure$([ "$INTERACTIVE" -eq 1 ] && echo " : questions et réponses à l'écran seulement, hors du journal"))…"
         # Choix de base d'install.sh d'abord : les options après « -- » priment.
         cfg_args=("${DB_CONFIGURE_ARGS[@]}" "${CONFIGURE_ARGS[@]}")
         # Composants absents : pas de HTTPS à proposer sans Caddy.
         if [ "$WITH_CADDY" -eq 0 ] && ! have caddy; then cfg_args=(--https off "${cfg_args[@]}"); fi
         [ "$INTERACTIVE" -eq 0 ] && cfg_args+=(--yes)
         if [ "$INTERACTIVE" -eq 1 ]; then
-            "$ROOT/elpis" configure "${cfg_args[@]}" </dev/tty || note_warn "Configuration incomplète : relancez ./elpis configure."
+            "$ROOT/elpis" configure "${cfg_args[@]}" </dev/tty >/dev/tty 2>&1 || note_warn "Configuration incomplète : relancez ./elpis configure."
         else
             "$ROOT/elpis" configure "${cfg_args[@]}" || note_warn "Configuration incomplète : relancez ./elpis configure."
         fi

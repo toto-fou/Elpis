@@ -26,6 +26,7 @@ mcp.json
 # ---- État d'exécution et données utilisateur ----
 user_*/
 logs/
+.install.log
 traces/
 screenshots/
 pages/

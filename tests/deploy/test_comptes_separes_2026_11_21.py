@@ -779,7 +779,7 @@ app_console() { echo "console $*" >&2; printf 'ARCHIVE'; return 3; }
     assert r.returncode != 0 and "lancez sudo ./elpis backup full" in r.stderr and "console " not in r.stderr
     r = _harnais(depot, 'cmd_backup full; echo "rc=$?"', talons=talons)
     assert "rc=3" in r.stdout, r.stderr
-    assert f"console --env ELPIS_SAUVEGARDE_SUR_SORTIE=1 /bin/true {depot}/apps/core/dist/exploitation.mjs backup full" in r.stderr
+    assert f"console --brut --env ELPIS_SAUVEGARDE_SUR_SORTIE=1 /bin/true {depot}/apps/core/dist/exploitation.mjs backup full" in r.stderr
     archive = next((depot / "backups").glob("backup_complet_*_incomplet.zip"))
     assert archive.read_bytes() == b"ARCHIVE" and _mode(archive) == "600" and _mode(depot / "backups") == "700"
     assert f"chown -- {MOI}:{GROUPE} {depot}/backups/." in "\n".join(_trace(depot))

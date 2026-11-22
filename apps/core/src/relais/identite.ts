@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/relais/identite.ts — enveloppe d'identité du compte et en-têtes vers l'hôte d'outils (`_identity_for`, `relay_headers`), choix du bac à sable enregistré par main. */
-import { reglagesEnJson } from "@elpis/auth";
+import { compteSuspendu, reglagesEnJson } from "@elpis/auth";
 import { chargerConfigBac } from "@elpis/bac";
 import {
   ErreurJsonPy,
   ErreurLecturePy,
   getPy,
+  HttpError,
   poserCle,
   pyJsonLoads,
   pyJsonLoadsOctets,
@@ -47,12 +48,21 @@ function reglagesDe(uid: number, brut: unknown): Spec {
   }
 }
 
-/** `_identity_for` : nom exact (`user_<id>` à défaut), admin plein seulement (`is_admin` = 1), profil réseau effectif et imposition de l'administrateur (`""` : aucune). */
-export async function identiteRelais(uid: number): Promise<Identity> {
-  const ligne = await base().get<{ username: unknown; is_admin: unknown; settings_json: unknown }>(
-    "SELECT username, is_admin, settings_json FROM users WHERE id=?",
-    [uid],
-  );
+/** Seules les opérations d'administration sur un compte suspendu (arrêt de son bac, de ses jobs) passent `tolererSuspension`. */
+export interface OptionsIdentite {
+  readonly tolererSuspension?: boolean;
+}
+
+/** `_identity_for` : nom exact (`user_<id>` à défaut), admin plein seulement (`is_admin` = 1), profil réseau effectif et imposition de l'administrateur (`""` : aucune) ; refuse un compte suspendu. */
+export async function identiteRelais(uid: number, options: OptionsIdentite = {}): Promise<Identity> {
+  const ligne = await base().get<{
+    username: unknown;
+    is_admin: unknown;
+    settings_json: unknown;
+    suspended_at: unknown;
+  }>("SELECT username, is_admin, settings_json, suspended_at FROM users WHERE id=?", [uid]);
+  if (options.tolererSuspension !== true && compteSuspendu(ligne))
+    throw new HttpError(401, "session revoked or expired");
   const nom = typeof ligne?.username === "string" && ligne.username ? ligne.username : `user_${uid}`;
   const reglages = reglagesDe(uid, ligne?.settings_json);
   return creerIdentite({
@@ -69,8 +79,9 @@ export async function entetesRelais(
   hote: SandboxHost,
   uid: number,
   username?: string,
+  options: OptionsIdentite = {},
 ): Promise<Record<string, string>> {
-  const identite = await identiteRelais(uid);
+  const identite = await identiteRelais(uid, options);
   return {
     authorization: `Bearer ${hote.token}`,
     [IDENTITY_HEADER]: sign(username === undefined ? identite : { ...identite, username }, hote.token),

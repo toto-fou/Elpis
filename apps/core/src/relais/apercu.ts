@@ -78,6 +78,16 @@ export function previewPathUid(chemin: string, options: OptionsJeton = {}): numb
   return null;
 }
 
+/** Instant d'émission du jeton d'un chemin d'aperçu (expiration moins la durée de validité) ; à n'appeler qu'après `previewPathUid`. */
+export function previewPathIssuedAt(chemin: string): number | null {
+  for (const p of PREVIEW_PREFIXES) {
+    if (!chemin.startsWith(p)) continue;
+    const exp = Number((chemin.slice(p.length).split("/")[0] ?? "").split("-")[1]);
+    return Number.isFinite(exp) ? exp - TTL_S : null;
+  }
+  return null;
+}
+
 /** `GET /api/sandbox/preview-token` servi par main (jamais relayé) ; autre méthode : 405 de Starlette décidé avant le corps, jamais relayée. */
 export const familleJetonApercu: Famille = {
   nom: "jeton-apercu",

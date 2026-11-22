@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/tour/ouverture.ts — ouverture d'un tour, par la route de chat ou par le réveilleur des jobs : admission (409 compression ou génération en cours), préparation, verrou de présence et passation (chatbot_app/routes/chats.py). */
+import { compteSuspendu, ligneUtilisateur } from "@elpis/auth";
 import { HttpError, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -34,8 +35,9 @@ export interface TourOuvert {
   readonly base: PersistBaseline;
 }
 
-/** Gardes communes aux tours (texte et « Images ») : compression ou génération en cours (409) ; rend le chat demandé. */
+/** Gardes communes aux tours (texte, « Images » et réveils) : compte suspendu (403), compression ou génération en cours (409) ; rend le chat demandé. */
 export async function admettreTour(dep: DependancesOuverture, uid: number, data: Dict): Promise<string> {
+  if (compteSuspendu(await ligneUtilisateur(dep.base, uid))) throw new HttpError(403, "account_suspended");
   const dormir = dep.dormir ?? ((s: number) => new Promise<void>((ok) => setTimeout(ok, s * 1000)));
   const chatId = stripPy(strPy(veritePy(data["chat_id"]) ? data["chat_id"] : ""));
   if (chatId && manualCompressionActive(uid, chatId)) throw new HttpError(409, "compression_running");

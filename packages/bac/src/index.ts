@@ -85,7 +85,15 @@ export {
   sourcesNavigateur,
 } from "./navigateur";
 export * as privdrop from "./privdrop";
-export { messageSuppression, supprimerDossierBac } from "./suppression";
+export {
+  messageSuppression,
+  mettreBacDeCote,
+  nomMisDeCote,
+  remettreBacMisDeCote,
+  supprimerBacMisDeCote,
+  supprimerDossierBac,
+  supprimerInstantanesDuNom,
+} from "./suppression";
 export {
   chargerConfigBac,
   configBacDepuis,

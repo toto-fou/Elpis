@@ -209,6 +209,8 @@ export interface OptionsLot {
   resultsOut?: Map<number, string>;
   /** Bornes propres par outil : ses appels consécutifs partent ensemble, au plus `n` à la fois (1 : l'un après l'autre), hors LLAMA_TOOL_PARALLELISM. */
   bornes?: ReadonlyMap<string, number>;
+  /** Contrôle avant CHAQUE outil, une fois sa place prise : s'il lève, l'outil ne part pas et le reste du lot non plus. */
+  avantOutil?: () => Promise<void>;
 }
 
 /** Exécute `prepared` (`{call_id, tool_name, final_args, meta, args_error}`) dans l'ordre du modèle ; rend `index → résultat JSON`. */
@@ -222,6 +224,7 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
   const annulationReelle = (signalLot?: AbortSignal): boolean =>
     Boolean((o.isCancelled && o.isCancelled()) || o.signal?.aborted || signalLot?.aborted);
   let instantaneDuLot = false;
+  let arretAvantOutil: unknown = null;
   const demarres = new Set<number>();
   /** Instantané d'annulation : les appels jamais démarrés y reçoivent `NON_DEMARRE`, pas la sentinelle d'un appel qui a pu agir. */
   const instantane = async (): Promise<void> => {
@@ -283,6 +286,16 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
       borne.rendre();
       if (!instantaneDuLot) await instantane();
       throw new CancelledError("User cancelled");
+    }
+    if (o.avantOutil) {
+      try {
+        await o.avantOutil();
+      } catch (e) {
+        arretAvantOutil ??= e;
+        borne.rendre();
+        if (!instantaneDuLot) await instantane();
+        throw e;
+      }
     }
     let duree: number;
     const debut = Date.now() / 1000;
@@ -402,9 +415,9 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
       );
       await Promise.all(taches);
       if (premier === undefined) return;
-      if (annulationReelle()) {
+      if (annulationReelle() || arretAvantOutil !== null) {
         await instantane();
-        throw new CancelledError("User cancelled");
+        throw arretAvantOutil ?? new CancelledError("User cancelled");
       }
       throw premier;
     } finally {

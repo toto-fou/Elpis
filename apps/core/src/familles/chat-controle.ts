@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/chat-controle.ts — pilotage d'un tour en cours : « Répondre maintenant », Stop, arrêt d'un sous-agent, état et suivi NDJSON du run (chatbot_app/routes/chat_control.py). */
-import { getUsernameById, revaliderFlux } from "@elpis/auth";
+import { getUsernameById, metaSession, revaliderFlux } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import { CancelledError, estDict, HttpError, intPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
@@ -205,11 +205,12 @@ async function runEvents(
   const suivi = preparerSuivi(uid, chatDuChemin(req), parametre(req, "run_id"), parametre(req, "from"));
   const loginTs = req.session.get("_login_ts");
   const sid = req.session.get("_sid");
+  const meta = metaSession(req.session);
   const sortie = ouvrirFlux(rep, ENTETES_NDJSON, dep.arret);
   try {
     const flux = evenementsDuRun(suivi, {
       signal: sortie.signal,
-      revalider: () => revaliderFlux(dep.auth, uid, loginTs, sid),
+      revalider: () => revaliderFlux(dep.auth, uid, loginTs, sid, meta),
     });
     for await (const ev of flux) {
       if (sortie.signal.aborted) break;

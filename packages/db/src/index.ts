@@ -79,4 +79,5 @@ export {
 export type { BilanReprise, CleLue, PortsReprise } from "./coffre-llm-images";
 export { aadWebhookRoutine, MIGRATION_COFFRE_GIT, nomDeriveCoffre } from "./coffre-git";
 export { MIGRATION_PORTEE_GIT } from "./portee-git";
+export { MIGRATION_CONNEXION_ENTREPRISE } from "./connexion-entreprise";
 export { MIGRATION_RETRAIT_REMOTE_CODE, TABLES_REMOTE_CODE } from "./retrait-remote-code";

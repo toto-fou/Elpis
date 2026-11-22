@@ -73,6 +73,17 @@ export function annulerEnFond(uid: number, childId: string): boolean {
   return false;
 }
 
+/** Arrête tous les sous-agents en fond actifs d'un compte (suspension) ; nombre d'enfants coupés. */
+export function annulerEnFondDuCompte(uid: number): number {
+  let n = 0;
+  for (const [k, e] of [...FOND]) {
+    if (!e.actif || e.uid !== uid) continue;
+    const [, childId] = JSON.parse(k) as [string, string];
+    if (applyChildCancel(e.username, childId)) n++;
+  }
+  return n;
+}
+
 /** Progression d'un enfant en fond : gardée pour `task_status`, publiée au plus toutes les 3 s (`chat_job`). */
 function suivreFond(r: RunEnfant, ev: Dict): void {
   if (r.inscrit === null || ev["type"] !== "task_step" || ev["status"] === "final") return;

@@ -10,14 +10,13 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { estLocalDirect } from "./local";
 import { estRevoquee } from "./revocations";
 import { fluxEncoreValide, validerSession } from "./session";
-import type { DependancesSession, LigneUtilisateur, Session } from "./session";
+import type { DependancesSession, LigneUtilisateur, MetaSession, Session } from "./session";
 
 declare module "fastify" {
   interface FastifyRequest {
     session: Session;
     sessionInitialeVide: boolean;
     utilisateur?: { id: number; username: string | null };
-    identiteToolhost?: { userId: number; username: string };
   }
 }
 
@@ -62,6 +61,11 @@ export async function ligneUtilisateur(x: Executeur, uid: number): Promise<Ligne
   return x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
 }
 
+/** Suspension d'un compte en une requête ; `undefined` si le compte manque. */
+export async function ligneAcces(x: Executeur, uid: number): Promise<{ suspended_at: unknown } | undefined> {
+  return x.get(`SELECT u.suspended_at FROM users u WHERE u.id=?`, [uid]);
+}
+
 /** Portes de session branchées sur la base de `dep` (lecture du compte, révocation par `_sid`). */
 export function dependancesSession(dep: DependancesAuth): DependancesSession {
   return {
@@ -84,13 +88,8 @@ function chemin(requete: FastifyRequest): string {
   }
 }
 
-/** `require_user_id` : identité du toolhost d'abord, puis session valide ; 403 si le mot de passe doit changer. */
+/** `require_user_id` : session valide ; 403 si le mot de passe doit changer. */
 export async function exigerUtilisateur(requete: FastifyRequest, dep: DependancesAuth): Promise<number> {
-  const th = requete.identiteToolhost;
-  if (th) {
-    requete.utilisateur = { id: th.userId, username: th.username };
-    return th.userId;
-  }
   const brut = requete.session.get("user_id");
   if (!veritePy(brut)) throw new HttpError(401, "not logged in");
   let uid: number;
@@ -110,25 +109,32 @@ export async function exigerUtilisateur(requete: FastifyRequest, dep: Dependance
   return uid;
 }
 
-/** `stream_session_still_valid` sur la base : compte supprimé = flux coupé, panne transitoire = flux gardé. */
+/** `stream_session_still_valid` sur la base : compte supprimé ou suspendu = flux coupé, panne transitoire = flux gardé. */
 export function revaliderFlux(
   dep: DependancesAuth,
   uid: number,
   loginTs: unknown,
   sid: unknown,
+  meta: MetaSession = {},
 ): Promise<boolean> {
-  return fluxEncoreValide(uid, loginTs, sid, {
-    config: () => dep.config(),
-    revoquee: (s) => estRevoquee(dep.base, s),
-    maintenant: () => maintenant(dep),
-    sessionMinTs: async (id) => {
-      const r = await dep.base.get<{ m: number | null }>(
-        "SELECT session_min_ts AS m FROM users WHERE id = ?",
-        [id],
-      );
-      return r === undefined ? undefined : (r.m ?? null);
+  return fluxEncoreValide(
+    uid,
+    loginTs,
+    sid,
+    {
+      config: () => dep.config(),
+      revoquee: (s) => estRevoquee(dep.base, s),
+      maintenant: () => maintenant(dep),
+      sessionMinTs: async (id) => {
+        const r = await dep.base.get<{ m: number | null; s: number | null }>(
+          `SELECT u.session_min_ts AS m, u.suspended_at AS s FROM users u WHERE u.id = ?`,
+          [id],
+        );
+        return r === undefined ? undefined : { min: r.m ?? null, suspended_at: r.s };
+      },
     },
-  });
+    meta,
+  );
 }
 
 /** `_require_admin` / `_require_staff` / `_require_admin_or_mod` : rôle relu en base (`is_admin` : 1 admin, 2 modérateur). */

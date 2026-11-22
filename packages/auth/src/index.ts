@@ -11,6 +11,7 @@ export {
   exigerRole,
   dependancesSession,
   exigerUtilisateur,
+  ligneAcces,
   ligneUtilisateur,
   revaliderFlux,
   signalerRefus,
@@ -29,14 +30,18 @@ export {
 export type { Reseau } from "./ip-client";
 export { estLocalDirect, MANDATAIRES_DE_CONFIANCE } from "./local";
 export {
-  effacerMinSession,
+  DUREE_MAX_SESSION_S,
+  dureeMaxSession,
   estRevoquee,
   leverMinSession,
   purgerRevocations,
   revoquerSid,
 } from "./revocations";
-export { fluxEncoreValide, Session, validerSession } from "./session";
-export type { DependancesSession, LigneUtilisateur } from "./session";
+export { compteSuspendu } from "./etat-compte";
+export { ouvrirSession, renouvelerSession } from "./ouverture";
+export type { MethodeConnexion } from "./ouverture";
+export { fluxEncoreValide, metaSession, Session, validerSession } from "./session";
+export type { DependancesSession, EtatMinSession, LigneUtilisateur, MetaSession } from "./session";
 export {
   creerJeton,
   ErreurJeton,

@@ -113,6 +113,7 @@ export function brancherBureau(rappel: ClientRappel, journal: Journal): void {
     agentUtilisateur: AGENT_UTILISATEUR_HOTE,
     services: {
       idCompte: async (nom) => (await rappel.identityForUsername(nom))?.user_id ?? null,
+      compteRefuse: (nom) => rappel.compteRefuse(nom),
       lireSandbox: lecteurSandbox(rappel),
       notifier: async (compte, titre, corps) => {
         if (!(await rappel.creerNotification(compte, titre, corps)))

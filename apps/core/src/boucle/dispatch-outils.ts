@@ -61,7 +61,14 @@ import { resultIsToolFailure } from "./contrat-resultat";
 import { emit } from "./evenements";
 import { executeToolBatch } from "./execution-outils";
 import type { RappelsOutil } from "./execution-outils";
-import { executionEnCours, metriqueOutil, portJobsBoucle, portVisionBureau, tokenHex } from "./ports";
+import {
+  compteSuspenduLu,
+  executionEnCours,
+  metriqueOutil,
+  portJobsBoucle,
+  portVisionBureau,
+  tokenHex,
+} from "./ports";
 import type { PortVisionBureau } from "./ports";
 import type { LoopDeps, RunContext, RunRecord } from "./run";
 import type { LiveText } from "./texte-direct";
@@ -1076,6 +1083,11 @@ function contexteParent(rec: RunRecord): ContexteParent {
   return { demande: rec.demande, envoye: rec.envoye, outilsDuTour: [...rec.runToolHistory] };
 }
 
+/** Relit l'état du compte avant un outil : suspendu = arrêt comme une annulation ; une lecture en échec est journalisée, le contrôle suivant tranchera. */
+async function arretSiCompteSuspendu(userId: number | null | undefined): Promise<void> {
+  if (await compteSuspenduLu(userId, (m) => log.warn(m))) throw new CancelledError("compte suspendu");
+}
+
 /** Noyau commun aux deux canaux : annulation, `tool_call`, exécution (série ou parallèle), post-traitement dans l'ordre du modèle, anti-boucle. */
 export async function runToolBatch(
   channel: ChannelSpec,
@@ -1137,6 +1149,7 @@ export async function runToolBatch(
     isCancelled: ctx.c.isCancelled,
     signal,
     bornes,
+    avantOutil: () => arretSiCompteSuspendu(ctx.c.userId),
   });
 
   const port = portVisionBureau();

@@ -244,6 +244,7 @@ export async function desktopRunAutomation(username: string, a: ArgsRunAutomatio
         ? null
         : (u, titre, corps) => services.notifier({ user_id: u, username }, titre, corps),
     total_budget_s: RUN_AUTOMATION_BUDGET_S,
+    compte_actif: async () => !(await services?.compteRefuse?.(username)),
   });
   if (note) doc["note"] = note;
   return doc;

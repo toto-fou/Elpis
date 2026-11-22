@@ -2108,7 +2108,9 @@ doctor_connexion() {
             && { [ ! -x "$dossier" ] || { [ -e "$VAULT_KEY_SYS" ] && [ ! -r "$VAULT_KEY_SYS" ]; }; }; then
         illisible=1
     fi
-    if [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
+    if operateur_separe; then
+        info "SSO OpenID Connect : non vérifié par ce compte (configuration et clés des services : sudo ./elpis doctor)"; return 0
+    elif [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
         info "SSO OpenID Connect : non vérifié (core non construit ou config.json absent)"; return 0
     fi
     ELPIS_DOCTOR_COFFRE_ILLISIBLE="$illisible" lignes_doctor "SSO OpenID Connect" vault_core auth doctor
@@ -2434,6 +2436,7 @@ cmd_auth() {
     esac
     charger_instance
     need_exploitation
+    refuser_operateur_separe "auth $*"
     vault_core auth "$@"
 }
 

@@ -77,7 +77,7 @@ follow [SemVer](https://semver.org/).
   commands the operator runs without `sudo` no longer start the core on the services'
   configuration, where, without their keys, it created new ones next to the database
   (`user_db/.session_secret`, `.encryption_key`, a fallback vault key): `db`, `vault`, `secret`,
-  `audit verify` (`--key` included) and `configure` (except `--migrer-mcp` and the checks that run
+  `auth`, `audit verify` (`--key` included) and `configure` (except `--migrer-mcp` and the checks that run
   no core) say `lancez sudo ./elpis …`, `start` and `restart` refuse as under root, `doctor` skips
   the core's checks (`sudo ./elpis doctor`) and `upgrade` ends with `sudo ./elpis doctor`. The
   checks of the tool host bundle run as the tool host (`APP_SERVICE=toolhost`: no session secret

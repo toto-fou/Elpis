@@ -642,7 +642,8 @@ def test_commandes_de_l_operateur_demandent_sudo(depot):
                            ("cmd_secret ls", "lancez sudo ./elpis secret ls"),
                            ("cmd_audit verify --from 2026-01-01", "lancez sudo ./elpis audit verify --from 2026-01-01"),
                            ("cmd_audit verify --key /srv/copie.key", "lancez sudo ./elpis audit verify --key /srv/copie.key"),
-                           ("cmd_db info", "lancez sudo ./elpis db info")):
+                           ("cmd_db info", "lancez sudo ./elpis db info"),
+                           ("cmd_auth status", "lancez sudo ./elpis auth status")):
         r = _harnais(depot, corps, talons, FAUX_UID="1000")
         assert r.returncode != 0 and attendu in r.stderr and "core " not in r.stdout, (corps, r.stderr)
     # Sous root, et sous le compte de la console (sudo ./elpis configure, dans son unité), rien n'est refusé.
@@ -678,6 +679,7 @@ def test_operateur_sans_code_sur_la_configuration_des_services(racine):
                           (("audit", "verify", "--key", "/srv/copie.key"), "lancez sudo ./elpis audit verify --key /srv/copie.key"),
                           (("vault", "status"), "lancez sudo ./elpis vault status"),
                           (("secret", "ls"), "lancez sudo ./elpis secret ls"),
+                          (("auth", "status"), "lancez sudo ./elpis auth status"),
                           (("configure", "--check-db", "--db-password", "s3cret"), "lancez sudo ./elpis configure (mêmes options)"),
                           (("start",), "(sudo systemctl start elpis.target), jamais à la main."),
                           (("restart",), "(sudo systemctl restart elpis.target), jamais à la main.")):
@@ -687,7 +689,7 @@ def test_operateur_sans_code_sur_la_configuration_des_services(racine):
     r, trace = _lt._elpis(racine, "doctor", **env)
     sortie = r.stdout + r.stderr
     for saute in ("verrous de fichiers : non vérifiés", "base de données et serveur LLM : non vérifiés", "RAG : non vérifié",
-                  "coffre (Secrets) : secrets non vérifiés"):
+                  "coffre (Secrets) : secrets non vérifiés", "SSO OpenID Connect : non vérifié"):
         assert f"{saute} par ce compte (configuration et clés des services : sudo ./elpis doctor)" in sortie, (saute, sortie)
     appels = [l for l in trace if l.startswith("node ")]
     assert any(l.endswith("exploitation.mjs bwrap | APP_SERVICE=") for l in appels), appels

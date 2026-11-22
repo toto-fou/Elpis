@@ -81,7 +81,10 @@ follow [SemVer](https://semver.org/).
   no core) say `lancez sudo ./elpis …`, `start` and `restart` refuse as under root, `doctor` skips
   the core's checks (`sudo ./elpis doctor`) and `upgrade` ends with `sudo ./elpis doctor`. The
   checks of the tool host bundle run as the tool host (`APP_SERVICE=toolhost`: no session secret
-  read or created) and the bubblewrap probe no longer loads the configuration.
+  read or created) and the bubblewrap probe no longer loads the configuration. Under `sudo`, each
+  `audit verify --key FILE` is checked and handed to the console's unit like `vault rekey --from`,
+  and `db --password-env NAME` passes `NAME` from root's environment through the unit's
+  environment file.
 - **Qdrant with an API key.** With these keys, Qdrant runs with an API key (the key `qdrant.key`,
   taken from `rag.qdrant_api_key` of `config.json` or created), read from its credentials by
   `deploy/qdrant/lancer.sh`; main and the console send it (`QDRANT_API_KEY_FILE`), any other

@@ -627,6 +627,53 @@ def test_ancienne_cle_remise_par_systemd_au_rekey(depot):
     assert "rc=2" in r.stdout and f"{ancienne} ignoré" in r.stderr and not _lignes(depot, "run.trace")
 
 
+
+def test_cles_du_journal_remises_par_systemd_a_la_verification(depot):
+    for s in ("main", "admin"):
+        _unite(depot, s, f"elpis-{s}", "separes")
+    copie, autre = depot / "user_db/copie.key", depot.parent / "autre.key"
+    for f, texte in ((copie, "cle-copie\n"), (autre, "cle-autre\n")):
+        f.write_text(texte, encoding="utf-8")
+        f.chmod(0o600)
+    node = _executable(depot / "faux-node", '#!/bin/sh\n[ "$1" = -v ] && { echo v24.21.0; exit 0; }\n'
+                       'shift; echo "args=$*"; cat "$4" "$6"\n')
+    talons = CREDS + f'need_exploitation() {{ :; }}\nnode_bin() {{ echo "{node}"; }}\n'
+    r = _harnais(depot, f'cmd_audit verify --key user_db/copie.key --key {autre} --host h; echo "rc=$?"', talons, **_faux(depot))
+    assert "cle-copie\ncle-autre\nrc=0" in r.stdout, r.stdout + r.stderr
+    (appel,) = [json.loads(l) for l in _lignes(depot, "run.trace")]
+    argv = appel["argv"]
+    unite = next(a[7:] for a in argv if a.startswith("--unit="))
+    for n in (1, 2):
+        assert any(re.fullmatch(rf"LoadCredential=audit-cle-{n}\.key:{re.escape(str(_sys(depot)))}/run/elpis-cli\.\w+/audit-cle-{n}\.key", a)
+                   for a in argv), argv
+        assert f"/run/credentials/{unite}.service/audit-cle-{n}.key" in argv
+    assert str(copie) not in " ".join(argv) and str(autre) not in " ".join(argv) and argv[-2:] == ["--host", "h"]
+    # Clé à deux liens : refusée, rien n'est lancé.
+    (_sys(depot) / "run.trace").unlink()
+    os.link(autre, depot.parent / "lien.key")
+    r = _harnais(depot, f'cmd_audit verify --key {autre}; echo "rc=$?"', talons, **_faux(depot))
+    assert "rc=2" in r.stdout and f"{autre} ignoré" in r.stderr and not _lignes(depot, "run.trace")
+
+
+def test_mot_de_passe_de_la_base_remis_par_l_environnement_de_la_console(depot):
+    _unite(depot, "main", "elpis-main", "separes")
+    node = _executable(depot / "faux-node", '#!/bin/sh\n[ "$1" = -v ] && { echo v24.21.0; exit 0; }\n'
+                       'shift; echo "args=$* mdp=$DB_MDP"\n')
+    talons = CREDS + f'need_exploitation() {{ :; }}\nnode_bin() {{ echo "{node}"; }}\n'
+    mdp = "mot de passe $(secret)"
+    r = _harnais(depot, 'cmd_db --password-env DB_MDP check postgres://elpis@db/elpis; echo "rc=$?"', talons, DB_MDP=mdp,
+                 **_faux(depot))
+    assert f"args=db --password-env DB_MDP check postgres://elpis@db/elpis mdp={mdp}\nrc=0" in r.stdout, r.stdout + r.stderr
+    (appel,) = [json.loads(l) for l in _lignes(depot, "run.trace")]
+    assert "mot de passe" not in " ".join(appel["argv"]) and 'DB_MDP="mot de passe \\$(secret)"' in appel["env"]
+    marque = depot / "marque"
+    for args, attendu in ((f"--password-env 'A[$(touch {marque})]'", "refusé"), ("--password-env=minuscule", "refusé"),
+                          ("--password-env ABSENTE", "ABSENTE absente de l'environnement de root")):
+        (_sys(depot) / "run.trace").unlink(missing_ok=True)
+        r = _harnais(depot, f"cmd_db {args} check x", talons, **_faux(depot))
+        assert r.returncode != 0 and attendu in r.stderr and not _lignes(depot, "run.trace"), (args, r.stderr)
+    assert not marque.exists()
+
 # Compte de la console (id -un) : celui des commandes que root lui fait lancer.
 CONSOLE = r'''eval "$(declare -f id | sed '1s/^id /id_faux /')"
 id() { if [ "$*" = -un ]; then echo elpis-admin; else id_faux "$@"; fi; }

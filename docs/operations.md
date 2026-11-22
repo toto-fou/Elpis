@@ -387,11 +387,13 @@ warning. Both can be run again.
 
 **Commands.** Under `sudo`, the commands that need a key (`vault status`, `vault rekey`,
 `secret ls`, `audit verify`, `doctor`, `backup`) run in the console's transient unit, which
-receives its keys from systemd. For `vault rekey --from FILE`, root checks `FILE` (a regular file
-of root or the operator, one link) and hands a copy of it to that unit (`LoadCredential=`): a copy
-only root can read works. Without `sudo`, these commands say `lancez sudo ./elpis …`
-([Service accounts](#service-accounts)); under `sudo`, `audit verify --key FILE` reads `FILE` as
-the console's account (a copy it can read, outside `/tmp`).
+receives its keys from systemd. For `vault rekey --from FILE` and each `audit verify --key FILE`
+(relative to the installation folder), root checks `FILE` (a regular file of root or the operator,
+one link) and hands a copy of it to that unit (`LoadCredential=`, the argument rewritten): a copy
+only root can read works. `db --password-env NAME` takes `NAME` (capital letters, digits and `_`)
+from root's environment (`sudo --preserve-env=NAME`) and hands it to that unit through its
+environment file, never on a command line. Without `sudo`, these commands say `lancez sudo
+./elpis …` ([Service accounts](#service-accounts)).
 
 **What `./elpis doctor` checks.** The systemd version, that each key is there and that
 `systemd-creds` decrypts it (under `sudo`), that each unit carries the keys it uses and no other,

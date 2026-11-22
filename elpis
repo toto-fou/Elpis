@@ -296,9 +296,9 @@ DURCI_BAC=(-p NoNewPrivileges=yes -p CapabilityBoundingSet= -p ProtectSystem=str
 DURCI_CONSOLE=("${DURCI_BAC[@]}" -p RestrictNamespaces=yes -p RestrictSUIDSGID=yes -p ProtectKernelTunables=yes -p ProtectKernelLogs=yes
     -p ProtectHostname=yes -p PrivateIPC=yes -p MemoryMax=25% -p TasksMax=512)
 
-# _console_systemd PTY BAC COMMANDE… : commande de app_console en unité transitoire (systemd-run, dans un sous-shell) : durcissement de la console (BAC=1 : celui de la sonde de bubblewrap), compte et groupe de la console, clés de la console présentes (LoadCredentialEncrypted=, chemins de /run/credentials : systemd-run ne résout pas %d), ancienne clé du coffre CLE_ANCIENNE (copiée par root, LoadCredential=, argument réécrit), environnement dans un fichier à root seul, « $ » doublé (systemd ne développe rien) ; unité arrêtée et fichier retiré à la sortie.
+# _console_systemd PTY BAC COMMANDE… : commande de app_console en unité transitoire (systemd-run, dans un sous-shell) : durcissement de la console (BAC=1 : celui de la sonde de bubblewrap), compte et groupe de la console, clés de la console présentes (LoadCredentialEncrypted=, chemins de /run/credentials : systemd-run ne résout pas %d), fichiers de clé donnés en argument, CLES_REMISES « nom=chemin » (copiés par root, LoadCredential=, arguments réécrits), environnement dans un fichier à root seul, « $ » doublé (systemd ne développe rien) ; unité arrêtée et fichier retiré à la sortie.
 _console_systemd() {
-    local pty="$1" bac="$2" unite d n v x ph lignes colonnes fixes=" " args=() cmd=() rw=() durci=("${DURCI_CONSOLE[@]}")
+    local pty="$1" bac="$2" unite d n v x c ph lignes colonnes fixes=" " args=() cmd=() rw=() durci=("${DURCI_CONSOLE[@]}")
     shift 2
     [ "$bac" -eq 0 ] || durci=("${DURCI_BAC[@]}")
     ph="$(sed -n 's/^ProtectHome=//p' "$SYS_PREFIXE/etc/systemd/system/${UNIT_PREFIX}-admin.service" 2>/dev/null | tail -n 1)"
@@ -319,12 +319,12 @@ _console_systemd() {
     for x in "${e[@]}" ${plus[@]+"${plus[@]}"}; do
         case "$fixes" in *" ${x%%=*} "*) ;; *) _ligne_env "$x" ;; esac
     done > "$d/env" || return 1
-    if [ -n "${CLE_ANCIENNE:-}" ]; then
-        poser_droits copier "$CLE_ANCIENNE" "$d" vault-ancienne.key --proprio "root,$(operateur)" || return 2
-        args+=(-p "LoadCredential=vault-ancienne.key:$d/vault-ancienne.key")
-    fi
+    for c in ${CLES_REMISES[@]+"${CLES_REMISES[@]}"}; do
+        poser_droits copier "${c#*=}" "$d" "${c%%=*}" --proprio "root,$(operateur)" || return 2
+        args+=(-p "LoadCredential=${c%%=*}:$d/${c%%=*}")
+    done
     for x in "$@"; do
-        [ -z "${CLE_ANCIENNE:-}" ] || [ "$x" != "$CLE_ANCIENNE" ] || x="/run/credentials/$unite.service/vault-ancienne.key"
+        for c in ${CLES_REMISES[@]+"${CLES_REMISES[@]}"}; do [ "$x" != "${c#*=}" ] || x="/run/credentials/$unite.service/${c%%=*}"; done
         cmd+=("${x//\$/\$\$}")
     done
     if [ "$pty" -eq 1 ]; then
@@ -2346,11 +2346,22 @@ cmd_backup() {
     return "$rc"
 }
 
-# Base de données : état, test d'une cible, copie, choix du moteur (« use sqlite » ne touche à aucune base).
+# Base de données : état, test d'une cible, copie, choix du moteur (« use sqlite » ne touche à aucune base) ; root sous un compte par service : mot de passe de --password-env NOM lu dans l'environnement de root, remis à la console par son fichier d'environnement (jamais sur une ligne de commande).
 cmd_db() {
+    local i nom=""
     refuser_operateur_separe "db $*"
     charger_instance
     need_exploitation
+    if racine_separee; then
+        for ((i = 1; i <= $#; i++)); do
+            case "${!i}" in --password-env) i=$((i + 1)); nom="${!i:-}" ;; --password-env=*) nom="${!i#*=}" ;; esac
+        done
+    fi
+    if [ -n "$nom" ]; then
+        motif "$nom" '^[A-Z_][A-Z0-9_]*$' || die "--password-env : nom « $nom » refusé (majuscules, chiffres et _ seulement)."
+        [ -n "${!nom+x}" ] || die "--password-env : $nom absente de l'environnement de root (sudo --preserve-env=$nom ./elpis db …)."
+        app_console --env "$nom=${!nom}" "$NODE" "$CORE_DIST/exploitation.mjs" db "$@"; return
+    fi
     core_cmd db "$@"
 }
 
@@ -2379,8 +2390,9 @@ compte_setup() {
     elif [ -n "$unite" ] && [ "$unite" != "${SUDO_USER:-}" ]; then info "Compte des services : $unite (unités systemd installées)."; fi
 }
 
-# Journal de sécurité : mise en place (setup, root) ou vérification des signatures et de la continuité (verify).
+# Journal de sécurité : mise en place (setup, root) ou vérification des signatures et de la continuité (verify ; root et clés remises par systemd : chaque --key FICHIER, relatif au dossier d'Elpis, remis à la console par systemd, CLES_REMISES).
 cmd_audit() {
+    local a=() f CLES_REMISES=()
     if [ "${1:-}" = "setup" ]; then
         compte_setup audit
         audit_setup "$COMPTE_SETUP" "" 1 || die "Journal de sécurité incomplet : voir ci-dessus, puis relancez sudo ./elpis audit setup."
@@ -2394,12 +2406,24 @@ cmd_audit() {
     charger_instance
     need_exploitation
     refuser_operateur_separe "audit $*"
+    if racine_separee && cles_systemd && [ $# -gt 0 ]; then
+        a=("$1"); shift
+        while [ $# -ge 2 ]; do
+            f="$2"
+            if [ "$1" = --key ]; then
+                case "$f" in /*) ;; *) f="$ROOT/$f" ;; esac
+                CLES_REMISES+=("audit-cle-$((${#CLES_REMISES[@]} + 1)).key=$f")
+            fi
+            a+=("$1" "$f"); shift 2
+        done
+        set -- "${a[@]}" "$@"
+    fi
     core_cmd audit "$@"
 }
 
-# Coffre « Secrets » : clé (setup en root ; status ; rekey, ancienne clé relative au dossier d'Elpis, rendue absolue ; clés remises par systemd : ancienne clé remise à la console par systemd, CLE_ANCIENNE) ; doctor sert ./elpis doctor.
+# Coffre « Secrets » : clé (setup en root ; status ; rekey, ancienne clé relative au dossier d'Elpis, rendue absolue ; clés remises par systemd : ancienne clé remise à la console par systemd, CLES_REMISES) ; doctor sert ./elpis doctor.
 cmd_vault() {
-    local f CLE_ANCIENNE=""
+    local f CLES_REMISES=()
     case "${1:-}" in
         setup)
             [ $# -eq 1 ] || die "Usage : sudo ./elpis vault setup"
@@ -2411,7 +2435,7 @@ cmd_vault() {
             if [ "$1" = rekey ] && [ "${2:-}" = --from ] && [ -n "${3:-}" ]; then
                 f="$3"; case "$f" in /*) ;; *) f="$ROOT/$f" ;; esac
                 set -- rekey --from "$f" "${@:4}"
-                ! racine_separee || ! cles_systemd || CLE_ANCIENNE="$f"
+                ! racine_separee || ! cles_systemd || CLES_REMISES=("vault-ancienne.key=$f")
             fi
             vault_core vault "$@" ;;
         *) die "Usage : sudo ./elpis vault setup | ./elpis vault status | ./elpis vault rekey --from FICHIER" ;;

@@ -304,7 +304,9 @@ Operations (`./elpis db …`, served by the core: `apps/core/dist/exploitation.m
 ```
 
 With one account per service, these commands run with `sudo` (`sudo ./elpis db info`): they read
-the services' configuration and keys. Password: `--password-env VARIABLE_NAME` or masked input. The
+the services' configuration and keys, and the password then comes only from `--password-env NAME`,
+read from root's environment (`sudo --preserve-env=NAME ./elpis db --password-env NAME check …`).
+Otherwise, password: `--password-env VARIABLE_NAME` or masked input. The
 transfer copies the tables in foreign-key order, sets aside and counts
 orphan rows, resets the identity sequences, checks counts and checksums, and
 writes a JSON report. From the console, the **Data** page does the

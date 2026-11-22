@@ -31,10 +31,12 @@ follow [SemVer](https://semver.org/).
 
 - **Assistant: the sandbox's real network.** The runtime context no longer names the network profile
   (the model saw its id, such as `profil_2`, where the console shows its name). It gives the level,
-  `none`, `limited` or `full`, with what matters for it: the listed destinations with their ports and
-  DNS resolvers, or the cloud metadata, local network and host machine the profile refuses; then the
+  `none`, `limited` or `full`, with what matters for it: the allowed domains and ports, with only the
+  number of address ranges and DNS resolvers (never an address), or the cloud metadata, local network
+  and host machine the profile refuses, IPv6 included, and what the browser never reaches; then the
   profile's Git relay rule (all repositories, the chosen servers, or the account's verified Git
-  accounts). The text changes only with the profile or its settings, so the prompt cache holds.
+  accounts) and, on a protected profile, the refusals the relay shares with the sandbox network. The
+  text changes only with the profile or its settings, so the prompt cache holds.
   The browser's refusals (the relay's page, the `pw_*` tools) no longer name the profile either: they
   say what the sandbox network refuses, in the same words; the host journal still names the profile.
 

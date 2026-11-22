@@ -413,17 +413,6 @@ a PostgreSQL server: restore it with the server's tools, or start again from
 the backup's SQLite snapshot (see [Recovering from an
 incident](#recovering-from-an-incident)).
 
-A restore from the console that replaces the database (**Full** or
-**Database** scope) cuts every session (global cut in `config.json`) as soon
-as the database is replaced, before the rest of the archive is written (an
-error in the rest leaves them cut): the administrator who ran it sees the
-result, then the page reloads on the sign-in screen (with errors, the message
-says so and the next action leads there). The accounts come back as they were
-in the archive, and the confirmation says so: suspensions, token revocations
-and password changes made since the backup are undone, make them again after
-the restore. SSO accounts are checked again by their provider at their next
-sign-in.
-
 ### Returning to the Python version (tag `python-final`)
 
 The `python-final` tag designates the last Elpis version with a Python core.
@@ -550,6 +539,17 @@ backed up nor restored. The Qdrant index (`rag_app/qdrant/storage/`) is not
 there either: after a restore on another machine, Admin console › Models & services ›
 RAG › Embedding model change › "Reindex all collections" (checkbox "Even those
 already using this model") rebuilds it from the store's extracted texts.
+
+A restore from the console that replaces the database (**Full** or
+**Database** scope) cuts every session (global cut in `config.json`) as soon
+as the database is replaced, before the rest of the archive is written (an
+error in the rest leaves them cut): the administrator who ran it sees the
+result, then the page reloads on the sign-in screen (with errors, the message
+says so and the next action leads there). The accounts come back as they were
+in the archive, and the confirmation says so: suspensions, token revocations
+and password changes made since the backup are undone, make them again after
+the restore. SSO accounts are checked again by their provider at their next
+sign-in.
 
 The `*.lock` files in `user_db/`, in the sandboxes and in `skills/` are locks
 in use: useless in a backup, taken over automatically if their process has

@@ -1131,9 +1131,11 @@ therefore needs the core bundle (`./install.sh`). The services read the key when
 
 With one account per service and systemd 250 or later, `vault setup` writes no plaintext file: an
 existing `/etc/elpis/vault.key` is checked by the core, encrypted into
-`/etc/elpis/credentials/vault.key`, then removed; otherwise the key in place is kept, or a new one
-is created in memory and encrypted directly. It then prints the command that copies it off the
-machine ([Platform keys](#platform-keys)).
+`/etc/elpis/credentials/vault.key`, then removed (kept while the installed units still read it:
+the next `sudo ./elpis service install` gives them the key and removes it; `audit setup` does the
+same with the signing key); otherwise the key in place is kept, or a new one is created in memory
+and encrypted directly. It then prints the command that copies it off the machine
+([Platform keys](#platform-keys)).
 
 If secrets were saved before, under the fallback key, re-encrypt them once the services have
 restarted, then delete the fallback:

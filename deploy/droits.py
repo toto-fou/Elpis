@@ -65,16 +65,17 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           mot de passe de la base locale (48 chiffres hexadécimaux) écrit sur la sortie : lu sans suivre de lien dans un
           fichier ordinaire à un seul lien de PROPRIO, de root ou d'un compte admis, ou créé (0600, à PROPRIO) s'il manque
           ou est vide ; autre contenu : refusé
-        droits.py cle MAGASIN NOM [--source FICHIER] [--proprio A,B] [--min N] [--creer GENRE] [--copie]
+        droits.py cle MAGASIN NOM [--source FICHIER] [--proprio A,B] [--min N] [--creer GENRE] [--copie] [--garder-source]
           clé NOM du magasin de systemd (systemd-creds encrypt --name=NOM --with-key=auto --tpm2-pcrs=, sans PCR : une mise à
           jour de Secure Boot ne la rend pas illisible ; clair par un tube, 0600 root,
           déchiffrée et comparée avant d'être renommée) : reprise de FICHIER (fichier ordinaire à un seul lien d'un des
           comptes, sans écriture d'autrui, N caractères au moins), qui est retiré ensuite ; FICHIER différent d'une clé en
           service : laissés tous deux ; sinon clé gardée, sinon créée sans FICHIER refusé (GENRE :
-          coffre, fernet, session, journal, jeton, qdrant) ; --copie : commande de copie hors de la machine affichée quand la clé change
+          coffre, fernet, session, journal, jeton, qdrant) ; --copie : commande de copie hors de la machine affichée quand la clé change ;
+          --garder-source : FICHIER chiffré mais laissé (unités qui le lisent encore)
         droits.py cle-rendre MAGASIN NOM CIBLE PROPRIO GROUPE MODE [--remplacer]
-          clé NOM déchiffrée dans CIBLE (temporaire exclusif, PROPRIO:GROUPE, MODE octal) si CIBLE manque ou est la même,
-          relue, puis retirée du magasin ; CIBLE « - » : clé retirée seulement ; CIBLE différente : laissées toutes deux
+          clé NOM déchiffrée dans CIBLE (temporaire exclusif, PROPRIO:GROUPE, MODE octal, le même inode vérifié après le
+          renommage) si CIBLE manque ou est la même (fichier à un seul lien), puis retirée du magasin ; CIBLE « - » : clé retirée seulement ; CIBLE différente : laissées toutes deux
           (--remplacer : CIBLE remplacée par la clé en service, signalé)
         droits.py cle-etat MAGASIN NOM...
           une ligne par clé : « NOM ok LONGUEUR », « NOM absent », « NOM illisible » ou « NOM erreur » (échec passager de
@@ -700,7 +701,7 @@ def _retirer_source(dfd: int, nom: str, st: os.stat_result, chemin: str) -> bool
 
 def cle(args: list[str]) -> bool:
     magasin, nom, *reste = args
-    o = _options(reste, {"--source", "--proprio", "--min", "--creer"}, {"--copie"})
+    o = _options(reste, {"--source", "--proprio", "--min", "--creer"}, {"--copie", "--garder-source"})
     genre = (o.get("--creer") or [None])[-1]
     if not NOM_CLE.fullmatch(nom) or (genre is not None and genre not in GENRES):
         raise SystemExit(USAGE)
@@ -735,6 +736,9 @@ def cle(args: list[str]) -> bool:
                 _dire(f"[elpis] {src} chiffré par systemd-creds : {chemin_cle}.")
                 if "--copie" in o:
                     _dire(copie)
+            if "--garder-source" in o:
+                _dire(f"[elpis] {src} gardé : des unités le lisent encore (sudo ./elpis service install le retire).")
+                return True
             if not _retirer_source(sdfd, snom, sst, src):
                 return False
             _dire(f"[elpis] {src} retiré : plus de copie en clair sur cette machine.")
@@ -779,8 +783,9 @@ def _poser_clair(cible: str, clair: bytes, proprio: str, groupe: str, mode: int,
             return False
         if fd is not None:
             with os.fdopen(fd, "rb") as f:
-                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
-                    _dire(f"[warn ] {cible} : fichier spécial : laissé, clé {nom_cle} gardée (à vérifier).", file=sys.stderr)
+                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode) or os.fstat(f.fileno()).st_nlink != 1:
+                    _dire(f"[warn ] {cible} : fichier spécial ou à plusieurs liens : laissé, clé {nom_cle} gardée (à vérifier).",
+                          file=sys.stderr)
                     return False
                 if f.read(65537) == clair:
                     if RACINE:
@@ -793,23 +798,24 @@ def _poser_clair(cible: str, clair: bytes, proprio: str, groupe: str, mode: int,
             _dire(f"[warn ] {cible} différait de la clé {nom_cle} en service : remplacé par elle.", file=sys.stderr)
         tmp = f".{nom}.{secrets.token_hex(8)}"
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
-        try:
-            with os.fdopen(fd, "wb") as f:
+        with os.fdopen(fd, "wb") as f:
+            try:
                 f.write(clair)
                 f.flush()
                 if RACINE:
                     os.fchown(f.fileno(), uid, gid)
                 os.fchmod(f.fileno(), mode)
                 os.fsync(f.fileno())
-            os.replace(tmp, nom, src_dir_fd=dfd, dst_dir_fd=dfd)
-        except BaseException:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp, dir_fd=dfd)
-            raise
-        with os.fdopen(os.open(nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd), "rb") as f:
-            if f.read(65537) != clair:
-                _dire(f"[warn ] {cible} : relu différent de la clé {nom_cle} : clé gardée (à vérifier).", file=sys.stderr)
-                return False
+                os.replace(tmp, nom, src_dir_fd=dfd, dst_dir_fd=dfd)
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    os.unlink(tmp, dir_fd=dfd)
+                raise
+            ecrit, vu = os.fstat(f.fileno()), os.stat(nom, dir_fd=dfd, follow_symlinks=False)
+        if (vu.st_dev, vu.st_ino) != (ecrit.st_dev, ecrit.st_ino):
+            _dire(f"[warn ] {cible} : remplacé par un autre fichier juste après l'écriture : clé {nom_cle} gardée (à vérifier).",
+                  file=sys.stderr)
+            return False
         _fsync_dossier(dfd)
         return True
     finally:

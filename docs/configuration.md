@@ -490,6 +490,10 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
 - `config.json` moves to `/etc/elpis/config/` (a link stays in the repository) and only the
   console writes it; with one account per service, `./elpis configure` runs with `sudo`, then
   `sudo ./elpis service install` again ([operations.md](operations.md#configjson-under-systemd)).
+- With one account per service and systemd 250 or later, the platform keys (vault key, legacy
+  encryption key, session secret, signing key) are encrypted by `systemd-creds` in
+  `/etc/elpis/credentials/` and handed by systemd to the units that use them; the units set the
+  `…_PATH` and `…_FILE` variables below to them ([operations.md](operations.md#platform-keys)).
 - `elpis.target` also pulls in Caddy when HTTPS is active, and the local
   voice services (`elpis-whisper`, `elpis-tts`) when they are installed.
 - `.env` is read by each unit (`EnvironmentFile`); it overrides the
@@ -503,7 +507,7 @@ ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs
 ```
 
 > **Session secret.** Order: `APP_SESSION_SECRET` > `config.json ›
-> app.session_secret` > `user_db/.session_secret` (created with 0600 under an
+> app.session_secret` > `APP_SESSION_SECRET_FILE` (read only) > `user_db/.session_secret` (created with 0600 under an
 > `fcntl` lock on first startup, and re-hardened to 0600 on every boot). The published
 > placeholders (`mysecretsessiontomodify`, `changeme`, …) are **treated
 > as absent** — otherwise the committed example would have served as the signing
@@ -945,6 +949,9 @@ as missing.
 | `APP_CONTEXT_CONFIG` | `app.context_config_path` | `packages/config/context_config.json` | LLM texts |
 | `APP_DB_PATH` | `app.db_path` | `user_db/app.db` | SQLite file (default engine) |
 | `APP_SESSION_SECRET` | `app.session_secret` | `user_db/.session_secret` | Session signing |
+| `APP_SESSION_SECRET_FILE` | — | — | File holding the session secret, after `APP_SESSION_SECRET` and `app.session_secret`: read only, never created nor replaced; missing, unreadable or shorter than 40 characters, the start is refused. Set by the units to the key handed by systemd (`%d/session.secret`) |
+| `APP_ENCRYPTION_KEY` | `app.encryption_key` | `.encryption_key` next to the database | Legacy (Fernet) encryption key |
+| `APP_ENCRYPTION_KEY_PATH` | — | — | File holding the legacy encryption key, after `APP_ENCRYPTION_KEY` and `app.encryption_key`: read only, never created (`.encryption_key` is then ignored); missing or invalid, encryption is unavailable (`CRITICAL` in the log). Set by the units to the key handed by systemd (`%d/encryption.key`) |
 | `APP_MAX_RECENT_CHATS` | `app.max_recent_chats` | `100` | Max active conversations — **destructive** beyond it (see below); re-read live |
 | `APP_SANDBOX_DIR` | `app.sandbox_dir` | `user_sandboxes` | Sandbox root (propagated as an absolute path) |
 | `APP_SKILLS_DIR` / `APP_USER_SKILLS_DIR` | `skills.dir` / `skills.user_dir` | `skills` / `user_skills` | Skill stores |
@@ -967,7 +974,7 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | Variable | Default | Description |
 |---|---|---|
 | `ELPIS_AUDIT_DIR` | `/var/lib/elpis/audit` if writable, otherwise `logs/audit` in the repository | Folder of the security journal |
-| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned |
+| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned. Keys handed by systemd: set by the units of main, the console and the tool host (`%d/audit.key`) |
 | `ELPIS_APP_LOG_DIR` | `user_db/logs` of the repository (`/var/log/elpis` under systemd) | Folder of the access log `app.log.jsonl` |
 | `ELPIS_APP_LOG_MAX_MO` | `8` | Size in MB at which `app.log.jsonl` is rotated (1 to 1024) |
 | `ELPIS_APP_LOG_ROTATIONS` | `3` | Rotated files kept, `app.log.jsonl.1` to `.N` (1 to 50) |
@@ -988,7 +995,7 @@ wins; setup, backup and key change are in [operations.md](operations.md#secrets-
 | Variable | Default | Description |
 |---|---|---|
 | `ELPIS_VAULT_KEY` | — | The key itself: 32 bytes in canonical base64 (44 characters, as printed by `base64`) or 64 hexadecimal digits; a key made of one repeated byte is refused. An invalid value is an error, with no fallback |
-| `ELPIS_VAULT_KEY_PATH` | `/etc/elpis/vault.key` | Key file, same format, created by `sudo ./elpis vault setup` (0440, root and the key group of the security journal). A path set here must exist: no fallback |
+| `ELPIS_VAULT_KEY_PATH` | `/etc/elpis/vault.key` | Key file, same format, created by `sudo ./elpis vault setup` (0440, root and the key group of the security journal). A path set here must exist: no fallback. Keys handed by systemd: set by the units of main and the console (`%d/vault.key`) |
 | — | `user_db/.vault.key` | Fallback when neither is set and `/etc/elpis/vault.key` does not exist: created 0600 next to the database when the first secret is saved, and only while the vault is empty. It travels with the backups of `user_db/`, so `./elpis doctor` warns while it is in use |
 
 - **Prefer the key file to `ELPIS_VAULT_KEY`.** A value in `.env` sits in a file of the repository

@@ -266,7 +266,7 @@ id() { if [ "$#" -eq 1 ] && [ "$1" = -u ]; then echo 0; else command id "$@"; fi
 systemctl() { :; }; usermod() { :; }; sudo() { :; }; getent() { return 1; }; chown() { :; }; install() { :; }
 setsid() { [ "$1" = -w ] && shift; "$@"; }; runuser() { while [ "$1" != -- ]; do shift; done; shift; "$@"; }
 systemd-tmpfiles() { :; }; load_runtime() { :; }; need_core() { :; }; config_vers_console() { :; }; ranger_secrets() { :; }
-jeton_rag() { :; }; droits_unique() { :; }
+jeton_rag() { :; }; droits_unique() { :; }; cles_systemd() { return 1; }; cles_rendues() { :; }
 _render_units() { UNITS_WANTS=(); RAG_STORE=/x; RAG_CACHE=/x; ECRITURES=""; }
 audit_setup() { echo "audit_setup $1 | $2"; }; cmd_stop() { echo "cmd_stop $COMPTES_ARRET"; }
 """

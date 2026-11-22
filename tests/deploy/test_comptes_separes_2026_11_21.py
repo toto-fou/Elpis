@@ -357,7 +357,9 @@ def test_secrets_de_config_ecrits_par_root_sans_lien_suivi(depot):
     assert {f: (db / f).read_text(encoding="utf-8") for f in (".session_secret", ".encryption_key")} == {
         ".session_secret": "s" * 48 + "\n", ".encryption_key": "cle\n"}
     assert (etc / "rag.token").read_text(encoding="utf-8") == "jeton\n" and _mode(db / ".encryption_key") == "600"
-    assert journal.read_text(encoding="utf-8").splitlines() == ["--ranger-secrets --sortie -"]
+    # En deux temps : valeurs données sans être retirées, puis retirées une fois écrites et vérifiées par root.
+    assert journal.read_text(encoding="utf-8").splitlines() == [
+        "--ranger-secrets --sortie - --garder", "--ranger-secrets --retirer app.session_secret app.encryption_key rag.service_token"]
     assert any(l.startswith("runuser -u elpis-admin -- ") for l in _trace(depot)) and not (depot / "config.json.bak").exists()
     (db / ".encryption_key").unlink()
     (db / ".encryption_key").symlink_to(cible)
@@ -436,7 +438,8 @@ def _harnais_simple(corps: str) -> subprocess.CompletedProcess:
         fin = debut if texte[debut].rstrip().endswith("}") and texte[debut].count("{") == texte[debut].count("}") \
             else next(i for i in range(debut + 1, len(texte)) if texte[i] == "}")
         sortie.extend(texte[debut:fin + 1])
-    return subprocess.run(["bash", "-c", "set -uo pipefail\n" + "\n".join(sortie) + "\n" + corps], capture_output=True,
+    # Script par l'entrée standard : toutes les fonctions dépassent la taille permise d'un argument (128 Kio).
+    return subprocess.run(["bash", "-s"], input="set -uo pipefail\n" + "\n".join(sortie) + "\n" + corps, capture_output=True,
                           text=True, timeout=60, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C.UTF-8"})
 
 

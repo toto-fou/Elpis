@@ -31,8 +31,9 @@
 #                                moteur (« ./elpis db use sqlite » = porte de
 #                                sortie si le serveur de base est tombé)
 #  sudo ./elpis vault setup      clé du coffre « Secrets » /etc/elpis/vault.key
-#                                (0440, groupe de la clé du journal), jamais
-#                                remplacée
+#                                (0440, groupe de la clé du journal ; un compte
+#                                par service et systemd 250 ou plus : chiffrée
+#                                par systemd-creds), jamais remplacée
 #  ./elpis vault status          clé du coffre (source, kid) et secrets
 #                                chiffrés par une autre clé
 #  ./elpis vault rekey --from FICHIER   rechiffre avec la clé courante les
@@ -89,6 +90,8 @@ COMPTE_ETAT=""
 ENV_PAIRES=(); CHEMINS_FIXES=(); ENV_CHARGE=0; ECARTS_CONFIG=0
 GROUPE_RAG=elpis-rag
 JETON_RAG_SYS="$SYS_PREFIXE/etc/elpis/rag.token"
+# Clés de la plateforme remises par systemd (un compte par service, systemd 250 ou plus) : magasin à root seul ; CLES_SYSTEMD (oui, non) calculé une fois.
+CLES_SYS="$SYS_PREFIXE/etc/elpis/credentials"; CLES_SYSTEMD=""
 NODE_DIR="$ROOT/node"
 CORE_DIST="$ROOT/apps/core/dist"
 HOTE_DIST="$ROOT/apps/toolhost/dist"
@@ -200,7 +203,127 @@ env_console() {
     [ ! -d "/run/$UNIT_PREFIX" ] || printf 'ELPIS_RUNTIME_DIR=/run/%s\n' "$UNIT_PREFIX"
 }
 
-# app_console [--terminal] [--brut] [--env NOM=VALEUR]… COMMANDE… : seul chemin de root vers le code de l'application sous un compte par service (core, lanceur, coffre, configure.py, wizard.py, sauvegarde, migrations) : sous le compte de la console, jamais root, depuis la racine, umask 0007, environnement construit (env_console, plus --env) et exporté (aucune valeur sur une ligne de commande) ; terminal de root jamais confié (_hors_terminal : session à part, entrée /dev/null, sorties filtrées ; --brut : archive telle quelle), sauf --terminal : nouveau pseudo-terminal (runuser --pty) filtré.
+# Version du systemd en marche (/run/systemd/system ; premier nombre de « systemctl --version ») ; aucune dans l'arborescence factice des essais (ELPIS_PREFIXE_SYSTEME), qui ne lit jamais le systemd de la machine.
+version_systemd() {
+    local l
+    [ -z "$SYS_PREFIXE" ] && [ -d /run/systemd/system ] || return 1
+    l="$(systemctl --version 2>/dev/null | head -n 1)"
+    motif "$l" '^systemd ([0-9]{1,5})([^0-9]|$)' && printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
+# Clés de la plateforme remises par systemd possibles ici : systemd 250 ou plus (LoadCredentialEncrypted=), systemd-creds et systemd-run.
+cles_systemd() {
+    local v
+    if [ -z "$CLES_SYSTEMD" ]; then
+        CLES_SYSTEMD=non
+        v="$(version_systemd)" && [ "$v" -ge 250 ] && command -v systemd-creds >/dev/null 2>&1 \
+            && command -v systemd-run >/dev/null 2>&1 && CLES_SYSTEMD=oui
+    fi
+    [ "$CLES_SYSTEMD" = oui ]
+}
+
+# Clés remises par systemd à un service : main, la console et les commandes que root lance sous son compte (console), toutes ; l'hôte d'outils, la clé du journal seule.
+cles_du_service() {
+    case "$1" in
+        main|admin|console) echo vault.key encryption.key session.secret audit.key ;;
+        toolhost) echo audit.key ;;
+    esac
+}
+
+# Variable qui donne au code le chemin d'une clé remise par systemd.
+variable_de_cle() {
+    case "$1" in
+        vault.key) echo ELPIS_VAULT_KEY_PATH ;; encryption.key) echo APP_ENCRYPTION_KEY_PATH ;;
+        session.secret) echo APP_SESSION_SECRET_FILE ;; audit.key) echo ELPIS_AUDIT_KEY_PATH ;;
+    esac
+}
+
+# Clé NOM présente dans le magasin (vu par ce compte : root seul le lit).
+cle_presente() { [ -f "$CLES_SYS/$1" ] && [ ! -L "$CLES_SYS/$1" ]; }
+
+# Vrai si les unités installées reçoivent la clé NOM de systemd (LoadCredentialEncrypted= de main ou de la console).
+cle_des_unites() {
+    local s
+    for s in main admin; do
+        grep -q "^LoadCredentialEncrypted=${1//./\\.}:" "$SYS_PREFIXE/etc/systemd/system/${UNIT_PREFIX}-$s.service" 2>/dev/null && return 0
+    done
+    return 1
+}
+
+# Commande de l'opérateur sans sudo qui demande la clé NOM, remise par systemd aux seuls services : arrêt, avec la commande à lancer.
+refuser_sans_cle() {
+    [ "$(id -u)" -ne 0 ] && cle_des_unites "$1" || return 0
+    die "Clé $1 remise par systemd aux seuls services : lancez sudo ./elpis $2"
+}
+
+# Opérateur : le compte qui a lancé sudo, sinon le propriétaire de l'installation (jamais root).
+operateur() {
+    local o="${SUDO_USER:-}"
+    [ -n "$o" ] && [ "$o" != root ] || o="$(stat -c %U -- "$ROOT")"
+    printf '%s\n' "$o"
+}
+
+# NOM=VALEUR en ligne d'un fichier d'environnement de systemd (EnvironmentFile=) : valeur entre guillemets, \ " ` et $ échappés, prise telle quelle ; nom hors motif ignoré.
+_ligne_env() {
+    local v="${1#*=}"
+    motif "${1%%=*}" '^[A-Za-z_][A-Za-z0-9_]*$' || return 0
+    v="${v//\\/\\\\}"; v="${v//\"/\\\"}"; v="${v//\`/\\\`}"; v="${v//\$/\\\$}"
+    printf '%s="%s"\n' "${1%%=*}" "$v"
+}
+
+# Dossiers que la console écrit, comme son unité : état de la racine, journaux, config.json, dossier de la base et chemins fixés par les unités (validés par chemins_separes).
+ecritures_console() {
+    local e
+    printf '%s\n' "$ROOT/user_db" "$LOG_DIR" "$ROOT/system_prompts" "$ROOT/skills" "$ROOT/user_skins" "$ROOT/user_skills" \
+        "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS" "$CONFIG_SYS" "/run/$UNIT_PREFIX" "$(dirname -- "${DB_FICHIER:-$ROOT/user_db/app.db}")"
+    for e in "${CHEMINS_FIXES[@]}"; do [ "${e%%=*}" = APP_DB_PATH ] || printf '%s\n' "${e#*=}"; done
+}
+
+# Durcissement des commandes de root sous le compte de la console (unité transitoire) : celui de l'unité de la console que bubblewrap supporte (sonde de doctor), système en lecture seule hors de ses dossiers.
+DURCI_CONSOLE=(-p NoNewPrivileges=yes -p CapabilityBoundingSet= -p ProtectSystem=strict -p ProtectHome=read-only -p PrivateTmp=yes
+    -p PrivateDevices=yes -p ProtectKernelModules=yes -p ProtectControlGroups=yes -p ProtectClock=yes -p ProtectProc=invisible
+    -p RestrictRealtime=yes -p LockPersonality=yes -p SystemCallArchitectures=native
+    -p "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" -p "InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock")
+
+# Commande de app_console en unité transitoire (systemd-run, dans un sous-shell) : compte et groupe de la console, clés de la console présentes (LoadCredentialEncrypted=, chemins de /run/credentials : systemd-run ne résout pas %d), ancienne clé du coffre CLE_ANCIENNE (copiée par root, LoadCredential=, argument réécrit), environnement dans un fichier à root seul, « $ » doublé (systemd ne développe rien) ; unité arrêtée et fichier retiré à la sortie.
+_console_systemd() {
+    local pty="$1" unite d n v x lignes colonnes fixes=" " args=() cmd=() rw=()
+    shift
+    unite="$UNIT_PREFIX-cli-$BASHPID-$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
+    umask 0077
+    d="$(mktemp -d "$SYS_PREFIXE/run/$UNIT_PREFIX-cli.XXXXXX")" || return 1
+    trap "systemctl stop --no-block -- $(printf %q "$unite.service") >/dev/null 2>&1; rm -rf -- $(printf %q "$d")" EXIT
+    args=(--wait --collect --quiet "--unit=$unite" "--uid=$UNIT_PREFIX-admin" "--gid=$GROUPE_DONNEES" -p "EnvironmentFile=$d/env"
+          -p "WorkingDirectory=$ROOT" -p UMask=0007 "${DURCI_CONSOLE[@]}")
+    mapfile -t rw < <(ecritures_console)
+    for x in "${rw[@]}"; do args+=(-p "ReadWritePaths=-$x"); done
+    for n in $(cles_du_service console); do
+        cle_presente "$n" || continue
+        v="$(variable_de_cle "$n")"; fixes+="$v "
+        args+=(-p "LoadCredentialEncrypted=$n:$CLES_SYS/$n" -p "Environment=$v=/run/credentials/$unite.service/$n")
+    done
+    for x in "${e[@]}" ${plus[@]+"${plus[@]}"}; do
+        case "$fixes" in *" ${x%%=*} "*) ;; *) _ligne_env "$x" ;; esac
+    done > "$d/env" || return 1
+    if [ -n "${CLE_ANCIENNE:-}" ]; then
+        poser_droits copier "$CLE_ANCIENNE" "$d" vault-ancienne.key --proprio "root,$(operateur)" || return 2
+        args+=(-p "LoadCredential=vault-ancienne.key:$d/vault-ancienne.key")
+    fi
+    for x in "$@"; do
+        [ -z "${CLE_ANCIENNE:-}" ] || [ "$x" != "$CLE_ANCIENNE" ] || x="/run/credentials/$unite.service/vault-ancienne.key"
+        cmd+=("${x//\$/\$\$}")
+    done
+    if [ "$pty" -eq 1 ]; then
+        if read -r lignes colonnes < <(stty size 2>/dev/null) && motif "$lignes $colonnes" '^[1-9][0-9]{0,3} [1-9][0-9]{0,3}$'; then
+            args+=(-p "TTYRows=$lignes" -p "TTYColumns=$colonnes")
+        fi
+        systemd-run --pty "${args[@]}" -- "${cmd[@]}" | filtre_affichage --tui
+        return "${PIPESTATUS[0]}"
+    fi
+    _hors_terminal ${brut[@]+"${brut[@]}"} systemd-run --pipe "${args[@]}" -- "${cmd[@]}"
+}
+
+# app_console [--terminal] [--brut] [--env NOM=VALEUR]… COMMANDE… : seul chemin de root vers le code de l'application sous un compte par service (core, lanceur, coffre, configure.py, wizard.py, sauvegarde, migrations) : sous le compte de la console, jamais root, depuis la racine, umask 0007, environnement construit (env_console, plus --env ; aucune valeur sur une ligne de commande) ; clés remises par systemd possibles : unité transitoire (_console_systemd), sinon runuser ; terminal de root jamais confié (_hors_terminal : session à part, entrée /dev/null, sorties filtrées ; --brut : archive telle quelle), sauf --terminal : nouveau pseudo-terminal filtré.
 app_console() {
     local pty=0 brut=() v e=() plus=()
     while :; do
@@ -214,6 +337,7 @@ app_console() {
     [ "${ENV_CHARGE:-0}" = 1 ] || charger_env_sur
     [ "${#CHEMINS_FIXES[@]}" -gt 0 ] || chemins_separes
     mapfile -t e < <(env_console)
+    if cles_systemd; then (cd "$ROOT" && _console_systemd "$pty" "$@"); return; fi
     (
         cd "$ROOT" || exit 1
         for v in $(compgen -e); do unset "$v" 2>/dev/null; done
@@ -921,6 +1045,16 @@ _env_comptes() {
     esac
 }
 
+# Lignes des clés remises par systemd au service S (un compte par service, systemd 250 ou plus) : pour chaque clé de S présente dans le magasin (vu par ce compte), LoadCredentialEncrypted= et sa variable (%d : dossier des credentials du service) ; aucune sinon (fichiers du bloc 5).
+_cles_unite() {
+    local n
+    [ "$MODE_COMPTES" = separes ] && cles_systemd || return 0
+    for n in $(cles_du_service "$1"); do
+        cle_presente "$n" || continue
+        printf 'LoadCredentialEncrypted=%s:%s/%s\nEnvironment="%s=%%d/%s"\n' "$n" "$CLES_SYS" "$n" "$(variable_de_cle "$n")" "$n"
+    done
+}
+
 # NOM=VALEUR dans l'environnement de l'unité en cours (SPEC_ENV), à la place d'une valeur déjà donnée.
 _env_unite() {
     local e l=()
@@ -965,7 +1099,7 @@ _render_units() {
     ecr="$(_chemins_hors_depot "${db%/*}")"; ECRITURES="$ecr"
     # Toute valeur venue de .env, du core ou du système validée ici, avant le moindre filtre.
     mapfile -t valeurs < <(printf '%s\n' "$ROOT" "$VAULT_KEY_SYS" "$repli" "$AUDIT_KEY_SYS" "$SANDBOX_DIR" "$RAG_STORE" "$RAG_CACHE" \
-        "$CHART_DIR" "${db%/*}" "$nav"; printf '%s\n' "$ecr" | cut -s -f2)
+        "$CHART_DIR" "${db%/*}" "$nav" "$CLES_SYS"; printf '%s\n' "$ecr" | cut -s -f2)
     for e in "${valeurs[@]}"; do [ -z "$e" ] || _chemin_unite "Chemin d'unité" "$e"; done
     mapfile -t hors < <(printf '%s\n' "$ecr" | cut -s -f2; printf '%s\n' "${NODE:-}" "$nav"; readlink -f "${PY:-}" 2>/dev/null)
     GAB=([PREFIX]="$UNIT_PREFIX" [RUN]="$run" [ROOT]="$ROOT" [BASE]="${db%/*}" [VAULT_KEY_SYS]="$VAULT_KEY_SYS"
@@ -980,6 +1114,7 @@ _render_units() {
         for e in "${SPEC_CMD[@]}"; do _mot_unite "Commande de $s" "$e" arg; done
         [[ "${SPEC_CMD[0]:-}" == /* ]] || die "Commande de $s : « ${SPEC_CMD[0]:-} » refusée (chemin absolu attendu, sans préfixe + @ - : !) : rien n'est installé."
         GAB[COMPTE]="$(_compte_unite "$s" "$run_user")"
+        GAB[CLES]="$(_cles_unite "$s")"
         GAB[UMASK]="$(_umask_unite "$s")"
         GAB[WORKDIR]="$SPEC_DIR"
         GAB[EXEC]="$(printf '%q ' "${SPEC_CMD[@]}")"
@@ -1253,23 +1388,37 @@ droits_unique() {
     return "$e"
 }
 
-# Secrets de config.json rangés dans leurs fichiers sans prendre de chemin à config.json : deploy/configure.py --ranger-secrets les retire sous son propriétaire COMPTE (la console en mode séparé, par app_console) et les donne par un tube ; root les écrit (deploy/droits.py ranger) près de la base de confiance et dans JETON, cibles vérifiées avant (sans quoi rien n'est retiré), puis retire le config.json.bak resté dans le dépôt.
+# ranger_cfg COMPTE ARGUMENT… : deploy/configure.py --ranger-secrets ARGUMENT… sous le propriétaire de config.json : la console en mode séparé (app_console), le compte unique COMPTE sinon (runuser, hors du terminal de root).
+ranger_cfg() {
+    local c="$1"; shift
+    if [ "$MODE_COMPTES" = separes ]; then app_console "$PY" "$ROOT/deploy/configure.py" --ranger-secrets "$@"
+    else (cd / && _hors_terminal runuser -u "$c" -- "$PY" "$ROOT/deploy/configure.py" --ranger-secrets "$@"); fi
+}
+
+# Secrets de config.json rangés sans prendre de chemin à config.json, en deux temps : deploy/configure.py --ranger-secrets --garder les donne par un tube sous son propriétaire COMPTE, sans les retirer ; root les écrit (deploy/droits.py ranger, cibles vérifiées avant) près de la base de confiance et dans JETON, ou en clés remises par systemd, et les vérifie ; puis --retirer ôte de config.json les seuls secrets écrits, s'ils n'ont pas changé ; enfin le config.json.bak resté dans le dépôt est retiré.
 ranger_secrets() {
-    local jeton="$1" c="$2" f sortie rc
+    local jeton="$1" c="$2" f sortie liste rc magasin=() cibles=() cles=()
     [ -n "$BASE_DONNEES" ] || return 1
-    for f in "$BASE_DONNEES/.session_secret" "$BASE_DONNEES/.encryption_key" "$jeton"; do
+    cibles=("$BASE_DONNEES/.session_secret" "$BASE_DONNEES/.encryption_key" "$jeton")
+    if [ "$MODE_COMPTES" = separes ] && cles_systemd; then magasin=(--magasin "$CLES_SYS"); cibles=("$jeton"); fi
+    for f in "${cibles[@]}"; do
         [ -d "${f%/*}" ] && [ ! -L "${f%/*}" ] && [ ! -L "$f" ] && { [ ! -e "$f" ] || [ -f "$f" ]; } \
             || { warn "$f : dossier absent, lien ou fichier spécial : secrets laissés dans config.json (à vérifier, puis sudo ./elpis service install)."; return 1; }
     done
-    if [ "$MODE_COMPTES" = separes ]; then sortie="$(app_console "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?
-    else sortie="$(cd / && _hors_terminal runuser -u "$c" -- "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?; fi
+    sortie="$(ranger_cfg "$c" --sortie - --garder)"; rc=$?
     if [ "$rc" -ne 0 ]; then
         warn "Secrets de config.json non rangés (deploy/configure.py --ranger-secrets, code $rc) : relancez sudo ./elpis service install une fois corrigé."
         return 1
     fi
-    printf '%s' "$sortie" | poser_droits ranger "$BASE_DONNEES" "$jeton" \
-        || { warn "Secrets retirés de config.json mais pas tous écrits (voir ci-dessus) : ceux qui manquent sont à saisir de nouveau."; return 1; }
+    liste="$(printf '%s' "$sortie" | poser_droits ranger "$BASE_DONNEES" "$jeton" ${magasin[@]+"${magasin[@]}"})"; rc=$?
+    [ "$rc" -eq 0 ] || warn "Secrets de config.json pas tous écrits (voir ci-dessus) : ceux-là restent dans config.json ; relancez sudo ./elpis service install une fois corrigé."
+    mapfile -t cles < <(printf '%s\n' "$liste" | grep -xE 'app\.(session_secret|encryption_key)|rag\.service_token')
+    if [ "${#cles[@]}" -gt 0 ]; then
+        printf '%s' "$sortie" | ranger_cfg "$c" --retirer "${cles[@]}" \
+            || { warn "Secrets rangés mais pas tous retirés de config.json (voir ci-dessus) : relancez sudo ./elpis service install."; rc=1; }
+    fi
     [ ! -f "$ROOT/config.json.bak" ] || [ -L "$ROOT/config.json.bak" ] || rm -f -- "$ROOT/config.json.bak"
+    return "$rc"
 }
 
 # Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; compte unique, user_db/.rag_service_token ; secrets de config.json rangés au passage.
@@ -1285,6 +1434,43 @@ jeton_rag() {
         ranger_secrets "$depot" "$1"
     fi
 }
+
+# Magasin des clés remises par systemd : CLES_SYS, 0700 root:root (deploy/droits.py dossier : ni lien ni autre propriétaire).
+magasin_cles() { poser_droits dossier "$CLES_SYS" 0700 root root --creer; }
+
+# Un compte par service et systemd 250 ou plus, services arrêtés : clés de la plateforme chiffrées par systemd-creds dans le magasin, chacune reprise de sa source en clair du bloc 5 (deploy/droits.py cle : lue sans suivre de lien, à root, à l'opérateur OPÉRATEUR ou à un ancien compte unique d'ANCIENS ; chiffrée, déchiffrée et comparée, puis retirée), sinon gardée, sinon créée : clé du coffre (/etc/elpis/vault.key ; la clé de repli seule devient la clé, mêmes secrets sans rekey, et reste sinon pour vault rekey --from), clé de chiffrement héritée et secret de session (près de la base), clé du journal.
+cles_vers_systemd() {
+    local proprios="root,$1" n e=0 source="$VAULT_KEY_SYS" session=(--creer session)
+    for n in ${2:-}; do case "$n" in root|"$UNIT_PREFIX"-*) ;; *) proprios+=",$n" ;; esac; done
+    magasin_cles || return 1
+    if [ ! -e "$VAULT_KEY_SYS" ] && [ ! -L "$VAULT_KEY_SYS" ] && ! cle_presente vault.key; then source="$BASE_DONNEES/.vault.key"; fi
+    poser_droits cle "$CLES_SYS" vault.key --source "$source" --proprio "$proprios" --creer coffre --copie || e=1
+    poser_droits cle "$CLES_SYS" encryption.key --source "$BASE_DONNEES/.encryption_key" --proprio "$proprios" --creer fernet --copie || e=1
+    [ -z "${APP_SESSION_SECRET:-}" ] || session=()
+    poser_droits cle "$CLES_SYS" session.secret --source "$BASE_DONNEES/.session_secret" --proprio "$proprios" --min 40 \
+        ${session[@]+"${session[@]}"} || e=1
+    poser_droits cle "$CLES_SYS" audit.key --source "$AUDIT_KEY_SYS" --proprio "$proprios" --creer journal --copie || e=1
+    return "$e"
+}
+
+# cles_rendues COMPTE GROUPE : clés remises par systemd que le mode en place n'emploie pas (retour à un compte, retrait des services, systemd trop ancien) rendues à leurs fichiers du compte unique, sans suivre de lien : clés du coffre et du journal 0440 root:GROUPE dans /etc/elpis, clé de chiffrement et secret de session 0600 à COMPTE près de la base des unités séparées ; une cible différente garde la clé ; magasin retiré une fois vide ; rien sans magasin.
+cles_rendues() {
+    local proprio="$1" g="$2" gb base e=0
+    [ -d "$CLES_SYS" ] || return 0
+    command -v systemd-creds >/dev/null 2>&1 || { warn "systemd-creds absent : clés de $CLES_SYS non déchiffrables (installez systemd, ou remettez leurs copies hors de la machine à leurs emplacements)."; return 1; }
+    gb="$(id -gn "$proprio")" || return 1
+    base="$(chemins_separes >/dev/null && dirname -- "$DB_FICHIER")" && [ -n "$base" ] || return 1
+    poser_droits cle-rendre "$CLES_SYS" vault.key "$VAULT_KEY_SYS" root "$g" 0440 || e=1
+    poser_droits cle-rendre "$CLES_SYS" audit.key "$AUDIT_KEY_SYS" root "$g" 0440 || e=1
+    poser_droits cle-rendre "$CLES_SYS" encryption.key "$base/.encryption_key" "$proprio" "$gb" 0600 || e=1
+    poser_droits cle-rendre "$CLES_SYS" session.secret "$base/.session_secret" "$proprio" "$gb" 0600 || e=1
+    [ "$e" -eq 0 ] || return 1
+    rmdir -- "$CLES_SYS" 2>/dev/null || { warn "$CLES_SYS non vide : gardé (à vérifier)."; return 1; }
+    info "Clés de la plateforme rendues à leurs fichiers ; $CLES_SYS retiré."
+}
+
+# Retrait des services : clés remises par systemd rendues à l'opérateur (compte unique d'un ./elpis start ou d'une prochaine installation) et au groupe de sa clé ; sous-shell : un .env refusé n'arrête que cette étape.
+cles_au_retrait() { ( op="$(operateur)"; charger_env_sur && groupe_de_cle "$op" && cles_rendues "$op" "$GRP_CLE" ); }
 
 # Stockage de Qdrant, services arrêtés : rag_app/qdrant/storage déplacé une fois dans le dossier d'état privé du compte dynamique (mode séparé ; /var/lib/private, 0700 à root s'il manque, systemd rend ce dossier au compte et pose le lien de /var/lib), ramené dans le dépôt au compte unique COMPTE sinon.
 qdrant_stockage() {
@@ -1387,12 +1573,25 @@ cmd_service() {
                 fi
             fi
             [ "$MODE_COMPTES" = separes ] || ptrace_restreint "$MODE_COMPTES"
+            # Clés remises par systemd que ce mode n'emploie pas (retour à un compte, systemd trop ancien) : rendues à leurs fichiers avant audit setup, qui en créerait une neuve.
+            if ! { [ "$MODE_COMPTES" = separes ] && cles_systemd; } && ! cles_rendues root root; then
+                systemctl start "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
+                die "Clés remises par systemd non rendues à leurs fichiers (voir ci-dessus) : unités et services remis tels quels."
+            fi
             audit_setup "$ecrivain" "$ancien" 0 \
                 || warn "Journal de sécurité incomplet (voir ci-dessus) : sudo ./elpis audit setup une fois corrigé."
             cle_regroupee "$VAULT_KEY_SYS" "$([ "$MODE_COMPTES" = separes ] && echo "$GROUPE_CLE" || echo "${GRP_CLE:-}")" \
                 || warn "Clé du coffre $VAULT_KEY_SYS non remise au groupe des services (sudo ./elpis vault setup)."
             # Avant les unités : sans config.json chez la console, main et la console ne pourraient plus l'écrire.
             config_vers_console "$run_user" "$ancien" || die "config.json non rangé dans $CONFIG_SYS (voir ci-dessus) : unités et services laissés tels quels."
+            if [ "$MODE_COMPTES" = separes ] && cles_systemd; then
+                # Clés remises par systemd : rangées avant le rendu, les unités ne portant que les clés présentes ; processus lancés à la main arrêtés d'abord.
+                COMPTES_ARRET="$ancien $run_user" cmd_stop || true
+                chemins_separes; BASE_DONNEES="${DB_FICHIER%/*}"
+                cles_vers_systemd "$run_user" "$ancien" \
+                    || warn "Clés de la plateforme incomplètes dans $CLES_SYS (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
+                jeton_rag "$run_user" || warn "Jeton du service RAG non préparé (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
+            fi
             _render_units "$unit_dir" "$run_user" /etc/tmpfiles.d
             systemd-tmpfiles --create "/etc/tmpfiles.d/${UNIT_PREFIX}.conf" \
                 || warn "Dossier d'exécution /run/${UNIT_PREFIX} non créé (systemd-tmpfiles)."
@@ -1405,14 +1604,15 @@ cmd_service() {
             systemctl daemon-reload
             systemctl enable "${UNITS_WANTS[@]}" "${UNIT_PREFIX}.target" >/dev/null
             # Les processus lancés à la main laisseraient les ports occupés ; le core peut prendre 300 s.
-            COMPTES_ARRET="$ancien $run_user" cmd_stop || true
+            { [ "$MODE_COMPTES" = separes ] && cles_systemd; } || COMPTES_ARRET="$ancien $run_user" cmd_stop || true
             # Cible arrêtée : le contenu de /run/<préfixe> garderait l'ancien propriétaire si le compte change ; droits posés services arrêtés.
             systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
             [ -d "/run/${UNIT_PREFIX}" ] && find "/run/${UNIT_PREFIX}" -xdev -mindepth 1 -delete 2>/dev/null
-            jeton_rag "$run_user" || warn "Jeton du service RAG non préparé (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
+            { [ "$MODE_COMPTES" = separes ] && cles_systemd; } || jeton_rag "$run_user" \
+                || warn "Jeton du service RAG non préparé (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             if [ "$MODE_COMPTES" = separes ]; then
-                # Secret de session créé ici (0640 au groupe de la clé) : créé par main, il resterait illisible pour la console.
-                [ -n "${APP_SESSION_SECRET:-}" ] || [ -z "$BASE_DONNEES" ] || poser_droits secret "$BASE_DONNEES" .session_secret \
+                # Secret de session créé ici (0640 au groupe de la clé) : créé par main, il resterait illisible pour la console ; clés remises par systemd : déjà au magasin.
+                cles_systemd || [ -n "${APP_SESSION_SECRET:-}" ] || [ -z "$BASE_DONNEES" ] || poser_droits secret "$BASE_DONNEES" .session_secret \
                     || warn "Secret de session non créé dans $BASE_DONNEES (voir ci-dessus)."
                 droits_separes "$BASE_DONNEES" "$run_user" "$ancien" || warn "Droits du mode séparé incomplets (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             else
@@ -1438,6 +1638,8 @@ cmd_service() {
             done
             rm -f "$unit_dir/${UNIT_PREFIX}.target" "/etc/tmpfiles.d/${UNIT_PREFIX}.conf"
             rm -rf "/run/${UNIT_PREFIX}"
+            [ ! -d "$CLES_SYS" ] || cles_au_retrait \
+                || warn "Clés remises par systemd non toutes rendues à leurs fichiers (voir ci-dessus) : $CLES_SYS gardé ; relancez sudo ./elpis service remove une fois corrigé."
             ptrace_restreint retire
             systemctl daemon-reload
             ok "Services systemd retirés."
@@ -1698,9 +1900,49 @@ compte_sans_lecture() {
     return 1
 }
 
-# Clé de signature : 0440 root, groupe réservé aux comptes des services (COMPTES, ADMIS : membres permis en plus), lisible par chacun, 32 octets au moins quand ce compte-ci la lit.
+# Clés de la plateforme remises par systemd (un compte par service) : version de systemd, clés présentes et déchiffrables (sous root), portées par les seules unités qui s'en servent, aucune copie en clair restée aux emplacements du bloc 5 ; appelée par cmd_doctor (compteur bad).
+doctor_cles_systemd() {
+    local v n s f etat lg portees base
+    [ "$(mode_installe)" = separes ] || return 0
+    v="$(version_systemd)" || v="?"
+    if ! cles_systemd; then
+        warn "clés de la plateforme : fichiers lus par le groupe de leurs services (systemd $v : 250 ou plus et systemd-creds pour les remettre chiffrées aux seuls services)"; bad=$((bad+1)); return 0
+    fi
+    ok "clés de la plateforme remises par systemd $v (LoadCredentialEncrypted=, $CLES_SYS)"
+    if [ "$(id -u)" -eq 0 ]; then
+        while read -r n etat lg; do
+            case "$etat" in
+                ok) [ "$n" != audit.key ] || [ "${lg:-0}" -ge 32 ] || { warn "clé $n trop courte (32 octets au moins) : lignes non signées"; bad=$((bad+1)); } ;;
+                absent) warn "clé $n absente de $CLES_SYS (sudo ./elpis service install)"; bad=$((bad+1)) ;;
+                *) warn "clé $n illisible par systemd-creds (TPM ou clé de l'hôte changés ? docs/operations.md, « Platform keys »)"; bad=$((bad+1)) ;;
+            esac
+        done < <(poser_droits cle-etat "$CLES_SYS" $(cles_du_service console) 2>/dev/null)
+    else
+        info "clés de la plateforme : $CLES_SYS réservé à root, non vérifié par ce compte (sudo ./elpis doctor)"
+    fi
+    for s in main admin toolhost rag qdrant; do
+        f="$SYS_PREFIXE/etc/systemd/system/${UNIT_PREFIX}-$s.service"
+        [ -f "$f" ] || continue
+        portees=" $(sed -n 's/^LoadCredentialEncrypted=\([a-z0-9.-]*\):.*/\1/p' "$f" | tr '\n' ' ')"
+        for n in $portees; do
+            case " $(cles_du_service "$s") " in *" $n "*) ;; *) warn "unité $s : clé $n remise à tort (sudo ./elpis service install)"; bad=$((bad+1)) ;; esac
+        done
+        for n in $(cles_du_service "$s"); do
+            case "$portees" in *" $n "*) continue ;; esac
+            [ "$(id -u)" -ne 0 ] || ! cle_presente "$n" || { warn "unité $s sans la clé $n (sudo ./elpis service install)"; bad=$((bad+1)); }
+        done
+    done
+    base="$(dirname -- "${DB_FICHIER:-$ROOT/user_db/app.db}")"
+    for f in "$VAULT_KEY_SYS" "$AUDIT_KEY_SYS" "$base/.encryption_key" "$base/.session_secret"; do
+        [ ! -e "$f" ] || { warn "clé en clair restée : $f (sudo ./elpis service install la chiffre, puis la retire)"; bad=$((bad+1)); }
+    done
+    [ ! -e "$base/.vault.key" ] || { warn "clé de repli du coffre en clair : $base/.vault.key (sudo ./elpis vault rekey --from $base/.vault.key, puis supprimez-la)"; bad=$((bad+1)); }
+}
+
+# Clé de signature : 0440 root, groupe réservé aux comptes des services (COMPTES, ADMIS : membres permis en plus), lisible par chacun, 32 octets au moins quand ce compte-ci la lit ; remise par systemd : vue par doctor_cles_systemd.
 doctor_cle() {
     local compte="$1" admis="$1 ${2:-}" m g c dossier="${AUDIT_KEY_SYS%/*}"
+    if cle_des_unites audit.key; then ok "journal de sécurité : clé remise par systemd aux écrivains ($CLES_SYS/audit.key)"; return 0; fi
     # Sous le compte des services : lecture réelle ; une session ouverte avant audit setup n'a pas encore le groupe de la clé.
     if [ "$(id -u)" -ne 0 ] && [ "$(id -un)" = "$compte" ] && [ -d "$dossier" ] \
             && { [ ! -x "$dossier" ] || [ -e "$AUDIT_KEY_SYS" ]; } && [ ! -r "$AUDIT_KEY_SYS" ]; then
@@ -1733,7 +1975,7 @@ doctor_cle() {
     bad=$((bad+1))
 }
 
-# Coffre « Secrets » : clé 0440 root, groupe réservé aux comptes des services qui l'ouvrent (main et la console en mode séparé), lisible par chacun (sous ce compte : lecture réelle, une session ouverte avant l'ajout du groupe de la clé ne la lit pas) ; repli, clé illisible ou invalide et secrets d'une autre clé vus par le core (compteur bad).
+# Coffre « Secrets » : clé 0440 root, groupe réservé aux comptes des services qui l'ouvrent (main et la console en mode séparé), lisible par chacun (sous ce compte : lecture réelle, une session ouverte avant l'ajout du groupe de la clé ne la lit pas), ou remise par systemd (doctor_cles_systemd ; secrets vus sous root) ; repli, clé illisible ou invalide et secrets d'une autre clé vus par le core (compteur bad).
 doctor_coffre() {
     local compte m g c niveau texte dossier="${VAULT_KEY_SYS%/*}"
     if [ "$(mode_installe)" = separes ]; then
@@ -1743,7 +1985,9 @@ doctor_coffre() {
         [ -n "$compte" ] || compte="$(id -un)"
         [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
     fi
-    if [ "$(id -u)" -ne 0 ] && [ "$(id -un)" = "$compte" ] && [ -d "$dossier" ] \
+    if cle_des_unites vault.key; then
+        [ "$(id -u)" -eq 0 ] || { info "coffre (Secrets) : clé remise par systemd à main et à la console, secrets non vérifiés par ce compte (sudo ./elpis doctor)"; return 0; }
+    elif [ "$(id -u)" -ne 0 ] && [ "$(id -un)" = "$compte" ] && [ -d "$dossier" ] \
             && { [ ! -x "$dossier" ] || [ -e "$VAULT_KEY_SYS" ]; } && [ ! -r "$VAULT_KEY_SYS" ]; then
         g="$(stat -c %G -- "$VAULT_KEY_SYS" 2>/dev/null || stat -c %G -- "$dossier")"
         if ! id -Gn | tr ' ' '\n' | grep -qxF -- "$g" && id -Gn "$compte" | tr ' ' '\n' | grep -qxF -- "$g"; then
@@ -1752,8 +1996,7 @@ doctor_coffre() {
             warn "coffre (Secrets) : clé $VAULT_KEY_SYS illisible par le compte des services $compte (sudo ./elpis vault setup)"
         fi
         bad=$((bad+1)); return 0
-    fi
-    if [ -e "$VAULT_KEY_SYS" ] || [ -L "$VAULT_KEY_SYS" ]; then
+    elif [ -e "$VAULT_KEY_SYS" ] || [ -L "$VAULT_KEY_SYS" ]; then
         m="$(stat -c '%a %U %G' -- "$VAULT_KEY_SYS" 2>/dev/null)"; g="${m##* }"
         if [ -L "$VAULT_KEY_SYS" ] || [ ! -f "$VAULT_KEY_SYS" ] || [ "$m" != "440 root $g" ]; then
             warn "coffre (Secrets) : clé $VAULT_KEY_SYS en ${m:-?} (attendu 440 root, groupe réservé à $compte : sudo ./elpis vault setup)"; bad=$((bad+1))
@@ -1990,6 +2233,7 @@ cmd_doctor() {
         info "RAG : non vérifié (core non construit ou config.json absent)"
     fi
     doctor_comptes
+    doctor_cles_systemd
     doctor_journaux
     doctor_coffre
     doctor_connexion
@@ -2067,16 +2311,21 @@ cmd_audit() {
         compte_setup audit
         audit_setup "$COMPTE_SETUP" "" 1 || die "Journal de sécurité incomplet : voir ci-dessus, puis relancez sudo ./elpis audit setup."
         if [ "$MODE_COMPTES" = separes ]; then ok "Journal de sécurité en place (un compte par service)."; else ok "Journal de sécurité en place (compte $COMPTE_SETUP)."; fi
+        if [ "$MODE_COMPTES" = separes ] && cles_systemd; then
+            info "Clé du journal remise par systemd : copie hors de la machine : sudo systemd-creds decrypt --name=audit.key $CLES_SYS/audit.key FICHIER (support hors ligne)."
+            cle_des_unites audit.key || info "Unités sans cette clé : sudo ./elpis service install."
+        fi
         return 0
     fi
     charger_instance
     need_exploitation
+    case " $* " in *" --key "*) ;; *) refuser_sans_cle audit.key "audit $*" ;; esac
     core_cmd audit "$@"
 }
 
-# Coffre « Secrets » : clé (setup en root ; status ; rekey, ancienne clé relative au dossier d'Elpis, rendue absolue) ; doctor sert ./elpis doctor.
+# Coffre « Secrets » : clé (setup en root ; status ; rekey, ancienne clé relative au dossier d'Elpis, rendue absolue ; clés remises par systemd : ancienne clé remise à la console par systemd, CLE_ANCIENNE) ; doctor sert ./elpis doctor.
 cmd_vault() {
-    local f
+    local f CLE_ANCIENNE=""
     case "${1:-}" in
         setup)
             [ $# -eq 1 ] || die "Usage : sudo ./elpis vault setup"
@@ -2084,9 +2333,11 @@ cmd_vault() {
         status|rekey|doctor)
             charger_instance
             need_exploitation
+            refuser_sans_cle vault.key "vault $*"
             if [ "$1" = rekey ] && [ "${2:-}" = --from ] && [ -n "${3:-}" ]; then
                 f="$3"; case "$f" in /*) ;; *) f="$ROOT/$f" ;; esac
                 set -- rekey --from "$f" "${@:4}"
+                ! racine_separee || ! cles_systemd || CLE_ANCIENNE="$f"
             fi
             vault_core vault "$@" ;;
         *) die "Usage : sudo ./elpis vault setup | ./elpis vault status | ./elpis vault rekey --from FICHIER" ;;
@@ -2098,6 +2349,7 @@ cmd_secret() {
     [ "${1:-}" = ls ] || die "Usage : ./elpis secret ls [--user COMPTE]"
     charger_instance
     need_exploitation
+    refuser_sans_cle vault.key "secret $*"
     vault_core secret "$@"
 }
 
@@ -2305,24 +2557,27 @@ audit_deplacer() {
     return "$echec"
 }
 
-# Contrôle final : mode des dossiers et de la clé, propriétaire et groupe sous root, clé d'au moins 32 octets ; liste les écarts.
+# Contrôle final : mode des dossiers et de la clé (remise par systemd : la clé chiffrée, sans copie en clair), propriétaire et groupe sous root, clé d'au moins 32 octets ; liste les écarts.
 audit_controle() {
-    local c chemin attendu vu echec=0 journaux="2750 $1" etc="750 root ${GRP_CLE:-?}"
+    local c chemin attendu vu echec=0 journaux="2750 $1" etc="750 root ${GRP_CLE:-?}" cle="$AUDIT_KEY_SYS|440 root ${GRP_CLE:-?}"
     [ "${MODE_COMPTES:-}" != separes ] || { journaux="2770 root"; etc="751 root root"; }
+    if [ "${MODE_COMPTES:-}" = separes ] && cles_systemd; then cle="$CLES_SYS/audit.key|600 root root"; fi
     for c in "$SYS_PREFIXE/var/lib/elpis|755 root root" "$AUDIT_DIR_SYS|$journaux $GROUPE_JOURNAL" \
-             "$APPLOG_DIR_SYS|$journaux $GROUPE_JOURNAL" "$SYS_PREFIXE/etc/elpis|$etc" "$AUDIT_KEY_SYS|440 root ${GRP_CLE:-?}"; do
+             "$APPLOG_DIR_SYS|$journaux $GROUPE_JOURNAL" "$SYS_PREFIXE/etc/elpis|$etc" "$cle"; do
         chemin="${c%%|*}"; attendu="${c#*|}"
         vu="$(stat -c '%a %U %G' -- "$chemin" 2>/dev/null)" || vu="absent"
         if [ "$(id -u)" -ne 0 ]; then attendu="${attendu%% *}"; vu="${vu%% *}"; fi
         [ "$vu" = "$attendu" ] || { warn "$chemin : $vu (attendu $attendu)."; echec=1; }
     done
-    if [ ! -f "$AUDIT_KEY_SYS" ] || [ -L "$AUDIT_KEY_SYS" ] || [ "$(tr -d ' \t\r\n' < "$AUDIT_KEY_SYS" | wc -c)" -lt 32 ]; then
+    if [ "${cle%%|*}" != "$AUDIT_KEY_SYS" ]; then
+        [ ! -e "$AUDIT_KEY_SYS" ] && [ ! -L "$AUDIT_KEY_SYS" ] || { warn "$AUDIT_KEY_SYS : copie en clair restée (voir ci-dessus)."; echec=1; }
+    elif [ ! -f "$AUDIT_KEY_SYS" ] || [ -L "$AUDIT_KEY_SYS" ] || [ "$(tr -d ' \t\r\n' < "$AUDIT_KEY_SYS" | wc -c)" -lt 32 ]; then
         warn "Clé $AUDIT_KEY_SYS absente, illisible ou trop courte (32 octets au moins)."; echec=1
     fi
     return "$echec"
 }
 
-# Journal de sécurité hors du dépôt (AUDIT_SETUP COMPTE [ANCIENS_COMPTES] [DÉPLACER]) : groupes, dossiers 2750 au compte (mode séparé : 2770 à root, COMPTE n'y fait que déplacer), clé, droits réappliqués, logs/audit déplacé si DÉPLACER=1, contrôle final ; non nul au moindre échec.
+# Journal de sécurité hors du dépôt (AUDIT_SETUP COMPTE [ANCIENS_COMPTES] [DÉPLACER]) : groupes, dossiers 2750 au compte (mode séparé : 2770 à root, COMPTE n'y fait que déplacer), clé (remise par systemd : /etc/elpis/audit.key chiffrée puis retirée, sinon gardée, sinon créée en mémoire, aucun fichier en clair), droits réappliqués, logs/audit déplacé si DÉPLACER=1, contrôle final ; non nul au moindre échec.
 audit_setup() {
     local compte="$1" ancien="${2:-}" deplacer="${3:-1}" nouveau=0 echec=0 dossiers=0 d mode=2750 proprio="$1"
     [ "${MODE_COMPTES:-}" != separes ] || { mode=2770; proprio=root; }
@@ -2344,7 +2599,10 @@ audit_setup() {
     fi
     if [ "${MODE_COMPTES:-}" = separes ]; then
         GRP_CLE="$GROUPE_JOURNAL"
-        if dossier_sur "$SYS_PREFIXE/etc/elpis" 0751 root root; then cle_audit || echec=1; else echec=1; fi
+        if ! dossier_sur "$SYS_PREFIXE/etc/elpis" 0751 root root; then echec=1
+        elif cles_systemd; then
+            { magasin_cles && poser_droits cle "$CLES_SYS" audit.key --source "$AUDIT_KEY_SYS" --proprio "root,$(operateur)" --creer journal --copie; } || echec=1
+        else cle_audit || echec=1; fi
     elif groupe_de_cle "$compte" && dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE"; then cle_audit || echec=1; else echec=1; fi
     if [ "$dossiers" -eq 2 ]; then
         if [ "$deplacer" = 1 ]; then audit_deplacer "$compte" || echec=1; else audit_droits_fichiers "$compte" || echec=1; fi
@@ -2373,6 +2631,29 @@ cle_coffre() {
     cle_regroupee "$cle" "$GRP_CLE"
 }
 
+# Clé du coffre remise par systemd (vault setup, un compte par service) : /etc/elpis/vault.key validée par le cœur, chiffrée puis retirée, sinon la clé en place gardée, sinon créée en mémoire et chiffrée (aucun fichier en clair) ; validée par le cœur (clair par un tube), commande de copie hors de la machine affichée.
+cle_coffre_systemd() {
+    local verdict cle="$CLES_SYS/vault.key"
+    if [ -L "$VAULT_KEY_SYS" ] || { [ -e "$VAULT_KEY_SYS" ] && [ ! -f "$VAULT_KEY_SYS" ]; }; then
+        die "$VAULT_KEY_SYS : lien symbolique ou fichier spécial : refusé (à vérifier)."
+    fi
+    if [ -s "$VAULT_KEY_SYS" ]; then
+        verdict="$(core_cmd vault check-key < "$VAULT_KEY_SYS" 2>&1)" \
+            || die "$VAULT_KEY_SYS : ${verdict:-clé refusée par le cœur} : laissée intacte, à vérifier."
+    fi
+    magasin_cles || die "Magasin $CLES_SYS refusé (voir ci-dessus)."
+    poser_droits cle "$CLES_SYS" vault.key --source "$VAULT_KEY_SYS" --proprio "root,$(operateur)" --creer coffre \
+        || die "Clé du coffre non posée dans $CLES_SYS (voir ci-dessus), puis relancez sudo ./elpis vault setup."
+    verdict="$(systemd-creds decrypt --name=vault.key "$cle" - | core_cmd vault check-key 2>&1)" \
+        || die "$cle : ${verdict:-clé refusée par le cœur} : à vérifier."
+    ok "Clé du coffre en place, remise par systemd à main et à la console : $cle ($verdict)."
+    info "Copie hors de la machine : sudo systemd-creds decrypt --name=vault.key $cle FICHIER (support hors ligne, à part des sauvegardes d'Elpis)."
+    if cle_des_unites vault.key; then info "Les services la reçoivent au démarrage : sudo systemctl restart ${UNIT_PREFIX}.target."
+    else info "Unités sans cette clé : sudo ./elpis service install."; fi
+    [ ! -e "$ROOT/user_db/.vault.key" ] \
+        || info "Clé de repli trouvée (user_db/.vault.key) : après le redémarrage, sudo ./elpis vault rekey --from user_db/.vault.key, puis supprimez-la."
+}
+
 # Clé du coffre hors de la base (vault setup) : groupe de la clé, dossier /etc/elpis 0750 (mode séparé : 0751, clé à main et à la console), clé 0440 ; contrôle final, conseils pour la clé de repli.
 vault_setup() {
     local vu attendu
@@ -2383,6 +2664,7 @@ vault_setup() {
     if [ "$MODE_COMPTES" = separes ]; then
         GRP_CLE="$GROUPE_CLE"
         dossier_sur "$SYS_PREFIXE/etc/elpis" 0751 root root || die "Dossier $SYS_PREFIXE/etc/elpis refusé (voir ci-dessus)."
+        if cles_systemd; then cle_coffre_systemd; return; fi
     else
         groupe_de_cle "$COMPTE_SETUP" || die "Groupe de la clé non préparé (voir ci-dessus)."
         dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE" || die "Dossier $SYS_PREFIXE/etc/elpis refusé (voir ci-dessus)."

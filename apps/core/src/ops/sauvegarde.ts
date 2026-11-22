@@ -57,8 +57,8 @@ export const WORK_SUBDIR = "work";
 export const AGENT_RUN_DIR = ".elpis-agent";
 export const RELAY_DIR = ".elpis-relay";
 export const DL_SPOOL = ".dl_spool";
-/** Dossiers de la racine des bacs propres à l'hôte d'outils (verrous, cache des aperçus) : régénérés, jamais sauvegardés. */
-const HORS_SAUVEGARDE: ReadonlySet<string> = new Set([
+/** Dossiers de la racine des bacs propres à l'hôte d'outils (relais, verrous, cache des aperçus) : régénérés, jamais sauvegardés ni restaurés. */
+export const HORS_SAUVEGARDE: ReadonlySet<string> = new Set([
   RELAY_DIR,
   DL_SPOOL,
   ".write_locks",

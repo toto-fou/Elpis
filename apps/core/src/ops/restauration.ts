@@ -30,10 +30,9 @@ import {
   AGENT_RUN_DIR,
   comptesDesSandboxes,
   DB_ANNEXES,
-  DL_SPOOL,
+  HORS_SAUVEGARDE,
   HOST_ONLY,
   portTravail,
-  RELAY_DIR,
   RUNTIME_DIRS,
   WORK_SUBDIR,
 } from "./sauvegarde";
@@ -356,11 +355,7 @@ export async function restoreFromZip(
           ecrire(entree, d.memoryDir, parts.join("/"), await zf.lireNom(entree), memoire);
         } else if (separe) {
           if (compte === INSTANTANES) instantanes += 1;
-        } else if (!(
-          (parts.length > 1 && second === AGENT_RUN_DIR) ||
-          compte === RELAY_DIR ||
-          compte === DL_SPOOL
-        )) {
+        } else if (!((parts.length > 1 && second === AGENT_RUN_DIR) || HORS_SAUVEGARDE.has(compte))) {
           ecrire(entree, d.sandboxDir, parts.join("/"), await zf.lireNom(entree), { dessous: true });
         }
       }

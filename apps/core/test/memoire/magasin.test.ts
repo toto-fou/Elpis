@@ -9,7 +9,9 @@ import {
   rm,
   stat,
   symlink,
+  truncate,
   unlink,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
@@ -399,6 +401,19 @@ describe("migration de l'ancien .memory", () => {
     expect(await readdir(await migrateLegacyMemory(memoire, "dan", bacs))).toEqual([]);
     expect((await readdir(path.join(memoire, "alice"))).sort()).toEqual([MEMORY_SUBDIR]);
     await unlink(path.join(bacs, "carol"));
+  });
+
+  it("ancien magasin : dates gardées, fichier au-delà du plafond laissé", async () => {
+    const d = await tmp();
+    const ancien = path.join(d, "sb", "alice", MEMORY_SUBDIR);
+    await mkdir(ancien, { recursive: true });
+    await writeFile(path.join(ancien, "USER.md"), "profil");
+    await utimes(path.join(ancien, "USER.md"), 1_700_000_000, 1_700_000_000);
+    await writeFile(path.join(ancien, "gros.bin"), "");
+    await truncate(path.join(ancien, "gros.bin"), 17 * 1024 * 1024);
+    const neuf = await migrateLegacyMemory(path.join(d, "memoire"), "alice", path.join(d, "sb"));
+    expect(await readdir(neuf)).toEqual(["USER.md"]);
+    expect((await stat(path.join(neuf, "USER.md"))).mtimeMs).toBe(1_700_000_000_000);
   });
 
   it("ancien magasin des sandboxes d'un autre compte (un compte par service) : laissé, jamais repris", async () => {

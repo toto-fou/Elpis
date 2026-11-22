@@ -721,7 +721,7 @@ describe("relais des secrets (socket unix réel)", () => {
     expect(compte()).toBe(0);
   });
 
-  it("refus d'une règle du profil : son motif dans la page et la réponse du tunnel (lues par le modèle), le texte qui nomme le profil au journal seul", async () => {
+  it("refus d'une règle du profil : son motif dans la page et la réponse du tunnel (lues par le modèle), le texte qui nomme le profil au journal seul, WebSocket comprise", async () => {
     const sous = path.join(dossier, "motifs");
     mkdirSync(sous);
     const lignes: string[] = [];
@@ -749,11 +749,17 @@ describe("relais des secrets (socket unix réel)", () => {
       const refusTunnel = await envoyer(
         `CONNECT x.example:443 HTTP/1.1\r\nHost: x.example:443\r\n${auth}\r\n`,
       );
+      const refusWs = await envoyer(
+        `GET http://x.example/flux HTTP/1.1\r\nHost: x.example\r\n${auth}Upgrade: websocket\r\nConnection: Upgrade\r\n` +
+          "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n",
+      );
       for (const r of [page, refusTunnel])
         expect([r.statut, r.corps]).toEqual([403, `Blocked by the Elpis browser relay: ${MOTIF}.`]);
+      expect([refusWs.statut, refusWs.corps]).toEqual([0, ""]);
       expect(lignes).toEqual([
         `refused http://x.example: ${JOURNAL}`,
         `refused tunnel x.example:443: ${JOURNAL}`,
+        `refused websocket http://x.example: ${JOURNAL}`,
       ]);
     } finally {
       await autre.fermer();

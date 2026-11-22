@@ -2,7 +2,12 @@
 # passent toujours par l'origine de l'app, jamais par cette adresse).
 #
 #   caddy run --config deploy/toolhost/Caddyfile.toolhost
+# admin off : pas d'API d'administration ; un changement = un redémarrage.
 #
+{
+	admin off
+}
+
 toolhost.example.lan {
     tls internal
     reverse_proxy 127.0.0.1:8765 {

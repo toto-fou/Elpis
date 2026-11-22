@@ -17,7 +17,7 @@
 #       cert est ce qui rend l'exception navigateur « Accepter le
 #       risque » définitive (1 clic par poste/port, jamais plus) ;
 #    4. pose le Caddyfile catch-all (copie telle quelle, pas de sed) ;
-#    5. valide et (re)démarre Caddy.
+#    5. valide et redémarre Caddy (API d'admin coupée : pas de reload).
 #
 #  Côté client : taper l'IP (http ou https), accepter UNE fois
 #  l'avertissement — terminé. Import de http://<ip>/ca.crt : optionnel,
@@ -157,7 +157,8 @@ cp "$TEMPLATE" "$CADDYFILE"
 # ── 5. Validation puis (re)démarrage ─────────────────────────────────
 caddy validate --config "$CADDYFILE" --adapter caddyfile
 systemctl enable --now caddy
-systemctl reload caddy || systemctl restart caddy
+# admin off : pas de rechargement possible, un changement = un redémarrage
+systemctl restart caddy
 
 _first_ip="$(printf '%s\n' "${SANS[@]}" | grep '^IP:' | grep -v 127.0.0.1 | head -1 | cut -d: -f2)"
 _first_ip="${_first_ip:-<ip-du-serveur>}"

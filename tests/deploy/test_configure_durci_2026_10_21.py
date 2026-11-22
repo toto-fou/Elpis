@@ -73,10 +73,10 @@ def test_apply_https_refuse_un_domaine_ou_un_email_piege_sans_rien_ecrire(conf, 
     assert appels == [] and not (tmp_path / "user_db/run/Caddyfile.acme").exists()
 
 
-def test_apply_https_acme_lance_trois_commandes_sans_sh_c(conf, monkeypatch, tmp_path):
+def test_apply_https_acme_lance_quatre_commandes_sans_sh_c(conf, monkeypatch, tmp_path):
     appels = _caddy_factice(monkeypatch, conf, tmp_path)
     conf.apply_https({"mode": "acme", "domain": "elpis.example.com", "email": "admin@example.com"})
-    assert [c[1] for c in appels] == ["install", "caddy", "systemctl"] and all(c[0] == "sudo" for c in appels)
+    assert [c[1] for c in appels] == ["install", "caddy", "mv", "systemctl"] and all(c[0] == "sudo" for c in appels)
     assert all("sh" not in c[:3] and "-c" not in c for c in appels)
     # Rédigé dans un dossier temporaire privé (jamais sous user_db), retiré ensuite.
     assert not appels[0][-2].startswith(str(tmp_path)) and not Path(appels[0][-2]).exists()
@@ -89,6 +89,15 @@ def test_apply_https_s_arrete_a_la_premiere_commande_en_echec(conf, monkeypatch,
     monkeypatch.setattr(conf.subprocess, "run", lambda cmd, *a, **k: appels.append(cmd) or subprocess.CompletedProcess(cmd, 1 if "validate" in cmd else 0))
     conf.apply_https({"mode": "acme", "domain": "elpis.example.com", "email": ""})
     assert [c[1] for c in appels] == ["install", "caddy"]
+
+
+@pytest.mark.parametrize("email", ["", "admin@example.com"])
+def test_apply_https_acme_garde_admin_off_avec_ou_sans_email(conf, monkeypatch, tmp_path, email):
+    _caddy_factice(monkeypatch, conf, tmp_path)
+    conf.apply_https({"mode": "acme", "domain": "elpis.example.com", "email": email})
+    corps = (tmp_path / "Caddyfile.copie").read_text(encoding="utf-8")
+    assert re.search(r"^\{\n\tadmin off\n", corps, re.M) and "__EMAIL_LINE__" not in corps
+    assert ("email admin@example.com" in corps) == bool(email)
 
 
 def test_step_access_acme_refuse_un_domaine_invalide(conf, monkeypatch):

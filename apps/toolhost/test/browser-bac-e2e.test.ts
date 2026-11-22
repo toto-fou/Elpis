@@ -445,7 +445,7 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
   it("URL extérieure : refus clair du profil réseau sans réseau", async () => {
     const r = await outil("pw_session", { action: "start", url: "https://example.org/" });
     expect(r).toMatchObject({ ok: false, error: "url_blocked" });
-    expect(String(r["message"])).toContain("has no network access");
+    expect(String(r["message"])).toContain("the sandbox network is none");
   }, 60_000);
 
   it("web-login sur une origine http, puis https en TLS strict : connexion réussie par le relais", async () => {

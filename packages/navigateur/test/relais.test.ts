@@ -721,6 +721,45 @@ describe("relais des secrets (socket unix réel)", () => {
     expect(compte()).toBe(0);
   });
 
+  it("refus d'une règle du profil : son motif dans la page et la réponse du tunnel (lues par le modèle), le texte qui nomme le profil au journal seul", async () => {
+    const sous = path.join(dossier, "motifs");
+    mkdirSync(sous);
+    const lignes: string[] = [];
+    const MOTIF =
+      "the sandbox network is none: only sites served inside the sandbox (localhost) are reachable";
+    const JOURNAL = "the sandbox network profile 'profil_2' has no network access";
+    const autre = new RelaisNavigateur({
+      socket: path.join(sous, "r.sock"),
+      jeton: JETON,
+      juger: async () => ({ ok: false, motif: MOTIF, journal: JOURNAL }),
+      autorite: ac,
+      journal: (m) => void lignes.push(m),
+    });
+    await autre.ouvrir();
+    const envoyer = (requete: string): ReturnType<typeof lireReponse> => {
+      const s = connexionNet(path.join(sous, "r.sock"));
+      s.write(requete);
+      return lireReponse(s);
+    };
+    const auth = `Proxy-Authorization: Bearer ${JETON}\r\n`;
+    try {
+      const page = await envoyer(
+        `GET http://x.example/ HTTP/1.1\r\nHost: x.example\r\n${auth}Connection: close\r\n\r\n`,
+      );
+      const refusTunnel = await envoyer(
+        `CONNECT x.example:443 HTTP/1.1\r\nHost: x.example:443\r\n${auth}\r\n`,
+      );
+      for (const r of [page, refusTunnel])
+        expect([r.statut, r.corps]).toEqual([403, `Blocked by the Elpis browser relay: ${MOTIF}.`]);
+      expect(lignes).toEqual([
+        `refused http://x.example: ${JOURNAL}`,
+        `refused tunnel x.example:443: ${JOURNAL}`,
+      ]);
+    } finally {
+      await autre.fermer();
+    }
+  });
+
   it("socket retiré par le bac : détecté, rouvert avec les liaisons", async () => {
     relais.lier(liaison({ id: "k1", origines: ["http://k.test"] }));
     rmSync(path.join(dossier, "relais.sock"));
@@ -738,14 +777,18 @@ describe("juge des destinations d'un bac", () => {
   const resoudre = async (n: string): Promise<string[]> =>
     n === "nas.lan" ? ["192.168.50.10"] : ["93.184.216.34"];
 
-  it("profil sans réseau : tout refusé avec un message clair", async () => {
+  it("profil sans réseau : tout refusé avec un message clair, le profil nommé au journal seul", async () => {
     const j = jugeRelaisBac(() => ({ id: "isolated", mode: "none", ips: [], domains: [], ports: [] }), {
       hote,
       resoudre,
       allowlist: [],
     });
     const v = await j("example.org", 443);
-    expect(v).toEqual({ ok: false, motif: expect.stringContaining("'isolated' has no network access") });
+    expect(v).toEqual({
+      ok: false,
+      motif: "the sandbox network is none: only sites served inside the sandbox (localhost) are reachable",
+      journal: expect.stringContaining("'isolated' has no network access"),
+    });
   });
 
   it("profil ouvert : machine d'Elpis et boucle refusées, le reste joint à l'adresse jugée", async () => {
@@ -830,7 +873,7 @@ describe("juge des destinations d'un bac", () => {
     expect(await j("nas.lan", 80)).toMatchObject({ ok: false, motif: expect.stringContaining("port 80") });
     expect(await j("example.org", 443)).toMatchObject({
       ok: false,
-      motif: expect.stringContaining("not allowed"),
+      motif: "example.org is not in the sandbox's allowed destinations",
     });
   });
 });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/test/url.test.ts — politique du navigateur jugée par le relais d'un bac au profil ouvert : adresses réservées, machine d'Elpis et ses réseaux de conteneurs, liste blanche du réseau local relue à chaud, interfaces de l'hôte. */
+/** packages/navigateur/test/url.test.ts — politique du navigateur jugée par le relais d'un bac au profil ouvert : adresses réservées, machine d'Elpis et ses réseaux de conteneurs, liste blanche du réseau local relue à chaud, interfaces de l'hôte ; motifs vus par le modèle sans le profil, celui-ci au journal seul. */
 import { existsSync, readFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 
@@ -119,8 +119,8 @@ describe("profil ouvert protégé (cases « Refuser » du profil)", () => {
     );
     return v.ok ? null : v.motif;
   };
-  const METADONNEES = "is a cloud metadata address, refused by the sandbox network profile 'web'";
-  const LOCAL = "is on the local network, refused by the sandbox network profile 'web'";
+  const METADONNEES = "is a cloud metadata address, refused by the sandbox network";
+  const LOCAL = "is on the local network, refused by the sandbox network";
 
   it("sans protection cochée : rien de plus refusé que pour un profil sans case (métadonnées de lien local déjà réservées)", async () => {
     for (const extra of [{}, { block_metadata: false, block_lan: false, block_host: false }])
@@ -180,7 +180,7 @@ describe("profil ouvert protégé (cases « Refuser » du profil)", () => {
         adresses: ["93.184.216.34"],
       });
       expect(await verdict(extra, "v6seul.example")).toBe(
-        "v6seul.example has IPv6 addresses only, refused by the sandbox network profile 'web'",
+        "v6seul.example has IPv6 addresses only, refused by the sandbox network",
       );
       expect(await verdict(extra, "2001:db8::99")).toContain("has IPv6 addresses only");
     }
@@ -205,7 +205,11 @@ describe("profil ouvert protégé (cases « Refuser » du profil)", () => {
     const juge = jugeRelaisBac(profil(etat), { allowlist: [], hote: hoteP, resoudre: resoudreP });
     expect((await juge("prive.example", 443)).ok).toBe(true);
     etat["block_lan"] = true;
-    expect(await juge("prive.example", 443)).toEqual({ ok: false, motif: `prive.example ${LOCAL}` });
+    expect(await juge("prive.example", 443)).toEqual({
+      ok: false,
+      motif: `prive.example ${LOCAL}`,
+      journal: "prive.example is on the local network, refused by the sandbox network profile 'web'",
+    });
     etat["block_lan"] = false;
     expect((await juge("prive.example", 443)).ok).toBe(true);
     etat["block_metadata"] = true;
@@ -228,6 +232,113 @@ describe("profil ouvert protégé (cases « Refuser » du profil)", () => {
       )("prive.example", 443);
       expect(v.ok, mode).toBe(mode === "allowlist_ip");
     }
+  });
+});
+
+describe("motifs vus par le modèle (page du relais, outils pw_*)", () => {
+  const ID = "profil_2";
+  const TABLE_M: Record<string, string[]> = {
+    "pypi.org": ["151.101.0.223"],
+    "ailleurs.example": ["93.184.216.40"],
+    "meta.example": ["168.63.129.16"],
+    "prive.example": ["10.1.2.3"],
+    "v6seul.example": ["2001:db8::51"],
+  };
+  const resoudreM = async (nom: string): Promise<string[]> => {
+    const a = TABLE_M[nom];
+    if (a === undefined) throw new Error(`getaddrinfo ENOTFOUND ${nom}`);
+    return a;
+  };
+  const hoteM: HoteNavigateur = { adresses: [adresseIpOuNul("192.0.2.5") as AdresseIp], reseaux: [] };
+  const juger = (
+    p: Record<string, unknown>,
+    nom: string,
+    port = 443,
+  ): ReturnType<ReturnType<typeof jugeRelaisBac>> =>
+    jugeRelaisBac(() => ({ id: ID, ips: [], domains: [], ports: [], ...p }) as never, {
+      allowlist: [],
+      hote: hoteM,
+      resoudre: resoudreM,
+    })(nom, port);
+  const PROFIL = `the sandbox network profile '${ID}'`;
+  /** Refus d'une règle du profil : profil, destination, port, motif vu par le modèle, texte du journal de l'hôte (celui d'avant). */
+  const CAS: [Record<string, unknown>, string, number, string, string][] = [
+    [
+      { mode: "none" },
+      "pypi.org",
+      443,
+      "the sandbox network is none: only sites served inside the sandbox (localhost) are reachable",
+      `${PROFIL} has no network access: only sites served inside the sandbox (localhost) are reachable`,
+    ],
+    [
+      { mode: "allowlist_ip", domains: ["pypi.org"], ports: [443] },
+      "pypi.org",
+      80,
+      "port 80 is not one of the sandbox's allowed ports",
+      `port 80 is not allowed by ${PROFIL}`,
+    ],
+    [
+      { mode: "allowlist_ip", domains: ["pypi.org"] },
+      "ailleurs.example",
+      443,
+      "ailleurs.example is not in the sandbox's allowed destinations",
+      `ailleurs.example is not allowed by ${PROFIL}`,
+    ],
+    [
+      { mode: "bridge", block_metadata: true },
+      "meta.example",
+      443,
+      "meta.example is a cloud metadata address, refused by the sandbox network",
+      `meta.example is a cloud metadata address, refused by ${PROFIL}`,
+    ],
+    [
+      { mode: "bridge", block_lan: true },
+      "prive.example",
+      443,
+      "prive.example is on the local network, refused by the sandbox network",
+      `prive.example is on the local network, refused by ${PROFIL}`,
+    ],
+    [
+      { mode: "bridge", block_host: true },
+      "v6seul.example",
+      443,
+      "v6seul.example has IPv6 addresses only, refused by the sandbox network",
+      `v6seul.example has IPv6 addresses only, refused by ${PROFIL}`,
+    ],
+  ];
+
+  it("chaque règle du profil : motif dans les mots de la ligne réseau du modèle, texte du journal de l'hôte inchangé", async () => {
+    for (const [p, nom, port, motif, journal] of CAS)
+      expect(await juger(p, nom, port), `${JSON.stringify(p)} ${nom}:${port}`).toEqual({
+        ok: false,
+        motif,
+        journal,
+      });
+  });
+
+  it("garde : aucun motif vu par le modèle ne nomme le profil, quels que soient le mode, les protections et la destination", async () => {
+    const profils = [
+      { mode: "none" },
+      { mode: "allowlist_ip", domains: ["pypi.org"], ports: [443] },
+      { mode: "allowlist_ip", ips: ["10.0.0.0/8"] },
+      { mode: "bridge" },
+      { mode: "bridge", block_metadata: true, block_lan: true, block_host: true },
+    ];
+    const cibles: [string, number][] = [
+      ...Object.keys(TABLE_M).map((nom): [string, number] => [nom, 443]),
+      ["pypi.org", 80],
+      ["introuvable.example", 443],
+      ["192.0.2.5", 443],
+      ["127.0.0.1", 443],
+    ];
+    const motifs = new Set<string>();
+    for (const p of profils)
+      for (const [nom, port] of cibles) {
+        const v = await juger(p, nom, port);
+        if (!v.ok) motifs.add(v.motif);
+      }
+    expect(motifs.size).toBeGreaterThanOrEqual(10);
+    for (const m of motifs) expect(m).not.toMatch(new RegExp(`${ID}|profile '`, "u"));
   });
 });
 

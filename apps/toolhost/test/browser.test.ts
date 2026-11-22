@@ -6,7 +6,7 @@ import path from "node:path";
 
 import type { Dict } from "@elpis/commun";
 import { compilerSchema, meilleureErreur } from "@elpis/mcp";
-import { getPwSessionOwner, pwOwner } from "@elpis/navigateur";
+import { getPwSessionOwner, jugeRelaisBac, pwOwner } from "@elpis/navigateur";
 import { ouvrirEnMemoire, ServeurOutils } from "@elpis/outils-mcp";
 import type { ConnexionEnMemoire } from "@elpis/outils-mcp";
 import goldenBrowser from "@elpis/outils-mcp/goldens/browser.json" with { type: "json" };
@@ -291,6 +291,26 @@ describe("famille browser servie par l'hôte", () => {
       total_tabs: 2,
     });
     expect(await clic()).toMatchObject({ ok: false, message: "locator.click: Timeout 10000ms exceeded." });
+  });
+
+  it("adresse refusée par le profil du bac : le modèle lit ce que refuse le réseau, jamais l'identifiant du profil", async () => {
+    const b = await client();
+    injectionsNavigateurBac.juge = () =>
+      jugeRelaisBac(() => ({ id: "profil_2", mode: "none", ips: [], domains: [], ports: [] }));
+    const r = await b.appeler(
+      "pw_session",
+      { action: "start", url: "https://example.org/" },
+      { username: "bob" },
+    );
+    expect(JSON.parse(texte(r))).toMatchObject({
+      ok: false,
+      error: "url_blocked",
+      message:
+        "Address refused by the browser policy: the sandbox network is none: only sites served inside the " +
+        "sandbox (localhost) are reachable. URL: https://example.org/.",
+    });
+    expect(texte(r)).not.toMatch(/profil_2|profile '/u);
+    expect(faux.vues).toEqual([]);
   });
 
   it("pw_session health : la forme du service (sessions = liste du compte) passe la validation du client du core ; l'ancienne (sessions = nombre) non", async () => {

@@ -229,7 +229,7 @@ files aside). Every walk leaves the secrets, the relay authority, `run/chat_runs
 | `mcp.json`, `toolhost.json` | `0640`, operator, group `elpis-donnees` |
 | `/etc/elpis/config/` (`config.json`, `.bak`, `.lock`) | folder `2750 elpis-admin:elpis-donnees`, files `0640 elpis-admin:elpis-donnees`, `config.json.bak` `0600` (console only) |
 | `system_prompts/`, `skills/` | operator, group `elpis-donnees`, `2770`, content `g+rwX` |
-| sandboxes (`user_sandboxes/`) | `2750 elpis-toolhost:elpis-donnees`; content owner `elpis-toolhost`, group `elpis-donnees` with `g+rX` and no write, nothing for others; in each account folder (set-aside ones included), `work/` left to the sandboxes' user and `.elpis-agent/` `1777` with its content untouched; `.elpis-relay/` `0755`; `_snapshots/` in a walk of its own, so that an account named `work` is walked like the others. First, an entry that is not a folder at the root of the sandboxes folder, or in place of an account's `work/` or `.elpis-agent/`, is renamed `.ecarte-<date>-<name>` next to it, without being followed, and reported: check it, then delete it or move it back by hand |
+| sandboxes (`user_sandboxes/`) | `2750 elpis-toolhost:elpis-donnees`; content owner `elpis-toolhost`, group `elpis-donnees` with `g+rX` and no write, nothing for others; in each account folder (set-aside ones included), `work/` left to the sandboxes' user and `.elpis-agent/` `1707` (the tool host and the sandboxes' user, nothing for the data group) with its content untouched; `.elpis-relay/` `0755`; `_snapshots/` in a walk of its own, so that an account named `work` is walked like the others. First, an entry that is not a folder at the root of the sandboxes folder, directly under `_snapshots/`, or in place of an account's `work/` or `.elpis-agent/`, is renamed `.ecarte-<date>-<name>` next to it, without being followed, and reported (an entry that cannot be renamed is reported and the others are still handled): check it, then delete it or move it back by hand |
 | file history (`user_db/file_history/`), Office preview cache (`user_sandboxes/.office-cache/`) | `0700 elpis-toolhost`, content included; read-only for main and the console even inside `user_db/` (`ReadOnlyPaths=`) |
 | memory (`user_db/memoire/`) | as `user_db/`: main writes it, the console restores it, and sets it aside, puts it back or deletes it with an account's sandbox |
 | `logs/`, data folders outside the installation | `2770 root:elpis-donnees`; content `g+rwX` (outside the installation, only the content of Elpis accounts; folders accepted as below) |
@@ -280,31 +280,40 @@ internal routes; the tool host sweeps its write locks and prunes the Office cach
 it creates a sandbox, and before it starts a stopped one again, the tool host also checks that only
 it (or root) can change the sandboxes folder and the account's folder, that the account's folder
 is the entry of its own name (never a link to another account's), and that no link leads to
-`/work`, to `.elpis-agent/` or to the Git relay; otherwise the sandbox does not start, users are
-told to ask their administrator, and the server journal asks for `sudo ./elpis service install`.
-A stopped container whose `/work` is not the account's folder is removed and created again. The
-tool host also uses its browser relay authority, the file history, the Office cache and its Office
-locks only when they belong to it and are closed to the other accounts; otherwise the feature is
-refused at once and the server journal says why.
+`/work`, to `.elpis-agent/` or to the Git relay; otherwise the sandbox does not start and nothing
+is removed or created, users are told to ask their administrator, and the server journal asks for
+`sudo ./elpis service install`. A stopped container whose `/work` is not the account's folder, or
+that runs the account's commands as another user than the one now configured, is removed and
+created again; before a stopped container starts again, agent locks and sockets left by another
+user are removed. A set-aside sandbox is emptied through a container of its own, whose `/work` is
+checked again just before it is emptied. The tool host also uses its browser relay authority, the
+file history, the Office cache, its Office locks and each account's snapshots folder only when
+they belong to it and are not links; otherwise the feature is refused at once and the server
+journal says why. While the services are stopped, `service install` removes this instance's
+sandbox containers (those whose `/work` is under the sandboxes folder): they are created again at
+first use, `/work` is kept, and processes that were running in a sandbox stop.
 
 An account whose skills folder was left in its sandbox by an older version (`<sandboxes>/<account>/skills`
 with no protected store yet) has it taken into `user_skills/<account>` by `service install`, by
 renaming, without following links; the tool host then replaces the sandbox copy with the mirror of
-that store. A link, a file, or a folder that a service can change is reported and left as it is.
+that store. A link, a file, or a folder that a service can change is left as it is, with a notice:
+the folder may not be an account; if it is one, take its skills over by hand.
 
 Each account's memory lives in `user_db/memoire/<account>/` (`APP_MEMORY_DIR` in `.env` to move
 it; with one account per service, a memory folder inside the sandboxes folder is refused).
 `service install`, and `./elpis start` with one account, move an older `<sandboxes>/<account>/memory`
 (and an `.memory` left by older versions, when there is no `memory`) there before the services
-start, by renaming, without following links; with one account, under that account. An empty
-destination is replaced; a destination that is not empty, a link, a folder that a service can
-change or another file system is reported and left as it is: move it by hand, then run the command
-again. Under systemd with one account, `./elpis upgrade` moves it too, between stopping and
-starting the units; with one account per service, it moves at the next
-`sudo ./elpis service install`: run it after upgrading (units installed before keep their memory
-folder until then). With one account, an account that has no memory folder yet and whose memory
-is still at a former place has it copied (folders and regular files only, no link followed) the
-first time it is read; with one account per service, only `service install` moves it.
+start, by renaming, without following links; with one account, under that account; with one
+account per service, the moved folder and its content are then given to `elpis-main` (group
+`elpis-donnees`, `g+rwX`, nothing for others). An empty destination is replaced; a link or a file
+is left with a notice; a destination that is not empty or another file system is reported and
+left as it is: move it by hand. Under systemd with one account, `./elpis upgrade` moves it too,
+between stopping and starting the units, when run by the units' account or root; with one account
+per service, it moves at the next `sudo ./elpis service install`: run it after upgrading (units
+installed before keep their memory folder until then). With one account, an account that has no
+memory folder yet and whose memory is still at a former place, and is its own, has it copied
+(folders and regular files of 16 MiB at most, dates kept, no link followed) the first time it is
+read; with one account per service, only `service install` moves it.
 
 ### An installation other accounts can reach
 

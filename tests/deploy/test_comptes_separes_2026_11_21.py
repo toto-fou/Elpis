@@ -63,7 +63,7 @@ runuser() {
 }
 chown() { trace chown "$@"; }; systemctl() { trace systemctl "$@"; }; systemd-tmpfiles() { trace systemd-tmpfiles "$@"; }
 setsid() { [ "${1:-}" = -w ] && shift; "$@"; }; sysctl() { trace sysctl "$@"; }
-install() { trace install "$@"; }; sudo() { :; }
+install() { trace install "$@"; }; sudo() { :; }; docker() { :; }
 load_runtime() { SANDBOX_DIR="$ROOT/user_sandboxes"; RAG_STORE="$ROOT/user_db/rag"; RAG_CACHE="$ROOT/user_db/rag-cache"; CHART_DIR="$ROOT/user_db/run/charts"; NODE=/bin/true; }
 need_core() { :; }
 node_bin() { echo /bin/true; }
@@ -217,7 +217,7 @@ def test_installation_separee_comptes_groupes_et_droits(depot):
                 "user_db/run/chat_runs/tour.json": "600",
                 "user_db/browser-relay-ca": "700", "user_db/browser-relay-ca/ca.key": "600", "user_sandboxes": "2750",
                 "user_sandboxes/alice": "2750", "user_sandboxes/alice/skills/s.md": "640",
-                "user_sandboxes/alice/work/projet/f": "600", "user_sandboxes/alice/.elpis-agent": "1777", "logs": "2770",
+                "user_sandboxes/alice/work/projet/f": "600", "user_sandboxes/alice/.elpis-agent": "1707", "logs": "2770",
                 "backups": "700", "mcp.json": "640", "config.json": "640", "user_db/rag": "2770",
                 "user_db/rag/source": "2770", "user_db/rag/source/texte.txt": "660"}
     assert {p: _mode(depot / p) for p in attendus} == attendus
@@ -768,7 +768,7 @@ def test_retour_au_compte_unique_rend_les_dossiers_d_etat(depot):
     r = _harnais(depot, INSTALLE_SEPARE, ELPIS_COMPTE_UNIQUE="1")
     assert r.returncode == 0, r.stdout + r.stderr
     attendus = {"user_db": "700", "user_db/rag": "700", "user_db/.session_secret": "600",
-                "user_sandboxes": "700", "user_sandboxes/alice": "750", "user_sandboxes/alice/.elpis-agent": "1777",
+                "user_sandboxes": "700", "user_sandboxes/alice": "750", "user_sandboxes/alice/.elpis-agent": "1707",
                 "user_sandboxes/alice/work/projet/f": "600", "logs": "700", "user_db/run/chat_runs": "700"}
     assert {p: _mode(depot / p) for p in attendus} == attendus
 

@@ -3,6 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   closeSync,
+  constants,
   existsSync,
   mkdirSync,
   opendirSync,
@@ -30,6 +31,7 @@ import {
   getPy,
   HttpError,
   intPy,
+  journalDe,
   messageErreurOs,
   nomTypePy,
   ouPy,
@@ -90,18 +92,35 @@ export function nomDossierInstantanes(brut: string, uid: number): string {
   );
 }
 
+/** Vrai dossier ouvert sans suivre de lien ; un lien ou autre chose : 403, détail au journal. */
+function exigerDossier(chemin: string): void {
+  let fd: number;
+  try {
+    fd = openSync(chemin, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  } catch (e) {
+    journalDe("sandbox").warn(`[snapshots] ${chemin} refusé : ${messageErreurOs(e, chemin)}`);
+    throw new HttpError(403, "Snapshot path escape");
+  }
+  closeSync(fd);
+}
+
+/** `<SANDBOX_DIR>/_snapshots`, créé à la demande, jamais un lien. */
 function racineInstantanes(): string {
-  const racine = realpathPy(pyJoin(config.SANDBOX_DIR, "_snapshots"));
+  const racine = pyJoin(realpathPy(config.SANDBOX_DIR), "_snapshots");
   mkdirSync(racine, { recursive: true });
+  exigerDossier(racine);
   return racine;
 }
 
-/** `_user_snap_dir` : dossier du compte sous `_snapshots`, créé à la demande ; 403 s'il en sortait. */
+/** `_user_snap_dir` : dossier du compte sous `_snapshots` (un seul composant), créé à la demande ; lien à sa place : 403. */
 async function dossierCompte(uid: number): Promise<string> {
-  const racine = racineInstantanes();
-  const p = realpathPy(pyJoin(racine, nomDossierInstantanes(await usernameFor(uid), uid)));
-  if (p !== racine && !p.startsWith(racine + "/")) throw new HttpError(403, "Snapshot path escape");
-  mkdirSync(p, { recursive: true });
+  const p = pyJoin(racineInstantanes(), nomDossierInstantanes(await usernameFor(uid), uid));
+  try {
+    mkdirSync(p);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+  }
+  exigerDossier(p);
   return p;
 }
 

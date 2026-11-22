@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/identite/fournisseurs.ts — fournisseurs d'identité : liste, secret au coffre, champs figés, empreinte du dernier test réussi. */
+/** apps/core/src/identite/fournisseurs.ts — fournisseurs d'identité : liste et actifs (invariants de lecture), secret au coffre, champs figés, empreinte du dernier test réussi. */
 import { createHash, createHmac } from "node:crypto";
 
 import { estDict } from "@elpis/commun";
@@ -20,8 +20,8 @@ import {
   supprimerSecret,
 } from "../secrets/stockage";
 import type { Acteur } from "../secrets/stockage";
-import { compterAdminsLocaux } from "./etat";
-import { hotePortHttps } from "./reglages";
+import { adminsLocauxUneFois, compterAdminsLocaux } from "./etat";
+import { hotePortHttps, lireReglagesAuth } from "./reglages";
 import type { Fournisseur } from "./reglages";
 
 const log = journal("identite");
@@ -31,9 +31,15 @@ const POLITIQUE_SECRET = {
   confirm_first_use: false,
   tls: "strict",
 } as const;
+const signales = new Map<string, string>();
 
 /** Nom du secret d'instance d'un fournisseur. */
 export const nomSecret = (id: string): string => `auth-${id}`;
+
+/** Réglages relus à chaud ; fournisseur valide d'identifiant donné. */
+export function fournisseurParId(id: string): Fournisseur | undefined {
+  return lireReglagesAuth().providers.find((p) => p.id === id);
+}
 
 function canonique(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(canonique);
@@ -70,6 +76,20 @@ export function hmacCoffre(contexte: string, valeur: string): string | null {
 
 /** Contexte du HMAC du secret testé : propre au fournisseur, deux fournisseurs au même secret n'ont pas la même valeur. */
 export const contexteSecretTeste = (id: string): string => `${CONTEXTE_SECRET_TESTE}:${id}`;
+
+/** Pose l'empreinte du test réussi (le seul appelant de production est le test du fournisseur) et le HMAC du secret enregistré aujourd'hui. */
+export async function enregistrerTestReussi(x: Executeur, f: Fournisseur, publicUrl: string): Promise<void> {
+  const employe = await secretFournisseur(x, f);
+  const valeur = JSON.stringify({
+    h: empreinteFournisseur(f, publicUrl),
+    s: employe === null ? null : hmacCoffre(contexteSecretTeste(f.id), employe),
+  });
+  await x.run(
+    "INSERT INTO auth_provider_state(provider_id, tested_hash) VALUES(?,?) " +
+      "ON CONFLICT(provider_id) DO UPDATE SET tested_hash=excluded.tested_hash",
+    [f.id, valeur],
+  );
+}
 
 function lireTest(brut: unknown): { h: string; s: string | null } | null {
   if (typeof brut !== "string") return null;
@@ -177,6 +197,11 @@ export async function nombreIdentites(x: Executeur, id: string): Promise<number>
   return Number(r[0]?.[0] ?? 0);
 }
 
+/** Vrai si la revendication d'identifiant d'un fournisseur OIDC change (les rattachements préparés qui l'attendent ne valent plus). */
+export function revendicationIdentifiantChangee(avant: Fournisseur, apres: Fournisseur): boolean {
+  return avant.username_claim !== apres.username_claim;
+}
+
 /** Champs figés tant que des identités existent, parmi ceux que `apres` change. */
 export function champsFigesChanges(avant: Fournisseur, apres: Fournisseur): string[] {
   return (["issuer", "client_id", "subject_claim"] as const).filter((k) => avant[k] !== apres[k]);
@@ -250,4 +275,41 @@ export async function couperSessionsDesFournisseurs(
       [t, ...ids, t],
     );
   return comptes;
+}
+
+function signaler(id: string, raison: string | null): void {
+  if (raison === null) {
+    signales.delete(id);
+    return;
+  }
+  if (signales.get(id) === raison) return;
+  signales.set(id, raison);
+  log.warn(`fournisseur d'identité ${id} allumé mais écarté : ${raison}`);
+}
+
+/** Fournisseurs allumés (ou le seul `id` demandé) dont tous les invariants de lecture tiennent, quoi que le fichier contienne ; `cookieSecure` est la valeur figée du cookie du processus appelant ; chaque écart est signalé une fois au journal. */
+export async function fournisseursActifs(
+  x: Executeur,
+  cookieSecure: () => boolean,
+  id?: string,
+): Promise<Fournisseur[]> {
+  const r = lireReglagesAuth();
+  const securise = connexionSecurisee(cookieSecure());
+  const admins = adminsLocauxUneFois(x);
+  const actifs: Fournisseur[] = [];
+  for (const f of r.providers) {
+    if (!f.enabled) {
+      signales.delete(f.id);
+      continue;
+    }
+    if (id !== undefined && f.id !== id) continue;
+    const raison =
+      (await ecartPrealable(f, r.public_url, securise, admins)) ??
+      (await lecturesCoffre(x, f, r.public_url)).ecart;
+    signaler(f.id, raison);
+    if (raison === null) actifs.push(f);
+  }
+  if (id === undefined)
+    for (const i of r.invalides) if (i.enabled) signaler(i.id ?? "?", "réglages invalides");
+  return actifs;
 }

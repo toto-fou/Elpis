@@ -63,7 +63,15 @@ import {
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
 import { creerFamilleAdminIdentite } from "./familles/admin-identite";
+import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
+import { creerFamilleAdminIdentiteOidc } from "./familles/admin-identite-oidc";
+import { creerFamilleIdentite } from "./familles/identite";
 import { lireReglagesAuth } from "./identite/reglages";
+import { maintenirDecouvertesChaudes } from "./identite/oidc/rechauffement";
+import { FabriqueConfigurations } from "./identite/oidc/configuration";
+import { methodesPubliques } from "./identite/oidc/publique";
+import type { OptionsSortant } from "./identite/sortant";
+import { fraicheursDe, lecteurActifs } from "./identite/fraicheur";
 import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
@@ -164,6 +172,8 @@ export interface Composition {
 export interface OptionsComposition {
   /** Cycle de vie du process : arrêt des flux, empreinte de main et abonnement de l'admin au démarrage, fermeture du relais ; absent, un cycle jamais démarré. */
   readonly cycle?: CycleDeVie;
+  /** Résolution, juge et autorités du client sortant des fournisseurs SSO ; les essais y glissent leur fournisseur factice. */
+  readonly sortantOidc?: OptionsSortant;
 }
 
 /** Réglages lus au démarrage et vue courante de config.json : le « Redémarrage nécessaire » de main. */
@@ -402,7 +412,10 @@ export async function composer(
   installerPortsBureau(base);
   const jc = journal.child({ domaine: "comptes" });
   const localReserveAuxAdmins = (): boolean => lireReglagesAuth().local.mode === "admins";
+  const fournisseursActifsGardes = lecteurActifs(base, () => dep.attributsCookie().https_only === true);
+  const fraicheurs = fraicheursDe(fournisseursActifsGardes);
   const auth: DependancesAuth & DependancesJetons = {
+    fraicheursFournisseurs: fraicheurs,
     localReserveAuxAdmins,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     informer: (message) => jc.info(message),
@@ -431,6 +444,25 @@ export async function composer(
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
   brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
+  const configurationsOidc = new FabriqueConfigurations({
+    base,
+    maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
+    ...(options.sortantOidc === undefined ? {} : { sortant: options.sortantOidc }),
+  });
+  cycle.auDemarrage(
+    "découvertes des fournisseurs SSO",
+    () =>
+      maintenirDecouvertesChaudes(
+        {
+          base,
+          configurations: configurationsOidc,
+          cookieSecure: () => auth.attributsCookie().https_only === true,
+          journal: journal.child({ domaine: "identite" }),
+        },
+        cycle.signalArret,
+      ),
+    { arrierePlan: true },
+  );
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());
@@ -503,7 +535,18 @@ export async function composer(
     ],
     gardes: creerGardes(auth),
     familles: [
-      ...famillesParDefaut(mode),
+      ...famillesParDefaut(mode, async () => methodesPubliques(await fournisseursActifsGardes())),
+      creerFamilleIdentite({
+        auth,
+        mandataires: comptes.mandataires,
+        journal: journal.child({ domaine: "identite" }),
+        configurations: configurationsOidc,
+        demarrerHistoriqueFichiers: comptes.demarrerHistoriqueFichiers,
+        logMetric: comptes.logMetric,
+        publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
+        revoquer: (uid) => evenements.revoquer(uid),
+        bac: piloteBac(),
+      }),
       creerFamilleComptes(comptes),
       creerFamilleJetons(comptes),
       creerFamilleOAuth({ auth, oauth }),
@@ -556,6 +599,21 @@ export async function composer(
         base,
         auth,
         journal: journal.child({ domaine: "admin" }),
+        revoquer: (uid) => evenements.revoquer(uid),
+      }),
+      creerFamilleAdminRattachement({
+        base,
+        auth,
+        journal: journal.child({ domaine: "admin" }),
+        revoquer: (uid) => evenements.revoquer(uid),
+      }),
+      creerFamilleAdminIdentiteOidc({
+        base,
+        auth,
+        mandataires: comptes.mandataires,
+        journal: journal.child({ domaine: "admin" }),
+        configurations: configurationsOidc,
+        ...(options.sortantOidc === undefined ? {} : { sortant: options.sortantOidc }),
       }),
       creerFamilleAdminSecurite({
         base,

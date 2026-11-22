@@ -18,8 +18,10 @@ import {
   listerJetons,
   listGrants,
   listGroups,
+  MARQUEUR_SANS_MOT_DE_PASSE,
   mergeUserSettings,
   resetUserPassword,
+  ErreurSansMotDePasseLocal,
   revoquerTousAcces,
   setUserGroups,
   updateGroup,
@@ -58,6 +60,8 @@ import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } f
 import { validerMotDePasse } from "../comptes/aides";
 import { reactiver, suspendre } from "../comptes/etat";
 import { bacDuNomMisDeCote, deleteUserFull } from "../comptes/suppression";
+import { estPlusHaut, roleDuNiveau } from "../identite/correspondance";
+import { fournisseursAuRoleGere } from "../identite/droits";
 import { exigerAdminLocal } from "../identite/etat";
 import type { Journal } from "../journal";
 import {
@@ -117,11 +121,6 @@ function validerMotDePasseRecu(v: unknown, config: unknown): void {
   for (const cle of ["require_uppercase", "require_lowercase", "require_numbers", "require_special"])
     if (veritePy(getPy(politique, cle, false)))
       throw new ErreurPython("TypeError", "expected string or bytes-like object, got '" + nomTypePy(v) + "'");
-}
-
-/** Niveau `is_admin` en rôle lisible. */
-function nomDuRole(niveau: number): string {
-  return niveau === 1 ? "admin" : niveau === 2 ? "moderator" : "user";
 }
 
 export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille {
@@ -253,7 +252,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     auditer(req, "admin.user.create", {
       target_user_id: cree,
       target_username: username,
-      role: nomDuRole(niveau),
+      role: roleDuNiveau(niveau),
     });
     return { ok: true };
   }
@@ -268,6 +267,16 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (!avant) throw new HttpError(404, "Utilisateur non trouvé");
     if (cible === uid && niveau !== 1)
       throw new HttpError(400, "Impossible de retirer vos propres droits admin");
+    const rattache = await base.get<{ provider_id: string }>(
+      "SELECT provider_id FROM user_identities WHERE user_id=?",
+      [cible],
+    );
+    const gere = rattache !== undefined && fournisseursAuRoleGere().has(String(rattache.provider_id));
+    if (gere && estPlusHaut(roleDuNiveau(niveau), roleDuNiveau(Number(avant.is_admin))))
+      throw new HttpError(
+        409,
+        "Le rôle de ce compte est donné par votre fournisseur d'identité : vous pouvez seulement le rétrograder.",
+      );
     await base.ecriture(async (x) => {
       if (niveau !== 1) await exigerAdminLocal(x, { sauf: cible });
       await x.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
@@ -275,8 +284,9 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     invaliderAccesRag(base);
     auditer(req, "admin.user.role", {
       target_user_id: cible,
-      before: nomDuRole(Number(avant.is_admin)),
-      after: nomDuRole(niveau),
+      before: roleDuNiveau(Number(avant.is_admin)),
+      after: roleDuNiveau(niveau),
+      ...(gere ? { role_managed: true } : {}),
     });
     return reponseJsonPy(rep, { ok: true, role });
   }
@@ -292,7 +302,14 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       throw new ErreurPython("AttributeError", `'${nomTypePy(mdp)}' object has no attribute 'encode'`);
     const cible = entierBase(exact);
     // Compte inexistant : réponse `ok` comme le Python, sans ligne de succès au journal.
-    const change = await resetUserPassword(base, cible, mdp);
+    let change: boolean;
+    try {
+      change = await resetUserPassword(base, cible, mdp);
+    } catch (e) {
+      if (e instanceof ErreurSansMotDePasseLocal)
+        throw new HttpError(409, "Ce compte n'a pas de mot de passe local.");
+      throw e;
+    }
     await leverMinSession(base, cible, maintenant());
     try {
       await dep.revoquer(cible);
@@ -319,6 +336,21 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       dns: [...p.dns],
     }));
     const comptes = await getAllUsersWithGroups(base);
+    const rolesGeres = fournisseursAuRoleGere();
+    const identites = new Map(
+      (
+        await base.all<{
+          user_id: number;
+          provider_id: string;
+          ext_username: string | null;
+        }>("SELECT user_id, provider_id, ext_username FROM user_identities")
+      ).map((i) => [Number(i.user_id), i]),
+    );
+    const sansMotDePasse = new Set(
+      (
+        await base.valeurs<[number]>("SELECT id FROM users WHERE pass_hash=?", [MARQUEUR_SANS_MOT_DE_PASSE])
+      ).map(([id]) => Number(id)),
+    );
     for (const u of comptes) {
       const s = u["_settings"] as Dict;
       delete u["_settings"];
@@ -328,6 +360,15 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       const id = u["id"] as number;
       const octets = await sandboxUsageBytes(id, travailBac(u["username"] as string, id));
       u["sandbox_used_mb"] = versFlottantPy(arrondiPy(octets / MO, 2));
+      const identite = identites.get(id);
+      u["identity"] = identite
+        ? {
+            provider_id: identite.provider_id,
+            ext_username: identite.ext_username,
+          }
+        : null;
+      u["has_local_password"] = !sansMotDePasse.has(id);
+      u["role_managed"] = identite !== undefined && rolesGeres.has(identite.provider_id);
     }
     await describeUsers(base, comptes);
     return reponseJsonPy(rep, {

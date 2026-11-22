@@ -56,6 +56,7 @@ export async function poserSuspensionDetaillee(
     [t, par, t, t, uid],
   );
   if (pose.changes > 0) {
+    await x.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
     return { change: true, remplace: null };
   }
   if (par !== "admin") return { change: false, remplace: null };
@@ -67,6 +68,7 @@ export async function poserSuspensionDetaillee(
     [par, uid, origine],
   );
   if (remplace.changes === 0) return { change: false, remplace: null };
+  await x.run("DELETE FROM auth_ext_sessions WHERE user_id=?", [uid]);
   return { change: true, remplace: origine };
 }
 

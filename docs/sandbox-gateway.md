@@ -95,6 +95,12 @@ links (`packages/securite/src/confinement.ts`).
   an operation, the agent's local listener is reachable by any process in the
   sandbox, for the ticket's repository, service and refs only. Outside an
   operation, the terminal has only the network of its profile.
+- What the assistant is told (`<runtime_context>`,
+  `apps/core/src/contexte/reseau.ts`): the sandbox's real network (none, the
+  listed destinations with their ports and DNS resolvers, or full access minus
+  the profile's protections) and the profile's Git rule. Its Git tools reach
+  remote repositories through this relay; a `git` command in its shell has only
+  the sandbox network. It is never told the profile's name or id.
 
 ## Archives: what to know
 

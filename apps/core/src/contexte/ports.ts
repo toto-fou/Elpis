@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/contexte/ports.ts — dépendances du contexte pas encore portées (comptes, bac à sable, mémoire AX, prompts, index, usage) : interfaces et pose. */
+import type { ProfilReseau } from "@elpis/bac";
+
 import { ErreurPortAbsent } from "../llm/ports";
 
-/** Identifiant du profil retenu (celui demandé, même absent de la configuration), mode du profil appliqué et filtre du conteneur (liste blanche ou protection cochée). */
-export type ProfilEffectif = { id: string; mode: unknown; filtre?: boolean };
+/** Profil réseau appliqué au bac du compte ; un champ absent vaut celui d'un profil vide. */
+export type ProfilEffectif = Pick<ProfilReseau, "mode"> & Partial<Omit<ProfilReseau, "mode">>;
 
 /** Profil réseau effectif du compte (`get_user` + `resolve_network_profile_id` + `load_admin_config().get_profile`). */
 export interface PortProfilReseau {

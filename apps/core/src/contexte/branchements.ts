@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/contexte/branchements.ts — ports du contexte posés au démarrage : profil réseau du compte, mémoire AX des sites, compte et index des sessions du compresseur. */
 import { getUser, getUserSettings } from "@elpis/auth";
-import { chargerConfigBac, profilFiltre, profilParId } from "@elpis/bac";
+import { chargerConfigBac, profilParId } from "@elpis/bac";
 import { estDict } from "@elpis/commun";
 import type { Base, Executeur } from "@elpis/db";
 import { detectSessionUrl, detectSitesFromText, normalizeUrl, renderSiteContextual } from "@elpis/navigateur";
@@ -15,7 +15,7 @@ import { resolveNetworkProfileId } from "../relais/identite";
 import { installerMemoireAx, installerPortCompresseur, installerProfilReseau } from "./ports";
 import type { PortCompresseur, PortMemoireAx, PortProfilReseau } from "./ports";
 
-/** `_network_status_line` : profil du compte (« isolated » s'il est inconnu), mode du profil appliqué et filtre de son conteneur. */
+/** Profil appliqué au bac du compte : celui de ses réglages (imposé, sinon choisi), « isolated » pour un compte ou un profil inconnu. */
 export function profilReseauDuProcess(base: Executeur): PortProfilReseau {
   return {
     async profilReseau(username) {
@@ -24,8 +24,7 @@ export function profilReseauDuProcess(base: Executeur): PortProfilReseau {
         ligne === undefined
           ? "isolated"
           : resolveNetworkProfileId(await getUserSettings(base, Number(ligne.id)));
-      const profil = profilParId(chargerConfigBac(), id);
-      return { id, mode: profil.mode, filtre: profilFiltre(profil) };
+      return profilParId(chargerConfigBac(), id);
     },
   };
 }

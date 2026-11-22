@@ -573,9 +573,13 @@ Rules to follow without exception:
   browser, desktop) pull in `FRAGMENT_TOOLS` + `<runtime_context>` + their capability
   fragment; **content** categories (chart, memory, rag) pull in their
   fragment alone, without `FRAGMENT_TOOLS`.
-- The `<runtime_context>` is **truthful**: it carries the **actual** state of the
-  sandbox network resolved at assembly time, not frozen prose. A literal
-  `<runtime_context>` written in a persona **disables** the injection.
+- The `<runtime_context>` is **truthful**: it carries the **actual** reach of the
+  sandbox network, resolved at assembly time from the account's applied profile
+  (`contexte/reseau.ts`: none, the listed destinations, or full access minus the
+  ticked protections; the Git relay rule; no root in a hardened sandbox), not
+  frozen prose and never the profile's name. Its lists are sorted: the text
+  changes only with the profile or its settings. A literal `<runtime_context>`
+  written in a persona **disables** the injection.
 
 ### The reduction pipeline
 

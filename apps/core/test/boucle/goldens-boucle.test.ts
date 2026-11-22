@@ -156,6 +156,18 @@ describe("goldens du harnais boucle", () => {
     }
   });
 
+  // écart voulu au Python : payload_fold_fs porte la capacité réseau réelle du bac (niveau, règle du relais Git), seule la ligne réseau modifiée
+  it("aucun golden ne nomme encore le profil réseau au modèle", () => {
+    for (const nom of NOMS) {
+      const texte = JSON.stringify(lireGolden(nom));
+      expect([nom, texte.includes("(profile '"), texte.includes("via profile '")]).toEqual([
+        nom,
+        false,
+        false,
+      ]);
+    }
+  });
+
   it.each(NOMS)(
     "%s",
     async (nom) => {

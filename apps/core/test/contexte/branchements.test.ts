@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/contexte/branchements.test.ts — ports du contexte branchés sur la base (vecteurs Python) : ligne réseau, détection et rendu contextuel de la mémoire AX, URL de session Playwright, index des sessions en masse. */
+/** apps/core/test/contexte/branchements.test.ts — ports du contexte branchés sur la base (vecteurs Python) : ligne réseau et tête system stable d'un tour à l'autre, détection et rendu contextuel de la mémoire AX, URL de session Playwright, index des sessions en masse. */
 import "../moteur-environnement";
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -16,7 +16,7 @@ import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { networkStatusLine } from "../../src/contexte/assemblage";
+import { assembleOperationalContext, networkStatusLine } from "../../src/contexte/assemblage";
 import {
   brancherContexte,
   compresseurDuProcess,
@@ -26,8 +26,10 @@ import {
   installerMemoireAx,
   installerPortCompresseur,
   installerProfilReseau,
+  installerPromptsCapacites,
   portMemoireAx,
 } from "../../src/contexte/ports";
+import type { ProfilEffectif } from "../../src/contexte/ports";
 import {
   detectSessionUrl,
   detectSitesFromText,
@@ -131,54 +133,129 @@ describe.each(MOTEURS)("ports du contexte branchés (%s)", (moteur) => {
   it("ligne « pas de root » : un profil filtré (liste blanche ou protection) l'ajoute même si sudo est permis", async () => {
     const SANS_ROOT = "No root in this container";
     ecrireConfig({ executors: { allow_sudo: true } });
-    const ligne = async (profil: { id: string; mode: unknown; filtre?: boolean }): Promise<string> => {
+    const ligne = async (profil: ProfilEffectif): Promise<string> => {
       installerProfilReseau({ profilReseau: async () => profil });
       return networkStatusLine("inconnu");
     };
     try {
-      expect(await ligne({ id: "libre", mode: "bridge", filtre: false })).not.toContain(SANS_ROOT);
-      expect(await ligne({ id: "garde", mode: "bridge", filtre: true })).toContain(SANS_ROOT);
-      expect(await ligne({ id: "liste", mode: "allowlist_ip", filtre: true })).toContain(SANS_ROOT);
-      expect(await ligne({ id: "liste", mode: "allowlist_ip" })).toContain(SANS_ROOT);
-      expect(await ligne({ id: "libre", mode: "bridge" })).not.toContain(SANS_ROOT);
-      expect(await ligne({ id: "ferme", mode: "none", filtre: false })).not.toContain(SANS_ROOT);
+      expect(await ligne({ mode: "bridge" })).not.toContain(SANS_ROOT);
+      for (const coche of ["block_metadata", "block_lan", "block_host"] as const)
+        expect(await ligne({ mode: "bridge", [coche]: true }), coche).toContain(SANS_ROOT);
+      expect(await ligne({ mode: "allowlist_ip" })).toContain(SANS_ROOT);
+      expect(await ligne({ mode: "none", block_lan: true })).not.toContain(SANS_ROOT);
     } finally {
       brancherContexte(t.base);
     }
   });
 
-  it("profil du process : filtre vrai pour une liste blanche ou un profil ouvert protégé, faux sinon", async () => {
+  /** Réglages de bob remplacés le temps de `f`, puis rendus. */
+  async function avecReglagesDeBob<T>(reglages: Dict, f: () => Promise<T>): Promise<T> {
+    const avant = (await t.base.valeurs("SELECT settings_json FROM users WHERE username=?", ["bob"]))[0]?.[0];
+    await t.base.run("UPDATE users SET settings_json=? WHERE username=?", [JSON.stringify(reglages), "bob"]);
+    try {
+      return await f();
+    } finally {
+      await t.base.run("UPDATE users SET settings_json=? WHERE username=?", [avant as Valeur, "bob"]);
+    }
+  }
+
+  it("profil du process : le profil appliqué entier (liste, protections, règle Git), « isolated » pour un profil inconnu", async () => {
     ecrireConfig({
       executors: {
         network_profiles: [
           { id: "isolated", name: "I", mode: "none" },
-          { id: "libre", name: "L", mode: "bridge" },
-          { id: "garde", name: "G", mode: "bridge", block_lan: true },
-          { id: "liste", name: "W", mode: "allowlist_ip", ips: ["192.0.2.1"] },
+          { id: "garde", name: "G", mode: "bridge", block_lan: true, git_access: "accounts" },
+          {
+            id: "liste",
+            name: "W",
+            mode: "allowlist_ip",
+            ips: ["192.0.2.1"],
+            ports: [443],
+            git_access: "servers",
+            git_servers: ["git.example.org/acme"],
+          },
         ],
       },
     });
     const port = profilReseauDuProcess(t.base);
     const rendus: unknown[] = [];
-    const avant = (await t.base.valeurs("SELECT settings_json FROM users WHERE username=?", ["bob"]))[0]?.[0];
-    try {
-      for (const id of ["libre", "garde", "liste", "isolated"]) {
-        await t.base.run("UPDATE users SET settings_json=? WHERE username=?", [
-          JSON.stringify({ network_profile_id: id }),
-          "bob",
-        ]);
-        const { filtre, mode } = await port.profilReseau("bob");
-        rendus.push([id, mode, filtre]);
-      }
-    } finally {
-      await t.base.run("UPDATE users SET settings_json=? WHERE username=?", [avant as Valeur, "bob"]);
-    }
+    for (const id of ["garde", "liste", "absent"])
+      await avecReglagesDeBob({ network_profile_id: id }, async () => {
+        const p = await port.profilReseau("bob");
+        rendus.push([p.id, p.mode, p.block_lan, p.ips, p.ports, p.git_access, p.git_servers]);
+      });
     expect(rendus).toEqual([
-      ["libre", "bridge", false],
-      ["garde", "bridge", true],
-      ["liste", "allowlist_ip", true],
-      ["isolated", "none", false],
+      ["garde", "bridge", true, [], [], "accounts", []],
+      ["liste", "allowlist_ip", false, ["192.0.2.1"], [443], "servers", ["git.example.org/acme"]],
+      ["isolated", "none", false, [], [], "all", []],
     ]);
+  });
+
+  it("deux tours de suite, même profil : tête system identique à l'octet ; profil ou choix du compte changé : tête changée", async () => {
+    const profils = (web: Dict): Dict => ({
+      executors: {
+        network_profiles: [
+          { id: "lan", name: "LAN", mode: "bridge", block_metadata: true, block_host: true },
+          {
+            id: "web",
+            name: "Web",
+            mode: "allowlist_ip",
+            ips: ["192.0.2.7", "10.0.0.0/24"],
+            domains: ["pypi.org", "files.pythonhosted.org"],
+            ports: [443, 80],
+            dns: ["10.0.0.53"],
+            git_access: "servers",
+            git_servers: ["github.com/acme", "git.example.org"],
+            ...web,
+          },
+        ],
+      },
+    });
+    const tour1: Dict[] = [{ role: "user", content: "Installe requests." }];
+    const tour2: Dict[] = [
+      ...tour1,
+      { role: "assistant", content: "Fait." },
+      { role: "user", content: "Et numpy ?" },
+    ];
+    const tete = async (username: string, messages: Dict[]): Promise<unknown> => {
+      const [w] = await assembleOperationalContext(messages, {
+        allowedToolNames: ["execute_shell", "git_clone"],
+        username,
+      });
+      return (w[0] as Dict)["content"];
+    };
+    installerPromptsCapacites({
+      capabilityWantsRuntimeContext: () => true,
+      buildCapabilityBlock: () => null,
+    });
+    try {
+      ecrireConfig(profils({}));
+      const limite = await tete("carol", tour1);
+      expect(limite).toContain(
+        "  • Network: limited. The shell and the browser reach only the domains files.pythonhosted.org, pypi.org " +
+          "and the addresses 10.0.0.0/24, 192.0.2.7, on TCP ports 80, 443. DNS resolver: 10.0.0.53.",
+      );
+      expect(await tete("carol", tour2)).toBe(limite);
+      ecrireConfig(
+        profils({
+          ips: ["10.0.0.0/24", "192.0.2.7", "10.0.0.0/24"],
+          domains: ["files.pythonhosted.org", "pypi.org"],
+          ports: [80, 443],
+          git_servers: ["git.example.org", "github.com/acme"],
+        }),
+      );
+      expect(await tete("carol", tour2)).toBe(limite);
+      ecrireConfig(profils({ domains: ["pypi.org"] }));
+      expect(await tete("carol", tour2)).not.toBe(limite);
+      const ouvert = await tete("bob", tour1);
+      expect(ouvert).toContain("  • Network: full.");
+      expect(await tete("bob", tour2)).toBe(ouvert);
+      const choixChange = await avecReglagesDeBob({ network_profile_id: "web" }, () => tete("bob", tour2));
+      expect(choixChange).not.toBe(ouvert);
+      expect(choixChange).toContain("  • Network: limited.");
+    } finally {
+      installerPromptsCapacites(null);
+    }
   });
 
   it("mémoire AX : sites du texte, signal, rendu contextuel et ciblé", async () => {

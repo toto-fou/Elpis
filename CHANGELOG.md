@@ -29,6 +29,12 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Assistant: the sandbox's real network.** The runtime context no longer names the network profile
+  (the model saw its id, such as `profil_2`, where the console shows its name). It gives the level,
+  `none`, `limited` or `full`, with what matters for it: the listed destinations with their ports and
+  DNS resolvers, or the cloud metadata, local network and host machine the profile refuses; then the
+  profile's Git relay rule (all repositories, the chosen servers, or the account's verified Git
+  accounts). The text changes only with the profile or its settings, so the prompt cache holds.
 - **Console: no RAG HTTPS port.** The HTTPS page and the HTTPS toggle no longer show or write a RAG port (`security.https.rag_port`); the RAG is internal-only. The toggle drops a leftover `rag_port` from `config.json`.
 
 ### Security

@@ -61,7 +61,6 @@ describe("contrats REST : sécurité de la console (core réel)", () => {
     const https = {
       main_port: await portFerme(),
       admin_port: await portFerme(),
-      rag_port: await portFerme(),
     };
     writeFileSync(config.CONFIG_JSON_PATH, JSON.stringify({ security: { https } }));
     invalidateConfigCache();

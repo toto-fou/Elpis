@@ -459,8 +459,8 @@ http.createServer((req, res) => {
                             admin: 'https://127.0.0.1:8443/admin' } });
             }
             return json(res, {
-                enabled: HTTPS_ON, ports: { main: 443, admin: 8443, rag: 8444 },
-                caddy: { main: CADDY_UP, admin: CADDY_UP, rag: CADDY_UP },
+                enabled: HTTPS_ON, ports: { main: 443, admin: 8443 },
+                caddy: { main: CADDY_UP, admin: CADDY_UP },
                 current_scheme: 'http', listen: 'lan', client_local: false,
                 urls: HTTPS_ON
                     ? { main: 'https://127.0.0.1/', admin: 'https://127.0.0.1:8443/admin' }

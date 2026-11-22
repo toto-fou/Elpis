@@ -682,8 +682,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -831,8 +830,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -944,7 +942,7 @@
         "APP_DB_PASSWORD": "mot-de-passe-env",
         "MCP_SERVERS_DIR": "<TMP>/mcp"
       },
-      "config": "{\n  \"llama\": {\n    \"url\": \"\",\n    \"ip\": \"127.0.0.1\",\n    \"port\": \"8080\",\n    \"model\": \"local-model\",\n    \"engine\": \"llamacpp\"\n  },\n  \"app\": {\n    \"db_path\": \"user_db/app.db\",\n    \"session_secret\": \"\",\n    \"upload_dir\": \"user_db/uploads\",\n    \"sandbox_dir\": \"user_sandboxes\",\n    \"enable_model_selector\": true\n  },\n  \"database\": {\n    \"backend\": \"sqlite\",\n    \"host\": \"127.0.0.1\",\n    \"port\": 0,\n    \"name\": \"elpis\",\n    \"user\": \"elpis\",\n    \"tls\": \"off\",\n    \"pool_max\": 8\n  },\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"engine\": \"llama.cpp\"\n  },\n  \"security\": {\n    \"session\": {\n      \"cookie_name\": \"elpis_session\",\n      \"same_site\": \"lax\",\n      \"https_only\": false\n    },\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": 8443,\n      \"rag_port\": 8444\n    },\n    \"listen\": \"local\"\n  },\n  \"rag\": {\n    \"enabled\": true,\n    \"service_url\": \"http://127.0.0.1:8000\",\n    \"service_token\": \"\"\n  },\n  \"skins\": {\n    \"dir\": \"user_skins\",\n    \"enabled\": { \"kiki\": false },\n    \"default\": \"elpis\"\n  }\n}\n",
+      "config": "{\n  \"llama\": {\n    \"url\": \"\",\n    \"ip\": \"127.0.0.1\",\n    \"port\": \"8080\",\n    \"model\": \"local-model\",\n    \"engine\": \"llamacpp\"\n  },\n  \"app\": {\n    \"db_path\": \"user_db/app.db\",\n    \"session_secret\": \"\",\n    \"upload_dir\": \"user_db/uploads\",\n    \"sandbox_dir\": \"user_sandboxes\",\n    \"enable_model_selector\": true\n  },\n  \"database\": {\n    \"backend\": \"sqlite\",\n    \"host\": \"127.0.0.1\",\n    \"port\": 0,\n    \"name\": \"elpis\",\n    \"user\": \"elpis\",\n    \"tls\": \"off\",\n    \"pool_max\": 8\n  },\n  \"app_info\": {\n    \"name\": \"Elpis\",\n    \"engine\": \"llama.cpp\"\n  },\n  \"security\": {\n    \"session\": {\n      \"cookie_name\": \"elpis_session\",\n      \"same_site\": \"lax\",\n      \"https_only\": false\n    },\n    \"https\": {\n      \"enabled\": false,\n      \"main_port\": 443,\n      \"admin_port\": 8443\n    },\n    \"listen\": \"local\"\n  },\n  \"rag\": {\n    \"enabled\": true,\n    \"service_url\": \"http://127.0.0.1:8000\",\n    \"service_token\": \"\"\n  },\n  \"skins\": {\n    \"dir\": \"user_skins\",\n    \"enabled\": { \"kiki\": false },\n    \"default\": \"elpis\"\n  }\n}\n",
       "attendu": {
         "reglages": {
           "MCP_SERVERS_DIR": "<TMP>/mcp"
@@ -978,8 +976,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -1087,7 +1084,7 @@
     {
       "nom": "realiste",
       "env": {},
-      "config": "{\"llama\": {\"ip\": \"10.0.0.5\", \"port\": 9090, \"model\": \"qwen3-30b\", \"engine\": \"vllm\", \"timeout_sec\": 120, \"retries\": 5, \"retry_backoff_sec\": 1.5, \"retry_backoff_cap_s\": 30, \"loading_wait_s\": 45.5, \"sse_ping_interval_s\": 5, \"return_progress\": false, \"resumable_stream\": false, \"reasoning_control\": false, \"reasoning_soft_budget_tokens\": 2048, \"max_concurrency\": 8, \"max_models\": 2, \"max_tool_iterations\": 150, \"tool_timeout_s\": 120, \"tool_loop_max_s\": 3600, \"thinking_budget_tokens\": 16384, \"max_tokens_chat\": 8192, \"max_tokens_thinking\": 32768, \"thinking_output_uncapped\": false, \"content_resume_max\": 2, \"think_resume_max\": 3, \"think_resume_total_tokens\": 65536}, \"llm\": {\"detach_run_on_disconnect\": true, \"max_runs_per_user\": 5, \"ctx_image_token_cost\": 2000, \"scheduling_mode\": \"Optimized\", \"compression\": {\"enabled\": false, \"keep_recent_turns\": 8, \"keep_bridge_turns\": 2, \"external_model\": \" petit-modele \", \"endpoint_url\": \"http://10.0.0.6:8081\", \"endpoint_model\": \"qwen-3b\", \"endpoint_timeout_sec\": 90, \"max_per_chat\": 20}, \"compaction\": {\"buffer_tokens\": 4096, \"partial_target_ratio\": 0.5, \"threshold_pct\": 80, \"threshold_tokens\": 100000, \"per_run_max\": 4}, \"prune\": {\"enabled\": false, \"protect_tokens\": 30000, \"min_tokens\": 15000, \"every_iters\": 5}, \"thinking\": {\"history_max_chars\": 100000}, \"task\": {\"enabled\": false, \"child_timeout_s\": 7200, \"subagent_depth\": 2, \"resume_ttl_s\": 7200, \"resume_max\": 100, \"max_iters\": {\"explore\": 30, \"general\": 40, \"implement\": 120, \"verify\": 50, \"web\": 45, \"pr\": 20}}, \"debug\": {\"enabled\": false, \"max_entries\": 200, \"max_body_chars\": 50000}}, \"vision\": {\"endpoint_url\": \" http://10.0.0.7:8000 \", \"format\": \"LLM-Chat\", \"prompt\": \"D\u00e9cris l'\u00e9cran.\", \"model\": \"qwen-vl\", \"passes\": 1, \"timeout_sec\": 60, \"a11y_skip_min\": 20, \"response_map\": {\"boxes\": \"elements\"}}, \"desktop\": {\"agent_timeout_sec\": 45, \"transport_retries\": 2, \"replay_self_heal_max\": 5, \"stale_frame_ham\": 12, \"frame_strict_owner\": false, \"act_settle_quiet_ms\": 300, \"act_settle_poll_ms\": 100, \"screenshot_format\": \"JPEG\", \"screenshot_quality\": 80, \"max_elements\": 150, \"max_elements_chat\": 100, \"studio_max_nodes\": 3000, \"studio_act_settle_ms\": 2000, \"observe_scope\": \"Monitor\", \"tool_result_max_chars\": 40000, \"tool_result_max_tokens\": 12000, \"expose_raw_tools\": true, \"disable_shell\": true, \"targets\": [{\"name\": \"vm-win\", \"os\": \"Windows\", \"agent_url\": \"http://10.0.0.8:8765/\", \"default\": true, \"access\": \"list\", \"allowed_users\": [\"bob\", \"alice\", \"bob\", \" carol \"]}, {\"name\": \"vm-linux\", \"agent_url\": \"http://10.0.0.9:8765\"}]}, \"mcp\": {\"server_cmd\": \"server/autre.py\", \"tools_cache_ttl_sec\": 120.5, \"local_host\": \"0.0.0.0\", \"local_port\": 9876, \"local_token\": \"jeton-config\", \"local_tool_families\": \"fs,shell,git\", \"opencode_families\": \"git,browser\", \"opencode_exclude_families\": \"fs\", \"public_url\": \"http://poste:9876/mcp\", \"local_client_tokens\": {\"tok-a\": \"alice:git+browser\", \"tok-b\": \"bob\"}, \"servers_dir\": \"<TMP>/mcp_perso\", \"local_servers\": {\"local-tools\": {\"transport\": \"sse\", \"port\": 9877}}}, \"app\": {\"db_path\": \"<TMP>/base/app.db\", \"max_recent_chats\": 50, \"max_upload_mb\": 20, \"sandbox_dir\": \"<TMP>/sandboxes\", \"memory_dir\": \"<TMP>/memoire\", \"session_secret\": \"secret-de-config-propre-a-l-operateur-0123456789\", \"sandbox_import_max_pct\": 75, \"system_prompts\": {\"default\": \"<TMP>/prompts/defaut.md\", \"ax_memory_header\": \"<TMP>/prompts/memoire.md\", \"compressor\": \"<TMP>/prompts/compresseur.md\"}}, \"database\": {\"backend\": \"PostgreSQL\", \"host\": \"db.local\", \"port\": 5433, \"name\": \"elpis_prod\", \"user\": \"elpis_app\", \"tls\": \"Require\", \"pool_max\": 16, \"timeout\": 30, \"generation\": 3}, \"maintenance\": {\"metrics_retention_days\": 30, \"usage_events_retention_days\": 365, \"session_messages_retention_days\": 90, \"tool_metrics_retention_days\": 60, \"routine_runs_retention_days\": 120, \"daily_report_retention_days\": 200, \"hour\": 3}, \"metrics\": {\"timezone\": \"Europe/Paris\", \"business_hours\": {\"start\": 9, \"end\": 18, \"days\": \"1,2,3,4\"}}, \"tools\": {\"git\": {\"timeout_s\": 120}}, \"skills\": {\"dir\": \"<TMP>/skills\", \"user_dir\": \"<TMP>/skills_perso\", \"min_score\": 2.5, \"char_budget\": 8000, \"index_max\": 50}, \"skins\": {\"dir\": \"<TMP>/skins\"}, \"memory\": {\"enabled\": false, \"memory_char_limit\": 4000, \"user_char_limit\": 2000}, \"security\": {\"session\": {\"cookie_name\": \"elpis_sess\", \"same_site\": \"Strict\", \"https_only\": true, \"max_age_sec\": 3600}, \"https\": {\"enabled\": true, \"main_port\": 8443, \"admin_port\": \"9443\", \"rag_port\": 9444}}, \"features\": {\"opencode\": false, \"office_preview\": true, \"voice_stt\": 0}}",
+      "config": "{\"llama\": {\"ip\": \"10.0.0.5\", \"port\": 9090, \"model\": \"qwen3-30b\", \"engine\": \"vllm\", \"timeout_sec\": 120, \"retries\": 5, \"retry_backoff_sec\": 1.5, \"retry_backoff_cap_s\": 30, \"loading_wait_s\": 45.5, \"sse_ping_interval_s\": 5, \"return_progress\": false, \"resumable_stream\": false, \"reasoning_control\": false, \"reasoning_soft_budget_tokens\": 2048, \"max_concurrency\": 8, \"max_models\": 2, \"max_tool_iterations\": 150, \"tool_timeout_s\": 120, \"tool_loop_max_s\": 3600, \"thinking_budget_tokens\": 16384, \"max_tokens_chat\": 8192, \"max_tokens_thinking\": 32768, \"thinking_output_uncapped\": false, \"content_resume_max\": 2, \"think_resume_max\": 3, \"think_resume_total_tokens\": 65536}, \"llm\": {\"detach_run_on_disconnect\": true, \"max_runs_per_user\": 5, \"ctx_image_token_cost\": 2000, \"scheduling_mode\": \"Optimized\", \"compression\": {\"enabled\": false, \"keep_recent_turns\": 8, \"keep_bridge_turns\": 2, \"external_model\": \" petit-modele \", \"endpoint_url\": \"http://10.0.0.6:8081\", \"endpoint_model\": \"qwen-3b\", \"endpoint_timeout_sec\": 90, \"max_per_chat\": 20}, \"compaction\": {\"buffer_tokens\": 4096, \"partial_target_ratio\": 0.5, \"threshold_pct\": 80, \"threshold_tokens\": 100000, \"per_run_max\": 4}, \"prune\": {\"enabled\": false, \"protect_tokens\": 30000, \"min_tokens\": 15000, \"every_iters\": 5}, \"thinking\": {\"history_max_chars\": 100000}, \"task\": {\"enabled\": false, \"child_timeout_s\": 7200, \"subagent_depth\": 2, \"resume_ttl_s\": 7200, \"resume_max\": 100, \"max_iters\": {\"explore\": 30, \"general\": 40, \"implement\": 120, \"verify\": 50, \"web\": 45, \"pr\": 20}}, \"debug\": {\"enabled\": false, \"max_entries\": 200, \"max_body_chars\": 50000}}, \"vision\": {\"endpoint_url\": \" http://10.0.0.7:8000 \", \"format\": \"LLM-Chat\", \"prompt\": \"D\u00e9cris l'\u00e9cran.\", \"model\": \"qwen-vl\", \"passes\": 1, \"timeout_sec\": 60, \"a11y_skip_min\": 20, \"response_map\": {\"boxes\": \"elements\"}}, \"desktop\": {\"agent_timeout_sec\": 45, \"transport_retries\": 2, \"replay_self_heal_max\": 5, \"stale_frame_ham\": 12, \"frame_strict_owner\": false, \"act_settle_quiet_ms\": 300, \"act_settle_poll_ms\": 100, \"screenshot_format\": \"JPEG\", \"screenshot_quality\": 80, \"max_elements\": 150, \"max_elements_chat\": 100, \"studio_max_nodes\": 3000, \"studio_act_settle_ms\": 2000, \"observe_scope\": \"Monitor\", \"tool_result_max_chars\": 40000, \"tool_result_max_tokens\": 12000, \"expose_raw_tools\": true, \"disable_shell\": true, \"targets\": [{\"name\": \"vm-win\", \"os\": \"Windows\", \"agent_url\": \"http://10.0.0.8:8765/\", \"default\": true, \"access\": \"list\", \"allowed_users\": [\"bob\", \"alice\", \"bob\", \" carol \"]}, {\"name\": \"vm-linux\", \"agent_url\": \"http://10.0.0.9:8765\"}]}, \"mcp\": {\"server_cmd\": \"server/autre.py\", \"tools_cache_ttl_sec\": 120.5, \"local_host\": \"0.0.0.0\", \"local_port\": 9876, \"local_token\": \"jeton-config\", \"local_tool_families\": \"fs,shell,git\", \"opencode_families\": \"git,browser\", \"opencode_exclude_families\": \"fs\", \"public_url\": \"http://poste:9876/mcp\", \"local_client_tokens\": {\"tok-a\": \"alice:git+browser\", \"tok-b\": \"bob\"}, \"servers_dir\": \"<TMP>/mcp_perso\", \"local_servers\": {\"local-tools\": {\"transport\": \"sse\", \"port\": 9877}}}, \"app\": {\"db_path\": \"<TMP>/base/app.db\", \"max_recent_chats\": 50, \"max_upload_mb\": 20, \"sandbox_dir\": \"<TMP>/sandboxes\", \"memory_dir\": \"<TMP>/memoire\", \"session_secret\": \"secret-de-config-propre-a-l-operateur-0123456789\", \"sandbox_import_max_pct\": 75, \"system_prompts\": {\"default\": \"<TMP>/prompts/defaut.md\", \"ax_memory_header\": \"<TMP>/prompts/memoire.md\", \"compressor\": \"<TMP>/prompts/compresseur.md\"}}, \"database\": {\"backend\": \"PostgreSQL\", \"host\": \"db.local\", \"port\": 5433, \"name\": \"elpis_prod\", \"user\": \"elpis_app\", \"tls\": \"Require\", \"pool_max\": 16, \"timeout\": 30, \"generation\": 3}, \"maintenance\": {\"metrics_retention_days\": 30, \"usage_events_retention_days\": 365, \"session_messages_retention_days\": 90, \"tool_metrics_retention_days\": 60, \"routine_runs_retention_days\": 120, \"daily_report_retention_days\": 200, \"hour\": 3}, \"metrics\": {\"timezone\": \"Europe/Paris\", \"business_hours\": {\"start\": 9, \"end\": 18, \"days\": \"1,2,3,4\"}}, \"tools\": {\"git\": {\"timeout_s\": 120}}, \"skills\": {\"dir\": \"<TMP>/skills\", \"user_dir\": \"<TMP>/skills_perso\", \"min_score\": 2.5, \"char_budget\": 8000, \"index_max\": 50}, \"skins\": {\"dir\": \"<TMP>/skins\"}, \"memory\": {\"enabled\": false, \"memory_char_limit\": 4000, \"user_char_limit\": 2000}, \"security\": {\"session\": {\"cookie_name\": \"elpis_sess\", \"same_site\": \"Strict\", \"https_only\": true, \"max_age_sec\": 3600}, \"https\": {\"enabled\": true, \"main_port\": 8443, \"admin_port\": \"9443\"}}, \"features\": {\"opencode\": false, \"office_preview\": true, \"voice_stt\": 0}}",
       "fichiers": [
         {
           "chemin": "<TMP>/prompts/defaut.md",
@@ -1106,7 +1103,7 @@
           "texte": "  mdp-fichier  \n"
         }
       ],
-      "config_rechargee": "{\"llama\": {\"ip\": \"10.0.0.5\", \"port\": 9090, \"model\": \"qwen3-30b\", \"engine\": \"vllm\", \"timeout_sec\": 120, \"retries\": 5, \"retry_backoff_sec\": 1.5, \"retry_backoff_cap_s\": 30, \"loading_wait_s\": 45.5, \"sse_ping_interval_s\": 5, \"return_progress\": false, \"resumable_stream\": false, \"reasoning_control\": false, \"reasoning_soft_budget_tokens\": 2048, \"max_concurrency\": 8, \"max_models\": 2, \"max_tool_iterations\": 150, \"tool_timeout_s\": 120, \"tool_loop_max_s\": 3600, \"thinking_budget_tokens\": 16384, \"max_tokens_chat\": 8192, \"max_tokens_thinking\": 32768, \"thinking_output_uncapped\": false, \"content_resume_max\": 2, \"think_resume_max\": 3, \"think_resume_total_tokens\": 65536}, \"llm\": {\"detach_run_on_disconnect\": true, \"max_runs_per_user\": 5, \"ctx_image_token_cost\": 2000, \"scheduling_mode\": \"Optimized\", \"compression\": {\"enabled\": [], \"keep_recent_turns\": 100, \"keep_bridge_turns\": 2, \"external_model\": null, \"endpoint_url\": \"HTTP://H:3//\", \"endpoint_model\": \"qwen-3b\", \"endpoint_timeout_sec\": 90, \"max_per_chat\": 20}, \"compaction\": {\"threshold_pct\": 10, \"threshold_tokens\": 2047, \"per_run_max\": 2, \"partial_target_ratio\": \"nan\"}, \"prune\": {\"every_iters\": 1, \"protect_tokens\": -4}, \"thinking\": {\"history_max_chars\": 100000}, \"task\": {\"enabled\": false, \"child_timeout_s\": 7200, \"subagent_depth\": 2, \"resume_ttl_s\": 7200, \"resume_max\": 100, \"max_iters\": {\"explore\": 30, \"general\": 40, \"implement\": 120, \"verify\": 50, \"web\": 45, \"pr\": 20}}, \"debug\": {\"enabled\": false, \"max_entries\": 200, \"max_body_chars\": 50000}}, \"vision\": {\"endpoint_url\": \" http://10.0.0.7:8000 \", \"format\": \" \", \"prompt\": \"\", \"model\": \"qwen-vl\", \"passes\": 3, \"timeout_sec\": \"x\", \"a11y_skip_min\": 20, \"response_map\": [1]}, \"desktop\": {\"agent_timeout_sec\": 45, \"transport_retries\": 0, \"replay_self_heal_max\": 5, \"stale_frame_ham\": 12, \"frame_strict_owner\": false, \"act_settle_quiet_ms\": 300, \"act_settle_poll_ms\": 100, \"screenshot_format\": \"WEBP\", \"screenshot_quality\": 80, \"max_elements\": 0, \"max_elements_chat\": 100, \"studio_max_nodes\": 3000, \"studio_act_settle_ms\": 2000, \"observe_scope\": \"Monitor\", \"tool_result_max_chars\": 40000, \"tool_result_max_tokens\": 12000, \"expose_raw_tools\": true, \"disable_shell\": true, \"targets\": {\"name\": \"solo\", \"agent_url\": \"http://solo/\"}}, \"mcp\": {\"server_cmd\": \"server/autre.py\", \"tools_cache_ttl_sec\": 120.5, \"local_host\": \"0.0.0.0\", \"local_port\": 9876, \"local_token\": \"jeton-config\", \"local_tool_families\": \"fs,shell,git\", \"opencode_families\": \"git,browser\", \"opencode_exclude_families\": \"fs\", \"public_url\": \"http://poste:9876/mcp\", \"local_client_tokens\": {\"tok-a\": \"alice:git+browser\", \"tok-b\": \"bob\"}, \"servers_dir\": \"<TMP>/mcp_perso\", \"local_servers\": {\"local-tools\": {\"transport\": \"sse\", \"port\": 9877}}}, \"app\": {\"db_path\": \"<TMP>/base/app.db\", \"max_recent_chats\": 50, \"max_upload_mb\": 20, \"sandbox_dir\": \"<TMP>/sandboxes\", \"memory_dir\": \"<TMP>/memoire\", \"session_secret\": \"secret-de-config-propre-a-l-operateur-0123456789\", \"sandbox_import_max_pct\": 75, \"system_prompts\": {\"default\": \"<TMP>/prompts/defaut.md\", \"ax_memory_header\": \"<TMP>/prompts/memoire.md\", \"compressor\": \"<TMP>/prompts/compresseur.md\"}}, \"database\": {\"backend\": \"PostgreSQL\", \"host\": \"db.local\", \"port\": 5433, \"name\": \"elpis_prod\", \"user\": \"elpis_app\", \"tls\": \"Require\", \"pool_max\": 16, \"timeout\": 30, \"generation\": 3}, \"maintenance\": {\"metrics_retention_days\": 30, \"usage_events_retention_days\": 365, \"session_messages_retention_days\": 90, \"tool_metrics_retention_days\": 60, \"routine_runs_retention_days\": 120, \"daily_report_retention_days\": 200, \"hour\": 3}, \"metrics\": {\"timezone\": \"Europe/Paris\", \"business_hours\": {\"start\": 9, \"end\": 18, \"days\": \"1,2,3,4\"}}, \"tools\": {\"git\": {\"timeout_s\": 120}}, \"skills\": {\"dir\": \"<TMP>/skills\", \"user_dir\": \"<TMP>/skills_perso\", \"min_score\": 2.5, \"char_budget\": 8000, \"index_max\": 50}, \"skins\": {\"dir\": \"<TMP>/skins\"}, \"memory\": {\"memory_char_limit\": 50, \"user_char_limit\": \"99999\"}, \"security\": {\"session\": {\"cookie_name\": \"elpis_sess\", \"same_site\": \"Strict\", \"https_only\": true, \"max_age_sec\": 3600}, \"https\": {\"enabled\": true, \"main_port\": 8443, \"admin_port\": \"9443\", \"rag_port\": 9444}}, \"features\": {\"opencode\": false, \"office_preview\": true, \"voice_stt\": 0}}",
+      "config_rechargee": "{\"llama\": {\"ip\": \"10.0.0.5\", \"port\": 9090, \"model\": \"qwen3-30b\", \"engine\": \"vllm\", \"timeout_sec\": 120, \"retries\": 5, \"retry_backoff_sec\": 1.5, \"retry_backoff_cap_s\": 30, \"loading_wait_s\": 45.5, \"sse_ping_interval_s\": 5, \"return_progress\": false, \"resumable_stream\": false, \"reasoning_control\": false, \"reasoning_soft_budget_tokens\": 2048, \"max_concurrency\": 8, \"max_models\": 2, \"max_tool_iterations\": 150, \"tool_timeout_s\": 120, \"tool_loop_max_s\": 3600, \"thinking_budget_tokens\": 16384, \"max_tokens_chat\": 8192, \"max_tokens_thinking\": 32768, \"thinking_output_uncapped\": false, \"content_resume_max\": 2, \"think_resume_max\": 3, \"think_resume_total_tokens\": 65536}, \"llm\": {\"detach_run_on_disconnect\": true, \"max_runs_per_user\": 5, \"ctx_image_token_cost\": 2000, \"scheduling_mode\": \"Optimized\", \"compression\": {\"enabled\": [], \"keep_recent_turns\": 100, \"keep_bridge_turns\": 2, \"external_model\": null, \"endpoint_url\": \"HTTP://H:3//\", \"endpoint_model\": \"qwen-3b\", \"endpoint_timeout_sec\": 90, \"max_per_chat\": 20}, \"compaction\": {\"threshold_pct\": 10, \"threshold_tokens\": 2047, \"per_run_max\": 2, \"partial_target_ratio\": \"nan\"}, \"prune\": {\"every_iters\": 1, \"protect_tokens\": -4}, \"thinking\": {\"history_max_chars\": 100000}, \"task\": {\"enabled\": false, \"child_timeout_s\": 7200, \"subagent_depth\": 2, \"resume_ttl_s\": 7200, \"resume_max\": 100, \"max_iters\": {\"explore\": 30, \"general\": 40, \"implement\": 120, \"verify\": 50, \"web\": 45, \"pr\": 20}}, \"debug\": {\"enabled\": false, \"max_entries\": 200, \"max_body_chars\": 50000}}, \"vision\": {\"endpoint_url\": \" http://10.0.0.7:8000 \", \"format\": \" \", \"prompt\": \"\", \"model\": \"qwen-vl\", \"passes\": 3, \"timeout_sec\": \"x\", \"a11y_skip_min\": 20, \"response_map\": [1]}, \"desktop\": {\"agent_timeout_sec\": 45, \"transport_retries\": 0, \"replay_self_heal_max\": 5, \"stale_frame_ham\": 12, \"frame_strict_owner\": false, \"act_settle_quiet_ms\": 300, \"act_settle_poll_ms\": 100, \"screenshot_format\": \"WEBP\", \"screenshot_quality\": 80, \"max_elements\": 0, \"max_elements_chat\": 100, \"studio_max_nodes\": 3000, \"studio_act_settle_ms\": 2000, \"observe_scope\": \"Monitor\", \"tool_result_max_chars\": 40000, \"tool_result_max_tokens\": 12000, \"expose_raw_tools\": true, \"disable_shell\": true, \"targets\": {\"name\": \"solo\", \"agent_url\": \"http://solo/\"}}, \"mcp\": {\"server_cmd\": \"server/autre.py\", \"tools_cache_ttl_sec\": 120.5, \"local_host\": \"0.0.0.0\", \"local_port\": 9876, \"local_token\": \"jeton-config\", \"local_tool_families\": \"fs,shell,git\", \"opencode_families\": \"git,browser\", \"opencode_exclude_families\": \"fs\", \"public_url\": \"http://poste:9876/mcp\", \"local_client_tokens\": {\"tok-a\": \"alice:git+browser\", \"tok-b\": \"bob\"}, \"servers_dir\": \"<TMP>/mcp_perso\", \"local_servers\": {\"local-tools\": {\"transport\": \"sse\", \"port\": 9877}}}, \"app\": {\"db_path\": \"<TMP>/base/app.db\", \"max_recent_chats\": 50, \"max_upload_mb\": 20, \"sandbox_dir\": \"<TMP>/sandboxes\", \"memory_dir\": \"<TMP>/memoire\", \"session_secret\": \"secret-de-config-propre-a-l-operateur-0123456789\", \"sandbox_import_max_pct\": 75, \"system_prompts\": {\"default\": \"<TMP>/prompts/defaut.md\", \"ax_memory_header\": \"<TMP>/prompts/memoire.md\", \"compressor\": \"<TMP>/prompts/compresseur.md\"}}, \"database\": {\"backend\": \"PostgreSQL\", \"host\": \"db.local\", \"port\": 5433, \"name\": \"elpis_prod\", \"user\": \"elpis_app\", \"tls\": \"Require\", \"pool_max\": 16, \"timeout\": 30, \"generation\": 3}, \"maintenance\": {\"metrics_retention_days\": 30, \"usage_events_retention_days\": 365, \"session_messages_retention_days\": 90, \"tool_metrics_retention_days\": 60, \"routine_runs_retention_days\": 120, \"daily_report_retention_days\": 200, \"hour\": 3}, \"metrics\": {\"timezone\": \"Europe/Paris\", \"business_hours\": {\"start\": 9, \"end\": 18, \"days\": \"1,2,3,4\"}}, \"tools\": {\"git\": {\"timeout_s\": 120}}, \"skills\": {\"dir\": \"<TMP>/skills\", \"user_dir\": \"<TMP>/skills_perso\", \"min_score\": 2.5, \"char_budget\": 8000, \"index_max\": 50}, \"skins\": {\"dir\": \"<TMP>/skins\"}, \"memory\": {\"memory_char_limit\": 50, \"user_char_limit\": \"99999\"}, \"security\": {\"session\": {\"cookie_name\": \"elpis_sess\", \"same_site\": \"Strict\", \"https_only\": true, \"max_age_sec\": 3600}, \"https\": {\"enabled\": true, \"main_port\": 8443, \"admin_port\": \"9443\"}}, \"features\": {\"opencode\": false, \"office_preview\": true, \"voice_stt\": 0}}",
       "attendu": {
         "reglages": {
           "AGENTS_ENABLED": false,
@@ -1326,8 +1323,7 @@
           "https_ports": {
             "valeur": {
               "main": 8443,
-              "admin": 9443,
-              "rag": 9444
+              "admin": 9443
             }
           },
           "session_cookie_attrs": {
@@ -1629,8 +1625,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -1808,8 +1803,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -1965,8 +1959,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -2166,8 +2159,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -2277,7 +2269,7 @@
         "APP_DB_PATH": "<TMP>/haut/app.db",
         "MCP_SERVERS_DIR": "<TMP>/mcp"
       },
-      "config": "{\"llm\": {\"compression\": {\"keep_recent_turns\": 99, \"keep_bridge_turns\": 99, \"endpoint_timeout_sec\": 9999, \"max_per_chat\": 999}, \"compaction\": {\"partial_target_ratio\": 1.5, \"threshold_pct\": 150, \"threshold_tokens\": 9999999, \"per_run_max\": 99}, \"prune\": {\"every_iters\": 5000}, \"task\": {\"child_timeout_s\": 99999, \"subagent_depth\": 9, \"resume_ttl_s\": 999999, \"resume_max\": 9999, \"max_iters\": {\"explore\": 9999, \"general\": 9999, \"implement\": 9999, \"verify\": 9999, \"web\": 9999, \"pr\": 9999}}}, \"vision\": {\"passes\": 9, \"timeout_sec\": 999}, \"desktop\": {\"agent_timeout_sec\": 999, \"transport_retries\": 9, \"stale_frame_ham\": 99, \"screenshot_quality\": 100, \"max_elements\": 999, \"max_elements_chat\": 999, \"studio_max_nodes\": 99999, \"studio_act_settle_ms\": 99999}, \"metrics\": {\"business_hours\": {\"start\": 30, \"end\": 30}}, \"maintenance\": {\"hour\": 30}, \"tools\": {\"git\": {\"timeout_s\": 9999}}, \"memory\": {\"memory_char_limit\": 99999, \"user_char_limit\": 99999}, \"app\": {\"sandbox_import_max_pct\": 500, \"max_upload_mb\": 1000000, \"max_recent_chats\": 1000000}, \"security\": {\"session\": {\"max_age_sec\": \"123\", \"same_site\": \"Lax\", \"cookie_name\": \"\"}, \"https\": {\"enabled\": \"oui\", \"main_port\": 1000.0, \"admin_port\": true, \"rag_port\": \" 1 \"}}}",
+      "config": "{\"llm\": {\"compression\": {\"keep_recent_turns\": 99, \"keep_bridge_turns\": 99, \"endpoint_timeout_sec\": 9999, \"max_per_chat\": 999}, \"compaction\": {\"partial_target_ratio\": 1.5, \"threshold_pct\": 150, \"threshold_tokens\": 9999999, \"per_run_max\": 99}, \"prune\": {\"every_iters\": 5000}, \"task\": {\"child_timeout_s\": 99999, \"subagent_depth\": 9, \"resume_ttl_s\": 999999, \"resume_max\": 9999, \"max_iters\": {\"explore\": 9999, \"general\": 9999, \"implement\": 9999, \"verify\": 9999, \"web\": 9999, \"pr\": 9999}}}, \"vision\": {\"passes\": 9, \"timeout_sec\": 999}, \"desktop\": {\"agent_timeout_sec\": 999, \"transport_retries\": 9, \"stale_frame_ham\": 99, \"screenshot_quality\": 100, \"max_elements\": 999, \"max_elements_chat\": 999, \"studio_max_nodes\": 99999, \"studio_act_settle_ms\": 99999}, \"metrics\": {\"business_hours\": {\"start\": 30, \"end\": 30}}, \"maintenance\": {\"hour\": 30}, \"tools\": {\"git\": {\"timeout_s\": 9999}}, \"memory\": {\"memory_char_limit\": 99999, \"user_char_limit\": 99999}, \"app\": {\"sandbox_import_max_pct\": 500, \"max_upload_mb\": 1000000, \"max_recent_chats\": 1000000}, \"security\": {\"session\": {\"max_age_sec\": \"123\", \"same_site\": \"Lax\", \"cookie_name\": \"\"}, \"https\": {\"enabled\": \"oui\", \"main_port\": 1000.0, \"admin_port\": true}}}",
       "attendu": {
         "reglages": {
           "COMPACTIONS_PER_RUN_MAX": 64,
@@ -2354,8 +2346,7 @@
           "https_ports": {
             "valeur": {
               "main": 1000,
-              "admin": 1,
-              "rag": 1
+              "admin": 1
             }
           },
           "session_cookie_attrs": {
@@ -2551,8 +2542,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -2792,7 +2782,7 @@
         "APP_SESSION_SECRET": "secret-env-tres-long-et-propre-0123456789abcdef",
         "APP_BUILD_ID": "build-fixe"
       },
-      "config": "{\"llama\": {\"ip\": \"10.0.0.5\", \"port\": 9090, \"model\": \"qwen3-30b\", \"engine\": \"vllm\", \"timeout_sec\": 120, \"retries\": 5, \"retry_backoff_sec\": 1.5, \"retry_backoff_cap_s\": 30, \"loading_wait_s\": 45.5, \"sse_ping_interval_s\": 5, \"return_progress\": false, \"resumable_stream\": false, \"reasoning_control\": false, \"reasoning_soft_budget_tokens\": 2048, \"max_concurrency\": 8, \"max_models\": 2, \"max_tool_iterations\": 150, \"tool_timeout_s\": 120, \"tool_loop_max_s\": 3600, \"thinking_budget_tokens\": 16384, \"max_tokens_chat\": 8192, \"max_tokens_thinking\": 32768, \"thinking_output_uncapped\": false, \"content_resume_max\": 2, \"think_resume_max\": 3, \"think_resume_total_tokens\": 65536}, \"llm\": {\"detach_run_on_disconnect\": true, \"max_runs_per_user\": 5, \"ctx_image_token_cost\": 2000, \"scheduling_mode\": \"Optimized\", \"compression\": {\"enabled\": false, \"keep_recent_turns\": 8, \"keep_bridge_turns\": 2, \"external_model\": \" petit-modele \", \"endpoint_url\": \"http://10.0.0.6:8081\", \"endpoint_model\": \"qwen-3b\", \"endpoint_timeout_sec\": 90, \"max_per_chat\": 20}, \"compaction\": {\"buffer_tokens\": 4096, \"partial_target_ratio\": 0.5, \"threshold_pct\": 80, \"threshold_tokens\": 100000, \"per_run_max\": 4}, \"prune\": {\"enabled\": false, \"protect_tokens\": 30000, \"min_tokens\": 15000, \"every_iters\": 5}, \"thinking\": {\"history_max_chars\": 100000}, \"task\": {\"enabled\": false, \"child_timeout_s\": 7200, \"subagent_depth\": 2, \"resume_ttl_s\": 7200, \"resume_max\": 100, \"max_iters\": {\"explore\": 30, \"general\": 40, \"implement\": 120, \"verify\": 50, \"web\": 45, \"pr\": 20}}, \"debug\": {\"enabled\": false, \"max_entries\": 200, \"max_body_chars\": 50000}}, \"vision\": {\"endpoint_url\": \" http://10.0.0.7:8000 \", \"format\": \"LLM-Chat\", \"prompt\": \"D\u00e9cris l'\u00e9cran.\", \"model\": \"qwen-vl\", \"passes\": 1, \"timeout_sec\": 60, \"a11y_skip_min\": 20, \"response_map\": {\"boxes\": \"elements\"}}, \"desktop\": {\"agent_timeout_sec\": 45, \"transport_retries\": 2, \"replay_self_heal_max\": 5, \"stale_frame_ham\": 12, \"frame_strict_owner\": false, \"act_settle_quiet_ms\": 300, \"act_settle_poll_ms\": 100, \"screenshot_format\": \"JPEG\", \"screenshot_quality\": 80, \"max_elements\": 150, \"max_elements_chat\": 100, \"studio_max_nodes\": 3000, \"studio_act_settle_ms\": 2000, \"observe_scope\": \"Monitor\", \"tool_result_max_chars\": 40000, \"tool_result_max_tokens\": 12000, \"expose_raw_tools\": true, \"disable_shell\": true, \"targets\": [{\"name\": \"vm-win\", \"os\": \"Windows\", \"agent_url\": \"http://10.0.0.8:8765/\", \"default\": true, \"access\": \"list\", \"allowed_users\": [\"bob\", \"alice\", \"bob\", \" carol \"]}, {\"name\": \"vm-linux\", \"agent_url\": \"http://10.0.0.9:8765\"}]}, \"mcp\": {\"server_cmd\": \"server/autre.py\", \"tools_cache_ttl_sec\": 120.5, \"local_host\": \"0.0.0.0\", \"local_port\": 9876, \"local_token\": \"jeton-config\", \"local_tool_families\": \"fs,shell,git\", \"opencode_families\": \"git,browser\", \"opencode_exclude_families\": \"fs\", \"public_url\": \"http://poste:9876/mcp\", \"local_client_tokens\": {\"tok-a\": \"alice:git+browser\", \"tok-b\": \"bob\"}, \"servers_dir\": \"<TMP>/mcp_perso\", \"local_servers\": {\"local-tools\": {\"transport\": \"sse\", \"port\": 9877}}}, \"app\": {\"db_path\": \"<TMP>/base/app.db\", \"max_recent_chats\": 50, \"max_upload_mb\": 20, \"sandbox_dir\": \"<TMP>/sandboxes\", \"memory_dir\": \"<TMP>/memoire\", \"session_secret\": \"secret-de-config-propre-a-l-operateur-0123456789\", \"sandbox_import_max_pct\": 75, \"system_prompts\": {\"default\": \"<TMP>/prompts/defaut.md\", \"ax_memory_header\": \"<TMP>/prompts/memoire.md\", \"compressor\": \"<TMP>/prompts/compresseur.md\"}}, \"database\": {\"backend\": \"PostgreSQL\", \"host\": \"db.local\", \"port\": 5433, \"name\": \"elpis_prod\", \"user\": \"elpis_app\", \"tls\": \"Require\", \"pool_max\": 16, \"timeout\": 30, \"generation\": 3}, \"maintenance\": {\"metrics_retention_days\": 30, \"usage_events_retention_days\": 365, \"session_messages_retention_days\": 90, \"tool_metrics_retention_days\": 60, \"routine_runs_retention_days\": 120, \"daily_report_retention_days\": 200, \"hour\": 3}, \"metrics\": {\"timezone\": \"Europe/Paris\", \"business_hours\": {\"start\": 9, \"end\": 18, \"days\": \"1,2,3,4\"}}, \"tools\": {\"git\": {\"timeout_s\": 120}}, \"skills\": {\"dir\": \"<TMP>/skills\", \"user_dir\": \"<TMP>/skills_perso\", \"min_score\": 2.5, \"char_budget\": 8000, \"index_max\": 50}, \"skins\": {\"dir\": \"<TMP>/skins\"}, \"memory\": {\"enabled\": false, \"memory_char_limit\": 4000, \"user_char_limit\": 2000}, \"security\": {\"session\": {\"cookie_name\": \"elpis_sess\", \"same_site\": \"Strict\", \"https_only\": true, \"max_age_sec\": 3600}, \"https\": {\"enabled\": true, \"main_port\": 8443, \"admin_port\": \"9443\", \"rag_port\": 9444}}, \"features\": {\"opencode\": false, \"office_preview\": true, \"voice_stt\": 0}}",
+      "config": "{\"llama\": {\"ip\": \"10.0.0.5\", \"port\": 9090, \"model\": \"qwen3-30b\", \"engine\": \"vllm\", \"timeout_sec\": 120, \"retries\": 5, \"retry_backoff_sec\": 1.5, \"retry_backoff_cap_s\": 30, \"loading_wait_s\": 45.5, \"sse_ping_interval_s\": 5, \"return_progress\": false, \"resumable_stream\": false, \"reasoning_control\": false, \"reasoning_soft_budget_tokens\": 2048, \"max_concurrency\": 8, \"max_models\": 2, \"max_tool_iterations\": 150, \"tool_timeout_s\": 120, \"tool_loop_max_s\": 3600, \"thinking_budget_tokens\": 16384, \"max_tokens_chat\": 8192, \"max_tokens_thinking\": 32768, \"thinking_output_uncapped\": false, \"content_resume_max\": 2, \"think_resume_max\": 3, \"think_resume_total_tokens\": 65536}, \"llm\": {\"detach_run_on_disconnect\": true, \"max_runs_per_user\": 5, \"ctx_image_token_cost\": 2000, \"scheduling_mode\": \"Optimized\", \"compression\": {\"enabled\": false, \"keep_recent_turns\": 8, \"keep_bridge_turns\": 2, \"external_model\": \" petit-modele \", \"endpoint_url\": \"http://10.0.0.6:8081\", \"endpoint_model\": \"qwen-3b\", \"endpoint_timeout_sec\": 90, \"max_per_chat\": 20}, \"compaction\": {\"buffer_tokens\": 4096, \"partial_target_ratio\": 0.5, \"threshold_pct\": 80, \"threshold_tokens\": 100000, \"per_run_max\": 4}, \"prune\": {\"enabled\": false, \"protect_tokens\": 30000, \"min_tokens\": 15000, \"every_iters\": 5}, \"thinking\": {\"history_max_chars\": 100000}, \"task\": {\"enabled\": false, \"child_timeout_s\": 7200, \"subagent_depth\": 2, \"resume_ttl_s\": 7200, \"resume_max\": 100, \"max_iters\": {\"explore\": 30, \"general\": 40, \"implement\": 120, \"verify\": 50, \"web\": 45, \"pr\": 20}}, \"debug\": {\"enabled\": false, \"max_entries\": 200, \"max_body_chars\": 50000}}, \"vision\": {\"endpoint_url\": \" http://10.0.0.7:8000 \", \"format\": \"LLM-Chat\", \"prompt\": \"D\u00e9cris l'\u00e9cran.\", \"model\": \"qwen-vl\", \"passes\": 1, \"timeout_sec\": 60, \"a11y_skip_min\": 20, \"response_map\": {\"boxes\": \"elements\"}}, \"desktop\": {\"agent_timeout_sec\": 45, \"transport_retries\": 2, \"replay_self_heal_max\": 5, \"stale_frame_ham\": 12, \"frame_strict_owner\": false, \"act_settle_quiet_ms\": 300, \"act_settle_poll_ms\": 100, \"screenshot_format\": \"JPEG\", \"screenshot_quality\": 80, \"max_elements\": 150, \"max_elements_chat\": 100, \"studio_max_nodes\": 3000, \"studio_act_settle_ms\": 2000, \"observe_scope\": \"Monitor\", \"tool_result_max_chars\": 40000, \"tool_result_max_tokens\": 12000, \"expose_raw_tools\": true, \"disable_shell\": true, \"targets\": [{\"name\": \"vm-win\", \"os\": \"Windows\", \"agent_url\": \"http://10.0.0.8:8765/\", \"default\": true, \"access\": \"list\", \"allowed_users\": [\"bob\", \"alice\", \"bob\", \" carol \"]}, {\"name\": \"vm-linux\", \"agent_url\": \"http://10.0.0.9:8765\"}]}, \"mcp\": {\"server_cmd\": \"server/autre.py\", \"tools_cache_ttl_sec\": 120.5, \"local_host\": \"0.0.0.0\", \"local_port\": 9876, \"local_token\": \"jeton-config\", \"local_tool_families\": \"fs,shell,git\", \"opencode_families\": \"git,browser\", \"opencode_exclude_families\": \"fs\", \"public_url\": \"http://poste:9876/mcp\", \"local_client_tokens\": {\"tok-a\": \"alice:git+browser\", \"tok-b\": \"bob\"}, \"servers_dir\": \"<TMP>/mcp_perso\", \"local_servers\": {\"local-tools\": {\"transport\": \"sse\", \"port\": 9877}}}, \"app\": {\"db_path\": \"<TMP>/base/app.db\", \"max_recent_chats\": 50, \"max_upload_mb\": 20, \"sandbox_dir\": \"<TMP>/sandboxes\", \"memory_dir\": \"<TMP>/memoire\", \"session_secret\": \"secret-de-config-propre-a-l-operateur-0123456789\", \"sandbox_import_max_pct\": 75, \"system_prompts\": {\"default\": \"<TMP>/prompts/defaut.md\", \"ax_memory_header\": \"<TMP>/prompts/memoire.md\", \"compressor\": \"<TMP>/prompts/compresseur.md\"}}, \"database\": {\"backend\": \"PostgreSQL\", \"host\": \"db.local\", \"port\": 5433, \"name\": \"elpis_prod\", \"user\": \"elpis_app\", \"tls\": \"Require\", \"pool_max\": 16, \"timeout\": 30, \"generation\": 3}, \"maintenance\": {\"metrics_retention_days\": 30, \"usage_events_retention_days\": 365, \"session_messages_retention_days\": 90, \"tool_metrics_retention_days\": 60, \"routine_runs_retention_days\": 120, \"daily_report_retention_days\": 200, \"hour\": 3}, \"metrics\": {\"timezone\": \"Europe/Paris\", \"business_hours\": {\"start\": 9, \"end\": 18, \"days\": \"1,2,3,4\"}}, \"tools\": {\"git\": {\"timeout_s\": 120}}, \"skills\": {\"dir\": \"<TMP>/skills\", \"user_dir\": \"<TMP>/skills_perso\", \"min_score\": 2.5, \"char_budget\": 8000, \"index_max\": 50}, \"skins\": {\"dir\": \"<TMP>/skins\"}, \"memory\": {\"enabled\": false, \"memory_char_limit\": 4000, \"user_char_limit\": 2000}, \"security\": {\"session\": {\"cookie_name\": \"elpis_sess\", \"same_site\": \"Strict\", \"https_only\": true, \"max_age_sec\": 3600}, \"https\": {\"enabled\": true, \"main_port\": 8443, \"admin_port\": \"9443\"}}, \"features\": {\"opencode\": false, \"office_preview\": true, \"voice_stt\": 0}}",
       "fichiers": [
         {
           "chemin": "<TMP>/prompts_env/defaut.md",
@@ -3164,8 +3154,7 @@
           "https_ports": {
             "valeur": {
               "main": 8443,
-              "admin": 9443,
-              "rag": 9444
+              "admin": 9443
             }
           },
           "session_cookie_attrs": {
@@ -3512,8 +3501,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -3871,8 +3859,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -4087,8 +4074,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -4271,8 +4257,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -4450,8 +4435,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -4608,8 +4592,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -4767,8 +4750,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -4919,8 +4901,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -5086,8 +5067,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -5271,8 +5251,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {
@@ -5432,8 +5411,7 @@
           "https_ports": {
             "valeur": {
               "main": 443,
-              "admin": 8443,
-              "rag": 8444
+              "admin": 8443
             }
           },
           "session_cookie_attrs": {

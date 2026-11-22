@@ -1110,7 +1110,7 @@ describe("setupAdmin", () => {
       url === "/api/admin/security/listen"
         ? json({ ok: false, listen: "local", main_restarted: false })
         : url === "/api/admin/security/https"
-          ? json({ ok: false, enabled: true, urls: { admin: "https://h:8444" }, main_restarted: false })
+          ? json({ ok: false, enabled: true, urls: { admin: "https://h:8443" }, main_restarted: false })
           : json({}),
     );
     A.httpsStatus.value = { listen: "lan", enabled: false } as typeof A.httpsStatus.value;

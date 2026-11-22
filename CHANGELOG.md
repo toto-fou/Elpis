@@ -27,6 +27,10 @@ follow [SemVer](https://semver.org/).
   and whether tool hosts are declared on other machines (their sandboxes get those hosts'
   addresses, which the console then says).
 
+### Changed
+
+- **Console: no RAG HTTPS port.** The HTTPS page and the HTTPS toggle no longer show or write a RAG port (`security.https.rag_port`); the RAG is internal-only. The toggle drops a leftover `rag_port` from `config.json`.
+
 ### Security
 
 - **Security journal: a lost signature is now loud.** On an installation (`elpis` sets

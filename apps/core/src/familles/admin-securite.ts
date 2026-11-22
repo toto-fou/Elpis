@@ -198,7 +198,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       caddy: {
         main: await sonder(ports["main"] as number),
         admin: await sonder(ports["admin"] as number),
-        rag: await sonder(ports["rag"] as number),
       },
       current_scheme: schema,
       urls: urlsHttps(hotePublicDe(req), actif, ports),
@@ -238,9 +237,9 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       for (const [cle, defaut] of [
         ["main_port", 443],
         ["admin_port", 8443],
-        ["rag_port", 8444],
       ] as const)
         if (!Object.hasOwn(https, cle)) poserCle(https, cle, defaut);
+      delete https["rag_port"];
       const sess = sectionDict(sec, "session");
       poserCle(sess, "https_only", actif);
       if (!actif && lowerPy(texteOu(getPy(sess, "same_site", null), "")) === "none")

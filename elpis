@@ -1318,7 +1318,7 @@ chevauchement() {
     return 1
 }
 
-# Droits du mode séparé, à chaque passage, services arrêtés, posés par deploy/droits.py au moment même : dossiers fixes du dépôt et dossiers de .env (jamais de config.json), refusés s'ils se chevauchent (le magasin du RAG peut être dans le dossier de la base) ; dossiers au groupe des données, contenu g+rwX ; seules les entrées de l'opérateur et des anciens comptes uniques sont reprises (jamais celles de root ni d'un service, qu'un service aurait pu y déplacer), dossiers de root compris ; secrets un à un, autorité du relais à l'hôte d'outils, run/chat_runs et run/task_resume privés à main, exclusions sur chaque parcours ; backups/ privé à l'opérateur ; aucun lien suivi, aucun /work touché.
+# Droits du mode séparé, à chaque passage, services arrêtés, posés par deploy/droits.py au moment même : dossiers fixes du dépôt et dossiers de .env (jamais de config.json), refusés s'ils se chevauchent (le magasin du RAG peut être dans le dossier de la base) ; dossiers au groupe des données, contenu g+rwX ; seules les entrées de l'opérateur et des anciens comptes uniques sont reprises (jamais celles de root ni d'un service, qu'un service aurait pu y déplacer), dossiers de root compris ; secrets un à un (jeton du RAG laissé dans user_db, source refusée ou réécrite : fermé à son propriétaire, jamais partagé), autorité du relais à l'hôte d'outils, run/chat_runs et run/task_resume privés à main, exclusions sur chaque parcours ; backups/ privé à l'opérateur ; aucun lien suivi, aucun /work touché.
 droits_separes() {
     local base="$1" op="$2" G="$GROUPE_DONNEES" og d n e=0 legs="" admis U="$ROOT/user_db" S="$SANDBOX_DIR" B="" R="$RAG_STORE" sousR="" x h
     og="$(id -gn "$op")" || return 1
@@ -1329,11 +1329,11 @@ droits_separes() {
     done
     admis="$legs $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost"
     local cle=(.vault.key .vault.key.lock .encryption_key .encryption_key.lock .session_secret .session_secret.lock)
-    local partages=(.local_mcp_token .rag_service_token) base_console=('.db_password*') envois=(.backup_ssh_key .backup_rsync_password)
+    local partages=(.local_mcp_token) prives=(.rag_service_token) base_console=('.db_password*') envois=(.backup_ssh_key .backup_rsync_password)
     local fixes=("$U" "$LOG_DIR" "$ROOT/backups" "$ROOT/system_prompts" "$ROOT/skills") commun=() hors=() geres=()
     commun=(--comptes "$legs" --comptes-dossiers root --sauf work --sauf .elpis-agent
             --prive "$UNIT_PREFIX-main:$U/run/chat_runs" --prive "$UNIT_PREFIX-main:$U/run/task_resume")
-    for n in "${cle[@]}" "${partages[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do commun+=(--sauf "$n"); done
+    for n in "${cle[@]}" "${partages[@]}" "${prives[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do commun+=(--sauf "$n"); done
     [ -z "$base" ] || [ "$base" = "$U" ] || B="$base"
     # Chevauchements : sandboxes et base ni l'une dans l'autre ni sur un dossier fixe ; magasin du RAG dans la base ou à part.
     if x="$(chevauchement "$S" "${fixes[@]}" "$B")"; then warn "Dossier des sandboxes $S refusé : il chevauche $x."; S=""; e=1; fi
@@ -1358,6 +1358,7 @@ droits_separes() {
             --regle "$UNIT_PREFIX-toolhost:$G:-:go-rwxs:$d/browser-relay-ca" || e=1
         poser_droits fichiers "$d" root "$GROUPE_CLE" 0640 "${cle[@]}" --comptes "root $legs" || e=1
         poser_droits fichiers "$d" root "$G" 0640 "${partages[@]}" --comptes "root $legs" || e=1
+        poser_droits fichiers "$d" - - 0600 "${prives[@]}" || e=1
         poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$G" 0640 "${base_console[@]}" --comptes "$legs" || e=1
         poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0640 "${envois[@]}" --comptes "$legs" || e=1
         poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0660 .backup_known_hosts --comptes "$legs" || e=1
@@ -1433,12 +1434,13 @@ ranger_secrets() {
     return "$rc"
 }
 
-# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; clés remises par systemd : la clé rag.token, reprise de JETON_RAG_SYS puis de user_db/.rag_service_token (chacun l'emporte sur la précédente, puis retiré), créée sinon ; compte unique, user_db/.rag_service_token ; secrets de config.json rangés au passage.
+# Jeton du service RAG au fichier du mode (COMPTE : opérateur, ou compte unique) : mode séparé, JETON_RAG_SYS (0440, groupe du RAG ; user_db/.rag_service_token, que ./elpis configure y régénère, l'emporte s'il vient de l'opérateur seul, à un seul lien et sans écriture d'autrui : lu par descripteur, recopié, retiré, par deploy/droits.py reprendre), créé s'il manque ; clés remises par systemd : la clé rag.token, reprise de JETON_RAG_SYS puis de user_db/.rag_service_token (chacun l'emporte sur la précédente, puis retiré), créée sinon, aussi quand ce fichier est refusé (laissé, fermé par droits_separes) ; compte unique, user_db/.rag_service_token, au compte unique (0600) ; secrets de config.json rangés au passage.
 jeton_rag() {
     local depot="$ROOT/user_db/.rag_service_token" sys="$JETON_RAG_SYS" e=0
     if [ "$MODE_COMPTES" = separes ] && cles_systemd; then
         { magasin_cles && poser_droits cle "$CLES_SYS" rag.token --source "$sys" --proprio "root,$1" --source-gagne; } || e=1
-        poser_droits cle "$CLES_SYS" rag.token --source "$depot" --proprio "$1" --source-gagne --creer jeton || e=1
+        poser_droits cle "$CLES_SYS" rag.token --source "$depot" --proprio "$1" --source-gagne --creer jeton \
+            || { e=1; poser_droits cle "$CLES_SYS" rag.token --creer jeton; }
         ranger_secrets "$sys" "$UNIT_PREFIX-admin"
         return "$e"
     elif [ "$MODE_COMPTES" = separes ]; then
@@ -1448,6 +1450,7 @@ jeton_rag() {
         poser_droits secret "${sys%/*}" "${sys##*/}" && poser_droits fichiers "${sys%/*}" root "$GROUPE_RAG" 0440 "${sys##*/}"
     else
         if [ -f "$sys" ] && [ ! -L "$sys" ] && [ ! -e "$depot" ]; then mv -T -- "$sys" "$depot" || return 1; fi
+        poser_droits fichiers "${depot%/*}" "$1" "$(id -gn "$1")" 0600 "${depot##*/}" --comptes "root $1" || return 1
         ranger_secrets "$depot" "$1"
     fi
 }
@@ -1471,18 +1474,19 @@ cles_vers_systemd() {
     return "$e"
 }
 
-# cles_rendues COMPTE GROUPE : clés remises par systemd que le mode en place n'emploie pas (retour à un compte, retrait des services, systemd trop ancien) rendues à leurs fichiers du compte unique, sans suivre de lien : clés du coffre et du journal 0440 root:GROUPE dans /etc/elpis, clé de chiffrement et secret de session 0600 à COMPTE près de la base des unités séparées, jeton du RAG 0600 à root dans /etc/elpis (que jeton_rag reprend), clé d'API de Qdrant retirée (un seul compte : Qdrant sans clé) ; une cible différente garde la clé ; magasin retiré une fois vide ; rien sans magasin.
+# cles_rendues COMPTE GROUPE : clés remises par systemd que le mode en place n'emploie pas (retour à un compte, retrait des services, systemd trop ancien) rendues à leurs fichiers du compte unique, sans suivre de lien : clés du coffre et du journal 0440 root:GROUPE dans /etc/elpis, clé de chiffrement et secret de session 0600 à COMPTE près de la base des unités séparées, jeton du RAG 0600 à COMPTE dans user_db/.rag_service_token, où le compte unique le lit (mode séparé sans clés de systemd : à root dans /etc/elpis, que jeton_rag reprend), un fichier différent déjà là remplacé par le jeton en service, clé d'API de Qdrant retirée (un seul compte : Qdrant sans clé) ; une cible différente garde la clé ; magasin retiré une fois vide ; rien sans magasin.
 cles_rendues() {
-    local proprio="$1" g="$2" gb base e=0
+    local proprio="$1" g="$2" gb base jeton="$ROOT/user_db/.rag_service_token" jp="$1" jg e=0
     [ -d "$CLES_SYS" ] || return 0
     command -v systemd-creds >/dev/null 2>&1 || { warn "systemd-creds absent : clés de $CLES_SYS non déchiffrables (installez systemd, ou remettez leurs copies hors de la machine à leurs emplacements)."; return 1; }
     gb="$(id -gn "$proprio")" || return 1
+    jg="$gb"; [ "${MODE_COMPTES:-}" != separes ] || { jeton="$JETON_RAG_SYS"; jp=root; jg=root; }
     base="$(chemins_separes >/dev/null && dirname -- "$DB_FICHIER")" && [ -n "$base" ] || return 1
     poser_droits cle-rendre "$CLES_SYS" vault.key "$VAULT_KEY_SYS" root "$g" 0440 || e=1
     poser_droits cle-rendre "$CLES_SYS" audit.key "$AUDIT_KEY_SYS" root "$g" 0440 || e=1
     poser_droits cle-rendre "$CLES_SYS" encryption.key "$base/.encryption_key" "$proprio" "$gb" 0600 || e=1
     poser_droits cle-rendre "$CLES_SYS" session.secret "$base/.session_secret" "$proprio" "$gb" 0600 || e=1
-    poser_droits cle-rendre "$CLES_SYS" rag.token "$JETON_RAG_SYS" root root 0600 || e=1
+    poser_droits cle-rendre "$CLES_SYS" rag.token "$jeton" "$jp" "$jg" 0600 --remplacer || e=1
     poser_droits cle-rendre "$CLES_SYS" qdrant.key - root root 0600 || e=1
     [ "$e" -eq 0 ] || return 1
     rmdir -- "$CLES_SYS" 2>/dev/null || { warn "$CLES_SYS non vide : gardé (à vérifier)."; return 1; }
@@ -1599,7 +1603,7 @@ cmd_service() {
                     || warn "Dossiers d'état du mode séparé non tous rendus à $run_user (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             fi
             # Clés remises par systemd que ce mode n'emploie pas (retour à un compte, systemd trop ancien) : rendues à leurs fichiers avant audit setup, qui en créerait une neuve.
-            if ! { [ "$MODE_COMPTES" = separes ] && cles_systemd; } && ! cles_rendues root root; then
+            if ! { [ "$MODE_COMPTES" = separes ] && cles_systemd; } && ! cles_rendues "$([ "$MODE_COMPTES" = separes ] && echo root || echo "$run_user")" root; then
                 systemctl start "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
                 die "Clés remises par systemd non rendues à leurs fichiers (voir ci-dessus) : unités et services remis tels quels."
             fi

@@ -43,6 +43,10 @@ follow [SemVer](https://semver.org/).
   `admin off`: nothing listens on `:2019`. `systemctl reload caddy` no longer works; a change to
   the Caddy configuration restarts it (brief cut), which `install_caddy.sh` and `./elpis
   configure` now do.
+- **Document analyses require their jail.** Every installed mode now starts the RAG extractor with
+  `RAG_ISOLATION=bwrap`: where bubblewrap cannot isolate, analyses are refused (users are told to
+  ask their administrator) instead of running unjailed. `./elpis doctor` also flags Office previews
+  set to `isolation = "none"`, and `install.sh` says what a missing or blocked bubblewrap costs.
 - **One account per service.** `sudo ./elpis service install` now runs main, the console and the
   tool host under their own system accounts (`elpis-main`, `elpis-admin`, `elpis-toolhost`, no
   shell), sharing their state through the `elpis-donnees` group. Only the tool host unit gets

@@ -59,7 +59,9 @@ a bubblewrap jail, the one used for Office previews: no network, nothing from th
 extractor code, except the single file being analyzed (read-only) or the conversion's working folder.
 LibreOffice converts Word, Excel and PowerPoint there with a fresh profile that turns off macros and document
 links. `RAG_ISOLATION` is `auto` (default: jail as soon as `bwrap` works here), `bwrap` (required, otherwise 503
-`isolation_unavailable`) or `none`. `/api/health` reports it (`isolated`) and `./elpis doctor` flags it (`bubblewrap`
+`isolation_unavailable`) or `none`. Installed modes (`./elpis start`, the systemd units, single or separate
+accounts) set `bwrap` in the command itself, which `.env` cannot override: where bubblewrap cannot isolate, analyses are refused, never run unjailed; fix with
+`apt install bubblewrap`, allowing unprivileged user namespaces, then `./elpis doctor`. `/api/health` reports it (`isolated`) and `./elpis doctor` flags it (`bubblewrap`
 package, user namespaces allowed). Settings: `RAG_EXTRACT_TIMEOUT_S` (300,
 also read by the core for its own timeout), `RAG_EXTRACT_MEM_MB` (3072), `RAG_EXTRACT_MAX_BYTES` (200 MB),
 `RAG_EXTRACT_MAX_CHARS` (20 M), `RAG_EXTRACT_ZIP_MAX_MB` (1024, uncompressed size of Office archives),

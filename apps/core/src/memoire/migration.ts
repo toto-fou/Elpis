@@ -36,13 +36,15 @@ async function recopier(base: string, rel: string, cible: string, aCeCompte: boo
     return 0;
   }
   let n = 0;
+  let premier = true;
   try {
     for (; !suivant.done; suivant = parcours.next()) {
       const d = suivant.value;
-      if (d.relDir === rel && aCeCompte && fstatSync(d.fd).uid !== process.geteuid?.()) {
+      if (premier && aCeCompte && fstatSync(d.fd).uid !== process.geteuid?.()) {
         journal("memory").warn(`ancien magasin ${cheminPy(base, rel)} laissé : il n'est pas à ce compte`);
         return 0;
       }
+      premier = false;
       const ici = d.relDir === rel ? cible : cheminPy(cible, d.relDir.slice(rel.length + 1));
       await mkdir(ici, { recursive: true });
       for (const nom of d.fichiers) {

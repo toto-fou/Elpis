@@ -382,7 +382,7 @@ describe("docker run et conteneur d'un profil protégé", () => {
 
   /** Règles d'un conteneur en marche créé avec ces plages (`elpis.netcfg` = empreinte et plages). */
   function reglesPour(sb: UserSandbox, plages: string[]): Regle[] {
-    const netcfg = `${etiquetteNetcfg(sb.networkProfile, plages)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}|${sb.durci(sb.networkProfile) ? "1" : "0"}\n`;
+    const netcfg = `${etiquetteNetcfg(sb.networkProfile, plages)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}|${sb.durci(sb.networkProfile) ? "1" : "0"}|${sb.utilisateurExec()}\n`;
     return [
       {
         motif: ["container", "inspect"],

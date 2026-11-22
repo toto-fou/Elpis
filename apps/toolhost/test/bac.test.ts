@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/test/bac.test.ts — routes du cycle de vie du bac sur l'hôte TS (faux docker, faux agent) : /api/sandbox/me (imposition de l'enveloppe), redémarrage, destruction, instantanés en NDJSON. */
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 import {
@@ -511,6 +521,21 @@ describe("/api/sandbox/snapshots", () => {
     const d = await requete("DELETE", `/api/sandbox/snapshots/${String(meta["id"])}`);
     expect(d.json()).toEqual({ ok: true, id: meta["id"] });
     expect((await requete("DELETE", `/api/sandbox/snapshots/${String(meta["id"])}`)).statusCode).toBe(404);
+  });
+
+  it("dossier du compte sous _snapshots en lien (vers celui d'un autre compte) : refusé (403), jamais suivi", async () => {
+    const racine = path.join(tmp, "sb", "_snapshots");
+    mkdirSync(path.join(racine, "autre"), { recursive: true });
+    writeFileSync(path.join(racine, "autre", "a.json"), "{}");
+    rmSync(path.join(racine, "hugo"), { recursive: true, force: true });
+    symlinkSync("autre", path.join(racine, "hugo"));
+    try {
+      const l = await requete("GET", "/api/sandbox/snapshots");
+      expect([l.statusCode, l.json()]).toEqual([403, { detail: "Snapshot path escape" }]);
+      expect(readdirSync(path.join(racine, "autre"))).toEqual(["a.json"]);
+    } finally {
+      unlinkSync(path.join(racine, "hugo"));
+    }
   });
 
   it("identifiants invalides (400), marqueur de restauration interrompue exposé puis acquitté", async () => {

@@ -273,7 +273,8 @@ export function viderDossierAgent(dossier: string, uidExec: number | null): void
   try {
     fd = openSync(dossier, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
   } catch (e) {
-    journalDe("sandbox").warn(`[sandbox] ${dossier} non relu : ${messageErreurOs(e, dossier)}`);
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT")
+      journalDe("sandbox").warn(`[sandbox] ${dossier} non relu : ${messageErreurOs(e, dossier)}`);
     return;
   }
   try {
@@ -292,7 +293,10 @@ export function viderDossierAgent(dossier: string, uidExec: number | null): void
   }
 }
 
-/** `<P>/.elpis-agent` (créé s'il manque, ouvert sans suivre de lien) en 01777 : rechmodé seulement s'il ne l'est pas et qu'il est à ce compte ; sinon détail au journal, refus sobre. */
+/** Mode du dossier de l'agent : sticky, à cet hôte, au compte des bacs (« autres »), fermé au groupe (main et la console en sont). */
+export const MODE_DOSSIER_AGENT = 0o1707;
+
+/** `<P>/.elpis-agent` (créé s'il manque, ouvert sans suivre de lien) en 01707 : rechmodé seulement s'il ne l'est pas et qu'il est à ce compte ; sinon détail au journal, refus sobre. */
 export function dossierAgentPret(dossier: string): void {
   let motif = "";
   try {
@@ -304,9 +308,10 @@ export function dossierAgentPret(dossier: string): void {
     const fd = openSync(dossier, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     try {
       const { mode, uid } = fstatSync(fd);
-      if ((mode & 0o7777) !== 0o1777 && uid === process.geteuid?.()) fchmodSync(fd, 0o1777);
-      else if ((mode & 0o7777) !== 0o1777)
-        motif = `en ${(mode & 0o7777).toString(8).padStart(4, "0")} au lieu de 1777, à un autre compte (uid ${uid})`;
+      if ((mode & 0o7777) !== MODE_DOSSIER_AGENT && uid === process.geteuid?.())
+        fchmodSync(fd, MODE_DOSSIER_AGENT);
+      else if ((mode & 0o7777) !== MODE_DOSSIER_AGENT)
+        motif = `en ${(mode & 0o7777).toString(8).padStart(4, "0")} au lieu de 1707, à un autre compte (uid ${uid})`;
     } finally {
       closeSync(fd);
     }
@@ -333,32 +338,50 @@ function memeDossier(a: number, b: number): boolean {
   return x.dev === y.dev && x.ino === y.ino;
 }
 
-/** Motif du refus des montages de `sandboxPath` (`""` : permis), voir `exigerMontagesSurs`. */
-export function motifMontages(sandboxPath: string, racine: string, nom?: string): string {
+/** Motif du refus des montages de `sandboxPath` (`""` : permis), voir `exigerMontagesSurs` ; `manquants` : une entrée absente (créée ensuite) n'est pas refusée. */
+export function motifMontages(sandboxPath: string, racine: string, nom?: string, manquants = false): string {
   if (groupeDonnees() === null) return "";
   const S = realpathPy(racine);
   const P = pyParent(pyPath(sandboxPath));
-  const entree = nom ?? P.slice(P.lastIndexOf("/") + 1);
+  const base = P.slice(P.lastIndexOf("/") + 1);
+  const entree = nom ?? base;
   const dossier = O_PATH | constants.O_DIRECTORY | constants.O_NOFOLLOW;
-  let motif = "";
+  const absente = (e: unknown): boolean => manquants && (e as NodeJS.ErrnoException).code === "ENOENT";
   const fds: number[] = [];
+  const ouvrir = (chemin: string): number | null => {
+    try {
+      const fd = openSync(chemin, dossier);
+      fds.push(fd);
+      return fd;
+    } catch (e) {
+      if (absente(e)) return null;
+      throw e;
+    }
+  };
+  let motif = "";
   try {
     if (pyParent(P) !== S || pyJoin(P, WORK_SUBDIR) !== pyPath(sandboxPath))
       return `${sandboxPath} hors de ${S}`;
-    const fS = openSync(S, dossier);
-    fds.push(fS);
-    const fP = openSync(viaFd(fS, P.slice(P.lastIndexOf("/") + 1)), dossier);
-    fds.push(fP);
-    const fN = openSync(viaFd(fS, entree), dossier);
-    fds.push(fN);
-    if (!memeDossier(fN, fP)) return `${S}/${entree} n'est pas ${P}`;
-    if (!aCeCompte(fS) || !aCeCompte(fP)) return `${S} ou ${P} modifiable par un autre compte`;
+    const fS = ouvrir(S);
+    if (fS === null) return "";
+    const fP = ouvrir(viaFd(fS, base));
+    const fN = entree === base ? fP : ouvrir(viaFd(fS, entree));
+    if ((fP === null) !== (fN === null) || (fP !== null && fN !== null && !memeDossier(fN, fP)))
+      return `${S}/${entree} n'est pas ${P}`;
+    if (!aCeCompte(fS) || (fP !== null && !aCeCompte(fP)))
+      return `${S} ou ${P} modifiable par un autre compte`;
     for (const [fd, n] of [
       [fP, WORK_SUBDIR],
       [fP, AGENT_RUN_DIR],
       [fS, RELAY_DIR],
-    ] as const)
-      if (!lstatSync(viaFd(fd, n)).isDirectory()) motif = `lien ou entrée inattendue sous ${S} (${n})`;
+    ] as const) {
+      if (fd === null) continue;
+      try {
+        if (!lstatSync(viaFd(fd, n)).isDirectory()) motif = `lien ou entrée inattendue sous ${S} (${n})`;
+      } catch (e) {
+        if (!absente(e)) throw e;
+      }
+    }
   } catch (e) {
     motif = `lien ou entrée inattendue sous ${S} (${(e as NodeJS.ErrnoException).code ?? String(e)})`;
   } finally {
@@ -367,13 +390,14 @@ export function motifMontages(sandboxPath: string, racine: string, nom?: string)
   return motif;
 }
 
-/** Un compte par service : `/work` monté seulement si `<S>` et `<P>` ne peuvent être changés que par ce compte, que `<S>/<nom>` (le nom du compte, non résolu) est `<P>` même et qu'aucun lien ne mène de `<S>` à `/work`, au dossier de l'agent ni au relais ; sinon détail au journal, refus sobre. */
+/** Un compte par service : `/work` monté seulement si `<S>` et `<P>` ne peuvent être changés que par ce compte, que `<S>/<nom>` (le nom du compte, non résolu) est `<P>` même et qu'aucun lien ne mène de `<S>` à `/work`, au dossier de l'agent ni au relais (`manquants` : absents permis, avant de les créer) ; sinon détail au journal, refus sobre. */
 export function exigerMontagesSurs(
   sandboxPath: string,
   racine: string = String(config.SANDBOX_DIR),
   nom?: string,
+  manquants = false,
 ): void {
-  const motif = motifMontages(sandboxPath, racine, nom);
+  const motif = motifMontages(sandboxPath, racine, nom, manquants);
   if (!motif) return;
   journalDe("sandbox").warn(
     `[sandbox] montages de ${sandboxPath} refusés : ${motif} : relancez sudo ./elpis service install`,
@@ -431,8 +455,9 @@ export class UserSandbox implements BacPourAgent {
     this.machine = options.machine ?? (() => hostAddressesRecent());
   }
 
+  /** Nom du conteneur : celui du compte, ou celui du bac mis de côté (purges), qu'aucun compte ne peut porter. */
   get containerName(): string {
-    return containerName(this.username);
+    return containerName(this.entreeDuCompte());
   }
 
   /** Profil réseau actif (résolu à chaque accès). */
@@ -522,12 +547,17 @@ export class UserSandbox implements BacPourAgent {
     return estNomMisDeCote(nom, this.userId) ? nom : this.username;
   }
 
-  /** `exigerMontagesSurs` pour ce bac, sous `SANDBOX_DIR`. */
-  private exigerMontages(): void {
-    exigerMontagesSurs(this.sandboxPath, String(config.SANDBOX_DIR), this.entreeDuCompte());
+  /** `exigerMontagesSurs` pour ce bac, sous `SANDBOX_DIR` ; `manquants` : avant de créer ce qui manque (rien n'est retiré ni créé sur un refus). */
+  private exigerMontages(manquants = false): void {
+    exigerMontagesSurs(this.sandboxPath, String(config.SANDBOX_DIR), this.entreeDuCompte(), manquants);
   }
 
-  /** Conteneur arrêté redémarrable tel quel : chaîne des montages sûre et /work monté sur `sandboxPath` même. */
+  /** `<P>/.elpis-agent`, monté sur /run/elpis. */
+  private dossierAgent(): string {
+    return pyJoin(pyParent(this.sandboxPath), AGENT_RUN_DIR);
+  }
+
+  /** Conteneur arrêté redémarrable tel quel : /work, dossier de l'agent et relais en place (rien qu'un docker start créerait) et /work monté sur `sandboxPath` même. */
   private async redemarrable(signal?: AbortSignal): Promise<boolean> {
     if (motifMontages(this.sandboxPath, String(config.SANDBOX_DIR), this.entreeDuCompte())) return false;
     return this.workMountMatches(signal, true);
@@ -540,17 +570,22 @@ export class UserSandbox implements BacPourAgent {
     return estChiffresPy(u) ? Number(u) : null;
   }
 
+  /** /work du conteneur en marche monté sur `sandboxPath`, sinon recréé ; arbre refusé d'abord, sans rien résoudre ni retirer ; tenu pour vérifié une fois fait. */
   private async reconcileWorkMount(st: EtatBac, signal?: AbortSignal): Promise<EtatBac> {
-    this.mountVerified = true;
-    if (await this.workMountMatches(signal)) return st;
+    this.exigerMontages(true);
+    if (await this.workMountMatches(signal)) {
+      this.mountVerified = true;
+      return st;
+    }
     journalDe("sandbox").info(
       `[sandbox] ${this.containerName} : /work montait l'ancienne arbo plate → recréation sur ${this.sandboxPath}`,
     );
-    return sousVerrouDeCycle(
+    const res = await sousVerrouDeCycle(
       this.userId,
       async () => {
         const cur = await this.status(signal);
         if (cur.running && !(await this.workMountMatches(signal))) {
+          this.exigerMontages(true);
           await this.appel(["rm", "-fv", this.containerName], 10, signal);
           await this.create(signal);
         }
@@ -558,9 +593,11 @@ export class UserSandbox implements BacPourAgent {
       },
       signal,
     );
+    this.mountVerified = true;
+    return res;
   }
 
-  /** `_config_matches` : options de lancement, image, agent et config réseau du conteneur à jour ; sur incertitude, vrai sauf pour un conteneur durci (relu plus tard). */
+  /** `_config_matches` : options de lancement, image, agent, utilisateur des entrées et config réseau du conteneur à jour ; sur incertitude, vrai sauf pour un conteneur durci (relu plus tard). */
   async configMatches(signal?: AbortSignal): Promise<boolean> {
     const profil = this.networkProfile;
     this.inspectionDouteuse = false;
@@ -573,6 +610,7 @@ export class UserSandbox implements BacPourAgent {
       labelTpl("agent"),
       labelTpl("entry"),
       labelTpl("durci"),
+      labelTpl("exec"),
     ];
     if (navigateur) champs.push(labelTpl("browser"));
     const [rc, out] = await this.appel(
@@ -584,8 +622,9 @@ export class UserSandbox implements BacPourAgent {
       this.inspectionDouteuse = true;
       return !this.durci(profil);
     }
-    const [cur = "", spec = "", image = "", agent = "", entree = "", durci = "", nav = ""] = [
+    const [cur = "", spec = "", image = "", agent = "", entree = "", durci = "", exec = "", nav = ""] = [
       ...stripPy(decoderRemplace(out)).split("|"),
+      "",
       "",
       "",
       "",
@@ -596,6 +635,7 @@ export class UserSandbox implements BacPourAgent {
     if (spec !== RUN_SPEC || (image && image !== this.cfg.image) || !["", agentEmpreinte()].includes(agent))
       return false;
     if (entree !== this.empreinteEntree() || durci !== (this.durci(profil) ? "1" : "0")) return false;
+    if (exec !== this.utilisateurExec()) return false;
     if (navigateur && nav !== navigateur) return false;
     if (!cur || cur === "<no value>") return !this.durci(profil);
     return cur === (await this.netcfgAttendu(profil)) || (await this.refuseDeja(profil, cur, signal));
@@ -683,6 +723,12 @@ export class UserSandbox implements BacPourAgent {
       async () => {
         const cur = await this.status(signal);
         if (cur.running && (await this.stale(signal))) {
+          try {
+            this.exigerMontages(true);
+          } catch (e) {
+            this.configVerified = false;
+            throw e;
+          }
           await this.appel(["rm", "-fv", this.containerName], 10, signal);
           await this.create(signal);
         }
@@ -791,9 +837,10 @@ export class UserSandbox implements BacPourAgent {
     );
   }
 
-  /** `_ensure_running_locked` : conteneur arrêté redémarré (137/143 sans OOM = arrêt, pas un crash), sinon recréé ; absent : créé. */
+  /** `_ensure_running_locked` : conteneur arrêté redémarré (137/143 sans OOM = arrêt, pas un crash) sur son seul /work, dossier de l'agent vidé d'abord, sinon recréé ; arbre refusé : gardé tel quel ; absent : créé. */
   async ensureRunningLocked(st: EtatBac, signal?: AbortSignal): Promise<EtatBac> {
     if (st.exists) {
+      this.exigerMontages(true);
       const [rcInspect, outInspect] = await this.appel(
         ["inspect", "--format", "{{.State.ExitCode}}|{{.State.OOMKilled}}", this.containerName],
         5,
@@ -830,6 +877,7 @@ export class UserSandbox implements BacPourAgent {
           await this.create(signal);
           return this.status(signal);
         }
+        viderDossierAgent(this.dossierAgent(), this.uidExec());
         const [rc, , err] = await this.appel(["start", this.containerName], 15, signal);
         if (rc !== 0) {
           journalDe("sandbox").warn(
@@ -967,6 +1015,8 @@ export class UserSandbox implements BacPourAgent {
       label("entry", this.empreinteEntree()),
       "--label",
       label("durci", durci ? "1" : "0"),
+      "--label",
+      label("exec", this.utilisateurExec()),
     );
     if (profil.mode === "none") args.push("--network", "none");
     else args.push("--network", RESEAU_BACS);
@@ -1066,11 +1116,12 @@ export class UserSandbox implements BacPourAgent {
     const pre = await this.status(signal);
     if (pre.running) return;
     this.entreesVerifiees.clear();
+    this.exigerMontages(true);
     if (pre.exists) await this.appel(["rm", "-fv", this.containerName], 10, signal);
     await this.ensureImage(signal);
     if (sousRacine(this.sandboxPath, config.SANDBOX_DIR)) racinePrivee(config.SANDBOX_DIR);
     mkdirSync(this.sandboxPath, { recursive: true });
-    const dossierAgent = pyJoin(pyParent(this.sandboxPath), AGENT_RUN_DIR);
+    const dossierAgent = this.dossierAgent();
     dossierAgentPret(dossierAgent);
     const dossierRelais = pyJoin(pyParent(pyParent(this.sandboxPath)), RELAY_DIR);
     try {
@@ -1168,7 +1219,7 @@ export class UserSandbox implements BacPourAgent {
     getReadinessCache().recordStopped(this.containerName);
   }
 
-  /** `purge` (suppression d'un compte) : processus du compte tués, /work vidé par le root du conteneur (redémarré si l'arrêt l'a stoppé, recréé s'il ne monte pas `sandboxPath` même), puis conteneur retiré. */
+  /** `purge` (suppression d'un compte) : processus du compte tués, /work vidé par le root du conteneur (redémarré si l'arrêt l'a stoppé, recréé s'il ne monte pas `sandboxPath` même, revérifié juste avant chaque vidage), puis conteneur retiré. */
   async purge(): Promise<void> {
     let st = await this.ensureRunning();
     if (st.running && !(await this.workMountMatches(undefined, true))) {
@@ -1176,6 +1227,7 @@ export class UserSandbox implements BacPourAgent {
         `[sandbox] ${this.containerName} : /work ne monte pas ${this.sandboxPath} → recréation avant de le vider`,
       );
       st = await sousVerrouDeCycle(this.userId, async () => {
+        this.exigerMontages(true);
         await this.appel(["rm", "-fv", this.containerName], 10);
         await this.create();
         return this.status();
@@ -1186,11 +1238,14 @@ export class UserSandbox implements BacPourAgent {
     const uidExec = this.utilisateurExec().split(":", 1)[0] ?? "";
     if (estChiffresPy(uidExec) && uidExec !== "0")
       await this.appel(["exec", ...ENTREE_ROOT, this.containerName, "pkill", "-KILL", "-U", uidExec], 15);
-    const vider = (): Promise<ReponseDocker> =>
-      this.appel(
+    const vider = async (): Promise<ReponseDocker> => {
+      if (!(await this.workMountMatches(undefined, true)))
+        throw new ExecError(`${this.containerName} : /work ne monte pas ${this.sandboxPath}, non vidé`);
+      return this.appel(
         ["exec", ...ENTREE_ROOT, this.containerName, "find", "/work", "-xdev", "-mindepth", "1", "-delete"],
         600,
       );
+    };
     let [rc, , err] = await vider();
     if (rc !== 0 && lowerPy(decoderRemplace(err)).includes("is not running")) {
       if ((await this.ensureRunning()).running) [rc, , err] = await vider();

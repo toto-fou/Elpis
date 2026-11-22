@@ -130,7 +130,7 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
   });
 
   describe("suppression d'un compte avec son bac (delete_sandbox=true)", () => {
-    it("bac local : conteneur retiré, /work refusé à l'hôte vidé par le root du conteneur recréé, P supprimé", async () => {
+    it("bac local : conteneur retiré, /work refusé à l'hôte vidé par le root d'un conteneur propre au bac mis de côté, P supprimé", async () => {
       const { dossier } = await bacGarni();
       await hoteLocal();
       const avant = docker.appels().length;
@@ -138,6 +138,8 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
       expect(existsSync(dossier)).toBe(false);
       expect(existsSync(join(docker.etat, "elpis-sb-pbacfaux.run"))).toBe(false);
+      const racine = "exec -u 0:0 -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w /";
+      const purge = String.raw`elpis-sb-\.supprime-${compte}-[0-9]+`;
       expect(
         docker
           .appels()
@@ -145,12 +147,10 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
           .filter((a) => /^(exec|rm) /u.test(a)),
       ).toEqual([
         "rm -fv elpis-sb-pbacfaux",
-        expect.stringContaining(
-          "exec -u 0:0 -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w / elpis-sb-pbacfaux sh -c chown ",
-        ),
-        "exec -u 0:0 -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w / elpis-sb-pbacfaux pkill -KILL -U 10001",
-        "exec -u 0:0 -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w / elpis-sb-pbacfaux find /work -xdev -mindepth 1 -delete",
-        "rm -fv elpis-sb-pbacfaux",
+        expect.stringMatching(new RegExp(`^${racine} ${purge} sh -c chown `, "u")),
+        expect.stringMatching(new RegExp(`^${racine} ${purge} pkill -KILL -U 10001$`, "u")),
+        expect.stringMatching(new RegExp(`^${racine} ${purge} find /work -xdev -mindepth 1 -delete$`, "u")),
+        expect.stringMatching(new RegExp(`^rm -fv ${purge}$`, "u")),
       ]);
     });
 

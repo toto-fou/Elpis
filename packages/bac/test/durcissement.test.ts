@@ -101,7 +101,7 @@ function bacDe(profil: string | null, executors: Record<string, unknown> = {}, r
 
 /** Règles d'un conteneur en marche, monté sur `travail`, à jour pour le profil de `sb`. */
 function reglesAJour(sb: UserSandbox, extra: Regle[] = []): Regle[] {
-  const netcfg = `${netcfgHash(sb.networkProfile)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}|${sb.durci(sb.networkProfile) ? "1" : "0"}\n`;
+  const netcfg = `${netcfgHash(sb.networkProfile)}|${RUN_SPEC}|${sb.cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}|${sb.durci(sb.networkProfile) ? "1" : "0"}|${sb.utilisateurExec()}\n`;
   return [
     {
       motif: ["container", "inspect"],
@@ -850,7 +850,7 @@ describe("lot 2 : script de démarrage, étiquette elpis.entry, filtre réseau",
   describe("configMatches et étiquette elpis.entry", () => {
     function bacAvec(entree: string, durci = "0", profil = "isolated") {
       const base = bacDe(profil);
-      const netcfg = `${netcfgHash(base.sb.networkProfile)}|${RUN_SPEC}|${base.sb.cfg.image}|${agentEmpreinte()}|${entree}|${durci}\n`;
+      const netcfg = `${netcfgHash(base.sb.networkProfile)}|${RUN_SPEC}|${base.sb.cfg.image}|${agentEmpreinte()}|${entree}|${durci}|${base.sb.utilisateurExec()}\n`;
       return bacDe(profil, {}, [{ motif: ["~elpis.netcfg"], out: netcfg }]);
     }
     it("étiquette à jour : conforme ; différente ou vide : recréation", async () => {

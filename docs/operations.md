@@ -153,6 +153,25 @@ replace (nor its folder): otherwise these commands stop. `./elpis start`, `resta
 `upgrade` refuse to run as root under such units (`sudo systemctl start|restart elpis.target`;
 `./elpis upgrade` from the operator's account).
 
+What root starts under another account never gets root's terminal: each command runs in a
+session of its own (`setsid`), its input is `/dev/null` when it is a terminal and its outputs
+reach the terminal through a filter that drops escape sequences (OSC, DCS, APC, PM, cursor
+moves; colours kept) and control characters; `sudo ./elpis configure` gets a new
+pseudo-terminal (`runuser --pty`). The console's commands run with umask `0007`. Under units
+with one account per service, `service install` also limits `ptrace` to a process's own
+descendants (`kernel.yama.ptrace_scope = 1` in `/etc/sysctl.d/60-elpis.conf`, applied at once;
+Ubuntu's default, a setting of the whole host, never lowered when it is stricter), so that the
+console cannot trace the commands root runs under its account; `service remove` and the return
+to one account remove the file (the kernel's value comes back at the next boot) and
+`./elpis doctor` checks the value. The messages of `./elpis` and `deploy/droits.py` replace
+control characters (line breaks included) by `?`: a file name chosen by a service adds no line
+to the terminal or a log. Root takes from the core only values it can check: the unit of the
+local database is `postgresql.service` or `postgresql@<version>-main.service`, anything else
+stops `service install`; a unit's command must start with an absolute path. PID files are read
+without following links (a regular file of digits), and root signals the process alone, never
+its group. Files the services write (`config.json`, logs) are read by root with a time and size
+limit, as regular files only: a FIFO or `/dev/zero` put at their place blocks nothing.
+
 Rights are set again at every `service install`, services stopped, by `deploy/droits.py`, at
 the very moment they are set (no verdict kept from earlier): each folder is opened component by
 component from `/` without following any link, and refused if a service account could replace

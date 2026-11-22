@@ -102,10 +102,38 @@ HOTE_DIST="$ROOT/apps/toolhost/dist"
 MAIN_PORT=8001; ADMIN_PORT=8002; RAG_PORT=8000; MCP_PORT="${LOCAL_MCP_PORT:-8765}"
 QDRANT_PORT=6333
 
-info() { printf '\033[1;34m[elpis]\033[0m %s\n' "$*"; }
-ok()   { printf '\033[1;32m[ ok  ]\033[0m %s\n' "$*"; }
-warn() { printf '\033[1;33m[warn ]\033[0m %s\n' "$*" >&2; }
-die()  { printf '\033[1;31m[err  ]\033[0m %s\n' "$*" >&2; exit 1; }
+# Texte d'un message dans MSG : C0 (sauf tabulation), DEL et C1 remplacés par « ? » : un nom choisi par un service n'ajoute ni ligne ni séquence d'échappement à l'écran ou au journal.
+_propre() { local LC_ALL=C c1=$'\xc2[\x80-\x9f]' c0=$'[\x01-\x08\x0a-\x1f\x7f]'; MSG="${*//$c1/?}"; MSG="${MSG//$c0/?}"; }
+info() { local MSG; _propre "$@"; printf '\033[1;34m[elpis]\033[0m %s\n' "$MSG"; }
+ok()   { local MSG; _propre "$@"; printf '\033[1;32m[ ok  ]\033[0m %s\n' "$MSG"; }
+warn() { local MSG; _propre "$@"; printf '\033[1;33m[warn ]\033[0m %s\n' "$MSG" >&2; }
+die()  { local MSG; _propre "$@"; printf '\033[1;31m[err  ]\033[0m %s\n' "$MSG" >&2; exit 1; }
+# motif VALEUR REGEX : VALEUR conforme à REGEX, octet par octet (LC_ALL=C : [A-Za-z] n'admet ni « é » ni « Ａ » quelle que soit la locale de sudo) ; BASH_REMATCH rempli.
+motif() { local LC_ALL=C; [[ $1 =~ $2 ]]; }
+# filtre_affichage : flux écrit par un compte, relayé au terminal ou au journal de root : séquences OSC, DCS, APC, PM et SOS retirées, autres séquences d'échappement aussi sauf les couleurs (CSI … m) ; C0 (sauf tabulation, fin de ligne, retour chariot), DEL et C1 retirés.
+filtre_affichage() {
+    LC_ALL=C sed -u -E -e 's#[\x01\x02]##g' -e 's#\x1b\][^\x07\x1b]*(\x07|\x1b\\)?##g' -e 's#\x1b[P_^X][^\x1b]*(\x1b\\)?##g' \
+        -e 's#\x1b\[([0-9;]*)m#\x01\1\x02#g' -e 's#\x1b\[[0-?]*[ -/]*[@-~]##g' -e 's#\x1b.?##g' \
+        -e 's#[\x03-\x08\x0b\x0c\x0e-\x1f\x7f]##g' -e 's#\x00##g' -e 's#\xc2[\x80-\x9f]##g' -e 's#\x01([0-9;]*)\x02#\x1b[\1m#g'
+}
+# _hors_terminal COMMANDE… : COMMANDE (un runuser) dans sa propre session (setsid : ni terminal de contrôle ni signaux du terminal de root), entrée /dev/null et sorties relayées par filtre_affichage quand ce sont des terminaux ; Ctrl-C de root transmis (SIGTERM) ; rend son code.
+_hors_terminal() {
+    (
+        local rc p1="" p2="" enfant
+        [ ! -t 0 ] || exec </dev/null
+        if [ -t 1 ]; then exec > >(filtre_affichage); p1=$!; fi
+        if [ -t 2 ]; then exec 2> >(filtre_affichage >&2); p2=$!; fi
+        exec 3<&0
+        setsid -w "$@" <&3 3<&- &
+        enfant=$!
+        trap 'kill -TERM "$enfant" 2>/dev/null' INT TERM HUP
+        while :; do wait "$enfant"; rc=$?; kill -0 "$enfant" 2>/dev/null || break; done
+        exec >&- 2>&-
+        [ -z "$p1" ] || wait "$p1"
+        [ -z "$p2" ] || wait "$p2"
+        exit "$rc"
+    )
+}
 usage() { sed -n '/^#  \.\/elpis configure/,/^#                                lignes manquantes, arrêts propres/p' "$0" | sed 's/^# \{0,1\}//'; }
 
 need_venv() { [ -x "$PY" ] || die "venv/ absent : lancez d'abord ./install.sh"; }
@@ -174,9 +202,9 @@ env_console() {
     [ ! -d "/run/$UNIT_PREFIX" ] || printf 'ELPIS_RUNTIME_DIR=/run/%s\n' "$UNIT_PREFIX"
 }
 
-# app_console [--terminal] [--env NOM=VALEUR]… COMMANDE… : seul chemin de root vers le code de l'application sous un compte par service (core, lanceur, coffre, configure.py, wizard.py, sauvegarde, migrations) : sous le compte de la console, jamais root, depuis la racine, environnement construit (env_console, plus --env) et exporté (aucune valeur sur une ligne de commande) ; terminal de root jamais confié (entrée /dev/null, sorties relayées), sauf --terminal : nouveau pseudo-terminal.
+# app_console [--terminal] [--env NOM=VALEUR]… COMMANDE… : seul chemin de root vers le code de l'application sous un compte par service (core, lanceur, coffre, configure.py, wizard.py, sauvegarde, migrations) : sous le compte de la console, jamais root, depuis la racine, umask 0007, environnement construit (env_console, plus --env) et exporté (aucune valeur sur une ligne de commande) ; terminal de root jamais confié (_hors_terminal : session à part, entrée /dev/null, sorties filtrées), sauf --terminal : nouveau pseudo-terminal (runuser --pty).
 app_console() {
-    local pty=0 rc p1="" p2="" v e=() plus=()
+    local pty=0 v e=() plus=()
     while :; do
         case "${1:-}" in
             --terminal) pty=1; shift ;;
@@ -191,15 +219,9 @@ app_console() {
         cd "$ROOT" || exit 1
         for v in $(compgen -e); do unset "$v" 2>/dev/null; done
         export "${e[@]}" ${plus[@]+"${plus[@]}"}
+        umask 0007
         [ "$pty" -eq 0 ] || exec runuser --pty -u "$UNIT_PREFIX-admin" -- "$@"
-        [ ! -t 0 ] || exec </dev/null
-        if [ -t 1 ]; then exec > >(cat); p1=$!; fi
-        if [ -t 2 ]; then exec 2> >(cat >&2); p2=$!; fi
-        runuser -u "$UNIT_PREFIX-admin" -- "$@"; rc=$?
-        exec >&- 2>&-
-        [ -z "$p1" ] || wait "$p1"
-        [ -z "$p2" ] || wait "$p2"
-        exit "$rc"
+        _hors_terminal runuser -u "$UNIT_PREFIX-admin" -- "$@"
     )
 }
 
@@ -383,10 +405,10 @@ charger_env() {
         case "$ligne" in *=*) ;; *) continue ;; esac
         cle="${ligne%%=*}"; val="${ligne#*=}"
         cle="${cle%"${cle##*[![:space:]]}"}"
-        [[ "$cle" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+        motif "$cle" '^[A-Za-z_][A-Za-z0-9_]*$' || continue
         val="${val#"${val%%[![:space:]]*}"}"
         val="${val%"${val##*[![:space:]]}"}"
-        if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?$ ]] || [[ "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?$ ]]; then
+        if motif "$val" '^"([^"]*)"([[:space:]]+#.*)?$' || motif "$val" "^'([^']*)'([[:space:]]+#.*)?\$"; then
             val="${BASH_REMATCH[1]}"
         else
             val="${val%%[[:space:]]#*}"; val="${val%"${val##*[![:space:]]}"}"
@@ -496,12 +518,21 @@ load_runtime() {
     charger_instance
 }
 
-pid_of() { local f="$RUN_DIR/$1.pid"; [ -s "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null && cat "$f"; }
+# PID vivant de SERVICE (user_db/run/SERVICE.pid) ; root : lu par deploy/droits.py (fichier ordinaire, sans lien, chiffres seuls : ni FIFO ni /dev/zero).
+pid_of() {
+    if [ "$(id -u)" -eq 0 ]; then local p; p="$(poser_droits pid "$RUN_DIR" "$1.pid" 2>/dev/null)" && kill -0 "$p" 2>/dev/null && printf '%s\n' "$p"; return; fi
+    local f="$RUN_DIR/$1.pid"; [ -s "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null && cat "$f"
+}
+
+# signaler SIGNAL PID : root, le processus seul (jamais son groupe : le PID vient d'un fichier que les services écrivent) ; sinon son groupe, à défaut lui.
+signaler() {
+    if [ "$(id -u)" -eq 0 ]; then kill -s "$1" "$2" 2>/dev/null; else kill -s "$1" -- "-$2" 2>/dev/null || kill -s "$1" "$2" 2>/dev/null; fi
+}
 
 # PID à signaler, lu dans user_db/run (écrit par le compte des services) : nombre > 1 ; en root, processus du compte des services, du propriétaire du dépôt ou de COMPTES_ARRET, jamais de root.
 pid_signalable() {
     local uid u
-    [[ $1 =~ ^[0-9]{1,9}$ ]] && [ "$1" -gt 1 ] || return 1
+    motif "$1" '^[0-9]{1,9}$' && [ "$1" -gt 1 ] || return 1
     [ "$(id -u)" -eq 0 ] || return 0
     uid="$(awk '$1 == "Uid:" { print $2; exit }' "/proc/$1/status" 2>/dev/null)"
     [ -n "$uid" ] && [ "$uid" != 0 ] || return 1
@@ -540,7 +571,7 @@ attendre_sante() {
         else
             warn "$s s'est arrêté sans répondre sur /api/health (port $port). Fin de son journal ($LOG_DIR/$s.log) :"
         fi
-        tail -n 20 "$LOG_DIR/$s.log" 2>/dev/null | sed 's/^/    /' >&2
+        timeout 10 tail -c 1048576 -- "$LOG_DIR/$s.log" 2>/dev/null | tail -n 20 | filtre_affichage | sed 's/^/    /' >&2
         rc=1
     done
     [ "$rc" -eq 0 ] && ok "main et admin répondent (/api/health)."
@@ -604,12 +635,12 @@ cmd_start() {
     return "$rc"
 }
 
-# tuer_fils PID : SIGKILL aux groupes des fils directs (le core lancé par relance.sh a son propre groupe).
+# tuer_fils PID : SIGKILL aux groupes des fils directs (le core lancé par relance.sh a son propre groupe ; root : à chaque fils seul).
 tuer_fils() {
     local c
     for c in $(cat /proc/"$1"/task/*/children 2>/dev/null || pgrep -P "$1" 2>/dev/null); do
         pid_signalable "$c" || continue
-        kill -KILL -- "-$c" 2>/dev/null || kill -KILL "$c" 2>/dev/null
+        signaler KILL "$c"
     done
 }
 
@@ -620,7 +651,7 @@ arreter() {
         pid="$(pid_of "$s")" || { retirer_pid "$s"; continue; }
         if ! pid_signalable "$pid"; then warn "$s : pid « $pid » de $RUN_DIR/$s.pid hors des comptes d'Elpis : non signalé (à vérifier)."; continue; fi
         info "Arrêt de $s (pid $pid)…"
-        kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+        signaler TERM "$pid"
         pids+=("$pid"); noms+=("$s")
         case "$s" in main|admin) attente=620 ;; esac
     done
@@ -634,7 +665,7 @@ arreter() {
     for i in "${!pids[@]}"; do
         pid="${pids[$i]}"
         case "${noms[$i]}" in main|admin) kill -0 "$pid" 2>/dev/null && tuer_fils "$pid" ;; esac
-        kill -0 "$pid" 2>/dev/null && { kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null; }
+        kill -0 "$pid" 2>/dev/null && signaler KILL "$pid"
         retirer_pid "${noms[$i]}"
     done
 }
@@ -642,6 +673,21 @@ arreter() {
 # Fichier PID d'un service retiré ; root : par deploy/droits.py, sans suivre de lien (user_db/run est aux services).
 retirer_pid() {
     if [ "$(id -u)" -eq 0 ]; then poser_droits retirer "$RUN_DIR" "$1.pid" || true; else rm -f "$RUN_DIR/$1.pid"; fi
+}
+
+# ptrace_restreint MODE : un compte par service : kernel.yama.ptrace_scope = 1 (défaut d'Ubuntu ; réglage de tout l'hôte) dans /etc/sysctl.d/60-elpis.conf, appliqué : la console ne trace plus les commandes que root lance sous son compte ; jamais abaissé s'il est plus strict ; autre mode : fichier retiré (valeur rendue au prochain démarrage).
+ptrace_restreint() {
+    local f="$SYS_PREFIXE/etc/sysctl.d/60-${UNIT_PREFIX}.conf" v
+    if [ "$1" != separes ]; then
+        [ ! -e "$f" ] || { rm -f -- "$f" && info "$f retiré (ptrace : réglage de l'hôte, rendu au prochain démarrage)."; }
+        return 0
+    fi
+    v="$(cat -- "$SYS_PREFIXE/proc/sys/kernel/yama/ptrace_scope" 2>/dev/null)" \
+        || { warn "ptrace : module Yama absent du noyau : la console peut tracer les commandes que root lance sous son compte (noyau avec Yama conseillé)."; return 1; }
+    case "$v" in 0|1) ;; *) return 0 ;; esac
+    printf '# %s\nkernel.yama.ptrace_scope = 1\n' "Elpis, un compte par service (sudo ./elpis service install) : ptrace limité aux descendants." > "$f" \
+        && sysctl -q -p "$f" >/dev/null && { [ "$v" = 1 ] || info "ptrace limité aux descendants (kernel.yama.ptrace_scope = 1, $f)."; } \
+        || { warn "ptrace : $f non écrit ou non appliqué (sysctl) : la console peut tracer les commandes que root lance sous son compte."; return 1; }
 }
 
 # Root sous des unités à un compte par service : jamais de service lancé à la main (il tournerait sous root).
@@ -701,16 +747,17 @@ cmd_logs() {
         [ -n "$c" ] || die "Aucun bac en marche pour le compte $compte."
         # Journal écrit dans le bac (hostile) : caractères de contrôle et séquences C1 retirés avant le terminal (tabulation et fin de ligne gardées).
         docker exec --user 10001:10001 -e PATH=/usr/sbin:/usr/bin:/sbin:/bin "$c" tail -n 50 $([ "$follow" -eq 1 ] && echo -F) /work/.elpis-browser/service.log \
-            | LC_ALL=C sed -u -e 's/[\x00-\x08\x0b-\x1f\x7f]//g' -e 's/\xc2[\x80-\x9f]//g'
+            | filtre_affichage
         exit "${PIPESTATUS[0]}"
     fi
     if systemd_active && [ -n "$svc" ]; then
-        exec journalctl -u "${UNIT_PREFIX}-$svc" $([ "$follow" -eq 1 ] && echo -f)
+        journalctl -u "${UNIT_PREFIX}-$svc" $([ "$follow" -eq 1 ] && echo -f) | filtre_affichage
+        exit "${PIPESTATUS[0]}"
     fi
     local files=()
     if [ -n "$svc" ]; then files=("$LOG_DIR/$svc.log"); else files=("$LOG_DIR"/*.log); fi
     [ -e "${files[0]}" ] || die "Aucun journal dans $LOG_DIR."
-    if [ "$follow" -eq 1 ]; then exec tail -n 50 -F "${files[@]}"; else tail -n 50 "${files[@]}"; fi
+    if [ "$follow" -eq 1 ]; then tail -n 50 -F "${files[@]}" | filtre_affichage; else tail -n 50 "${files[@]}" | filtre_affichage; fi
 }
 
 # =============================================================================
@@ -718,28 +765,28 @@ cmd_logs() {
 # =============================================================================
 # _chemin_unite NOM VALEUR : chemin rendu dans une unité systemd : absolu, lettres, chiffres et « . _ @ + / - » seulement, 4096 caractères au plus ; sinon arrêt, rien n'est installé.
 _chemin_unite() {
-    [[ "$2" =~ ^/[A-Za-z0-9._@+/-]+$ ]] && [ "${#2}" -le 4096 ] && return 0
-    die "$1 : « ${2//[[:cntrl:]]/?} » refusé pour une unité systemd (chemin absolu ; lettres, chiffres et . _ @ + / - seulement) : rien n'est installé."
+    motif "$2" '^/[A-Za-z0-9._@+/-]+$' && [ "${#2}" -le 4096 ] && return 0
+    die "$1 : « $2 » refusé pour une unité systemd (chemin absolu ; lettres, chiffres et . _ @ + / - seulement) : rien n'est installé."
 }
 
 # _valeur_unite NOM VALEUR : autre valeur rendue dans une unité : ni caractère de contrôle (fin de ligne comprise) ni « " \ % $ ` », 4096 caractères au plus ; sinon arrêt.
 _valeur_unite() {
     local interdit=$'[[:cntrl:]"\\%$`]'
-    [[ ! "$2" =~ $interdit ]] && [ "${#2}" -le 4096 ] && return 0
-    die "$1 : « ${2//[[:cntrl:]]/?} » refusé pour une unité systemd (caractère de contrôle, \", \\, %, \$ ou \`) : rien n'est installé."
+    ! motif "$2" "$interdit" && [ "${#2}" -le 4096 ] && return 0
+    die "$1 : « $2 » refusé pour une unité systemd (caractère de contrôle, \", \\, %, \$ ou \`) : rien n'est installé."
 }
 
 # _mot_unite NOM VALEUR nom|unite|arg|variable : compte ou groupe, unité systemd, argument de commande ou nom de variable d'une unité, à son motif ; sinon arrêt.
 _mot_unite() {
-    local motif
+    local m
     case "$3" in
-        nom) motif='^[A-Za-z0-9_][A-Za-z0-9._-]*$' ;;
-        unite) motif='^[A-Za-z0-9_][A-Za-z0-9@._:-]*\.(service|target)$' ;;
-        arg) motif='^[A-Za-z0-9._@+/:=-]+$' ;;
-        *) motif='^[A-Za-z_][A-Za-z0-9_]*$' ;;
+        nom) m='^[A-Za-z0-9_][A-Za-z0-9._-]*$' ;;
+        unite) m='^[A-Za-z0-9_][A-Za-z0-9@._:-]*\.(service|target)$' ;;
+        arg) m='^[A-Za-z0-9._@+/:=-]+$' ;;
+        *) m='^[A-Za-z_][A-Za-z0-9_]*$' ;;
     esac
-    [[ "$2" =~ $motif ]] && [ "${#2}" -le 256 ] && return 0
-    die "$1 : « ${2//[[:cntrl:]]/?} » refusé pour une unité systemd : rien n'est installé."
+    motif "$2" "$m" && [ "${#2}" -le 256 ] && return 0
+    die "$1 : « $2 » refusé pour une unité systemd : rien n'est installé."
 }
 
 # _env_unite_sure NOM=VALEUR : variable d'environnement d'une unité : nom de variable ; valeur d'un chemin (…_DIR, …_PATH, …_FILE, ELPIS_RACINE) au motif des chemins, sinon sans caractère dangereux.
@@ -755,12 +802,12 @@ _env_unite_sure() {
 _rendre_gabarit() {
     local ligne cle reste sortie
     while IFS= read -r ligne || [ -n "$ligne" ]; do
-        if [[ "$ligne" =~ ^@([A-Z_]+)@$ ]] && [ -n "${GAB[${BASH_REMATCH[1]}]+x}" ]; then
+        if motif "$ligne" '^@([A-Z_]+)@$' && [ -n "${GAB[${BASH_REMATCH[1]}]+x}" ]; then
             [ -z "${GAB[${BASH_REMATCH[1]}]}" ] || printf '%s\n' "${GAB[${BASH_REMATCH[1]}]}"
             continue
         fi
         sortie=""; reste="$ligne"
-        while [[ "$reste" =~ @([A-Z_]+)@ ]]; do
+        while motif "$reste" '@([A-Z_]+)@'; do
             cle="${BASH_REMATCH[1]}"
             [ -n "${GAB[$cle]+x}" ] || { warn "$1 : @$cle@ sans valeur."; return 1; }
             sortie+="${reste%%"@$cle@"*}${GAB[$cle]}"; reste="${reste#*"@$cle@"}"
@@ -897,7 +944,8 @@ _render_units() {
     trap _nettoyer_rendu EXIT
     local stage="$STAGE_RENDU"
     db_unit="$(_db_local_unit)"
-    [ -z "$db_unit" ] || _mot_unite "Unité de la base" "$db_unit" unite
+    [ -z "$db_unit" ] || motif "$db_unit" '^postgresql(@[0-9]{1,3}-main)?\.service$' \
+        || die "Unité de la base : « $db_unit » refusée (postgresql.service ou postgresql@<version>-main.service seulement) : rien n'est installé."
     if [ "$MODE_COMPTES" = separes ]; then
         db="$DB_FICHIER"; BASE_DONNEES="${db%/*}"
         run="2770 root $GROUPE_DONNEES"; nav="$(_navigateurs "$run_user")"; COMPTE_ETAT=""
@@ -925,6 +973,7 @@ _render_units() {
         _chemin_unite "Dossier de travail de $s" "$SPEC_DIR"
         for e in "${SPEC_ENV[@]}"; do _env_unite_sure "$e"; done
         for e in "${SPEC_CMD[@]}"; do _mot_unite "Commande de $s" "$e" arg; done
+        [[ "${SPEC_CMD[0]:-}" == /* ]] || die "Commande de $s : « ${SPEC_CMD[0]:-} » refusée (chemin absolu attendu, sans préfixe + @ - : !) : rien n'est installé."
         GAB[COMPTE]="$(_compte_unite "$s" "$run_user")"
         GAB[UMASK]="$(_umask_unite "$s")"
         GAB[WORKDIR]="$SPEC_DIR"
@@ -992,7 +1041,7 @@ chemin_refuse() {
     local compte="$1" t c; shift
     while [ $# -ge 2 ]; do
         t="$1"; c="$2"; shift 2
-        [ -z "$c" ] || (cd / && runuser -u "$compte" -- test "-$t" "$c") 2>/dev/null || { echo "$c"; return 0; }
+        [ -z "$c" ] || (cd / && setsid -w runuser -u "$compte" -- test "-$t" "$c") </dev/null >/dev/null 2>&1 || { echo "$c"; return 0; }
     done
     return 1
 }
@@ -1204,7 +1253,7 @@ ranger_secrets() {
             || { warn "$f : dossier absent, lien ou fichier spécial : secrets laissés dans config.json (à vérifier, puis sudo ./elpis service install)."; return 1; }
     done
     if [ "$MODE_COMPTES" = separes ]; then sortie="$(app_console "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?
-    else sortie="$(runuser -u "$c" -- "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?; fi
+    else sortie="$(cd / && _hors_terminal runuser -u "$c" -- "$PY" "$ROOT/deploy/configure.py" --ranger-secrets --sortie -)"; rc=$?; fi
     if [ "$rc" -ne 0 ]; then
         warn "Secrets de config.json non rangés (deploy/configure.py --ranger-secrets, code $rc) : relancez sudo ./elpis service install une fois corrigé."
         return 1
@@ -1317,13 +1366,14 @@ cmd_service() {
                 id "$run_user" >/dev/null 2>&1 || die "Utilisateur $run_user inexistant (créez-le, ou ELPIS_USER=nom)."
                 ecrivain="$run_user"
                 # Il doit lire le dépôt et piloter Docker (sandbox).
-                sudo -u "$run_user" test -r "$ROOT/elpis" \
+                (cd / && setsid -w runuser -u "$run_user" -- test -r "$ROOT/elpis") </dev/null >/dev/null 2>&1 \
                     || die "$run_user ne peut pas lire le dépôt ($ROOT) : choisissez son propriétaire."
                 if getent group docker >/dev/null && ! id -nG "$run_user" | tr ' ' '\n' | grep -qx docker; then
                     warn "Le groupe docker équivaut à root sur l'hôte : $run_user en deviendra membre. Machine dédiée conseillée (SECURITY.md)."
                     usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
                 fi
             fi
+            ptrace_restreint "$MODE_COMPTES" || true
             audit_setup "$ecrivain" "$ancien" 0 \
                 || warn "Journal de sécurité incomplet (voir ci-dessus) : sudo ./elpis audit setup une fois corrigé."
             cle_regroupee "$VAULT_KEY_SYS" "$([ "$MODE_COMPTES" = separes ] && echo "$GROUPE_CLE" || echo "${GRP_CLE:-}")" \
@@ -1375,6 +1425,7 @@ cmd_service() {
             done
             rm -f "$unit_dir/${UNIT_PREFIX}.target" "/etc/tmpfiles.d/${UNIT_PREFIX}.conf"
             rm -rf "/run/${UNIT_PREFIX}"
+            ptrace_restreint retire
             systemctl daemon-reload
             ok "Services systemd retirés."
             ;;
@@ -1391,7 +1442,7 @@ sonde_du_core() {
     if systemd_active; then
         journal="$(journalctl -u "${UNIT_PREFIX}-main" -n 5000 --no-pager -o cat 2>/dev/null)"
     elif pid_of main >/dev/null; then
-        journal="$(tail -n 5000 "$LOG_DIR/main.log" 2>/dev/null)"
+        journal="$(timeout 20 tail -c 4194304 -- "$LOG_DIR/main.log" 2>/dev/null | tail -n 5000)"
     else
         info "sonde du moteur par le core : main arrêté, pas de rapport (./elpis start, puis ./elpis doctor)"
         return 0
@@ -1439,8 +1490,24 @@ PY
 }
 
 # Isolation des bacs : script de démarrage, réseau sans trafic entre bacs, filtrage du pont, version de Docker, swap, root remappé ou noyau applicatif, sudo ; script, réseau, filtrage et version comptés (compteur bad), le reste en conseil.
+# conf_json CODE ARGUMENT… : CODE Python avec conf(CHEMIN) : config.json lu au bout de ses liens, fichier ordinaire seulement, ouvert sans attendre et 4 Mio au plus (une FIFO ou /dev/zero mis à sa place n'arrête ni n'épuise rien), 20 s au plus ; sous le compte de la console quand root le lance sous un compte par service (app_cmd).
+conf_json() {
+    local code="$1" py="${PY:-python3}"; shift
+    [ -x "$py" ] || py=python3
+    app_cmd timeout 20 "$py" -c 'import json, os, stat, sys
+def conf(p):
+    fd = os.open(os.path.realpath(p), os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError(p)
+        return json.loads(os.read(fd, 4 << 20))
+    finally:
+        os.close(fd)
+'"$code" "$@"
+}
+
 doctor_isolation_bac() {
-    local sec runtime sudo_permis reseau version majeure py ouverts
+    local sec runtime sudo_permis reseau version majeure ouverts
     if [ -r "$ROOT/sandbox-agent/demarrage.sh" ]; then ok "script de démarrage des bacs présent"
     else warn "script de démarrage des bacs absent (sandbox-agent/demarrage.sh) : aucun bac ne démarre ; réinstallez ou mettez à jour"; bad=$((bad + 1)); fi
     sec="$(docker info --format '{{join .SecurityOptions " "}}' 2>/dev/null)" || return 0
@@ -1456,13 +1523,10 @@ doctor_isolation_bac() {
     version="$(docker version --format '{{.Server.Version}}' 2>/dev/null)"; majeure="${version%%.*}"
     case "$majeure" in ''|*[!0-9]*) ;; *) if [ "$majeure" -lt 26 ]; then warn "Docker $version : la coupure entre bacs demande Docker 26 ou plus récent (avant, l'IPv6 lien-local des interfaces relie les conteneurs)"; bad=$((bad + 1)); fi ;; esac
     [ "$(docker info --format '{{.SwapLimit}}' 2>/dev/null)" != false ] || warn "noyau sans limite du swap des conteneurs : un bac peut dépasser sa mémoire en swap (cgroup swap à activer)"
-    py="${PY:-python3}"; [ -x "$py" ] || py=python3
-    runtime="$(app_cmd "$py" -c 'import json, sys
-try: print(((json.load(open(sys.argv[1])).get("executors") or {}).get("runtime") or ""))
+    runtime="$(conf_json 'try: print(((conf(sys.argv[1]).get("executors") or {}).get("runtime") or ""))
 except Exception: print("")' "$ROOT/config.json" 2>/dev/null)"
-    sudo_permis="$(app_cmd "$py" -c 'import json, sys
-lu = True
-try: v = (json.load(open(sys.argv[1])).get("executors") or {}).get("allow_sudo", True)
+    sudo_permis="$(conf_json 'lu = True
+try: v = (conf(sys.argv[1]).get("executors") or {}).get("allow_sudo", True)
 except FileNotFoundError: v = True
 except Exception: lu = False
 print(("oui" if v is True else "non") if lu else "")' "$ROOT/config.json" 2>/dev/null)"
@@ -1475,8 +1539,7 @@ print(("oui" if v is True else "non") if lu else "")' "$ROOT/config.json" 2>/dev
         non) ok "bacs durcis : sudo refusé (executors.allow_sudo)" ;;
         *) warn "réglage executors.allow_sudo non lu (config.json ou Python indisponible)" ;;
     esac
-    ouverts="$(app_cmd "$py" -c 'import json, sys
-try: p = (json.load(open(sys.argv[1])).get("executors") or {}).get("network_profiles") or []
+    ouverts="$(conf_json 'try: p = (conf(sys.argv[1]).get("executors") or {}).get("network_profiles") or []
 except Exception: p = []
 print(" ".join(str(x.get("id")) for x in p if isinstance(x, dict) and x.get("mode") == "bridge" and not any(x.get(k) for k in ("block_metadata", "block_lan", "block_host"))))' "$ROOT/config.json" 2>/dev/null)"
     [ -z "$ouverts" ] || info "profils réseau ouverts sans protection ($ouverts) : leurs bacs joignent le réseau local, la machine hôte et les métadonnées du cloud (console › Sandbox, cases « Refuser »)"
@@ -1496,8 +1559,7 @@ doctor_navigateur_bac() {
         [ -f "$ca/ca.key" ] && check "navigateur dans le bac : clé de l'autorité en 0600" "chmod 600 $ca/ca.key" test "$(stat -c %a "$ca/ca.key")" = 600
     fi
     # Chromium partage le quota CPU du bac : à 1 CPU, les captures d'étape des pages lourdes dépassent leur délai de 3 s (mesuré : ~5 % des actions, aucune à 2 CPU).
-    cpu="$("${PY:-python3}" -c 'import json, sys
-try: print(int(((json.load(open(sys.argv[1])).get("executors") or {}).get("limits") or {}).get("cpu_quota_pct") or 100))
+    cpu="$(conf_json 'try: print(int(((conf(sys.argv[1]).get("executors") or {}).get("limits") or {}).get("cpu_quota_pct") or 100))
 except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
     [ "${cpu:-100}" -ge 200 ] || info "navigateur dans le bac : ${cpu:-100} % de CPU par bac (executors.limits.cpu_quota_pct) ; Chromium y partage ce quota, 200 conseillé (captures d'étape des pages lourdes hors délai à 100)."
     pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
@@ -1530,7 +1592,11 @@ doctor_comptes() {
     mode="$(mode_installe)"
     case "$mode" in
         "") return 0 ;;
-        separes) ok "comptes des services : un par service ($UNIT_PREFIX-main, $UNIT_PREFIX-admin, $UNIT_PREFIX-toolhost)" ;;
+        separes) ok "comptes des services : un par service ($UNIT_PREFIX-main, $UNIT_PREFIX-admin, $UNIT_PREFIX-toolhost)"
+                 case "$(cat -- "$SYS_PREFIXE/proc/sys/kernel/yama/ptrace_scope" 2>/dev/null)" in
+                     [1-3]) ok "ptrace limité (kernel.yama.ptrace_scope $(cat -- "$SYS_PREFIXE/proc/sys/kernel/yama/ptrace_scope"))" ;;
+                     *) warn "ptrace non limité (kernel.yama.ptrace_scope) : la console peut tracer les commandes que root lance sous son compte (sudo ./elpis service install)"; bad=$((bad+1)) ;;
+                 esac ;;
         unique) info "comptes des services : un seul compte, choisi (ELPIS_COMPTE_UNIQUE=1)" ;;
         repli) c="$(dossier_ferme "$ROOT")" && c=" : $c sans droit de traversée pour les autres comptes"
                warn "comptes des services : un seul compte (repli$c) ; pour un compte par service : installation dans /opt/elpis, ou dossiers parents traversables et code lisible par les autres comptes (docs/operations.md, « Service accounts »), puis sudo ./elpis service install"; bad=$((bad+1)) ;;
@@ -1601,7 +1667,7 @@ doctor_journaux() {
 # Lecture d'un fichier par un compte : essai réel sous root (runuser), sinon d'après le mode et les groupes du compte.
 compte_lit() {
     local m g
-    if [ "$(id -u)" -eq 0 ]; then (cd / && runuser -u "$1" -- test -r "$2"); return; fi
+    if [ "$(id -u)" -eq 0 ]; then (cd / && setsid -w runuser -u "$1" -- test -r "$2") </dev/null >/dev/null 2>&1; return; fi
     if [ "$(id -un)" = "$1" ] && [ -r "$2" ]; then return 0; fi
     read -r m g < <(stat -c '%a %G' -- "$2" 2>/dev/null) || return 1
     [ $(( 8#$m & 8#040 )) -ne 0 ] && id -nG "$1" 2>/dev/null | tr ' ' '\n' | grep -qx "$g"
@@ -2037,7 +2103,7 @@ vault_core() {
     compte="${compte:-${ELPIS_USER:-${SUDO_USER:-}}}"
     [ -n "$compte" ] && [ "$compte" != root ] \
         || die "Compte des services inconnu : relancez sans sudo sous ce compte, ou ELPIS_USER=nom."
-    (cd / && runuser -u "$compte" -- env "ELPIS_RACINE=$ROOT" ${SANDBOX_DIR:+"APP_SANDBOX_DIR=$SANDBOX_DIR"} \
+    (cd / && _hors_terminal runuser -u "$compte" -- env "ELPIS_RACINE=$ROOT" ${SANDBOX_DIR:+"APP_SANDBOX_DIR=$SANDBOX_DIR"} \
         "$NODE" "$CORE_DIST/exploitation.mjs" "$@")
 }
 
@@ -2139,10 +2205,10 @@ cle_regroupee() {
     chmod 0440 -- "$1"
 }
 
-# Commande lancée sous le compte des services quand root l'exécute (runuser, depuis /), telle quelle sinon.
+# Commande lancée sous le compte des services quand root l'exécute (runuser, depuis /, hors du terminal de root : _hors_terminal), telle quelle sinon.
 en_compte() {
     local u="$1"; shift
-    if [ "$(id -u)" -eq 0 ]; then (cd / && runuser -u "$u" -- "$@"); else "$@"; fi
+    if [ "$(id -u)" -eq 0 ]; then (cd / && _hors_terminal runuser -u "$u" -- "$@"); else "$@"; fi
 }
 
 # Vrai si main, admin ou l'hôte d'outils tourne (unité active ou lancement à la main) : ils gardent leur dossier d'audit jusqu'à l'arrêt.

@@ -1174,6 +1174,10 @@ aside.elpis-slide-panel { --volet-decalage: -1.5rem; }
     .elpis-slide-panel[data-volet-couvrant] { position: fixed; top: 0; right: 0; bottom: 0; z-index: 60; }
 }
 
+/* Graphiques du chat (graphiques.ts) : entre deux redessins, le dessin ECharts (racine et calques) s'étire à la largeur de son hôte. */
+.elpis-graphique > div:first-child,
+.elpis-graphique > div:first-child > canvas { width: 100% !important; }
+
 /* ─── Éditeur plein écran ─────────────────────────────────────────────
    La classe ne fait que retirer la bordure et monter le z-index ; la largeur
    et flex-grow passent par le :style du gabarit.

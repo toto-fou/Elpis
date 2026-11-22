@@ -12,6 +12,7 @@ import {
   ErreurZip,
   fixePy,
   FlottantPy as FlottantJson,
+  groupeDonnees,
   reprPy,
   sansAccentsPy,
   stripPy,
@@ -799,7 +800,7 @@ export async function deleteGlobalSkill(name: string): Promise<boolean> {
 
 // ── Magasin perso protégé et miroir sandbox ──────────────────────────────
 
-/** Garantit le magasin (hors sandbox) et y déplace une fois l'ancien `<sandbox>/skills` ; ne lève jamais. */
+/** Garantit le magasin (hors sandbox) et y déplace une fois l'ancien `<sandbox>/skills` (compte unique : sinon le dossier des bacs est à l'hôte d'outils) ; ne lève jamais. */
 export async function ensureUserSkillsStore(
   storeDir: string,
   sandboxDir: string | null = null,
@@ -807,7 +808,7 @@ export async function ensureUserSkillsStore(
   const store = pyPath(storeDir);
   let migre = false;
   try {
-    const ancien = sandboxDir ? pyJoin(sandboxDir, "skills") : null;
+    const ancien = sandboxDir && groupeDonnees() === null ? pyJoin(sandboxDir, "skills") : null;
     if (ancien !== null && !(await existe(store)) && (await estDossier(ancien))) {
       await verrouEcriture.avec(async () => {
         if (!(await existe(store)) && (await estDossier(ancien))) {
@@ -825,12 +826,12 @@ export async function ensureUserSkillsStore(
   return store;
 }
 
-/** Reconstruit la copie jetable `<sandbox>/skills/` depuis le magasin (bascule par temporaire) ; `null` en échec. */
+/** Reconstruit la copie jetable `<sandbox>/skills/` depuis le magasin (bascule par temporaire) ; `null` en échec, ou avec un compte par service, où l'hôte d'outils l'écrit (poussée par son API). */
 export async function syncUserSkillsMirror(
   storeDir: string | null,
   sandboxDir: string | null,
 ): Promise<string | null> {
-  if (!sandboxDir) return null;
+  if (!sandboxDir || groupeDonnees() !== null) return null;
   const miroir = pyJoin(sandboxDir, "skills");
   const store = storeDir ? pyPath(storeDir) : null;
   const tmp = pyJoin(sandboxDir, ".skills-mirror.tmp");
@@ -878,7 +879,7 @@ export async function userSkillsDir(uid: number | null): Promise<string | null> 
   }
 }
 
-/** `_sync_user_mirror` : après chaque mutation du magasin perso, copie sandbox régénérée puis poussée vers l'hôte d'outils distant (un envoi à la fois par compte). */
+/** `_sync_user_mirror` : après chaque mutation du magasin perso, copie sandbox régénérée (compte unique) puis poussée vers l'hôte d'outils qui l'écrit (un envoi à la fois par compte). */
 export async function syncUserMirror(uid: number | null): Promise<void> {
   try {
     await syncUserSkillsMirror(await userSkillsDir(uid), await userSandboxRoot(uid));

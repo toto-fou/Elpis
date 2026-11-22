@@ -1,12 +1,21 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/ops/restauration.ts — restauration d'une sauvegarde de la console (routes/admin/lifecycle.py : _restore_from_zip) : base par l'API de sauvegarde de SQLite, chemins prouvés sous leur dossier, sandboxes sans suivre de lien. */
+/** apps/core/src/ops/restauration.ts — restauration d'une sauvegarde de la console (routes/admin/lifecycle.py : _restore_from_zip) : base par l'API de sauvegarde de SQLite, chemins prouvés sous leur dossier, sandboxes sans suivre de lien, mémoire au dossier de l'instance. */
 import { lstatSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import type { Stats } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { ecrireSecret, ErreurPython, floatPy, pyJsonDumps, pyJsonLoads, versFlottantPy } from "@elpis/commun";
+import {
+  ecrireSecret,
+  ErreurPython,
+  floatPy,
+  groupeDonnees,
+  modePartage,
+  pyJsonDumps,
+  pyJsonLoads,
+  versFlottantPy,
+} from "@elpis/commun";
 import { config, pyJoin, realpathPy, writeTextAtomic } from "@elpis/config";
 import { initialiserBase, prendreVerrouSchema } from "@elpis/db";
 import type { Base } from "@elpis/db";
@@ -14,6 +23,7 @@ import Database from "better-sqlite3";
 
 import { MIGRATIONS_DU_CORE } from "../base";
 import type { Journal } from "../journal";
+import { LEGACY_MEMORY_SUBDIR, MEMORY_SUBDIR } from "../memoire/portee";
 import { portsMigrationsDuCore } from "../secrets/reprise";
 import { estErreurOs, texteErreurPy } from "./erreurs-os";
 import {
@@ -36,6 +46,7 @@ export interface DossiersRestauration {
   readonly dbPath: string;
   readonly userDbDir: string;
   readonly sandboxDir: string;
+  readonly memoryDir: string;
   readonly mcpDir: string;
   readonly skinsDir: string;
   readonly skillsDir: string;
@@ -47,6 +58,7 @@ export function dossiersInstance(): DossiersRestauration {
     dbPath: config.DB_PATH,
     userDbDir: pyJoin(config.PROJECT_ROOT, "user_db"),
     sandboxDir: config.SANDBOX_DIR,
+    memoryDir: config.MEMORY_DIR,
     mcpDir: config.MCP_SERVERS_DIR,
     skinsDir: config.SKINS_DIR,
     skillsDir: config.USER_SKILLS_DIR,
@@ -129,6 +141,11 @@ async function remettreAJour(base: Base, journal?: Journal): Promise<string | nu
   }
 }
 
+/** Dossier de la mémoire par défaut, sous `user_db/` dans l'archive. */
+const MEMOIRE_USER_DB = "memoire/";
+/** Instantanés des bacs, sous `sandboxes/` dans l'archive. */
+const INSTANTANES = "_snapshots";
+
 /** Membres du périmètre relus (CRC) avant toute écriture : une archive abîmée est refusée entière, base vivante comprise. */
 const PREFIXES: Readonly<Record<Portee, readonly string[]>> = {
   full: [
@@ -201,7 +218,7 @@ export async function fermerToutesSessions(chemin: string, ts: number = Date.now
   });
 }
 
-/** `_restore_from_zip` : `(restaurés, erreurs, base_remplacée)` ; base remplacée : toutes les sessions coupées aussitôt, avant le reste (coupure globale de config.json) ; une archive illisible lève `ErreurZip`. */
+/** `_restore_from_zip` : `(restaurés, erreurs, base_remplacée)` ; base remplacée : toutes les sessions coupées aussitôt, avant le reste (coupure globale de config.json) ; mémoire des comptes au dossier de l'instance, qu'elle vienne de `user_db/memoire` ou de `sandboxes/<compte>/memory` ; un compte par service : du dossier des bacs, seuls /work (par l'hôte d'outils) et la mémoire, instantanés signalés ; une archive illisible lève `ErreurZip`. */
 export async function restoreFromZip(
   zipPath: string,
   scope: Portee,
@@ -220,12 +237,17 @@ export async function restoreFromZip(
     racine: string,
     rel: string,
     donnees: Buffer,
-    options: { prive?: boolean; dessous?: boolean } = {},
+    options: { prive?: boolean; dessous?: boolean; modeDefaut?: number } = {},
   ): void => {
     try {
       if (options.dessous) {
         mkdirParentsPy(racine);
-        ecrireSous(racine, rel, donnees);
+        ecrireSous(
+          racine,
+          rel,
+          donnees,
+          options.modeDefaut === undefined ? {} : { modeDefaut: options.modeDefaut },
+        );
       } else {
         const dest = destSous(racine, rel);
         mkdirParentsPy(path.dirname(dest));
@@ -239,6 +261,7 @@ export async function restoreFromZip(
     }
   };
 
+  const memoire = { dessous: true, modeDefaut: modePartage(0o600) };
   const zf = await LecteurZip.ouvrir(zipPath);
   try {
     const noms = zf.noms().filter((n) => !n.endsWith("/"));
@@ -288,7 +311,9 @@ export async function restoreFromZip(
           (RUNTIME_DIRS as readonly string[]).includes(rel.split("/")[0] as string)
         )
           continue;
-        ecrire(entree, d.userDbDir, rel, await zf.lireNom(entree), { prive: true });
+        if (rel.startsWith(MEMOIRE_USER_DB))
+          ecrire(entree, d.memoryDir, rel.slice(MEMOIRE_USER_DB.length), await zf.lireNom(entree), memoire);
+        else ecrire(entree, d.userDbDir, rel, await zf.lireNom(entree), { prive: true });
       }
       const images = pyJoin(path.dirname(d.dbPath), "generated_images");
       for (const entree of noms)
@@ -301,6 +326,8 @@ export async function restoreFromZip(
     if (scope === "full" || scope === "sandboxes") {
       const comptes = await comptesDesSandboxes(base, journal);
       const travaux = new Map<number, [string, string][]>();
+      const separe = groupeDonnees() !== null;
+      let instantanes = 0;
       for (const entree of noms) {
         if (!entree.startsWith("sandboxes/")) continue;
         const parts = entree
@@ -320,6 +347,14 @@ export async function restoreFromZip(
             lot.push([entree, parts.slice(2).join("/")]);
             travaux.set(uid, lot);
           }
+        } else if (
+          parts.length > 2 &&
+          (second === MEMORY_SUBDIR || second === LEGACY_MEMORY_SUBDIR) &&
+          !/^[._]/u.test(compte)
+        ) {
+          ecrire(entree, d.memoryDir, parts.join("/"), await zf.lireNom(entree), memoire);
+        } else if (separe) {
+          if (compte === INSTANTANES) instantanes += 1;
         } else if (!(
           (parts.length > 1 && second === AGENT_RUN_DIR) ||
           compte === RELAY_DIR ||
@@ -330,6 +365,11 @@ export async function restoreFromZip(
       }
       for (const [uid, lot] of travaux)
         await portTravail().restaurer(uid, lot, (e) => zf.lireNom(e), restored, errors);
+      if (instantanes) {
+        const motif = `sandboxes/${INSTANTANES}/: ${instantanes} fichier(s) d'instantanés non restaurés (un compte par service)`;
+        journal?.warn(`restauration : ${motif}`);
+        errors.push(motif);
+      }
     }
 
     if (scope === "full" || scope === "mcp") {

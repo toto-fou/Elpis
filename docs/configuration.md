@@ -1249,7 +1249,7 @@ host (they write to its database); ``skill_run``
 ``127.0.0.1`` in the example: the app reaches the host through ``Caddyfile.toolhost``
 (TLS, ``reverse_proxy 127.0.0.1:8765``). Without this front end, ``0.0.0.0`` (or the private
 IP) is needed, with the port filtered to the Elpis host. ``app.memory_dir`` / ``APP_MEMORY_DIR``:
-root of the memory store (default: the sandbox root). **Upgrade**: the tool
+root of the memory store (default: ``user_db/memoire``; with one account per service, refused inside the sandbox root). **Upgrade**: the tool
 host, local or remote, is upgraded with the core (like the browser service):
 it strips the invisible joiner (U+2060) that the core slips into the turn markers of
 results, from the arguments of the tools it serves (``identity: "meta"``), which the core sends
@@ -1275,7 +1275,7 @@ from the core's cache, LibreOffice (``office_preview``) and ECharts rendering ar
 Native ``skill_run`` family: the account's skills are read from its protected store
 (``skills.user_dir``, local host) or, failing that, from the mirror
 ``<sandbox_dir>/<account>/skills`` that the app pushes after every change (remote
-host); an old store left on a remote host by the Python core takes precedence over the
+host, and local host with one account per service, where only the tool host writes the sandbox root); an old store left on a remote host by the Python core takes precedence over the
 mirror: delete it.
 Native ``git`` family: the network (clone, fetch, pull, push) goes through the authenticating
 relay, and a Git account's token is given only to the repository's exact host. The host asks the

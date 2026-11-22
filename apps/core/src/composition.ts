@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/composition.ts — assemblage d'un process du core : authentification, gardes, ports posés au démarrage, bus d'événements, relais et familles de routes. */
-import { mkdir } from "node:fs/promises";
-
 import {
   creerGardes,
   dependancesParDefaut,
@@ -228,15 +226,13 @@ export function installerPortsMemoire(base: Base): void {
   });
 }
 
-/** Ports des skills : nom du compte et racine de sa sandbox (`_get_sandbox_path` : `<SANDBOX_DIR>/<nom sûr>`, créée au besoin). */
+/** Ports des skills : nom du compte et racine de sa sandbox (`<SANDBOX_DIR>/<nom sûr>`, jamais créée ici : l'hôte d'outils la crée). */
 export function installerPortsSkills(base: Base): void {
   installerComptesSkills({
     nomUtilisateur: (uid) => getUsernameById(base, uid),
     racineSandbox: async (uid) => {
       const nom = (await getUsernameById(base, uid)) || `user_${uid}`;
-      const racine = realpathPy(pyJoin(config.SANDBOX_DIR, safeSandboxName(nom)));
-      await mkdir(racine, { recursive: true });
-      return racine;
+      return realpathPy(pyJoin(config.SANDBOX_DIR, safeSandboxName(nom)));
     },
   });
 }

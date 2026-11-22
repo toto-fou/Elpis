@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/admin/bac.ts — bac à sable vu de la console : dossier d'un compte, occupation (`sandbox_usage_bytes`), suppression et port du pilote du bac. */
-import { mkdirSync } from "node:fs";
-
 import {
   messageSuppression,
   mettreBacDeCote,
@@ -17,6 +15,8 @@ import type { SandboxHost } from "../relais/hotes";
 export interface PortBac {
   /** Hôte d'outils distant du compte (hors loopback), résolu avant la suppression de sa ligne ; `null` : bac local. */
   hoteDistantDuCompte?(uid: number): Promise<SandboxHost | null>;
+  /** Hôte d'outils de cette machine quand il est seul à écrire le dossier des bacs (un compte par service) : le bac local passe par lui ; `null` : la console le traite elle-même. */
+  hoteIci?(): Promise<SandboxHost | null>;
   /** Bac du compte sur cet hôte renommé hors de portée des noms de comptes sous cet horodatage ; dit s'il l'a trouvé. */
   mettreDeCoteSurHote?(
     hote: SandboxHost,
@@ -41,13 +41,6 @@ export interface PortBac {
   detruireConteneur(uid: number, username: string, travail: string, profilAvant: string): Promise<void>;
 }
 
-/** `_get_sandbox_path` : `<SANDBOX_DIR>/<nom sûr>` résolu, créé au besoin. */
-export function racineBac(username: string | null, uid: number): string {
-  const racine = realpathPy(pyJoin(config.SANDBOX_DIR, safeSandboxName(username || `user_${uid}`)));
-  mkdirSync(racine, { recursive: true });
-  return racine;
-}
-
 /** `P/work` sans création ni migration de l'ancienne disposition à plat (faites par l'hôte d'outils au premier accès). */
 export function travailBac(username: string | null, uid: number): string {
   return pyJoin(
@@ -67,7 +60,7 @@ export interface BacMisDeCote {
   supprimer(): Promise<[boolean, string | null]>;
 }
 
-/** Conteneur retiré, puis `P` et instantanés du nom (locaux puis ceux de l'hôte distant) renommés hors de portée des noms de comptes ; un échec remet le local en place et lève. */
+/** Conteneur retiré, puis `P` et instantanés du nom (de cette machine, par son hôte d'outils s'il est seul à écrire le dossier des bacs, puis ceux de l'hôte distant) renommés hors de portée des noms de comptes ; un échec remet le local en place et lève. */
 export async function mettreBacDeCoteDuCompte(
   uid: number,
   username: string,
@@ -78,18 +71,24 @@ export async function mettreBacDeCoteDuCompte(
   const horodatage = Date.now();
   await port?.retirerConteneur(uid, username, pyJoin(pyJoin(racine, nomSur), WORK_SUBDIR));
   const hote = (await port?.hoteDistantDuCompte?.(uid)) ?? null;
-  await mettreBacDeCote(racine, nomSur, uid, horodatage);
+  const ici = (await port?.hoteIci?.()) ?? null;
+  const remettreIci = async (): Promise<void> => {
+    if (ici === null) await remettreBacMisDeCote(racine, nomSur, uid, horodatage);
+    else await port?.remettreSurHote?.(ici, uid, username, horodatage);
+  };
+  if (ici === null) await mettreBacDeCote(racine, nomSur, uid, horodatage);
+  else await port?.mettreDeCoteSurHote?.(ici, uid, username, horodatage);
   try {
     if (hote !== null) await port?.mettreDeCoteSurHote?.(hote, uid, username, horodatage);
   } catch (e) {
-    await remettreBacMisDeCote(racine, nomSur, uid, horodatage).catch(() => undefined);
+    await remettreIci().catch(() => undefined);
     throw e;
   }
   return {
     async remettre() {
       const erreurs: unknown[] = [];
       for (const remise of [
-        () => remettreBacMisDeCote(racine, nomSur, uid, horodatage),
+        remettreIci,
         async () => {
           if (hote !== null) await port?.remettreSurHote?.(hote, uid, username, horodatage);
         },
@@ -106,12 +105,21 @@ export async function mettreBacDeCoteDuCompte(
       } catch (e) {
         erreur = messageSuppression(e);
       }
-      const [local, erreurLocale] = await supprimerBacMisDeCote(
-        racine,
-        uid,
-        horodatage,
-        port ? (travail) => port.purgerTravail(uid, username, travail, horodatage) : undefined,
-      );
+      let local = false;
+      let erreurLocale: string | null = null;
+      if (ici === null)
+        [local, erreurLocale] = await supprimerBacMisDeCote(
+          racine,
+          uid,
+          horodatage,
+          port ? (travail) => port.purgerTravail(uid, username, travail, horodatage) : undefined,
+        );
+      else
+        try {
+          local = (await port?.supprimerMisDeCoteSurHote?.(ici, uid, username, horodatage)) === true;
+        } catch (e) {
+          erreurLocale = messageSuppression(e);
+        }
       const echec = erreur ?? erreurLocale;
       return [echec === null && (distant === true || local), echec];
     },

@@ -51,8 +51,8 @@ export const HOST_ONLY = [
   ".backup_send.lock",
   ".backup_send.lock.reprise",
 ] as const;
-/** Sous-dossiers de `user_db/` ni sauvegardés ni restaurés : exécution en cours (journaux, PID), cache de l'extracteur du RAG (reconstruit à la demande). */
-export const RUNTIME_DIRS = ["logs", "run", "rag-cache"] as const;
+/** Sous-dossiers de `user_db/` ni sauvegardés ni restaurés : exécution en cours (journaux, PID), cache de l'extracteur du RAG (reconstruit à la demande), historique des fichiers (à l'hôte d'outils seul). */
+export const RUNTIME_DIRS = ["logs", "run", "rag-cache", "file_history"] as const;
 export const WORK_SUBDIR = "work";
 export const AGENT_RUN_DIR = ".elpis-agent";
 export const RELAY_DIR = ".elpis-relay";

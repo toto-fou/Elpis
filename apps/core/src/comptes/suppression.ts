@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/suppression.ts — suppression complète d'un compte et de ce qui lui appartient en base (users.delete_user_full). */
 import { nomCanonique, supprimerJetonsCompte, supprimerOauthCompte } from "@elpis/auth";
-import { pyJoin } from "@elpis/commun";
+import { groupeDonnees, pyJoin } from "@elpis/commun";
 import { config, safeSandboxName } from "@elpis/config";
 import { estTableAbsente } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
@@ -46,15 +46,14 @@ export function bacDuNomMisDeCote(base: Base, uid: number, nom: string): Promise
   return nomSurExclusif(base, nom, uid);
 }
 
-/** Magasins rangés par nom de compte (skills perso et leur miroir hors /work, mémoire, cache des graphiques) : purgés, sinon un compte recréé sous ce nom en hériterait. */
+/** Magasins rangés par nom de compte (skills perso et, en compte unique, leur miroir hors /work ; mémoire, cache des graphiques) : purgés, sinon un compte recréé sous ce nom en hériterait. */
 async function purgerDossiersDuNom(nom: string): Promise<void> {
   const sur = safeSandboxName(nom);
   const bac = pyJoin(config.SANDBOX_DIR, sur);
   const memoire = pyJoin(config.MEMORY_DIR, sur);
   const entrees = [
     pyJoin(config.USER_SKILLS_DIR, sur),
-    pyJoin(bac, "skills"),
-    pyJoin(bac, ".skills-mirror.tmp"),
+    ...(groupeDonnees() === null ? [pyJoin(bac, "skills"), pyJoin(bac, ".skills-mirror.tmp")] : []),
     pyJoin(memoire, MEMORY_SUBDIR),
     pyJoin(memoire, LEGACY_MEMORY_SUBDIR),
   ];

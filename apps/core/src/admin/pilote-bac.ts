@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/admin/pilote-bac.ts — pilote du bac de la console (PortBac) : bac d'un hôte distant mis de côté par cet hôte, conteneur et /work locaux par l'hôte de cette machine, jamais par Docker dans le core. */
-import { getOu, getPy } from "@elpis/commun";
+import { getOu, getPy, groupeDonnees } from "@elpis/commun";
 
 import { ClientHttp, delais } from "../llm/client-http";
 import { hostFromSpec, isLoopback, lireHotes, sandboxHostFor } from "../relais/hotes";
@@ -109,10 +109,11 @@ export async function purgerCompteSurHotes(uid: number, username: string): Promi
   return (await Promise.all(essais)).filter((m): m is string => m !== null);
 }
 
-/** PortBac de la console : `P` d'un hôte distant mis de côté, remis ou supprimé par l'hôte ; conteneur et /work du reliquat local par l'hôte de cette machine, profil par l'hôte du compte ; seuls les hôtes touchent Docker. */
+/** PortBac de la console : `P` d'un hôte distant mis de côté, remis ou supprimé par l'hôte, celui de cette machine aussi quand son hôte est seul à écrire le dossier des bacs ; sinon conteneur et /work du reliquat local par l'hôte de cette machine ; profil par l'hôte du compte ; seuls les hôtes touchent Docker. */
 export function piloteBac(): PortBac {
   return {
     hoteDistantDuCompte: hoteDistant,
+    hoteIci: async () => (groupeDonnees() === null ? null : hoteDeCetteMachine()),
     async mettreDeCoteSurHote(hote, uid, username, horodatage) {
       const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/set-aside", {
         tolererSuspension: true,

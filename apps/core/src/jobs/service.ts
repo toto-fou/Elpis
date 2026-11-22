@@ -569,13 +569,15 @@ export class ServiceJobs {
     });
   }
 
-  /** Prise pour le prochain résultat d'outil du tour de premier niveau en cours (JB-07). */
+  /** Prise pour le prochain résultat d'outil du tour de premier niveau en cours (JB-07) ; ses jobs republiés (`chat_job`) sans événement en attente : l'interface n'attend plus leur réveil. */
   async prendrePourResultat(uid: number, chatId: string): Promise<string | null> {
     const runId = String(instantaneTour(uid, chatId)?.["run_id"] ?? "");
     if (!runId || !this.marques.delete(cle(uid, chatId))) return null;
     const evts = await prendre(this.base, uid, chatId, marque("tool", runId), this.maintenant());
     if (!evts.length) return null;
     this.noter(runId, "tool", evts);
+    for (const id of new Set(evts.map((e) => e.jobId)))
+      this.fond(lireJob(this.base, uid, id).then((j) => (j === null ? undefined : this.publierJob(j))));
     return this.rendre(evts, null);
   }
 

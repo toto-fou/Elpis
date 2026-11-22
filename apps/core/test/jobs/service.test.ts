@@ -330,6 +330,24 @@ describe("réveil d'une conversation", () => {
     expect(b.tours).toHaveLength(1);
   });
 
+  it("JB-07 : job avec réveil lancé dans un tour, exit livré à un résultat d'outil du même tour, fin du tour → dernier `chat_job` sans événement en attente, aucun réveil (pas de « Reprise… » laissée)", async () => {
+    const fin = tourActif(1, "c1");
+    const id = String((await b.service.enregistrer(1, corps("c1"), "local"))["job_id"]);
+    await b.service.poserEtat(1, id, "running", 4242, "");
+    await b.service.recevoir(1, [ev(id)], 0);
+    expect(await b.service.prendrePourResultat(1, "c1")).toContain(id);
+    b.service.finTour(1, "c1", "run-c1", { message: true, reponse: true, suffixe: false });
+    fin();
+    await b.horloge.avancer(5, b.service);
+    const etats = b.publications
+      .filter((p) => p["type"] === "chat_job")
+      .map((p) => (p["data"] as Dict)["job"] as Dict)
+      .filter((j) => j["id"] === id);
+    expect(etats.at(-1)).toMatchObject({ state: "exited", wake: true, pending_events: 0 });
+    expect(reveils(b)).toEqual([]);
+    expect(b.tours).toHaveLength(0);
+  });
+
   it("livraison d'un tour qui n'a rien persisté : événements rendus, sans réveil immédiat, joints au message suivant (ni perte)", async () => {
     const id = await lancerJob(b, 1, "c1");
     const fin = tourActif(1, "c1");

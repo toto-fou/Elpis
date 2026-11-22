@@ -239,6 +239,16 @@ def test_jeton_du_rag_remis_au_rag_seul(depot):
     assert "rag.token" not in u["elpis-toolhost.service"] and "rag.token" not in u["elpis-qdrant.service"]
 
 
+def test_rag_exige_son_isolation_dans_tous_les_modes(depot):
+    _poser(depot, vault_key=VAULT, audit_key=JOURNAL)
+    unite = _print(depot)["elpis-rag.service"].splitlines()
+    assert not [l for l in unite if "RAG_ISOLATION" in l and l.startswith("Environment")]
+    assert [l for l in unite if l.startswith("ExecStart=")][0].startswith("ExecStart=/usr/bin/env RAG_ISOLATION=bwrap ")
+    r = _harnais(depot, 'RAG_STORE=/x; RAG_CACHE=/y; svc_spec rag; printf "%s\\n" "${SPEC_CMD[@]}"')
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines()[:2] == ["/usr/bin/env", "RAG_ISOLATION=bwrap"]
+
+
 def test_jeton_du_rag_repris_de_ses_fichiers(depot):
     etc, db = _sys(depot) / "etc/elpis", depot / "user_db"
     etc.mkdir(parents=True)

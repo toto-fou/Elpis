@@ -288,3 +288,29 @@ def test_sante_publique_sans_detail_sensible(client, magasin_rag, monkeypatch):
     assert client.get("/api/health").json()["soffice"] is False
     monkeypatch.setenv("RAG_SOFFICE_BIN", str(faux))
     assert client.get("/api/health").json()["soffice"] is True
+
+
+def test_isolation_perdue_en_cours_de_flux_garde_son_code(monkeypatch):
+    async def _perdue(*_a):
+        raise prison.ErreurExtracteur("isolation_unavailable", "Isolation indisponible.", 503)
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(service, "_extraire", _perdue)
+
+    async def _lire():
+        return [json.loads(l) async for l in service.flux_extraction("x", ".pdf", False, None)]
+
+    (erreur,) = asyncio.run(_lire())
+    assert erreur["type"] == "error" and erreur["code"] == "isolation_unavailable"
+
+
+def test_une_sonde_en_echec_n_est_pas_gardee(monkeypatch):
+    monkeypatch.setenv("RAG_ISOLATION", "bwrap")
+    monkeypatch.setattr(prison, "_sonde", {"t": 0.0, "bin": None})
+    monkeypatch.setattr(prison.shutil, "which", lambda _n: "/usr/bin/bwrap")
+    monkeypatch.setattr(prison.os.path, "exists", lambda _p: True)
+    retours = iter([1, 0])
+    monkeypatch.setattr(prison.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, next(retours)))
+    assert prison.bwrap_utilisable() == ""
+    assert prison.bwrap_utilisable() == "/usr/bin/bwrap"
+    assert prison.bwrap_utilisable() == "/usr/bin/bwrap"

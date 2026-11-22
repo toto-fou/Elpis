@@ -453,10 +453,10 @@ svc_spec() {
             SPEC_DIR="$ROOT/rag_app/qdrant"
             SPEC_CMD=("$ROOT/rag_app/qdrant/qdrant" --config-path "$ROOT/rag_app/qdrant/config.yaml") ;;
         rag)
-            # Extracteur : seul le core l'appelle, en local (RAG_HOST pour un core sur une autre machine).
+            # Extracteur : seul le core l'appelle, en local (RAG_HOST pour un core sur une autre machine) ; RAG_ISOLATION dans la commande, que ni .env ni EnvironmentFile ne surcharge.
             SPEC_DIR="$ROOT/rag_app"
             SPEC_ENV+=("RAG_STORE_DIR=$RAG_STORE" "RAG_CACHE_DIR=$RAG_CACHE" "RAG_SERVICE_TOKEN_FILE=$ROOT/user_db/.rag_service_token")
-            SPEC_CMD=("$VENV/bin/uvicorn" app:app --host "${RAG_HOST:-127.0.0.1}" --port "$RAG_PORT") ;;
+            SPEC_CMD=(/usr/bin/env RAG_ISOLATION=bwrap "$VENV/bin/uvicorn" app:app --host "${RAG_HOST:-127.0.0.1}" --port "$RAG_PORT") ;;
         toolhost)
             SPEC_ENV+=(LOCAL_MCP_TRANSPORT=streamable-http "LOCAL_MCP_HOST=${LOCAL_MCP_HOST:-127.0.0.1}"
                        "LOCAL_MCP_PORT=$MCP_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR" "CHART_CACHE_DIR=$CHART_DIR")

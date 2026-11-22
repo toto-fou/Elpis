@@ -671,7 +671,11 @@ An unreadable or out-of-range value falls back to its default.
   accounts' configuration copies (`user_db/configs/`).
 - **Extractor.** Its own settings (timeouts, memory, sizes, isolation
   `RAG_ISOLATION`) are environment variables:
-  [`rag_app/README.md`](../rag_app/README.md). `RAG_EXTRACT_TIMEOUT_S` also sets
+  [`rag_app/README.md`](../rag_app/README.md). `./elpis` sets `RAG_ISOLATION=bwrap`
+  for the extractor in every installed mode: if bubblewrap cannot isolate, document
+  analyses are refused (users see "ask your administrator"), not run unjailed. Fix:
+  `apt install bubblewrap`, allow unprivileged user namespaces, check `./elpis doctor`
+  (which also flags `office_preview.isolation = "none"`). `RAG_EXTRACT_TIMEOUT_S` also sets
   the core's timeout. It listens on `127.0.0.1:8000` (`RAG_HOST` for a core on
   another machine, which must then see the same store).
 

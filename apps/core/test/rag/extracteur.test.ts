@@ -12,6 +12,7 @@ import {
   extraireDocument,
   lignesNdjson,
   lireBloc,
+  MESSAGE_ISOLATION,
 } from "../../src/rag/extracteur";
 
 type Gestion = (req: IncomingMessage, res: ServerResponse, corps: unknown) => void | Promise<void>;
@@ -135,6 +136,20 @@ describe("client de l'extracteur", () => {
     expect(await erreur(extraireDocument({ source: "s", ext: "pdf", url }))).toEqual(["document", "corrupt"]);
   });
 
+  it("isolation perdue en cours de flux : même panne et même message que le 503", async () => {
+    gestion = (_q, res) => {
+      ndjson(res);
+      res.end(`${JSON.stringify({ type: "error", code: "isolation_unavailable", message: "x" })}\n`);
+    };
+    const refus: unknown = await extraireDocument({ source: "s", ext: "pdf", url }).catch((e: unknown) => e);
+    expect(refus).toBeInstanceOf(ErreurExtraction);
+    expect([(refus as ErreurExtraction).nature, (refus as ErreurExtraction).code]).toEqual([
+      "panne",
+      "extractor_unavailable",
+    ]);
+    expect((refus as Error).message).toBe(MESSAGE_ISOLATION);
+  });
+
   it("erreurs HTTP : 404 = source absente (document), 503 et 401 = panne ; service injoignable ou non configuré = panne", async () => {
     for (const [statut, attendu] of [
       [404, ["document", "source_missing"]],
@@ -148,6 +163,14 @@ describe("client de l'extracteur", () => {
         attendu,
       );
     }
+    gestion = (_q, res) =>
+      void res
+        .writeHead(503, { "content-type": "application/json" })
+        .end('{"detail":{"code":"isolation_unavailable"}}');
+    const refus: unknown = await extraireDocument({ source: "s", ext: "pdf", url }).catch((e: unknown) => e);
+    expect((refus as Error).message).toBe(
+      "Analyse indisponible pour le moment : demandez à votre administrateur.",
+    );
     expect(await erreur(extraireDocument({ source: "s", ext: "pdf", url: "http://127.0.0.1:9" }))).toEqual([
       "panne",
       "extractor_unavailable",

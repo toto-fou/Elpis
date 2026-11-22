@@ -4,6 +4,7 @@ import { Agent, request } from "undici";
 import type { Dispatcher } from "undici";
 
 import { getServiceToken, getServiceUrl } from "./client";
+import { isolationIndisponible } from "./extracteur";
 import { ErreurRouteRag } from "./http";
 
 const CONNEXION_MS = 5_000;
@@ -51,6 +52,8 @@ function detailDe(corps: string): { code: string; message: string } {
 /** Réponse d'erreur de l'extracteur rendue en refus de route : page absente, fichier absent, document non affichable, ou service indisponible. */
 function erreurHttp(statut: number, corps: string): ErreurRouteRag {
   const { code } = detailDe(corps);
+  if (code === "isolation_unavailable")
+    return new ErreurRouteRag(503, "extracteur_indisponible", isolationIndisponible().message);
   if (statut === 404 && code === "page_out_of_range")
     return new ErreurRouteRag(404, "page_introuvable", "Cette page n'existe pas dans le document.");
   if (statut === 404)

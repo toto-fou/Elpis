@@ -40,8 +40,9 @@ def bwrap_utilisable() -> str:
                                 timeout=5, env={"PATH": "/usr/bin:/bin"}).returncode == 0
         except (OSError, subprocess.SubprocessError):
             ok = False
-    _sonde.update(t=time.monotonic(), bin=chemin if ok else "")
-    return _sonde["bin"]
+    if ok:
+        _sonde.update(t=time.monotonic(), bin=chemin)
+    return chemin if ok else ""
 
 
 def exiger() -> str:

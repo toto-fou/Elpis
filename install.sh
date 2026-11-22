@@ -817,7 +817,7 @@ plan_dry_run() {
     etape "Node.js $NODE_VERSION : $v"
     etape "bundles du core, de l'hôte d'outils et de l'interface ($src) : $([ -f "$ROOT/apps/core/dist/main.mjs" ] && echo "gardés s'ils correspondent aux sources, sinon reconstruits" || echo "construits") $([ -z "$OFFLINE_DIR" ] && echo "(npm ci, npm run build, npm de l'archive retiré ensuite)")"
     if [ -n "$OFFLINE_DIR" ]; then dry_paquet_hors_ligne; else DRY_RESEAU+=("registre npm"); fi
-    etape "bubblewrap : sondé pour les analyses du RAG et les aperçus Office$([ "$AS_ROOT" -eq 1 ] || echo " (profil AppArmor posé par sudo s'il est bloqué)")"
+    etape "bubblewrap : sondé ; sans lui, analyses du RAG refusées et aperçus Office indisponibles$([ "$AS_ROOT" -eq 1 ] || echo " (profil AppArmor posé par sudo s'il est bloqué)")"
     case "$DB_MODE" in
         keep) etape "base de données : gardée (config.json inchangé, user_db/ en place)" ;;
         sqlite) etape "base de données : SQLite (user_db/app.db, créée au premier démarrage)" ;;
@@ -1211,7 +1211,7 @@ bwrap_ok() {
 
 ensure_bwrap() {
     if ! have bwrap; then
-        note_warn "bubblewrap absent : analyses du RAG non isolées, aperçus Office indisponibles (apt install bubblewrap)."
+        note_warn "bubblewrap absent : analyses du RAG refusées et aperçus Office indisponibles tant qu'il manque (apt install bubblewrap, puis ./elpis doctor)."
         return 0
     fi
     if bwrap_ok; then ok "bubblewrap utilisable (analyses du RAG, aperçus Office)."; return 0; fi
@@ -1224,7 +1224,7 @@ ensure_bwrap() {
             && $SUDO apparmor_parser -r /etc/apparmor.d/elpis-bwrap \
             && bwrap_ok && { ok "bubblewrap autorisé (profil AppArmor elpis-bwrap)."; return 0; }
     fi
-    note_warn "bubblewrap bloqué (user namespaces) : analyses du RAG non isolées, aperçus Office indisponibles (./elpis doctor)."
+    note_warn "bubblewrap bloqué (user namespaces) : analyses du RAG refusées et aperçus Office indisponibles tant qu'il est bloqué (./elpis doctor)."
 }
 
 check_office() {

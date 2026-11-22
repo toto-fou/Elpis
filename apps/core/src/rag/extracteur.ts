@@ -7,7 +7,11 @@ import { configRag } from "@elpis/config";
 import type { ConfigRag } from "@elpis/config";
 import type { Bloc, Boite, GenreBloc } from "@elpis/rag";
 
+import { journal } from "../journal";
 import { getServiceToken, getServiceUrl } from "./client";
+
+const log = journal("rag");
+export const MESSAGE_ISOLATION = "Analyse indisponible pour le moment : demandez à votre administrateur.";
 
 /** `document` : échec propre au fichier ; `panne` : service indisponible (réessayer plus tard) ; `douteux` : flux coupé ou invalide (essais comptés). */
 export type NatureErreurExtraction = "document" | "panne" | "douteux";
@@ -176,6 +180,12 @@ async function corpsTexte(r: Dispatcher.ResponseData): Promise<string> {
   }
 }
 
+/** Panne « isolation indisponible » (HTTP 503 ou ligne d'erreur du flux) : message sans détail pour l'utilisateur, détail au journal. */
+export function isolationIndisponible(): ErreurExtraction {
+  log.error("extracteur : analyses refusées, isolation indisponible (./elpis doctor)");
+  return new ErreurExtraction("extractor_unavailable", "panne", MESSAGE_ISOLATION);
+}
+
 /** Erreur HTTP avant le flux : chemin ou fichier refusé = document ; jeton, configuration, 5xx = panne du service. */
 function erreurHttp(statut: number, texte: string): ErreurExtraction {
   let code = "";
@@ -193,6 +203,7 @@ function erreurHttp(statut: number, texte: string): ErreurExtraction {
     );
   if (statut === 400 || statut === 422)
     return new ErreurExtraction("internal", "document", `Extracteur : demande refusée (HTTP ${statut}).`);
+  if (code === "isolation_unavailable") return isolationIndisponible();
   return new ErreurExtraction(
     "extractor_unavailable",
     "panne",
@@ -261,6 +272,7 @@ export async function extraireDocument(o: OptionsExtraction): Promise<ResultatEx
         } else if (msg["type"] === "error") {
           const code = typeof msg["code"] === "string" ? msg["code"] : "corrupt";
           const message = typeof msg["message"] === "string" ? msg["message"] : "";
+          if (code === "isolation_unavailable") throw isolationIndisponible();
           throw new ErreurExtraction(
             CODES_EXTRACTION_DOCUMENT.has(code) ? code : "corrupt",
             "document",

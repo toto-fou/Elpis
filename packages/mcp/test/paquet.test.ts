@@ -298,6 +298,8 @@ describe("serveurs des comptes", () => {
   /** Entrée enregistrée par Python → entrée sans champ hérité et valeur au coffre (`auth_enc`, `headers_enc`, `env_enc` en clair ou déchiffrés). */
   function versCoffre(e: unknown): unknown {
     if (!estDictTest(e)) return e;
+    // Un stdio déjà enregistré est gardé tel quel : aucune valeur de coffre reprise.
+    if (e["type"] === "stdio") return { entree: e, valeur: null };
     const clair = (v: unknown): string =>
       estDictTest(v) ? String(v["$dechiffre"]) : typeof v === "string" ? v : "";
     const paires = (v: unknown): unknown => (clair(v) ? JSON.parse(clair(v)) : []);
@@ -312,7 +314,8 @@ describe("serveurs des comptes", () => {
       oublierVerdictsUrl();
       const srv = await migree(cas["srv"]);
       const etat = await secretsPerso(BASE, 1, srv);
-      const opts = { allowStdio: cas["allow_stdio"] as boolean, secrets: etat.valeur };
+      // Les vecteurs gelés gardent le nom historique `allow_stdio` pour l'option `confiance`.
+      const opts = { confiance: cas["allow_stdio"] as boolean, secrets: etat.valeur };
       await rejouer(
         () => personalToConfig(srv, opts),
         ecart(cas["config"] as Issue, srv, "config"),
@@ -363,7 +366,7 @@ describe("serveurs des comptes", () => {
       const out = c["out"] as Issue;
       await rejouer(
         async () =>
-          (await mergePersonalMcp(anciens, c["new"], { allowStdio: c["allow_stdio"] as boolean })).map(
+          (await mergePersonalMcp(anciens, c["new"], { confiance: c["allow_stdio"] as boolean })).map(
             ({ entree, valeur }) => ({ entree, valeur }),
           ),
         "valeur" in out ? { valeur: (out.valeur as unknown[]).map(versCoffre) } : out,
@@ -379,7 +382,7 @@ describe("serveurs des comptes", () => {
     for (const cas of S["resolutions"] as Dict[]) {
       oublierVerdictsUrl();
       await rejouer(
-        () => resolvePersonal(BASE, 1, reglages, cas["id"], { allowStdio: cas["allow_stdio"] as boolean }),
+        () => resolvePersonal(BASE, 1, reglages, cas["id"], { confiance: cas["allow_stdio"] as boolean }),
         cas["out"] as Issue,
         JSON.stringify(cas),
       );
@@ -407,8 +410,8 @@ describe("serveurs des comptes", () => {
     oublierAvertissementsPaires();
     journal.length = 0;
     for (let i = 0; i < 2; i++) {
-      await personalToConfig(s13, { allowStdio: true, secrets: v13 });
-      await personalToConfig(s16, { allowStdio: true, secrets: v16 });
+      await personalToConfig(s13, { confiance: true, secrets: v13 });
+      await personalToConfig(s16, { confiance: true, secrets: v16 });
       ligneEnConfig(lignes[0] as Ligne, v0);
       ligneEnConfig(lignes[1] as Ligne, v1);
     }
@@ -424,7 +427,7 @@ describe("serveurs des comptes", () => {
       const srv = { id: "x", type: "http", url: "https://public.example/mcp" };
       expect(await personalToConfig(srv)).toEqual({});
       await expect(mergePersonalMcp([], [srv])).rejects.toThrow("garde SSRF non branchée");
-      expect(await personalToConfig(srv, { allowStdio: true })).toMatchObject({ type: "http", url: srv.url });
+      expect(await personalToConfig(srv, { confiance: true })).toMatchObject({ type: "http", url: srv.url });
     } finally {
       brancherGardeUrl(async () => null);
     }

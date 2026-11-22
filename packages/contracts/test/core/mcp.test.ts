@@ -47,21 +47,19 @@ afterAll(async () => {
 });
 
 describe("contrats REST : serveurs MCP (core réel)", () => {
-  it("dossiers déposés : liste, suppression réservée à l'administrateur ; plus de dépôt (404)", async () => {
-    expect(await core.appeler("GET", "/api/mcp/custom-servers", { cookie: cookieLou })).toMatchObject({
-      servers: [],
-    });
+  it("dossiers déposés : suppression réservée à l'administrateur ; plus de dépôt (404) ni de liste (404)", async () => {
     const depot = await core.app.inject({ method: "POST", url: "/api/mcp/upload", headers: { cookie } });
     expect(depot.statusCode).toBe(404);
-    mkdirSync(join(config.MCP_SERVERS_DIR, "srv"), { recursive: true });
-    writeFileSync(join(config.MCP_SERVERS_DIR, "srv", "server.py"), "print(1)");
-    expect(await core.appeler("GET", "/api/mcp/custom-servers", { cookie })).toMatchObject({
-      servers: [{ name: "srv", suggested_cmd: expect.stringContaining("server.py") }],
+    const liste = await core.app.inject({
+      method: "GET",
+      url: "/api/mcp/custom-servers",
+      headers: { cookie },
     });
+    expect(liste.statusCode).toBe(404);
+    mkdirSync(join(config.MCP_SERVERS_DIR, "srv"), { recursive: true });
     await core.appeler("DELETE", "/api/mcp/custom-servers/srv", { cookie: cookieLou });
     expect(await core.appeler("DELETE", "/api/mcp/custom-servers/srv", { cookie })).toEqual({ ok: true });
     await core.appeler("DELETE", "/api/mcp/custom-servers/srv", { cookie });
-    await core.appeler("GET", "/api/mcp/custom-servers");
   });
 
   it("catégories d'outils et serveurs du manifeste", async () => {

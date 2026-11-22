@@ -214,12 +214,12 @@ describe("gestionnaire MCP à deux volets", () => {
     expect(R.mcpTests.value[id]).toMatchObject({ ok: false, msg: "401 Unauthorized" });
   });
 
-  it("portée Tous : pas de serveur local, publication POST avec « enabled », sélection du publié", async () => {
+  it("pas de serveur local ; portée Tous : publication POST avec « enabled », sélection du publié", async () => {
     const { R, appels } = await ouvert();
     R.mcpNouveau();
     R.mcpSetType("stdio");
-    R.mcpSetPortee("partage");
     expect(R.mcpForm.value?.type).toBe("http");
+    R.mcpSetPortee("partage");
     R.mcpSetType("stdio");
     expect(R.mcpForm.value?.type).toBe("http");
     Object.assign(R.mcpForm.value ?? {}, { name: "Docs", url: "http://docs.lan/mcp" });

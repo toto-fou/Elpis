@@ -167,13 +167,13 @@ export interface DependancesTour {
   readonly base: Base;
 }
 
-/** Administrateur PLEIN seulement pour une commande `stdio` sur l'hôte (refus si le compte est illisible). */
-async function stdioAllowedFor(base: Base, uid: number): Promise<boolean> {
+/** Entrées de confiance (adresses internes permises) : administrateur PLEIN seulement, refus si le compte est illisible. */
+async function confianceDe(base: Base, uid: number): Promise<boolean> {
   try {
     const moi = await ligneUtilisateur(base, uid);
     return moi !== undefined && moi !== null && Number(moi.is_admin) === 1;
   } catch (e) {
-    log.warn(`[chat.stdio_gate] compte illisible (${String(e)}) — stdio refusé`);
+    log.warn(`[chat.confiance] compte illisible (${String(e)}) — entrées sans confiance`);
     return false;
   }
 }
@@ -186,7 +186,7 @@ export async function agentMcpConfigs(
   cache?: CacheSecretsMcp,
 ): Promise<Dict[]> {
   return resolveForAgents(base, settings, {
-    allowStdio: uid !== null ? await stdioAllowedFor(base, uid) : false,
+    confiance: uid !== null ? await confianceDe(base, uid) : false,
     proprietaire: uid,
     contexte: { sousAgent: true, ...(cache ? { cache } : {}) },
   });
@@ -227,7 +227,7 @@ async function resoudreServeurs(
   actifs: unknown[],
   cache: CacheSecretsMcp,
 ): Promise<Dict[]> {
-  const stdioOk = await stdioAllowedFor(base, uid);
+  const enConfiance = await confianceDe(base, uid);
   const visibles = new Set(
     (Array.isArray(settings["shared_mcp_visible"]) ? (settings["shared_mcp_visible"] as unknown[]) : []).map(
       strPy,
@@ -257,7 +257,7 @@ async function resoudreServeurs(
       cfg = await resolveConfig(base, rid, { cache });
     } else
       cfg = await resolvePersonal(base, uid, settings, srv["id"], {
-        allowStdio: stdioOk,
+        confiance: enConfiance,
         contexte: { cache },
       });
     if (cfg) resolus.push(avecCats(cfg));

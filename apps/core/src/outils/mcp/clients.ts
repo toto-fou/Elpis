@@ -1076,8 +1076,8 @@ export function resoudreClientMcp(cfg: ConfigMcp): ClientMcp | null {
   if (ctype === "stdio") {
     if ((Object.hasOwn(cfg, "command") ? cfg["command"] : "") === BUILTIN_SENTINEL) return clientIntegre(cfg);
     const message =
-      `Serveur MCP « ${nom || "?"} » de type stdio (commande lancée sur le serveur) : non pris en charge par le core ` +
-      "(plus aucun sous-processus) — publiez-le en HTTP streamable ou SSE.";
+      `Serveur MCP « ${nom || "?"} » de type commande locale : non pris en charge. ` +
+      "Remplacez-le par une adresse HTTP (streamable) ou SSE.";
     log.warn(message);
     throw new TransportNonPrisEnCharge(message);
   }

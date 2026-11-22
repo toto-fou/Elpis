@@ -36,7 +36,8 @@ import {
   repriseHeritee,
   secretsPerso,
   sharedId,
-  StdioNotAllowed,
+  UrlNotAllowed,
+  StdioRefused,
 } from "@elpis/mcp";
 import type { ActeurMcp, EtatSecrets, FusionPerso } from "@elpis/mcp";
 
@@ -352,7 +353,7 @@ async function anciennesNormalisees(
     return mode ? { ...e, ...mode } : e;
   });
   try {
-    return (await mergePersonalMcp(anciens, sansPaires, { allowStdio: true, secrets })).map((f) => f.entree);
+    return (await mergePersonalMcp(anciens, sansPaires, { confiance: true, secrets })).map((f) => f.entree);
   } catch {
     return anciens;
   }
@@ -378,7 +379,7 @@ async function configsPerso(
 ): Promise<Dict[]> {
   const out: Dict[] = [];
   for (const s of liste)
-    if (estDict(s)) out.push(await personalToConfig(s, { allowStdio: true, secrets: valeur(s) }));
+    if (estDict(s)) out.push(await personalToConfig(s, { confiance: true, secrets: valeur(s) }));
   return out;
 }
 
@@ -430,9 +431,10 @@ async function serveursMcp(
   }
   let fusion: FusionPerso[];
   try {
-    fusion = await mergePersonalMcp(anciens, recus, { allowStdio: admin, secrets });
+    fusion = await mergePersonalMcp(anciens, recus, { confiance: admin, secrets });
   } catch (e) {
-    if (e instanceof StdioNotAllowed) throw new HttpError(403, e.message);
+    if (e instanceof StdioRefused) throw new HttpError(400, e.message);
+    if (e instanceof UrlNotAllowed) throw new HttpError(403, e.message);
     throw e;
   }
   if (!admin) {

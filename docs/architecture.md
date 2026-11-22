@@ -2231,7 +2231,7 @@ for inactive sessions.
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/mcp/custom-servers` · `DELETE /{name}` | MCP folders already present on the server (command detection: `package.json`, `start.txt`, `main.py`, `server.py`, `index.js`…); no more upload from the interface (`POST /api/mcp/upload` removed) |
+| `DELETE /api/mcp/custom-servers/{name}` | Removes an MCP folder already present on the server; no more upload (`POST /api/mcp/upload`) and no more listing (`GET /api/mcp/custom-servers`): the server runs no command taken from its configuration |
 | `GET /api/mcp/categories` | Categories + display descriptors |
 | `GET /api/mcp/shared-servers` · `POST` · `PUT /{id}` · `DELETE /{id}` | Shared library (admin write access) |
 

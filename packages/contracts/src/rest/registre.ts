@@ -455,7 +455,6 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   c("jetons", "POST", "/api/tokens/:token_id/regenerate", jetons.schemaReponseJetonCree),
   c("jetons", "GET", "/api/tokens/schema/:family", jetons.schemaReponseSchemaFamille),
   c("jetons", "DELETE", "/api/tokens/:token_id", schemaOk),
-  c("mcp", "GET", "/api/mcp/custom-servers", mcp.schemaReponseDossiersMcp),
   c("mcp", "DELETE", "/api/mcp/custom-servers/:name", schemaOk),
   c("mcp", "GET", "/api/mcp/categories", mcp.schemaReponseCategoriesMcp),
   c("mcp", "GET", "/api/mcp/manifest-servers", mcp.schemaReponseManifesteMcp),

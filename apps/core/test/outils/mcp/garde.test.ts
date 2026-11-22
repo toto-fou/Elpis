@@ -73,7 +73,7 @@ async function connecter(cfg: ConfigMcp): Promise<unknown> {
 describe("client MCP réseau : gardé par défaut", () => {
   it("serveur perso : non-admin sans marque, admin de confiance ; marque invisible au JSON et aux clés ; clé distincte", async () => {
     const nonAdmin = await personalToConfig(perso(`${srv.base}/mcp`));
-    const admin = await personalToConfig(perso(`${srv.base}/mcp`), { allowStdio: true });
+    const admin = await personalToConfig(perso(`${srv.base}/mcp`), { confiance: true });
     expect(deConfiance(nonAdmin)).toBe(false);
     expect(deConfiance(admin)).toBe(true);
     expect(deConfiance({ ...admin })).toBe(false);
@@ -111,7 +111,7 @@ describe("client MCP réseau : gardé par défaut", () => {
   });
 
   it("adresse littérale interne, type absent ou streamable-http, copie d'une config de confiance : refusés", async () => {
-    const admin = await personalToConfig(perso(`${srv.base}/mcp`), { allowStdio: true });
+    const admin = await personalToConfig(perso(`${srv.base}/mcp`), { confiance: true });
     for (const cfg of [
       await personalToConfig(perso(`${srv.base}/mcp`)),
       { name: "sans type", url: `${srv.base}/sse` },
@@ -124,7 +124,7 @@ describe("client MCP réseau : gardé par défaut", () => {
   });
 
   it("serveur perso d'un admin : connexion directe", async () => {
-    const cfg = await personalToConfig(perso(`${srv.base}/mcp`), { allowStdio: true });
+    const cfg = await personalToConfig(perso(`${srv.base}/mcp`), { confiance: true });
     expect(await connecter(cfg)).toBeNull();
     expect(srv.requetes.length).toBeGreaterThan(0);
   });
@@ -157,11 +157,11 @@ describe("client MCP réseau : gardé par défaut", () => {
     const avant = perso(`${srv.base}/mcp`);
     await invaliderServeursPerso(
       pool,
-      [await personalToConfig(avant, { allowStdio: true })],
-      [await personalToConfig({ ...avant, url: `${srv.base}/autre` }, { allowStdio: true })],
+      [await personalToConfig(avant, { confiance: true })],
+      [await personalToConfig({ ...avant, url: `${srv.base}/autre` }, { confiance: true })],
     );
     const attendues = [
-      makeKey(await personalToConfig(avant, { allowStdio: true })),
+      makeKey(await personalToConfig(avant, { confiance: true })),
       makeKey(await personalToConfig(avant)),
     ];
     for (const cle of attendues) expect(fermees).toContain(cle);

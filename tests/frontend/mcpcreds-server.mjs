@@ -75,7 +75,6 @@ http.createServer((req, res) => {
         }
         if (url === '/api/settings') return json(res, SETTINGS);
         if (url === '/api/mcp/shared-servers') return json(res, { ok: true, servers: [], can_publish: true });
-        if (url === '/api/mcp/custom-servers') return json(res, { servers: [], root_path: '/tmp' });
         if (url === '/api/mcp/categories') return json(res, { ok: true, categories: [
             { name: 'fs', label: 'Fichiers', icon: 'ph-folder', color: 'blue', visible: true },
         ] });

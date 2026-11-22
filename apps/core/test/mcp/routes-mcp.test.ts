@@ -41,7 +41,7 @@ import type { FastifyInstance, LightMyRequestResponse } from "fastify";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { composer } from "../../src/composition";
-import { champsPartage, detecterCommande, reglagesMcp, STDIO_REFUSE } from "../../src/familles/mcp";
+import { champsPartage, reglagesMcp, STDIO_REFUSE } from "../../src/familles/mcp";
 import { ingestTools, reinitialiserRegistre } from "../../src/outils/categories";
 import { poolMcp } from "../../src/outils/mcp/clients";
 import { lireSecretMcp } from "../../src/secrets/mcp";
@@ -109,21 +109,6 @@ function issue(f: () => unknown): Issue {
 }
 
 describe("panneau rejoué contre le Python", () => {
-  it.each(V.arbres.map((c, i) => [i, c] as const))("_detect_mcp_command %i", (i, c) => {
-    const racine = path.join(dossier, "arbres", String(i), "serveur");
-    mkdirSync(racine, { recursive: true });
-    for (const [rel, hex] of Object.entries(c.arbre)) {
-      const chemin = path.join(racine, rel);
-      if (rel.endsWith("/")) {
-        mkdirSync(chemin, { recursive: true });
-        continue;
-      }
-      mkdirSync(path.dirname(chemin), { recursive: true });
-      writeFileSync(chemin, Buffer.from(hex, "hex"));
-    }
-    expect(detecterCommande(racine)).toBe(c.commande);
-  });
-
   it.each(V.corps.map((c, i) => [i, c] as const))("_shared_payload %i (stdio refusé : E22)", (_i, c) => {
     const type = c.corps["type"];
     const stdio = lowerPy(stripPy(strPy(veritePy(type) ? type : ""))) === "stdio";
@@ -266,16 +251,16 @@ describe.each(MOTEURS)("famille /api/mcp (%s)", (moteur) => {
     await t.fermer();
   });
 
-  it("inventaire : les 9 routes de main (dépôt de dossier retiré = 404), écritures réservées à l'admin ; anonyme = 401, compte = 403 « Admin required »", async () => {
+  it("inventaire : les 8 routes de main (dépôt de dossier retiré = 404), écritures réservées à l'admin ; anonyme = 401, compte = 403 « Admin required »", async () => {
     const inventaire = JSON.parse(
       readFileSync(new URL("../../../../migration-kit/routes.inventory.json", import.meta.url), "utf-8"),
     ) as { routes: { methodes: string[]; chemin: string; process: string[]; etat: string }[] };
     const attendues = inventaire.routes.filter(
       (r) => r.chemin.startsWith("/api/mcp/") && r.etat !== "retiré",
     );
-    expect(attendues).toHaveLength(9);
+    expect(attendues).toHaveLength(8);
     const montees = app.elpis.routes.filter((r) => r.famille === "mcp");
-    expect(montees).toHaveLength(9);
+    expect(montees).toHaveLength(8);
     expect((await appel(ADMIN, "POST", "/api/mcp/upload", {})).statusCode).toBe(404);
     const admin = new Set([
       "DELETE /api/mcp/custom-servers/:name",
@@ -294,30 +279,6 @@ describe.each(MOTEURS)("famille /api/mcp (%s)", (moteur) => {
       if (admin.has(cle))
         expect((await appel(BOB, r.methodes[0] as Methode, url, {})).json(), cle).toEqual(NON_ADMIN);
     }
-  });
-
-  it("dossiers déposés : liste (dossiers seuls, liens suivis), commande suggérée ; racine absente = liste vide", async () => {
-    mkdirSync(path.join(racine, "alpha", "src"), { recursive: true });
-    writeFileSync(path.join(racine, "alpha", "src", "server.py"), "");
-    mkdirSync(path.join(racine, "beta"));
-    writeFileSync(path.join(racine, "fichier.txt"), "x");
-    const ailleurs = mkdtempSync(path.join(dossier, "ailleurs-"));
-    writeFileSync(path.join(ailleurs, "package.json"), '{"scripts": {"start": "node ."}}');
-    symlinkSync(ailleurs, path.join(racine, "lien"));
-    const r = await appel(BOB, "GET", "/api/mcp/custom-servers");
-    const vus = r.json<{ servers: Dict[]; root_path: string }>();
-    expect(vus.root_path).toBe(racine);
-    expect([...vus.servers].sort((a, b) => String(a["name"]).localeCompare(String(b["name"])))).toEqual([
-      { name: "alpha", path: path.join(racine, "alpha"), suggested_cmd: "python src/server.py" },
-      { name: "beta", path: path.join(racine, "beta"), suggested_cmd: "" },
-      { name: "lien", path: path.join(racine, "lien"), suggested_cmd: "npm start" },
-    ]);
-    restaurer();
-    restaurer = surchargerConfig({ MCP_SERVERS_DIR: path.join(racine, "absent"), MAX_UPLOAD_BYTES: 64 });
-    expect((await appel(BOB, "GET", "/api/mcp/custom-servers")).json()).toEqual({
-      servers: [],
-      root_path: path.join(racine, "absent"),
-    });
   });
 
   it("suppression d'un dossier : nom contrôlé, lien sortant refusé, fichier = 500, puis 404", async () => {
@@ -514,7 +475,7 @@ describe.each(MOTEURS)("famille /api/mcp (%s)", (moteur) => {
 
     const tester = (uid: number, corps: unknown) => appel(uid, "POST", "/api/mcp/test", corps);
 
-    it("perso : outils listés avec le secret stocké (vide = inchangé) ; stdio réservé à l'admin puis refusé à l'usage ; URL locale d'un compte refusée par la garde SSRF, URL publique admise", async () => {
+    it("perso : outils listés avec le secret stocké (vide = inchangé) ; stdio refusé à tous ; URL locale d'un compte refusée par la garde SSRF, URL publique admise", async () => {
       const fusion = await mergePersonalMcp(
         [],
         [
@@ -527,7 +488,7 @@ describe.each(MOTEURS)("famille /api/mcp (%s)", (moteur) => {
             auth_secret: "jeton-mcp",
           },
         ],
-        { allowStdio: true },
+        { confiance: true },
       );
       const [stocke] = await appliquerSecretsPerso(t.base, ADMIN, [], fusion, {
         userId: ADMIN,
@@ -551,15 +512,10 @@ describe.each(MOTEURS)("famille /api/mcp (%s)", (moteur) => {
         ok: false,
         error: "HTTP 401 : jeton refusé ou absent. Vérifiez le mode d'authentification et le jeton.",
       });
-      expect((await tester(ADMIN, { name: "Local", type: "stdio", command: "npx srv" })).json()).toEqual({
-        ok: false,
-        error:
-          "Serveur MCP « Local » de type stdio (commande lancée sur le serveur) : non pris en charge par le core " +
-          "(plus aucun sous-processus) — publiez-le en HTTP streamable ou SSE.",
-      });
-      expect((await tester(BOB, { name: "Local", type: " STDIO ", command: "x" })).json()).toEqual({
-        detail: "Serveur MCP « Local » (commande exécutée sur le serveur) réservé aux administrateurs.",
-      });
+      for (const uid of [ADMIN, BOB]) {
+        const stdio = await tester(uid, { name: "Local", type: " STDIO ", command: "npx srv" });
+        expect([stdio.statusCode, stdio.json()]).toEqual([400, { detail: STDIO_REFUSE }]);
+      }
       const refus = (motif: string) => ({
         detail:
           `Adresse de serveur MCP refusée (${motif}) : les adresses internes (machine locale, ` +
@@ -632,7 +588,7 @@ describe.each(MOTEURS)("famille /api/mcp (%s)", (moteur) => {
               auth_secret: "jeton-mcp",
             },
           ],
-          { allowStdio: true },
+          { confiance: true },
         );
         const [stocke] = await appliquerSecretsPerso(t.base, ADMIN, [], fusion, {
           userId: ADMIN,

@@ -307,7 +307,7 @@ describe.each(MOTEURS)("0029_vault_mcp (%s)", (moteur) => {
       { name: "mcp-t1", kind: "mcp", scope_json: '{"server":"t1"}' },
       { name: "mcp-x1", kind: "mcp", scope_json: '{"server":"x1"}' },
     ]);
-    const cfg = (sid: string) => resolvePersonal(t.base, alice, d, sid, { allowStdio: true });
+    const cfg = (sid: string) => resolvePersonal(t.base, alice, d, sid, { confiance: true });
     expect(await cfg("f1")).toMatchObject({ authorization: "Bearer jeton-f1", headers: { "X-A": "ha" } });
     expect(await cfg("p1")).toMatchObject({ authorization: "Bearer plain", headers: { "X-B": "hb" } });
     expect(await cfg("b1")).toMatchObject({ basic_auth: { username: "u", token: "pw" } });
@@ -414,9 +414,7 @@ describe.each(MOTEURS)("0029_vault_mcp (%s)", (moteur) => {
       headers: [{ name: "X-K", value: "hk" }],
       env: [],
     });
-    expect(
-      await resolvePersonal(t.base, carol, await reglages(carol), "k1", { allowStdio: true }),
-    ).toBeNull();
+    expect(await resolvePersonal(t.base, carol, await reglages(carol), "k1", { confiance: true })).toBeNull();
     expect(r.avertissements.join("\n")).toContain("clé de chiffrement indisponible");
     const deja = { ...r, appliquees: [] };
     await reprendreMcpAuDemarrage(t.base, deja, capte());
@@ -432,7 +430,7 @@ describe.each(MOTEURS)("0029_vault_mcp (%s)", (moteur) => {
     expect(repris).not.toHaveProperty("secret_error");
     expect(repris?.["secret_id"]).toBe(k1?.["secret_id"]);
     expect(
-      await resolvePersonal(t.base, carol, await reglages(carol), "k1", { allowStdio: true }),
+      await resolvePersonal(t.base, carol, await reglages(carol), "k1", { confiance: true }),
     ).toMatchObject({
       authorization: "Bearer jeton-k",
       headers: { "X-K": "hk" },

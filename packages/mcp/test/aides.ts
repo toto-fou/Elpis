@@ -38,7 +38,7 @@ export type Issue = { valeur: unknown } | { erreur: string; message: string };
 /** Classes Python rendues par une classe parente côté TS (UnicodeEncodeError ⊂ ValueError). */
 const PARENTES: Readonly<Record<string, string>> = { UnicodeEncodeError: "ValueError" };
 /** Erreurs du domaine : leur message, montré à l'utilisateur, est comparé à l'identique. */
-const DOMAINE = new Set(["InvalidPair", "StdioNotAllowed", "UrlNotAllowed"]);
+const DOMAINE = new Set(["InvalidPair", "StdioRefused", "UrlNotAllowed"]);
 
 function nomErreur(e: unknown): string {
   if (e instanceof ErreurPython) return e.type;

@@ -200,14 +200,14 @@ describe.each(MOTEURS)("secrets MCP au coffre (%s)", (moteur) => {
   async function enregistrer(anciens: Dict[], recus: unknown[], uid = alice): Promise<Dict[]> {
     const secrets = new Map<string, EtatSecrets>();
     for (const s of anciens) secrets.set(String(s["id"]), await secretsPerso(t.base, uid, s));
-    const fusion = await mergePersonalMcp(anciens, recus, { allowStdio: true, secrets });
+    const fusion = await mergePersonalMcp(anciens, recus, { confiance: true, secrets });
     return appliquerSecretsPerso(t.base, uid, anciens, fusion, acteur());
   }
 
   const vue = async (srv: Dict, uid = alice): Promise<Dict> =>
     personalPublic(srv, await secretsPerso(t.base, uid, srv));
   const config = async (srv: Dict, uid = alice): Promise<Dict> =>
-    personalToConfig(srv, { allowStdio: true, secrets: (await secretsPerso(t.base, uid, srv)).valeur });
+    personalToConfig(srv, { confiance: true, secrets: (await secretsPerso(t.base, uid, srv)).valeur });
 
   it("perso : un secret par serveur, réglages sans valeur, « vide = inchangé », retrait explicite, serveur retiré", async () => {
     const neuf = {
@@ -285,7 +285,13 @@ describe.each(MOTEURS)("secrets MCP au coffre (%s)", (moteur) => {
       [],
       [
         { id: "a", name: "A", type: "http", url: "https://a/mcp", auth_mode: "raw", auth_secret: "sa" },
-        { id: "b", name: "B", type: "stdio", command: "run", env: [{ name: "TOKEN", value: "e" }] },
+        {
+          id: "b",
+          name: "B",
+          type: "http",
+          url: "https://b/mcp",
+          headers: [{ name: "X-Token", value: "e" }],
+        },
       ],
     );
     const [a, b] = liste as [Dict, Dict];
@@ -294,17 +300,15 @@ describe.each(MOTEURS)("secrets MCP au coffre (%s)", (moteur) => {
     const avant = await t.base.get("SELECT secret_enc FROM vault_secrets WHERE id=?", [
       a["secret_id"] as number,
     ]);
-    liste = await enregistrer(liste, [await vue(a), { ...(await vue(b)), env: [] }]);
+    liste = await enregistrer(liste, [await vue(a), { ...(await vue(b)), headers: [] }]);
     expect(liste.map((s) => s["secret_id"])).toEqual([a["secret_id"], b["secret_id"]]);
     expect(
       await t.base.get("SELECT secret_enc FROM vault_secrets WHERE id=?", [a["secret_id"] as number]),
     ).toEqual(avant);
-    expect(
-      await resolvePersonal(t.base, alice, { mcp_servers: liste }, "a", { allowStdio: true }),
-    ).toBeNull();
+    expect(await resolvePersonal(t.base, alice, { mcp_servers: liste }, "a", { confiance: true })).toBeNull();
     cle(premiere);
     expect(await config(liste[0] as Dict)).toMatchObject({ authorization: "sa" });
-    expect(await config(liste[1] as Dict)).toMatchObject({ env: { TOKEN: "e" } });
+    expect(await config(liste[1] as Dict)).toMatchObject({ headers: { "X-Token": "e" } });
     cle();
     liste = await enregistrer(liste, [{ ...(await vue(a)), auth_secret: "nouveau" }, liste[1] as Dict]);
     expect(liste[0]?.["secret_id"]).toBe(a["secret_id"]);
@@ -313,21 +317,43 @@ describe.each(MOTEURS)("secrets MCP au coffre (%s)", (moteur) => {
 
     await supprimerSecret(t.base, alice, a["secret_id"] as number, acteur());
     expect(await vue(liste[0] as Dict)).toMatchObject({ has_auth: false, secret_error: "missing" });
-    expect(
-      await resolvePersonal(t.base, alice, { mcp_servers: liste }, "a", { allowStdio: true }),
-    ).toBeNull();
+    expect(await resolvePersonal(t.base, alice, { mcp_servers: liste }, "a", { confiance: true })).toBeNull();
     liste = await enregistrer(liste, [await vue(liste[0] as Dict), liste[1] as Dict]);
     expect(liste[0]?.["secret_id"]).toBe(a["secret_id"]);
     expect(await vue(liste[0] as Dict)).toMatchObject({ secret_error: "missing" });
-    expect(
-      await resolvePersonal(t.base, alice, { mcp_servers: liste }, "a", { allowStdio: true }),
-    ).toBeNull();
+    expect(await resolvePersonal(t.base, alice, { mcp_servers: liste }, "a", { confiance: true })).toBeNull();
     liste = await enregistrer(liste, [
       { ...(await vue(liste[0] as Dict)), auth_secret: "neuf" },
       liste[1] as Dict,
     ]);
     expect(liste[0]?.["secret_id"]).not.toBe(a["secret_id"]);
     expect(await config(liste[0] as Dict)).toMatchObject({ authorization: "neuf" });
+  });
+
+  it("stdio déjà enregistré : sa variable secrète est gardée telle quelle, ce que le client renvoie est ignoré", async () => {
+    cle();
+    const brut = { id: "c", name: "C", type: "stdio", command: "run" };
+    const [stocke] = await appliquerSecretsPerso(
+      t.base,
+      alice,
+      [],
+      [
+        {
+          entree: { ...brut },
+          valeur: { auth: "", headers: [], env: [{ name: "TOKEN", value: "e" }] },
+          changee: true,
+        },
+      ],
+      acteur(),
+    );
+    const envoye = {
+      ...(await vue(stocke as Dict)),
+      env: [{ name: "TOKEN", value: "autre" }],
+      name: "Autre nom",
+    };
+    const liste = await enregistrer([stocke as Dict], [envoye]);
+    expect(liste).toEqual([stocke]);
+    expect(await config(liste[0] as Dict)).toMatchObject({ env: { TOKEN: "e" } });
   });
 
   it("lecteurs : déchiffré à chaque appel (rotation prise en compte), politique des routines et des sous-agents", async () => {
@@ -337,15 +363,15 @@ describe.each(MOTEURS)("secrets MCP au coffre (%s)", (moteur) => {
     );
     const reglages = { mcp_servers: liste };
     const sid = liste[0]?.["secret_id"] as number;
-    expect(await resolvePersonal(t.base, alice, reglages, "a", { allowStdio: true })).toMatchObject({
+    expect(await resolvePersonal(t.base, alice, reglages, "a", { confiance: true })).toMatchObject({
       authorization: "Bearer v1",
     });
     await modifierSecret(t.base, alice, sid, { value: '{"auth": "v2"}' }, acteur());
-    expect(await resolvePersonal(t.base, alice, reglages, "a", { allowStdio: true })).toMatchObject({
+    expect(await resolvePersonal(t.base, alice, reglages, "a", { confiance: true })).toMatchObject({
       authorization: "Bearer v2",
     });
-    expect(await resolvePersonal(t.base, bob, reglages, "a", { allowStdio: true })).toBeNull();
-    expect(await resolveForAgents(t.base, reglages, { allowStdio: true, proprietaire: null })).toEqual([]);
+    expect(await resolvePersonal(t.base, bob, reglages, "a", { confiance: true })).toBeNull();
+    expect(await resolveForAgents(t.base, reglages, { confiance: true, proprietaire: null })).toEqual([]);
     expect(await rehydrateMcpSecrets(t.base, [{ id: "a", name: "A" }], reglages, true, alice)).toMatchObject([
       { authorization: "Bearer v2" },
     ]);
@@ -353,12 +379,12 @@ describe.each(MOTEURS)("secrets MCP au coffre (%s)", (moteur) => {
     expect(await rehydrateMcpSecrets(t.base, [{ id: "a", name: "A" }], reglages, true, alice)).toEqual([]);
     expect(
       await resolveForAgents(t.base, reglages, {
-        allowStdio: true,
+        confiance: true,
         proprietaire: alice,
         contexte: { sousAgent: true },
       }),
     ).toEqual([]);
-    expect(await resolvePersonal(t.base, alice, reglages, "a", { allowStdio: true })).toMatchObject({
+    expect(await resolvePersonal(t.base, alice, reglages, "a", { confiance: true })).toMatchObject({
       authorization: "Bearer v2",
     });
   });

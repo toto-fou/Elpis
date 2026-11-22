@@ -33,7 +33,7 @@ function fauxPool(): { pool: PoolMcp; invalides: string[]; resets: unknown[] } {
 }
 
 const cfgAdmin = (srv: unknown, auth = ""): Promise<ConfigMcp> =>
-  personalToConfig(srv, { allowStdio: true, secrets: { auth, headers: [], env: [] } });
+  personalToConfig(srv, { confiance: true, secrets: { auth, headers: [], env: [] } });
 const cfgs = (liste: unknown[]): Promise<ConfigMcp[]> => Promise.all(liste.map((s) => cfgAdmin(s)));
 
 /** Clés d'un serveur perso : de confiance (admin) et gardée (non-admin). */

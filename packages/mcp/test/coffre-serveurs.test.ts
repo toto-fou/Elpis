@@ -53,7 +53,7 @@ async function enregistrer(
 ): Promise<Record<string, unknown>[]> {
   const secrets = new Map<string, EtatSecrets>();
   for (const s of anciens) secrets.set(String(s["id"]), await secretsPerso(BASE, 7, s));
-  const fusion = await mergePersonalMcp(anciens, recus, { allowStdio: true, secrets });
+  const fusion = await mergePersonalMcp(anciens, recus, { confiance: true, secrets });
   return appliquerSecretsPerso(BASE, 7, anciens, fusion, MOI);
 }
 
@@ -74,11 +74,11 @@ describe("valeur d'un secret MCP", () => {
       env: [{ name: "1A", value: "x" }],
     });
     const srv = { id: "v", type: "http", url: "https://v/mcp" };
-    expect(await personalToConfig(srv, { allowStdio: true, secrets: lu })).toMatchObject({
+    expect(await personalToConfig(srv, { confiance: true, secrets: lu })).toMatchObject({
       headers: { "X-K": "v" },
     });
     expect(
-      await personalToConfig({ ...srv, type: "stdio", command: "x" }, { allowStdio: true, secrets: lu }),
+      await personalToConfig({ ...srv, type: "stdio", command: "x" }, { confiance: true, secrets: lu }),
     ).not.toHaveProperty("env");
     expect(secretsDeJson("  eyJ.jeton  ")).toEqual({ auth: "eyJ.jeton", headers: [], env: [] });
     expect(secretsDeJson('"texte"')).toEqual({ auth: '"texte"', headers: [], env: [] });
@@ -180,7 +180,7 @@ describe("fusion des serveurs perso", () => {
     liste = await enregistrer(liste, [{ ...vue, auth_secret: "   " }]);
     expect(sim.secrets.get(id)?.version).toBe(1);
     expect(
-      await personalToConfig(liste[0], { allowStdio: true, secrets: sim.secrets.get(id)?.v ?? null }),
+      await personalToConfig(liste[0], { confiance: true, secrets: sim.secrets.get(id)?.v ?? null }),
     ).toMatchObject({
       headers: { "X-Autre": "h1", "X-Cle": "c1" },
     });

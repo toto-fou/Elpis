@@ -8,16 +8,16 @@ import { domaineReglages } from "../../features/reglages/domaine";
 const rg = domaineReglages();
 const f = computed(() => rg.mcpForm);
 const admin = computed(() => rg.user?.role === "admin");
-const localInterdit = computed(() =>
-  f.value?.portee === "partage" ? "La bibliothèque partagée n'accepte que HTTP et SSE" : "",
-);
-// « Local » (commande lancée sur le serveur) n'existe que pour l'admin : un compte ordinaire ne le voit pas.
-const TYPES = computed(() =>
-  [
-    { v: "http", l: "HTTP" },
-    { v: "sse", l: "SSE" },
-    { v: "stdio", l: "Local" },
-  ].filter((t) => t.v !== "stdio" || admin.value),
+// Un serveur « Local » déjà enregistré reste visible, en lecture seule ; plus aucun n'est proposé à l'ajout.
+const TYPES = computed(() => [
+  { v: "http", l: "HTTP" },
+  { v: "sse", l: "SSE" },
+  ...(f.value?.type === "stdio" ? [{ v: "stdio", l: "Local" }] : []),
+]);
+const AVIS_LOCAL = computed(() =>
+  admin.value
+    ? "Type plus pris en charge : ce serveur n'est pas utilisé. Remplacez-le par une adresse HTTP ou SSE."
+    : "Type plus pris en charge : ce serveur n'est pas utilisé. Demandez à votre administrateur de le remplacer.",
 );
 const AUTHS = [
   { v: "", l: "Aucune" },
@@ -48,6 +48,9 @@ const erreurSecret = computed(() => {
 <template>
   <fieldset v-if="f" class="space-y-2.5 max-w-[600px] min-w-0" :disabled="rg.mcpOccupe">
     <legend class="text-xs font-semibold text-slate-500 pb-1.5">Connexion</legend>
+    <p v-if="f.type === 'stdio'" class="flex items-center gap-1.5 text-xs text-amber-700" role="status">
+      <i class="ph ph-warning" aria-hidden="true"></i>{{ AVIS_LOCAL }}
+    </p>
     <p v-if="erreurSecret" class="flex items-center gap-1.5 text-xs text-amber-700" role="status">
       <i class="ph ph-warning" aria-hidden="true"></i>{{ erreurSecret }}
     </p>
@@ -57,6 +60,7 @@ const erreurSecret = computed(() => {
         <input
           id="mcp-nom"
           v-model="f.name"
+          :readonly="f.type === 'stdio'"
           class="elpis-mcp-champ"
           placeholder="ex. Git interne"
           :aria-invalid="rg.mcpErreurs.name ? 'true' : undefined"
@@ -102,8 +106,7 @@ const erreurSecret = computed(() => {
           class="adm-seg__btn disabled:opacity-50 disabled:cursor-not-allowed"
           :class="{ 'is-active': f.type === t.v }"
           :aria-pressed="f.type === t.v"
-          :disabled="t.v === 'stdio' && !!localInterdit"
-          :title="t.v === 'stdio' ? localInterdit || 'Commande lancée sur le serveur' : undefined"
+          :disabled="t.v === 'stdio'"
           @click="rg.mcpSetType(t.v)"
         >
           {{ t.l }}
@@ -121,6 +124,7 @@ const erreurSecret = computed(() => {
           v-if="f.type === 'stdio'"
           id="mcp-commande"
           v-model="f.command"
+          readonly
           class="elpis-mcp-champ font-mono"
           placeholder="npx -y wikijs-mcp"
           :aria-invalid="rg.mcpErreurs.command ? 'true' : undefined"
@@ -201,12 +205,14 @@ const erreurSecret = computed(() => {
         >
           <input
             v-model="p.name"
+            :readonly="f.type === 'stdio'"
             class="elpis-mcp-champ font-mono"
             :placeholder="cle === 'env' ? 'WIKIJS_TOKEN' : 'X-API-Key'"
             :aria-label="(cle === 'env' ? 'Variable ' : 'En-tête ') + (i + 1) + ' : nom'"
           />
           <input
             v-model="p.value"
+            :readonly="f.type === 'stdio'"
             type="password"
             autocomplete="new-password"
             class="elpis-mcp-champ font-mono"
@@ -217,6 +223,7 @@ const erreurSecret = computed(() => {
             type="button"
             class="adm-btn adm-btn--icon adm-btn--icon-danger"
             title="Retirer"
+            :disabled="f.type === 'stdio'"
             :aria-label="'Retirer ' + (p.name || (cle === 'env' ? 'la variable' : 'l\'en-tête'))"
             @click="rg.mcpRemovePair(f, cle, i)"
           >
@@ -224,6 +231,7 @@ const erreurSecret = computed(() => {
           </button>
         </div>
         <button
+          v-if="f.type !== 'stdio'"
           type="button"
           class="inline-flex items-center gap-1 h-7 px-1.5 -ml-1.5 rounded-md text-[13px] font-medium text-blue-600 hover:bg-blue-50"
           @click="rg.mcpAddPair(f, cle)"

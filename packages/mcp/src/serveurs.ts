@@ -51,13 +51,17 @@ export class InvalidPair extends Error {
   override name = "InvalidPair";
 }
 
-/** Un compte non administrateur a tenté d'ajouter un serveur perso `stdio` (commande exécutée sur l'hôte). */
-export class StdioNotAllowed extends Error {
-  override name = "StdioNotAllowed";
+/** Refus d'un serveur perso `stdio` à l'enregistrement, montré à l'utilisateur sans détail interne. */
+export const STDIO_REFUSE =
+  "Serveur MCP de type commande locale : non pris en charge. Utilisez une adresse HTTP (streamable) ou SSE.";
+
+/** Un serveur perso `stdio` (commande lancée sur l'hôte) a été présenté à l'enregistrement : refusé à tous, administrateurs compris (400 côté routes). */
+export class StdioRefused extends Error {
+  override name = "StdioRefused";
 }
 
-/** URL d'un serveur perso vers une adresse interne ; sous-classe de `StdioNotAllowed` (403 côté routes). */
-export class UrlNotAllowed extends StdioNotAllowed {
+/** URL d'un serveur perso vers une adresse interne, présentée par un compte non administrateur (403 côté routes). */
+export class UrlNotAllowed extends Error {
   override name = "UrlNotAllowed";
 }
 
@@ -944,16 +948,16 @@ export async function prechaufferGardeUrl(recus: unknown, anciens: unknown): Pro
   }
 }
 
-/** Entrée perso → config MCP, secrets lus au coffre par l'appelant ; `stdio` (et URL interne) refusés à un propriétaire non admin : `{}` ; celle d'un admin est de confiance. */
+/** Entrée perso → config MCP, secrets lus au coffre par l'appelant ; `confiance` (entrée d'un administrateur) : marquée de confiance, adresse interne permise ; sans elle, `stdio` et URL interne donnent `{}`. */
 export async function personalToConfig(
   srv: unknown,
-  options: { allowStdio?: boolean; secrets?: SecretsServeur | null } = {},
+  options: { confiance?: boolean; secrets?: SecretsServeur | null } = {},
 ): Promise<Dict> {
-  const allowStdio = options.allowStdio ?? false;
+  const confiance = options.confiance ?? false;
   if (!estDict(srv)) return {};
-  if (texte(srv["type"]).toLowerCase() === "stdio" && !allowStdio) return {};
-  if (estHttp(srv["type"]) && !allowStdio && veritePy(await personalUrlBlockReason(srv["url"]))) return {};
-  const cfg: Dict = allowStdio ? marquerConfiance({}) : {};
+  if (texte(srv["type"]).toLowerCase() === "stdio" && !confiance) return {};
+  if (estHttp(srv["type"]) && !confiance && veritePy(await personalUrlBlockReason(srv["url"]))) return {};
+  const cfg: Dict = confiance ? marquerConfiance({}) : {};
   for (const [k, v] of Object.entries(srv)) if (!CLES_HORS_CONFIG.has(k)) poser(cfg, k, v);
   const secrets = options.secrets ?? secretsVides();
   const stype = srv["type"];
@@ -983,16 +987,21 @@ export interface FusionPerso {
   changee: boolean;
 }
 
-/** Fusionne la liste perso reçue avec celle en base : un secret n'est jamais pris des octets du client sans saisie (« vide = inchangé ») ; `secrets` : anciennes valeurs lues au coffre, par id. */
+/** Fusionne la liste perso reçue avec celle en base : un secret n'est jamais pris des octets du client sans saisie (« vide = inchangé ») ; `secrets` : anciennes valeurs lues au coffre, par id ; un stdio déjà enregistré (même commande) est gardé tel quel, hors `visible`, tout autre est refusé. */
 export async function mergePersonalMcp(
   oldList: unknown,
   newList: unknown,
-  options: { allowStdio?: boolean; secrets?: ReadonlyMap<string, EtatSecrets> } = {},
+  options: { confiance?: boolean; secrets?: ReadonlyMap<string, EtatSecrets> } = {},
 ): Promise<FusionPerso[]> {
-  const allowStdio = options.allowStdio ?? false;
+  const confiance = options.confiance ?? false;
   const anciens = new Map<string, Dict>();
-  for (const s of Array.isArray(oldList) ? oldList : [])
-    if (estDict(s) && veritePy(s["id"])) anciens.set(strPy(s["id"]), s);
+  const stdioSansId = new Map<string, Dict>();
+  for (const s of Array.isArray(oldList) ? oldList : []) {
+    if (!estDict(s)) continue;
+    if (veritePy(s["id"])) anciens.set(strPy(s["id"]), s);
+    else if (stripPy(texte(s["type"])).toLowerCase() === "stdio")
+      stdioSansId.set(`${texte(s["name"])}\u0000${texte(s["command"])}`, s);
+  }
   const out: FusionPerso[] = [];
   for (const srv of Array.isArray(newList) ? newList : []) {
     if (!estDict(srv)) continue;
@@ -1001,18 +1010,24 @@ export async function mergePersonalMcp(
     const stype = stripPy(texte(veritePy(entry["type"]) ? entry["type"] : "sse")).toLowerCase();
     poser(entry, "type", (SERVER_TYPES as readonly string[]).includes(stype) ? stype : "sse");
     const idClient = strPy(srv["id"] ?? null);
-    if (entry["type"] === "stdio" && !allowStdio) {
-      const prec = anciens.get(idClient);
+    if (entry["type"] === "stdio") {
+      const prec = veritePy(srv["id"])
+        ? anciens.get(idClient)
+        : stdioSansId.get(`${texte(srv["name"])}\u0000${texte(srv["command"])}`);
       if (
         prec === undefined ||
         stripPy(texte(prec["type"])).toLowerCase() !== "stdio" ||
         texte(prec["command"]) !== texte(entry["command"])
       )
-        throw new StdioNotAllowed(
-          "Serveur MCP « Local » (commande exécutée sur le serveur) réservé aux administrateurs.",
-        );
+        throw new StdioRefused(STDIO_REFUSE);
+      out.push({
+        entree: { ...prec, ...(typeof srv["visible"] === "boolean" ? { visible: srv["visible"] } : {}) },
+        valeur: null,
+        changee: false,
+      });
+      continue;
     }
-    if (estHttp(entry["type"]) && !allowStdio) {
+    if (estHttp(entry["type"]) && !confiance) {
       const prec = anciens.get(idClient);
       const url = prefixe(texte(entry["url"]), 2000);
       if (prec === undefined || texte(prec["url"]) !== url) {
@@ -1123,7 +1138,7 @@ async function persoResolue(
   base: Base,
   proprietaire: number | null,
   srv: Dict,
-  options: { allowStdio?: boolean; contexte?: ContexteSecretMcp },
+  options: { confiance?: boolean; contexte?: ContexteSecretMcp },
 ): Promise<Dict | null> {
   const etat = await secretsPerso(base, proprietaire, srv, options.contexte);
   const motif = etat.erreur ?? drapeauSecret(srv);
@@ -1131,7 +1146,7 @@ async function persoResolue(
     signalerServeurIgnore(srv["name"] ?? srv["id"], motif);
     return null;
   }
-  const cfg = await personalToConfig(srv, { allowStdio: options.allowStdio ?? false, secrets: etat.valeur });
+  const cfg = await personalToConfig(srv, { confiance: options.confiance ?? false, secrets: etat.valeur });
   return Object.keys(cfg).length > 0 ? cfg : null;
 }
 
@@ -1141,7 +1156,7 @@ export async function resolvePersonal(
   proprietaire: number | null,
   userSettings: unknown,
   serverId: unknown,
-  options: { allowStdio?: boolean; contexte?: ContexteSecretMcp } = {},
+  options: { confiance?: boolean; contexte?: ContexteSecretMcp } = {},
 ): Promise<Dict | null> {
   for (const srv of serveursPerso(userSettings)) {
     if (estDict(srv) && strPy(srv["id"] ?? null) === strPy(serverId ?? null))
@@ -1154,7 +1169,7 @@ export async function resolvePersonal(
 export async function resolveForAgents(
   base: Base,
   userSettings: unknown,
-  options: { allowStdio?: boolean; proprietaire?: number | null; contexte?: ContexteSecretMcp } = {},
+  options: { confiance?: boolean; proprietaire?: number | null; contexte?: ContexteSecretMcp } = {},
 ): Promise<Dict[]> {
   const propres: Dict[] = [];
   for (const s of serveursPerso(userSettings)) {

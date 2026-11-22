@@ -567,7 +567,7 @@ describe("résolution d'une config en client", () => {
         TransportNonPrisEnCharge,
       );
       expect(() => resoudreClientMcp({ type: "stdio", name: "perso", command: "npx srv" })).toThrow(
-        "Serveur MCP « perso » de type stdio (commande lancée sur le serveur) : non pris en charge par le core",
+        "Serveur MCP « perso » de type commande locale : non pris en charge.",
       );
       expect(() => resoudreClientMcp({ type: "inprocess", name: "elpis-memory" })).toThrow(
         "Entrée MCP « elpis-memory » servie en processus : aucun serveur MCP dans ce process",

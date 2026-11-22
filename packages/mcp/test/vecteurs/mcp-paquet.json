@@ -7092,14 +7092,7 @@
               "id": "loc",
               "name": "Loc",
               "type": "stdio",
-              "command": "npx loc",
-              "auth_mode": "",
-              "auth_user": "",
-              "headers_enc": "",
-              "env_enc": "",
-              "extra_scheme": "plain",
-              "auth_enc": "",
-              "key_scheme": "plain"
+              "command": "npx loc"
             }
           ]
         }
@@ -7120,14 +7113,7 @@
               "id": "loc",
               "name": "Loc",
               "type": "stdio",
-              "command": "npx loc",
-              "auth_mode": "",
-              "auth_user": "",
-              "headers_enc": "",
-              "env_enc": "",
-              "extra_scheme": "plain",
-              "auth_enc": "",
-              "key_scheme": "plain"
+              "command": "npx loc"
             }
           ]
         }
@@ -7143,8 +7129,8 @@
         ],
         "allow_stdio": false,
         "out": {
-          "erreur": "StdioNotAllowed",
-          "message": "Serveur MCP \u00ab Local \u00bb (commande ex\u00e9cut\u00e9e sur le serveur) r\u00e9serv\u00e9 aux administrateurs."
+          "erreur": "StdioRefused",
+          "message": "Serveur MCP de type commande locale : non pris en charge. Utilisez une adresse HTTP (streamable) ou SSE."
         }
       },
       {
@@ -7158,21 +7144,8 @@
         ],
         "allow_stdio": true,
         "out": {
-          "valeur": [
-            {
-              "id": "loc",
-              "name": "Loc",
-              "type": "stdio",
-              "command": "npx autre",
-              "auth_mode": "",
-              "auth_user": "",
-              "headers_enc": "",
-              "env_enc": "",
-              "extra_scheme": "plain",
-              "auth_enc": "",
-              "key_scheme": "plain"
-            }
-          ]
+          "erreur": "StdioRefused",
+          "message": "Serveur MCP de type commande locale : non pris en charge. Utilisez une adresse HTTP (streamable) ou SSE."
         }
       },
       {
@@ -7186,8 +7159,8 @@
         ],
         "allow_stdio": false,
         "out": {
-          "erreur": "StdioNotAllowed",
-          "message": "Serveur MCP \u00ab Local \u00bb (commande ex\u00e9cut\u00e9e sur le serveur) r\u00e9serv\u00e9 aux administrateurs."
+          "erreur": "StdioRefused",
+          "message": "Serveur MCP de type commande locale : non pris en charge. Utilisez une adresse HTTP (streamable) ou SSE."
         }
       },
       {
@@ -7201,21 +7174,8 @@
         ],
         "allow_stdio": true,
         "out": {
-          "valeur": [
-            {
-              "id": "neuf",
-              "name": "N",
-              "type": "stdio",
-              "command": "rm -rf /",
-              "auth_mode": "",
-              "auth_user": "",
-              "headers_enc": "",
-              "env_enc": "",
-              "extra_scheme": "plain",
-              "auth_enc": "",
-              "key_scheme": "plain"
-            }
-          ]
+          "erreur": "StdioRefused",
+          "message": "Serveur MCP de type commande locale : non pris en charge. Utilisez une adresse HTTP (streamable) ou SSE."
         }
       },
       {

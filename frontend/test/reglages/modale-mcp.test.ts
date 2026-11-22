@@ -147,11 +147,10 @@ describe("ModaleMcp à deux volets", () => {
     expect(document.body.textContent).toContain("Secret retiré du coffre : ressaisissez-le.");
   });
 
-  it("nouveau serveur publié : Local désactivé, modèle local désactivé, bouton Publier", () => {
+  it("nouveau serveur publié : ni Local ni modèle local, bouton Publier", () => {
     monter({ mcpSel: "nouveau", mcpForm: form({ portee: "partage", id: "", name: "" }), mcpTests: {} });
-    const local = boutons().find((b) => b.hasAttribute("aria-pressed") && b.textContent?.trim() === "Local");
-    expect(local?.disabled).toBe(true);
-    expect(bouton("Wiki.js (local)")?.disabled).toBe(true);
+    expect(boutons().some((b) => b.textContent?.trim() === "Local")).toBe(false);
+    expect(bouton("Wiki.js (local)")).toBeUndefined();
     expect(bouton("Publier")).toBeTruthy();
     expect(document.body.textContent).toContain("Non testé");
   });
@@ -180,7 +179,37 @@ describe("ModaleMcp à deux volets", () => {
     expect(appels.map((a) => a[0])).toContain("mcpAnnulerSuppression");
   });
 
-  it("compte ordinaire : ni type « Local » ni modèle local, même grisés", () => {
+  it("serveur local déjà enregistré : type Local visible, grisé", () => {
+    monter({
+      mcpSel: "p:s",
+      mcpForm: form({ id: "s", name: "S", type: "stdio", command: "run" }),
+      mcpTests: {},
+    });
+    const local = boutons().find((b) => b.hasAttribute("aria-pressed") && b.textContent?.trim() === "Local");
+    expect(local?.disabled).toBe(true);
+    expect(document.getElementById("mcp-commande")?.hasAttribute("readonly")).toBe(true);
+    expect(document.body.textContent).toContain("Type plus pris en charge");
+    expect(document.getElementById("mcp-nom")?.hasAttribute("readonly")).toBe(true);
+    expect(bouton("Enregistrer")).toBeUndefined();
+    expect(bouton("Tester")).toBeUndefined();
+  });
+
+  for (const [role, attendu] of [
+    ["admin", "Remplacez-le par une adresse HTTP ou SSE"],
+    ["user", "Demandez à votre administrateur de le remplacer"],
+  ] as const) {
+    it(`serveur local, rôle ${role} : avis adapté à ce qu'il peut faire`, () => {
+      monter({
+        user: { username: "alice", role },
+        mcpSel: "p:s",
+        mcpForm: form({ id: "s", name: "S", type: "stdio", command: "run" }),
+        mcpTests: {},
+      });
+      expect(document.body.textContent).toContain(attendu);
+    });
+  }
+
+  it("compte ordinaire : ni type « Local » ni modèle local", () => {
     monter({
       user: { username: "alice", role: "user" },
       mcpSel: "nouveau",

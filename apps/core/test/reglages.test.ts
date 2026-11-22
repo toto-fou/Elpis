@@ -127,6 +127,9 @@ function normaliser(texte: unknown): unknown {
 /** Étapes où le Python répond 500 (réglages ou configuration d'instance mal formés) et le core 200 : défauts Python corrigés en TS. */
 const CORRIGES_EN_TS = new Set([127, 155, 156]);
 
+/** Étapes où le Python enregistre ou refuse en 403 un serveur perso `stdio` : le core le refuse à tous en 400 (écart voulu) ; la lecture qui suit montre la liste sans lui. */
+const STDIO_REFUSE_EN_TS = new Set([109, 121, 124, 134, 135]);
+
 /** Réponse TS de `/api/settings/agent-templates` : en-têtes du Python, les cinq agents livrés avec la lecture seule de l'administrateur. */
 function modelesAgentsTs(obtenu: Reponse, voulu: Reponse, corps: string): boolean {
   if (obtenu.statut !== 200 || obtenu.type !== voulu.type || obtenu.cache !== voulu.cache) return false;
@@ -346,6 +349,16 @@ describe.each(MOTEURS)("différentiel contre create_app() (%s)", (moteur) => {
         location: attendu.location,
         ...(e.sc ? { cookies: attendu.cookies?.map(effacementUnifie) } : {}),
       };
+      if (STDIO_REFUSE_EN_TS.has(i)) {
+        if (e.m === "PUT" && obtenu.statut !== 400)
+          ecarts.push(`${i} ${e.m} ${e.p} : ${obtenu.statut} au lieu de 400`);
+        // La lecture qui suit le refus de l'étape 134 montre l'état laissé par l'étape 133.
+        if (i === 135) {
+          const ids = (JSON.parse(r.body) as { mcp_servers: { id: string }[] }).mcp_servers.map((x) => x.id);
+          if (ids.join(",") !== "z") ecarts.push(`${i} : serveurs ${ids.join(",")} au lieu de z`);
+        }
+        continue;
+      }
       if (CORRIGES_EN_TS.has(i)) {
         if (obtenu.statut !== 200) ecarts.push(`${i} ${e.m} ${e.p} : ${obtenu.statut} au lieu de 200`);
         continue;
@@ -609,7 +622,7 @@ describe("réglages : chiffrement absent, nom hérité, invalidation, document i
         String((await t.base.valeurs<[string]>("SELECT settings_json FROM users WHERE id=?", [uid]))[0]?.[0]),
       ) as Dict;
       const id = String((entree as Dict)["id"]);
-      expect(await resolvePersonal(t.base, uid, stocke, id, { allowStdio: true })).toMatchObject(
+      expect(await resolvePersonal(t.base, uid, stocke, id, { confiance: true })).toMatchObject(
         CONFIGS_ANCIENNES[nom] ?? {},
       );
     },

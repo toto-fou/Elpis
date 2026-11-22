@@ -165,9 +165,8 @@ describe("collecte des outils d'un tour", () => {
       {
         type: "warning",
         text:
-          "Serveur d'outils « perso » injoignable — ses outils sont absents de ce tour. Serveur MCP « perso » de type stdio " +
-          "(commande lancée sur le serveur) : non pris en charge par le core (plus aucun sous-processus) — publiez-le en " +
-          "HTTP streamable ou SSE.",
+          "Serveur d'outils « perso » injoignable — ses outils sont absents de ce tour. Serveur MCP « perso » de type commande " +
+          "locale : non pris en charge. Remplacez-le par une adresse HTTP (streamable) ou SSE.",
       },
     ]);
     const integres = {

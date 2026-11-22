@@ -221,7 +221,13 @@ const { crochets } = useVolet(() => rg.showMcpPanel);
             >
               <span
                 class="text-xs font-semibold text-slate-700 flex items-center gap-2 truncate pr-2"
-                :title="srv.shared ? srv.name + ' — publié pour tous' : srv.name"
+                :title="
+                  srv.type === 'stdio'
+                    ? srv.name + ' — type plus pris en charge : ce serveur n\'est pas utilisé'
+                    : srv.shared
+                      ? srv.name + ' — publié pour tous'
+                      : srv.name
+                "
               >
                 <div
                   class="w-6 h-6 rounded flex items-center justify-center bg-slate-50 text-slate-500 shrink-0"
@@ -229,6 +235,12 @@ const { crochets } = useVolet(() => rg.showMcpPanel);
                   <i class="ph" :class="srv.type === 'stdio' ? 'ph-terminal-window' : 'ph-globe'"></i>
                 </div>
                 <span class="truncate">{{ srv.name }}</span>
+                <i
+                  v-if="srv.type === 'stdio'"
+                  class="ph ph-warning text-amber-600 shrink-0"
+                  role="img"
+                  aria-label="Type plus pris en charge : ce serveur n'est pas utilisé"
+                ></i>
                 <i v-if="srv.shared" class="ph ph-users-three text-slate-400 shrink-0" aria-hidden="true"></i>
               </span>
               <div class="relative inline-flex items-center shrink-0">

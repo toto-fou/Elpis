@@ -1033,6 +1033,17 @@ def _db_url(t: Dict[str, Any]) -> str:
             f"{quote(t['name'], safe='')}?tls={t['tls']}")
 
 
+def jeton_rag_remis_par_systemd() -> bool:
+    """Clé rag.token remise par systemd aux unités de main ou de la console : le jeton du RAG n'est plus un fichier de user_db."""
+    racine = os.environ.get("ELPIS_PREFIXE_SYSTEME", "") + "/etc/systemd/system"
+    for s in ("main", "admin"):
+        with contextlib.suppress(OSError):
+            lignes = Path(f"{racine}/elpis-{s}.service").read_text(encoding="utf-8").splitlines()
+            if any(l.startswith("LoadCredentialEncrypted=rag.token:") for l in lignes):
+                return True
+    return False
+
+
 def unites_separees() -> bool:
     """Unités systemd à un compte par service installées (ELPIS_COMPTES=separes dans main, admin ou l'hôte d'outils)."""
     racine = os.environ.get("ELPIS_PREFIXE_SYSTEME", "") + "/etc/systemd/system"
@@ -1266,6 +1277,8 @@ def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
     for name, label in ((".local_mcp_token", "de l'hôte d'outils MCP"),
                         (".rag_service_token", "du service RAG")):
         f = USER_DB / name
+        if name == ".rag_service_token" and jeton_rag_remis_par_systemd():
+            continue
         if force or not read_secret(f):
             write_private(f, secrets.token_urlsafe(32) + "\n")
             ok(f"Jeton {label} généré (user_db/{name}).")

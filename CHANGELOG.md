@@ -67,9 +67,12 @@ follow [SemVer](https://semver.org/).
   `config.json`. Run `sudo ./elpis service install` again
   ([operations.md](docs/operations.md#platform-keys)).
 - **RAG token handed by systemd.** With these keys, the RAG token becomes the key `rag.token`,
-  taken from `/etc/elpis/rag.token` (or from `user_db/.rag_service_token` when `./elpis configure`
-  wrote it again) and given to main, the console and the RAG only; `elpis-rag` then only gives
-  the RAG store.
+  taken from `/etc/elpis/rag.token` or `user_db/.rag_service_token` while none is in service, and
+  given to main, the console and the RAG only; `elpis-rag` then only gives the RAG store.
+- **Platform keys no longer chosen by `config.json`.** With the units' key files set, the values of
+  `config.json` are ignored, and the console refuses to set or change `app.session_secret`,
+  `app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key` and `agent_memory.qdrant_api_key`;
+  `service install` imports such a value only into a missing key, checking its length or format.
 - **Qdrant with an API key.** With these keys, Qdrant runs with an API key (the key `qdrant.key`,
   taken from `rag.qdrant_api_key` of `config.json` or created), read from its credentials by
   `deploy/qdrant/lancer.sh`; main and the console send it (`QDRANT_API_KEY_FILE`), any other

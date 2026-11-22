@@ -299,7 +299,7 @@ unit alone (`LoadCredentialEncrypted=`, read from the unit's `$CREDENTIALS_DIREC
 | `session.secret` | main, the console | `APP_SESSION_SECRET_FILE` | `user_db/.session_secret`, or `app.session_secret` of `config.json`; none: created |
 | `audit.key` | main, the console, the tool host | `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key`; none: created |
 | `qdrant.key` | main, the console, Qdrant | `QDRANT_API_KEY_FILE` (Qdrant: `QDRANT__SERVICE__API_KEY`, set by `deploy/qdrant/lancer.sh` from its credentials) | `rag.qdrant_api_key` of `config.json`; none: created (48 random characters) |
-| `rag.token` | main, the console, the RAG | `RAG_SERVICE_TOKEN_FILE` | `/etc/elpis/rag.token`, then `user_db/.rag_service_token` when `./elpis configure` wrote it again (it wins, as before), or `rag.service_token` of `config.json`; none: created |
+| `rag.token` | main, the console, the RAG | `RAG_SERVICE_TOKEN_FILE` | `rag.service_token` of `config.json`, `/etc/elpis/rag.token` or `user_db/.rag_service_token`, while no token is in service (`./elpis configure` no longer writes that file once the units receive the key); none: created |
 
 The tool host never receives the vault key, the encryption key nor the session secret, the RAG
 its token only; rsyslog (`elpis-journal`) reads the log files only, no longer the signing key;
@@ -317,10 +317,13 @@ then removed: no plaintext copy stays on the machine. A file that does not quali
 left as it is, and no new key replaces it. A plaintext file that differs from a key already in
 service is left too, with a warning: keep the right one (copy it off the machine first), remove
 the other, run `service install` again. Values of `config.json` (`app.session_secret`,
-`app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key`) are taken in two steps: `deploy/configure.py --ranger-secrets --sortie -
---garder` hands them over without removing them, root writes and checks the keys, then
-`--ranger-secrets --retirer` removes from `config.json` only the values written, if unchanged. A
-second pass changes nothing.
+`app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key`) come first and fill only a key
+that is missing: a session secret of 40 characters at least, a token or key of 32, an encryption
+key in the Fernet format; a value that differs from the key in service, or is refused, stays in
+`config.json` with a warning (remove it). They are taken in two steps: `deploy/configure.py
+--ranger-secrets --sortie - --garder` hands them over without removing them, root writes and checks
+the keys, then `--ranger-secrets --retirer` removes from `config.json` only the values written or
+equal to the key, if unchanged. A second pass changes nothing.
 
 **Copy off the machine.** The backups of Elpis no longer contain these keys (they were in
 `user_db/`). Keep a copy of the vault key, the encryption key and the signing key off the machine

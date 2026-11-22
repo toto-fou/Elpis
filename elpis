@@ -164,8 +164,9 @@ need_exploitation() {
 }
 # Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services, l'hôte d'outils local (/work des comptes pour « backup ») et, sous des unités à un compte par service, le groupe des données (fichiers créés partagés) ; root sous un compte par service : sous le compte de la console (app_console).
 core_cmd() {
-    if racine_separee; then app_console "$NODE" "$CORE_DIST/exploitation.mjs" "$@"; return; fi
-    local e=("ELPIS_RACINE=$ROOT")
+    local e=("ELPIS_RACINE=$ROOT") b=()
+    [ "${1:-}" != bwrap ] || b=(--bac)
+    if racine_separee; then app_console ${b[@]+"${b[@]}"} "$NODE" "$CORE_DIST/exploitation.mjs" "$@"; return; fi
     [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
     e+=("LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp")
     [ "$(mode_installe)" != separes ] || e+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "${CHEMINS_FIXES[@]}")
@@ -283,22 +284,28 @@ ecritures_console() {
     for e in "${CHEMINS_FIXES[@]}"; do [ "${e%%=*}" = APP_DB_PATH ] || printf '%s\n' "${e#*=}"; done
 }
 
-# Durcissement des commandes de root sous le compte de la console (unité transitoire) : celui de l'unité de la console que bubblewrap supporte (sonde de doctor), système en lecture seule hors de ses dossiers.
-DURCI_CONSOLE=(-p NoNewPrivileges=yes -p CapabilityBoundingSet= -p ProtectSystem=strict -p ProtectHome=read-only -p PrivateTmp=yes
+# Durcissement de la sonde de bubblewrap de doctor sous le compte de la console (app_console --bac) : celui de l'unité de la console que bubblewrap supporte, système en lecture seule hors de ses dossiers.
+DURCI_BAC=(-p NoNewPrivileges=yes -p CapabilityBoundingSet= -p ProtectSystem=strict -p PrivateTmp=yes
     -p PrivateDevices=yes -p ProtectKernelModules=yes -p ProtectControlGroups=yes -p ProtectClock=yes -p ProtectProc=invisible
     -p RestrictRealtime=yes -p LockPersonality=yes -p SystemCallArchitectures=native
     -p "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" -p "InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock")
+# Durcissement des autres commandes de root sous ce compte : celui de l'unité de la console tout entier (ProtectHome repris de l'unité installée).
+DURCI_CONSOLE=("${DURCI_BAC[@]}" -p RestrictNamespaces=yes -p RestrictSUIDSGID=yes -p ProtectKernelTunables=yes -p ProtectKernelLogs=yes
+    -p ProtectHostname=yes -p PrivateIPC=yes -p MemoryMax=25% -p TasksMax=512)
 
-# Commande de app_console en unité transitoire (systemd-run, dans un sous-shell) : compte et groupe de la console, clés de la console présentes (LoadCredentialEncrypted=, chemins de /run/credentials : systemd-run ne résout pas %d), ancienne clé du coffre CLE_ANCIENNE (copiée par root, LoadCredential=, argument réécrit), environnement dans un fichier à root seul, « $ » doublé (systemd ne développe rien) ; unité arrêtée et fichier retiré à la sortie.
+# _console_systemd PTY BAC COMMANDE… : commande de app_console en unité transitoire (systemd-run, dans un sous-shell) : durcissement de la console (BAC=1 : celui de la sonde de bubblewrap), compte et groupe de la console, clés de la console présentes (LoadCredentialEncrypted=, chemins de /run/credentials : systemd-run ne résout pas %d), ancienne clé du coffre CLE_ANCIENNE (copiée par root, LoadCredential=, argument réécrit), environnement dans un fichier à root seul, « $ » doublé (systemd ne développe rien) ; unité arrêtée et fichier retiré à la sortie.
 _console_systemd() {
-    local pty="$1" unite d n v x lignes colonnes fixes=" " args=() cmd=() rw=()
-    shift
+    local pty="$1" bac="$2" unite d n v x ph lignes colonnes fixes=" " args=() cmd=() rw=() durci=("${DURCI_CONSOLE[@]}")
+    shift 2
+    [ "$bac" -eq 0 ] || durci=("${DURCI_BAC[@]}")
+    ph="$(sed -n 's/^ProtectHome=//p' "$SYS_PREFIXE/etc/systemd/system/${UNIT_PREFIX}-admin.service" 2>/dev/null | tail -n 1)"
+    case "$ph" in yes|read-only|tmpfs) ;; *) ph=read-only ;; esac
     unite="$UNIT_PREFIX-cli-$BASHPID-$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
     umask 0077
     d="$(mktemp -d "$SYS_PREFIXE/run/$UNIT_PREFIX-cli.XXXXXX")" || return 1
     trap "systemctl stop --no-block -- $(printf %q "$unite.service") >/dev/null 2>&1; rm -rf -- $(printf %q "$d")" EXIT
     args=(--wait --collect --quiet "--unit=$unite" "--uid=$UNIT_PREFIX-admin" "--gid=$GROUPE_DONNEES" -p "EnvironmentFile=$d/env"
-          -p "WorkingDirectory=$ROOT" -p UMask=0007 "${DURCI_CONSOLE[@]}")
+          -p "WorkingDirectory=$ROOT" -p UMask=0007 -p "ProtectHome=$ph" "${durci[@]}")
     mapfile -t rw < <(ecritures_console)
     for x in "${rw[@]}"; do args+=(-p "ReadWritePaths=-$x"); done
     for n in $(cles_du_service console); do
@@ -327,12 +334,13 @@ _console_systemd() {
     _hors_terminal ${brut[@]+"${brut[@]}"} systemd-run --pipe "${args[@]}" -- "${cmd[@]}"
 }
 
-# app_console [--terminal] [--brut] [--env NOM=VALEUR]… COMMANDE… : seul chemin de root vers le code de l'application sous un compte par service (core, lanceur, coffre, configure.py, wizard.py, sauvegarde, migrations) : sous le compte de la console, jamais root, depuis la racine, umask 0007, environnement construit (env_console, plus --env ; aucune valeur sur une ligne de commande) ; clés remises par systemd possibles : unité transitoire (_console_systemd), sinon runuser ; terminal de root jamais confié (_hors_terminal : session à part, entrée /dev/null, sorties filtrées ; --brut : archive telle quelle), sauf --terminal : nouveau pseudo-terminal filtré.
+# app_console [--terminal] [--brut] [--bac] [--env NOM=VALEUR]… COMMANDE… : seul chemin de root vers le code de l'application sous un compte par service (core, lanceur, coffre, configure.py, wizard.py, sauvegarde, migrations) : sous le compte de la console, jamais root, depuis la racine, umask 0007, environnement construit (env_console, plus --env ; aucune valeur sur une ligne de commande) ; clés remises par systemd possibles : unité transitoire (_console_systemd), sinon runuser ; terminal de root jamais confié (_hors_terminal : session à part, entrée /dev/null, sorties filtrées ; --brut : archive telle quelle), sauf --terminal : nouveau pseudo-terminal filtré ; --bac : sonde de bubblewrap, durcissement que bubblewrap supporte.
 app_console() {
-    local pty=0 brut=() v e=() plus=()
+    local pty=0 bac=0 brut=() v e=() plus=()
     while :; do
         case "${1:-}" in
             --terminal) pty=1; shift ;;
+            --bac) bac=1; shift ;;
             --brut) brut=(--brut); shift ;;
             --env) plus+=("$2"); shift 2 ;;
             *) break ;;
@@ -341,7 +349,7 @@ app_console() {
     [ "${ENV_CHARGE:-0}" = 1 ] || charger_env_sur
     [ "${#CHEMINS_FIXES[@]}" -gt 0 ] || chemins_separes
     mapfile -t e < <(env_console)
-    if cles_systemd; then (cd "$ROOT" && _console_systemd "$pty" "$@"); return; fi
+    if cles_systemd; then (cd "$ROOT" && _console_systemd "$pty" "$bac" "$@"); return; fi
     (
         cd "$ROOT" || exit 1
         for v in $(compgen -e); do unset "$v" 2>/dev/null; done

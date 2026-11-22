@@ -141,8 +141,10 @@ environment built for it (the console unit's paths and groups, `.env`; never pas
 line) and never root's terminal (`sudo ./elpis configure` gets a new pseudo-terminal). With
 systemd 250 or later, it is a transient unit (`systemd-run --wait --pipe --collect`, user
 `elpis-admin`, group `elpis-donnees`) that receives the console's [platform keys](#platform-keys)
-from systemd and the console unit's hardening that bubblewrap allows (no new privileges, no
-capability, system read-only except the console's folders, private `/tmp` and `/dev`); its
+from systemd and the console unit's hardening (no new privileges, no capability, system read-only
+except the console's folders, `ProtectHome=` of the installed console unit, private `/tmp`, `/dev`
+and IPC, no namespace, same memory and task limits; only the bubblewrap probe of `./elpis doctor`
+runs without the settings bubblewrap cannot live with); its
 environment goes through a file only root can read (`EnvironmentFile=`, removed afterwards), never
 through the unit's properties. Older systemd: `runuser -u elpis-admin`. Root reads no path from `config.json`: the data folders it prepares come
 from `.env` (or root's environment) and the installation's defaults, and the units fix them for

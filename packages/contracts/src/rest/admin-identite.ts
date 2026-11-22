@@ -1,11 +1,63 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/admin-identite.ts — console › SSO OpenID Connect : réglages `auth`, fournisseurs d'identité (OIDC), secret. */
+/** packages/contracts/src/rest/admin-identite.ts — console › SSO OpenID Connect : réglages `auth`, fournisseurs d'identité (OIDC), secret et activation. */
 import { z } from "zod";
 
 import { entier } from "./commun";
 
 /** Identifiant d'un fournisseur : minuscules, chiffres et tirets, 31 caractères au plus, sans tiret en tête. */
 export const REGEX_ID_FOURNISSEUR = /^[a-z0-9][a-z0-9-]{0,30}$/u;
+
+/** Méthodes `amr` qui attestent à elles seules plusieurs facteurs. */
+export const AMR_MULTI_FACTEUR: ReadonlySet<string> = new Set(["mfa", "mca"]);
+
+/** Famille de chaque méthode `amr` de la RFC 8176 (connaissance, possession, inhérence). */
+export const FAMILLES_AMR: ReadonlyMap<string, string> = new Map([
+  ...["pwd", "pin", "kba"].map((m): [string, string] => [m, "connaissance"]),
+  ...["otp", "hwk", "swk", "sms", "tel", "sc"].map((m): [string, string] => [m, "possession"]),
+  ...["face", "fpt", "iris", "retina", "vbm"].map((m): [string, string] => [m, "inherence"]),
+]);
+
+/** Méthode `amr` sous la forme comparée partout : sans espaces autour, en minuscules. */
+export const amrNormal = (m: string): string => m.trim().toLowerCase();
+
+/** Exigences de second facteur d'un fournisseur : niveaux et méthodes exigés, niveaux déclarés comme preuve d'un second facteur. */
+export interface ExigencesSecondFacteur {
+  readonly required_acr: readonly string[];
+  readonly required_amr: readonly string[];
+  readonly mfa_acr: readonly string[];
+}
+
+/** Vrai si une méthode `amr` exigée est `mfa`, `mca`, de possession ou d'inhérence. */
+export function amrFortExige(e: ExigencesSecondFacteur): boolean {
+  return e.required_amr.some((brut) => {
+    const m = amrNormal(brut);
+    const f = FAMILLES_AMR.get(m);
+    return AMR_MULTI_FACTEUR.has(m) || (f !== undefined && f !== "connaissance");
+  });
+}
+
+/** Vrai si le fournisseur est invité à un second facteur : `amr` exigé `mfa`, `mca`, de possession ou d'inhérence, ou au moins un niveau `acr` déclaré comme preuve. */
+export function secondFacteurDemande(e: ExigencesSecondFacteur): boolean {
+  return amrFortExige(e) || e.mfa_acr.length > 0;
+}
+
+/** Vrai si les groupes d'administrateurs agissent mais qu'aucun niveau exigé n'est déclaré comme preuve et qu'aucune méthode forte n'est exigée : tout administrateur est alors refusé. */
+export function adminsToujoursRefuses(e: ExigencesSecondFacteur): boolean {
+  return (
+    secondFacteurDemande(e) &&
+    !amrFortExige(e) &&
+    e.required_acr.length > 0 &&
+    !e.required_acr.some((a) => e.mfa_acr.includes(a))
+  );
+}
+
+/** Vrai si tout jeton admis à la connexion prouve un second facteur (une seule valeur listée suffit à entrer) : chaque `acr` exigé est déclaré comme preuve, ou chaque `amr` exigé est `mfa` ou `mca`. */
+export function secondFacteurPourTous(e: ExigencesSecondFacteur): boolean {
+  return (
+    (e.required_acr.length > 0 && e.required_acr.every((a) => e.mfa_acr.includes(a))) ||
+    (e.required_amr.length > 0 && e.required_amr.every((m) => AMR_MULTI_FACTEUR.has(amrNormal(m))))
+  );
+}
 
 const modeLocal = z.enum(["all", "admins"]);
 const roles = z.object({

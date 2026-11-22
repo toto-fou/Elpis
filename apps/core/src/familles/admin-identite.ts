@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/admin-identite.ts — console › connexion d'entreprise (admins seulement) : réglages `auth`, fournisseurs d'identité, secret. */
+/** apps/core/src/familles/admin-identite.ts — console › connexion d'entreprise (admins seulement) : réglages `auth`, fournisseurs d'identité, secret, activation et extinction. */
 import { createHash } from "node:crypto";
 
 import type { DependancesAuth } from "@elpis/auth";
@@ -13,15 +13,19 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, lireConfigPourEcrire } from "../admin/aides";
 import { ancreIdentite } from "../identite/ancre";
+import { exigerConfirmationAdmin } from "../identite/droits";
 import { adminsLocauxUneFois, compterAdminsLocaux, exigerAdminLocal } from "../identite/etat";
 import { lancerTest } from "../identite/essai";
+import { effacerEtatOidc } from "../identite/oidc/flux";
 import type { OptionsEssai } from "../identite/essai";
 import {
+  couperSessionsDesFournisseurs,
   empreinteFournisseur,
   enregistrerSecret,
   connexionSecurisee,
   etatFournisseur,
   champsFigesChanges,
+  revendicationIdentifiantChangee,
   hoteDuFournisseur,
   nombreIdentites,
   secretFournisseur,
@@ -46,8 +50,10 @@ import type { DefinitionRoute, Famille, Traitement } from "../routes";
 
 export interface DependancesAdminIdentite {
   readonly base: Base;
-  readonly auth: Pick<DependancesAuth, "attributsCookie">;
+  readonly auth: Pick<DependancesAuth, "attributsCookie" | "maintenant">;
   readonly journal: Journal;
+  /** Flux ouverts d'un compte coupés dans tous les process (`session_revoked`). */
+  readonly revoquer: (uid: number) => Promise<unknown>;
   /** Résolution, juge et bornes du test (tests seulement). */
   readonly essai?: OptionsEssai;
 }
@@ -113,6 +119,7 @@ function pourJournal(f: Fournisseur | null): Dict {
 
 export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famille {
   const { base } = dep;
+  const maintenant = (): number => (dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000);
 
   /** Réglages, état de chaque fournisseur et prérequis, tels que la console les lit. */
   async function vue(x: Executeur): Promise<Record<string, unknown>> {
@@ -149,6 +156,20 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         clock_skew_sec: BORNES_AUTH.clock_skew_sec,
       },
     };
+  }
+
+  /** Publie la coupure de ces comptes huit par huit, après la réponse : la coupure elle-même est déjà écrite. */
+  async function publierCoupures(uids: readonly number[]): Promise<void> {
+    for (let i = 0; i < uids.length; i += 8)
+      await Promise.all(
+        uids.slice(i, i + 8).map(async (uid) => {
+          try {
+            await dep.revoquer(uid);
+          } catch (e) {
+            dep.journal.error({ err: e }, "[admin] publication session_revoked (fournisseur éteint) échouée");
+          }
+        }),
+      );
   }
 
   /** Écriture sous le verrou d'écriture de la base puis celui de config.json : l'invariant gardé et l'action se décident au même instant. */
@@ -222,10 +243,11 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
   }
 
   async function creer(req: FastifyRequest): Promise<unknown> {
-    const { corps } = sansConfirmation(req);
+    const { corps, confirme } = sansConfirmation(req);
     const f = validerCreation(corps);
     await ecrire(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
+      exigerConfirmationAdmin(null, f, confirme);
       await exigerGroupesElpis(x, f, null);
       if (providers.length >= FOURNISSEURS_MAX)
         throw new HttpError(400, `${FOURNISSEURS_MAX} fournisseurs au plus.`);
@@ -235,6 +257,7 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
         throw new HttpError(409, "Cet identifiant est encore lié à des comptes : choisissez-en un autre.");
       await supprimerSecretFournisseur(base, f.id, acteurDe(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [f.id]);
+      await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [f.id]);
       providers.push(f);
     });
     auditer(req, "admin.auth.provider.create", {
@@ -247,11 +270,12 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
 
   async function modifier(req: FastifyRequest): Promise<unknown> {
     const id = parametreChemin(req);
-    const { corps } = sansConfirmation(req);
+    const { corps, confirme } = sansConfirmation(req);
     const [avant, apres] = await ecrire<[Fournisseur, Fournisseur]>(async (x, cfg) => {
       const { providers } = sectionAEcrire(cfg);
       const { f: actuel, i } = fournisseurDuFichier(providers, id);
       const nouveau = validerModification(corps, actuel);
+      exigerConfirmationAdmin(actuel, nouveau, confirme);
       await exigerGroupesElpis(x, nouveau, actuel);
       const publique = reglagesAuthDepuis(cfg["auth"]).public_url;
       if (
@@ -264,6 +288,9 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
           409,
           "Ce réglage ne se modifie plus : des comptes sont rattachés à ce fournisseur.",
         );
+      if (champsFigesChanges(actuel, nouveau).length > 0 || revendicationIdentifiantChangee(actuel, nouveau))
+        await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
+      await x.run("DELETE FROM auth_flows WHERE provider_id=? AND trial_admin IS NOT NULL", [id]);
       providers[i] = nouveau;
       return [actuel, nouveau];
     });
@@ -293,6 +320,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       providers.splice(i, 1);
       await supprimerSecretFournisseur(base, id, acteurDe(req));
       await x.run("DELETE FROM auth_provider_state WHERE provider_id=?", [id]);
+      await x.run("DELETE FROM auth_prelinks WHERE provider_id=?", [id]);
+      await effacerEtatOidc(x, id);
       return lu?.type ?? null;
     });
     auditer(req, "admin.auth.provider.delete", { provider_id: id, type });
@@ -319,6 +348,42 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       throw e;
     }
     auditer(req, "admin.auth.provider.secret", { provider_id: id, action: valeur === "" ? "delete" : "set" });
+    return vue(base);
+  }
+
+  async function activer(req: FastifyRequest): Promise<unknown> {
+    const id = parametreChemin(req);
+    await ecrire(async (x, cfg) => {
+      const { providers } = sectionAEcrire(cfg);
+      const { f, i } = fournisseurDuFichier(providers, id);
+      const publique = reglagesAuthDepuis(cfg["auth"]).public_url;
+      if (publique === "") throw new HttpError(409, "L'adresse publique en https est requise.");
+      if (!connexionSecurisee(dep.auth.attributsCookie().https_only === true))
+        throw new HttpError(409, "La connexion sécurisée (https) doit être en vigueur sur ce serveur.");
+      await exigerAdminLocal(x);
+      if (f.required_groups.length === 0)
+        throw new HttpError(409, "Au moins un groupe requis doit être renseigné.");
+      const e = await etatFournisseur(x, f, publique, true);
+      if (!e.has_secret) throw new HttpError(409, "Le secret du fournisseur est absent.");
+      if (!e.tested) throw new HttpError(409, "Un test réussi sur les réglages courants est requis.");
+      providers[i] = { ...f, enabled: true };
+    });
+    auditer(req, "admin.auth.provider.enable", { provider_id: id });
+    return vue(base);
+  }
+
+  async function desactiver(req: FastifyRequest): Promise<unknown> {
+    const id = parametreChemin(req);
+    const comptes = await ecrire(async (x, cfg) => {
+      const { providers } = sectionAEcrire(cfg);
+      const i = positionDuFournisseur(providers, id);
+      if (i < 0) throw new HttpError(404, "Fournisseur introuvable.");
+      providers[i] = { ...(providers[i] as Dict), enabled: false };
+      await effacerEtatOidc(x, id);
+      return couperSessionsDesFournisseurs(x, [id], maintenant());
+    });
+    void publierCoupures(comptes);
+    auditer(req, "admin.auth.provider.disable", { provider_id: id, sessions_cut: comptes.length });
     return vue(base);
   }
 
@@ -387,6 +452,8 @@ export function creerFamilleAdminIdentite(dep: DependancesAdminIdentite): Famill
       route("PUT", "/api/admin/auth/providers/:id", modifier),
       route("DELETE", "/api/admin/auth/providers/:id", supprimer),
       route("PUT", "/api/admin/auth/providers/:id/secret", secret),
+      route("POST", "/api/admin/auth/providers/:id/enable", activer),
+      route("POST", "/api/admin/auth/providers/:id/disable", desactiver),
     ],
   };
 }

@@ -31,6 +31,8 @@ import {
   rehacherSiAncien,
   renouvelerSession,
   resetUserPassword,
+  aMotDePasseLocal,
+  ErreurSansMotDePasseLocal,
   revoquerSid,
   revoquerTousAcces,
   updateUserAvatar,
@@ -296,6 +298,8 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             is_admin: [1, 2].includes(Number(ligne.is_admin)),
             role: ROLES[Number(ligne.is_admin)] ?? "user",
             avatar: ligne.avatar ?? null,
+            // Champ présent seulement pour un compte sans mot de passe local : la réponse d'un compte local ne change pas.
+            ...(aMotDePasseLocal(ligne) ? {} : { password_managed: true }),
           };
         },
       },
@@ -499,6 +503,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             auditerRefus(req, "auth.password.change.denied", { reason });
             throw e;
           };
+          const refusGere = (): never =>
+            refuser(
+              "no_local_password",
+              new HttpError(403, "Votre mot de passe est géré par votre organisation."),
+            );
+          if (!aMotDePasseLocal(moi)) refusGere();
           if (!veritePy(ancien)) {
             if (!veritePy(moi.must_change_pwd))
               refuser("missing_old_password", new HttpError(400, "Ancien mot de passe requis"));
@@ -512,7 +522,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             if (e instanceof HttpError) refuser("policy", e);
             throw e;
           }
-          await resetUserPassword(base, uid, motDePasse);
+          try {
+            await resetUserPassword(base, uid, motDePasse);
+          } catch (e) {
+            if (e instanceof ErreurSansMotDePasseLocal) refusGere();
+            throw e;
+          }
           const t = maintenant(dep);
           await leverMinSession(base, uid, t);
           renouvelerSession(req.session, t);
@@ -531,7 +546,11 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const uid = utilisateur(req);
           const moi = await ligneUtilisateur(base, uid);
           const admin = Number(moi?.is_admin) === 1;
-          return { users: await getUsersLite(base, uid, !admin), my_groups: await getUserGroups(base, uid) };
+          const libelles = new Map(lireReglagesAuth().providers.map((f) => [f.id, f.label]));
+          return {
+            users: await getUsersLite(base, uid, !admin, (id) => libelles.get(id) ?? null),
+            my_groups: await getUserGroups(base, uid),
+          };
         },
       },
       {

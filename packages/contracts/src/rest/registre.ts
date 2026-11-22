@@ -20,6 +20,9 @@ import * as adminRuns from "./admin-runs";
 import * as adminSecurite from "./admin-securite";
 import * as adminAudit from "./admin-audit";
 import * as adminIdentite from "./admin-identite";
+import * as adminRattachement from "./admin-rattachement";
+import * as adminIdentiteOidc from "./admin-identite-oidc";
+import * as identite from "./identite";
 import * as adminComptes from "./admin-comptes";
 import * as adminVue from "./admin-vue";
 import * as adminConfig from "./admin-config";
@@ -217,6 +220,21 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   c("session", "GET", "/api/auth/check", null),
   c("session", "POST", "/api/login-lite", session.schemaReponseConnexion, session.schemaCorpsConnexion),
   c("session", "POST", "/api/logout-lite", schemaOk),
+  c(
+    "session",
+    "POST",
+    "/api/auth/oidc/:id/start",
+    identite.schemaReponseDepartOidc,
+    identite.schemaCorpsDepartOidc,
+  ),
+  c("session", "GET", "/api/auth/oidc/link-proof", identite.schemaReponsePreuveLien),
+  c(
+    "session",
+    "POST",
+    "/api/auth/oidc/link-proof",
+    identite.schemaReponsePreuveLienReussie,
+    identite.schemaCorpsPreuveLien,
+  ),
   c("session", "POST", "/api/users/change-password", schemaOk, session.schemaCorpsChangementMotDePasse),
   c("session", "GET", "/api/users/lite", session.schemaReponseComptesLite),
   c("chats", "GET", "/api/saved/chats", chats.schemaListeChats),
@@ -650,12 +668,48 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminIdentite.schemaReglagesAuth,
     adminIdentite.schemaCorpsSecretFournisseur,
   ),
+  c("admin-identite", "POST", "/api/admin/auth/providers/:id/enable", adminIdentite.schemaReglagesAuth),
+  c("admin-identite", "POST", "/api/admin/auth/providers/:id/disable", adminIdentite.schemaReglagesAuth),
   c(
     "admin-identite",
     "POST",
     "/api/admin/auth/providers/test",
     adminIdentite.schemaReponseEssaiFournisseur,
     adminIdentite.schemaCorpsEssaiFournisseur,
+  ),
+  c(
+    "admin-rattachement",
+    "POST",
+    "/api/admin/users/:target_id/identity/detach",
+    schemaOk,
+    adminRattachement.schemaCorpsDetachement,
+  ),
+  c(
+    "admin-rattachement",
+    "GET",
+    "/api/admin/auth/providers/:id/prelinks",
+    adminRattachement.schemaReponseRattachementsPrepares,
+  ),
+  c(
+    "admin-rattachement",
+    "POST",
+    "/api/admin/auth/providers/:id/prelinks",
+    adminRattachement.schemaRattachementPrepare,
+    adminRattachement.schemaCorpsRattachementPrepare,
+  ),
+  c("admin-rattachement", "DELETE", "/api/admin/auth/providers/:id/prelinks/:prelink_id", schemaOk),
+  c(
+    "admin-identite",
+    "POST",
+    "/api/admin/auth/providers/:id/trial",
+    adminIdentiteOidc.schemaReponseLancementEssai,
+    adminIdentiteOidc.schemaCorpsLancementEssai,
+  ),
+  c(
+    "admin-identite",
+    "GET",
+    "/api/admin/auth/providers/:id/trial",
+    adminIdentiteOidc.schemaReponseDernierEssai,
   ),
   c("admin-runs", "GET", "/api/admin/runs/accounts", adminRuns.schemaReponseExecutionsParCompte),
   c("admin-runs", "GET", "/api/admin/runs", adminRuns.schemaReponseExecutionsConsole),

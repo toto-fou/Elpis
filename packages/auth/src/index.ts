@@ -22,6 +22,8 @@ export { installerAuth } from "./installer";
 export {
   adressePair,
   analyserMandataires,
+  cleAdresse,
+  cleAdresseExacte,
   estMandataireDeConfiance,
   ipClient,
   ipDuClient,
@@ -71,8 +73,11 @@ export { dependancesParDefaut } from "./defaut";
 export {
   aMotDePasseLocal,
   methodeDuCompte,
+  createExternalUser,
   createUser,
   ErreurNomUtilisateur,
+  ErreurSansMotDePasseLocal,
+  MARQUEUR_SANS_MOT_DE_PASSE,
   getAllUsers,
   getUser,
   getUserGroups,

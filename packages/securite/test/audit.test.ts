@@ -4,6 +4,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHmac } from "node:crypto";
 import {
   chmodSync,
+  fstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -17,7 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   arreterAudit,
@@ -322,10 +323,10 @@ describe("robustesse et réglages", () => {
     expect(readFileSync(audit, "utf8")).toBe("");
   });
 
-  it("configuration explicite : clé dans un dossier = erreur ; clé illisible (EACCES) ou trop courte = sans HMAC", () => {
+  it("configuration explicite : clé dans un dossier, clé illisible (EACCES) ou trop courte = sans HMAC", () => {
     const cle = join(dossier, "cle");
     mkdirSync(cle);
-    expect(() => configureAudit({ auditDir: join(dossier, "a"), hmacKeyPath: cle })).toThrow();
+    expect(() => configureAudit({ auditDir: join(dossier, "a"), hmacKeyPath: cle })).not.toThrow();
     for (const [nom, contenu, mode] of [
       ["courte", "x".repeat(31), 0o600],
       ["illisible", "k".repeat(40), 0o000],
@@ -506,4 +507,143 @@ describe("écriture robuste", () => {
     expect([enfant.signal, enfant.status]).toEqual([null, 0]);
     expect(JSON.parse(enfant.stdout)).toEqual({ echecs: 2, illisibles: 2 });
   }, 20_000);
+});
+
+describe("signal critique quand la clé exigée est inutilisable", () => {
+  const cas = [
+    ["courte", "x".repeat(31), 0o600, "too_short"],
+    ["illisible", "k".repeat(40), 0o000, "unreadable"],
+    ["absente", null, 0o600, "missing"],
+  ] as const;
+
+  for (const [nom, contenu, mode, motif] of cas) {
+    it(`clé ${nom} exigée : une ligne [CRITICAL] et un événement, le journal continue`, () => {
+      if (contenu !== null) writeFileSync(join(dossier, "k"), contenu, { mode });
+      const ecrit: string[] = [];
+      const espion = vi
+        .spyOn(process.stderr, "write")
+        .mockImplementation((t) => (ecrit.push(String(t)), true));
+      try {
+        capturerJournal();
+        for (const n of [1, 2]) {
+          configureAudit({
+            auditDir: join(dossier, "a"),
+            hmacKeyPath: join(dossier, "k"),
+            cleRequise: true,
+            maintenant: () => 1,
+          });
+          auditEvent({ userId: null, username: null, action: `suite${n}` });
+        }
+      } finally {
+        espion.mockRestore();
+      }
+      expect(ecrit.filter((t) => t.includes("[CRITICAL]"))).toHaveLength(1);
+      const { recs } = lignesEcrites(join(dossier, "a"));
+      const alertes = recs.filter((r) => r["action"] === "audit.key.unavailable");
+      expect(alertes).toHaveLength(1);
+      expect(alertes[0]).toMatchObject({ outcome: "failure", details: { reason: motif } });
+      expect(alertes[0]).not.toHaveProperty("hmac");
+      expect(recs.map((r) => r["action"])).toEqual(["audit.key.unavailable", "suite1", "suite2"]);
+    });
+  }
+
+  it("préfixe <2> seulement quand stderr est le flux du journal systemd", () => {
+    const st = fstatSync(2);
+    const avant = process.env["JOURNAL_STREAM"];
+    const lignes: string[] = [];
+    const espion = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((t) => (lignes.push(String(t)), true));
+    try {
+      for (const [flux, attendu] of [
+        [`${st.dev}:${st.ino}`, true],
+        ["1:2", false],
+      ] as const) {
+        process.env["JOURNAL_STREAM"] = flux;
+        oublierConfigurationAudit();
+        configureAudit({
+          auditDir: join(dossier, `p${String(attendu)}`),
+          hmacKeyPath: join(dossier, "absente"),
+          cleRequise: true,
+          maintenant: () => 1,
+        });
+        expect(lignes.pop()?.includes("<2>[CRITICAL]")).toBe(attendu);
+      }
+    } finally {
+      espion.mockRestore();
+      if (avant === undefined) delete process.env["JOURNAL_STREAM"];
+      else process.env["JOURNAL_STREAM"] = avant;
+    }
+  });
+
+  it("clé absente et non exigée : aucun signal", () => {
+    const ecrit: string[] = [];
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation((t) => (ecrit.push(String(t)), true));
+    try {
+      configureAudit({
+        auditDir: join(dossier, "a"),
+        hmacKeyPath: join(dossier, "absente"),
+        maintenant: () => 1,
+      });
+      auditEvent({ userId: null, username: null, action: "suite" });
+    } finally {
+      espion.mockRestore();
+    }
+    expect(ecrit).toEqual([]);
+    expect(lignesEcrites(join(dossier, "a")).recs.map((r) => r["action"])).toEqual(["suite"]);
+  });
+
+  it("auto-configuration avec ELPIS_AUDIT_KEY_REQUIRED : clé dans un dossier signalée, journal gardé", () => {
+    const avant = { ...process.env };
+    const ecrit: string[] = [];
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation((t) => (ecrit.push(String(t)), true));
+    try {
+      mkdirSync(join(dossier, "cle"));
+      Object.assign(process.env, {
+        ELPIS_AUDIT_DIR: join(dossier, "auto"),
+        ELPIS_AUDIT_KEY_PATH: join(dossier, "cle"),
+        ELPIS_AUDIT_KEY_REQUIRED: "1",
+      });
+      oublierConfigurationAudit();
+      auditEvent({ userId: 1, username: "a", action: "auto" });
+      expect(ecrit.filter((t) => t.includes("[CRITICAL]"))).toHaveLength(1);
+      expect(lignesEcrites(join(dossier, "auto")).recs.map((r) => r["action"])).toEqual([
+        "audit.key.unavailable",
+        "auto",
+      ]);
+    } finally {
+      espion.mockRestore();
+      for (const k of ["ELPIS_AUDIT_DIR", "ELPIS_AUDIT_KEY_PATH", "ELPIS_AUDIT_KEY_REQUIRED"])
+        delete process.env[k];
+      Object.assign(process.env, avant);
+      oublierConfigurationAudit();
+    }
+  });
+
+  it("demarrerAudit : le signal du process ne devient pas la « dernière ligne » de l'écrivain précédent", () => {
+    const reglages = {
+      auditDir: join(dossier, "a"),
+      hmacKeyPath: join(dossier, "absente"),
+      maintenant: () => 1,
+    };
+    configureAudit(reglages);
+    demarrerAudit();
+    auditEvent({ userId: null, username: null, action: "x" });
+    arreterAudit();
+    const w1 = lignesEcrites(join(dossier, "a")).recs;
+    const derniere = w1[w1.length - 1] as Dict;
+    oublierConfigurationAudit();
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      configureAudit({ ...reglages, cleRequise: true });
+      demarrerAudit();
+    } finally {
+      espion.mockRestore();
+    }
+    arreterAudit();
+    const w2 = lignesEcrites(join(dossier, "a")).recs.filter((r) => r["boot"] !== derniere["boot"]);
+    expect(w2[0]?.["action"]).toBe("audit.key.unavailable");
+    const debut = w2.find((r) => r["action"] === "audit.writer.start");
+    expect((debut?.["details"] as Dict)["prev"]).toEqual({ boot: derniere["boot"], seq: derniere["seq"] });
+  });
 });

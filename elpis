@@ -169,6 +169,7 @@ core_cmd() {
     if racine_separee; then app_console ${b[@]+"${b[@]}"} "$NODE" "$CORE_DIST/exploitation.mjs" "$@"; return; fi
     case "${1:-}" in natif|empreinte|bwrap) ;; *) ! operateur_separe || die "Un compte par service : le core lit la configuration et les clés des services : lancez la commande avec sudo." ;; esac
     [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
+    [ ! -d "$AUDIT_DIR_SYS" ] || e+=("ELPIS_AUDIT_DIR=$AUDIT_DIR_SYS" ELPIS_AUDIT_KEY_REQUIRED=1)
     e+=("LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp")
     [ "$(mode_installe)" != separes ] || e+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "${CHEMINS_FIXES[@]}")
     # Dossier d'exécution des services (repères partagés) : jamais sous root, qui y créerait des fichiers illisibles pour leur compte.
@@ -200,7 +201,7 @@ env_console() {
     for e in "${ENV_PAIRES[@]}" "${CHEMINS_FIXES[@]}"; do printf '%s\n' "$e"; done
     printf '%s\n' "ELPIS_RACINE=$ROOT" "LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp" "ELPIS_COMPTES=separes" \
         "ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "ELPIS_GROUPE_CLE=$GROUPE_CLE" "RAG_SERVICE_TOKEN_FILE=$JETON_RAG_SYS"
-    [ ! -d "$AUDIT_DIR_SYS" ] || printf 'ELPIS_AUDIT_DIR=%s\n' "$AUDIT_DIR_SYS"
+    [ ! -d "$AUDIT_DIR_SYS" ] || printf 'ELPIS_AUDIT_DIR=%s\nELPIS_AUDIT_KEY_REQUIRED=1\n' "$AUDIT_DIR_SYS"
     [ ! -d "$APPLOG_DIR_SYS" ] || printf 'ELPIS_APP_LOG_DIR=%s\n' "$APPLOG_DIR_SYS"
     [ ! -d "/run/$UNIT_PREFIX" ] || printf 'ELPIS_RUNTIME_DIR=/run/%s\n' "$UNIT_PREFIX"
 }
@@ -482,7 +483,7 @@ svc_spec() {
 }
 
 # Dossiers système du journal de sécurité et du journal technique, s'ils sont en place :
-# root (unités systemd) ou compte qui peut y écrire (démarrage manuel). Sinon : repli dans le dépôt.
+# root (unités systemd) ou compte qui peut y écrire (démarrage manuel) ; journal installé : clé exigée (ELPIS_AUDIT_KEY_REQUIRED), chemin de .env prioritaire, sinon celui du système (_cles_unite le remplace par %d/audit.key). Sinon : repli dans le dépôt.
 env_journaux() {
     case "$1" in main|admin|toolhost) ;; *) return 0 ;; esac
     local d v
@@ -490,6 +491,7 @@ env_journaux() {
         d="${v#*=}"
         if [ -d "$d" ] && { [ "$(id -u)" -eq 0 ] || [ -w "$d" ]; }; then SPEC_ENV+=("$v"); fi
     done
+    case " ${SPEC_ENV[*]} " in *" ELPIS_AUDIT_DIR="*) SPEC_ENV+=("ELPIS_AUDIT_KEY_REQUIRED=1"); [ -n "${ELPIS_AUDIT_KEY_PATH:-}" ] || SPEC_ENV+=("ELPIS_AUDIT_KEY_PATH=$AUDIT_KEY_SYS") ;; esac
 }
 
 # Base PostgreSQL réglée sur cette machine (config.json / APP_DB_*).
@@ -1077,7 +1079,7 @@ _cles_unite() {
     local n v
     [ "$MODE_COMPTES" = separes ] && cles_systemd || return 0
     for n in $(cles_du_service "$1"); do
-        cle_presente "$n" || continue
+        cle_presente "$n" || { [ "$n" != audit.key ] || warn "unité $1 sans la clé $n (absente de $CLES_SYS) : systemd ne la lui remet pas (sudo ./elpis audit setup, puis sudo ./elpis service install)"; continue; }
         printf 'LoadCredentialEncrypted=%s:%s/%s\n' "$n" "$CLES_SYS" "$n"
         v="$(variable_de_cle "$n" "$1")"
         [ -z "$v" ] || printf 'Environment="%s=%%d/%s"\n' "$v" "$n"

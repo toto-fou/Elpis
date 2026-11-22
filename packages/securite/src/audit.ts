@@ -57,6 +57,8 @@ export interface ReglagesAudit {
   service?: string;
   auditDir: string;
   hmacKeyPath: string;
+  /** Posé par l'installation (`ELPIS_AUDIT_KEY_REQUIRED=1`) : une clé inutilisable déclenche alors le signal critique. */
+  cleRequise?: boolean;
   maintenant?: () => number;
   hote?: string;
 }
@@ -131,6 +133,11 @@ export function defaultAuditDir(env: NodeJS.ProcessEnv, racine: string): string 
   return repli;
 }
 
+/** Vrai quand l'installation exige une clé de signature (`ELPIS_AUDIT_KEY_REQUIRED=1`, posé avec `ELPIS_AUDIT_DIR` par `elpis`). */
+export function auditCleRequise(env: NodeJS.ProcessEnv): boolean {
+  return env["ELPIS_AUDIT_KEY_REQUIRED"] === "1";
+}
+
 export function defaultAuditKeyPath(env: NodeJS.ProcessEnv): string {
   return env["ELPIS_AUDIT_KEY_PATH"] || "/etc/elpis/audit.key";
 }
@@ -148,33 +155,57 @@ export function identifiantCle(cle: Buffer): string {
   return createHash("sha256").update(cle).digest("hex").slice(0, 8);
 }
 
-/** Clés dont la lecture a été refusée (EACCES, EPERM), signalée une fois par chemin. */
+/** Clés dont la lecture a été refusée (toute erreur autre qu'une absence), signalée une fois par chemin. */
 const clesRefusees = new Set<string>();
 
-/** Clé HMAC d'un fichier : au moins 32 octets après retrait des blancs ASCII, `null` sinon (absente, refusée, trop courte). */
-export function lireCleAudit(chemin: string): Buffer | null {
+const MOTIFS_FR = { missing: "absente", unreadable: "illisible", too_short: "trop courte" } as const;
+
+type MotifSansCle = "missing" | "unreadable" | "too_short";
+
+/** Lecture de la clé : la clé (au moins 32 octets après retrait des blancs ASCII) ou le motif pour lequel il n'y en a pas. */
+function lireCle(chemin: string): { cle: Buffer | null; motif: MotifSansCle | null } {
   let lue: Buffer;
   try {
     lue = readFileSync(chemin);
   } catch (e) {
     const code = (e as { code?: unknown }).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return null;
-    if (!erreurDeDroits(e)) throw e;
+    if (code === "ENOENT" || code === "ENOTDIR") return { cle: null, motif: "missing" };
     if (!clesRefusees.has(chemin)) {
       clesRefusees.add(chemin);
       journalDe("audit").warn(
-        `clé HMAC de ${chemin} illisible (${String(code)}) : audit sans HMAC (groupe de la clé absent de ce process ? le relancer depuis une nouvelle session)`,
+        `clé HMAC de ${chemin} illisible (${String(code)}) : audit sans HMAC` +
+          (erreurDeDroits(e)
+            ? " (groupe de la clé absent de ce process ? le relancer depuis une nouvelle session)"
+            : ""),
       );
     }
-    return null;
+    return { cle: null, motif: "unreadable" };
   }
   const brute = stripAscii(lue);
-  if (brute.length >= 32) return brute;
+  if (brute.length >= 32) return { cle: brute, motif: null };
   journalDe("audit").warn(
     `clé HMAC de ${chemin} trop courte (${brute.length} octet(s) < 32) : audit sans HMAC`,
   );
-  return null;
+  return { cle: null, motif: "too_short" };
 }
+
+/** Clé HMAC d'un fichier : au moins 32 octets après retrait des blancs ASCII, `null` sinon (absente, refusée, trop courte). */
+export function lireCleAudit(chemin: string): Buffer | null {
+  return lireCle(chemin).cle;
+}
+
+/** Vrai quand stderr est le flux du journal systemd (`dev:ino` de JOURNAL_STREAM = ceux du descripteur 2). */
+function fluxJournalSysteme(): boolean {
+  try {
+    const st = fstatSync(2);
+    return process.env["JOURNAL_STREAM"] === `${st.dev}:${st.ino}`;
+  } catch {
+    return false;
+  }
+}
+
+/** Le signal « journal non signé » n'est émis qu'une fois par process. */
+let signalCleEmis = false;
 
 /** `configure` : service, dossier (créé en 0750, 0770 sous le groupe des données ; jamais rechmodé : il peut porter un groupe de lecture) et clé HMAC (illisible = sans HMAC). */
 export function configureAudit(r: ReglagesAudit): void {
@@ -187,7 +218,7 @@ export function configureAudit(r: ReglagesAudit): void {
       if (!erreurDeDroits(e)) throw e;
     }
   }
-  const cle = lireCleAudit(r.hmacKeyPath);
+  const { cle, motif } = lireCle(r.hmacKeyPath);
   etat = {
     service: r.service || "main",
     dossier: r.auditDir,
@@ -197,6 +228,21 @@ export function configureAudit(r: ReglagesAudit): void {
     hote: r.hote ?? hostname(),
     maintenant: r.maintenant ?? (() => Date.now() / 1000),
   };
+  if (motif !== null && r.cleRequise && !signalCleEmis) {
+    signalCleEmis = true;
+    const prefixe = fluxJournalSysteme() ? "<2>" : "";
+    process.stderr.write(
+      `\n${prefixe}[CRITICAL] Elpis journal de sécurité NON SIGNÉ (clé HMAC ${MOTIFS_FR[motif]} : ${r.hmacKeyPath}) — les lignes s'écrivent sans signature. ` +
+        "Redonner la clé à ce service (./elpis doctor), puis le redémarrer.\n\n",
+    );
+    auditEvent({
+      userId: null,
+      username: null,
+      action: "audit.key.unavailable",
+      outcome: "failure",
+      details: { reason: motif },
+    });
+  }
 }
 
 /** Oublie la configuration et l'écrivain (tests) : le prochain événement se reconfigure depuis l'environnement. */
@@ -204,6 +250,7 @@ export function oublierConfigurationAudit(): void {
   if (ecrivain.battement) clearInterval(ecrivain.battement);
   fermerFichier();
   etat = null;
+  signalCleEmis = false;
   ecrivain = nouvelEcrivain();
 }
 
@@ -223,7 +270,12 @@ function etatCourant(): Etat {
     const service = (process.env["APP_SERVICE"] ?? "main").toLowerCase() || "main";
     const auditDir = defaultAuditDir(process.env, racineParDefaut());
     try {
-      configureAudit({ service, auditDir, hmacKeyPath: defaultAuditKeyPath(process.env) });
+      configureAudit({
+        service,
+        auditDir,
+        hmacKeyPath: defaultAuditKeyPath(process.env),
+        cleRequise: auditCleRequise(process.env),
+      });
     } catch {
       etat = {
         service,
@@ -539,7 +591,7 @@ export function empreinteIdentifiant(nom: string): string {
   return h.update(`identifiant:${nom}`, "utf8").digest("hex").slice(0, 16);
 }
 
-/** Dernière ligne v1 de cet hôte et de ce service dans la fin des fichiers du jour et de la veille (256 Kio lus au plus par fichier). */
+/** Dernière ligne v1 d'un écrivain précédent de cet hôte et de ce service dans la fin des fichiers du jour et de la veille (256 Kio lus au plus par fichier). */
 function derniereLigneConnue(s: Etat): { boot: string; seq: number } | null {
   const t = s.maintenant();
   for (const jour of [horodatage(t).jour, horodatage(t - 86_400).jour]) {
@@ -561,7 +613,12 @@ function derniereLigneConnue(s: Etat): { boot: string; seq: number } | null {
         if (!texte.startsWith('{"v":')) continue;
         try {
           const rec = JSON.parse(texte) as Record<string, unknown>;
-          if (rec["host"] === s.hote && rec["service"] === s.service && typeof rec["boot"] === "string")
+          if (
+            rec["host"] === s.hote &&
+            rec["service"] === s.service &&
+            typeof rec["boot"] === "string" &&
+            rec["boot"] !== ecrivain.boot
+          )
             return { boot: rec["boot"], seq: Number(rec["seq"]) };
         } catch {
           continue;

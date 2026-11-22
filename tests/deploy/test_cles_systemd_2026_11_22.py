@@ -214,6 +214,18 @@ def test_unites_ne_portent_que_leurs_cles_presentes(depot):
 
 
 
+# Clé du journal absente du magasin : l'unité part sans clé, l'installation le dit (le nom, jamais le contenu).
+def test_cle_du_journal_absente_signalee_au_rendu(depot):
+    m = _poser(depot, vault_key=VAULT, audit_key=JOURNAL)
+    (m / "audit.key").unlink()
+    node = _executable(depot / "faux-node", '#!/bin/sh\n[ "$1" = -v ] && { echo v24.21.0; exit 0; }\nexit 0\n')
+    r = _harnais(depot, "dossier_ferme() { return 1; }\ncmd_service print", talons="version_systemd() { echo 257; }\n",
+                 ELPIS_USER=MOI, ELPIS_NODE=str(node), **_faux(depot))
+    assert r.returncode == 0, r.stderr
+    assert "sans la clé audit.key" in r.stderr and JOURNAL not in r.stderr
+    assert "LoadCredentialEncrypted=audit.key" not in r.stdout
+
+
 def test_jeton_du_rag_remis_au_rag_seul(depot):
     m = _poser(depot, vault_key=VAULT, audit_key=JOURNAL, rag_token="jeton\n")
     u = _print(depot)
@@ -916,3 +928,55 @@ def test_ranger_secrets_second_temps_refus(conf, tmp_path, monkeypatch, capfd):
     monkeypatch.setattr(conf.os, "geteuid", lambda: os.getuid() + 1)
     assert _retirer(conf, monkeypatch, json.dumps({"app.session_secret": FORT}).encode(), "app.session_secret") == 2
     assert json.loads((tmp_path / "config.json").read_text(encoding="utf-8")) == {"app": {"session_secret": FORT}}
+
+
+# Journal installé : chaque unité du journal exige la clé et nomme son chemin, quel que soit le mode (la ligne de _cles_unite, plus bas, la remplace par %d/audit.key quand systemd la remet).
+@pytest.mark.parametrize("cas", ["unique", "separe", "credentials", "cle_ignoree", "249"])
+def test_unites_du_journal_exigent_la_cle_dans_tous_les_modes(depot, cas):
+    (_sys(depot) / "var/lib/elpis/audit").mkdir(parents=True, exist_ok=True)
+    if cas in ("credentials", "cle_ignoree"):
+        _poser(depot, vault_key=VAULT, **({"audit_key": JOURNAL} if cas == "credentials" else {}))
+    env = {"ELPIS_COMPTE_UNIQUE": "1"} if cas == "unique" else {}
+    u = _print(depot, "249" if cas == "249" else "257", **env)
+    for s in ("main", "admin", "toolhost"):
+        lignes = u[f"elpis-{s}.service"].splitlines()
+        assert 'Environment="ELPIS_AUDIT_KEY_REQUIRED=1"' in lignes, (cas, s)
+        chemins = [l for l in lignes if l.startswith('Environment="ELPIS_AUDIT_KEY_PATH=')]
+        assert chemins, (cas, s)
+        attendu = '%d/audit.key' if cas == "credentials" else "/etc/elpis/audit.key"
+        assert chemins[-1].rstrip('"').endswith(attendu), (cas, s, chemins)
+
+
+# svc_spec (démarrage manuel) termine par env_journaux : mêmes variables.
+def test_demarrage_manuel_exige_la_cle_du_journal(depot):
+    audit = _sys(depot) / "var/lib/elpis/audit"
+    audit.mkdir(parents=True, exist_ok=True)
+    r = _harnais(depot, 'SPEC_ENV=(); env_journaux main; printf "%s\\n" "${SPEC_ENV[@]}"', ELPIS_USER=MOI)
+    assert "ELPIS_AUDIT_KEY_REQUIRED=1" in r.stdout.splitlines(), r.stderr
+    assert any(l.startswith("ELPIS_AUDIT_KEY_PATH=") for l in r.stdout.splitlines())
+
+
+# Commandes de root sous le compte de la console (env_console) : la clé du journal y est exigée aussi.
+def test_commandes_de_la_console_exigent_la_cle_du_journal(depot):
+    (_sys(depot) / "var/lib/elpis/audit").mkdir(parents=True, exist_ok=True)
+    r = _harnais(depot, "env_console", ELPIS_USER=MOI)
+    assert "ELPIS_AUDIT_KEY_REQUIRED=1" in r.stdout.splitlines(), r.stderr
+
+
+# Un chemin de clé déjà donné (.env) l'emporte sur celui du système au démarrage manuel.
+def test_demarrage_manuel_garde_le_chemin_de_cle_de_l_environnement(depot):
+    (_sys(depot) / "var/lib/elpis/audit").mkdir(parents=True, exist_ok=True)
+    r = _harnais(depot, 'SPEC_ENV=(); env_journaux main; printf "%s\\n" "${SPEC_ENV[@]}"', ELPIS_USER=MOI,
+                 ELPIS_AUDIT_KEY_PATH="/chemin/de/env/audit.key")
+    assert "ELPIS_AUDIT_KEY_REQUIRED=1" in r.stdout.splitlines(), r.stderr
+    assert not any(l.startswith("ELPIS_AUDIT_KEY_PATH=") for l in r.stdout.splitlines())
+
+
+# Les commandes du core d'un compte unique (core_cmd) exigent aussi la clé : sinon le CLI écrirait des lignes non signées en silence.
+def test_commandes_du_core_d_un_compte_unique_exigent_la_cle_du_journal(depot):
+    (_sys(depot) / "var/lib/elpis/audit").mkdir(parents=True, exist_ok=True)
+    faux = _executable(depot / "faux-env", "#!/bin/sh\nenv\n")
+    r = _harnais(depot, f'NODE="{faux}"; core_cmd migrations', ELPIS_USER=MOI)
+    lignes = r.stdout.splitlines()
+    assert "ELPIS_AUDIT_KEY_REQUIRED=1" in lignes, r.stdout + r.stderr
+    assert any(l.startswith("ELPIS_AUDIT_DIR=") for l in lignes)

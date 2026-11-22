@@ -982,7 +982,7 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | Variable | Default | Description |
 |---|---|---|
 | `ELPIS_AUDIT_DIR` | `/var/lib/elpis/audit` if writable, otherwise `logs/audit` in the repository | Folder of the security journal |
-| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned. Keys handed by systemd: set by the units of main, the console and the tool host (`%d/audit.key`) |
+| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned. `ELPIS_AUDIT_KEY_REQUIRED=1` (set by `elpis` with `ELPIS_AUDIT_DIR`) makes that loud: one `[CRITICAL]` line and one `audit.key.unavailable` event per process. Keys handed by systemd: set by the units of main, the console and the tool host (`%d/audit.key`) |
 | `ELPIS_APP_LOG_DIR` | `user_db/logs` of the repository (`/var/log/elpis` under systemd) | Folder of the access log `app.log.jsonl` |
 | `ELPIS_APP_LOG_MAX_MO` | `8` | Size in MB at which `app.log.jsonl` is rotated (1 to 1024) |
 | `ELPIS_APP_LOG_ROTATIONS` | `3` | Rotated files kept, `app.log.jsonl.1` to `.N` (1 to 50) |

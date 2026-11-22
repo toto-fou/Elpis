@@ -5,7 +5,7 @@ import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -399,6 +399,31 @@ describe("composition du core", () => {
     }
   });
 
+  it("audit du process : avec ELPIS_AUDIT_KEY_REQUIRED, une clé absente laisse une ligne critique dans le journal, sans le flag rien", () => {
+    const d = mkdtempSync(join(tmpdir(), "elpis-audit-requise-"));
+    const ecrit: string[] = [];
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation((t) => (ecrit.push(String(t)), true));
+    try {
+      configurerAuditDuCore("main", journalMuet, {
+        ELPIS_AUDIT_DIR: d,
+        ELPIS_AUDIT_KEY_PATH: join(d, "absente"),
+      });
+      expect(ecrit).toEqual([]);
+      oublierConfigurationAudit();
+      configurerAuditDuCore("main", journalMuet, {
+        ELPIS_AUDIT_DIR: d,
+        ELPIS_AUDIT_KEY_PATH: join(d, "absente"),
+        ELPIS_AUDIT_KEY_REQUIRED: "1",
+      });
+      expect(ecrit.filter((t) => t.includes("[CRITICAL]"))).toHaveLength(1);
+      expect(lignesAuditRecentes()[0]).toMatchObject({ action: "audit.key.unavailable" });
+    } finally {
+      espion.mockRestore();
+      oublierConfigurationAudit();
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
   it("audit du process : APP_SERVICE prioritaire, sinon le mode ; clé illisible journalisée", () => {
     const d = mkdtempSync(join(tmpdir(), "elpis-audit-core-"));
     try {
@@ -420,7 +445,9 @@ describe("composition du core", () => {
         ELPIS_AUDIT_DIR: d,
         ELPIS_AUDIT_KEY_PATH: join(d, "cle"),
       });
-      expect(lignesJournal.join("\n")).toContain("[audit] configuration impossible");
+      auditEvent({ userId: 1, username: "a", action: "z" });
+      expect(lignesAuditRecentes()[0]).toMatchObject({ action: "z" });
+      expect(lignesAuditRecentes()[0]).not.toHaveProperty("hmac");
     } finally {
       oublierConfigurationAudit();
       rmSync(d, { recursive: true, force: true });

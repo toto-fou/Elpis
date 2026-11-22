@@ -14,6 +14,8 @@ import {
   anomaliesBornees,
   anomaliesDe,
   cellulesBandeau,
+  classeAction,
+  LIBELLES_ACTIONS,
   motifsNonVerifie,
   resumeDetails,
 } from "../../src/features/admin/journal-securite-affichage";
@@ -645,5 +647,10 @@ describe("affichage", () => {
       details: { path: "a", user_agent: "x", repeated: 4, window_s: 60, n: 2, z: 3, y: 4 },
     });
     expect(resumeDetails(e)).toBe("+4 en 60 s · path=a · n=2 · z=3");
+  });
+
+  it("clé du journal indisponible : libellé français, affichée en rouge", () => {
+    expect(LIBELLES_ACTIONS["audit.key.unavailable"]).toMatch(/non signé/u);
+    expect(classeAction("audit.key.unavailable")).toBe("sup-secu-action--refus");
   });
 });

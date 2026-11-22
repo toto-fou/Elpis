@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/ops/securite-gardee.ts — sécurité des comptes gardée à travers une remise de la base (retour de mise à jour, remise à la main) : état vivant lu avant la remise (comptes, suspensions, identités externes, rattachements préparés, fournisseurs testés, adhésions aux groupes, accès aux moteurs et aux collections, profil réseau imposé, jetons, sessions révoquées, sections `security` et `auth` de config.json), reporté sur la base remise sans toucher à son schéma, sessions coupées, administrateurs locaux restants comptés. */
+/** apps/core/src/ops/securite-gardee.ts — sécurité des comptes gardée à travers une remise de la base (retour de mise à jour, remise à la main) : état vivant lu avant la remise (comptes, suspensions, identités externes, rattachements préparés, fournisseurs testés, adhésions aux groupes, accès aux moteurs et aux collections, visibilité des collections, profil réseau imposé, jetons, sessions révoquées, sections `security` et `auth` de config.json), reporté sur la base remise sans toucher à son schéma, sessions coupées, administrateurs locaux restants comptés. */
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
@@ -53,6 +53,8 @@ export interface EtatSecurite {
   politiquesMoteurs: LigneGardee[] | null;
   /** Accès aux collections (`rag_grants`) ; `null` : table absente. */
   accesCollections: LigneGardee[] | null;
+  /** Visibilité des collections (`id`, `visibility` de `rag_collections`) ; `null` : colonne absente. */
+  visibiliteCollections: LigneGardee[] | null;
   /** Profil réseau imposé par un administrateur (`forced_network_profile_id` de `settings_json`), comptes qui en ont un ; `null` : colonne absente. */
   profilsImposes: { id: number; profil: string }[] | null;
 }
@@ -219,6 +221,9 @@ export async function lireSecurite(r: Requetes): Promise<EtatSecurite> {
       : null,
     accesCollections: s.has("rag_grants")
       ? await lignes(r, s, "rag_grants", "collection_id, principal_type, principal_id")
+      : null,
+    visibiliteCollections: s.get("rag_collections")?.has("visibility")
+      ? await lignes(r, s, "rag_collections", "id", ["id", "visibility"])
       : null,
     profilsImposes: s.get("users")?.has("settings_json") ? await lireProfilsImposes(r) : null,
   };
@@ -432,6 +437,13 @@ async function reporterAccesCollections(
       await inserer(r, "rag_grants", cols, l);
 }
 
+/** Visibilité vivante des collections présentes des deux côtés ; colonne absente d'un côté : rien. */
+async function reporterVisibilites(r: Requetes, s: Schema, vivantes: LigneGardee[] | null): Promise<void> {
+  if (vivantes === null || !s.get("rag_collections")?.has("visibility")) return;
+  for (const l of vivantes)
+    await r.executer("UPDATE rag_collections SET visibility = ? WHERE id = ?", [l["visibility"], l["id"]]);
+}
+
 /** Ordres d'insertion des tables d'accès, tables écrites en clair. */
 const INSERTION_ACCES = {
   llm_engine_policies: "INSERT INTO llm_engine_policies",
@@ -490,18 +502,42 @@ async function compterAdminsLocauxRemis(r: Requetes): Promise<number> {
   return nombre(l?.n);
 }
 
-/** Tables de la base cible où une ligne est plus récente que `ts` (compte, identité, jeton) : une base qui n'est pas une copie plus ancienne ; colonnes absentes ignorées. */
-export async function plusRecentQue(r: Requetes, ts: number): Promise<string[]> {
+/** Horodatages (secondes) de création ou d'usage que le report n'écrit jamais au-delà de ceux de l'état vivant. */
+const HORODATAGES = [
+  ["users", "created_at"],
+  ["users", "last_login_at"],
+  ["user_identities", "linked_at"],
+  ["user_identities", "checked_at"],
+  ["tool_tokens", "created_at"],
+  ["tool_tokens", "last_used_at"],
+  ["oauth_tokens", "created_at"],
+  ["oauth_tokens", "last_used_at"],
+  ["revoked_sessions", "revoked_at"],
+] as const;
+
+/** Plus récent des horodatages de création ou d'usage de la base (0 sans aucun), colonnes absentes ignorées. */
+export async function horodatageLePlusRecent(r: Requetes): Promise<number> {
   const s = await lireSchema(r);
-  const out: string[] = [];
-  for (const [table, colonne, sql] of [
-    ["users", "created_at", "SELECT 1 AS un FROM users WHERE created_at > ? LIMIT 1"],
-    ["user_identities", "linked_at", "SELECT 1 AS un FROM user_identities WHERE linked_at > ? LIMIT 1"],
-    ["tool_tokens", "created_at", "SELECT 1 AS un FROM tool_tokens WHERE created_at > ? LIMIT 1"],
-    ["oauth_tokens", "created_at", "SELECT 1 AS un FROM oauth_tokens WHERE created_at > ? LIMIT 1"],
-  ] as const)
-    if (s.get(table)?.has(colonne) && (await r.tous(sql, [ts])).length > 0) out.push(table);
-  return out;
+  let m = 0;
+  for (const [table, colonne] of HORODATAGES)
+    if (s.get(table)?.has(colonne)) {
+      const v = nombre((await r.tous<{ m: unknown }>(`SELECT MAX(${colonne}) AS m FROM ${table}`))[0]?.m);
+      if (Number.isFinite(v) && v > m) m = v;
+    }
+  return m;
+}
+
+/** Tables de la base cible où une création ou un usage est plus récent que `seuil` : une base qui n'est pas la copie remise ou qui a servi depuis ; colonnes absentes ignorées. */
+export async function plusRecentQue(r: Requetes, seuil: number): Promise<string[]> {
+  const s = await lireSchema(r);
+  const out = new Set<string>();
+  for (const [table, colonne] of HORODATAGES)
+    if (
+      s.get(table)?.has(colonne) &&
+      (await r.tous(`SELECT 1 AS un FROM ${table} WHERE ${colonne} > ? LIMIT 1`, [seuil])).length > 0
+    )
+      out.add(table);
+  return [...out];
 }
 
 /** Sur la base remise, dans la transaction de l'appelant : report de l'état vivant `e` (s'il a pu être lu), puis coupure des sessions ; le schéma n'est jamais touché ; rend le bilan. */
@@ -533,6 +569,7 @@ export async function reporterSecurite(
       type === "user" ? gardes.has(nombre(id)) : type === "group" && groupesGardes.has(nombre(id));
     await reporterPolitiques(r, s, e.politiquesMoteurs, garde);
     await reporterAccesCollections(r, s, e.accesCollections, garde);
+    await reporterVisibilites(r, s, e.visibiliteCollections);
     await reporterProfilsImposes(r, s, e.profilsImposes, gardes, options.profilsReseau);
     bilan = { reportes: gardes.size, verrouilles };
   }

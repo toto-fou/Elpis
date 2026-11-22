@@ -155,7 +155,7 @@ function estRefusEcriture(e: unknown): boolean {
   );
 }
 
-/** `_restore_from_zip` : `(restaurés, erreurs, base_remplacée)` ; base remplacée : toutes les sessions coupées (coupure globale de config.json) ; une archive illisible lève `ErreurZip`. */
+/** `_restore_from_zip` : `(restaurés, erreurs, base_remplacée)` ; base remplacée : toutes les sessions coupées aussitôt, avant le reste (coupure globale de config.json) ; une archive illisible lève `ErreurZip`. */
 export async function restoreFromZip(
   zipPath: string,
   scope: Portee,
@@ -218,6 +218,7 @@ export async function restoreFromZip(
             await restaurerBase(extrait, d.dbPath);
             restored.push(entree);
             dbReplaced = true;
+            await fermerToutesSessions(config.CONFIG_JSON_PATH);
             const echec = await remettreAJour(base, journal);
             if (echec) errors.push(`${entree}: mise à jour du schéma impossible (${echec})`);
           } catch (e) {
@@ -304,6 +305,5 @@ export async function restoreFromZip(
   } finally {
     await zf.fermer();
   }
-  if (dbReplaced) await fermerToutesSessions(config.CONFIG_JSON_PATH);
   return { restored, errors, dbReplaced };
 }

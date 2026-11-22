@@ -428,9 +428,11 @@ server's tools, or start again from the backup's SQLite snapshot (see
 [Recovering from an incident](#recovering-from-an-incident)).
 
 A restore from the console that replaces the database (**Full** or
-**Database** scope) cuts every session (global cut in `config.json`): the
-administrator who ran it sees the result, then the page reloads on the sign-in
-screen (with errors, the message says so and the next action leads there). It
+**Database** scope) cuts every session (global cut in `config.json`) as soon
+as the database is replaced, before the rest of the archive is written (an
+error in the rest leaves them cut): the administrator who ran it sees the
+result, then the page reloads on the sign-in screen (with errors, the message
+says so and the next action leads there). It
 does not carry the current security state over the restored database: the
 accounts come back as they were in the archive.
 
@@ -460,13 +462,20 @@ them under the application account, services stopped, in this order:
    token. Refused with nothing changed (exit code 2): an unreadable file, one
    not written by `keep-security`, a symbolic link or anything but a regular
    file, a file owned by another system account or open to the group or to
-   others (anything but 0600), and a database that holds an account, an SSO
-   identity or a token created after `FILE` (it is not an older copy: there is
-   no option to force it).
+   others (anything but 0600), and a database where an account, an SSO
+   identity, a token or a revoked session was created or used (sign-in,
+   identity check, token use, session revoked) after the most recent of the
+   time `FILE` was written and of the timestamps step 1 saw in the database: it
+   is not the copy just put back, or it has served since. There is no option to
+   force it: put back the copy again (step 2), then run step 3 again. If the
+   database cannot be committed once `config.json` is written (exit code 1),
+   the message says so: `config.json` is carried, the database is not; run
+   step 3 again with the same file.
 4. Put back the old code, then start the services.
 
 `FILE` holds the password hashes of every account: delete it as soon as step 3
-has succeeded. Step 3 can be run again with the same file (same result).
+has succeeded. Step 3 can be run again with the same file (same result) as
+long as the database has not served since (services still stopped).
 
 What is kept, for each account of the restored database that has the same id
 and the same name in `FILE`: password, role, forced password change,
@@ -478,9 +487,11 @@ copy; a profile the restored configuration does not know becomes `isolated`).
 Memberships and accesses are kept as in `FILE` within the groups and
 collections the restored database has (a group or collection created since
 does not exist there); the engine and collection accesses of a group present
-on both sides are kept the same way. The provider test state becomes that of
-`FILE`. API tokens deleted since stay deleted, OAuth accesses revoked or gone
-since are revoked, a refresh token used since stays used (reusing it still
+on both sides are kept the same way. A collection present on both sides
+keeps the visibility it has in `FILE` (private, groups or everyone). The
+provider test state becomes that of `FILE`. API tokens deleted since stay
+deleted, OAuth accesses revoked or gone since are revoked, a refresh token
+used since stays used (reusing it still
 revokes the whole grant), pending OAuth codes are deleted, revoked sessions
 stay revoked, and new accounts, API tokens and OAuth accesses take ids after
 those of `FILE`. An account of

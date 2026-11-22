@@ -71,6 +71,7 @@ describe("contrats REST : sauvegarde de la console (core réel)", () => {
       restored: 3,
       errors: [],
       restart_required: true,
+      sessions_closed: true,
     };
     expect(schemaReponseRestauration.parse(ok)).toEqual(ok);
   });

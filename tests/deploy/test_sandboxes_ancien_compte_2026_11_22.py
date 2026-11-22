@@ -286,7 +286,7 @@ def test_memoire_qu_un_service_peut_changer_deplacee_skills_laisses_avec_un_avis
     services = {**os.environ, "ELPIS_DROITS_SERVICES": MOI}
     lancer = lambda *a: subprocess.run(["python3", "-I", str(_cs.REPO / "deploy/droits.py"), *a],  # noqa: E731
                                        capture_output=True, text=True, timeout=60, env=services)
-    r = lancer("memoire", str(sb), str(mem), MOI, GROUPE)
+    r = lancer("memoire", str(sb), str(mem), MOI, GROUPE, MOI)
     assert r.returncode == 0 and "Mémoire de bob déplacée" in r.stdout, r.stdout + r.stderr
     assert (mem / "alice/memory").is_dir() and not (sb / "bob/memory").exists() and _mode(mem / "bob/memory") == "2770"
     r = lancer("skills", str(sb), str(magasin))
@@ -314,8 +314,9 @@ def test_skills_d_avant_le_magasin_repris_sans_suivre_de_lien(tmp_path):
 
 def test_entrees_qui_ne_sont_pas_des_dossiers_mises_a_part_sans_etre_suivies(tmp_path):
     sb, dehors = tmp_path / "sb", tmp_path / "dehors"
-    for d in ("alice", "bob/work", ".supprime-3-1", "_snapshots/bob", ".write_locks", "frank"):
+    for d in ("alice", "bob/work", ".supprime-3-1", "_snapshots/bob/sous", "_snapshots/alice", ".write_locks", "frank"):
         (sb / d).mkdir(parents=True)
+    (sb / "_snapshots/bob/b.json").write_text("{}", encoding="utf-8")
     dehors.mkdir()
     (dehors / "f").write_text("intact", encoding="utf-8")
     (sb / "alice/work").symlink_to(dehors)
@@ -328,6 +329,8 @@ def test_entrees_qui_ne_sont_pas_des_dossiers_mises_a_part_sans_etre_suivies(tmp
     for d in (".supprime-3-1/work", "_snapshots/work", ".write_locks/work", "frank/work"):
         (sb / d).symlink_to(dehors)
     (sb / "_snapshots/carol").symlink_to("bob")
+    (sb / "_snapshots/alice/aaaa.json").symlink_to("../bob/b.json")
+    (sb / "_snapshots/alice/.elpis_restore_incomplete").symlink_to("../../../dehors/f")
     (sb / "frank").chmod(0o555)
     try:
         r = _droits("ecarter", str(sb))
@@ -342,8 +345,10 @@ def test_entrees_qui_ne_sont_pas_des_dossiers_mises_a_part_sans_etre_suivies(tmp
     assert alice["work"].is_symlink() and alice[".elpis-agent"].read_text(encoding="utf-8") == "fichier"
     assert sorted(a_part(sb / ".supprime-3-1")) == ["work"] and not (sb / "carol").exists() and not (sb / "alice/work").exists()
     assert sorted(instantanes) == ["carol", "work"] and instantanes["carol"].is_symlink() and (sb / "_snapshots/bob").is_dir()
+    assert sorted(a_part(sb / "_snapshots/alice")) == [".elpis_restore_incomplete", "aaaa.json"]
+    assert sorted(p.name for p in (sb / "_snapshots/bob").iterdir()) == ["b.json", "sous"]
     assert (sb / ".write_locks/work").is_symlink() and (sb / "bob/work").is_dir() and (sb / "frank/work").is_symlink()
-    assert (dehors / "f").read_text(encoding="utf-8") == "intact" and r.stderr.count("mis à part sous .ecarte-") == 9
+    assert (dehors / "f").read_text(encoding="utf-8") == "intact" and r.stderr.count("mis à part sous .ecarte-") == 11
     (sb / "frank/work").unlink()
     avant = sorted(str(p.relative_to(sb)) for p in sb.rglob("*"))
     r = _droits("ecarter", str(sb))
@@ -408,7 +413,7 @@ def test_memoire_d_une_installation_separee_d_avant_rendue_a_main(depot):
     sb, mem = depot / "user_sandboxes", depot / "user_db/memoire"
     for d in ("alice/memory/scopes", "bob/memory"):
         (sb / d).mkdir(parents=True)
-    for f in ("alice/memory/USER.md", "alice/memory/scopes/MEMORY.md", "bob/memory/USER.md"):
+    for f in ("alice/memory/USER.md", "alice/memory/scopes/MEMORY.md", "bob/memory/USER.md", "bob/memory/root.md"):
         (sb / f).write_text("m", encoding="utf-8")
         (sb / f).chmod(0o660)
     for d in ("alice/memory", "alice/memory/scopes", "bob/memory"):
@@ -417,8 +422,14 @@ def test_memoire_d_une_installation_separee_d_avant_rendue_a_main(depot):
     (depot.parent / "faux_root.py").write_text(FAUX_ROOT, encoding="utf-8")
     _aux_services(depot, {"alice/memory": "elpis-main", "alice/memory/USER.md": "elpis-main",
                           "alice/memory/scopes": "elpis-main", "bob/memory": "elpis-toolhost", "bob/memory/USER.md": "elpis-toolhost"})
-    r = _simule(depot, 'MODE_COMPTES=separes; chemins_separes; deplacer_memoire "$SANDBOX_DIR" "$(fixe APP_MEMORY_DIR)"')
+    table = json.loads(_table(depot).read_text(encoding="utf-8"))
+    st = os.lstat(sb / "bob/memory/root.md")
+    table[f"{st.st_dev}:{st.st_ino}"] = [0, 0]
+    _table(depot).write_text(json.dumps(table), encoding="utf-8")
+    r = _simule(depot, 'MODE_COMPTES=separes; chemins_separes; deplacer_memoire "$SANDBOX_DIR" "$(fixe APP_MEMORY_DIR)" "" "$MOI"')
     assert r.returncode == 0 and "Mémoire de alice déplacée" in r.stdout and "Mémoire de bob déplacée" in r.stdout, r.stderr
+    assert f"{mem}/bob/memory/root.md : à un autre compte (uid 0), laissé tel quel" in r.stderr
+    assert _proprio(depot, mem / "bob/memory/root.md") == ("root", "root")
     assert not (sb / "alice/memory").exists() and not (sb / "bob/memory").exists()
     rendus = ("alice/memory", "alice/memory/USER.md", "alice/memory/scopes", "alice/memory/scopes/MEMORY.md",
               "bob/memory", "bob/memory/USER.md")
@@ -428,22 +439,28 @@ def test_memoire_d_une_installation_separee_d_avant_rendue_a_main(depot):
                                                   "bob/memory": "2770", "bob/memory/USER.md": "660"}
 
 
-def test_conteneurs_des_sandboxes_retires_a_l_installation_separee(depot):
+def test_conteneurs_des_sandboxes_arretes_a_l_installation_separee(depot):
     _unite_bloc4(depot)
     _etat(depot)
     sb = depot / "user_sandboxes"
-    a, b, c, d = ("a" * 64, "b" * 64, "c" * 64, "d" * 64)
+    a, b, c, d, e, f = ("a" * 64, "b" * 64, "c" * 64, "d" * 64, "e" * 64, "f" * 64)
     docker = ('docker() {\n    trace "docker $*"\n    case "$1" in\n'
-              f'        ps) printf "%s\\n" {a} zz {b} {c} {d} ;;\n'
+              f'        ps) printf "%s\\n" {a} zz {b} {c} {d} {e} {f} ;;\n'
               f'        inspect) case "${{*: -1}}" in {a}) echo "$SANDBOX_DIR/alice/work" ;; {b}) echo /ailleurs/work ;;\n'
-              f'            {c}) echo "$SANDBOX_DIR/../etc/work" ;; {d}) printf "%s\\n%s\\n" "$SANDBOX_DIR/x/work" "$SANDBOX_DIR/y/work" ;; esac ;;\n'
+              f'            {c}) echo "$SANDBOX_DIR/../etc/work" ;; {d}) printf "%s\\n%s\\n" "$SANDBOX_DIR/x/work" "$SANDBOX_DIR/y/work" ;;\n'
+              f'            {e}) echo "$SANDBOX_DIR/./bob/work" ;; {f}) echo "$SANDBOX_DIR/carol/work" ;; esac ;;\n'
+              f'        stop) [ "${{*: -1}}" != {f} ] ;;\n'
+              '        kill) return 1 ;;\n'
               '    esac\n}\n')
-    r = _harnais(depot, docker + 'SANDBOX_DIR="$ROOT/user_sandboxes"; retirer_conteneurs_bacs "$SANDBOX_DIR"')
-    assert r.returncode == 0 and "1 conteneur(s) de sandbox retiré(s)" in r.stdout, r.stdout + r.stderr
-    assert [l for l in _trace(depot) if l.startswith("docker rm")] == [f"docker rm -f {a}"]
-    assert "docker ps -aq --no-trunc --filter label=elpis.user_id" in _trace(depot)
-    r = _harnais(depot, 'retirer_conteneurs_bacs() { trace "retirer $*"; }\n' + INSTALLE_SEPARE)
-    assert r.returncode == 0 and f"retirer {sb}" in _trace(depot), r.stdout + r.stderr
+    r = _harnais(depot, docker + 'SANDBOX_DIR="$ROOT/user_sandboxes"; arreter_conteneurs_bacs "$SANDBOX_DIR"; echo "rc=$?"')
+    assert "rc=1" in r.stdout and "1 conteneur(s) de sandbox arrêté(s)" in r.stdout, r.stdout + r.stderr
+    assert f"Conteneur de sandbox {f[:12]} non arrêté" in r.stderr
+    actes = [l for l in _trace(depot) if l.startswith(("docker stop", "docker kill", "docker rm"))]
+    assert actes == [f"docker stop -t 10 {a}", f"docker stop -t 10 {f}", f"docker kill {f}"], actes
+    assert "docker ps -q --no-trunc --filter label=elpis.user_id" in _trace(depot)
+    r = _harnais(depot, 'arreter_conteneurs_bacs() { trace "arreter $*"; return 1; }\n' + INSTALLE_SEPARE)
+    assert r.returncode == 0 and f"arreter {sb}" in _trace(depot), r.stdout + r.stderr
+    assert "Conteneurs des sandboxes pas tous arrêtés" in r.stderr
 
 
 def test_retour_au_compte_unique_rend_aussi_les_dossiers_hors_du_depot(depot):

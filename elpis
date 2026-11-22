@@ -1360,11 +1360,7 @@ BACS_COMPTES=('[!.]*' '.supprime-*')
 droits_separes() {
     local base="$1" op="$2" G="$GROUPE_DONNEES" og d n e=0 legs="" admis U="$ROOT/user_db" S="$SANDBOX_DIR" B="" R="$RAG_STORE" sousR="" x h
     og="$(id -gn "$op")" || return 1
-    # Anciens propriétaires repris : l'opérateur et les anciens comptes uniques, jamais root ni un compte des services.
-    for n in $op ${3:-}; do
-        case "$n" in root|"$UNIT_PREFIX"-*) continue ;; esac
-        case " $legs " in *" $n "*) ;; *) legs+="$n " ;; esac
-    done
+    legs="$(comptes_repris "$op" "${3:-}")"
     admis="$legs $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost"
     local cle=(.vault.key .vault.key.lock .encryption_key .encryption_key.lock .session_secret .session_secret.lock)
     local partages=(.local_mcp_token) prives=(.rag_service_token) base_console=('.db_password*') envois=(.backup_ssh_key .backup_rsync_password)
@@ -1481,6 +1477,16 @@ rendre_dossiers_separes() {
         && droits_unique "${DB_FICHIER%/*}" "$1" "${2:-}" )
 }
 
+# comptes_repris OPÉRATEUR ANCIENS : anciens propriétaires que root reprend avec un compte par service, l'opérateur et les anciens comptes uniques, jamais root ni un compte des services.
+comptes_repris() {
+    local n legs=""
+    for n in $1 ${2:-}; do
+        case "$n" in root|"$UNIT_PREFIX"-*) continue ;; esac
+        case " $legs " in *" $n "*) ;; *) legs+="$n " ;; esac
+    done
+    printf '%s' "$legs"
+}
+
 # Ancien magasin des skills des comptes (SANDBOXES/<compte>/skills, d'avant le magasin protégé) repris dans MAGASIN/<compte> par root, services arrêtés, quand il n'y en a pas encore (l'hôte d'outils remplacerait sinon ce dossier par le miroir) : par deploy/droits.py, sans suivre de lien ; ce qui est laissé est signalé (un dossier n'est pas toujours un compte), rien n'est arrêté.
 adopter_skills() {
     [ -n "$1" ] && [ -n "$2" ] && [ -d "$1" ] || return 0
@@ -1488,28 +1494,31 @@ adopter_skills() {
         || warn "Skills de comptes laissés dans $1 (voir ci-dessus) : à reprendre à la main."
 }
 
-# Un compte par service, services arrêtés : conteneurs des sandboxes de cette instance (étiquette elpis.user_id, /work monté sous SANDBOXES) retirés par le seul client docker, identifiants et chemins vérifiés ; recréés au premier usage, montages revérifiés, /work gardé.
-retirer_conteneurs_bacs() {
-    local S="${1%/}" R id src n=0
+# Un compte par service, services arrêtés : conteneurs des sandboxes en marche de cette instance (étiquette elpis.user_id, /work monté sous SANDBOXES) arrêtés par le seul client docker (stop, sinon kill), identifiants et chemins vérifiés ; redémarrés au premier usage une fois leurs montages revérifiés, couche du conteneur gardée ; un arrêt en échec fait échouer l'étape.
+arreter_conteneurs_bacs() {
+    local S="${1%/}" R id src n=0 e=0
     [ -n "$S" ] && command -v docker >/dev/null 2>&1 || return 0
     R="$(realpath -e -- "$S" 2>/dev/null)" || R="$S"
     while IFS= read -r id; do
         motif "$id" '^[0-9a-f]{64}$' || continue
         src="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/work"}}{{.Source}}{{end}}{{end}}' "$id" 2>/dev/null)" || continue
-        [[ ( "$src" == "$S"/* || "$src" == "$R"/* ) && "$src" != *$'\n'* && "$src/" != */../* ]] || continue
-        if docker rm -f "$id" >/dev/null 2>&1; then n=$((n + 1)); else warn "Conteneur de sandbox ${id:0:12} non retiré : docker rm -f ${id:0:12} à la main."; fi
-    done < <(docker ps -aq --no-trunc --filter label=elpis.user_id 2>/dev/null)
-    [ "$n" -eq 0 ] || info "$n conteneur(s) de sandbox retiré(s) : recréés au premier usage, /work gardé."
+        [[ ( "$src" == "$S"/* || "$src" == "$R"/* ) && "$src" != *$'\n'* && "$src/" != */../* && "$src/" != */./* ]] || continue
+        if docker stop -t 10 "$id" >/dev/null 2>&1 || docker kill "$id" >/dev/null 2>&1; then n=$((n + 1))
+        else warn "Conteneur de sandbox ${id:0:12} non arrêté : docker stop ${id:0:12} à la main."; e=1; fi
+    done < <(docker ps -q --no-trunc --filter label=elpis.user_id 2>/dev/null)
+    [ "$n" -eq 0 ] || info "$n conteneur(s) de sandbox arrêté(s) : redémarrés au premier usage, une fois leurs montages revérifiés."
+    return "$e"
 }
 
-# Mémoire des comptes hors du dossier des sandboxes, services arrêtés : SANDBOXES/<compte>/memory (et l'ancien .memory) déplacés dans MEMOIRE/<compte>/ par deploy/droits.py, sans suivre de lien ni changer de système de fichiers, sous le compte COMPTE s'il est donné (compte unique : jamais au nom de root), donnés à main avec un compte par service, seulement vers le dossier par défaut (user_db/memoire) ; ce qui est laissé est signalé, rien n'est arrêté.
+# deplacer_memoire SANDBOXES MEMOIRE [COMPTE] [OPÉRATEUR ANCIENS] : mémoire des comptes hors du dossier des sandboxes, services arrêtés : SANDBOXES/<compte>/memory (et l'ancien .memory) déplacés dans MEMOIRE/<compte>/ par deploy/droits.py, sans suivre de lien ni changer de système de fichiers, sous le compte COMPTE s'il est donné (compte unique : jamais au nom de root), seulement vers le dossier par défaut (user_db/memoire) ; avec un compte par service, entrées de l'opérateur, des anciens comptes et des services données à main ; ce qui est laissé est signalé, rien n'est arrêté.
 deplacer_memoire() {
     local donner=()
     [ -n "$1" ] && [ "${2%/}" = "$ROOT/user_db/memoire" ] && [ -d "$1" ] || return 0
-    ! separe_vise || donner=("$UNIT_PREFIX-main" "$GROUPE_DONNEES")
+    ! separe_vise || donner=("$UNIT_PREFIX-main" "$GROUPE_DONNEES"
+        "$(comptes_repris "${4:-}") $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost")
     if [ -n "${3:-}" ]; then (cd / && _hors_terminal runuser -u "$3" -- python3 -I "$ROOT/deploy/droits.py" memoire "$1" "$2")
     else poser_droits memoire "$1" "$2" ${donner[@]+"${donner[@]}"}; fi \
-        || warn "Mémoire de comptes laissée dans $1 (voir ci-dessus) : à déplacer à la main."
+        || warn "Mémoire de comptes pas toute reprise de $1 (voir ci-dessus) : à reprendre à la main."
 }
 
 # ranger_cfg COMPTE ARGUMENT… : deploy/configure.py --ranger-secrets ARGUMENT… sous le propriétaire de config.json : la console en mode séparé (app_console), le compte unique COMPTE sinon (runuser, hors du terminal de root).
@@ -1754,9 +1763,10 @@ cmd_service() {
             { [ "$MODE_COMPTES" = separes ] && cles_systemd; } || jeton_rag "$run_user" \
                 || warn "Jeton du service RAG non préparé (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             if [ "$MODE_COMPTES" = separes ]; then
-                deplacer_memoire "$SANDBOX_DIR" "$(fixe APP_MEMORY_DIR)"
+                deplacer_memoire "$SANDBOX_DIR" "$(fixe APP_MEMORY_DIR)" "" "$run_user $ancien"
                 adopter_skills "$SANDBOX_DIR" "$(fixe APP_USER_SKILLS_DIR)"
-                retirer_conteneurs_bacs "$SANDBOX_DIR"
+                arreter_conteneurs_bacs "$SANDBOX_DIR" \
+                    || warn "Conteneurs des sandboxes pas tous arrêtés (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
                 # Secret de session créé ici (0640 au groupe de la clé) : créé par main, il resterait illisible pour la console ; clés remises par systemd : déjà au magasin.
                 cles_systemd || [ -n "${APP_SESSION_SECRET:-}" ] || [ -z "$BASE_DONNEES" ] || poser_droits secret "$BASE_DONNEES" .session_secret \
                     || warn "Secret de session non créé dans $BASE_DONNEES (voir ci-dessus)."

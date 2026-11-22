@@ -1065,7 +1065,7 @@ Each account has an isolated, persistent sandbox. Your working folder there is `
 
 - **In your sandbox, you and the assistant have full rights**: `sudo` without a password, package installation, compilation. This is intended: this sandbox belongs to you alone. `sudo` is refused on a network profile limited to a list of addresses, or when your administrator has turned it off: `pip install` and `npm install -g` still work (they install under `/work`); ask your administrator for the system packages you need.
 - **The server and the other users are protected**: the sandbox is partitioned, with limits on memory, processor and processes.
-- **The network is off by default.** The administrator defines network profiles (isolated, full access, list of allowed addresses) and you choose one, unless they impose one. A `pip install` or a `git clone` that fails with connection refused probably comes from that, not from an outage; the assistant knows the state of the network.
+- **The network is off by default.** The administrator defines network profiles (isolated, full access, list of allowed addresses) and you choose one, unless they impose one. A `pip install` or a `git clone` that fails with connection refused probably comes from that, not from an outage. The assistant knows what your sandbox really reaches: no network, only the listed destinations (with their ports and DNS resolvers), or full access except what the profile refuses (cloud metadata, local network, host machine). It also knows which repositories its Git tools may reach through the Git relay, and when it has no `sudo`.
 - **A disk quota applies**; the editor's gauge shows it.
 - **An inactive sandbox is stopped automatically** and restarts on your next action. Your files do not move.
 

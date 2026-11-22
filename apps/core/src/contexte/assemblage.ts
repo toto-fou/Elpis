@@ -13,13 +13,14 @@ import { CTX } from "./config-contexte";
 import { neutraliserBalisesHarnais, sanitizeMessageHistory } from "./elagage";
 import { isSummaryCarrier } from "./etat-compression";
 import { portMemoireAx, portProfilReseau, portPromptsCapacites } from "./ports";
+import { capaciteReseau, texteReseau } from "./reseau";
 
 const log = journal("uvicorn.error");
 const SEP = "\n\n---\n\n";
 
 /** Ligne « pas de root » quand le bac du compte est durci (sudo refusé, ou profil filtré), `""` sinon ; réglage relu à chaque appel. */
-function ligneSansRoot(mode: unknown, filtre: boolean | undefined): string {
-  if (chargerConfigBac().allow_sudo && !(filtre ?? mode === "allowlist_ip")) return "";
+function ligneSansRoot(filtre: boolean): string {
+  if (chargerConfigBac().allow_sudo && !filtre) return "";
   return (
     "\n  • No root in this container: sudo is disabled and system folders are read-only. Install with pip " +
     "(user site), `npm install -g` (kept under /work) or a virtual environment; for a system package, tell the " +
@@ -27,21 +28,11 @@ function ligneSansRoot(mode: unknown, filtre: boolean | undefined): string {
   );
 }
 
-/** État réseau réel du bac à sable du compte ; phrase neutre si la résolution échoue. */
+/** Capacité réseau réelle du bac du compte (niveau, règle du relais Git, root), jamais le nom du profil ; phrase neutre si la résolution échoue. */
 export async function networkStatusLine(username: string): Promise<string> {
   try {
-    const { id, mode, filtre } = await portProfilReseau().profilReseau(username);
-    if (mode === "none") {
-      return (
-        `  • Network: NONE this session (profile '${id}') — every outbound connection fails (expected, not a bug).` +
-        ligneSansRoot(mode, filtre)
-      );
-    }
-    return (
-      `  • Network: OPEN via profile '${id}' (mode: ${strPy(mode)}) — a refused connection means that destination is ` +
-      "outside the profile, not a tool bug." +
-      ligneSansRoot(mode, filtre)
-    );
+    const capacite = capaciteReseau(await portProfilReseau().profilReseau(username));
+    return texteReseau(capacite) + ligneSansRoot(capacite.filtre);
   } catch {
     return (
       "  • Network: depends on the sandbox profile; if blocked, outbound connections fail with a connection error " +

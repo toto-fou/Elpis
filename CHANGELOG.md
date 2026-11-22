@@ -16,6 +16,10 @@ follow [SemVer](https://semver.org/).
   (administrator groups need a confirmation and a required second factor), and sign-out reaches the provider (RP-initiated and back-channel logout).
   `./elpis auth status|doctor|off|reactivate` keep an emergency exit.
   Guide: [docs/sso-oidc.md](docs/sso-oidc.md).
+- **Account suspension.** Administration › Accounts can switch an account off (**Désactiver**) and back on
+  (**Réactiver**). A suspended account is refused everywhere (sessions, API tokens, OAuth, routines, webhooks,
+  background jobs, sandbox) and its running work and container are stopped. The last active local
+  administrator can be neither suspended, deleted nor demoted.
 
 ### Changed
 

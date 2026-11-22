@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/comptes-separes.test.ts — un compte par service (`ELPIS_GROUPE_DONNEES`, ici le groupe principal de ce compte) : cache d'aperçus, verrous Office, compagnons des sessions navigateur, verrous d'écriture et racine des bacs ouverts au groupe ; certificat du bac en 0644 quel que soit l'umask. */
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+/** apps/toolhost/test/comptes-separes.test.ts — un compte par service (`ELPIS_GROUPE_DONNEES`, ici le groupe principal de ce compte) : cache d'aperçus, verrous Office et verrous d'écriture à l'hôte d'outils seul, racine des bacs lisible du groupe sans qu'il l'écrive, compagnons des sessions navigateur au groupe ; certificat du bac en 0644 quel que soit l'umask. */
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -23,6 +23,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   surchargerDossierVerrous(null);
   rmSync(dossier, { recursive: true, force: true });
@@ -33,21 +34,30 @@ describe("sous le groupe des données", () => {
     vi.stubEnv("ELPIS_GROUPE_DONNEES", GID);
   });
 
-  it("cache d'aperçus : racine du groupe acceptée telle quelle, créée en 0770 ; dossier des verrous en 0770", async () => {
+  it("cache d'aperçus : racine ouverte au groupe resserrée en 0700, créée en 0700 ; dossier des verrous en 0700", async () => {
     const partagee = path.join(dossier, "cache");
     mkdirSync(partagee);
-    chmodSync(partagee, 0o770);
+    chmodSync(partagee, 0o2770);
     vi.stubEnv("APP_OFFICE_CACHE_DIR", partagee);
     expect(cacheRoot()).toBe(partagee);
-    expect(mode(partagee)).toBe(0o770);
-    chmodSync(partagee, 0o775);
-    expect(cacheRoot()).toBe(partagee);
-    expect(mode(partagee)).toBe(0o770);
+    expect(mode(partagee)).toBe(0o700);
     vi.stubEnv("APP_OFFICE_CACHE_DIR", path.join(dossier, "neuve"));
-    expect(mode(cacheRoot())).toBe(0o770);
+    expect(mode(cacheRoot())).toBe(0o700);
     surchargerDossierVerrous(path.join(dossier, "verrous"));
     releaseLock(await tryLock("essai"));
-    expect(mode(path.join(dossier, "verrous"))).toBe(0o770);
+    expect(mode(path.join(dossier, "verrous"))).toBe(0o700);
+  });
+
+  it("cache d'aperçus d'un autre compte, ou lien à sa place : refusé", () => {
+    vi.spyOn(process, "geteuid").mockReturnValue((process.geteuid?.() ?? 0) + 1);
+    const autre = path.join(dossier, "autre");
+    mkdirSync(autre, { mode: 0o700 });
+    vi.stubEnv("APP_OFFICE_CACHE_DIR", autre);
+    expect(() => cacheRoot()).toThrow("Cache d'aperçu non sûr");
+    vi.restoreAllMocks();
+    symlinkSync(autre, path.join(dossier, "lien"));
+    vi.stubEnv("APP_OFFICE_CACHE_DIR", path.join(dossier, "lien"));
+    expect(() => cacheRoot()).toThrow("Cache d'aperçu non sûr");
   });
 
   it("compagnons des sessions navigateur : dossier du groupe accepté (écrits et relus)", async () => {
@@ -60,15 +70,18 @@ describe("sous le groupe des données", () => {
     expect(await getPwSessionOwner("abcdef0123")).toBe("alice");
   });
 
-  it("verrous d'écriture et racine des bacs en 0770 (main y élague)", async () => {
+  it("verrous d'écriture en 0700 ; racine des bacs lisible du groupe sans qu'il l'écrive (0750, setgid gardé)", async () => {
     const bacs = path.join(dossier, "bacs");
     vi.stubEnv("APP_SANDBOX_DIR", bacs);
     const v = await prendreVerrouEcriture(path.join(bacs, "alice", "f.txt"), { delaiS: 1 });
     v.rendre();
-    expect(mode(path.join(bacs, ".write_locks"))).toBe(0o770);
+    expect(mode(path.join(bacs, ".write_locks"))).toBe(0o700);
     chmodSync(bacs, 0o775);
     racinePrivee(bacs);
-    expect(mode(bacs)).toBe(0o770);
+    expect(mode(bacs)).toBe(0o750);
+    chmodSync(bacs, 0o2770);
+    racinePrivee(bacs);
+    expect(mode(bacs)).toBe(0o2750);
   });
 });
 

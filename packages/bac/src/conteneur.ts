@@ -1,17 +1,29 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/conteneur.ts — conteneur Docker persistant d'un compte (executors/_user_sandbox.py) : options de lancement, création, réconciliations, arrêt, purge, agent et exec. */
 import { randomUUID } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  constants,
+  existsSync,
+  fchmodSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  statSync,
+  unlinkSync,
+} from "node:fs";
 import { lookup } from "node:dns/promises";
 
 import {
-  bitsInterdits,
   comparePointsDeCode,
   decoderUtf8,
   estChiffresPy,
   fixePy,
   intPy,
   getPy,
+  groupeDonnees,
   journalDe,
   lowerPy,
   messageErreurOs,
@@ -24,7 +36,7 @@ import {
   suffixePy,
 } from "@elpis/commun";
 import { config, configView, pyJoin, pyParent, pyPath, realpathPy, safeSandboxName } from "@elpis/config";
-import { hostAddressesRecent } from "@elpis/securite";
+import { hostAddressesRecent, O_PATH, viaFd } from "@elpis/securite";
 import type { HoteMachine } from "@elpis/securite";
 
 import { erreurAgent, fabriqueAgent } from "./agent";
@@ -89,7 +101,7 @@ import {
   RESEAU_CONFORME,
 } from "./reseau";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
-import { MODES_MARKER, PERMS_MARKER_LEGACY } from "./travail";
+import { ecrireMarqueur, lireMarqueur, MODES_MARKER, PERMS_MARKER_LEGACY, WORK_SUBDIR } from "./travail";
 
 /** Capacités du conteneur quand le compte peut y devenir root ; `CAPABILITIES_DURCIES` sinon. */
 export const CAPABILITIES: readonly string[] = CAPABILITIES_SUDO;
@@ -215,10 +227,6 @@ function estAnnulation(e: unknown, signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true && e === signal.reason;
 }
 
-function erreurOs(e: unknown): boolean {
-  return typeof (e as { syscall?: unknown } | null)?.syscall === "string";
-}
-
 /** Adresses IPv4 d'un nom, sans doublon et triées (forme relevée à la création du conteneur). */
 export async function resoudreIpv4(dom: string): Promise<string[]> {
   const adresses = await lookup(dom, { family: 4, all: true });
@@ -241,15 +249,90 @@ export async function resolveProfileDomains(profil: ProfilReseau): Promise<Recor
   return resolus;
 }
 
-/** `_racine_privee` : racine des bacs réservée au compte de service (0700), ou au groupe des données (0770 : main y élague verrous d'écriture et cache Office). */
+/** `_racine_privee` : racine des bacs réservée au compte de service (0700), lisible du groupe des données sans qu'il l'écrive (0750, setgid gardé) quand chaque service a son compte. */
 export function racinePrivee(racine: string): void {
+  const voulu = modePartage(0o700, true);
   try {
-    mkdirSync(racine, { recursive: true, mode: modePartage(0o700) });
+    mkdirSync(racine, { recursive: true, mode: voulu });
     const st = statSync(racine);
-    if (st.uid === process.getuid?.() && st.mode & bitsInterdits()) chmodSync(racine, modePartage(0o700));
+    if (st.uid === process.getuid?.() && st.mode & 0o777 & ~voulu)
+      chmodSync(racine, voulu | (st.mode & 0o2000));
   } catch (e) {
     journalDe("sandbox").warn(`[sandbox] ${racine} : droits non restreints (${(e as Error).message})`);
   }
+}
+
+/** `<P>/.elpis-agent` (créé s'il manque, ouvert sans suivre de lien) en 01777 : rechmodé seulement s'il ne l'est pas et qu'il est à ce compte ; sinon détail au journal, refus sobre. */
+export function dossierAgentPret(dossier: string): void {
+  let mode: number;
+  let uid: number;
+  try {
+    try {
+      mkdirSync(dossier);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    }
+    const fd = openSync(dossier, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+    try {
+      ({ mode, uid } = fstatSync(fd));
+      if ((mode & 0o7777) === 0o1777) return;
+      if (uid === process.geteuid?.()) {
+        fchmodSync(fd, 0o1777);
+        return;
+      }
+    } finally {
+      closeSync(fd);
+    }
+  } catch (e) {
+    throw new ExecError(`Dossier de l'agent ${dossier} : ${messageErreurOs(e, dossier)}`);
+  }
+  journalDe("sandbox").warn(
+    `[sandbox] dossier de l'agent ${dossier} en ${(mode & 0o7777).toString(8).padStart(4, "0")} au lieu de 1777, à un autre compte (uid ${uid}) : relancez sudo ./elpis service install`,
+  );
+  throw new ExecError(DEMARRAGE_IMPOSSIBLE);
+}
+
+/** Dossier que seuls ce compte et root peuvent changer : à l'un d'eux, sans écriture du groupe ni des autres. */
+function aCeCompte(fd: number): boolean {
+  const st = fstatSync(fd);
+  return (st.uid === process.geteuid?.() || st.uid === 0) && (st.mode & 0o022) === 0;
+}
+
+/** Un compte par service : `/work` monté seulement si `<S>` et `<P>` ne peuvent être changés que par ce compte et qu'aucun lien ne mène de `<S>` à `/work`, au dossier de l'agent ni au relais ; sinon détail au journal, refus sobre. */
+export function exigerMontagesSurs(sandboxPath: string, racine: string = String(config.SANDBOX_DIR)): void {
+  if (groupeDonnees() === null) return;
+  const S = realpathPy(racine);
+  const P = pyParent(pyPath(sandboxPath));
+  const dossier = O_PATH | constants.O_DIRECTORY | constants.O_NOFOLLOW;
+  let motif = "";
+  let fS = -1;
+  let fP = -1;
+  try {
+    if (pyParent(P) !== S || pyJoin(P, WORK_SUBDIR) !== pyPath(sandboxPath))
+      motif = `${sandboxPath} hors de ${S}`;
+    else {
+      fS = openSync(S, dossier);
+      fP = openSync(viaFd(fS, P.slice(P.lastIndexOf("/") + 1)), dossier);
+      if (!aCeCompte(fS) || !aCeCompte(fP)) motif = `${S} ou ${P} modifiable par un autre compte`;
+      else
+        for (const [fd, nom] of [
+          [fP, WORK_SUBDIR],
+          [fP, AGENT_RUN_DIR],
+          [fS, RELAY_DIR],
+        ] as const)
+          if (!lstatSync(viaFd(fd, nom)).isDirectory())
+            motif = `lien ou entrée inattendue sous ${S} (${nom})`;
+    }
+  } catch (e) {
+    motif = `lien ou entrée inattendue sous ${S} (${(e as NodeJS.ErrnoException).code ?? String(e)})`;
+  } finally {
+    for (const fd of [fS, fP]) if (fd >= 0) closeSync(fd);
+  }
+  if (!motif) return;
+  journalDe("sandbox").warn(
+    `[sandbox] montages de ${sandboxPath} refusés : ${motif} : relancez sudo ./elpis service install`,
+  );
+  throw new ExecError(DEMARRAGE_IMPOSSIBLE);
 }
 
 /** `Path(SANDBOX_DIR) in sandbox_path.parents`, lexical. */
@@ -543,12 +626,7 @@ export class UserSandbox implements BacPourAgent {
     this.modesVerified = true;
     const marqueur = pyJoin(pyParent(this.sandboxPath), MODES_MARKER);
     const proprietaire = this.utilisateurExec();
-    let faitPour = "";
-    try {
-      faitPour = stripPy(decoderUtf8(readFileSync(marqueur)));
-    } catch (e) {
-      if (!erreurOs(e)) throw e;
-    }
+    const faitPour = stripPy(decoderRemplace(lireMarqueur(marqueur) ?? Buffer.alloc(0)));
     const tout = faitPour !== proprietaire;
     try {
       await this.exigerEntree(null, signal);
@@ -573,7 +651,7 @@ export class UserSandbox implements BacPourAgent {
         );
       } else if (tout) {
         try {
-          writeFileSync(marqueur, proprietaire, "utf-8");
+          ecrireMarqueur(marqueur, proprietaire);
         } catch {
           // marqueur non écrit : le processus suivant refait l'arbre
         }
@@ -912,13 +990,7 @@ export class UserSandbox implements BacPourAgent {
     await this.ensureImage(signal);
     if (sousRacine(this.sandboxPath, config.SANDBOX_DIR)) racinePrivee(config.SANDBOX_DIR);
     mkdirSync(this.sandboxPath, { recursive: true });
-    const dossierAgent = pyJoin(pyParent(this.sandboxPath), AGENT_RUN_DIR);
-    try {
-      if (!existsSync(dossierAgent) || !statSync(dossierAgent).isDirectory()) mkdirSync(dossierAgent);
-      chmodSync(dossierAgent, 0o777);
-    } catch (e) {
-      throw new ExecError(`Dossier de l'agent ${dossierAgent} : ${messageErreurOs(e, dossierAgent)}`);
-    }
+    dossierAgentPret(pyJoin(pyParent(this.sandboxPath), AGENT_RUN_DIR));
     const dossierRelais = pyJoin(pyParent(pyParent(this.sandboxPath)), RELAY_DIR);
     try {
       if (!existsSync(dossierRelais) || !statSync(dossierRelais).isDirectory()) {
@@ -950,6 +1022,7 @@ export class UserSandbox implements BacPourAgent {
       );
       throw new ExecError("La sandbox ne peut pas démarrer. Demandez à votre administrateur.");
     }
+    exigerMontagesSurs(this.sandboxPath);
     const lancement = await verifierMontages(this.buildRunArgs(profil, resolus, refusees));
     for (const r of lancement.refus)
       journalDe("sandbox").warn(

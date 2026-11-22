@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT
-/** packages/fichiers/test/verrou-ecriture.test.ts — verrou d'écriture par fichier : même sidecar et même `flock` que file_lock.py (Python retiré). */
-import { existsSync, readdirSync, symlinkSync } from "node:fs";
+/** packages/fichiers/test/verrou-ecriture.test.ts — verrou d'écriture par fichier : même sidecar et même `flock` que file_lock.py (Python retiré), dossier privé, aucun lien suivi. */
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -85,5 +93,23 @@ describe("verrou d'écriture", () => {
     await expect(prendreVerrouEcriture("/x/i", { signal: arret.signal })).rejects.toThrow("requête annulée");
     a.rendre();
     expect((await prendreVerrouEcriture("/x/i", { delaiS: 0 })).obtenu).toBe(true);
+  });
+
+  it("dossier des sidecars en 0700 ; sidecar ou dossier remplacés par un lien : jamais suivis, fail-open", async () => {
+    const a = await prendreVerrouEcriture("/x/j");
+    a.rendre();
+    const base = path.join(racine, "sb", ".write_locks");
+    expect(statSync(base).mode & 0o777).toBe(0o700);
+    const cible = path.join(racine, "cible");
+    writeFileSync(cible, "intact");
+    symlinkSync(cible, path.join(base, lockName("/x/k")));
+    expect((await prendreVerrouEcriture("/x/k", { delaiS: 0 })).obtenu).toBe(false);
+    const ailleurs = path.join(racine, "ailleurs");
+    mkdirSync(ailleurs);
+    vi.stubEnv("APP_SANDBOX_DIR", path.join(racine, "sb2"));
+    mkdirSync(path.join(racine, "sb2"));
+    symlinkSync(ailleurs, path.join(racine, "sb2", ".write_locks"));
+    expect((await prendreVerrouEcriture("/x/l", { delaiS: 0 })).obtenu).toBe(false);
+    expect([readFileSync(cible, "utf8"), readdirSync(ailleurs)]).toEqual(["intact", []]);
   });
 });

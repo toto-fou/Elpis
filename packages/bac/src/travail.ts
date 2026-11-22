@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/travail.ts — racine de travail `P/work` montée sur `/work` et migration une fois de l'ancienne disposition à plat (paths.ensure_work_subdir). */
-import { existsSync, mkdirSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readSync,
+  renameSync,
+  statSync,
+  writeSync,
+} from "node:fs";
 
 import { journalDe } from "@elpis/commun";
 import { pyJoin } from "@elpis/config";
@@ -32,6 +44,38 @@ export const WORK_RESERVED: ReadonlySet<string> = new Set([
   ...PERMS_MARKER_LEGACY,
 ]);
 
+/** Marqueur de `P` lu sans suivre de lien ni attendre (fichier ordinaire, 4 Kio au plus) ; `null` s'il manque ou n'en est pas un. */
+export function lireMarqueur(chemin: string): Buffer | null {
+  let fd: number;
+  try {
+    fd = openSync(chemin, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch {
+    return null;
+  }
+  try {
+    if (!fstatSync(fd).isFile()) return null;
+    const tampon = Buffer.alloc(4096);
+    return tampon.subarray(0, readSync(fd, tampon, 0, tampon.length, 0));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Marqueur de `P` écrit sans suivre de lien : un lien ou un fichier spécial à sa place fait échouer l'écriture. */
+export function ecrireMarqueur(chemin: string, texte: string): void {
+  const fd = openSync(
+    chemin,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    0o666,
+  );
+  try {
+    if (!fstatSync(fd).isFile()) throw new Error(`${chemin} : pas un fichier ordinaire`);
+    writeSync(fd, texte);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function estDossier(chemin: string): boolean {
   try {
     return statSync(chemin).isDirectory();
@@ -44,7 +88,7 @@ function estDossier(chemin: string): boolean {
 export async function ensureWorkSubdir(perUserDir: string): Promise<string> {
   const work = pyJoin(perUserDir, WORK_SUBDIR);
   const marqueur = pyJoin(perUserDir, WORK_MARKER);
-  if (existsSync(marqueur)) {
+  if (lireMarqueur(marqueur) !== null) {
     mkdirSync(work, { recursive: true });
     return work;
   }
@@ -53,7 +97,7 @@ export async function ensureWorkSubdir(perUserDir: string): Promise<string> {
   await verrou.acquerir();
   const log = journalDe("sandbox");
   try {
-    if (existsSync(marqueur)) {
+    if (lireMarqueur(marqueur) !== null) {
       mkdirSync(work, { recursive: true });
       return work;
     }
@@ -77,7 +121,7 @@ export async function ensureWorkSubdir(perUserDir: string): Promise<string> {
       }
     }
     try {
-      writeFileSync(marqueur, "1", "utf-8");
+      ecrireMarqueur(marqueur, "1");
     } catch (e) {
       log.warn(`[sandbox] work-subdir: marker write failed (${marqueur}): ${(e as Error).message}`);
     }

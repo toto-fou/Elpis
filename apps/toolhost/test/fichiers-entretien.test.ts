@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/fichiers-entretien.test.ts — thread des remplacements par requête (expression coûteuse tuée à l'échéance, boucle de l'hôte et autres requêtes libres), texte d'un .docx, quota inconnu et balayage périodique des envois abandonnés. */
+/** apps/toolhost/test/fichiers-entretien.test.ts — thread des remplacements par requête (expression coûteuse tuée à l'échéance, boucle de l'hôte et autres requêtes libres), texte d'un .docx, quota inconnu et balayages périodiques de l'hôte. */
 import { Journal } from "@elpis/http";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { RAPPEL_ABSENT } from "../src/fichiers/commun";
-import { arreterPerimesAuDemarrage, boucleBalayage } from "../src/fichiers/entretien";
+import { arreterPerimesAuDemarrage, BALAYAGES, boucleBalayage } from "../src/fichiers/entretien";
 import { quotaMb } from "../src/fichiers/quota";
 import {
   arreterFilsCalcul,
@@ -91,21 +91,38 @@ describe("balayage des envois abandonnés", () => {
     const journal = new Journal({ niveau: "debug", sortie: (l) => lignes.push(l) });
     const arret = new AbortController();
     let appels = 0;
-    const boucle = boucleBalayage(journal, arret.signal, async () => {
-      appels += 1;
-      return 3;
-    });
+    const parts = (balayer: () => Promise<number>) => [{ quoi: "tmp d'upload abandonnés", balayer }];
+    const boucle = boucleBalayage(
+      journal,
+      arret.signal,
+      parts(async () => {
+        appels += 1;
+        return 3;
+      }),
+    );
     await new Promise((f) => setTimeout(f, 20));
     arret.abort();
     await boucle;
     expect(appels).toBe(1);
     expect(lignes.join("\n")).toContain("3 tmp d'upload abandonnés supprimés");
     const arret2 = new AbortController();
-    const boucle2 = boucleBalayage(journal, arret2.signal, () => Promise.reject(new Error("docker absent")));
+    const boucle2 = boucleBalayage(journal, arret2.signal, [
+      ...parts(() => Promise.reject(new Error("docker absent"))),
+      { quoi: "verrous d'écriture périmés", balayer: async () => 2 },
+    ]);
     await new Promise((f) => setTimeout(f, 20));
     arret2.abort();
     await boucle2;
-    expect(lignes.join("\n")).toContain("balayage des tmp d'upload échoué : docker absent");
+    expect(lignes.join("\n")).toContain("balayage des tmp d'upload abandonnés échoué : docker absent");
+    expect(lignes.join("\n")).toContain("2 verrous d'écriture périmés supprimés");
+  });
+
+  it("balayages de l'hôte : envois abandonnés, verrous d'écriture et cache des aperçus Office (plus par main)", () => {
+    expect(BALAYAGES.map((b) => b.quoi)).toEqual([
+      "tmp d'upload abandonnés",
+      "verrous d'écriture périmés",
+      "entrées du cache d'aperçus Office",
+    ]);
   });
 });
 

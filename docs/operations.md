@@ -394,6 +394,7 @@ sudo systemctl stop elpis.target
 ./elpis db keep-security ~/elpis-security.json    # current account security, new code still in place
 # SQLite database: the backup snapshot is a standalone file.
 unzip -p backups/backup_complet_<horodatage>.zip db/app.db > user_db/app.db
+# The rest of the archive, if needed, now and never its db/ (see below).
 ./elpis db carry-security ~/elpis-security.json   # carried over the restored database
 rm ~/elpis-security.json
 git update-index -q --refresh      # install.sh touched tracked files
@@ -414,12 +415,24 @@ first startup (the new version's markers are removed for this). Restart the
 sandbox containers after the rollback (Admin console › Sandbox › Containers › Active
 containers).
 
-The rest of the archive (sandboxes, `user_db/`, skills…) is restored from
-Admin console › System › Data › Restore, within the limit of 500 MB per upload
-(`APP_MAX_RESTORE_MB`), or unpacked by hand with services stopped. Database on
-a PostgreSQL server: restore it with the server's tools, or start again from
-the backup's SQLite snapshot (see [Recovering from an
-incident](#recovering-from-an-incident)).
+The rest of the archive (sandboxes, `user_db/`, skills…), if needed, is put back
+**before** `carry-security` and without its `db/` folder: unpacked by hand with
+services stopped (for instance `unzip backups/backup_complet_<horodatage>.zip
+-x 'db/*' -d <folder>`, then each folder copied in place), or from Admin
+console › System › Data › Restore with the **Sandboxes** or **MCP** scope only
+(500 MB per upload, `APP_MAX_RESTORE_MB`). Never restore the **Full** or
+**Database** scope after `carry-security`: it puts the archive's database back
+a second time, and with it the passwords, suspensions, SSO identities and
+tokens of the copy. Database on a PostgreSQL server: restore it with the
+server's tools, or start again from the backup's SQLite snapshot (see
+[Recovering from an incident](#recovering-from-an-incident)).
+
+A restore from the console that replaces the database (**Full** or
+**Database** scope) cuts every session (global cut in `config.json`): the
+administrator who ran it sees the result, then the page reloads on the sign-in
+screen (with errors, the message says so and the next action leads there). It
+does not carry the current security state over the restored database: the
+accounts come back as they were in the archive.
 
 ### Keeping account security across a database restore
 
@@ -436,13 +449,20 @@ them under the application account, services stopped, in this order:
    replaced: exit code 2). Choose a path outside the installation and outside
    the backups.
 2. Put back the database (SQLite file, or the server's tools for PostgreSQL),
-   and `config.json` if the rollback restores it.
+   `config.json` if the rollback restores it, and the rest of the archive if
+   needed, never its `db/` folder.
 3. `./elpis db carry-security FILE`, still with the **new** code: the state of
-   `FILE` is carried over the database and `config.json` now in place, then
-   every session is cut (everyone signs in again). It prints the number of
-   accounts carried and the names of the accounts locked or suspended, never a
-   password hash or a token. An unreadable file, or one not written by
-   `keep-security`, is refused with nothing changed (exit code 2).
+   `FILE` is carried over the database and `config.json` now in place, in one
+   transaction (`config.json` is written before the database is committed: if
+   it cannot be written, nothing is carried), then every session is cut
+   (everyone signs in again). It prints the number of accounts carried and the
+   names of the accounts locked or suspended, never a password hash or a
+   token. Refused with nothing changed (exit code 2): an unreadable file, one
+   not written by `keep-security`, a symbolic link or anything but a regular
+   file, a file owned by another system account or open to the group or to
+   others (anything but 0600), and a database that holds an account, an SSO
+   identity or a token created after `FILE` (it is not an older copy: there is
+   no option to force it).
 4. Put back the old code, then start the services.
 
 `FILE` holds the password hashes of every account: delete it as soon as step 3
@@ -451,11 +471,19 @@ has succeeded. Step 3 can be run again with the same file (same result).
 What is kept, for each account of the restored database that has the same id
 and the same name in `FILE`: password, role, forced password change,
 suspension or reactivation, its session cut, its SSO identity and prepared
-link, and its group memberships, kept as in `FILE` within the groups the
-restored database has (a group created since does not exist there). The
-provider test state becomes that of `FILE`. API tokens deleted since stay
-deleted, OAuth accesses revoked or gone since are revoked, revoked sessions
-stay revoked, and new accounts take ids after those of `FILE`. An account of
+link, its group memberships, its access to the models (engine policies) and to
+the document collections, and the network profile an administrator imposed on
+its sandbox (only that setting: the account's other settings come from the
+copy; a profile the restored configuration does not know becomes `isolated`).
+Memberships and accesses are kept as in `FILE` within the groups and
+collections the restored database has (a group or collection created since
+does not exist there); the engine and collection accesses of a group present
+on both sides are kept the same way. The provider test state becomes that of
+`FILE`. API tokens deleted since stay deleted, OAuth accesses revoked or gone
+since are revoked, a refresh token used since stays used (reusing it still
+revokes the whole grant), pending OAuth codes are deleted, revoked sessions
+stay revoked, and new accounts, API tokens and OAuth accesses take ids after
+those of `FILE`. An account of
 the restored database that is not in `FILE` under the same id and name
 (deleted since) comes back locked (no password matches it), suspended by an
 administrator, without SSO identity or prepared link: give it a new password
@@ -477,16 +505,20 @@ database (all of them created since, or suspended, demoted or deleted since),
 `carry-security` says so on one line (on stderr, exit code still 0): no
 administrator can open the console with a password. Once the old code is back,
 reopen one from the host: `./elpis configure`, step **Compte administrateur**
-(it offers a new password for an existing administrator), then
-`./elpis auth reactivate ACCOUNT` if that account is suspended. An administrator that signed in only
-through a provider has no local password and cannot be reopened this way.
+(it offers a new password for an existing administrator, a locked one
+included), then `./elpis auth reactivate ACCOUNT` if that account is
+suspended. A locked password never counts as a local password, for this
+warning as for the rule that keeps one active administrator with a local
+password. An administrator that signed in only through a provider has no
+local password and cannot be reopened this way.
 
 The schema of the restored database is never changed: nothing is created or
 migrated, and a table or column it does not have is skipped. A database from a
-version older than SSO (no suspension) cannot hold a suspension: a suspended
-account has its local password locked instead (an account without a local
-password stays without one), its sessions are cut, and it is in the printed
-list. That older version has no SSO either: an account that signed in only
+version older than SSO (no suspension, every published version up to 0.1.4)
+cannot hold a suspension: a suspended account has its local password locked
+instead (an account without a local password stays without one), its API
+tokens deleted, its OAuth accesses revoked and its pending OAuth codes
+deleted, its sessions cut, and it is in the printed list. That older version has no SSO either: an account that signed in only
 through a provider cannot sign in there, and its "administrators only" local
 password mode does not exist there.
 

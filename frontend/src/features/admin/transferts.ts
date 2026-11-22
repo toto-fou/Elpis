@@ -319,12 +319,17 @@ export function creerTransferts(b: BaseAdmin) {
         const data = r.data;
         transferModal.value.done = true;
         const erreurs = Array.isArray(data["errors"]) ? data["errors"].length : 0;
+        // Base remplacée : toutes les sessions sont coupées, la page rechargée (ou l'action suivante) mène à la connexion.
+        const reconnexion = data["sessions_closed"] === true ? " Sessions fermées : reconnectez-vous." : "";
         if (erreurs > 0) {
-          showToast(`${nombre(data["restored"])} fichiers restaurés, ${erreurs} erreur(s)`, "error");
+          showToast(
+            `${nombre(data["restored"])} fichiers restaurés, ${erreurs} erreur(s).${reconnexion}`,
+            "error",
+          );
         } else {
           showToast(
             data["restart_required"]
-              ? `${nombre(data["restored"])} fichiers restaurés. Redémarrage conseillé.`
+              ? `${nombre(data["restored"])} fichiers restaurés. Redémarrage conseillé.${reconnexion}`
               : `${nombre(data["restored"])} fichiers restaurés avec succès`,
           );
           if (portee === "db" || portee === "full") setTimeout(() => window.location.reload(), 1500);

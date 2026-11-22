@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/ops/securite-gardee.ts — sécurité des comptes gardée à travers une remise de la base (retour de mise à jour, remise à la main) : état vivant lu avant la remise (comptes, suspensions, identités externes, rattachements préparés, fournisseurs testés, adhésions aux groupes, jetons, sessions révoquées, sections `security` et `auth` de config.json), reporté sur la base remise sans toucher à son schéma, sessions coupées, administrateurs locaux restants comptés. */
+/** apps/core/src/ops/securite-gardee.ts — sécurité des comptes gardée à travers une remise de la base (retour de mise à jour, remise à la main) : état vivant lu avant la remise (comptes, suspensions, identités externes, rattachements préparés, fournisseurs testés, adhésions aux groupes, accès aux moteurs et aux collections, profil réseau imposé, jetons, sessions révoquées, sections `security` et `auth` de config.json), reporté sur la base remise sans toucher à son schéma, sessions coupées, administrateurs locaux restants comptés. */
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
 import Database from "better-sqlite3";
 
-import { compteSuspendu, MARQUEUR_SANS_MOT_DE_PASSE } from "@elpis/auth";
+import {
+  aMotDePasseLocal,
+  CLAUSE_MOT_DE_PASSE_LOCAL,
+  compteSuspendu,
+  MOT_DE_PASSE_VERROUILLE,
+  reglagesDepuis,
+  reglagesEnJson,
+} from "@elpis/auth";
 import { floatPy, pyJsonDumps, pyJsonLoads, versFlottantPy } from "@elpis/commun";
 import { writeTextAtomic } from "@elpis/config";
 import { ouvrirBase } from "@elpis/db";
@@ -32,13 +39,27 @@ export type LigneGardee = Record<string, string | number | null>;
 export interface EtatSecurite {
   comptes: LigneGardee[];
   jetonsOutils: number[];
-  jetonsOauth: { id: number; revoked_at: number | null }[];
+  /** Accès OAuth : révocation et consommation (`used_at`, absent si la colonne manque) d'un jeton de rafraîchissement. */
+  jetonsOauth: { id: number; revoked_at: number | null; used_at?: number | null }[];
   sessionsRevoquees: LigneGardee[];
   identites: LigneGardee[];
   rattachementsPrepares: LigneGardee[];
   fournisseurs: LigneGardee[];
   /** Adhésions aux groupes ; `null` : table absente de la base vivante (rien n'est alors reporté). */
   adhesions: { user_id: number; group_id: number }[] | null;
+  /** Identifiants des groupes ; `null` : table absente. */
+  groupes: number[] | null;
+  /** Accès aux moteurs (`llm_engine_policies`) ; `null` : table absente. */
+  politiquesMoteurs: LigneGardee[] | null;
+  /** Accès aux collections (`rag_grants`) ; `null` : table absente. */
+  accesCollections: LigneGardee[] | null;
+  /** Profil réseau imposé par un administrateur (`forced_network_profile_id` de `settings_json`), comptes qui en ont un ; `null` : colonne absente. */
+  profilsImposes: { id: number; profil: string }[] | null;
+}
+
+/** Ce que le report ne sait pas seul : profils réseau connus de la configuration remise (un profil imposé inconnu devient « isolated »). */
+export interface OptionsReport {
+  readonly profilsReseau?: ReadonlySet<string>;
 }
 
 /** Comptes reportés (même identifiant, même nom des deux côtés), noms verrouillés ou suspendus par le report, administrateurs actifs à mot de passe local restants (0 : console fermée à tous). */
@@ -48,8 +69,7 @@ export interface BilanReport {
   adminsLocaux: number;
 }
 
-/** Mot de passe qui ne correspond à aucun : compte verrouillé jusqu'à ce qu'un administrateur en donne un. */
-export const MOT_DE_PASSE_VERROUILLE = "!verrouille-par-retour";
+export { MOT_DE_PASSE_VERROUILLE };
 
 const COLONNES_COMPTE = [
   "id",
@@ -104,6 +124,10 @@ const TABLES_VUES = [
   "auth_provider_state",
   "user_groups",
   "groups",
+  "oauth_codes",
+  "llm_engine_policies",
+  "rag_grants",
+  "rag_collections",
   "sqlite_sequence",
 ] as const;
 type Schema = ReadonlyMap<string, ReadonlySet<string>>;
@@ -171,9 +195,10 @@ export async function lireSecurite(r: Requetes): Promise<EtatSecurite> {
     comptes: await lignes(r, s, "users", "id", COLONNES_COMPTE),
     jetonsOutils: (await lignes(r, s, "tool_tokens", "id", ["id"])).map((x) => nombre(x["id"])),
     jetonsOauth: s.get("oauth_tokens")?.has("revoked_at")
-      ? (await lignes(r, s, "oauth_tokens", "id", ["id", "revoked_at"])).map((x) => ({
+      ? (await lignes(r, s, "oauth_tokens", "id", ["id", "revoked_at", "used_at"])).map((x) => ({
           id: nombre(x["id"]),
-          revoked_at: x["revoked_at"] === null ? null : nombre(x["revoked_at"]),
+          revoked_at: horodatage(x["revoked_at"]),
+          ...(Object.hasOwn(x, "used_at") ? { used_at: horodatage(x["used_at"]) } : {}),
         }))
       : [],
     sessionsRevoquees: await lignes(r, s, "revoked_sessions", "sid", COLONNES_REVOCATION),
@@ -186,7 +211,32 @@ export async function lireSecurite(r: Requetes): Promise<EtatSecurite> {
           group_id: nombre(x["group_id"]),
         }))
       : null,
+    groupes: s.has("groups")
+      ? (await lignes(r, s, "groups", "id", ["id"])).map((x) => nombre(x["id"]))
+      : null,
+    politiquesMoteurs: s.has("llm_engine_policies")
+      ? await lignes(r, s, "llm_engine_policies", "principal_type, principal_id")
+      : null,
+    accesCollections: s.has("rag_grants")
+      ? await lignes(r, s, "rag_grants", "collection_id, principal_type, principal_id")
+      : null,
+    profilsImposes: s.get("users")?.has("settings_json") ? await lireProfilsImposes(r) : null,
   };
+}
+
+const horodatage = (v: unknown): number | null => (v === null || v === undefined ? null : nombre(v));
+const CLE_PROFIL_IMPOSE = "forced_network_profile_id";
+
+/** Profil réseau imposé de chaque compte qui en a un (réglages illisibles : aucun). */
+async function lireProfilsImposes(r: Requetes): Promise<{ id: number; profil: string }[]> {
+  const out: { id: number; profil: string }[] = [];
+  for (const l of await r.tous<{ id: unknown; settings_json: unknown }>(
+    "SELECT id, settings_json FROM users ORDER BY id",
+  )) {
+    const p = reglagesDepuis(l.settings_json)[CLE_PROFIL_IMPOSE];
+    if (typeof p === "string" && p.trim()) out.push({ id: nombre(l.id), profil: p.trim() });
+  }
+  return out;
 }
 
 /** Colonnes données du compte mises à jour une à une. */
@@ -217,17 +267,18 @@ async function remettreTable(
     await pousserCompteur(r, s, table, plusGrand(vivantes.map((l) => nombre(l["id"]))));
 }
 
-/** Comptes de la base remise : gardés (même id, même nom) mis à l'état vivant, les autres verrouillés et suspendus ; sans colonne de suspension, un compte suspendu est verrouillé (son mot de passe local le rouvrirait) ; rend les gardés et les noms verrouillés. */
+/** Comptes de la base remise : gardés (même id, même nom) mis à l'état vivant, les autres verrouillés et suspendus ; sans colonne de suspension, un compte suspendu est verrouillé (son mot de passe local le rouvrirait) ; rend les gardés, les noms verrouillés et les comptes suspendus que la base ne sait pas suspendre. */
 async function reporterComptes(
   r: Requetes,
   s: Schema,
   e: EtatSecurite,
   ts: number,
-): Promise<{ gardes: Set<number>; verrouilles: string[] }> {
+): Promise<{ gardes: Set<number>; verrouilles: string[]; sansSuspension: number[] }> {
   const cu = s.get("users") ?? AUCUNE;
   const vivants = new Map(e.comptes.map((c) => [nombre(c["id"]), c]));
   const gardes = new Set<number>();
   const verrouilles: string[] = [];
+  const sansSuspension: number[] = [];
   const coupure = cu.has("session_min_ts");
   for (const c of await r.tous<LigneGardee>(
     `SELECT id, username${coupure ? ", session_min_ts" : ""} FROM users ORDER BY id`,
@@ -241,9 +292,10 @@ async function reporterComptes(
       if (coupure)
         valeurs["session_min_ts"] = Math.max(nombre(v["session_min_ts"]), nombre(c["session_min_ts"]));
       if (!cu.has("suspended_at") && compteSuspendu(v)) {
-        if (v["pass_hash"] !== MARQUEUR_SANS_MOT_DE_PASSE) valeurs["pass_hash"] = MOT_DE_PASSE_VERROUILLE;
+        if (aMotDePasseLocal(v)) valeurs["pass_hash"] = MOT_DE_PASSE_VERROUILLE;
         if (coupure) valeurs["session_min_ts"] = Math.max(nombre(valeurs["session_min_ts"]), ts);
         verrouilles.push(String(c["username"]));
+        sansSuspension.push(id);
       }
     } else {
       valeurs["pass_hash"] = MOT_DE_PASSE_VERROUILLE;
@@ -259,28 +311,48 @@ async function reporterComptes(
       );
   }
   await pousserCompteur(r, s, "users", plusGrand(vivants.keys()));
-  return { gardes, verrouilles };
+  return { gardes, verrouilles, sansSuspension };
 }
 
-/** Jetons d'API absents de l'état vivant supprimés, accès OAuth révoqués depuis (ou inconnus) révoqués, sessions révoquées ajoutées. */
-async function reporterJetons(r: Requetes, s: Schema, e: EtatSecurite, ts: number): Promise<void> {
+/** Jetons d'API absents de l'état vivant supprimés, accès OAuth révoqués depuis (ou inconnus) révoqués, consommés depuis marqués consommés, codes OAuth en attente supprimés, comptes de `sansAcces` privés de tout jeton, sessions révoquées ajoutées, compteurs poussés. */
+async function reporterJetons(
+  r: Requetes,
+  s: Schema,
+  e: EtatSecurite,
+  ts: number,
+  sansAcces: readonly number[],
+): Promise<void> {
   if (s.has("tool_tokens")) {
     const outils = new Set(e.jetonsOutils);
     for (const j of await r.tous<{ id: unknown }>("SELECT id FROM tool_tokens"))
       if (!outils.has(nombre(j.id))) await r.executer("DELETE FROM tool_tokens WHERE id = ?", [nombre(j.id)]);
+    for (const uid of sansAcces) await r.executer("DELETE FROM tool_tokens WHERE user_id = ?", [uid]);
+    await pousserCompteur(r, s, "tool_tokens", plusGrand(e.jetonsOutils));
   }
-  if (s.get("oauth_tokens")?.has("revoked_at")) {
-    const oauth = new Map(e.jetonsOauth.map((j) => [j.id, j.revoked_at]));
-    for (const j of await r.tous<{ id: unknown; revoked_at: unknown }>(
-      "SELECT id, revoked_at FROM oauth_tokens",
+  const co = s.get("oauth_tokens");
+  if (co?.has("revoked_at")) {
+    const oauth = new Map(e.jetonsOauth.map((j) => [j.id, j]));
+    const consommation = co.has("used_at");
+    for (const j of await r.tous<{ id: unknown; revoked_at: unknown; used_at?: unknown }>(
+      `SELECT id, revoked_at${consommation ? ", used_at" : ""} FROM oauth_tokens`,
     )) {
       const id = nombre(j.id);
       const vivant = oauth.get(id);
-      const revoque = vivant === undefined ? ts : vivant;
+      const revoque = vivant === undefined ? ts : vivant.revoked_at;
       if (revoque !== null && j.revoked_at === null)
         await r.executer("UPDATE oauth_tokens SET revoked_at = ? WHERE id = ?", [revoque, id]);
+      const consomme = vivant?.used_at ?? null;
+      if (consommation && consomme !== null && (j.used_at === null || j.used_at === undefined))
+        await r.executer("UPDATE oauth_tokens SET used_at = ? WHERE id = ?", [consomme, id]);
     }
+    for (const uid of sansAcces)
+      await r.executer("UPDATE oauth_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL", [
+        ts,
+        uid,
+      ]);
+    await pousserCompteur(r, s, "oauth_tokens", plusGrand(e.jetonsOauth.map((j) => j.id)));
   }
+  if (s.has("oauth_codes")) await r.executer("DELETE FROM oauth_codes");
   const cr = s.get("revoked_sessions");
   if (cr)
     for (const l of e.sessionsRevoquees) {
@@ -309,16 +381,127 @@ async function reporterAdhesions(
       await r.executer("INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)", [a.user_id, a.group_id]);
 }
 
-/** Administrateurs actifs à mot de passe local utilisable (règle de l'invariant, mot de passe verrouillé exclu), colonnes absentes tenues pour telles. */
+/** Principal gardé d'une ligne d'accès : compte gardé, ou groupe présent des deux côtés. */
+type Garde = (type: unknown, id: unknown) => boolean;
+
+/** Accès aux moteurs des comptes et groupes gardés remis à l'état vivant ; table absente d'un côté : rien. */
+async function reporterPolitiques(
+  r: Requetes,
+  s: Schema,
+  vivantes: LigneGardee[] | null,
+  garde: Garde,
+): Promise<void> {
+  const cols = s.get("llm_engine_policies");
+  if (vivantes === null || !cols) return;
+  for (const l of await r.tous<{ principal_type: unknown; principal_id: unknown }>(
+    "SELECT principal_type, principal_id FROM llm_engine_policies",
+  ))
+    if (garde(l.principal_type, l.principal_id))
+      await r.executer("DELETE FROM llm_engine_policies WHERE principal_type = ? AND principal_id = ?", [
+        l.principal_type,
+        l.principal_id,
+      ]);
+  for (const l of vivantes)
+    if (garde(l["principal_type"], l["principal_id"])) await inserer(r, "llm_engine_policies", cols, l);
+}
+
+/** Accès aux collections des comptes et groupes gardés remis à l'état vivant, limités aux collections de la base remise ; table absente d'un côté : rien. */
+async function reporterAccesCollections(
+  r: Requetes,
+  s: Schema,
+  vivantes: LigneGardee[] | null,
+  garde: Garde,
+): Promise<void> {
+  const cols = s.get("rag_grants");
+  if (vivantes === null || !cols) return;
+  const collections = new Set(
+    s.has("rag_collections")
+      ? (await r.tous<{ id: unknown }>("SELECT id FROM rag_collections")).map((c) => String(c.id))
+      : [],
+  );
+  for (const l of await r.tous<{ collection_id: unknown; principal_type: unknown; principal_id: unknown }>(
+    "SELECT collection_id, principal_type, principal_id FROM rag_grants",
+  ))
+    if (garde(l.principal_type, l.principal_id))
+      await r.executer(
+        "DELETE FROM rag_grants WHERE collection_id = ? AND principal_type = ? AND principal_id = ?",
+        [l.collection_id, l.principal_type, l.principal_id],
+      );
+  for (const l of vivantes)
+    if (garde(l["principal_type"], l["principal_id"]) && collections.has(String(l["collection_id"])))
+      await inserer(r, "rag_grants", cols, l);
+}
+
+/** Ordres d'insertion des tables d'accès, tables écrites en clair. */
+const INSERTION_ACCES = {
+  llm_engine_policies: "INSERT INTO llm_engine_policies",
+  rag_grants: "INSERT INTO rag_grants",
+} as const;
+
+/** Ligne vivante insérée, colonnes communes aux deux côtés. */
+async function inserer(
+  r: Requetes,
+  table: keyof typeof INSERTION_ACCES,
+  presentes: ReadonlySet<string>,
+  l: LigneGardee,
+): Promise<void> {
+  const cols = Object.keys(l).filter((c) => presentes.has(c));
+  await r.executer(
+    `${INSERTION_ACCES[table]} (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`,
+    cols.map((c) => l[c]),
+  );
+}
+
+/** Profil réseau imposé des comptes gardés remis à l'état vivant (seule cette clé des réglages) ; un profil inconnu de la configuration remise devient « isolated ». */
+async function reporterProfilsImposes(
+  r: Requetes,
+  s: Schema,
+  vivants: EtatSecurite["profilsImposes"],
+  gardes: ReadonlySet<number>,
+  profils: ReadonlySet<string> | undefined,
+): Promise<void> {
+  if (vivants === null || !s.get("users")?.has("settings_json")) return;
+  const imposes = new Map(vivants.map((v) => [v.id, v.profil]));
+  for (const l of await r.tous<{ id: unknown; settings_json: unknown }>(
+    "SELECT id, settings_json FROM users",
+  )) {
+    const id = nombre(l.id);
+    if (!gardes.has(id)) continue;
+    const reglages = reglagesDepuis(l.settings_json);
+    const actuel =
+      typeof reglages[CLE_PROFIL_IMPOSE] === "string" ? String(reglages[CLE_PROFIL_IMPOSE]).trim() : "";
+    let voulu = imposes.get(id) ?? "";
+    if (voulu && profils !== undefined && !profils.has(voulu)) voulu = "isolated";
+    if (voulu === actuel) continue;
+    if (voulu) reglages[CLE_PROFIL_IMPOSE] = voulu;
+    else delete reglages[CLE_PROFIL_IMPOSE];
+    await r.executer("UPDATE users SET settings_json = ? WHERE id = ?", [reglagesEnJson(reglages), id]);
+  }
+}
+
+/** Administrateurs actifs à mot de passe local (règle de l'invariant, `CLAUSE_MOT_DE_PASSE_LOCAL`), colonnes absentes tenues pour telles. */
 async function compterAdminsLocauxRemis(r: Requetes): Promise<number> {
   const cu = (await lireSchema(r)).get("users") ?? AUCUNE;
   if (!cu.has("is_admin")) return 0;
   const actif = cu.has("suspended_at") ? " AND (suspended_at IS NULL OR suspended_at = 0)" : "";
   const [l] = await r.tous<{ n: unknown }>(
-    `SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND pass_hash <> ? AND pass_hash <> ?${actif}`,
-    [MARQUEUR_SANS_MOT_DE_PASSE, MOT_DE_PASSE_VERROUILLE],
+    `SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND ${CLAUSE_MOT_DE_PASSE_LOCAL}${actif}`,
   );
   return nombre(l?.n);
+}
+
+/** Tables de la base cible où une ligne est plus récente que `ts` (compte, identité, jeton) : une base qui n'est pas une copie plus ancienne ; colonnes absentes ignorées. */
+export async function plusRecentQue(r: Requetes, ts: number): Promise<string[]> {
+  const s = await lireSchema(r);
+  const out: string[] = [];
+  for (const [table, colonne, sql] of [
+    ["users", "created_at", "SELECT 1 AS un FROM users WHERE created_at > ? LIMIT 1"],
+    ["user_identities", "linked_at", "SELECT 1 AS un FROM user_identities WHERE linked_at > ? LIMIT 1"],
+    ["tool_tokens", "created_at", "SELECT 1 AS un FROM tool_tokens WHERE created_at > ? LIMIT 1"],
+    ["oauth_tokens", "created_at", "SELECT 1 AS un FROM oauth_tokens WHERE created_at > ? LIMIT 1"],
+  ] as const)
+    if (s.get(table)?.has(colonne) && (await r.tous(sql, [ts])).length > 0) out.push(table);
+  return out;
 }
 
 /** Sur la base remise, dans la transaction de l'appelant : report de l'état vivant `e` (s'il a pu être lu), puis coupure des sessions ; le schéma n'est jamais touché ; rend le bilan. */
@@ -327,18 +510,30 @@ export async function reporterSecurite(
   e: EtatSecurite | null,
   ts: number,
   op: Operateur | null,
+  options: OptionsReport = {},
 ): Promise<BilanReport> {
   let bilan = { reportes: 0, verrouilles: [] as string[] };
   if (e !== null) {
     const s = await lireSchema(r);
     if (!s.has("users")) throw new Error("table users absente : ce n'est pas une base d'Elpis");
-    const { gardes, verrouilles } = await reporterComptes(r, s, e, ts);
-    await reporterJetons(r, s, e, ts);
+    const { gardes, verrouilles, sansSuspension } = await reporterComptes(r, s, e, ts);
+    await reporterJetons(r, s, e, ts, sansSuspension);
     const deGarde = (l: LigneGardee): boolean => gardes.has(nombre(l["user_id"]));
     await remettreTable(r, s, "user_identities", e.identites, deGarde);
     await remettreTable(r, s, "auth_prelinks", e.rattachementsPrepares, deGarde);
     await remettreTable(r, s, "auth_provider_state", e.fournisseurs);
     await reporterAdhesions(r, s, e.adhesions, gardes);
+    const groupesRemis = new Set(
+      s.has("groups")
+        ? (await r.tous<{ id: unknown }>("SELECT id FROM groups")).map((g) => nombre(g.id))
+        : [],
+    );
+    const groupesGardes = new Set((e.groupes ?? []).filter((g) => groupesRemis.has(g)));
+    const garde: Garde = (type, id) =>
+      type === "user" ? gardes.has(nombre(id)) : type === "group" && groupesGardes.has(nombre(id));
+    await reporterPolitiques(r, s, e.politiquesMoteurs, garde);
+    await reporterAccesCollections(r, s, e.accesCollections, garde);
+    await reporterProfilsImposes(r, s, e.profilsImposes, gardes, options.profilsReseau);
     bilan = { reportes: gardes.size, verrouilles };
   }
   await couperSessions(r, ts, op);
@@ -349,7 +544,7 @@ export async function reporterSecurite(
 async function pousserCompteur(
   r: Requetes,
   s: Schema,
-  table: "users" | TableRemise,
+  table: "users" | "tool_tokens" | "oauth_tokens" | TableRemise,
   maxId: number,
 ): Promise<void> {
   if (maxId <= 0) return;

@@ -14,6 +14,7 @@ import { MIGRATIONS_DU_CORE } from "../base";
 import type { Journal } from "../journal";
 import { portsMigrationsDuCore } from "../secrets/reprise";
 import { estErreurOs, texteErreurPy } from "./erreurs-os";
+import { fermerToutesSessions } from "./securite-gardee";
 import {
   AGENT_RUN_DIR,
   comptesDesSandboxes,
@@ -154,7 +155,7 @@ function estRefusEcriture(e: unknown): boolean {
   );
 }
 
-/** `_restore_from_zip` : `(restaurés, erreurs, base_remplacée)` ; une archive illisible lève `ErreurZip`. */
+/** `_restore_from_zip` : `(restaurés, erreurs, base_remplacée)` ; base remplacée : toutes les sessions coupées (coupure globale de config.json) ; une archive illisible lève `ErreurZip`. */
 export async function restoreFromZip(
   zipPath: string,
   scope: Portee,
@@ -303,5 +304,6 @@ export async function restoreFromZip(
   } finally {
     await zf.fermer();
   }
+  if (dbReplaced) await fermerToutesSessions(config.CONFIG_JSON_PATH);
   return { restored, errors, dbReplaced };
 }

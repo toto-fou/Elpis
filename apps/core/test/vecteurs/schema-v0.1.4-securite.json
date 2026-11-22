@@ -1,0 +1,707 @@
+{
+  "source": "git show v0.1.4:packages/db/src/schema.gen.ts (tables vues par la sécurité gardée)",
+  "tables": [
+    {
+      "name": "users",
+      "cols": [
+        {
+          "name": "id",
+          "type": "id"
+        },
+        {
+          "name": "username",
+          "type": "text",
+          "null": false,
+          "unique": true
+        },
+        {
+          "name": "pass_salt",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "pass_hash",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "is_admin",
+          "type": "int",
+          "default": 0
+        },
+        {
+          "name": "avatar",
+          "type": "text"
+        },
+        {
+          "name": "settings_json",
+          "type": "text"
+        },
+        {
+          "name": "must_change_pwd",
+          "type": "int",
+          "default": 0
+        },
+        {
+          "name": "session_min_ts",
+          "type": "real",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "name": "oauth_clients",
+      "cols": [
+        {
+          "name": "client_id",
+          "type": "text",
+          "primary": true
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "null": false,
+          "default": "dcr"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "secret_hash",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "auth_method",
+          "type": "text",
+          "null": false,
+          "default": "none"
+        },
+        {
+          "name": "redirect_uris",
+          "type": "text",
+          "null": false,
+          "default": "[]"
+        },
+        {
+          "name": "metadata",
+          "type": "text",
+          "null": false,
+          "default": "{}"
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "fetched_at",
+          "type": "real"
+        },
+        {
+          "name": "last_used_at",
+          "type": "real"
+        }
+      ]
+    },
+    {
+      "name": "tool_tokens",
+      "cols": [
+        {
+          "name": "id",
+          "type": "id"
+        },
+        {
+          "name": "user_id",
+          "type": "int",
+          "null": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "token_hash",
+          "type": "text",
+          "null": false,
+          "unique": true
+        },
+        {
+          "name": "hint",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "families",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "expires_at",
+          "type": "real"
+        },
+        {
+          "name": "last_used_at",
+          "type": "real"
+        }
+      ],
+      "fks": [
+        {
+          "cols": [
+            "user_id"
+          ],
+          "table": "users",
+          "refCols": [
+            "id"
+          ],
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_tool_tokens_user",
+          "cols": [
+            "user_id",
+            "kind"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "oauth_codes",
+      "cols": [
+        {
+          "name": "code_hash",
+          "type": "text",
+          "primary": true
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "user_id",
+          "type": "int",
+          "null": false
+        },
+        {
+          "name": "grant_id",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "redirect_uri",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "code_challenge",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "resource",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "families",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "expires_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "used_at",
+          "type": "real"
+        }
+      ],
+      "fks": [
+        {
+          "cols": [
+            "user_id"
+          ],
+          "table": "users",
+          "refCols": [
+            "id"
+          ],
+          "onDelete": "CASCADE"
+        },
+        {
+          "cols": [
+            "client_id"
+          ],
+          "table": "oauth_clients",
+          "refCols": [
+            "client_id"
+          ],
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_oauth_codes_expires",
+          "cols": [
+            "expires_at"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "oauth_tokens",
+      "cols": [
+        {
+          "name": "id",
+          "type": "id"
+        },
+        {
+          "name": "grant_id",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "user_id",
+          "type": "int",
+          "null": false
+        },
+        {
+          "name": "client_id",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "token_hash",
+          "type": "text",
+          "null": false,
+          "unique": true
+        },
+        {
+          "name": "families",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "resource",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "expires_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "used_at",
+          "type": "real"
+        },
+        {
+          "name": "revoked_at",
+          "type": "real"
+        },
+        {
+          "name": "last_used_at",
+          "type": "real"
+        }
+      ],
+      "fks": [
+        {
+          "cols": [
+            "user_id"
+          ],
+          "table": "users",
+          "refCols": [
+            "id"
+          ],
+          "onDelete": "CASCADE"
+        },
+        {
+          "cols": [
+            "client_id"
+          ],
+          "table": "oauth_clients",
+          "refCols": [
+            "client_id"
+          ],
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_oauth_tokens_grant",
+          "cols": [
+            "grant_id"
+          ]
+        },
+        {
+          "name": "idx_oauth_tokens_user",
+          "cols": [
+            "user_id",
+            "kind"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "revoked_sessions",
+      "cols": [
+        {
+          "name": "sid",
+          "type": "text",
+          "primary": true
+        },
+        {
+          "name": "user_id",
+          "type": "int"
+        },
+        {
+          "name": "revoked_at",
+          "type": "real",
+          "null": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_revoked_sessions_at",
+          "cols": [
+            "revoked_at"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "groups",
+      "cols": [
+        {
+          "name": "id",
+          "type": "id"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "null": false,
+          "unique": true
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        }
+      ]
+    },
+    {
+      "name": "user_groups",
+      "cols": [
+        {
+          "name": "user_id",
+          "type": "int",
+          "null": false
+        },
+        {
+          "name": "group_id",
+          "type": "int",
+          "null": false
+        }
+      ],
+      "pk": [
+        "user_id",
+        "group_id"
+      ],
+      "fks": [
+        {
+          "cols": [
+            "group_id"
+          ],
+          "table": "groups",
+          "refCols": [
+            "id"
+          ],
+          "onDelete": "CASCADE"
+        },
+        {
+          "cols": [
+            "user_id"
+          ],
+          "table": "users",
+          "refCols": [
+            "id"
+          ],
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_user_groups_group",
+          "cols": [
+            "group_id"
+          ]
+        },
+        {
+          "name": "idx_user_groups_user",
+          "cols": [
+            "user_id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "llm_engine_policies",
+      "cols": [
+        {
+          "name": "principal_type",
+          "type": "text",
+          "null": false,
+          "check": "principal_type IN ('user', 'group')"
+        },
+        {
+          "name": "principal_id",
+          "type": "int",
+          "null": false
+        },
+        {
+          "name": "engine_keys",
+          "type": "text"
+        },
+        {
+          "name": "can_manage_models",
+          "type": "int"
+        },
+        {
+          "name": "updated_at",
+          "type": "real",
+          "null": false
+        }
+      ],
+      "pk": [
+        "principal_type",
+        "principal_id"
+      ]
+    },
+    {
+      "name": "rag_collections",
+      "cols": [
+        {
+          "name": "id",
+          "type": "text",
+          "primary": true
+        },
+        {
+          "name": "owner_user_id",
+          "type": "int",
+          "null": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "visibility",
+          "type": "text",
+          "null": false,
+          "default": "private",
+          "check": "visibility IN ('private', 'groups', 'all')"
+        },
+        {
+          "name": "allow_source_open",
+          "type": "int",
+          "null": false,
+          "default": 0
+        },
+        {
+          "name": "embed_model",
+          "type": "text",
+          "null": false,
+          "default": ""
+        },
+        {
+          "name": "embed_dim",
+          "type": "int",
+          "null": false,
+          "default": 0
+        },
+        {
+          "name": "chunk_json",
+          "type": "text",
+          "null": false,
+          "default": "{}"
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "null": false,
+          "default": "ready"
+        },
+        {
+          "name": "doc_count",
+          "type": "int",
+          "null": false,
+          "default": 0
+        },
+        {
+          "name": "chunk_count",
+          "type": "int",
+          "null": false,
+          "default": 0
+        },
+        {
+          "name": "bytes",
+          "type": "int",
+          "null": false,
+          "default": 0
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "updated_at",
+          "type": "real",
+          "null": false
+        },
+        {
+          "name": "meta_json",
+          "type": "text",
+          "null": false,
+          "default": "{}"
+        }
+      ],
+      "unique": [
+        [
+          "owner_user_id",
+          "name"
+        ]
+      ],
+      "fks": [
+        {
+          "cols": [
+            "owner_user_id"
+          ],
+          "table": "users",
+          "refCols": [
+            "id"
+          ],
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_rag_collections_visibility",
+          "cols": [
+            "visibility"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rag_grants",
+      "cols": [
+        {
+          "name": "collection_id",
+          "type": "text",
+          "null": false
+        },
+        {
+          "name": "principal_type",
+          "type": "text",
+          "null": false,
+          "check": "principal_type IN ('user', 'group')"
+        },
+        {
+          "name": "principal_id",
+          "type": "int",
+          "null": false
+        },
+        {
+          "name": "created_at",
+          "type": "real",
+          "null": false
+        }
+      ],
+      "pk": [
+        "collection_id",
+        "principal_type",
+        "principal_id"
+      ],
+      "fks": [
+        {
+          "cols": [
+            "collection_id"
+          ],
+          "table": "rag_collections",
+          "refCols": [
+            "id"
+          ],
+          "onDelete": "CASCADE"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_rag_grants_principal",
+          "cols": [
+            "principal_type",
+            "principal_id"
+          ]
+        }
+      ]
+    }
+  ]
+}

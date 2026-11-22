@@ -229,7 +229,7 @@ export function parseClientTokenFamilies(envVal: unknown, cfgVal: unknown): Reco
   const parJeton = Object.create(null) as Record<string, string[]>;
   if (typeof envVal === "string" && stripPy(envVal)) {
     for (const partie of envVal.split(",")) {
-      const bouts = partie.split(":").map(stripPy);
+      const bouts = partie.split(":").map((x) => stripPy(x));
       const [jeton = "", , spec = ""] = bouts;
       if (bouts.length >= 3 && jeton && spec) poserCle(parJeton, jeton, familles(spec));
     }

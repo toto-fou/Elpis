@@ -26,7 +26,6 @@ import {
   texteNet,
   texteOu,
   veritePy,
-  sansBarresFinales,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { configView } from "@elpis/config";
@@ -50,7 +49,7 @@ const HOTE_GIT =
 /** Serveur Git saisi par l'administrateur, en forme : `hôte[:port]` (tout le serveur) ou `hôte[:port]/organisation[/…]`, hôte sans la casse et chemin tel quel, `.git` et barres des bords retirés ; `null` s'il ne se lit pas. */
 export function serveurGitCanonique(texte: string): string | null {
   let t = stripPy(texte).replace(/^https?:\/\//iu, "");
-  t = sansBarresFinales(t);
+  t = rstripPy(t, "/");
   if (t.toLowerCase().endsWith(".git")) t = t.slice(0, -4);
   const [brutHote = "", ...segments] = t.split("/");
   const hote = brutHote.toLowerCase();

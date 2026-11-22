@@ -139,7 +139,7 @@ export function parseTags(brut: unknown): string[] {
   if (typeof brut === "string")
     return brut
       .split(",")
-      .map(stripPy)
+      .map((x) => stripPy(x))
       .filter((t) => t);
   if (Array.isArray(brut)) return brut.map((t) => stripPy(strFrontmatter(t))).filter((t) => t);
   return [];

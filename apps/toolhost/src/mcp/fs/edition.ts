@@ -405,12 +405,17 @@ export function decalerIndent(s: string, op: string, prefixe: string): string {
 export function candidatProche(texte: string, ancien: string): string {
   try {
     const aiguilles = splitlinesPy(ancien)
-      .map(stripPy)
+      .map((x) => stripPy(x))
       .filter((l) => l)
       .sort((a, b) => longueurPy(b) - longueurPy(a));
     if (!aiguilles.length) return "";
     const lignes = splitlinesPy(texte);
-    const meilleur = getCloseMatches(aiguilles[0] as string, lignes.map(stripPy), 1, 0.6);
+    const meilleur = getCloseMatches(
+      aiguilles[0] as string,
+      lignes.map((x) => stripPy(x)),
+      1,
+      0.6,
+    );
     if (!meilleur.length) return "";
     const idx = lignes.findIndex((l) => stripPy(l) === meilleur[0]);
     const [lo, hi] = [Math.max(0, idx - 2), Math.min(lignes.length, idx + 3)];

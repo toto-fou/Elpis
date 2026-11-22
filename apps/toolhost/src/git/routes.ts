@@ -563,7 +563,7 @@ export function routesGit(ctx: ContexteFichiers): DefinitionRoute[] {
       const rr = await git(d, ["branch", "-r", "--format=%(refname:short)"]);
       const remote = splitlinesPy(rr.stdout)
         .filter((b) => stripPy(b) && !b.includes("HEAD"))
-        .map(stripPy);
+        .map((x) => stripPy(x));
       return { current, local, remote };
     }),
     route("GET", "log", async (q, uid) => {

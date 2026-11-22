@@ -3,7 +3,7 @@
 import { Agent, request } from "undici";
 import type { Dispatcher } from "undici";
 
-import { sansBarresFinales } from "@elpis/commun";
+import { rstripPy } from "@elpis/commun";
 
 import { getServiceToken, getServiceUrl } from "./client";
 import { isolationIndisponible } from "./extracteur";
@@ -83,7 +83,7 @@ async function appeler(
   delaiMs: number,
   signal: AbortSignal | undefined,
 ): Promise<{ r: Dispatcher.ResponseData; agent: Agent }> {
-  const base = sansBarresFinales(getServiceUrl());
+  const base = rstripPy(getServiceUrl(), "/");
   if (base === "") throw INDISPONIBLE();
   const jeton = getServiceToken();
   const agent = new Agent({ connect: { timeout: CONNEXION_MS } });

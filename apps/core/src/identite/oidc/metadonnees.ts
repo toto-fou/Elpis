@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/oidc/metadonnees.ts — document de découverte d'un fournisseur OIDC vérifié point par point : émetteur exact, points d'accès en https sur l'origine de l'émetteur, seules les clés utiles gardées. */
+import { rstripPy } from "@elpis/commun";
 import type { ServerMetadata } from "openid-client";
 
 /** Points visités par le serveur, exigés sur la même origine que l'émetteur (le point d'autorisation, visité par le navigateur, doit seulement être en https). */
@@ -79,5 +80,5 @@ export function lireMetadonnees(doc: unknown, issuer: string): VerdictMetadonnee
 
 /** Adresse du document de découverte d'un émetteur. */
 export function adresseDecouverte(issuer: string): string {
-  return `${issuer.replace(/\/+$/u, "")}/.well-known/openid-configuration`;
+  return `${rstripPy(issuer, "/")}/.well-known/openid-configuration`;
 }

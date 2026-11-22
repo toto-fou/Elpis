@@ -2,7 +2,7 @@
 /** apps/core/src/rag/qdrant.ts — côté Qdrant de l'indexation : port du client, effacements (collection de toutes générations, document, génération) et marqueurs de reprise quand Qdrant est injoignable. */
 import { closeSync, constants, openSync, readdirSync, unlinkSync } from "node:fs";
 
-import { sansBarresFinales } from "@elpis/commun";
+import { rstripPy } from "@elpis/commun";
 import { configRag } from "@elpis/config";
 import { ClientQdrant, ErreurRag } from "@elpis/rag";
 import type { Distance, InfoCollection, OptionsQdrant, PointAEcrire } from "@elpis/rag";
@@ -56,7 +56,7 @@ export function clientQdrant(
   options: Pick<OptionsQdrant, "delaiMs" | "fetch"> = {},
 ): ClientQdrant {
   const conf = configRag();
-  const cleApi = sansBarresFinales(url) === sansBarresFinales(conf.qdrant_url) ? conf.qdrant_api_key : "";
+  const cleApi = rstripPy(url, "/") === rstripPy(conf.qdrant_url, "/") ? conf.qdrant_api_key : "";
   return new ClientQdrant({ ...options, url, cleApi, surRefusAcces: journaliserRefus });
 }
 

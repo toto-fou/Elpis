@@ -41,7 +41,7 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
-- **RAG: URL handling no longer slows down on unusual input.**
+- **URL and path handling no longer slows down on unusual input.**
 - **Security journal: a lost signature is now loud.** On an installation (`elpis` sets
   `ELPIS_AUDIT_KEY_REQUIRED=1` with the journal folder, for the services and the command line), a
   missing, unreadable or too short HMAC key makes each process write one `[CRITICAL]` line and one

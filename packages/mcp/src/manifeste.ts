@@ -14,7 +14,6 @@ import {
   urlsplit,
   urlunsplit,
   veritePy,
-  sansBarresFinales,
 } from "@elpis/commun";
 import { config, parseJsonPy } from "@elpis/config";
 import type { ValidateFunction } from "ajv/dist/2020.js";
@@ -182,7 +181,7 @@ export function substitute(
 
 /** `http://h:8765/mcp/git` → `http://h:8765` : retire un segment de famille connue puis le montage (`/mcp` ou `/sse`). */
 export function stripMcpPath(url: string | null | undefined): string {
-  const u = sansBarresFinales(stripPy(url || ""));
+  const u = rstripPy(stripPy(url || ""), "/");
   if (!u) return "";
   const parts = urlsplit(u);
   if (!parts.netloc) return u;
@@ -195,7 +194,7 @@ export function stripMcpPath(url: string | null | undefined): string {
     }
     break;
   }
-  return sansBarresFinales(
+  return rstripPy(
     urlunsplit({
       scheme: parts.scheme,
       netloc: parts.netloc,
@@ -203,6 +202,7 @@ export function stripMcpPath(url: string | null | undefined): string {
       query: "",
       fragment: "",
     }),
+    "/",
   );
 }
 
@@ -366,7 +366,7 @@ export class Manifest {
 
   /** Origine de l'hôte d'outils : descripteur d'hôte, sinon dérivée d'une entrée toolhost réseau. */
   hostBaseUrl(key: unknown = ""): string {
-    const url = sansBarresFinales(texteNet(lire(this.host(key), "url")));
+    const url = rstripPy(texteNet(lire(this.host(key), "url")), "/");
     if (url) return stripMcpPath(url);
     for (const e of this.toolhosts()) if (e.isNetwork) return stripMcpPath(e.url);
     return "";
@@ -740,7 +740,7 @@ function toolhostHerite(warnings: string[]): Dict {
       `sans mcp.json, l'hôte d'outils ne sert plus les familles du compte (${compte.join(", ")}) : ./elpis configure écrit mcp.json, qui les fait servir par main`,
     );
   const entry: Dict = {
-    type: url ? (sansBarresFinales(url).endsWith("/sse") ? TYPE_SSE : TYPE_HTTP) : TYPE_STDIO,
+    type: url ? (rstripPy(url, "/").endsWith("/sse") ? TYPE_SSE : TYPE_HTTP) : TYPE_STDIO,
     description: "Outils intégrés (service local d'outils)",
     "x-elpis": {
       role: ROLE_TOOLHOST,
@@ -804,7 +804,7 @@ function appliquerSurchargesEnv(
   const url = stripPy(process.env["LOCAL_MCP_URL"] || "");
   if (url && ths.length > 0) {
     const base = stripMcpPath(url);
-    const segs = urlsplit(sansBarresFinales(url))
+    const segs = urlsplit(rstripPy(url, "/"))
       .path.split("/")
       .filter((x) => x !== "");
     const montage = segs.includes("sse") ? "/sse" : "/mcp";

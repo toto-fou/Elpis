@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/aides.ts — aides des routes de comptes : politique de mot de passe, garde cross-site, images, cookie effacé, URL de base. */
 import { enteteEffacement, netlocUrl } from "@elpis/auth";
-import { getPy, HttpError, intPy, stripPy, veritePy } from "@elpis/commun";
+import { getPy, HttpError, intPy, rstripPy, stripPy, veritePy } from "@elpis/commun";
 import type { AttributsCookie } from "@elpis/config";
 import type { FastifyRequest } from "fastify";
 import { entete } from "@elpis/http";
@@ -80,7 +80,7 @@ export function enteteSuppressionCookie(a: AttributsCookie, maintenant: number):
 export function urlDeBase(requete: FastifyRequest): string {
   const hote =
     entete(requete, "host") ?? `${requete.socket.localAddress ?? ""}:${requete.socket.localPort ?? ""}`;
-  const brut = `${requete.protocol}://${hote}`.replace(/\/+$/u, "");
+  const brut = rstripPy(`${requete.protocol}://${hote}`, "/");
   if (!BASE_SURE.test(brut)) throw new HttpError(400, "Hôte invalide.");
   return brut;
 }

@@ -22,7 +22,6 @@ import {
   strPy,
   stripPy,
   veritePy,
-  sansBarresAuxBouts,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
@@ -474,7 +473,7 @@ export function globMatch(rel: string, motif: string): boolean {
   let pat = stripPy(motif);
   while (pat.startsWith("./")) pat = pat.slice(2);
   if (!pat.includes("/")) return fnmatchPy(rel.slice(rel.lastIndexOf("/") + 1), pat) || fnmatchPy(rel, pat);
-  const psegs = sansBarresAuxBouts(pat)
+  const psegs = stripPy(pat, "/")
     .split("/")
     .filter((s) => s !== "");
   const rsegs = rel.split("/").filter((s) => s !== "");

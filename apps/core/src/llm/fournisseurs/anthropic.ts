@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/llm/fournisseurs/anthropic.ts — adaptateur natif de l'API Messages d'Anthropic : traduction OpenAI → Anthropic, flux SSE normalisé vers les mêmes rappels. */
-import { ErreurPython, intPy, pyJsonDumps, stripPy, strPy, veritePy } from "@elpis/commun";
+import { ErreurPython, intPy, pyJsonDumps, rstripPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config, parseJsonPy } from "@elpis/config";
 
 import { journal } from "../../journal";
 import { estDict } from "../../python";
 import type { Dict } from "../../python";
-import { avecFlux, CancelledError, estAnnulation, getLlmClient, sansBarresFinales } from "../client-http";
+import { avecFlux, CancelledError, estAnnulation, getLlmClient } from "../client-http";
 import type { ReponseFlux } from "../client-http";
 import { getPy, iterExige, mettreAJourPy } from "../dict-py";
 import { measureThinkingTokens } from "../jetons-raisonnement";
@@ -51,7 +51,7 @@ export type CibleAnthropic = Pick<CibleTransport, "baseUrl" | "apiKey" | "model"
 
 /** Racine de l'API (sans `/v1` ni `/v1/messages`). */
 export function apiRoot(target: CibleAnthropic): string {
-  const base = sansBarresFinales(stripPy(target.baseUrl || "https://api.anthropic.com"));
+  const base = rstripPy(stripPy(target.baseUrl || "https://api.anthropic.com"), "/");
   for (const suffixe of ["/v1/messages", "/v1"])
     if (base.endsWith(suffixe)) return base.slice(0, -suffixe.length);
   return base;

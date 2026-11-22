@@ -397,7 +397,7 @@ def test_install_masque_les_secrets_et_rappelle_les_drapeaux():
     assert r.stdout == ("--llm-url http://h:8000 --llm-api-key ******** --cloud-api-key=******** "
                         "--admin-password ******** --yes")
     assert '$(args_masques "$@")' in src and "$*" not in src.split("# ── Journal", 1)[1].split("exec >", 1)[0]
-    assert re.search(r'^conseils="\$\(python3 "\$ROOT/deploy/configure\.py" --conseils-moteur', src, re.M)
+    assert re.search(r'^conseils="\$\(bash "\$ROOT/elpis" configure --conseils-moteur', src, re.M)
     r = subprocess.run(["bash", str(REPO / "install.sh"), "--dry-run", "--yes", "--", "--llm-api-key", CLE],
                        capture_output=True, text=True, timeout=60, cwd=str(REPO), stdin=subprocess.DEVNULL)
     assert CLE not in r.stdout + r.stderr and "./elpis configure --yes --llm-api-key ********" in r.stdout

@@ -154,8 +154,16 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 venv), installs, configures with the wizard's answers, then starts
 (systemd services or `./elpis start`). It is idempotent: running it again
 redoes only what is missing, and the wizard then picks up the configuration in
-place. Everything is logged in `logs/install.log`, except the wizard screens
-and passwords (written to the terminal only).
+place. Everything is logged, except the wizard screens and passwords (written
+to the terminal only): under `sudo`, in `/var/log/elpis-install.log`; otherwise
+in `logs/install.log`, or `.install.log` at the root of the installation when
+`logs/` belongs to the services (one account per service). The log is a regular
+file of the account that runs the installer, `0600`, in a folder no other
+account can write; a link or another file at its place disables it. With one
+account per service, `sudo ./install.sh` asks its questions in plain lines
+(its wizard would read `config.json`, written by the console) and takes no
+decision from `config.json`; the configuration wizard then runs under the
+console's account (`./elpis configure`).
 `./install.sh --dry-run` prints the plan and does nothing.
 
 **Permissions.** From a normal account: `sudo -v` at launch (a single
@@ -237,7 +245,7 @@ referenced by `mcp.json`), `user_db/.rag_service_token`. Each answer can be give
 `ELPIS_CFG_ADMIN_PASSWORD`…); `--yes` asks no questions. Secrets
 go through these variables (the wizard passes them this way): an option such as
 `--llm-api-key` is visible in the process list. No key appears
-in the summary, in the logs (`logs/install.log` masks them) or in `export-sh`.
+in the summary, in the logs (the installer's log masks them) or in `export-sh`.
 
 An existing configuration stays valid as is: without `engine`
 (llama.cpp), with `ip` and `port` only, or with a full
@@ -257,7 +265,7 @@ with Elpis. MariaDB/MySQL is no longer supported (see
 | `install.sh` choice | What is done |
 |---|---|
 | `sqlite` | nothing to install |
-| `postgres-local` | `postgresql` package, `elpis` role and database (UTF-8, `template0`), `unaccent` extension, random password in `user_db/.db_password` |
+| `postgres-local` | `postgresql` package, `elpis` role and database (UTF-8, `template0`), `unaccent` extension, random password in `user_db/.db_password` (48 hexadecimal digits, read and created through `deploy/droits.py` without following any link; any other content is refused; given to `psql` as a variable on its standard input, never in the SQL text) |
 | `external` | `./elpis configure` questions: host, port, database, user, password, TLS of a PostgreSQL server |
 
 Offline (`--offline`), no database server is in the package: only

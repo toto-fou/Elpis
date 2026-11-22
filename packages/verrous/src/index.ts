@@ -19,3 +19,4 @@ export type { OptionsVerrou } from "./verrou";
 export { brancherJournal } from "./ports";
 export type { FabriqueJournal, Journal } from "./ports";
 export { SYSTEMES_DISTANTS, systemesDistants } from "./distants";
+export { balayerVerrousPerimes, inodesVerrouilles, JOUR_S, retirerVerrousLibres } from "./balayage";

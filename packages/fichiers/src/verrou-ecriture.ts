@@ -2,10 +2,10 @@
 /** packages/fichiers/src/verrou-ecriture.ts — verrou d'écriture PAR FICHIER de l'éditeur et des outils fs (sandbox/file_lock.py) : `flock` sur `<APP_SANDBOX_DIR>/.write_locks/<sha1>.lock`, le même que les services Python, fail-open borné. */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { closeSync, constants, mkdirSync, openSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync } from "node:fs";
 import path from "node:path";
 
-import { journalDe, modePartage, realpathPy } from "@elpis/commun";
+import { journalDe, realpathPy } from "@elpis/commun";
 import { config } from "@elpis/config";
 
 export const DELAI_VERROU_S = 3.0;
@@ -77,7 +77,7 @@ function flockSurDescripteur(fd: number, delaiS: number, signal?: AbortSignal): 
   });
 }
 
-/** `file_write_lock` : `flock` exclusif sur le sidecar du chemin RÉSOLU `chemin` (dossier ouvert au groupe des données : l'entretien de main retire les sidecars périmés) ; `obtenu` faux en fail-open (désactivé, indisponible, délai dépassé). */
+/** `file_write_lock` : `flock` exclusif sur le sidecar du chemin RÉSOLU `chemin` (dossier et sidecar à l'hôte d'outils seul, jamais au travers d'un lien) ; `obtenu` faux en fail-open (désactivé, indisponible, délai dépassé). */
 export async function prendreVerrouEcriture(
   chemin: string,
   o: { delaiS?: number; signal?: AbortSignal } = {},
@@ -87,8 +87,14 @@ export async function prendreVerrouEcriture(
   let obtenu = false;
   if (base !== null) {
     try {
-      mkdirSync(base, { recursive: true, mode: modePartage(0o777) });
-      fd = openSync(path.join(base, lockName(chemin)), constants.O_CREAT | constants.O_RDWR, 0o644);
+      mkdirSync(base, { recursive: true, mode: 0o700 });
+      if (!lstatSync(base).isDirectory()) throw new Error(`${base} : pas un dossier`);
+      fd = openSync(
+        path.join(base, lockName(chemin)),
+        constants.O_CREAT | constants.O_RDWR | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+        0o600,
+      );
+      if (!fstatSync(fd).isFile()) throw new Error(`${base} : sidecar qui n'est pas un fichier`);
       obtenu = await flockSurDescripteur(fd, o.delaiS ?? DELAI_VERROU_S, o.signal);
     } catch (e) {
       journalDe("sandbox").debug({ err: e }, "[file_lock] verrou d'écriture indisponible");

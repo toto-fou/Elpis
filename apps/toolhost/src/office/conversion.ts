@@ -22,16 +22,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { bwrap, which } from "@elpis/bac";
-import {
-  ErreurPython,
-  intPy,
-  journalDe,
-  modePartage,
-  realpathPy,
-  splitlinesPy,
-  stripPy,
-  strPy,
-} from "@elpis/commun";
+import { ErreurPython, intPy, journalDe, realpathPy, splitlinesPy, stripPy, strPy } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 
 const log = journalDe("office");
@@ -165,7 +156,7 @@ function veriteTexte(x: unknown, defaut: string): string {
   return x === null || x === undefined || x === false || x === "" || x === 0 ? defaut : strPy(x);
 }
 
-const PROFILE_VERSION = "1";
+const PROFILE_VERSION = "2";
 const REGISTRY_XCU = `<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
@@ -218,11 +209,11 @@ export function dossierVerrous(): string {
   return racine ? path.join(racine, "office_locks") : "/tmp/elpis_office_locks";
 }
 
-/** Dossier des verrous en 0700 (0770 sous le groupe des données : l'élagage du cache par main y cherche les clés en conversion). */
+/** Dossier des verrous en 0700 : l'élagage du cache, fait par cet hôte, y cherche les clés en conversion. */
 function dossierPret(d: string): boolean {
   try {
     mkdirSync(d, { recursive: true });
-    chmodSync(d, modePartage(0o700));
+    chmodSync(d, 0o700);
     return true;
   } catch (e) {
     log.warn(`[office] dossier de verrous ${d} inutilisable (${(e as Error).message})`);

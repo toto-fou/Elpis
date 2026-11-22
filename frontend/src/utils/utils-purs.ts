@@ -88,10 +88,6 @@ export function parsePath(s: unknown): AnalyseChemin | null {
   return resultat();
 }
 
-export function looksLikePath(s: unknown): boolean {
-  return !!parsePath(s);
-}
-
 /** Durée lisible en secondes entières : « 42 s », « 3 min 07 s », « 1 h 04 min » ; sous la seconde selon `opts`. */
 export function fmtElapsed(sec: unknown, opts?: OptionsDuree | null): string {
   const raw = Math.max(0, Number(sec) || 0);

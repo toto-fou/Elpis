@@ -125,11 +125,12 @@ export function configurerAnalyseur(analyseur: Analyseur, purifier: (html: unkno
   };
   renderer.codespan = (jeton: string | JetonCode): string => {
     const brut = typeof jeton === "string" ? jeton : (jeton.text ?? "");
-    const chemin = parsePath(brut);
-    // Chemin affiché sans /work ; la racine reste un simple texte (rien à ouvrir).
-    if (!chemin) return `<code>${escapeHtml(brut)}</code>`;
-    if (!chemin.path) return "<code>/</code>";
-    return `<code class="elpis-path-link" title="Ouvrir dans l'éditeur">${escapeHtml(retirerPrefixeWork(brut.trim()))}</code>`;
+    // Chemin affiché sans /work, celui écrit gardé pour le clic ; /work seul reste tel quel (rien à ouvrir).
+    if (!parsePath(brut)?.path) return `<code>${escapeHtml(brut)}</code>`;
+    const ecrit = brut.trim();
+    const affiche = retirerPrefixeWork(ecrit);
+    const source = affiche === ecrit ? "" : ` data-chemin="${escapeHtml(ecrit)}"`;
+    return `<code class="elpis-path-link"${source} title="Ouvrir dans l'éditeur">${escapeHtml(affiche)}</code>`;
   };
   analyseur.use({ renderer, hooks: { postprocess: (html: string) => purifier(html) } });
 }

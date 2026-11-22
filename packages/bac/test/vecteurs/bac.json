@@ -8477,9 +8477,9 @@
         "reportee": "",
         "reessai": false,
         "marqueur": "10001:10001",
-        "dossier_agent": null,
-        "dossier_relais": false,
-        "racine_privee": false
+        "dossier_agent": "0o707",
+        "dossier_relais": true,
+        "racine_privee": true
       }
     },
     {
@@ -8651,9 +8651,9 @@
         "reportee": "",
         "reessai": false,
         "marqueur": "10001:10001",
-        "dossier_agent": null,
-        "dossier_relais": false,
-        "racine_privee": false
+        "dossier_agent": "0o707",
+        "dossier_relais": true,
+        "racine_privee": true
       }
     },
     {

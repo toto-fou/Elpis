@@ -104,7 +104,13 @@ beforeEach(async () => {
       return archiveFactice();
     },
     extract: async (p, d, o) => {
-      agentAppels.push(`extract ${p} ${JSON.stringify(d)} ${o.maxMembers}`);
+      let decrit: unknown = d;
+      if (typeof d === "object" && "flux" in d) {
+        const morceaux: Uint8Array[] = [];
+        for await (const m of d.flux) morceaux.push(m);
+        decrit = { taille: d.taille, octets: Buffer.concat(morceaux).toString() };
+      }
+      agentAppels.push(`extract ${p} ${JSON.stringify(decrit)} ${o.maxMembers}`);
       o.onSent?.(5);
       return extraction(p, d);
     },
@@ -513,14 +519,40 @@ describe("/api/sandbox/snapshots", () => {
       conflicts: 1,
       conflict_paths: ["x".repeat(512)],
     });
-    expect(agentAppels.at(-1)).toContain(
-      `extract  {"chemin":"${path.join(dossier, `${String(meta["id"])}.tar.gz`)}"} 500000`,
-    );
+    expect(agentAppels.at(-1)).toContain(`extract  {"taille":10,"octets":"tgz-octets"} 500000`);
     expect(existsSync(path.join(dossier, ".elpis_restore_incomplete"))).toBe(false);
 
     const d = await requete("DELETE", `/api/sandbox/snapshots/${String(meta["id"])}`);
     expect(d.json()).toEqual({ ok: true, id: meta["id"] });
     expect((await requete("DELETE", `/api/sandbox/snapshots/${String(meta["id"])}`)).statusCode).toBe(404);
+  });
+
+  it("liens dans le dossier du compte (métadonnées, archive, marqueur) : jamais suivis, leurs cibles intactes", async () => {
+    const racine = path.join(tmp, "sb", "_snapshots");
+    const id = "b".repeat(32);
+    mkdirSync(path.join(racine, "autre"), { recursive: true });
+    writeFileSync(path.join(racine, "autre", `${id}.json`), JSON.stringify({ id, name: "autre", ts: 1 }));
+    writeFileSync(path.join(racine, "autre", `${id}.tar.gz`), "archive d'un autre");
+    const dehors = path.join(tmp, "dehors");
+    writeFileSync(dehors, '{"secret": "hors du dossier"}');
+    const dossier = path.join(racine, "hugo");
+    mkdirSync(dossier, { recursive: true });
+    symlinkSync(`../autre/${id}.json`, path.join(dossier, `${id}.json`));
+    symlinkSync(`../autre/${id}.tar.gz`, path.join(dossier, `${id}.tar.gz`));
+    symlinkSync(dehors, path.join(dossier, ".elpis_restore_incomplete"));
+    const l = await requete("GET", "/api/sandbox/snapshots");
+    expect([l.json().items, l.json().last_restore_incomplete]).toEqual([[], {}]);
+    const r = lignes((await requete("POST", `/api/sandbox/snapshots/${id}/restore`)).body);
+    expect(r.at(-1)).toEqual({ event: "error", message: "Snapshot introuvable" });
+    expect(agentAppels.filter((a) => a.startsWith("extract"))).toEqual([]);
+    const c = lignes((await requete("POST", "/api/sandbox/snapshots/create")).body);
+    const neuf = String((c.at(-1)?.["snapshot"] as Dict)["id"]);
+    await requete("POST", `/api/sandbox/snapshots/${neuf}/restore`);
+    expect(existsSync(path.join(dossier, ".elpis_restore_incomplete"))).toBe(false);
+    expect([
+      readFileSync(dehors, "utf-8"),
+      readFileSync(path.join(racine, "autre", `${id}.tar.gz`), "utf-8"),
+    ]).toEqual(['{"secret": "hors du dossier"}', "archive d'un autre"]);
   });
 
   it("dossier du compte sous _snapshots en lien (vers celui d'un autre compte) : refusé (403), jamais suivi", async () => {
@@ -531,7 +563,10 @@ describe("/api/sandbox/snapshots", () => {
     symlinkSync("autre", path.join(racine, "hugo"));
     try {
       const l = await requete("GET", "/api/sandbox/snapshots");
-      expect([l.statusCode, l.json()]).toEqual([403, { detail: "Snapshot path escape" }]);
+      expect([l.statusCode, l.json()]).toEqual([
+        403,
+        { detail: "Instantanés indisponibles. Demandez à votre administrateur." },
+      ]);
       expect(readdirSync(path.join(racine, "autre"))).toEqual(["a.json"]);
     } finally {
       unlinkSync(path.join(racine, "hugo"));

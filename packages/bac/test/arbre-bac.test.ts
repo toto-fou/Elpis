@@ -367,6 +367,44 @@ describe("conteneur d'un compte, un compte par service", () => {
     expect([appels(cli, "rm"), appels(cli, "run"), sb.mountVerified]).toEqual([[], [], false]);
   });
 
+  it("conteneur arrêté en échec, dossier de l'agent refusé : refus avant de rien retirer", async () => {
+    chmodSync(path.join(S, "alice", ".elpis-agent"), 0o777);
+    const { sb, cli } = bac(travail, "alice", travail, 1, [{ motif: ["~ExitCode"], out: "1|false" }]);
+    espions.refus.actif = true;
+    await expect(sb.ensureRunningLocked(ARRETE)).rejects.toThrow(new ExecError(DEMARRAGE_IMPOSSIBLE));
+    expect([appels(cli, "rm"), appels(cli, "run")]).toEqual([[], []]);
+  });
+
+  it("options périmées (étiquette d'utilisateur absente), recréation reportée faute d'image : aucune étape root dans le conteneur", async () => {
+    const cfg = sandboxAdminConfigDepuis({ network_profiles: PROFILS }, () => undefined);
+    const temoin = new UserSandbox(1, "alice", travail, cfg, "isolated", { cli: new FauxCli() });
+    const cli = new FauxCli([
+      { motif: ["container", "inspect"], out: "abc|/elpis-sb-alice|true|elpis/sandbox:1.8.0|x\n" },
+      { motif: ["~.Mounts"], out: `${travail}\n` },
+      {
+        motif: ["~elpis.netcfg"],
+        out: `${netcfgHash(temoin.networkProfile)}|${RUN_SPEC}|${cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}|0|\n`,
+      },
+      { motif: ["image", "inspect"], rc: 1 },
+    ]);
+    const sb = new UserSandbox(1, "alice", travail, cfg, "isolated", {
+      cli,
+      chargerImage: async (image: string) => ({
+        status: "not_found",
+        image,
+        started_at: null,
+        finished_at: null,
+        archive_path: null,
+        error: "archive introuvable",
+        progress_msg: "x",
+      }),
+    });
+    await sb.ensureRunning();
+    expect(sb.recreationReportee).not.toBe("");
+    expect(cli.appels.filter((a) => a[0] === "exec" && a.includes("0:0"))).toEqual([]);
+    expect(avertis.join("\n")).toContain("étape root écartée");
+  });
+
   it("conteneur arrêté : verrou et sockets d'un autre UID retirés avant docker start", async () => {
     const agent = path.join(S, "alice", ".elpis-agent");
     for (const f of ["agent.lock", "agent.sock", "browser-ca.crt"]) writeFileSync(path.join(agent, f), "");
@@ -474,6 +512,7 @@ describe("conteneur d'un compte, un compte par service", () => {
       a.filter((x) => typeof x === "string" && x.startsWith("elpis-sb-")),
     );
     expect([...new Set(noms)]).toEqual(["elpis-sb-.supprime-2-7"]);
+    expect(appels(cli, "run")[0]).toContain("elpis.username=.supprime-2-7");
     expect(cli.appels.some((a) => a.includes("find"))).toBe(true);
   });
 

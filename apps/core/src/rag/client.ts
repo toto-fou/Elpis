@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { strPy, stripPy, veritePy } from "@elpis/commun";
+import { strPy, stripPy, veritePy, sansBarresFinales } from "@elpis/commun";
 import { config, configView, parseJsonPy } from "@elpis/config";
 import { Agent, request } from "undici";
 import type { Dispatcher } from "undici";
@@ -28,10 +28,10 @@ function sectionRag(): Dict {
 /** `RAG_SERVICE_URL` > `config.json › rag.service_url`, sans `/` final. */
 export function getServiceUrl(): string {
   const env = stripPy(process.env["RAG_SERVICE_URL"] ?? "");
-  if (env) return env.replace(/\/+$/, "");
-  return stripPy(
-    strPy(veritePy(lire(sectionRag(), "service_url")) ? lire(sectionRag(), "service_url") : ""),
-  ).replace(/\/+$/, "");
+  if (env) return sansBarresFinales(env);
+  return sansBarresFinales(
+    stripPy(strPy(veritePy(lire(sectionRag(), "service_url")) ? lire(sectionRag(), "service_url") : "")),
+  );
 }
 
 let jetonConfigSignale = false;
@@ -66,7 +66,7 @@ export function isConfigured(): boolean {
 /** Jeton à présenter à `url` : le jeton configuré ne part qu'au service configuré. */
 function jetonPour(url: string | null | undefined, token: string | null | undefined): string {
   if (token !== null && token !== undefined) return token;
-  if (url && url.replace(/\/+$/, "") !== getServiceUrl().replace(/\/+$/, "")) return "";
+  if (url && sansBarresFinales(url) !== sansBarresFinales(getServiceUrl())) return "";
   return getServiceToken();
 }
 
@@ -105,7 +105,7 @@ export async function ping(
   timeoutS = 5.0,
   signal?: AbortSignal,
 ): Promise<unknown> {
-  const cible = (url || getServiceUrl() || "").replace(/\/+$/, "");
+  const cible = sansBarresFinales(url || getServiceUrl() || "");
   if (!cible) throw new RagServiceError("No URL provided.");
   let r: Dispatcher.ResponseData;
   let texte: string;

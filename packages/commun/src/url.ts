@@ -271,3 +271,10 @@ export function quoteLatin1(url: string): string {
   }
   return sortie;
 }
+
+/** `s.rstrip("/")` sans regex (linéaire, pas de retour arrière). */
+export function sansBarresFinales(s: string): string {
+  let fin = s.length;
+  while (fin > 0 && s.charCodeAt(fin - 1) === 0x2f) fin--;
+  return fin === s.length ? s : s.slice(0, fin);
+}

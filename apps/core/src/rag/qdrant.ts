@@ -2,6 +2,7 @@
 /** apps/core/src/rag/qdrant.ts — côté Qdrant de l'indexation : port du client, effacements (collection de toutes générations, document, génération) et marqueurs de reprise quand Qdrant est injoignable. */
 import { closeSync, constants, openSync, readdirSync, unlinkSync } from "node:fs";
 
+import { sansBarresFinales } from "@elpis/commun";
 import { configRag } from "@elpis/config";
 import { ClientQdrant, ErreurRag } from "@elpis/rag";
 import type { Distance, InfoCollection, OptionsQdrant, PointAEcrire } from "@elpis/rag";
@@ -37,7 +38,6 @@ export interface PortQdrantRag {
   supprimerCollection(nom: string, signal?: AbortSignal): Promise<boolean>;
 }
 
-const sansBarre = (u: string): string => u.replace(/\/+$/u, "");
 let dernierRefus = 0;
 
 /** Journal serveur d'un refus d'accès de Qdrant (une ligne par minute) : nomme la variable que l'utilisateur ne voit jamais. */
@@ -56,7 +56,7 @@ export function clientQdrant(
   options: Pick<OptionsQdrant, "delaiMs" | "fetch"> = {},
 ): ClientQdrant {
   const conf = configRag();
-  const cleApi = sansBarre(url) === sansBarre(conf.qdrant_url) ? conf.qdrant_api_key : "";
+  const cleApi = sansBarresFinales(url) === sansBarresFinales(conf.qdrant_url) ? conf.qdrant_api_key : "";
   return new ClientQdrant({ ...options, url, cleApi, surRefusAcces: journaliserRefus });
 }
 

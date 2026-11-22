@@ -332,12 +332,12 @@ equal to the key, if unchanged. A second pass changes nothing.
 (offline medium, the administrators' password manager), away from the backups:
 
 ```bash
-sudo systemd-creds decrypt --name=vault.key /etc/elpis/credentials/vault.key FILE
-sudo systemd-creds decrypt --name=encryption.key /etc/elpis/credentials/encryption.key FILE
-sudo systemd-creds decrypt --name=audit.key /etc/elpis/credentials/audit.key FILE
+sudo sh -c 'umask 077; systemd-creds decrypt --name=vault.key /etc/elpis/credentials/vault.key FILE'
+sudo sh -c 'umask 077; systemd-creds decrypt --name=encryption.key /etc/elpis/credentials/encryption.key FILE'
+sudo sh -c 'umask 077; systemd-creds decrypt --name=audit.key /etc/elpis/credentials/audit.key FILE'
 ```
 
-`FILE` gets the current umask: write it to the offline medium and `chmod 600` it. `service install`
+`umask 077` creates `FILE` readable by root only: write it to the offline medium. `service install`
 prints the command when it creates or takes over one of these keys, `vault setup` and
 `audit setup` always.
 

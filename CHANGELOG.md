@@ -57,8 +57,8 @@ follow [SemVer](https://semver.org/).
   (`LoadCredentialEncrypted=`): main and the console all four, the tool host the signing key only.
   The plaintext files are taken over and removed once the encrypted copy has been read back;
   `vault setup` and `audit setup` write no plaintext file and print the command that copies a key
-  off the machine (`sudo systemd-creds decrypt --name=vault.key /etc/elpis/credentials/vault.key
-  FILE`): backups no longer contain these keys, keep that copy. Commands run with `sudo` (vault,
+  off the machine (`sudo sh -c 'umask 077; systemd-creds decrypt --name=vault.key
+  /etc/elpis/credentials/vault.key FILE'`): backups no longer contain these keys, keep that copy. Commands run with `sudo` (vault,
   secrets, journal, backup, doctor, configure) run in a transient unit of the console
   (`systemd-run`) that gets its keys from systemd; `vault rekey --from` accepts a copy only root
   can read; without `sudo` they say so. Going back to one account or `service remove` puts the

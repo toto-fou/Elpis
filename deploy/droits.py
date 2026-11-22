@@ -707,7 +707,8 @@ def cle(args: list[str]) -> bool:
         raise SystemExit(USAGE)
     magasin = _net(magasin)
     chemin_cle = os.path.join(magasin, nom)
-    copie = f"[elpis] Copie hors de la machine (support hors ligne) : sudo systemd-creds decrypt --name={nom} {chemin_cle} FICHIER"
+    copie = (f"[elpis] Copie hors de la machine (support hors ligne) : sudo sh -c 'umask 077; systemd-creds decrypt --name={nom} "
+             f"{chemin_cle} FICHIER'")
     try:
         dfd = ouvrir_dossier(magasin)
     except (Refus, OSError) as e:

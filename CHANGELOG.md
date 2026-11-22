@@ -212,6 +212,11 @@ follow [SemVer](https://semver.org/).
   allowlist network profile now runs with `no-new-privileges`: `sudo` is refused there, because a
   root in the container could undo the filter. Other profiles keep `sudo`. Containers are
   recreated at their next use (`elpis.spec` 7); `/work` is kept.
+- **Avatars and skin images: images only, sandboxed.** An avatar is served only when its first
+  bytes are those of a PNG, JPEG, GIF or WebP image, with that image's type whatever the file name;
+  any other file answers 404. Avatars and the images of a skin now carry a policy that opens them
+  as a sandboxed document, like the application logo. The console no longer applies
+  `app.cors_origins`: cross-origin calls concern main only.
 
 ## 0.1.5 — 2026-11-22
 

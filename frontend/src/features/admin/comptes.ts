@@ -6,12 +6,14 @@ import {
   schemaReponseComptesConsole,
   schemaReponseGroupesConsole,
   schemaReponseMachinesCompte,
+  schemaReponseSuspension,
 } from "@elpis/contracts";
 import type { CompteConsole, schemaMoteurChoisissable } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, listeObjets, lireSchema, objet } from "../../utils/lecture-json";
 import { confirmerParMot } from "./confirmation";
+import { heureLocale } from "./horodatage";
 import type { BaseAdmin, GroupeAffiche } from "./etat";
 import { lireChemin } from "./etat";
 import type { z } from "zod";
@@ -94,6 +96,9 @@ function chargeAcces(m: FormulaireAcces): {
   const changed = (keys === null ? null : JSON.stringify(keys)) !== m._origKeys || manage !== m._origManage;
   return { body: { engine_keys: keys, can_manage_models: manage }, changed };
 }
+
+const MENTION_SUPPRESSION =
+  "Supprimer n'est pas bannir : le compte sera recréé à la prochaine connexion par le fournisseur d'identité. Pour interdire l'accès, désactivez-le.";
 
 const roleDe = (u: CompteConsole): string =>
   u.is_admin === 1 ? "admin" : u.is_admin === 2 ? "moderator" : "user";
@@ -234,7 +239,8 @@ export function creerComptes(b: BaseAdmin) {
     const confirme = await confirmerParMot(
       ctx,
       `Supprimer ${cibles.length} compte(s) ?`,
-      `${noms}. Toutes leurs conversations seront supprimées. Action irréversible.`,
+      `${noms}. Toutes leurs conversations seront supprimées. Action irréversible.` +
+        (cibles.some((u) => u.identity) ? " " + MENTION_SUPPRESSION : ""),
       "SUPPRIMER",
       "Supprimer",
     );
@@ -345,7 +351,8 @@ export function creerComptes(b: BaseAdmin) {
     const confirme = await confirmerParMot(
       ctx,
       `Supprimer l'utilisateur "${u.username}" ?`,
-      "Cette action est irréversible. Toutes ses conversations seront supprimées.",
+      "Cette action est irréversible. Toutes ses conversations seront supprimées." +
+        (u.identity ? " " + MENTION_SUPPRESSION : ""),
       "SUPPRIMER",
       "Supprimer",
     );
@@ -373,12 +380,6 @@ export function creerComptes(b: BaseAdmin) {
         } else {
           showToast("Utilisateur supprimé" + (avecBac ? " (sandbox introuvable)" : ""));
         }
-        const hotes = data["hosts_purge_errors"];
-        if (Array.isArray(hotes) && hotes.length)
-          showToast(
-            `Identifiants de sites non purgés sur un hôte d'outils (${hotes.map(String).join(" ; ")}). Retirez-les avant de recréer un compte de ce nom.`,
-            "warning",
-          );
         void loadUsers();
         void lien.loadAdminStats();
       }
@@ -463,6 +464,7 @@ export function creerComptes(b: BaseAdmin) {
   const newPasswordInput = ref("");
   const resetCibles: Ref<CompteConsole[]> = ref([]);
   function openResetModal(u: CompteConsole): void {
+    if (u.has_local_password === false) return;
     resetCibles.value = [];
     resetTarget.value = u;
     newPasswordInput.value = "";
@@ -470,7 +472,7 @@ export function creerComptes(b: BaseAdmin) {
   /** Un compte à la fois : un mot de passe temporaire commun ouvrirait chaque compte aux autres titulaires. */
   function reinitialiserSelection(): void {
     const cibles = autresQueMoi();
-    if (cibles.length !== 1) return;
+    if (cibles.length !== 1 || cibles[0]?.has_local_password === false) return;
     resetCibles.value = [];
     resetTarget.value = cibles[0] ?? null;
     newPasswordInput.value = "";
@@ -648,8 +650,15 @@ export function creerComptes(b: BaseAdmin) {
 
   // ── Éditeur de compte en ligne ───────────────────────────────────────────
   const userEdit: Ref<EditionCompte | null> = ref(null);
+  const ROLES_PAR_NIVEAU = [
+    { value: "admin", label: "Administrateur" },
+    { value: "moderator", label: "Modérateur" },
+    { value: "user", label: "Utilisateur" },
+  ];
   const admRoleLabel = (u: CompteConsole): string =>
-    ({ admin: "Administrateur", moderator: "Modérateur", user: "Utilisateur" })[roleDe(u)] ?? "Utilisateur";
+    ROLES_PAR_NIVEAU.find((r) => r.value === roleDe(u))?.label ?? "Utilisateur";
+  const rolesRetrogradables = (u: CompteConsole): { value: string; label: string }[] =>
+    ROLES_PAR_NIVEAU.slice(ROLES_PAR_NIVEAU.findIndex((r) => r.value === roleDe(u)));
   function admNetProfileName(id: string): string {
     const p = usersNetProfiles.value.find((x) => x.id === id);
     return p ? p.name : id || "—";
@@ -705,6 +714,42 @@ export function creerComptes(b: BaseAdmin) {
       showToast("Accès par jeton révoqués.");
       void loadUserAccess(u.id);
     } else showToast("Révocation impossible.", "error");
+  }
+  /** Date de désactivation en infobulle, avec l'auteur quand c'est un administrateur. */
+  function titreDesactivation(u: CompteConsole): string {
+    const quand = heureLocale(u.suspended_at);
+    return u.suspended_by === "admin" ? `${quand} · par un administrateur` : quand;
+  }
+  /** Désactive ou réactive un compte après confirmation ; un refus du serveur (400, 409) s'affiche avec son message. */
+  async function changerDesactivation(u: CompteConsole, desactiver: boolean): Promise<void> {
+    const ok = desactiver
+      ? await openConfirm(
+          `Désactiver ${u.username} ?`,
+          "Ce compte ne pourra plus se connecter. Ses sessions sont fermées, ses jetons et ses accès d'applications sont révoqués, ses routines sont bloquées, ses données sont conservées.",
+          true,
+          "Désactiver",
+        )
+      : await openConfirm(
+          `Réactiver ${u.username} ?`,
+          "Ce compte pourra de nouveau se connecter.",
+          false,
+          "Réactiver",
+        );
+    if (!ok) return;
+    const action = desactiver ? "suspend" : "unsuspend";
+    const r = await fetchAuth(`/api/admin/users/${u.id}/${action}`, { method: "POST" }, true);
+    if (r?.ok) {
+      const propage = desactiver
+        ? ((await lireSchema(r, schemaReponseSuspension))?.propagated ?? true)
+        : true;
+      if (propage) showToast(`${u.username} : ${desactiver ? "compte désactivé" : "compte réactivé"}`);
+      else
+        showToast(
+          `${u.username} : compte désactivé ; ses tâches en cours s'arrêteront à leur prochaine étape.`,
+          "warning",
+        );
+      await loadUsers();
+    } else showToast(detailErreur(await corpsJson(r)) || "Mise à jour du compte impossible.", "error");
   }
   const userEditOpen = (u: CompteConsole): boolean => !!(userEdit.value && userEdit.value.id === u.id);
   const closeUserEdit = (): void => {
@@ -898,9 +943,13 @@ export function creerComptes(b: BaseAdmin) {
     closeUserEdit,
     saveUserEdit,
     revokeUserAccess,
+    titreDesactivation,
+    changerDesactivation,
     admRoleLabel,
+    rolesRetrogradables,
     admNetProfileName,
     admDesktopLabel,
     admDesktopTitle,
+    mentionSuppression: MENTION_SUPPRESSION,
   };
 }

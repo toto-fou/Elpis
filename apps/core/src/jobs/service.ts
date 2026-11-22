@@ -2,7 +2,15 @@
 /** apps/core/src/jobs/service.ts — tâches de fond du process main (commandes de l'hôte d'outils, sous-agents en fond) : enregistrement, événements reçus, livraison (résultat d'outil, message, réveil), réveilleur (regroupement, saisie, file par compte, profondeur, quotas), arrêts, plafond de durée, rétention, reprise au démarrage. */
 import { randomBytes } from "node:crypto";
 
-import { getUser, getUserSettings } from "@elpis/auth";
+import {
+  accesPerimeDe,
+  compteSuspendu,
+  getUser,
+  getUserSettings,
+  ligneAcces,
+  ligneUtilisateur,
+} from "@elpis/auth";
+import type { PorteFraicheur } from "@elpis/auth";
 import { estDict, HttpError, poserCle, pyJsonDumps } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -98,6 +106,8 @@ export interface DependancesJobs {
   readonly reglages?: () => ReglagesJobs;
   /** Annule un sous-agent en fond actif dans ce process ; faux s'il n'y est pas (perdu). */
   readonly annulerAgent?: (uid: number, childId: string) => boolean;
+  /** Fraîcheurs et mode local : un compte à l'accès périmé n'a plus de réveil ni de veille. */
+  readonly acces?: PorteFraicheur;
 }
 
 export interface CorpsEnregistrement {
@@ -618,6 +628,28 @@ export class ServiceJobs {
     this.suspendus.delete(cle(uid, chatId));
   }
 
+  /** Compte suspendu : file, lots, relances, admissions, marques et saisies du compte oubliés ; les événements restent en base. */
+  oublierCompte(uid: number): void {
+    const debut = `${uid}\x00`;
+    for (const [k, l] of this.lots)
+      if (k.startsWith(debut)) {
+        l.annuler();
+        this.lots.delete(k);
+      }
+    for (const [k, annuler] of this.relances)
+      if (k.startsWith(debut)) {
+        annuler();
+        this.relances.delete(k);
+      }
+    for (const k of [...this.admissions.keys(), ...this.marques, ...this.saisies.keys()])
+      if (k.startsWith(debut)) {
+        this.admissions.delete(k);
+        this.marques.delete(k);
+        this.saisies.delete(k);
+      }
+    this.files.get(uid)?.attente.splice(0);
+  }
+
   /** Conversation retirée de la file du compte, réveil écarté (`reason`). */
   private async retirerDeLaFile(uid: number, chatId: string, raison: string): Promise<void> {
     const f = this.file(uid);
@@ -766,6 +798,8 @@ export class ServiceJobs {
     meta: Dict,
     evts: readonly EvenementEnAttente[],
   ): Promise<string | null> {
+    if (compteSuspendu(await ligneUtilisateur(this.base, uid))) return "account_suspended";
+    if (await this.accesPerime(uid)) return "account_recheck";
     const r = this.reglages();
     const reveillants = evts.filter(reveillant);
     if (!reveillants.length)
@@ -779,6 +813,11 @@ export class ServiceJobs {
     const recents = (this.reveils.get(k) ?? []).filter((x) => t - x < 3600);
     this.reveils.set(k, recents);
     return recents.length >= r.wakes_per_hour ? "quota" : null;
+  }
+
+  /** Accès non interactif périmé (compte externe non revu à temps, compte local ordinaire en mode réservé) ; un compte absent n'est pas périmé. */
+  private async accesPerime(uid: number): Promise<boolean> {
+    return accesPerimeDe(this.dep.acces ?? {}, await ligneAcces(this.base, uid), this.maintenant());
   }
 
   /** « Ne pas me réveiller » effectif : réglage de la conversation, sinon défaut du compte (`jobs_wake`, vrai par défaut). */
@@ -839,11 +878,16 @@ export class ServiceJobs {
     const data = donneesReveil(chatId, chat, this.rendre(evts, profondeur), wake, source);
     let tour: Awaited<ReturnType<typeof ouvrirTour>>;
     try {
-      tour = await ouvrirTour({ base: this.base }, uid, data, {
-        origin: "job_wake",
-        wake,
-        depth: profondeur,
-      });
+      tour = await ouvrirTour(
+        { base: this.base, ...(this.dep.acces ? { acces: this.dep.acces } : {}) },
+        uid,
+        data,
+        {
+          origin: "job_wake",
+          wake,
+          depth: profondeur,
+        },
+      );
     } catch (e) {
       await liberer(
         this.base,
@@ -1201,13 +1245,14 @@ export class ServiceJobs {
     });
   }
 
-  /** Reprise poussée par le core (SPEC §3) : chaque compte qui a un job `starting`/`running` confie ses jobs à l'hôte de son placement ; une panne est journalisée, l'appel repart au tour suivant. */
+  /** Reprise poussée par le core (SPEC §3) : chaque compte actif (non suspendu) qui a un job `starting`/`running` confie ses jobs à l'hôte de son placement ; une panne est journalisée, l'appel repart au tour suivant. */
   async veiller(): Promise<void> {
     const parCompte = new Map<number, string[]>();
     for (const j of await jobsActifs(this.base))
       parCompte.set(j.userId, [...(parCompte.get(j.userId) ?? []), j.id]);
     for (const [uid, ids] of parCompte) {
       try {
+        if (compteSuspendu(await ligneUtilisateur(this.base, uid)) || (await this.accesPerime(uid))) continue;
         await this.hote.veiller(uid, ids, await dernierSeqDuCompte(this.base, uid));
       } catch (e) {
         if (e instanceof HoteIndisponible)

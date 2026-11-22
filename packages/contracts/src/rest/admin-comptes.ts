@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
+import { schemaIdentiteCompte } from "./admin-rattachement";
 import { schemaRole } from "./session";
 
 export const schemaCorpsCreationCompte = z.object({
@@ -17,12 +18,18 @@ export const schemaCorpsReinitialisationMotDePasse = z.object({
   target_id: entier,
   new_password: z.string(),
 });
+/** `propagated` faux : main n'a pas reçu l'événement, les exécutions en cours s'arrêtent à leur prochaine étape. */
+export const schemaReponseSuspension = z.object({
+  ok: z.literal(true),
+  propagated: z.boolean(),
+  tokens_revoked: z.number().int(),
+  oauth_revoked: z.number().int(),
+});
 export const schemaReponseSuppressionCompte = z.object({
   ok: z.literal(true),
   sandbox_deleted: z.boolean(),
   sandbox_error: z.string().optional(),
   /** Hôtes d'outils où les identifiants de sites du compte n'ont pas été purgés. */
-  hosts_purge_errors: z.array(z.string()).optional(),
 });
 
 export const schemaProfilReseau = z.object({
@@ -47,12 +54,20 @@ export const schemaCompteConsole = z.object({
   is_admin: entier,
   created_at: horodatage,
   avatar: z.string().nullable(),
+  suspended_at: horodatage,
+  suspended_by: z.string().nullable(),
   group_names: z.string(),
   group_ids: z.array(entier),
   sandbox_quota_mb: entier,
   network_profile_id: z.string(),
   forced_network_profile_id: z.string(),
   sandbox_used_mb: z.number(),
+  /** Identité externe rattachée, `null` pour un compte local. */
+  identity: schemaIdentiteCompte.nullable().default(null),
+  /** Faux pour un compte sans mot de passe local (il se connecte par son fournisseur). */
+  has_local_password: z.boolean().default(true),
+  /** Vrai quand le rôle vient du fournisseur de ce compte : il ne se change pas à la main. */
+  role_managed: z.boolean().default(false),
   llm_engine_keys: z.array(z.string()).nullable(),
   llm_can_manage_models: z.boolean().nullable(),
   llm_effective_engine_keys: z.array(z.string()).nullable(),

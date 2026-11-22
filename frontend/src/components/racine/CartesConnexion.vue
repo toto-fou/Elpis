@@ -18,6 +18,11 @@ const confirmation = ref<HTMLInputElement | null>(null);
 const confirmer = ref("");
 const erreurForce = ref("");
 const voir = ref({ mdp: false, nouveau: false, confirmer: false });
+const methodes = computed(() => a.loginMethods ?? []);
+const localOuvert = ref(false);
+const preuve = ref<HTMLInputElement | null>(null);
+const BOUTON_SSO =
+  "w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-lg text-sm transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-60";
 
 watch(
   () => a.loginError,
@@ -25,6 +30,15 @@ watch(
     if (!erreur) return;
     await nextTick();
     mdp.value?.focus();
+  },
+);
+
+watch(
+  () => a.preuveUsername != null,
+  async (ouverte) => {
+    if (!ouverte) return;
+    await nextTick();
+    preuve.value?.focus();
   },
 );
 
@@ -76,63 +90,155 @@ async function appliquer(): Promise<void> {
           {{ lc.subtitle }}
         </p>
       </div>
-      <form class="space-y-4" @submit.prevent="a.login">
+      <div v-if="a.authRetour" role="alert" class="mb-4 text-center text-sm" data-auth-retour>
+        <p class="text-red-600 font-medium">{{ a.authRetour.message }}</p>
+        <p v-if="a.authRetour.reference" class="text-xs text-slate-500 mt-1">
+          Référence : {{ a.authRetour.reference }}
+        </p>
+      </div>
+      <form
+        v-if="a.preuveUsername != null"
+        class="space-y-4"
+        data-preuve-titulaire
+        @submit.prevent="a.envoyerPreuve?.()"
+      >
+        <p class="text-sm text-slate-600">
+          Un compte Elpis existe déjà à votre nom ({{ a.preuveUsername }}). Pour le relier à votre connexion
+          d'organisation, saisissez une dernière fois son mot de passe Elpis.
+        </p>
         <div>
-          <label for="login-identifiant" class="block text-sm font-medium text-slate-600 mb-1"
-            >Identifiant</label
-          >
+          <label for="preuve-mdp" class="block text-sm font-medium text-slate-600 mb-1">Mot de passe</label>
           <input
-            id="login-identifiant"
-            v-model="a.loginForm.username"
-            type="text"
-            autocomplete="username"
-            :aria-invalid="a.loginError ? 'true' : undefined"
-            :aria-describedby="a.loginError ? 'login-erreur' : undefined"
+            id="preuve-mdp"
+            ref="preuve"
+            v-model="a.preuveMotDePasse"
+            type="password"
+            autocomplete="current-password"
+            :aria-invalid="a.preuveError ? 'true' : undefined"
+            :aria-describedby="a.preuveError ? 'preuve-erreur' : undefined"
             :class="CHAMP"
           />
         </div>
-        <div>
-          <label for="login-mdp" class="block text-sm font-medium text-slate-600 mb-1">Mot de passe</label>
-          <div class="relative">
-            <input
-              id="login-mdp"
-              ref="mdp"
-              v-model="a.loginForm.password"
-              :type="voir.mdp ? 'text' : 'password'"
-              autocomplete="current-password"
-              :aria-invalid="a.loginError ? 'true' : undefined"
-              :aria-describedby="a.loginError ? 'login-erreur' : undefined"
-              :class="CHAMP + ' pr-11'"
-            />
-            <button
-              type="button"
-              :aria-label="voir.mdp ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
-              :aria-pressed="voir.mdp"
-              class="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-md text-slate-500 hover:bg-slate-100 flex items-center justify-center"
-              @click="voir.mdp = !voir.mdp"
-            >
-              <i class="ph" :class="voir.mdp ? 'ph-eye-slash' : 'ph-eye'" aria-hidden="true"></i>
-            </button>
-          </div>
-        </div>
         <div
-          v-if="a.loginError"
-          id="login-erreur"
+          v-if="a.preuveError"
+          id="preuve-erreur"
           role="alert"
           class="text-red-600 text-center text-sm font-medium"
         >
-          {{ a.loginError }}
+          {{ a.preuveError }}
         </div>
         <button
           type="submit"
-          :disabled="a.isLoading"
-          class="w-full text-white font-medium py-2.5 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
+          :disabled="a.preuveBusy || !a.preuveMotDePasse"
+          class="w-full text-white font-medium py-2.5 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-60"
           :style="'background:' + (lc.btn_color || '#0f172a')"
         >
-          <i v-if="a.isLoading" class="ph ph-spinner animate-spin"></i
-          ><span>{{ a.isLoading ? "Connexion…" : "Se connecter" }}</span>
+          <i v-if="a.preuveBusy" class="ph ph-spinner animate-spin"></i><span>Relier mon compte</span>
+        </button>
+        <button
+          type="button"
+          class="w-full text-sm text-slate-500 hover:text-slate-700"
+          @click="a.annulerPreuve?.()"
+        >
+          Annuler
         </button>
       </form>
+      <template v-else>
+        <div v-if="methodes.length > 0" class="space-y-2 mb-4" data-methodes-sso>
+          <button
+            v-for="m in methodes"
+            :key="m.id"
+            type="button"
+            :disabled="a.ssoBusy"
+            :class="BOUTON_SSO"
+            data-sso
+            @click="a.startSso?.(m.id)"
+          >
+            <i v-if="a.ssoBusy" class="ph ph-spinner animate-spin" aria-hidden="true"></i>
+            <span>Se connecter avec {{ m.label }}</span>
+          </button>
+          <div v-if="a.ssoError" role="alert" class="text-red-600 text-center text-sm font-medium">
+            {{ a.ssoError }}
+          </div>
+          <button
+            type="button"
+            class="w-full text-sm text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1"
+            :aria-expanded="localOuvert"
+            aria-controls="login-local"
+            data-compte-local
+            @click="localOuvert = !localOuvert"
+          >
+            Compte local
+            <i
+              class="ph text-xs"
+              :class="localOuvert ? 'ph-caret-up' : 'ph-caret-down'"
+              aria-hidden="true"
+            ></i>
+          </button>
+        </div>
+        <form
+          v-show="methodes.length === 0 || localOuvert"
+          :id="methodes.length > 0 ? 'login-local' : undefined"
+          class="space-y-4"
+          @submit.prevent="a.login"
+        >
+          <div>
+            <label for="login-identifiant" class="block text-sm font-medium text-slate-600 mb-1"
+              >Identifiant</label
+            >
+            <input
+              id="login-identifiant"
+              v-model="a.loginForm.username"
+              type="text"
+              autocomplete="username"
+              :aria-invalid="a.loginError ? 'true' : undefined"
+              :aria-describedby="a.loginError ? 'login-erreur' : undefined"
+              :class="CHAMP"
+            />
+          </div>
+          <div>
+            <label for="login-mdp" class="block text-sm font-medium text-slate-600 mb-1">Mot de passe</label>
+            <div class="relative">
+              <input
+                id="login-mdp"
+                ref="mdp"
+                v-model="a.loginForm.password"
+                :type="voir.mdp ? 'text' : 'password'"
+                autocomplete="current-password"
+                :aria-invalid="a.loginError ? 'true' : undefined"
+                :aria-describedby="a.loginError ? 'login-erreur' : undefined"
+                :class="CHAMP + ' pr-11'"
+              />
+              <button
+                type="button"
+                :aria-label="voir.mdp ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                :aria-pressed="voir.mdp"
+                class="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-md text-slate-500 hover:bg-slate-100 flex items-center justify-center"
+                @click="voir.mdp = !voir.mdp"
+              >
+                <i class="ph" :class="voir.mdp ? 'ph-eye-slash' : 'ph-eye'" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <div
+            v-if="a.loginError"
+            id="login-erreur"
+            role="alert"
+            class="text-red-600 text-center text-sm font-medium"
+          >
+            {{ a.loginError }}
+          </div>
+          <button
+            type="submit"
+            :disabled="a.isLoading"
+            class="w-full text-white font-medium py-2.5 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
+            :style="'background:' + (lc.btn_color || '#0f172a')"
+          >
+            <i v-if="a.isLoading" class="ph ph-spinner animate-spin"></i
+            ><span>{{ a.isLoading ? "Connexion…" : "Se connecter" }}</span>
+          </button>
+        </form>
+      </template>
     </div>
   </div>
 

@@ -78,9 +78,9 @@ export class ClientRappel {
   }
 
   /** Valeur retenue 15 s (5 s si vide) ; au-delà de 1024 entrées, jusqu'à 256 entrées expirées sont oubliées. */
-  private retenir<T>(cle: string, valeur: T): T {
+  private retenir<T>(cle: string, valeur: T, positif: boolean = veritePy(valeur)): T {
     const maintenant = performance.now();
-    this.cache.set(cle, { valeur, expire: maintenant + (veritePy(valeur) ? TTL_MS : TTL_NEGATIF_MS) });
+    this.cache.set(cle, { valeur, expire: maintenant + (positif ? TTL_MS : TTL_NEGATIF_MS) });
     if (this.cache.size > CACHE_MAX) {
       const expirees = [...this.cache].filter(([, e]) => e.expire <= maintenant).slice(0, 256);
       for (const [k] of expirees) this.cache.delete(k);
@@ -146,21 +146,45 @@ export class ClientRappel {
     );
   }
 
-  async identityForUsername(username: string): Promise<IdentiteDistante | null> {
-    if (!username) return null;
+  /** Identité du compte et refus du cœur (compte inconnu ou suspendu, réponse 200 `ok: false`) ; un cœur muet n'est pas un refus. */
+  private async lireIdentite(
+    username: string,
+  ): Promise<{ identite: IdentiteDistante | null; refuse: boolean }> {
     const cle = "id:" + username;
     const c = this.lu(cle);
-    if (c.trouve) return c.valeur as IdentiteDistante | null;
-    const d = await this.appeler("GET", "/api/internal/identity", { username });
-    return this.retenir(
-      cle,
-      lireOuNul(d, (x) => ({
-        user_id: intPy(exiger(x, "user_id")),
-        username: strPy(exiger(x, "username")),
-        network_profile_id: strPy(getPy(x, "network_profile_id") || ""),
-        is_admin: veritePy(getPy(x, "is_admin")),
-      })),
+    if (c.trouve) return c.valeur as { identite: IdentiteDistante | null; refuse: boolean };
+    const statut = { code: 0 };
+    const d = await this.appeler(
+      "GET",
+      "/api/internal/identity",
+      { username },
+      undefined,
+      undefined,
+      this.delaiMs,
+      statut,
+      false,
     );
+    const refuse = d !== null && statut.code === 200 && !veritePy(getPy(d, "ok"));
+    const identite = refuse
+      ? null
+      : lireOuNul(d, (x) => ({
+          user_id: intPy(exiger(x, "user_id")),
+          username: strPy(exiger(x, "username")),
+          network_profile_id: strPy(getPy(x, "network_profile_id") || ""),
+          is_admin: veritePy(getPy(x, "is_admin")),
+        }));
+    return this.retenir(cle, { identite, refuse }, identite !== null || refuse);
+  }
+
+  async identityForUsername(username: string): Promise<IdentiteDistante | null> {
+    if (!username) return null;
+    return (await this.lireIdentite(username)).identite;
+  }
+
+  /** Le cœur dit que ce compte n'existe pas ou est suspendu ; faux si le cœur ne répond pas. */
+  async compteRefuse(username: string): Promise<boolean> {
+    if (!username || !this.actif) return false;
+    return (await this.lireIdentite(username)).refuse;
   }
 
   /** `{username, token, host}` du compte de l'enveloppe signée, avec la conversation et le sous-agent de l'appel (politique du coffre) : SECRET, jamais journalisé ni gardé au-delà du TTL court, retenu par compte et par appelant signés. */

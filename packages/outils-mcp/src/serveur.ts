@@ -147,7 +147,12 @@ export interface IdentiteDistante {
 export interface PortRappelIdentite {
   readonly actif: boolean;
   identityForUsername(username: string): Promise<IdentiteDistante | null>;
+  /** Le cœur refuse ce compte (inconnu ou suspendu) ; faux si le cœur est injoignable. */
+  compteRefuse?(username: string): Promise<boolean>;
 }
+
+/** Compte refusé par le cœur : l'appel n'est pas servi. */
+class CompteRefuse extends Error {}
 
 export interface OptionsServeur {
   readonly nom?: string;
@@ -498,6 +503,7 @@ export class ServeurOutils {
     if (ident !== null && !ident.user_id && this.rappel?.actif) {
       try {
         const d = await this.rappel.identityForUsername(ident.username);
+        if (!d && (await this.rappel.compteRefuse?.(ident.username)) === true) throw new CompteRefuse();
         if (d)
           ident = creerIdentite({
             user_id: intPy(d.user_id),
@@ -507,7 +513,8 @@ export class ServeurOutils {
             is_admin: Boolean(d.is_admin),
             subagent: ident.subagent ?? null,
           });
-      } catch {
+      } catch (e) {
+        if (e instanceof CompteRefuse) throw e;
         // rappel en échec : id inconnu (0), les chemins par nom restent justes
       }
     }
@@ -569,7 +576,13 @@ export class ServeurOutils {
     const outil = this.outils.get(nom) as DefinitionOutil;
     const ctx = fabriquerCtx(outil);
     return avecJeton(requete.jeton, async () => {
-      const ident = await this.identite(ctx.meta);
+      let ident: Identity | null;
+      try {
+        ident = await this.identite(ctx.meta);
+      } catch (e) {
+        if (e instanceof CompteRefuse) return erreurResultat("Account unavailable.");
+        throw e;
+      }
       const suite = async (): Promise<Dict> => {
         try {
           if (this.cachees(requete).has(outil.famille))

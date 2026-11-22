@@ -1,6 +1,6 @@
 {
   "name": "@elpis/skills",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -13,11 +13,11 @@
     "./verrou": "./src/verrou.ts"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.4",
-    "@elpis/config": "0.1.4",
-    "@elpis/http": "0.1.4",
-    "@elpis/mcp": "0.1.4",
-    "@elpis/outils-mcp": "0.1.4",
-    "@elpis/verrous": "0.1.4"
+    "@elpis/commun": "0.1.5",
+    "@elpis/config": "0.1.5",
+    "@elpis/http": "0.1.5",
+    "@elpis/mcp": "0.1.5",
+    "@elpis/outils-mcp": "0.1.5",
+    "@elpis/verrous": "0.1.5"
   }
 }

@@ -20,14 +20,19 @@ import {
   estLocalDirect,
   exigerUtilisateur,
   getAllUsers,
+  getUser,
   getUserGroups,
   getUsernameById,
   getUsersLite,
   ipDuClient,
+  dureeMaxSession,
   leverMinSession,
   ligneUtilisateur,
   rehacherSiAncien,
+  renouvelerSession,
   resetUserPassword,
+  aMotDePasseLocal,
+  ErreurSansMotDePasseLocal,
   revoquerSid,
   revoquerTousAcces,
   updateUserAvatar,
@@ -43,6 +48,7 @@ import {
   auditLogin,
   cleAuditCourante,
   compareDigest,
+  completerCoutRefus,
   empreinteIdentifiant,
   texteBorne,
   tokenUrlsafe,
@@ -59,7 +65,9 @@ import {
   validerMotDePasse,
 } from "../comptes/aides";
 import { DebitConnexion } from "../comptes/debit-connexion";
+import { ConnexionRefusee, etablirConnexion } from "../comptes/ouverture";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
+import { lireReglagesAuth } from "../identite/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
 import type { Journal } from "../journal";
@@ -90,6 +98,8 @@ export interface DependancesComptes {
   readonly libellesCategories?: () => Readonly<Record<string, string>>;
   /** Process servi (`APP_MODE`) : la console n'écrit que l'apparence. */
   readonly mode: ModeApp;
+  /** Fin de session chez le fournisseur OIDC qui a ouvert ce `_sid` : adresse de déconnexion, ou `null` ; sans appel sortant. */
+  readonly finDeSessionSso?: (sid: string) => Promise<string | null>;
 }
 
 const SANS_CACHE = { "cache-control": "no-cache" };
@@ -290,6 +300,8 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             is_admin: [1, 2].includes(Number(ligne.is_admin)),
             role: ROLES[Number(ligne.is_admin)] ?? "user",
             avatar: ligne.avatar ?? null,
+            // Champ présent seulement pour un compte sans mot de passe local : la réponse d'un compte local ne change pas.
+            ...(aMotDePasseLocal(ligne) ? {} : { password_managed: true }),
           };
         },
       },
@@ -331,14 +343,22 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           if (attente > 0)
             throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
           const essai = debitConnexion.prendre(username, ip, arrivee);
+          const plancher = async (): Promise<void> => {
+            if (essai.delaiMs > 0) await attendre(essai.delaiMs);
+          };
           let uid: number | null;
+          let verifieParMotDePasse: number | null;
           try {
-            uid = await verifyUser(base, username, secret);
-            if (uid !== null) {
-              const verifie = uid;
-              await sansEchec(() => rehacherSiAncien(base, verifie, secret));
+            const compte =
+              lireReglagesAuth().local.mode === "admins" ? await getUser(base, username) : undefined;
+            const refuseParMode = compte !== undefined && Number(compte.is_admin) !== 1;
+            if (refuseParMode) {
+              if (secret.isWellFormed()) await completerCoutRefus(secret, null);
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
             }
-            if (uid === null) {
+            uid = refuseParMode ? null : await verifyUser(base, username, secret);
+            verifieParMotDePasse = uid;
+            if (uid === null && !refuseParMode) {
               uid = await sousVerrouAmorcage(async () => {
                 const comptes = await getAllUsers(base);
                 const amorcage = comptes.length === 0 && username.toLowerCase() === "admin";
@@ -371,25 +391,57 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             debitConnexion.annulation(essai, maintenant(dep));
             throw e;
           }
+          if (uid !== null && lireReglagesAuth().local.mode === "admins") {
+            const verifie = await ligneUtilisateur(base, uid);
+            if (Number(verifie?.is_admin) !== 1) {
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "local_disabled" });
+              uid = null;
+            }
+          }
           if (uid === null) {
             if (essai.epuise)
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "rate_limited" });
-            if (essai.delaiMs > 0) await attendre(essai.delaiMs);
+            await plancher();
             throw new HttpError(401, "invalid credentials");
           }
-          debitConnexion.reussite(essai, maintenant(dep));
           const ligne = await ligneUtilisateur(base, uid);
-          const t = maintenant(dep);
-          req.session.vider();
-          req.session.set("uid", uid);
-          req.session.set("user", uid);
-          req.session.set("user_id", uid);
-          req.session.set("_login_ts", t);
-          req.session.set("_sid", tokenUrlsafe(18));
-          const id = uid;
-          await sansEchec(() => dep.demarrerHistoriqueFichiers?.(id));
-          dep.logMetric?.("user_login", 1, { user: username });
-          auditLogin({ userId: uid, username, ip, userAgent: ua, success: true });
+          try {
+            await etablirConnexion(
+              {
+                base,
+                maintenant: () => maintenant(dep),
+                dureeMax: () => dureeMaxSession(dep.auth.config()),
+                demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
+                logMetric: dep.logMetric,
+              },
+              { session: req.session, uid, username, methode: "password", ip, userAgent: ua },
+            );
+          } catch (e) {
+            if (e instanceof ConnexionRefusee) await plancher();
+            else {
+              dep.journal.error(
+                { err: e },
+                "[auth] ouverture de session échouée après une vérification réussie",
+              );
+              auditLogin({
+                userId: uid,
+                username,
+                ip,
+                userAgent: ua,
+                success: false,
+                reason: "session_open_failed",
+                loginMethod: "password",
+              });
+              await plancher();
+              throw new HttpError(401, "invalid credentials");
+            }
+            throw e;
+          }
+          if (verifieParMotDePasse !== null) {
+            const verifie = verifieParMotDePasse;
+            await sansEchec(() => rehacherSiAncien(base, verifie, secret));
+          }
+          debitConnexion.reussite(essai, maintenant(dep));
           return {
             ok: true,
             is_admin: ligne ? [1, 2].includes(Number(ligne.is_admin)) : false,
@@ -414,9 +466,20 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const ua = entete(req, "user-agent") ?? null;
           try {
             const sid = req.session.get("_sid");
-            if (veritePy(sid)) await revoquerSid(base, strPy(sid), uid, maintenant(dep));
+            if (veritePy(sid)) {
+              const exp = req.session.get("_exp");
+              await revoquerSid(base, strPy(sid), uid, maintenant(dep), typeof exp === "number" ? exp : 0);
+            }
           } catch (e) {
             dep.journal.warn({ err: e }, "[auth] révocation de session au logout échouée");
+          }
+          let logoutUrl: string | null = null;
+          try {
+            const sid = req.session.get("_sid");
+            if (veritePy(sid) && dep.finDeSessionSso !== undefined)
+              logoutUrl = await dep.finDeSessionSso(strPy(sid));
+          } catch (e) {
+            dep.journal.warn({ err: e }, "[auth] fin de session SSO au logout échouée");
           }
           req.session.vider();
           if (uid !== null) {
@@ -429,7 +492,9 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             );
           }
           void rep.header("set-cookie", enteteSuppressionCookie(dep.auth.attributsCookie(), maintenant(dep)));
-          return { ok: true };
+          if (logoutUrl === null) return { ok: true };
+          void rep.header("cache-control", "no-store");
+          return { ok: true, logout_url: logoutUrl };
         },
       },
       {
@@ -450,6 +515,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             auditerRefus(req, "auth.password.change.denied", { reason });
             throw e;
           };
+          const refusGere = (): never =>
+            refuser(
+              "no_local_password",
+              new HttpError(403, "Votre mot de passe est géré par votre organisation."),
+            );
+          if (!aMotDePasseLocal(moi)) refusGere();
           if (!veritePy(ancien)) {
             if (!veritePy(moi.must_change_pwd))
               refuser("missing_old_password", new HttpError(400, "Ancien mot de passe requis"));
@@ -463,10 +534,15 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             if (e instanceof HttpError) refuser("policy", e);
             throw e;
           }
-          await resetUserPassword(base, uid, motDePasse);
+          try {
+            await resetUserPassword(base, uid, motDePasse);
+          } catch (e) {
+            if (e instanceof ErreurSansMotDePasseLocal) refusGere();
+            throw e;
+          }
           const t = maintenant(dep);
           await leverMinSession(base, uid, t);
-          req.session.set("_login_ts", t);
+          renouvelerSession(req.session, t);
           await revoquerTousAcces(dep.auth, uid);
           await base.run("UPDATE users SET must_change_pwd=0 WHERE id=?", [uid]);
           auditerRequete(req, "auth.password.change", {});
@@ -482,7 +558,11 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const uid = utilisateur(req);
           const moi = await ligneUtilisateur(base, uid);
           const admin = Number(moi?.is_admin) === 1;
-          return { users: await getUsersLite(base, uid, !admin), my_groups: await getUserGroups(base, uid) };
+          const libelles = new Map(lireReglagesAuth().providers.map((f) => [f.id, f.label]));
+          return {
+            users: await getUsersLite(base, uid, !admin, (id) => libelles.get(id) ?? null),
+            my_groups: await getUserGroups(base, uid),
+          };
         },
       },
       {

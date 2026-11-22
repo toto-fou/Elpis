@@ -45,6 +45,12 @@ const PageJournalisation = defineAsyncComponent({
   delay: 200,
 });
 
+const PageConnexionEntreprise = defineAsyncComponent({
+  loader: () => import("./PageConnexionEntreprise.vue"),
+  errorComponent: ErreurChargement,
+  delay: 200,
+});
+
 const heure = formateurDate({ timeStyle: "short" });
 </script>
 
@@ -134,6 +140,7 @@ const heure = formateurDate({ timeStyle: "short" });
         <PageSousAgents />
         <PageEntretien />
         <PageDonnees />
+        <PageConnexionEntreprise v-if="adm.adminTab === 'oidc'" />
         <PageJournalisation v-if="adm.adminTab === 'audit-logging'" />
       </div>
     </main>

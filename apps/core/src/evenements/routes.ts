@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/evenements/routes.ts — `/api/system-events` (main et admin) et canal interne de main (`/api/internal/events`, `/status`). */
-import { exigerUtilisateur, ligneUtilisateur, revaliderFlux } from "@elpis/auth";
+import { exigerUtilisateur, ligneUtilisateur, metaSession, revaliderFlux } from "@elpis/auth";
 import type { DependancesAuth, LigneUtilisateur } from "@elpis/auth";
 import type { FastifyRequest } from "fastify";
 
@@ -10,7 +10,7 @@ import type { DefinitionRoute, Famille } from "../routes";
 import { servirCanal } from "./canal";
 import type { CanalInterne } from "./canal";
 import type { EmpreinteDemarrage } from "./redemarrage";
-import { applySessionRevocation } from "./revocation";
+import { applyAccountSuspension, applySessionRevocation } from "./revocation";
 import type { CiblesRevocation } from "./revocation";
 import { servirFluxSse } from "./sse";
 import type { Message, SystemEvents, VerifierSession } from "./systeme";
@@ -20,6 +20,7 @@ import { corpsJson } from "@elpis/http";
 /** Identité du flux, lue après la garde `session` : compte, staff (`is_admin` 1 ou 2), revalidation périodique. */
 export interface IdentiteFlux {
   readonly uid: number;
+  readonly sid?: string | null;
   readonly staff: boolean;
   readonly encoreValide?: VerifierSession;
 }
@@ -37,11 +38,13 @@ export function identiteDeSession(dep: DependancesAuth): ResoudreIdentite {
     const staff = estStaff(await ligneUtilisateur(dep.base, uid));
     const loginTs = requete.session.get("_login_ts");
     const sid = requete.session.get("_sid");
+    const meta = metaSession(requete.session);
     return {
       uid,
+      sid: typeof sid === "string" && sid !== "" ? sid : null,
       staff,
       encoreValide: async () => {
-        if (!(await revaliderFlux(dep, uid, loginTs, sid))) return false;
+        if (!(await revaliderFlux(dep, uid, loginTs, sid, meta))) return false;
         return !staff || estStaff(await ligneUtilisateur(dep.base, uid));
       },
     };
@@ -49,7 +52,11 @@ export function identiteDeSession(dep: DependancesAuth): ResoudreIdentite {
 }
 
 /** Événements de contrôle appliqués par main, jamais poussés aux navigateurs (`CONTROL_TYPES`). */
-export const TYPES_CONTROLE: ReadonlySet<string> = new Set(["session_revoked", "model_cache_refresh"]);
+export const TYPES_CONTROLE: ReadonlySet<string> = new Set([
+  "session_revoked",
+  "account_suspended",
+  "model_cache_refresh",
+]);
 
 /** Ce que l'admin peut publier dans main : le contrôle, la bannière de redémarrage et ses notifications, rien d'autre. */
 export const TYPES_ADMIN: ReadonlySet<string> = new Set([...TYPES_CONTROLE, "restart", "notification"]);
@@ -148,6 +155,7 @@ function routesMain(ctx: ContexteRoutes, main: ContexteMain): DefinitionRoute[] 
           throw new HttpError(400, `Type d'événement refusé sur ce canal : ${type}`);
         const message = corps as Message;
         if (type === "session_revoked") await applySessionRevocation(message, main.cibles);
+        else if (type === "account_suspended") await applyAccountSuspension(message, main.cibles);
         else if (type === "model_cache_refresh") main.rafraichirModeles?.();
         else if (type === "notification") {
           const notification = notificationDeLAdmin(message);
@@ -208,6 +216,7 @@ export function familleEvenements(ctx: ContexteRoutes): Famille {
             isStaff: identite.staff,
             journal: demande,
             userId: identite.uid,
+            sid: identite.sid ?? null,
             validityCheck: identite.encoreValide,
             signal,
           }),

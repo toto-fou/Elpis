@@ -28,16 +28,21 @@ export class HoteIndisponible extends Error {
 
 /** Hôte du placement du compte (local compris), lu sans l'affecter. */
 export function hoteJobsParDefaut(base: Base): PortHoteJobs {
-  const appeler = async (uid: number, chemin: string, json: Dict): Promise<unknown> => {
+  const appeler = async (
+    uid: number,
+    chemin: string,
+    json: Dict,
+    tolererSuspension = false,
+  ): Promise<unknown> => {
     const hote = await sandboxHostFor(uid, false);
     if (hote === null) throw new HoteIndisponible("aucun hôte d'outils déclaré");
     const nom = (await getUsernameById(base, uid)) || `user_${uid}`;
-    return appelerHote(hote, uid, nom, "POST", chemin, { json, delaiS: DELAI_ARRET_S });
+    return appelerHote(hote, uid, nom, "POST", chemin, { json, delaiS: DELAI_ARRET_S, tolererSuspension });
   };
   return {
     async tuer(uid, jobIds, par, purge) {
       if (!jobIds.length) return [];
-      const r = await appeler(uid, "/api/internal/jobs/kill", { job_ids: [...jobIds], by: par, purge });
+      const r = await appeler(uid, "/api/internal/jobs/kill", { job_ids: [...jobIds], by: par, purge }, true);
       const resultats = estDict(r) && Array.isArray(r["results"]) ? (r["results"] as unknown[]) : [];
       return resultats.filter(estDict);
     },

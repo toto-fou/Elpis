@@ -11,6 +11,8 @@ export {
   exigerRole,
   dependancesSession,
   exigerUtilisateur,
+  ligneAcces,
+  ligneSession,
   ligneUtilisateur,
   revaliderFlux,
   signalerRefus,
@@ -20,6 +22,8 @@ export { installerAuth } from "./installer";
 export {
   adressePair,
   analyserMandataires,
+  cleAdresse,
+  cleAdresseExacte,
   estMandataireDeConfiance,
   ipClient,
   ipDuClient,
@@ -29,14 +33,19 @@ export {
 export type { Reseau } from "./ip-client";
 export { estLocalDirect, MANDATAIRES_DE_CONFIANCE } from "./local";
 export {
-  effacerMinSession,
+  DUREE_MAX_SESSION_S,
+  dureeMaxSession,
   estRevoquee,
   leverMinSession,
   purgerRevocations,
   revoquerSid,
 } from "./revocations";
-export { fluxEncoreValide, Session, validerSession } from "./session";
-export type { DependancesSession, LigneUtilisateur } from "./session";
+export { accesPerime, accesPerimeDe, compteSuspendu, lireFraicheurs, localReserveDe } from "./etat-compte";
+export type { Fraicheurs, PorteFraicheur } from "./etat-compte";
+export { ouvrirSession, renouvelerSession } from "./ouverture";
+export type { MethodeConnexion } from "./ouverture";
+export { fluxEncoreValide, metaSession, Session, validerSession } from "./session";
+export type { DependancesSession, EtatMinSession, LigneUtilisateur, MetaSession } from "./session";
 export {
   creerJeton,
   ErreurJeton,
@@ -62,8 +71,13 @@ export {
 export type { DependancesJetons, Jeton, JetonResolu, Politique, TypeJeton } from "./jetons";
 export { dependancesParDefaut } from "./defaut";
 export {
+  aMotDePasseLocal,
+  methodeDuCompte,
+  createExternalUser,
   createUser,
   ErreurNomUtilisateur,
+  ErreurSansMotDePasseLocal,
+  MARQUEUR_SANS_MOT_DE_PASSE,
   getAllUsers,
   getUser,
   getUserGroups,

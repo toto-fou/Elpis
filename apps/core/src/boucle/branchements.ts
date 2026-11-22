@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/boucle/branchements.ts — ports de la boucle posés au démarrage : file LLM unique (tours, sous-agents, images), prompt d'image, prompts de capacité, captures et trames, todos du chat. */
-import { getUser } from "@elpis/auth";
+import { compteSuspendu, getUser } from "@elpis/auth";
 import type { Executeur } from "@elpis/db";
 import {
   extractPwScreenshotUrl,
@@ -23,7 +23,7 @@ import {
 } from "../llm/vision";
 import { buildCapabilityBlock, capabilityWantsRuntimeContext } from "../prompts/systeme";
 import { appelPromptImage } from "./appels-uniques";
-import { installerFileLlm, installerTodos, installerVisionBureau } from "./ports";
+import { installerCompteSuspendu, installerFileLlm, installerTodos, installerVisionBureau } from "./ports";
 import type { PortFileLlm, PortTodos, PortVisionBureau } from "./ports";
 
 /** `withLLM` de la boucle = `llm_scheduling_guard` du moteur courant : disjoncteur, réglages relus, puis la file unique du process. */
@@ -74,4 +74,7 @@ export function brancherBoucle(base: Executeur): void {
   installerPromptsCapacites({ capabilityWantsRuntimeContext, buildCapabilityBlock });
   installerVisionBureau(visionDuProcess);
   installerTodos(todosDuProcess(base));
+  installerCompteSuspendu(async (uid) =>
+    compteSuspendu(await base.get("SELECT suspended_at FROM users WHERE id=?", [uid])),
+  );
 }

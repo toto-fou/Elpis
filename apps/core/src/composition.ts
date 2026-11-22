@@ -8,9 +8,10 @@ import {
   getUser,
   getUsernameById,
   installerAuth,
+  lireFraicheurs,
   mandatairesDuJournal,
 } from "@elpis/auth";
-import type { DependancesAuth, DependancesJetons, DependancesOAuth } from "@elpis/auth";
+import type { DependancesAuth, DependancesJetons, DependancesOAuth, Fraicheurs } from "@elpis/auth";
 import {
   bootRaw,
   config,
@@ -28,6 +29,7 @@ import { blockRemoteUrlReason, configureAudit, defaultAuditDir, defaultAuditKeyP
 
 import type { Extension } from "./app";
 import { CycleDeVie } from "./cycle";
+import { brancherPurgeRevocations } from "./ops/purge-revocations";
 import { installerRefusGeneriques, signalerRefusAuth } from "./journal-securite/auditer";
 import { etatJournalSecurite } from "./journal-securite/etat";
 import {
@@ -42,7 +44,9 @@ import { brancherBoucle } from "./boucle/branchements";
 import { brancherContexte } from "./contexte/branchements";
 import { brancherExecutions } from "./executions/branchements";
 import { brancherTour } from "./tour/branchements";
-import { isGenerationActive } from "./tour/etat";
+import { annulerEnFondDuCompte } from "./outils/integres/task/fond";
+import { arreterToursDuCompte, isGenerationActive } from "./tour/etat";
+import { jobsTour } from "./tour/ports-jobs";
 import { famillesParDefaut } from "./familles";
 import { creerFamilleAdminAgents } from "./familles/admin-agents";
 import { creerFamilleAdminExecuteurs } from "./familles/admin-executeurs";
@@ -58,6 +62,18 @@ import {
 } from "./bureau";
 import { creerFamilleAx } from "./familles/ax";
 import { creerFamilleAdminComptes } from "./familles/admin-comptes";
+import { creerFamilleAdminIdentite } from "./familles/admin-identite";
+import { creerFamilleAdminRattachement } from "./familles/admin-rattachement";
+import { creerFamilleAdminIdentiteOidc } from "./familles/admin-identite-oidc";
+import { creerFamilleIdentite } from "./familles/identite";
+import { lireReglagesAuth } from "./identite/reglages";
+import { maintenirDecouvertesChaudes } from "./identite/oidc/rechauffement";
+import { FabriqueConfigurations } from "./identite/oidc/configuration";
+import { adresseDeFinDeSession } from "./identite/oidc/deconnexion";
+import { methodesPubliques } from "./identite/oidc/publique";
+import type { OptionsSortant } from "./identite/sortant";
+import { fraicheursDe, lecteurActifs } from "./identite/fraicheur";
+import { sessionAdmise } from "./identite/session";
 import { creerFamilleAdminConfig } from "./familles/admin-config";
 import { piloteBac } from "./admin/pilote-bac";
 import { faitsParDefaut, sondesParDefaut } from "./admin/vue";
@@ -139,7 +155,7 @@ import type { Relais } from "./relais";
 import { ouvrirSessionHistorique } from "./relais/services";
 import { brancherIndexationRag } from "./rag/service";
 import { installerMeneur, Meneur, meneur } from "./routines/meneur";
-import { installerPlanificateur, Planificateur } from "./routines/planificateur";
+import { installerPlanificateur, Planificateur, planificateurDuProcess } from "./routines/planificateur";
 import type { Famille, Gardes } from "./routes";
 import { brancherCoffreMcpDuCore } from "./secrets/mcp";
 import { installerComptesSkills } from "./skills/ports";
@@ -157,6 +173,8 @@ export interface Composition {
 export interface OptionsComposition {
   /** Cycle de vie du process : arrêt des flux, empreinte de main et abonnement de l'admin au démarrage, fermeture du relais ; absent, un cycle jamais démarré. */
   readonly cycle?: CycleDeVie;
+  /** Résolution, juge et autorités du client sortant des fournisseurs SSO ; les essais y glissent leur fournisseur factice. */
+  readonly sortantOidc?: OptionsSortant;
 }
 
 /** Réglages lus au démarrage et vue courante de config.json : le « Redémarrage nécessaire » de main. */
@@ -263,9 +281,20 @@ function brancherBus(
     mode,
     surOuvertureFlux,
     redemarrage: SOURCE_REDEMARRAGE,
-    fermerTerminaux: (uid) => relais?.fermerTerminauxDuCompte(uid) ?? 0,
+    fermerTerminaux: (uid, sid) => relais?.fermerTerminauxDuCompte(uid, sid) ?? 0,
+    arreterExecutions: (uid) => arreterExecutionsDuCompte(uid),
     rafraichirModeles,
   });
+}
+
+/** Coupe tout ce que le compte fait dans ce process (tours, runs de routine, sous-agents en fond) et oublie ses réveils en attente ; nombre d'exécutions coupées. */
+function arreterExecutionsDuCompte(uid: number): number {
+  jobsTour()?.oublierCompte(uid);
+  return (
+    arreterToursDuCompte(uid) +
+    (planificateurDuProcess()?.arreterCompte(uid) ?? 0) +
+    annulerEnFondDuCompte(uid)
+  );
 }
 
 /** Vue d'ensemble de la console : sondes et faits réels, réglages en attente lus auprès de main. */
@@ -304,9 +333,20 @@ function vueAdmin(
 }
 
 /** Planificateur des routines : dans main seul, leader unique entre process (verrou rendu dès l'annonce de l'arrêt), démarré au cycle, runs drainés à l'arrêt. */
-export function brancherPlanificateur(mode: ModeApp, base: Base, cycle: CycleDeVie): Planificateur {
+export function brancherPlanificateur(
+  mode: ModeApp,
+  base: Base,
+  cycle: CycleDeVie,
+  fraicheurs?: () => Promise<Fraicheurs>,
+  localReserve?: () => boolean,
+): Planificateur {
   const meneur = new Meneur({ arret: cycle.signalArret });
-  const planificateur = new Planificateur({ base, meneur });
+  const planificateur = new Planificateur({
+    base,
+    meneur,
+    ...(fraicheurs === undefined ? {} : { fraicheurs }),
+    ...(localReserve === undefined ? {} : { localReserve }),
+  });
   if (mode !== "main") return planificateur;
   installerMeneur(meneur);
   installerPlanificateur(planificateur);
@@ -372,10 +412,16 @@ export async function composer(
   installerPortsSkills(base);
   installerPortsBureau(base);
   const jc = journal.child({ domaine: "comptes" });
+  const localReserveAuxAdmins = (): boolean => lireReglagesAuth().local.mode === "admins";
+  const fournisseursActifsGardes = lecteurActifs(base, () => dep.attributsCookie().https_only === true);
+  const fraicheurs = fraicheursDe(fournisseursActifsGardes);
   const auth: DependancesAuth & DependancesJetons = {
+    fraicheursFournisseurs: fraicheurs,
+    localReserveAuxAdmins,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     informer: (message) => jc.info(message),
     signalerRefus: signalerRefusAuth,
+    sessionAdmise,
     ...dep,
   };
   const jr = journal.child({ domaine: "sandbox-relay" });
@@ -389,9 +435,35 @@ export async function composer(
     demarrerHistoriqueFichiers: async (uid) => void (await ouvrirSessionHistorique(uid, { journal: jr })),
   };
   const cycle = options.cycle ?? new CycleDeVie(journal.child({ domaine: "cycle" }));
-  const planificateur = brancherPlanificateur(mode, base, cycle);
+  const planificateur = brancherPlanificateur(
+    mode,
+    base,
+    cycle,
+    async () => lireFraicheurs(auth),
+    localReserveAuxAdmins,
+  );
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
+  brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
+  const configurationsOidc = new FabriqueConfigurations({
+    base,
+    maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
+    ...(options.sortantOidc === undefined ? {} : { sortant: options.sortantOidc }),
+  });
+  cycle.auDemarrage(
+    "découvertes des fournisseurs SSO",
+    () =>
+      maintenirDecouvertesChaudes(
+        {
+          base,
+          configurations: configurationsOidc,
+          cookieSecure: () => auth.attributsCookie().https_only === true,
+          journal: journal.child({ domaine: "identite" }),
+        },
+        cycle.signalArret,
+      ),
+    { arrierePlan: true },
+  );
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());
@@ -409,7 +481,12 @@ export async function composer(
     diffuser: (message) => evenements.diffuserPartout(message),
     meneur: mode === "main" ? meneur() : null,
   });
-  const jobs = mode === "main" ? brancherJobs(base, cycle, (m) => evenements.diffuserPartout(m)) : null;
+  const jobs =
+    mode === "main"
+      ? brancherJobs(base, cycle, (m) => evenements.diffuserPartout(m), {
+          acces: { fraicheursFournisseurs: async () => lireFraicheurs(auth), localReserveAuxAdmins },
+        })
+      : null;
   brancherHistoriqueJournal((niveau, message, date) =>
     evenements.systemEvents.noterLigneJournal(niveau, message, date),
   );
@@ -427,6 +504,8 @@ export async function composer(
   const oauth: DependancesOAuth = {
     base,
     config: () => auth.config(),
+    fraicheursFournisseurs: async () => lireFraicheurs(auth),
+    localReserveAuxAdmins,
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     maintenant: () => (auth.maintenant ? auth.maintenant() : Date.now() / 1000),
   };
@@ -457,8 +536,30 @@ export async function composer(
     ],
     gardes: creerGardes(auth),
     familles: [
-      ...famillesParDefaut(mode),
-      creerFamilleComptes(comptes),
+      ...famillesParDefaut(mode, async () => methodesPubliques(await fournisseursActifsGardes())),
+      creerFamilleIdentite({
+        auth,
+        mandataires: comptes.mandataires,
+        journal: journal.child({ domaine: "identite" }),
+        configurations: configurationsOidc,
+        demarrerHistoriqueFichiers: comptes.demarrerHistoriqueFichiers,
+        logMetric: comptes.logMetric,
+        publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
+        revoquer: (uid, sid) => evenements.revoquer(uid, sid),
+        bac: piloteBac(),
+      }),
+      creerFamilleComptes({
+        ...comptes,
+        finDeSessionSso: (sid) =>
+          adresseDeFinDeSession(
+            {
+              base,
+              configurations: configurationsOidc,
+              cookieSecure: () => auth.attributsCookie().https_only === true,
+            },
+            sid,
+          ),
+      }),
       creerFamilleJetons(comptes),
       creerFamilleOAuth({ auth, oauth }),
       pont.famille,
@@ -503,7 +604,28 @@ export async function composer(
         auth,
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
+        publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
         bac: piloteBac(),
+      }),
+      creerFamilleAdminIdentite({
+        base,
+        auth,
+        journal: journal.child({ domaine: "admin" }),
+        revoquer: (uid) => evenements.revoquer(uid),
+      }),
+      creerFamilleAdminRattachement({
+        base,
+        auth,
+        journal: journal.child({ domaine: "admin" }),
+        revoquer: (uid) => evenements.revoquer(uid),
+      }),
+      creerFamilleAdminIdentiteOidc({
+        base,
+        auth,
+        mandataires: comptes.mandataires,
+        journal: journal.child({ domaine: "admin" }),
+        configurations: configurationsOidc,
+        ...(options.sortantOidc === undefined ? {} : { sortant: options.sortantOidc }),
       }),
       creerFamilleAdminSecurite({
         base,

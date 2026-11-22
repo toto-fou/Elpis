@@ -18,21 +18,23 @@ async function hoteDistant(uid: number): Promise<SandboxHost | null> {
   return hote !== null && !isLoopback(hote.url) ? hote : null;
 }
 
-/** Appel de l'hôte au nom du compte (nom gardé : la base n'a peut-être plus sa ligne), corps JSON rendu ; un refus est levé avec le `detail` de l'hôte. */
+/** Appel de l'hôte au nom du compte (suspension tolérée seulement pour un arrêt ou un nettoyage ; nom gardé : la base n'a peut-être plus sa ligne), corps JSON rendu ; un refus est levé avec le `detail` de l'hôte. */
 export async function appelerHote(
   hote: SandboxHost,
   uid: number,
   username: string,
   methode: "POST" | "DELETE",
   chemin: string,
-  options: { json?: unknown; delaiS?: number } = {},
+  options: { json?: unknown; delaiS?: number; tolererSuspension?: boolean } = {},
 ): Promise<unknown> {
   const client = new ClientHttp({
     delais: delais(options.delaiS ?? DELAI_HOTE_S, { connect: CONNEXION_HOTE_S }),
   });
   try {
     const r = await client.request(methode, `${hote.url}${chemin}`, {
-      headers: await entetesRelais(hote, uid, username),
+      headers: await entetesRelais(hote, uid, username, {
+        tolererSuspension: options.tolererSuspension === true,
+      }),
       ...(options.json === undefined ? {} : { json: options.json }),
     });
     if (r.isSuccess) return r.json();
@@ -49,7 +51,7 @@ export async function appelerHote(
   }
 }
 
-/** Compte supprimé purgé sur chaque hôte d'outils déclaré (sa base peut être distincte de celle du core) ; un échec par hôte nommé, jamais levé. */
+/** Compte supprimé purgé sur chaque hôte d'outils déclaré avec une URL et un jeton de service (les autres ne détiennent rien) ; un échec par hôte nommé, jamais levé. */
 export async function purgerCompteSurHotes(uid: number, username: string): Promise<string[]> {
   let declares: [string, SandboxHost | null][];
   try {
@@ -58,10 +60,12 @@ export async function purgerCompteSurHotes(uid: number, username: string): Promi
     return [`manifeste des hôtes illisible : ${e instanceof Error ? e.message : String(e)}`];
   }
   const essais = declares.map(async ([id, hote]): Promise<string | null> => {
-    if (hote === null) return `hôte d'outils ${id} : sans URL`;
-    if (!hote.token) return `hôte d'outils ${id} : sans jeton de service`;
+    if (hote === null || !hote.token) return null;
     try {
-      await appelerHote(hote, uid, username, "POST", "/api/internal/account/purge", { delaiS: 15 });
+      await appelerHote(hote, uid, username, "POST", "/api/internal/account/purge", {
+        delaiS: 15,
+        tolererSuspension: true,
+      });
       return null;
     } catch (e) {
       const raison = e instanceof Error ? e.message : String(e);
@@ -71,13 +75,28 @@ export async function purgerCompteSurHotes(uid: number, username: string): Promi
   return (await Promise.all(essais)).filter((m): m is string => m !== null);
 }
 
-/** PortBac de la console : `P` d'un hôte distant supprimé par l'hôte, conteneur et purge locaux par @elpis/bac. */
+/** PortBac de la console : `P` d'un hôte distant mis de côté, remis ou supprimé par l'hôte, conteneur et purge locaux par @elpis/bac. */
 export function piloteBac(): PortBac {
   return {
-    async supprimerSurHote(uid, username) {
-      const hote = await hoteDistant(uid);
-      if (hote === null) return null;
-      const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/delete");
+    hoteDistantDuCompte: hoteDistant,
+    async mettreDeCoteSurHote(hote, uid, username, horodatage) {
+      const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/set-aside", {
+        tolererSuspension: true,
+        json: { stamp: horodatage },
+      });
+      return getOu(r, "renamed", false) === true;
+    },
+    async remettreSurHote(hote, uid, username, horodatage) {
+      await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/restore", {
+        tolererSuspension: true,
+        json: { stamp: horodatage },
+      });
+    },
+    async supprimerMisDeCoteSurHote(hote, uid, username, horodatage) {
+      const r = await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/discard", {
+        tolererSuspension: true,
+        json: { stamp: horodatage },
+      });
       return getOu(r, "deleted", false) === true;
     },
     async retirerConteneur(uid, username, travail) {
@@ -98,7 +117,10 @@ export function piloteBac(): PortBac {
     async detruireConteneur(uid, username, travail, profilAvant) {
       const hote = await hoteDistant(uid);
       try {
-        if (hote !== null) await appelerHote(hote, uid, username, "DELETE", "/api/sandbox/me");
+        if (hote !== null)
+          await appelerHote(hote, uid, username, "DELETE", "/api/sandbox/me", {
+            tolererSuspension: true,
+          });
         else await getUserSandbox(uid, username, travail, profilAvant).destroy();
       } finally {
         resetUserSandboxCache(uid);

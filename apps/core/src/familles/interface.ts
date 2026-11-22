@@ -45,6 +45,9 @@ const PAGE_ADMIN_SEPAREE =
 
 type Dict = Record<string, unknown>;
 
+/** Méthodes de connexion SSO actives vues par la page de connexion (`login_methods`, `auth_origin`). */
+export type MethodesConnexion = () => Promise<Record<string, unknown>>;
+
 function dict(v: unknown): Dict | undefined {
   return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Dict) : undefined;
 }
@@ -137,7 +140,7 @@ function configPublique(req: FastifyRequest, mode: ModeApp): Dict {
         ? vue["app_info"]
         : {
             name: "Elpis",
-            version: "0.1.4",
+            version: "0.1.5",
             team_name: "Elpis",
             engine: "llama.cpp",
             description: "",
@@ -178,7 +181,7 @@ function configPublique(req: FastifyRequest, mode: ModeApp): Dict {
 }
 
 /** Routes de l'interface d'un process ; le dossier `frontend/` et le BUILD_ID viennent de la config. */
-export function creerFamilleInterface(mode: ModeApp): Famille {
+export function creerFamilleInterface(mode: ModeApp, methodes?: MethodesConnexion): Famille {
   const frontend = join(config.PROJECT_ROOT, "frontend");
   const pages = new Pages(frontend, config.BUILD_ID);
   const page =
@@ -227,7 +230,10 @@ export function creerFamilleInterface(mode: ModeApp): Famille {
       chemin: "/api/public-config",
       processus: ["main", "admin"],
       acces: "public",
-      traiter: (req) => configPublique(req, mode),
+      traiter: async (req) => ({
+        ...configPublique(req, mode),
+        ...(methodes === undefined ? {} : await methodes()),
+      }),
     },
     {
       methode: "GET",

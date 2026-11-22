@@ -3,21 +3,22 @@
 
 import { HttpError, intPy, stripPy, veritePy } from "@elpis/commun";
 import type { AttributsCookie } from "@elpis/config";
+import { estTableAbsente } from "@elpis/db";
 import type { Executeur } from "@elpis/db";
 import { egauxEnTempsConstant, jetonInterne } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { COLONNES_IDENTITE, JOINTURE_IDENTITE } from "./etat-compte";
 import { estLocalDirect } from "./local";
 import { estRevoquee } from "./revocations";
 import { fluxEncoreValide, validerSession } from "./session";
-import type { DependancesSession, LigneUtilisateur, Session } from "./session";
+import type { DependancesSession, LigneUtilisateur, MetaSession, Session } from "./session";
 
 declare module "fastify" {
   interface FastifyRequest {
     session: Session;
     sessionInitialeVide: boolean;
     utilisateur?: { id: number; username: string | null };
-    identiteToolhost?: { userId: number; username: string };
   }
 }
 
@@ -31,6 +32,8 @@ export interface DependancesAuth {
   secret(): string;
   jetonService(): string;
   maintenant?(): number;
+  /** Méthode de connexion d'une session encore admise pour ce compte (relue à chaud par le cœur). */
+  sessionAdmise?(auth: unknown, ligne: LigneUtilisateur): boolean | Promise<boolean>;
   signalerRefus?(requete: FastifyRequest, motif: MotifRefus, details: Record<string, unknown>): void;
 }
 
@@ -62,13 +65,46 @@ export async function ligneUtilisateur(x: Executeur, uid: number): Promise<Ligne
   return x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
 }
 
+/** Compte de la session avec le fournisseur de son identité externe (`ident_*`), en une requête : sert la cohérence entre la méthode de connexion et l'état du compte. */
+export async function ligneSession(x: Executeur, uid: number): Promise<LigneUtilisateur | undefined> {
+  try {
+    return await x.get<LigneUtilisateur>(
+      `SELECT u.*, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`,
+      [uid],
+    );
+  } catch (e) {
+    if (!estTableAbsente(e)) throw e;
+    return ligneUtilisateur(x, uid);
+  }
+}
+
+/** Suspension et identité externe d'un compte en une requête (`ident_*` absents pour un compte local) ; `undefined` si le compte manque. */
+export async function ligneAcces(
+  x: Executeur,
+  uid: number,
+): Promise<
+  | { suspended_at: unknown; ident_provider_id: unknown; ident_checked_at: unknown; ident_is_admin: unknown }
+  | undefined
+> {
+  return x.get(`SELECT u.suspended_at, ${COLONNES_IDENTITE} FROM users u ${JOINTURE_IDENTITE} WHERE u.id=?`, [
+    uid,
+  ]);
+}
+
+/** Porte « méthode de connexion admise » de `dep`, absente quand il n'en fournit pas. */
+function portesAdmise(dep: DependancesAuth): Pick<DependancesSession, "sessionAdmise"> {
+  const admise = dep.sessionAdmise;
+  return admise ? { sessionAdmise: (auth, ligne) => admise.call(dep, auth, ligne) } : {};
+}
+
 /** Portes de session branchées sur la base de `dep` (lecture du compte, révocation par `_sid`). */
 export function dependancesSession(dep: DependancesAuth): DependancesSession {
   return {
     config: () => dep.config(),
-    utilisateur: (uid) => ligneUtilisateur(dep.base, uid),
+    utilisateur: (uid) => ligneSession(dep.base, uid),
     revoquee: (sid) => estRevoquee(dep.base, sid),
     maintenant: () => maintenant(dep),
+    ...portesAdmise(dep),
   };
 }
 
@@ -84,13 +120,8 @@ function chemin(requete: FastifyRequest): string {
   }
 }
 
-/** `require_user_id` : identité du toolhost d'abord, puis session valide ; 403 si le mot de passe doit changer. */
+/** `require_user_id` : session valide ; 403 si le mot de passe doit changer. */
 export async function exigerUtilisateur(requete: FastifyRequest, dep: DependancesAuth): Promise<number> {
-  const th = requete.identiteToolhost;
-  if (th) {
-    requete.utilisateur = { id: th.userId, username: th.username };
-    return th.userId;
-  }
   const brut = requete.session.get("user_id");
   if (!veritePy(brut)) throw new HttpError(401, "not logged in");
   let uid: number;
@@ -110,25 +141,41 @@ export async function exigerUtilisateur(requete: FastifyRequest, dep: Dependance
   return uid;
 }
 
-/** `stream_session_still_valid` sur la base : compte supprimé = flux coupé, panne transitoire = flux gardé. */
+/** `stream_session_still_valid` sur la base : compte supprimé ou suspendu = flux coupé, panne transitoire = flux gardé. */
 export function revaliderFlux(
   dep: DependancesAuth,
   uid: number,
   loginTs: unknown,
   sid: unknown,
+  meta: MetaSession = {},
 ): Promise<boolean> {
-  return fluxEncoreValide(uid, loginTs, sid, {
-    config: () => dep.config(),
-    revoquee: (s) => estRevoquee(dep.base, s),
-    maintenant: () => maintenant(dep),
-    sessionMinTs: async (id) => {
-      const r = await dep.base.get<{ m: number | null }>(
-        "SELECT session_min_ts AS m FROM users WHERE id = ?",
-        [id],
-      );
-      return r === undefined ? undefined : (r.m ?? null);
+  return fluxEncoreValide(
+    uid,
+    loginTs,
+    sid,
+    {
+      config: () => dep.config(),
+      revoquee: (s) => estRevoquee(dep.base, s),
+      maintenant: () => maintenant(dep),
+      ...portesAdmise(dep),
+      sessionMinTs: async (id) => {
+        const r = await dep.base.get<{
+          m: number | null;
+          s: number | null;
+          a: number | null;
+          h: string | null;
+          p: string | null;
+        }>(
+          `SELECT u.session_min_ts AS m, u.suspended_at AS s, u.is_admin AS a, u.pass_hash AS h, i.provider_id AS p FROM users u ${JOINTURE_IDENTITE} WHERE u.id = ?`,
+          [id],
+        );
+        return r === undefined
+          ? undefined
+          : { min: r.m ?? null, suspended_at: r.s, is_admin: r.a, pass_hash: r.h, ident_provider_id: r.p };
+      },
     },
-  });
+    meta,
+  );
 }
 
 /** `_require_admin` / `_require_staff` / `_require_admin_or_mod` : rôle relu en base (`is_admin` : 1 admin, 2 modérateur). */

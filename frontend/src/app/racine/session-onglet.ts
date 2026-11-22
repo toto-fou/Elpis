@@ -3,6 +3,7 @@
 import { schemaMetaOutils } from "@elpis/contracts";
 import type { Ref } from "vue";
 
+import { suiteOAuthValide } from "../../features/auth/sso";
 import { copyImageFields } from "../../features/images/formats";
 import { capturesRestituees } from "../../features/chat/historique/historique";
 import { segmentsOutils } from "../../features/chat/outils/segments";
@@ -235,13 +236,8 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
   /** Retour vers `/oauth/authorize?…` de cette origine une fois connecté (jamais une redirection ouverte). */
   function reprendreOAuth(): boolean {
     if (!dep.user.value) return false;
-    let suite: string;
-    try {
-      suite = new URLSearchParams(window.location.search).get("oauth_next") || "";
-    } catch {
-      return false;
-    }
-    if (!suite.startsWith("/oauth/authorize?") || suite.startsWith("//")) return false;
+    const suite = suiteOAuthValide(window.location.search);
+    if (suite === "") return false;
     window.location.replace(suite);
     return true;
   }

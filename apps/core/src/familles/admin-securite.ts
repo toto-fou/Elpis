@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-securite.ts — console : révocation des sessions, mode HTTPS et écoute (admin/security.py). */
 import {
+  dureeMaxSession,
   estLocalDirect,
-  effacerMinSession,
   leverMinSession,
   ligneUtilisateur,
   revoquerTousAcces,
@@ -38,6 +38,7 @@ import {
   urlsHttps,
 } from "../admin/securite";
 import type { PortCycleVie } from "../admin/securite";
+import { reglagesAuthDepuis } from "../identite/reglages";
 import type { Journal } from "../journal";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
@@ -102,8 +103,9 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     const revoques: Dict[] = [];
     try {
       const lignes = await base.valeurs<[unknown, unknown, unknown]>(
-        "SELECT id, username, session_min_ts FROM users WHERE session_min_ts IS NOT NULL AND session_min_ts > 0 " +
+        "SELECT id, username, session_min_ts FROM users WHERE session_min_ts IS NOT NULL AND session_min_ts > ? " +
           "ORDER BY session_min_ts DESC LIMIT 200",
+        [maintenant() - dureeMaxSession(auth.config())],
       );
       for (const [id, nom, ts] of lignes)
         revoques.push({
@@ -177,18 +179,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     }
   }
 
-  async function effacerRevocation(req: FastifyRequest): Promise<Dict> {
-    const cible = cheminEntier(req, "user_id");
-    try {
-      await effacerMinSession(base, cible);
-    } catch (e) {
-      dep.journal.error({ err: e }, "clear-user-revocation failed");
-      throw new HttpError(500, "Échec du reset");
-    }
-    auditer(req, "admin.security.sessions.clear_user_revocation", { target_user_id: cible });
-    return { ok: true, user_id: cible };
-  }
-
   async function etatHttps(req: FastifyRequest): Promise<Dict> {
     const cfg = readConfigJson();
     const ports = portsHttps(cfg);
@@ -229,6 +219,12 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     }
     const hote = await sousVerrouConfigJson(() => {
       const cfg = lireConfigPourEcrire();
+      const auth = reglagesAuthDepuis(cfg["auth"]);
+      if (!actif && [...auth.providers, ...auth.invalides].some((p) => p.enabled))
+        throw new HttpError(
+          409,
+          "Désactivez d'abord les fournisseurs SSO OpenID Connect : sans https, les mots de passe circuleraient en clair.",
+        );
       const sec = sectionDict(cfg, "security");
       const https = sectionDict(sec, "https");
       poserCle(https, "enabled", actif);
@@ -288,7 +284,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       route("GET", "/api/admin/security/sessions", sessions),
       route("POST", "/api/admin/security/sessions/revoke-all", revoquerTout),
       route("POST", "/api/admin/security/sessions/revoke-user/:user_id", revoquerCompte),
-      route("POST", "/api/admin/security/sessions/clear-user-revocation/:user_id", effacerRevocation),
       route("GET", "/api/admin/security/https", etatHttps),
       route("POST", "/api/admin/security/https", basculerHttps),
       route("POST", "/api/admin/security/listen", changerEcoute),

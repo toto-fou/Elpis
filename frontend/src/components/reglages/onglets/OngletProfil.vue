@@ -59,7 +59,13 @@ const rg = domaineReglages();
       </div>
     </div>
 
-    <div class="set-block">
+    <div v-if="rg.user.password_managed === true" class="set-block" data-mot-de-passe-gere>
+      <div class="flex items-center gap-2 text-sm text-slate-600">
+        <i class="ph ph-lock-key text-slate-400" aria-hidden="true"></i>
+        Votre mot de passe est géré par votre organisation.
+      </div>
+    </div>
+    <div v-else class="set-block">
       <div
         class="flex items-center justify-between cursor-pointer"
         @click="rg.showPasswordChange = !rg.showPasswordChange"

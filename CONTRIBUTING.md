@@ -81,17 +81,19 @@ extractor, the desktop agent and the interface defaults.
 
 - **Pull requests never change the version.** They add their entry under
   `## Unreleased` in `CHANGELOG.md`.
-- **A release groups merged work.** A patch release batches fixes; it is not
-  cut for each pull request.
+- **A release groups merged work.** A patch release batches compatible changes
+  and fixes; it is not cut for each pull request.
 - Versions are `X.Y.Z`, with no pre-release suffix. A version exists once its
   tag `vX.Y.Z` is pushed, and only the maintainer tags.
 - Until 1.0.0:
-  - `0.Y.0` (minor): new features, removals, or anything an administrator must
-    act on: a database migration, a renamed or removed setting, a new
-    prerequisite (sandbox image, Chromium, Node), an API or file format change
-    (`mcp.json`, REST contracts).
-  - `0.Y.Z` (patch): fixes and dependency updates, security ones included, that
-    ask nothing of the administrator.
+  - `0.Y.0` (minor): anything an administrator must act on: a renamed or
+    removed setting, a removed feature, a new prerequisite (sandbox image,
+    Chromium, Node), a change to the installation or the service accounts, an
+    incompatible API or file format change (`mcp.json`, REST contracts).
+  - `0.Y.Z` (patch): compatible additions and fixes, and dependency updates
+    (security ones included), that ask nothing of the administrator. A database
+    migration applied at start asks nothing, nor does a new feature that stays
+    off until an administrator switches it on.
 - 1.0.0 is the first stable release, and the maintainer alone decides when it
   comes. From then on, standard SemVer: a major version for any breaking change
   for administrators or integrations.

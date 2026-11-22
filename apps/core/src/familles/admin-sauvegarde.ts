@@ -128,6 +128,7 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
       restored: resultat.restored.length,
       errors: resultat.errors,
       restart_required: resultat.restored.some((r) => r.startsWith("db/") || r.startsWith("user_db/")),
+      sessions_closed: resultat.dbReplaced,
     });
   };
 

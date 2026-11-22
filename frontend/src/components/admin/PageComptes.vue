@@ -1,9 +1,17 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/PageComptes.vue — pages Comptes et Groupes. -->
 <script setup lang="ts">
+import type { CompteConsole } from "@elpis/contracts";
+import { computed } from "vue";
+
 import { domaineAdmin } from "../../features/admin/domaine";
 
 const adm = domaineAdmin();
+
+/** Colonne « Connexion » : seulement si un fournisseur est configuré ou si un compte porte une identité externe. */
+const colonneConnexion = computed(
+  () => (adm.authEtat?.providers.length ?? 0) > 0 || adm.usersList.some((u) => u.identity),
+);
 
 const COLONNES = [
   { champ: "username", label: "Compte", titre: "" },
@@ -21,6 +29,14 @@ const FILTRES = [
 
 const ariaTri = (champ: string): "ascending" | "descending" | "none" =>
   adm.usersSort.field !== champ ? "none" : adm.usersSort.dir > 0 ? "ascending" : "descending";
+
+/** Libellé de connexion : « Locale », ou le fournisseur (son libellé, à défaut son identifiant) et l'identifiant externe. */
+function connexion(u: CompteConsole): { fournisseur: string; identifiant: string } {
+  const i = u.identity;
+  if (!i) return { fournisseur: "Locale", identifiant: "" };
+  const p = adm.authEtat?.providers.find((x) => x.id === i.provider_id);
+  return { fournisseur: p?.label ?? i.provider_id, identifiant: i.ext_username ?? "" };
+}
 
 function ajouterAuGroupe(ev: Event): void {
   const sel = ev.target instanceof HTMLSelectElement ? ev.target : null;
@@ -78,8 +94,16 @@ function ajouterAuGroupe(ev: Event): void {
               type="button"
               class="adm-btn adm-tool"
               data-masse-reset
-              :disabled="adm.comptesChoisis.length !== 1"
-              :title="adm.comptesChoisis.length !== 1 ? 'Un compte à la fois' : undefined"
+              :disabled="
+                adm.comptesChoisis.length !== 1 || adm.comptesChoisis[0]?.has_local_password === false
+              "
+              :title="
+                adm.comptesChoisis.length !== 1
+                  ? 'Un compte à la fois'
+                  : adm.comptesChoisis[0]?.has_local_password === false
+                    ? 'Ce compte n\'a pas de mot de passe local'
+                    : undefined
+              "
               @click="adm.reinitialiserSelection"
             >
               <i class="ph ph-key" aria-hidden="true"></i> Réinitialiser
@@ -145,6 +169,14 @@ function ajouterAuGroupe(ev: Event): void {
                     ></i>
                   </button>
                 </th>
+                <th
+                  v-if="colonneConnexion"
+                  scope="col"
+                  class="px-3 py-2.5"
+                  title="Mot de passe local ou SSO OpenID Connect"
+                >
+                  Connexion
+                </th>
                 <th scope="col" class="px-5 py-2.5"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -186,6 +218,13 @@ function ajouterAuGroupe(ev: Event): void {
                           >
                         </div>
                         <div class="adm-users__muted font-mono">#{{ u.id }}</div>
+                        <span
+                          v-if="u.suspended_at"
+                          class="adm-pill adm-pill--warn"
+                          data-compte-desactive
+                          :title="adm.titreDesactivation(u)"
+                          >Désactivé</span
+                        >
                       </div>
                     </div>
                   </td>
@@ -251,6 +290,17 @@ function ajouterAuGroupe(ev: Event): void {
                   <td class="px-3 py-2.5" data-desktop :title="adm.admDesktopTitle(u)">
                     <span class="adm-pill">{{ adm.admDesktopLabel(u) }}</span>
                   </td>
+                  <td v-if="colonneConnexion" class="px-3 py-2.5" data-connexion>
+                    <span v-if="!u.identity" class="text-xs text-slate-600">{{
+                      connexion(u).fournisseur
+                    }}</span>
+                    <template v-else>
+                      <span class="adm-pill">{{ connexion(u).fournisseur }}</span>
+                      <div v-if="connexion(u).identifiant" class="adm-users__muted font-mono truncate">
+                        {{ connexion(u).identifiant }}
+                      </div>
+                    </template>
+                  </td>
                   <td class="px-5 py-2.5">
                     <div class="flex items-center justify-end gap-1">
                       <button
@@ -268,6 +318,7 @@ function ajouterAuGroupe(ev: Event): void {
                         ></i>
                       </button>
                       <button
+                        v-if="u.has_local_password !== false"
                         type="button"
                         class="adm-btn adm-btn--icon"
                         :title="'Mot de passe de ' + u.username"
@@ -277,10 +328,21 @@ function ajouterAuGroupe(ev: Event): void {
                         <i class="ph ph-key" aria-hidden="true"></i>
                       </button>
                       <button
+                        v-if="u.identity && u.id !== adm.user.id"
+                        type="button"
+                        class="adm-btn adm-btn--icon"
+                        data-detacher
+                        :title="'Détacher ' + u.username + ' de son fournisseur : le compte redevient local'"
+                        :aria-label="'Détacher ' + u.username"
+                        @click="adm.detachOuvrir(u)"
+                      >
+                        <i class="ph ph-link-break" aria-hidden="true"></i>
+                      </button>
+                      <button
                         v-if="u.id !== adm.user.id"
                         type="button"
                         class="adm-btn adm-btn--icon adm-btn--danger-hover"
-                        :title="'Supprimer ' + u.username"
+                        :title="'Supprimer ' + u.username + (u.identity ? '. ' + adm.mentionSuppression : '')"
                         :aria-label="'Supprimer ' + u.username"
                         @click="adm.deleteUser(u)"
                       >
@@ -290,7 +352,7 @@ function ajouterAuGroupe(ev: Event): void {
                   </td>
                 </tr>
                 <tr v-if="adm.userEdit && adm.userEditOpen(u)" :id="'user-edit-' + u.id">
-                  <td colspan="9" class="p-0">
+                  <td :colspan="colonneConnexion ? 10 : 9" class="p-0">
                     <form
                       class="adm-user-edit"
                       role="group"
@@ -302,7 +364,33 @@ function ajouterAuGroupe(ev: Event): void {
                       <div class="adm-user-edit__grid">
                         <fieldset class="adm-user-edit__col">
                           <legend class="adm-user-edit__legend">Compte</legend>
-                          <label class="adm-field">
+                          <div v-if="u.role_managed" class="adm-field" data-role-gere>
+                            <span class="adm-field__label">Rôle</span>
+                            <div class="adm-field__row text-sm">
+                              <select
+                                v-if="adm.rolesRetrogradables(u).length > 1"
+                                v-model="adm.userEdit.role"
+                                :disabled="u.id === adm.user.id"
+                                class="set-select"
+                                data-user-edit-first
+                              >
+                                <option
+                                  v-for="r in adm.rolesRetrogradables(u)"
+                                  :key="r.value"
+                                  :value="r.value"
+                                >
+                                  {{ r.label }}
+                                </option>
+                              </select>
+                              <span v-else>{{ adm.admRoleLabel(u) }}</span>
+                              <span
+                                class="adm-pill"
+                                title="Le rôle de ce compte est donné par un groupe de votre fournisseur d'identité. Vous pouvez seulement le rétrograder ; il sera recalculé à sa prochaine connexion."
+                                >géré par le fournisseur</span
+                              >
+                            </div>
+                          </div>
+                          <label v-else class="adm-field">
                             <span class="adm-field__label">Rôle</span>
                             <select
                               v-model="adm.userEdit.role"
@@ -329,6 +417,27 @@ function ajouterAuGroupe(ev: Event): void {
                                 <span class="truncate">{{ g.name }}</span>
                               </label>
                             </div>
+                          </div>
+                          <div v-if="u.id !== adm.user.id" class="adm-field" data-desactivation>
+                            <span class="adm-field__label">Désactivation</span>
+                            <button
+                              v-if="!u.suspended_at"
+                              type="button"
+                              class="adm-btn adm-btn--danger self-start"
+                              data-desactiver
+                              @click="adm.changerDesactivation(u, true)"
+                            >
+                              <i class="ph ph-prohibit" aria-hidden="true"></i> Désactiver
+                            </button>
+                            <button
+                              v-else
+                              type="button"
+                              class="adm-btn self-start"
+                              data-reactiver
+                              @click="adm.changerDesactivation(u, false)"
+                            >
+                              <i class="ph ph-power" aria-hidden="true"></i> Réactiver
+                            </button>
                           </div>
                         </fieldset>
 

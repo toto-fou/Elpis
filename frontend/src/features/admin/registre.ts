@@ -26,6 +26,8 @@ interface DefinitionPage {
   onglets?: readonly OngletPage[];
   stores?: readonly string[];
   paths?: readonly string[];
+  /** Autres mots qui font trouver la page à la recherche (sigles, ancien nom). */
+  motsCles?: readonly string[];
 }
 
 export interface PageAdmin {
@@ -36,6 +38,7 @@ export interface PageAdmin {
   readonly loaders: readonly Chargeur[];
   readonly onglets: readonly OngletPage[];
   readonly paths: readonly string[];
+  readonly motsCles: readonly string[];
   readonly entry: string;
   readonly entryLabel: string;
   readonly role: RoleAdmin;
@@ -152,7 +155,12 @@ const ENTREES: readonly EntreeAdmin[] = [
     icon: "ph-users",
     role: "admin",
     pages: [
-      { id: "accounts", label: "Comptes", wide: true, loaders: [["loadUsers"], ["loadGroups"]] },
+      {
+        id: "accounts",
+        label: "Comptes",
+        wide: true,
+        loaders: [["loadUsers"], ["loadGroups"], ["loadEnterpriseAuth"]],
+      },
       { id: "groups", label: "Groupes", wide: true, loaders: [["loadGroups"], ["loadUsers"]] },
       {
         id: "rights",
@@ -166,6 +174,14 @@ const ENTREES: readonly EntreeAdmin[] = [
         stores: ["config"],
         loaders: [CONFIG, ["loadSecurityOverview"]],
         paths: ["security.session.", "security.password_policy."],
+      },
+      {
+        id: "oidc",
+        label: "SSO OpenID Connect",
+        wide: true,
+        loaders: [["loadEnterpriseAuth"], ["loadGroups"]],
+        paths: ["auth."],
+        motsCles: ["oidc", "openid", "sso", "connexion d'entreprise", "authentification unique"],
       },
     ],
   },
@@ -266,6 +282,7 @@ function construirePages(): Record<string, PageAdmin> {
         loaders: p.loaders ?? [],
         onglets: p.onglets ?? [],
         paths: p.paths ?? [],
+        motsCles: p.motsCles ?? [],
         entry: e.id,
         entryLabel: e.label,
         role: p.role ?? e.role,

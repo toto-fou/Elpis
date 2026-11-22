@@ -36,7 +36,7 @@ export function brancherJobs(
   base: Base,
   cycle: CycleDeVie,
   publier: (message: Dict) => unknown,
-  o: Partial<Pick<DependancesJobs, "horloge">> & { hote?: PortHoteJobs } = {},
+  o: Partial<Pick<DependancesJobs, "horloge" | "acces">> & { hote?: PortHoteJobs } = {},
 ): ServiceJobs {
   const service = new ServiceJobs({
     base,
@@ -45,6 +45,7 @@ export function brancherJobs(
     arret: cycle.signalArret,
     annulerAgent: annulerEnFond,
     ...(o.horloge ? { horloge: o.horloge } : {}),
+    ...(o.acces ? { acces: o.acces } : {}),
   });
   installerServiceJobs(service);
   cycle.auDemarrage("réveilleur des tâches de fond", () => service.demarrer(), { modes: ["main"] });

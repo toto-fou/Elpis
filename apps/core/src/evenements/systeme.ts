@@ -15,6 +15,8 @@ export type ElementSysteme = string | Message | typeof CLIENT_CLOSED;
 export interface AbonneSysteme {
   readonly staff: boolean;
   readonly uid: number | null;
+  /** Session (`_sid`) qui a ouvert le flux, si connue. */
+  readonly sid?: string | null;
   /** Abonné au journal en direct (page Journaux de la console ouverte). */
   readonly journal?: boolean;
 }
@@ -32,6 +34,7 @@ export interface OptionsListen {
   /** Recevoir les lignes du journal en direct (staff seulement). */
   journal?: boolean;
   userId?: number | null;
+  sid?: string | null;
   validityCheck?: VerifierSession;
   signal?: AbortSignal;
 }
@@ -138,7 +141,12 @@ export class SystemEvents {
       this.fermerFile(file, this.fermeture);
     } else if (!options.signal?.aborted) {
       const journal = Boolean(options.isStaff && options.journal);
-      this.clients.set(file, { staff: Boolean(options.isStaff), uid: options.userId ?? null, journal });
+      this.clients.set(file, {
+        staff: Boolean(options.isStaff),
+        uid: options.userId ?? null,
+        sid: options.sid ?? null,
+        journal,
+      });
       if (journal) this.options.surAbonneJournal?.();
     }
     const desinscrire = (): void => void this.clients.delete(file);
@@ -206,6 +214,18 @@ export class SystemEvents {
     let fermes = 0;
     for (const [file, meta] of [...this.clients]) {
       if (uid !== null && meta.uid !== uid) continue;
+      this.clients.delete(file);
+      this.fermerFile(file, message);
+      fermes += 1;
+    }
+    return fermes;
+  }
+
+  /** Ferme les seuls flux ouverts par la session `sid` du compte ; rend leur nombre. */
+  disconnectSession(uid: number, sid: string, message?: Message): number {
+    let fermes = 0;
+    for (const [file, meta] of [...this.clients]) {
+      if (meta.uid !== uid || meta.sid !== sid) continue;
       this.clients.delete(file);
       this.fermerFile(file, message);
       fermes += 1;

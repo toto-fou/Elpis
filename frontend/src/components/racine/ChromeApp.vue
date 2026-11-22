@@ -69,7 +69,7 @@ function agirConversation(action: ActionConversation): void {
     role="status"
     aria-live="polite"
     aria-atomic="false"
-    class="fixed bottom-6 right-6 z-[9995] flex flex-col gap-3 pointer-events-none"
+    class="elpis-toasts fixed bottom-6 right-6 z-[9995] flex flex-col gap-3 pointer-events-none"
   >
     <TransitionGroup name="toast">
       <div

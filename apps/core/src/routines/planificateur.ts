@@ -3,7 +3,15 @@
 import { AsyncResource } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 
-import { getUsernameById, getUserSettings, ligneUtilisateur } from "@elpis/auth";
+import {
+  accesPerimeDe,
+  compteSuspendu,
+  getUsernameById,
+  getUserSettings,
+  ligneAcces,
+  ligneUtilisateur,
+} from "@elpis/auth";
+import type { Fraicheurs } from "@elpis/auth";
 import {
   CancelledError,
   cleHashPy,
@@ -74,6 +82,7 @@ import {
   reconcileOrphans,
   routineNotificationTitle,
 } from "./magasin";
+import { RAISON_PEREMPTION, signalerPeremption } from "./peremption";
 import { dansPorteeRoutine } from "./ports";
 
 const log = journal("routines");
@@ -333,6 +342,10 @@ export interface DependancesPlanificateur {
   readonly runner?: (o: OptionsRun) => Promise<SortieRun>;
   /** `_llm_reachable` (substitué par les tests). */
   readonly llmJoignable?: () => Promise<boolean>;
+  /** Fraîcheurs des fournisseurs actifs ; sans elle, un compte externe est périmé. */
+  readonly fraicheurs?: () => Promise<Fraicheurs>;
+  /** Vrai quand le mode local est réservé aux administrateurs : les routines d'un compte local ordinaire s'arrêtent. */
+  readonly localReserve?: () => boolean;
 }
 
 export interface Lancement {
@@ -368,6 +381,8 @@ export class Planificateur {
   readonly bootId: string;
   private readonly runner: (o: OptionsRun) => Promise<SortieRun>;
   private readonly sonde: () => Promise<boolean>;
+  private readonly fraicheurs: () => Promise<Fraicheurs>;
+  private readonly localReserve: () => boolean;
   private readonly runs = new Map<number, RunActif>();
   private readonly annulations = new Map<string, number>();
   private dernierTick: number | null = null;
@@ -379,6 +394,8 @@ export class Planificateur {
     this.bootId = dep.bootId ?? BOOT_ID;
     this.runner = dep.runner ?? runChatMultiMcp;
     this.sonde = dep.llmJoignable ?? llmJoignable;
+    this.fraicheurs = dep.fraicheurs ?? (async () => new Map());
+    this.localReserve = dep.localReserve ?? (() => false);
   }
 
   /** `scheduler_alive` : leader ET boucle qui a tické récemment (une boucle morte garde le verrou mais cesse de ticker). */
@@ -476,10 +493,44 @@ export class Planificateur {
     }
   }
 
+  /** Run sauté faute de vérification récente du compte : marqué avec sa raison (une fois seulement pour le planning) et une seule notification au propriétaire tant qu'elle n'est pas lue. */
+  private async sauterPourPeremption(rid: number, uid: number, trigger: string): Promise<void> {
+    const neuve = await signalerPeremption(this.base, uid);
+    if (trigger !== "schedule" || neuve)
+      try {
+        await insertSkippedRun(this.base, rid, uid, { trigger, reason: RAISON_PEREMPTION });
+      } catch {
+        // journal au mieux
+      }
+    log.info(`[ROUTINES] SKIP routine=${rid} user=${uid} (compte à reconnecter)`);
+  }
+
   /** `launch_run` : admission atomique (plafond du compte, garde anti-chevauchement) puis run dans ce process ; `null` = run `skipped` journalisé. */
   async lancerRun(routine: Dict, o: Lancement): Promise<number | null> {
     const uid = intPy(routine["owner_user_id"]);
     const rid = intPy(routine["id"]);
+    const acces = await ligneAcces(this.base, uid);
+    if (
+      o.trigger !== "manual" &&
+      (await accesPerimeDe(
+        { fraicheursFournisseurs: this.fraicheurs, localReserveAuxAdmins: this.localReserve },
+        acces,
+        Date.now() / 1000,
+      ))
+    ) {
+      await this.sauterPourPeremption(rid, uid, o.trigger);
+      return null;
+    }
+    if (compteSuspendu(acces)) {
+      if (o.trigger !== "schedule")
+        try {
+          await insertSkippedRun(this.base, rid, uid, { trigger: o.trigger, reason: "compte suspendu" });
+        } catch {
+          // journal au mieux
+        }
+      log.info(`[ROUTINES] SKIP routine=${rid} user=${uid} (compte suspendu)`);
+      return null;
+    }
     const runId = await admitAndInsertRun(this.base, rid, uid, {
       trigger: o.trigger,
       cap: REGLAGES.perUserCap,
@@ -532,6 +583,17 @@ export class Planificateur {
     if (entree !== undefined && entree.enregistre && !entree.termine)
       entree.controleur.abort(new CancelledError("User cancelled"));
     return true;
+  }
+
+  /** Coupe sur-le-champ les runs en vol du compte (suspension) ; nombre de runs coupés. */
+  arreterCompte(uid: number): number {
+    let n = 0;
+    for (const r of this.runs.values()) {
+      if (r.uid !== uid || r.termine) continue;
+      r.controleur.abort(new CancelledError("compte suspendu"));
+      n += 1;
+    }
+    return n;
   }
 
   private annule(uid: number, cle: string): boolean {
@@ -789,6 +851,7 @@ export class Planificateur {
                 mcpConfigs,
                 onEvent: null,
                 username,
+                userId: compte,
                 model: modele,
                 builtinTools: null,
                 isCancelled: estAnnule,

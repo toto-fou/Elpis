@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité (toolhost/routes_internal.py) ; hôtes des comptes git, identifiant git lu dans le coffre (ou sa seule présence), notification, ancres du bureau, ouverture de PR et identifiant git saisi dans l'éditeur pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
-import { getUser, getUserSettings, ligneUtilisateur, nomCanonique, resoudreJeton } from "@elpis/auth";
+import {
+  compteSuspendu,
+  getUser,
+  getUserSettings,
+  ligneUtilisateur,
+  nomCanonique,
+  resoudreJeton,
+} from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { estDict, getPy, HttpError, intPy, lowerPy, ouPy, stripPy, strPy, texteNet } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
@@ -45,7 +52,7 @@ export interface DependancesInterne {
   readonly journal: Journal;
 }
 
-/** `_identity_dict` : compte, profil réseau effectif, admin plein seulement (`is_admin == 1`) ; `null` si le compte manque. */
+/** `_identity_dict` : compte, profil réseau effectif, admin plein seulement (`is_admin == 1`) ; `null` si le compte manque ou est suspendu. */
 /** Seul compte dont la forme canonique (nom des dossiers et des anciennes clés des outils) vaut `nom`, `null` sinon. */
 async function idCanonique(base: DependancesInterne["auth"]["base"], nom: string): Promise<number | null> {
   const comptes = await base.all<{ id: number; username: string }>("SELECT id, username FROM users");
@@ -55,7 +62,7 @@ async function idCanonique(base: DependancesInterne["auth"]["base"], nom: string
 
 async function identite(dep: DependancesInterne, uid: number): Promise<Dict | null> {
   const ligne = await ligneUtilisateur(dep.auth.base, uid);
-  if (!ligne) return null;
+  if (!ligne || compteSuspendu(ligne)) return null;
   let reglages: Record<string, unknown>;
   try {
     reglages = await getUserSettings(dep.auth.base, uid);
@@ -103,7 +110,8 @@ export async function compteSigne(
   const ident = verify(premierEntete(req, IDENTITY_HEADER), jetonServiceDuManifeste());
   if (ident === null || ident.user_id <= 0) throw new HttpError(401, "identity envelope missing or invalid");
   const ligne = await ligneUtilisateur(dep.auth.base, ident.user_id);
-  if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "unknown account");
+  if (!ligne || compteSuspendu(ligne) || strPy(ligne.username) !== ident.username)
+    throw new HttpError(403, "unknown account");
   return { uid: ident.user_id, username: ident.username, identite: ident };
 }
 

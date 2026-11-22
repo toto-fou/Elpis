@@ -15,6 +15,8 @@ export const schemaMoiConnecte = z.object({
   is_admin: z.boolean(),
   role: schemaRole,
   avatar: z.string().nullable(),
+  /** Présent et vrai quand le mot de passe est géré par l'organisation (compte sans mot de passe local) ; absent pour un compte local. */
+  password_managed: z.boolean().optional(),
 });
 export const schemaMoiMotDePasseAChanger = z.object({
   logged_in: z.literal(false),
@@ -47,7 +49,14 @@ export const schemaCorpsChangementMotDePasse = z.object({
 });
 export type CorpsChangementMotDePasse = z.infer<typeof schemaCorpsChangementMotDePasse>;
 
-export const schemaCompteLite = z.object({ id: entier, username: z.string(), groups: z.string() });
+export const schemaCompteLite = z.object({
+  id: entier,
+  username: z.string(),
+  groups: z.string(),
+  /** Identité externe d'un compte rattaché ; les deux champs sont absents pour un compte local. */
+  ext_username: z.string().nullable().optional(),
+  provider_label: z.string().nullable().optional(),
+});
 export const schemaGroupe = z.object({ id: entier, name: z.string(), description: z.string().nullable() });
 export const schemaReponseComptesLite = z.object({
   users: z.array(schemaCompteLite),

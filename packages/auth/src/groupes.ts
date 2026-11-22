@@ -105,7 +105,7 @@ export async function setUserGroups(base: Base, userId: number, groupIds: readon
 /** `get_all_users_with_groups` : vue de la console, réglages lus en clé privée `_settings` (le JSON brut n'est jamais exposé). */
 export async function getAllUsersWithGroups(x: Executeur): Promise<Dict[]> {
   const lignes = await x.all(
-    `SELECT u.id, u.username, u.is_admin, u.created_at, u.avatar, u.settings_json, ` +
+    `SELECT u.id, u.username, u.is_admin, u.created_at, u.avatar, u.settings_json, u.suspended_at, u.suspended_by, ` +
       `${groupConcat("g.name", x.dialecte, ", ")} as group_names, ${groupConcat("g.id", x.dialecte, ",")} as group_ids ` +
       `FROM users u LEFT JOIN user_groups ug ON u.id = ug.user_id LEFT JOIN "groups" g ON ug.group_id = g.id ` +
       `GROUP BY u.id ORDER BY u.username ASC`,
@@ -118,6 +118,8 @@ export async function getAllUsersWithGroups(x: Executeur): Promise<Dict[]> {
       is_admin: entierOuNul(r["is_admin"]),
       created_at: versFlottantPy(Number(r["created_at"])),
       avatar: r["avatar"],
+      suspended_at: versFlottantPy(Number(r["suspended_at"] ?? 0)),
+      suspended_by: typeof r["suspended_by"] === "string" ? r["suspended_by"] : null,
       group_names: r["group_names"] || "",
       group_ids: ids
         .split(",")

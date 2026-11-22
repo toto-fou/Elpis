@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/evenements/branchement.ts — bus, routes et tâches du cycle de vie d'un process (main ou admin). */
 import type { DependancesAuth } from "@elpis/auth";
+import { dormirMs } from "@elpis/commun";
 import { jetonInterne } from "@elpis/securite";
 
 import type { CycleDeVie } from "../cycle";
@@ -11,7 +12,7 @@ import type { AppelInterne } from "./canal";
 import { SuiviJournalStaff } from "./journal-staff";
 import { EmpreinteDemarrage } from "./redemarrage";
 import type { SourceRedemarrage } from "./redemarrage";
-import { applySessionRevocation } from "./revocation";
+import { applyAccountSuspension, applySessionRevocation } from "./revocation";
 import type { BilanRevocation, CiblesRevocation } from "./revocation";
 import { familleEvenements, identiteDeSession } from "./routes";
 import { SystemEvents } from "./systeme";
@@ -21,6 +22,10 @@ import type { EcrireJournal, Message } from "./systeme";
 export function urlMainInterne(env: Record<string, string | undefined> = process.env): string {
   return (env["MAIN_INTERNAL_URL"] ?? "").trim() || "http://127.0.0.1:8001";
 }
+
+/** Un essai de publication de la suspension vers main ne dépasse pas ce délai, et l'ensemble des essais ce budget. */
+const DELAI_ESSAI_SUSPENSION_MS = 1_500;
+const BUDGET_SUSPENSION_MS = 8_000;
 
 export const RECYCLAGE: Message = { type: "worker_recycling" };
 
@@ -46,6 +51,7 @@ export interface OptionsMain extends OptionsCommunes {
   readonly mode: "main";
   readonly redemarrage: SourceRedemarrage;
   readonly fermerTerminaux?: CiblesRevocation["fermerTerminaux"];
+  readonly arreterExecutions?: CiblesRevocation["arreterExecutions"];
   readonly rafraichirModeles?: () => void;
   readonly capaciteCanal?: number;
   readonly pingCanalMs?: number;
@@ -62,6 +68,8 @@ export interface OptionsAdmin extends OptionsCommunes {
     readonly seuilAlerteMs?: number;
     readonly rappelAlerteMs?: number;
     readonly fetch?: typeof fetch;
+    /** Attentes (ms) avant chaque nouvel essai de publication d'une suspension vers main. */
+    readonly delaisEssaiSuspensionMs?: readonly number[];
   };
 }
 
@@ -76,7 +84,9 @@ export interface Evenements {
   /** Appel interne de l'admin vers main (révocation, bannière, rafraîchissement des modèles) ; absent dans main. */
   readonly versMain: AppelInterne | undefined;
   /** Révocation : flux de ce process fermés ; depuis l'admin, main est prévenu par un appel interne. */
-  revoquer(uid: number | null): Promise<BilanRevocation | null>;
+  revoquer(uid: number | null, sid?: string): Promise<BilanRevocation | null>;
+  /** Suspension : comme la révocation, plus les exécutions du compte coupées dans main (appel interne depuis l'admin) ; `propage` faux si main ne l'a pas reçue. */
+  suspendre(uid: number): Promise<{ bilan: BilanRevocation | null; propage: boolean }>;
   /** Diffusion à tous les process : ici, et vers main quand on est l'admin (bannière de redémarrage…). */
   diffuserPartout(message: Message): Promise<boolean>;
 }
@@ -108,9 +118,13 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
   if (cycle.signalArret.aborted) evacuer();
   else cycle.signalArret.addEventListener("abort", evacuer, { once: true });
 
-  const cibles = (fermerTerminaux?: CiblesRevocation["fermerTerminaux"]): CiblesRevocation => ({
+  const cibles = (
+    fermerTerminaux?: CiblesRevocation["fermerTerminaux"],
+    arreterExecutions?: CiblesRevocation["arreterExecutions"],
+  ): CiblesRevocation => ({
     systemEvents,
     fermerTerminaux,
+    arreterExecutions,
     journal,
   });
   const commun = {
@@ -128,7 +142,7 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     systemEvents.surDiffusion((_message, donnees) => canal.publier(donnees));
     const empreinte = new EmpreinteDemarrage(options.redemarrage, canal.generation);
     cycle.auDemarrage("empreinte de démarrage", () => empreinte.enregistrer(), { modes: ["main"] });
-    const ciblesMain = cibles(options.fermerTerminaux);
+    const ciblesMain = cibles(options.fermerTerminaux, options.arreterExecutions);
     return {
       mode: "main",
       systemEvents,
@@ -147,7 +161,15 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
       empreinte,
       abonnement: undefined,
       versMain: undefined,
-      revoquer: (uid) => applySessionRevocation({ type: "session_revoked", uid }, ciblesMain),
+      revoquer: (uid, sid) =>
+        applySessionRevocation(
+          sid === undefined ? { type: "session_revoked", uid } : { type: "session_revoked", uid, sid },
+          ciblesMain,
+        ),
+      suspendre: async (uid) => ({
+        bilan: await applyAccountSuspension({ type: "account_suspended", uid }, ciblesMain),
+        propage: true,
+      }),
       diffuserPartout: (message) => {
         systemEvents.broadcast(message);
         return Promise.resolve(true);
@@ -192,11 +214,34 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     empreinte: undefined,
     abonnement,
     versMain,
-    revoquer: async (uid) => {
-      const evenement: Message = { type: "session_revoked", uid, ts: Date.now() / 1000 };
+    revoquer: async (uid, sid) => {
+      const evenement: Message = {
+        type: "session_revoked",
+        uid,
+        ...(sid === undefined ? {} : { sid }),
+        ts: Date.now() / 1000,
+      };
       const bilan = await applySessionRevocation(evenement, ciblesAdmin);
       await publierVersMain(evenement, versMain);
       return bilan;
+    },
+    suspendre: async (uid) => {
+      const evenement: Message = { type: "account_suspended", uid, ts: Date.now() / 1000 };
+      const bilan = await applySessionRevocation(evenement, ciblesAdmin);
+      const debut = Date.now();
+      const restant = (): number => BUDGET_SUSPENSION_MS - (Date.now() - debut);
+      const essai = (): Promise<boolean> =>
+        publierVersMain(evenement, {
+          ...versMain,
+          delaiMs: Math.max(200, Math.min(DELAI_ESSAI_SUSPENSION_MS, restant())),
+        });
+      let propage = await essai();
+      for (const attente of canalAdmin.delaisEssaiSuspensionMs ?? [300, 1000, 2500]) {
+        if (propage || restant() <= attente) break;
+        await dormirMs(attente);
+        propage = await essai();
+      }
+      return { bilan, propage };
     },
     diffuserPartout: (message) => {
       systemEvents.broadcast(message, { relais: false });

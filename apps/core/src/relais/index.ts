@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/relais/index.ts — famille du relais vers l'hôte d'outils : routes HTTP et WebSocket des préfixes relayés, registre des terminaux, arrêt. */
-import { dependancesParDefaut, estInterSite, revaliderFlux } from "@elpis/auth";
+import { compteSuspendu, dependancesParDefaut, estInterSite, metaSession, revaliderFlux } from "@elpis/auth";
+import type { MetaSession } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import type { FastifyInstance, FastifyRequest, HTTPMethods } from "fastify";
@@ -20,7 +21,7 @@ import {
   urlAmont,
   wsUrl,
 } from "./chemins";
-import { previewPathUid } from "./apercu";
+import { previewPathIssuedAt, previewPathUid } from "./apercu";
 import { sandboxHostFor } from "./hotes";
 import { refuser, relayerHttp } from "./http";
 import type { ContexteHttp, Revalidation } from "./http";
@@ -50,8 +51,8 @@ export interface OptionsRelais {
 
 export interface Relais {
   readonly famille: Famille;
-  /** Révocation (bus d'événements) : WebSocket relayées du compte closes comme à l'expiration (4001 des deux côtés, l'hôte tue les PTY) ; `null` = toutes (rend -1). */
-  fermerTerminauxDuCompte(uid: number | null): number;
+  /** Révocation (bus d'événements) : WebSocket relayées du compte (avec `sid`, de cette seule session) closes comme à l'expiration (4001 des deux côtés, l'hôte tue les PTY) ; `null` = toutes (rend -1). */
+  fermerTerminauxDuCompte(uid: number | null, sid?: string): number;
   fermer(): Promise<void>;
 }
 
@@ -66,10 +67,15 @@ function cheminDecode(requete: FastifyRequest): string {
 }
 
 /** Identité du chemin d'aperçu (décodé), ou celle de la session posée par la garde. */
-function uidDeLaRequete(requete: FastifyRequest): { uid: number | null; apercu: boolean } {
-  if (!estRouteApercu(requete)) return { uid: requete.utilisateur?.id ?? null, apercu: false };
+function uidDeLaRequete(requete: FastifyRequest): {
+  uid: number | null;
+  apercu: boolean;
+  emisLe: number | null;
+} {
+  if (!estRouteApercu(requete)) return { uid: requete.utilisateur?.id ?? null, apercu: false, emisLe: null };
   const decode = cheminDecode(requete);
-  return { uid: isPreviewPath(decode) ? previewPathUid(decode) : null, apercu: true };
+  const uid = isPreviewPath(decode) ? previewPathUid(decode) : null;
+  return { uid, apercu: true, emisLe: uid === null ? null : previewPathIssuedAt(decode) };
 }
 
 export function creerRelais(options: OptionsRelais = {}): Relais {
@@ -103,18 +109,40 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
     suivre(c.fin);
   };
 
+  /** Compte d'un jeton d'aperçu : présent, non suspendu, et jeton émis après le plancher de session du compte (le jeton ne vérifie que sa signature). */
+  async function apercuAutorise(uid: number, emisLe: number | null): Promise<boolean> {
+    const ligne = await base().get<{ suspended_at: unknown; session_min_ts: unknown }>(
+      "SELECT suspended_at, session_min_ts FROM users WHERE id=?",
+      [uid],
+    );
+    if (ligne === undefined || compteSuspendu(ligne)) return false;
+    const plancher = Number(ligne.session_min_ts ?? 0);
+    return emisLe !== null && !(plancher > 0 && emisLe + 1 < plancher);
+  }
+
   /** `_session_valide` : session du navigateur toujours valide ? Erreur passagère → oui. */
-  async function sessionValide(uid: number, loginTs: unknown, sid: unknown): Promise<boolean> {
+  async function sessionValide(
+    uid: number,
+    loginTs: unknown,
+    sid: unknown,
+    meta: MetaSession,
+  ): Promise<boolean> {
     try {
       return await revaliderFlux(
         options.auth ?? (authParDefaut ??= dependancesParDefaut(base())),
         uid,
         loginTs,
         sid,
+        meta,
       );
     } catch {
       return true;
     }
+  }
+
+  function sidDeSession(requete: FastifyRequest): string | undefined {
+    const sid = requete.session.get("_sid");
+    return typeof sid === "string" && sid !== "" ? sid : undefined;
   }
 
   /** Revalidation de la session lue à l'ouverture ; aucune pour un aperçu, dont l'identité est celle de son jeton. */
@@ -122,14 +150,16 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
     if (apercu) return undefined;
     const loginTs = requete.session.get("_login_ts");
     const sid = requete.session.get("_sid");
-    return () => sessionValide(uid, loginTs, sid);
+    const meta = metaSession(requete.session);
+    return () => sessionValide(uid, loginTs, sid, meta);
   }
 
   /** Ordre de `SandboxRelayASGI` : identité, hôte du compte (affectation `by_user` enregistrée au passage), jeton, puis relais. */
   const traiter: Traitement = async (requete, reponse) => {
     if (!isRelayedPath(cheminDecode(requete))) throw new HttpError(404);
-    const { uid, apercu } = uidDeLaRequete(requete);
+    const { uid, apercu, emisLe } = uidDeLaRequete(requete);
     if (uid === null) return refuser(reponse, apercu ? 403 : 401, apercu ? APERCU_EXPIRE : "not logged in");
+    if (apercu && !(await apercuAutorise(uid, emisLe))) return refuser(reponse, 403, APERCU_EXPIRE);
     const hote = await sandboxHostFor(uid);
     if (hote === null) return refuser(reponse, 503, AUCUN_HOTE);
     if (!hote.token) return refuser(reponse, 503, SANS_JETON);
@@ -138,8 +168,9 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
 
   /** Contrôles d'avant l'upgrade, dans l'ordre de `_relay_ws` ; tout refus devient un 403 à la poignée de main (comme uvicorn). */
   async function preparerWs(requete: FastifyRequest): Promise<PreparationWs | null> {
-    const { uid, apercu } = uidDeLaRequete(requete);
+    const { uid, apercu, emisLe } = uidDeLaRequete(requete);
     if (uid === null || !isRelayedPath(cheminDecode(requete))) return null;
+    if (apercu && !(await apercuAutorise(uid, emisLe))) return null;
     const hote = await sandboxHostFor(uid);
     if (hote === null || !hote.token || estInterSite(requete.headers, requete.host)) return null;
     const { chemin, requete: query } = decouperCible(requete.originalUrl);
@@ -150,6 +181,7 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
       url,
       entetes: await entetesRelais(hote, uid),
       chemin: unquotePy(chemin),
+      sid: apercu ? undefined : sidDeSession(requete),
       revalider: revalidation(requete, uid, apercu),
     };
   }
@@ -240,8 +272,9 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
         ...PREVIEW_PREFIXES.flatMap((p) => routes(p, "public")),
       ],
     },
-    fermerTerminauxDuCompte(uid) {
-      const cibles = uid === null ? toutes() : [...(terminaux.get(uid) ?? [])];
+    fermerTerminauxDuCompte(uid, sid) {
+      const du = uid === null ? toutes() : [...(terminaux.get(uid) ?? [])];
+      const cibles = sid === undefined ? du : du.filter((c) => c.preparation.sid === sid);
       for (const c of cibles) c.expirer();
       return uid === null ? -1 : cibles.length;
     },

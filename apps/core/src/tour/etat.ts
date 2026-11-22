@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/tour/etat.ts — état des tours du process : annulations, contrôleurs actifs, verrous de présence et complétion qui raisonne (routes/_state.py, runtime/chat_locks.py, llm/reasoning_control.py ; en mémoire, v9 §7). */
-import { strPy } from "@elpis/commun";
+import { CancelledError, strPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 
 import type { PortControleRaisonnement } from "../boucle/ports";
@@ -126,6 +126,18 @@ export function getActiveChatTask(uid: number, chatId: string | null = null): Ab
   if (chatId !== null) return taches.get(cle(uid, normChatId(chatId)))?.valeur ?? null;
   for (const e of taches.values()) if (e.uid === uid) return e.valeur;
   return null;
+}
+
+/** Coupe tous les tours en cours du compte (suspension) ; nombre de tours coupés. */
+export function arreterToursDuCompte(uid: number): number {
+  markChatCancelled(uid);
+  let n = 0;
+  for (const e of taches.values()) {
+    if (e.uid !== uid || e.valeur.signal.aborted) continue;
+    e.valeur.abort(new CancelledError("compte suspendu"));
+    n += 1;
+  }
+  return n;
 }
 
 /** Tours sans chat explicite (`__none__`) du compte : l'annulation historique sans `chat_id`. */

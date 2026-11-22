@@ -2247,6 +2247,8 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
    dimensionne sur son contenu et l'aide se replie sur trois lignes au milieu
    d'une carte à moitié vide. */
 .adm-card__head > div:not(.adm-card__actions) { flex: 1 1 auto; min-width: 0; }
+/* SSO OpenID Connect : la carte d'état n'a pas de rangées, pas de filet sous son en-tête. */
+#ent-etat > .adm-card__head { border-bottom: 0; }
 /* Icône : monochrome, alignée sur la ligne du titre (plus de tuile). */
 .adm-card__icon {
     flex-shrink: 0;
@@ -2325,6 +2327,8 @@ body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
     text-underline-offset: 4px;
     cursor: help;
 }
+/* SSO OpenID Connect : prérequis non satisfait. */
+.ent-ko .adm-row__label { color: var(--danger-text); }
 .adm-row__hint {
     margin-top: 0.125rem;
     font-size: 0.75rem;
@@ -3369,6 +3373,11 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
     padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--border-soft);
+}
+/* Tiroir ouvert : les notifications passent à sa gauche, ou au-dessus de son pied sur un écran étroit ; leurs boutons ne couvrent jamais ceux du pied. */
+body:has(.adm-drawer-backdrop) .elpis-toasts { right: calc(min(28rem, 100vw) + 1.5rem); }
+@media (max-width: 52rem) {
+    body:has(.adm-drawer-backdrop) .elpis-toasts { right: 1.5rem; bottom: 5.25rem; }
 }
 
 

@@ -225,11 +225,46 @@ def audit_settings_of(d: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     return audit if isinstance(audit, dict) else None
 
 
-def write_config(cfg: Dict[str, Any]) -> None:
-    """config.json écrit avec la section security.audit relue juste avant : un réglage fait depuis la console pendant configure reste."""
-    audit = audit_settings_of(read_config_strict(CONFIG)) if CONFIG.exists() else None
+def auth_section_of(d: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Section auth (SSO OpenID Connect), ou None."""
+    auth = d.get("auth") if isinstance(d, dict) else None
+    return auth if isinstance(auth, dict) else None
+
+
+def auth_eteinte(auth: Dict[str, Any]) -> Dict[str, Any]:
+    """Copie de la section auth, tous les fournisseurs éteints et le mot de passe local ouvert à tous."""
+    out = json.loads(json.dumps(auth))
+    for p in out.get("providers") or []:
+        if isinstance(p, dict):
+            p["enabled"] = False
+    if isinstance(out.get("local"), dict):
+        out["local"]["mode"] = "all"
+    return out
+
+
+def refuse_https_off_with_providers() -> None:
+    """Refuse de couper HTTPS tant qu'un fournisseur d'identité est allumé dans config.json (les échanges avec le fournisseur circuleraient en clair)."""
+    auth = auth_section_of(read_config_strict(CONFIG) if CONFIG.exists() else None)
+    allumes = [str(p.get("id") or "?") for p in (auth or {}).get("providers") or []
+               if isinstance(p, dict) and p.get("enabled")]
+    if allumes:
+        warn("HTTPS ne peut pas être coupé tant qu'un fournisseur d'identité est activé "
+             f"({', '.join(allumes)}) : désactivez-le d'abord dans la console, ou relancez avec --force "
+             "(qui désactive tous les fournisseurs).")
+        raise SystemExit(2)
+
+
+def write_config(cfg: Dict[str, Any], eteindre_auth: bool = False) -> None:
+    """config.json écrit avec les sections security.audit et auth relues juste avant : un réglage fait depuis la console pendant configure reste (auth éteinte avec --force)."""
+    lue = read_config_strict(CONFIG) if CONFIG.exists() else None
+    audit = audit_settings_of(lue)
     if audit is not None:
         section(cfg, "security")["audit"] = audit
+    auth = auth_section_of(lue)
+    if auth is not None:
+        cfg["auth"] = auth_eteinte(auth) if eteindre_auth else auth
+    else:
+        cfg.pop("auth", None)
     write_json(CONFIG, cfg)
 
 
@@ -573,6 +608,8 @@ def step_access(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], env: Di
             mode = "off"
         elif not p.yes("Garder HTTPS malgré tout (Caddy installé plus tard) ?", False):
             mode = "off"
+    if mode == "off" and not a.force:
+        refuse_https_off_with_providers()
 
     # Écoute hors HTTPS (security.listen). Clé absente d'une config existante
     # = installation d'avant le réglage, qui écoutait sur le réseau : on garde.
@@ -1504,7 +1541,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     transfer = step_database(p, a, cfg)
     step_secrets(cfg, a.force)
 
-    write_config(cfg)
+    write_config(cfg, a.force)
     ok("config.json écrit (0600).")
     # Avant le compte admin : le core poserait le schéma dans la base vide,
     # et le transfert exige une cible vierge.

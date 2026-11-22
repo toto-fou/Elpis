@@ -270,7 +270,9 @@ const adm = domaineAdmin();
             <div>
               <span class="adm-row__label">Révocations individuelles</span>
               <p class="adm-row__hint">
-                {{ adm.securityOverview.revoked_users.length }} compte(s) concerné(s).
+                {{ adm.securityOverview.revoked_users.length }} compte(s) concerné(s). Une révocation ne se
+                lève pas : elle prend fin d'elle-même quand toutes les sessions d'avant ont expiré. La
+                personne peut se reconnecter tout de suite.
               </p>
             </div>
             <div class="space-y-2">
@@ -285,14 +287,14 @@ const adm = domaineAdmin();
                     >depuis le {{ new Date(ru.session_min_ts * 1000).toLocaleString("fr-FR") }}</span
                   >
                 </div>
-                <button
-                  :disabled="adm.securityBusy"
-                  type="button"
-                  class="adm-link shrink-0"
-                  @click="adm.clearUserRevocation(ru.user_id, ru.username)"
+                <span class="text-xs text-amber-800 shrink-0"
+                  >Révocation en vigueur jusqu'au
+                  {{
+                    new Date(
+                      (ru.session_min_ts + adm.securityOverview.session_cfg.max_age_sec) * 1000,
+                    ).toLocaleString("fr-FR")
+                  }}</span
                 >
-                  Lever
-                </button>
               </div>
             </div>
           </div>

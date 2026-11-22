@@ -6,8 +6,29 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+## 0.1.5 — 2026-11-22
+
+### Added
+
+- **SSO (OpenID Connect).** People sign in with the account their organization manages, through an OpenID Connect provider
+  (code flow with PKCE; Keycloak, Authentik, LemonLDAP::NG, AD FS; a directory is connected behind such a provider). Off by default. Administration › Users &
+  access › SSO OpenID Connect sets a provider up in numbered steps, with a settings check (**Contrôler les réglages**) and a dry-run sign-in (**Se connecter pour essayer**); switching on needs a required group, the secret in the vault and a
+  successful dry-run sign-in. Accounts are created at the first sign-in or linked (prepared link plus the old
+  password once). Optionally, the role and some Elpis groups follow the groups of the provider
+  (administrator groups need a confirmation and a required second factor), and sign-out reaches the provider (RP-initiated and back-channel logout).
+  `./elpis auth status|doctor|off|reactivate` keep an emergency exit.
+  Guide: [docs/sso-oidc.md](docs/sso-oidc.md).
+- **Account suspension.** Administration › Accounts can switch an account off (**Désactiver**) and back on
+  (**Réactiver**). A suspended account is refused everywhere (sessions, API tokens, OAuth, routines, webhooks,
+  background jobs, sandbox) and its running work and container are stopped. The last active local
+  administrator can be neither suspended, deleted nor demoted.
+
 ### Changed
 
+- **Sessions.** The lifetime of a session is fixed when it opens. A per-account revocation can no longer
+  be lifted by hand: it ends by itself once every earlier session has expired, and the person can sign
+  in again at once. A chat turn in progress stops when its session is no longer valid. The security log
+  records the sign-in method.
 - **One version for the whole product.** `npm run bump -- X.Y.Z` writes it everywhere (workspace
   packages and their `@elpis/*` pins, lockfiles, `pyproject.toml`, browser service, RAG extractor,
   desktop agent, interface defaults) and turns *Unreleased* into the new section of this file;

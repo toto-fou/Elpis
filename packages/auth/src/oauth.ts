@@ -39,6 +39,17 @@ import { blockRemoteUrlReason, egauxEnTempsConstant } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
 
 import { valeur } from "./dict";
+import {
+  accesPerime,
+  accesPerimeDe,
+  COLONNES_IDENTITE,
+  compteSuspendu,
+  JOINTURE_IDENTITE,
+  lireFraicheurs,
+  localReserveDe,
+} from "./etat-compte";
+import type { PorteFraicheur } from "./etat-compte";
+import { ligneAcces } from "./garde";
 import { politique } from "./jetons";
 
 export const ACCESS_PREFIX = "eoa_";
@@ -80,7 +91,7 @@ export class ErreurOAuth extends Error {
   }
 }
 
-export interface DependancesOAuth {
+export interface DependancesOAuth extends PorteFraicheur {
   readonly base: Base;
   config(): unknown;
   maintenant?(): number;
@@ -763,6 +774,8 @@ export async function exchangeCode(dep: DependancesOAuth, e: Echange): Promise<D
   const pol = politiqueOauth(dep.config());
   if (!pol.enabled) throw new ErreurOAuth("invalid_grant", "Autorisation désactivée par l'administrateur.");
   const t = maintenant(dep);
+  const fraicheurs = await lireFraicheurs(dep);
+  const reserve = localReserveDe(dep);
   const h = empreinte(strPy(veritePy(e.code) ? e.code : ""));
   const [erreur, out] = await dep.base.transaction(async (tx): Promise<[ErreurOAuth | null, Dict]> => {
     const r = await tx.get(
@@ -793,8 +806,10 @@ export async function exchangeCode(dep: DependancesOAuth, e: Echange): Promise<D
     if (!pkceOk(e.codeVerifier, r["code_challenge"]))
       return [new ErreurOAuth("invalid_grant", "Vérification PKCE refusée."), {}];
     if (cible !== null) return [cible, {}];
-    if (!(await tx.get("SELECT 1 FROM users WHERE id=?", [Number(r["user_id"])])))
-      return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    const compte = await ligneAcces(tx, Number(r["user_id"]));
+    if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    if (compteSuspendu(compte) || accesPerime(compte, fraicheurs, t, reserve))
+      return [new ErreurOAuth("invalid_grant", "Code inconnu."), {}];
     if (familles.length === 0)
       return [new ErreurOAuth("invalid_scope", "Aucune famille encore autorisée."), {}];
     const paire = await emettrePaire(
@@ -831,6 +846,8 @@ export async function refresh(dep: DependancesOAuth, f: Rafraichissement): Promi
   if (!jeton.startsWith(REFRESH_PREFIX))
     throw new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement inconnu.");
   const t = maintenant(dep);
+  const fraicheurs = await lireFraicheurs(dep);
+  const reserve = localReserveDe(dep);
   const [erreur, out] = await dep.base.transaction(async (tx): Promise<[ErreurOAuth | null, Dict]> => {
     const r = await tx.get(
       "SELECT id, grant_id, user_id, client_id, families, resource, expires_at, used_at, revoked_at " +
@@ -860,8 +877,10 @@ export async function refresh(dep: DependancesOAuth, f: Rafraichissement): Promi
     if (Number(r["expires_at"]) < t)
       return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement expiré."), {}];
     if (cible !== null) return [cible, {}];
-    if (!(await tx.get("SELECT 1 FROM users WHERE id=?", [Number(r["user_id"])])))
-      return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    const compte = await ligneAcces(tx, Number(r["user_id"]));
+    if (!compte) return [new ErreurOAuth("invalid_grant", "Compte supprimé."), {}];
+    if (compteSuspendu(compte) || accesPerime(compte, fraicheurs, t, reserve))
+      return [new ErreurOAuth("invalid_grant", "Jeton de rafraîchissement inconnu."), {}];
     if (err !== null) return [err, {}];
     if (accordees.length === 0)
       return [new ErreurOAuth("invalid_scope", "Aucune famille encore autorisée."), {}];
@@ -969,7 +988,7 @@ export async function verifyAccessToken(
   try {
     r = await dep.base.get(
       "SELECT t.id, t.grant_id, t.user_id, t.client_id, t.families, t.resource, t.expires_at, t.revoked_at, " +
-        "t.last_used_at, u.username FROM oauth_tokens t JOIN users u ON u.id = t.user_id " +
+        `t.last_used_at, u.username, u.suspended_at, ${COLONNES_IDENTITE} FROM oauth_tokens t JOIN users u ON u.id = t.user_id ${JOINTURE_IDENTITE} ` +
         "WHERE t.token_hash=? AND t.kind='access'",
       [empreinte(jeton)],
     );
@@ -978,7 +997,9 @@ export async function verifyAccessToken(
     return null;
   }
   if (!r || (r["revoked_at"] !== null && r["revoked_at"] !== undefined)) return null;
-  if (Number(r["expires_at"]) <= maintenant(dep) || !veritePy(r["username"])) return null;
+  if (Number(r["expires_at"]) <= maintenant(dep) || !veritePy(r["username"]) || compteSuspendu(r))
+    return null;
+  if (await accesPerimeDe(dep, r, maintenant(dep))) return null;
   let familles = famillesListe(r["families"]).filter((f) => pol.families.includes(f));
   const res = strPy(veritePy(r["resource"]) ? r["resource"] : "");
   const fam = resourceFamily(res);

@@ -12,6 +12,8 @@ export interface PreparationWs {
   readonly url: URL;
   readonly entetes: Record<string, string>;
   readonly chemin: string;
+  /** Identifiant de la session du navigateur qui ouvre le terminal ; absent pour un aperçu. */
+  readonly sid?: string | undefined;
   /** Session du navigateur toujours valide ? Absente pour un aperçu, identifié par son jeton. */
   readonly revalider?: (() => Promise<boolean>) | undefined;
 }

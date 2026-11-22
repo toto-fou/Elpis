@@ -1,15 +1,38 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/admin/bac.ts — bac à sable vu de la console : dossier d'un compte, occupation (`sandbox_usage_bytes`), suppression et port du pilote du bac. */
 import { mkdirSync } from "node:fs";
-import { stat } from "node:fs/promises";
 
-import { messageSuppression, supprimerDossierBac, WORK_SUBDIR } from "@elpis/bac";
+import {
+  messageSuppression,
+  mettreBacDeCote,
+  remettreBacMisDeCote,
+  supprimerBacMisDeCote,
+  WORK_SUBDIR,
+} from "@elpis/bac";
 import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
+
+import type { SandboxHost } from "../relais/hotes";
 
 /** Pilote du bac (Docker local ou hôte d'outils distant du compte, `piloteBac`) : absent, la branche `except` du Python. */
 export interface PortBac {
-  /** Bac du compte sur un hôte d'outils distant : supprimé par cet hôte, qui dit s'il l'a trouvé ; `null` si le bac est local. */
-  supprimerSurHote(uid: number, username: string): Promise<boolean | null>;
+  /** Hôte d'outils distant du compte (hors loopback), résolu avant la suppression de sa ligne ; `null` : bac local. */
+  hoteDistantDuCompte?(uid: number): Promise<SandboxHost | null>;
+  /** Bac du compte sur cet hôte renommé hors de portée des noms de comptes sous cet horodatage ; dit s'il l'a trouvé. */
+  mettreDeCoteSurHote?(
+    hote: SandboxHost,
+    uid: number,
+    username: string,
+    horodatage: number,
+  ): Promise<boolean>;
+  /** Bac mis de côté sur cet hôte remis sous le nom du compte. */
+  remettreSurHote?(hote: SandboxHost, uid: number, username: string, horodatage: number): Promise<void>;
+  /** Bac mis de côté sur cet hôte supprimé par lui ; dit s'il l'a trouvé. */
+  supprimerMisDeCoteSurHote?(
+    hote: SandboxHost,
+    uid: number,
+    username: string,
+    horodatage: number,
+  ): Promise<boolean>;
   /** Conteneur local du compte retiré (processus arrêtés) avant la suppression de P ; rien sans Docker. */
   retirerConteneur(uid: number, username: string, travail: string): Promise<void>;
   /** `get_user_sandbox(…).purge()` : vide /work par le root du conteneur (fichiers à l'UID du conteneur). */
@@ -36,32 +59,61 @@ export function travailBac(username: string | null, uid: number): string {
 /** `_sandbox_size_bytes`, `sandbox_usage_bytes` : partagés avec l'hôte d'outils (@elpis/bac). */
 export { oublierOccupations, sandboxUsageBytes, tailleBac } from "@elpis/bac";
 
-/** `_supprimer_sandbox` : bac d'un hôte distant supprimé par cet hôte d'abord, puis conteneur local retiré et `P` local supprimé (/work vidé par le conteneur si l'hôte n'en a pas le droit) ; rien n'est touché ici tant que l'hôte résiste ; `[supprimé, erreur]`. */
-export async function supprimerBac(
+/** Bac gardé d'un compte supprimé : mis de côté (`.supprime-<uid>-<horodatage>`), puis remis en place ou supprimé. */
+export interface BacMisDeCote {
+  /** Local puis hôte distant remis sous le nom du compte (la suppression a échoué) ; la première erreur est levée. */
+  remettre(): Promise<void>;
+  /** Dossiers mis de côté supprimés, localement et sur l'hôte ; `[supprimé, erreur]`, les deux côtés tentés. */
+  supprimer(): Promise<[boolean, string | null]>;
+}
+
+/** Conteneur retiré, puis `P` et instantanés du nom (locaux puis ceux de l'hôte distant) renommés hors de portée des noms de comptes ; un échec remet le local en place et lève. */
+export async function mettreBacDeCoteDuCompte(
   uid: number,
   username: string,
-  dossier: string,
   port?: PortBac,
-): Promise<[boolean, string | null]> {
-  let distant: boolean;
+): Promise<BacMisDeCote> {
+  const racine = realpathPy(config.SANDBOX_DIR);
+  const nomSur = safeSandboxName(username);
+  const horodatage = Date.now();
+  await port?.retirerConteneur(uid, username, pyJoin(pyJoin(racine, nomSur), WORK_SUBDIR));
+  const hote = (await port?.hoteDistantDuCompte?.(uid)) ?? null;
+  await mettreBacDeCote(racine, nomSur, uid, horodatage);
   try {
-    distant = (await port?.supprimerSurHote(uid, username)) === true;
+    if (hote !== null) await port?.mettreDeCoteSurHote?.(hote, uid, username, horodatage);
   } catch (e) {
-    return [false, messageSuppression(e)];
+    await remettreBacMisDeCote(racine, nomSur, uid, horodatage).catch(() => undefined);
+    throw e;
   }
-  try {
-    await stat(dossier);
-  } catch {
-    return [distant, null];
-  }
-  try {
-    await port?.retirerConteneur(uid, username, pyJoin(dossier, WORK_SUBDIR));
-  } catch (e) {
-    return [distant, messageSuppression(e)];
-  }
-  const [local, erreur] = await supprimerDossierBac(
-    dossier,
-    port ? (travail) => port.purgerTravail(uid, username, travail) : undefined,
-  );
-  return [distant || local, erreur];
+  return {
+    async remettre() {
+      const erreurs: unknown[] = [];
+      for (const remise of [
+        () => remettreBacMisDeCote(racine, nomSur, uid, horodatage),
+        async () => {
+          if (hote !== null) await port?.remettreSurHote?.(hote, uid, username, horodatage);
+        },
+      ])
+        await remise().catch((e: unknown) => erreurs.push(e));
+      if (erreurs.length > 0) throw erreurs[0];
+    },
+    async supprimer() {
+      let distant: boolean | null = null;
+      let erreur: string | null = null;
+      try {
+        if (hote !== null)
+          distant = (await port?.supprimerMisDeCoteSurHote?.(hote, uid, username, horodatage)) ?? null;
+      } catch (e) {
+        erreur = messageSuppression(e);
+      }
+      const [local, erreurLocale] = await supprimerBacMisDeCote(
+        racine,
+        uid,
+        horodatage,
+        port ? (travail) => port.purgerTravail(uid, username, travail) : undefined,
+      );
+      const echec = erreur ?? erreurLocale;
+      return [echec === null && (distant === true || local), echec];
+    },
+  };
 }

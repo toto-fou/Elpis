@@ -50,18 +50,15 @@ function sectionsCompte(cfg: Dict): Dict {
   return out;
 }
 
-/** Première clé `user_id`, `uid`, `user` non nulle convertie par `int()` ; `undefined` si aucune, `null` si la conversion échoue. */
+/** `user_id` converti par `int()` ; `undefined` s'il manque, `null` si la conversion échoue. */
 export function uidDeSession(lire: (cle: string) => unknown): number | null | undefined {
-  for (const cle of ["user_id", "uid", "user"]) {
-    const v = lire(cle);
-    if (v === null || v === undefined) continue;
-    try {
-      return intPy(v);
-    } catch {
-      return null;
-    }
+  const v = lire("user_id");
+  if (v === null || v === undefined) return undefined;
+  try {
+    return intPy(v);
+  } catch {
+    return null;
   }
-  return undefined;
 }
 
 /** `_session_uid_any` : session valide (portes de deps.py) et, sur une écriture, mot de passe à jour (panne de base = passe) ; `null` sinon. */

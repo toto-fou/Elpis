@@ -419,6 +419,22 @@ def test_stockage_de_qdrant_ramene_sous_un_compte_unique(depot):
     assert f"chown -R {MOI} {stockage}" in _trace(depot)
 
 
+def test_stockage_de_qdrant_aller_retour_rendu_au_compte_dynamique(depot):
+    _unite_bloc4(depot)
+    stockage = _qdrant(depot)
+    etat = _sys(depot) / "var/lib/private/elpis-qdrant"
+    assert _harnais(depot, INSTALLE_SEPARE).returncode == 0 and (etat / "storage").is_dir()
+    r = _harnais(depot, INSTALLE_SEPARE, ELPIS_COMPTE_UNIQUE="1")
+    assert r.returncode == 0 and f"chown -R {MOI} {stockage}" in _trace(depot), r.stdout + r.stderr
+    assert (stockage / "collections/c/segment").exists() and etat.is_dir() and not (etat / "storage").exists()
+    (_sys(depot) / "etc/trace").write_text("", encoding="utf-8")
+    r = _harnais(depot, INSTALLE_SEPARE, TALONS + TRACE_DROITS)
+    assert r.returncode == 0, r.stdout + r.stderr
+    # Haut du dossier d'état (resté au compte dynamique) remis à root : systemd rend tout l'arbre déplacé au démarrage.
+    assert f"droits dossier {etat} 0700 root root --admis {MOI} {os.getuid()}" in _trace(depot)
+    assert (etat / "storage/collections/c/segment").read_text(encoding="utf-8") == "vecteurs" and not stockage.exists()
+
+
 def test_dossier_ferme_premier_dossier_sans_traversee(tmp_path):
     ferme = tmp_path / "ferme"
     (ferme / "ouvert").mkdir(parents=True)

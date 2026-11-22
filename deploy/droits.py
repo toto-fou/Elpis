@@ -11,8 +11,10 @@ import os
 import pwd
 import re
 import secrets
+import signal
 import stat
 import sys
+import time
 
 RACINE = os.geteuid() == 0
 USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio COMPTE] [--comptes A,B] [--comptes-dossiers A,B]
@@ -46,6 +48,13 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
         droits.py pid DOSSIER NOM
           numéro de processus du fichier NOM de DOSSIER (fichier ordinaire, chiffres seuls), lu sans suivre de lien ni
           attendre ; code 1 sinon
+        droits.py filtre [--tui]
+          entrée standard recopiée sur la sortie, en une passe : séquences OSC, DCS, APC, PM et SOS, C1 (UTF-8 ou bruts)
+          retirés, autres caractères de contrôle remplacés par « ? » ; sans --tui, séquences d'échappement retirées
+          sauf les couleurs (CSI … m) ; --tui : CSI gardées (écran de l'assistant)
+        droits.py journal [--suivre] [--lignes N] FICHIER...
+          N (50) dernières lignes de chaque FICHIER (1 Mio au plus), lu sans suivre de lien ni attendre, fichier
+          ordinaire seulement, filtré comme « filtre » ; --suivre : la suite, fichier rouvert de même s'il est remplacé
         droits.py mdp-base DOSSIER NOM PROPRIO [--admis COMPTE]...
           mot de passe de la base locale (48 chiffres hexadécimaux) écrit sur la sortie : lu sans suivre de lien dans un
           fichier ordinaire à un seul lien de PROPRIO, de root ou d'un compte admis, ou créé (0600, à PROPRIO) s'il manque
@@ -534,6 +543,194 @@ def sur(args: list[str]) -> bool:
         os.close(dfd)
 
 
+SUR = re.compile(rb"(?:[\t\n\r\x20-\x7e]|\xc2[\xa0-\xbf]|[\xc3-\xdf][\x80-\xbf]|\xe0[\xa0-\xbf][\x80-\xbf]"
+                 rb"|[\xe1-\xec\xee\xef][\x80-\xbf]{2}|\xed[\x80-\x9f][\x80-\xbf]|\xf0[\x90-\xbf][\x80-\xbf]{2}"
+                 rb"|[\xf1-\xf3][\x80-\xbf]{3}|\xf4[\x80-\x8f][\x80-\xbf]{2})+")
+DEBUT_UTF8 = re.compile(rb"[\xc2-\xdf]|[\xe0-\xef][\x80-\xbf]?|[\xf0-\xf4][\x80-\xbf]{0,2}")
+SGR = re.compile(rb"\x1b\[[0-9;]*m")
+
+
+class Filtre:
+    """Flux d'un compte vers le terminal ou le journal de root, en une seule passe (rien de retiré ne se recolle) ; état gardé d'un morceau à l'autre."""
+
+    def __init__(self, tui: bool = False) -> None:
+        self.tui, self.etat, self.seq, self.huit, self.reste = tui, "texte", bytearray(), False, b""
+
+    def __call__(self, donnees: bytes, fin: bool = False) -> bytes:
+        d, self.reste = self.reste + donnees, b""
+        sortie, i, n = bytearray(), 0, len(d)
+        while i < n:
+            c = d[i]
+            if self.etat == "texte":
+                m = SUR.match(d, i)
+                if m:
+                    sortie += m.group()
+                    i = m.end()
+                elif not fin and n - i < 4 and DEBUT_UTF8.fullmatch(d, i):
+                    self.reste = d[i:]
+                    break
+                elif c == 0x1B:
+                    self.etat, i = "esc", i + 1
+                elif c == 0xC2 and i + 1 < n and 0x80 <= d[i + 1] <= 0x9F:
+                    self._c1(d[i + 1], sortie)
+                    i += 2
+                elif 0x80 <= c <= 0x9F:
+                    self._c1(c, sortie)
+                    i += 1
+                else:
+                    sortie += bytes([c]) if self.tui and c in (0x07, 0x08) else b"?"
+                    i += 1
+            elif self.etat == "esc":
+                if c == 0x5B:
+                    self.etat, self.seq, self.huit, i = "csi", bytearray(b"\x1b["), False, i + 1
+                elif c in b"]P_^X":
+                    self.etat, i = "chaine", i + 1
+                elif 0x20 <= c <= 0x2F:
+                    self.etat, self.seq, i = "inter", bytearray(b"\x1b" + bytes([c])), i + 1
+                elif 0x30 <= c <= 0x7E:
+                    if self.tui and c != 0x5A:
+                        sortie += b"\x1b" + bytes([c])
+                    self.etat, i = "texte", i + 1
+                else:
+                    self.etat = "texte"
+            elif self.etat == "inter":
+                if 0x20 <= c <= 0x2F and len(self.seq) < 8:
+                    self.seq.append(c)
+                    i += 1
+                else:
+                    if 0x30 <= c <= 0x7E:
+                        if self.tui:
+                            sortie += self.seq + bytes([c])
+                        i += 1
+                    self.etat = "texte"
+            elif self.etat == "csi":
+                if 0x20 <= c <= 0x3F and len(self.seq) < 64:
+                    self.seq.append(c)
+                    i += 1
+                else:
+                    if 0x40 <= c <= 0x7E:
+                        self.seq.append(c)
+                        if not self.huit and (self.tui or SGR.fullmatch(self.seq)):
+                            sortie += self.seq
+                        i += 1
+                    self.etat = "texte"
+            elif self.etat == "chaine":
+                if c in (0x07, 0x9C):
+                    self.etat, i = "texte", i + 1
+                elif c == 0x1B:
+                    self.etat, i = "chaine_esc", i + 1
+                elif c == 0x0A:
+                    self.etat = "texte"
+                elif c == 0xC2 and i + 1 < n and d[i + 1] == 0x9C:
+                    self.etat, i = "texte", i + 2
+                elif c == 0xC2 and i + 1 >= n and not fin:
+                    self.reste = d[i:]
+                    break
+                else:
+                    i += 1
+            else:
+                self.etat = "texte" if c == 0x5C else "esc"
+                i += c == 0x5C
+        if fin:
+            sortie += b"?" * len(self.reste)
+            self.reste, self.etat = b"", "texte"
+        return bytes(sortie)
+
+    def _c1(self, c: int, sortie: bytearray) -> None:
+        if c == 0x9B:
+            self.etat, self.seq, self.huit = "csi", bytearray(b"\x1b["), True
+        elif c in (0x90, 0x98, 0x9D, 0x9E, 0x9F):
+            self.etat = "chaine"
+        else:
+            sortie += b"?"
+
+
+def _ecrire(fd: int, donnees: bytes) -> None:
+    while donnees:
+        donnees = donnees[os.write(fd, donnees):]
+
+
+def filtre(args: list[str]) -> bool:
+    """filtre [--tui] : entrée standard filtrée (Filtre) vers la sortie, morceau par morceau (une invite sans fin de ligne passe aussitôt) ; Ctrl-C ignoré : le flux va jusqu'à sa fin."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    f = Filtre("--tui" in args)
+    try:
+        while d := os.read(0, 65536):
+            _ecrire(1, f(d))
+        _ecrire(1, f(b"", fin=True))
+    except BrokenPipeError:
+        pass
+    return True
+
+
+def _ouvrir_journal(chemin: str) -> tuple[int, os.stat_result] | None:
+    """Journal ouvert sans suivre de lien ni attendre (ni FIFO ni périphérique), fichier ordinaire seulement."""
+    try:
+        fd = os.open(chemin, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    st = os.fstat(fd)
+    if not stat.S_ISREG(st.st_mode):
+        os.close(fd)
+        return None
+    return fd, st
+
+
+def journal(args: list[str]) -> bool:
+    """journal [--suivre] [--lignes N] FICHIER... : fin de chaque journal (N lignes, 1 Mio lu au plus) filtrée ; refusé (lien, FIFO, périphérique) : signalé ; --suivre : la suite toutes les demi-secondes."""
+    suivre, lignes, chemins, reste = False, 50, [], list(args)
+    while reste:
+        a = reste.pop(0)
+        if a == "--suivre":
+            suivre = True
+        elif a == "--lignes" and reste and reste[0].isdigit():
+            lignes = max(1, int(reste.pop(0)))
+        else:
+            chemins.append(a)
+    f, ouverts, ok, dernier = Filtre(), {}, True, None
+    signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
+    for c in chemins:
+        o = _ouvrir_journal(c)
+        if o is None:
+            _dire(f"[warn ] {c} : absent, lien ou fichier spécial : non lu.", file=sys.stderr)
+            ok = False
+            continue
+        fd, st = o
+        debut = max(0, st.st_size - (1 << 20))
+        texte = os.pread(fd, st.st_size - debut, debut)
+        if len(chemins) > 1:
+            _ecrire(1, f(f"==> {c} <==\n".encode("utf-8", "replace")))
+        _ecrire(1, f(b"".join(texte.splitlines(keepends=True)[-lignes:])))
+        ouverts[c], dernier = [fd, st.st_ino, debut + len(texte)], c
+    while suivre:
+        time.sleep(0.5)
+        for c in chemins:
+            o = ouverts.get(c)
+            try:
+                vu = os.lstat(c)
+            except OSError:
+                continue
+            if o is None or vu.st_ino != o[1]:
+                if o is not None:
+                    os.close(o[0])
+                n = _ouvrir_journal(c)
+                if n is None:
+                    ouverts.pop(c, None)
+                    continue
+                o = ouverts[c] = [n[0], n[1].st_ino, 0]
+            taille = os.fstat(o[0]).st_size
+            if taille < o[2]:
+                o[2] = 0
+            if taille > o[2]:
+                texte = os.pread(o[0], min(taille - o[2], 1 << 20), o[2])
+                o[2] += len(texte)
+                if len(chemins) > 1 and dernier != c:
+                    _ecrire(1, f(f"\n==> {c} <==\n".encode("utf-8", "replace")))
+                _ecrire(1, f(texte))
+                dernier = c
+    return ok
+
+
 def pid(args: list[str]) -> bool:
     """pid DOSSIER NOM : numéro de processus écrit par un service, lu sans suivre de lien ni attendre (ni FIFO ni /dev/zero), chiffres seuls."""
     try:
@@ -607,7 +804,7 @@ def mdp_base(args: list[str]) -> bool:
 if __name__ == "__main__":
     commandes = {"arbre": (arbre, 4), "dossier": (dossier, 4), "fichiers": (fichiers, 5), "secret": (secret, 2),
                  "ranger": (ranger, 2), "reprendre": (reprendre, 4), "retirer": (retirer, 1), "sur": (sur, 1),
-                 "pid": (pid, 2), "mdp-base": (mdp_base, 3)}
+                 "pid": (pid, 2), "mdp-base": (mdp_base, 3), "filtre": (filtre, 0), "journal": (journal, 1)}
     if len(sys.argv) < 2 or sys.argv[1] not in commandes or len(sys.argv) - 2 < commandes[sys.argv[1]][1]:
         raise SystemExit(USAGE)
     code = commandes[sys.argv[1]][0](sys.argv[2:])

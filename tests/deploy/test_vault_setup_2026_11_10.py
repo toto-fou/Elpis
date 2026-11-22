@@ -310,7 +310,7 @@ APPLOG_DIR_SYS=/var/log/elpis; NODE=/usr/bin/node
     sortie.mkdir(exist_ok=True)
     if not (depot / "deploy/systemd").exists():
         shutil.copytree(REPO / "deploy/systemd", depot / "deploy/systemd")
-    fonctions = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_chemin_unite", "_valeur_unite", "_mot_unite", "_env_unite_sure",
+    fonctions = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_chemin_unite", "_valeur_unite", "_mot_unite", "_env_unite_sure", "motif",
                           "_chemins_hors_depot", "_nettoyer_rendu", "_compte_unite", "_umask_unite", "_env_comptes")
     r = _bash(depot, fonctions, talons + f'_render_units "{sortie}" {MOI}', **env)
     assert r.returncode == 0, r.stderr
@@ -427,7 +427,7 @@ def test_unites_main_et_console_sans_ecriture_dans_le_code(depot):
 
 @pytest.mark.parametrize("chemin", ["/srv/avec espace", "/srv/pour%cent"])
 def test_unites_chemin_a_espace_ou_pourcent_refuse_sans_rien_installer(depot, chemin):
-    texte = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_chemin_unite", "_valeur_unite", "_mot_unite", "_env_unite_sure",
+    texte = _fonctions("_render_units", "_rendre_gabarit", "_ecritures_du_service", "_protection_home", "_chemin_unite", "_valeur_unite", "_mot_unite", "_env_unite_sure", "motif",
                        "_chemins_hors_depot", "_nettoyer_rendu", "_compte_unite", "_umask_unite", "_env_comptes")
     talons = f"""
 load_runtime() {{ :; }}; need_core() {{ :; }}; _db_local_unit() {{ :; }}; _https_enabled() {{ return 1; }}

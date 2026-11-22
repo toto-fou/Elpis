@@ -43,6 +43,13 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
         droits.py sur FICHIER [--proprio A,B]
           code 0 si FICHIER manque, ou est un fichier ordinaire à un seul lien, à l'un des comptes, qu'aucun compte des
           services ne peut écrire ni remplacer
+        droits.py pid DOSSIER NOM
+          numéro de processus du fichier NOM de DOSSIER (fichier ordinaire, chiffres seuls), lu sans suivre de lien ni
+          attendre ; code 1 sinon
+        droits.py mdp-base DOSSIER NOM PROPRIO [--admis COMPTE]...
+          mot de passe de la base locale (48 chiffres hexadécimaux) écrit sur la sortie : lu sans suivre de lien dans un
+          fichier ordinaire à un seul lien de PROPRIO, de root ou d'un compte admis, ou créé (0600, à PROPRIO) s'il manque
+          ou est vide ; autre contenu : refusé
 Comptes des services : ELPIS_DROITS_SERVICES (et groupes en plus : ELPIS_DROITS_GROUPES) ; tout dossier au-dessus
 d'un dossier traité (au-dessus de BASE avec --sous) doit leur être fermé en écriture (sticky bit : entrée suivante
 hors de leurs comptes). Hors de root : modes seulement. Fichier à plusieurs liens physiques : laissé, signalé.
@@ -50,8 +57,17 @@ Code 1 au moindre refus."""
 CLAUSE = re.compile(r"([ugo]+)([+-])([rwxXs]+)")
 
 
+MDP_BASE = re.compile(r"[0-9a-f]{48}")
+
+
 class Refus(Exception):
     """Chemin refusé (lien, dossier ouvert aux services, point de montage d'un service…) ; le message dit pourquoi."""
+
+
+def _dire(*textes: object, file=None) -> None:
+    """print sans caractère de contrôle (C0 sauf tabulation, DEL, C1, fins de ligne des noms) : un nom choisi par un service n'ajoute ni ligne ni séquence au terminal ou au journal."""
+    texte = " ".join(map(str, textes))
+    print("".join(c if c == "\t" or c.isprintable() else "?" for c in texte), file=file)
 
 
 def _uids(noms: str) -> set[int]:
@@ -116,7 +132,7 @@ def _ouvrir(chemin: str, strict: bool, sous: str | None, creer: int | None) -> t
                     if creer is None or i < len(parties) - 1:
                         raise
                     os.mkdir(nom, creer, dir_fd=fd)
-                    print(f"[elpis] Dossier {chemin} créé.")
+                    _dire(f"[elpis] Dossier {chemin} créé.")
                     nfd = os.open(nom, os.O_PATH | os.O_NOFOLLOW | os.O_DIRECTORY, dir_fd=fd)
             except NotADirectoryError:
                 raise Refus(f"{ici} : lien symbolique ou fichier") from None
@@ -186,12 +202,12 @@ def poser(dfd: int, nom: str, affiche: str, uid: int, gid: int, specs: tuple[str
         if not (stat.S_ISREG(st.st_mode) or (dossier and not fichiers_seuls)):
             return True, False
         if dev is not None and st.st_dev != dev:
-            print(f"[warn ] {affiche} : autre système de fichiers, laissé tel quel (à vérifier).", file=sys.stderr)
+            _dire(f"[warn ] {affiche} : autre système de fichiers, laissé tel quel (à vérifier).", file=sys.stderr)
             return True, False
         if comptes is not None and st.st_uid not in comptes and not (dossier and st.st_uid in comptes_dossiers):
             return True, dossier
         if not dossier and st.st_nlink != 1:
-            print(f"[warn ] {affiche} : plusieurs liens physiques, laissé tel quel (à vérifier).", file=sys.stderr)
+            _dire(f"[warn ] {affiche} : plusieurs liens physiques, laissé tel quel (à vérifier).", file=sys.stderr)
             return False, False
         chemin = f"/proc/self/fd/{fd}"
         u = st.st_uid if uid < 0 or (st.st_uid == 0 and not (ceder_root or (dossier and 0 in comptes_dossiers))) else uid
@@ -204,7 +220,7 @@ def poser(dfd: int, nom: str, affiche: str, uid: int, gid: int, specs: tuple[str
             os.chmod(chemin, voulu)
         return True, dossier
     except OSError as e:
-        print(f"[warn ] {affiche} : {e.strerror} : droits non posés.", file=sys.stderr)
+        _dire(f"[warn ] {affiche} : {e.strerror} : droits non posés.", file=sys.stderr)
         return False, False
     finally:
         os.close(fd)
@@ -232,7 +248,7 @@ def _options(reste: list[str], connues: set[str], drapeaux: set[str] = frozenset
 
 def _refus(chemin: str, e: BaseException) -> bool:
     texte = str(e) if isinstance(e, Refus) else (e.strerror or str(e))
-    print(f"[warn ] {chemin} : {texte} : refusé, rien n'y est posé (à vérifier).", file=sys.stderr)
+    _dire(f"[warn ] {chemin} : {texte} : refusé, rien n'y est posé (à vérifier).", file=sys.stderr)
     return False
 
 
@@ -306,12 +322,12 @@ def dossier(args: list[str]) -> bool:
         except KeyError:
             p = str(st.st_uid)
         if p not in admis:
-            print(f"[warn ] {chemin} appartient à {p}, pas à {proprio} : refusé (services sous {p} : ELPIS_USER={p} ; "
+            _dire(f"[warn ] {chemin} appartient à {p}, pas à {proprio} : refusé (services sous {p} : ELPIS_USER={p} ; "
                   f"passage à {proprio} : sudo ELPIS_USER={proprio} ./elpis service install).", file=sys.stderr)
             return False
         exige = (o.get("--groupe-racine") or [""])[-1]
         if exige and p == "root" and st.st_gid != next((g.gr_gid for g in grp.getgrall() if g.gr_name == exige), None):
-            print(f"[warn ] {chemin} : à root sans le groupe {exige} (dossier hors du dépôt à préparer par "
+            _dire(f"[warn ] {chemin} : à root sans le groupe {exige} (dossier hors du dépôt à préparer par "
                   f"l'administrateur : root:{exige}, 2770) : refusé.", file=sys.stderr)
             return False
         if p == "root" and proprio != "root":
@@ -321,7 +337,7 @@ def dossier(args: list[str]) -> bool:
             finally:
                 os.close(lu)
             if plein and parent.st_mode & 0o022:
-                print(f"[warn ] {chemin} : dossier de root non vide à céder à {proprio} : refusé (à vérifier).",
+                _dire(f"[warn ] {chemin} : dossier de root non vide à céder à {proprio} : refusé (à vérifier).",
                       file=sys.stderr)
                 return False
         lien = f"/proc/self/fd/{fd}"
@@ -332,7 +348,7 @@ def dossier(args: list[str]) -> bool:
             os.chmod(lien, int(mode, 8))
         return True
     except OSError as e:
-        print(f"[warn ] {chemin} : {e.strerror} : droits non posés.", file=sys.stderr)
+        _dire(f"[warn ] {chemin} : {e.strerror} : droits non posés.", file=sys.stderr)
         return False
     finally:
         os.close(fd)
@@ -383,12 +399,12 @@ def _poser_texte(dossier_: str, nom: str, texte_de) -> bool:
         except FileNotFoundError:
             actuel = None
         except OSError:
-            print(f"[warn ] {os.path.join(dossier_, nom)} : lien ou fichier spécial, laissé (à vérifier).", file=sys.stderr)
+            _dire(f"[warn ] {os.path.join(dossier_, nom)} : lien ou fichier spécial, laissé (à vérifier).", file=sys.stderr)
             return False
         else:
             with os.fdopen(fd, "rb") as f:
                 if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
-                    print(f"[warn ] {os.path.join(dossier_, nom)} : fichier spécial, laissé (à vérifier).", file=sys.stderr)
+                    _dire(f"[warn ] {os.path.join(dossier_, nom)} : fichier spécial, laissé (à vérifier).", file=sys.stderr)
                     return False
                 actuel = f.read(65536).decode("utf-8", "replace")
         texte = texte_de(actuel)
@@ -428,7 +444,7 @@ def ranger(args: list[str]) -> bool:
             try:
                 reussi &= _poser_texte(*cibles[cle], lambda a, t=texte: None if a == t else t)
             except OSError as e:
-                print(f"[warn ] {os.path.join(*cibles[cle])} : {e.strerror} : {cle} non écrit.", file=sys.stderr)
+                _dire(f"[warn ] {os.path.join(*cibles[cle])} : {e.strerror} : {cle} non écrit.", file=sys.stderr)
                 reussi = False
     return reussi
 
@@ -449,7 +465,7 @@ def reprendre(args: list[str]) -> int:
         except FileNotFoundError:
             return 0
         except OSError:
-            print(f"[warn ] {os.path.join(dossier_, nom)} : lien ou fichier spécial : ignoré (à vérifier, puis à retirer).",
+            _dire(f"[warn ] {os.path.join(dossier_, nom)} : lien ou fichier spécial : ignoré (à vérifier, puis à retirer).",
                   file=sys.stderr)
             return 2
         with os.fdopen(fd, "rb") as f:
@@ -461,7 +477,7 @@ def reprendre(args: list[str]) -> int:
                     qui = pwd.getpwuid(st.st_uid).pw_name
                 except KeyError:
                     qui = str(st.st_uid)
-                print(f"[warn ] {os.path.join(dossier_, nom)} ignoré (à {qui}, en {stat.S_IMODE(st.st_mode):o}, "
+                _dire(f"[warn ] {os.path.join(dossier_, nom)} ignoré (à {qui}, en {stat.S_IMODE(st.st_mode):o}, "
                       f"{st.st_nlink} lien(s) : seul un fichier de {compte}, sans écriture d'autrui, remplace le jeton du "
                       "RAG) : à vérifier, puis à retirer.", file=sys.stderr)
                 return 2
@@ -518,9 +534,80 @@ def sur(args: list[str]) -> bool:
         os.close(dfd)
 
 
+def pid(args: list[str]) -> bool:
+    """pid DOSSIER NOM : numéro de processus écrit par un service, lu sans suivre de lien ni attendre (ni FIFO ni /dev/zero), chiffres seuls."""
+    try:
+        dfd = ouvrir_dossier(_net(args[0]), strict=False)
+        try:
+            fd = os.open(args[1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
+        finally:
+            os.close(dfd)
+        with os.fdopen(fd, "rb") as f:
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                return False
+            texte = f.read(33).decode("ascii", "replace").strip()
+    except (Refus, OSError):
+        return False
+    if not re.fullmatch(r"[0-9]{1,9}", texte):
+        return False
+    print(texte)
+    return True
+
+
+def mdp_base(args: list[str]) -> bool:
+    """mdp-base DOSSIER NOM PROPRIO [--admis COMPTE]... : mot de passe de la base locale lu par descripteur et vérifié, ou créé (0600, PROPRIO) ; jamais de chmod, chown ni lecture au travers d'un lien."""
+    dossier_, nom, proprio = args[0], args[1], args[2]
+    opts = _options(args[3:], {"--admis"})
+    chemin = os.path.join(dossier_, nom)
+    try:
+        dfd = ouvrir_dossier(_net(dossier_), strict=False)
+    except (Refus, OSError) as e:
+        return _refus(dossier_, e)
+    try:
+        admis = {0} | _uids(" ".join([proprio, *opts.get("--admis", [])]))
+        try:
+            fd = os.open(nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
+        except FileNotFoundError:
+            texte = ""
+        except OSError as e:
+            return _refus(chemin, Refus(f"lien symbolique ou fichier spécial ({e.strerror})"))
+        else:
+            with os.fdopen(fd, "rb") as f:
+                st = os.fstat(f.fileno())
+                if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1 or st.st_uid not in admis:
+                    return _refus(chemin, Refus("fichier spécial, plusieurs liens ou propriétaire inattendu"))
+                texte = f.read(4096).decode("ascii", "replace").strip()
+        if texte:
+            if not MDP_BASE.fullmatch(texte):
+                return _refus(chemin, Refus("contenu non conforme (48 chiffres hexadécimaux attendus) : retirez-le pour en générer un"))
+            print(texte)
+            return True
+        texte = secrets.token_hex(24)
+        tmp = f".{nom}.{secrets.token_hex(8)}"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
+        try:
+            with os.fdopen(fd, "w", encoding="ascii") as f:
+                f.write(texte + "\n")
+                f.flush()
+                if RACINE:
+                    compte = pwd.getpwnam(proprio)
+                    os.fchown(f.fileno(), compte.pw_uid, compte.pw_gid)
+                os.fsync(f.fileno())
+            os.replace(tmp, nom, src_dir_fd=dfd, dst_dir_fd=dfd)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp, dir_fd=dfd)
+            raise
+        print(texte)
+        return True
+    finally:
+        os.close(dfd)
+
+
 if __name__ == "__main__":
     commandes = {"arbre": (arbre, 4), "dossier": (dossier, 4), "fichiers": (fichiers, 5), "secret": (secret, 2),
-                 "ranger": (ranger, 2), "reprendre": (reprendre, 4), "retirer": (retirer, 1), "sur": (sur, 1)}
+                 "ranger": (ranger, 2), "reprendre": (reprendre, 4), "retirer": (retirer, 1), "sur": (sur, 1),
+                 "pid": (pid, 2), "mdp-base": (mdp_base, 3)}
     if len(sys.argv) < 2 or sys.argv[1] not in commandes or len(sys.argv) - 2 < commandes[sys.argv[1]][1]:
         raise SystemExit(USAGE)
     code = commandes[sys.argv[1]][0](sys.argv[2:])

@@ -56,11 +56,13 @@ usermod() {
     esac
 }
 runuser() {
-    trace runuser "$@"; while [ "$1" != -- ]; do shift; done; shift
-    case " $* " in *" ${FAUX_REFUS:-//} "*) return 1 ;; esac
+    trace runuser "$@"; local u=""; [ "$1" = -u ] && u="$2"
+    while [ "$1" != -- ]; do shift; done; shift
+    case "$u $* " in elpis-*" ${FAUX_REFUS:-//} "*) return 1 ;; esac
     "$@"
 }
 chown() { trace chown "$@"; }; systemctl() { trace systemctl "$@"; }; systemd-tmpfiles() { trace systemd-tmpfiles "$@"; }
+setsid() { [ "${1:-}" = -w ] && shift; "$@"; }; sysctl() { trace sysctl "$@"; }
 install() { trace install "$@"; }; sudo() { :; }
 load_runtime() { SANDBOX_DIR="$ROOT/user_sandboxes"; RAG_STORE="$ROOT/user_db/rag"; RAG_CACHE="$ROOT/user_db/rag-cache"; CHART_DIR="$ROOT/user_db/run/charts"; NODE=/bin/true; }
 need_core() { :; }
@@ -528,7 +530,7 @@ def test_doctor_sauvegardes_privees_au_mode_seul(depot):
 
 def test_vault_core_sous_la_console_en_mode_separe(depot):
     _unite(depot, "main", "elpis-main", "separes")
-    talons = ('id() { [ "$*" = -u ] && echo 0 || command id "$@"; }\n'
+    talons = ('id() { [ "$*" = -u ] && echo 0 || command id "$@"; }\nsetsid() { [ "$1" = -w ] && shift; "$@"; }\n'
               'runuser() { echo "runuser $*"; env | grep -E "^(ELPIS_GROUPE_DONNEES|USER|APP_SANDBOX_DIR)=" | sort; }')
     r = _harnais(depot, 'NODE=/bin/node; vault_core vault status', talons=talons)
     lignes = r.stdout.splitlines()

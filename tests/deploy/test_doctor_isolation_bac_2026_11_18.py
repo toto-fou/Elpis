@@ -16,9 +16,12 @@ CONFORME = "bridge|false|false|br-elpis-sb"
 
 def _fonction() -> str:
     texte = (REPO / "elpis").read_text(encoding="utf-8").splitlines()
-    debut = next(i for i, l in enumerate(texte) if l.startswith("doctor_isolation_bac() {"))
-    fin = next(i for i in range(debut + 1, len(texte)) if texte[i] == "}")
-    return "\n".join(texte[debut:fin + 1])
+    sortie = []
+    for nom in ("conf_json", "doctor_isolation_bac"):
+        debut = next(i for i, l in enumerate(texte) if l.startswith(f"{nom}() {{"))
+        fin = next(i for i in range(debut + 1, len(texte)) if texte[i] == "}")
+        sortie.extend(texte[debut:fin + 1])
+    return "\n".join(sortie)
 
 
 def _jouer(tmp_path: Path, *, demarrage=True, config=None, secu="name=seccomp", reseau=CONFORME, version="27.1.1",

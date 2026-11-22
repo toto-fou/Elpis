@@ -248,12 +248,12 @@ def test_doctor_session_sans_le_groupe_de_la_cle(depot, tmp_path):
 
 @pytest.mark.parametrize("pid", ["1", "0", "-1", "12 13", "x", "1234567890"])
 def test_pid_hors_bornes_jamais_signale(depot, pid):
-    r = _bash(depot, _fonctions("pid_signalable", "compte_services"), f'pid_signalable "{pid}"; echo "rc=$?"')
+    r = _bash(depot, _fonctions("pid_signalable", "compte_services", "motif"), f'pid_signalable "{pid}"; echo "rc=$?"')
     assert "rc=1" in r.stdout
 
 
 def test_pid_d_un_processus_du_compte_signalable_hors_root(depot):
-    r = _bash(depot, _fonctions("pid_signalable", "compte_services"), 'pid_signalable "$$"; echo "rc=$?"')
+    r = _bash(depot, _fonctions("pid_signalable", "compte_services", "motif"), 'pid_signalable "$$"; echo "rc=$?"')
     assert "rc=0" in r.stdout
 
 
@@ -264,6 +264,7 @@ def test_service_install_garde_le_compte_des_unites(depot, explicite):
     talons = """
 id() { if [ "$#" -eq 1 ] && [ "$1" = -u ]; then echo 0; else command id "$@"; fi; }
 systemctl() { :; }; usermod() { :; }; sudo() { :; }; getent() { return 1; }; chown() { :; }; install() { :; }
+setsid() { [ "$1" = -w ] && shift; "$@"; }; runuser() { while [ "$1" != -- ]; do shift; done; shift; "$@"; }
 systemd-tmpfiles() { :; }; load_runtime() { :; }; need_core() { :; }; config_vers_console() { :; }; ranger_secrets() { :; }
 jeton_rag() { :; }; droits_unique() { :; }
 _render_units() { UNITS_WANTS=(); RAG_STORE=/x; RAG_CACHE=/x; ECRITURES=""; }

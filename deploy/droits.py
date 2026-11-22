@@ -24,9 +24,11 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           contenu de DOSSIER (sans franchir de point de montage) : GROUPE (et COMPTE), modes symboliques « g+rwX,o-rwx »
           (s : setgid des dossiers, « - » : inchangés ; setuid et setgid des fichiers toujours retirés) ; --comptes : entrées
           de ces comptes seulement (--comptes-dossiers : dossiers seulement) ; une entrée de root n'est donnée à un autre
-          compte qu'avec --avec-root ou root dans --comptes ; --sauf : nom (motif) ou chemin absolu ni modifié ni parcouru ; --prive :
-          chemin absolu et son contenu à COMPTE seul (go-rwx) ; --regle : chemin absolu et son contenu à COMPTE (« - » :
-          gardé) et GROUPE, en FICHIERS et DOSSIERS
+          compte qu'avec --avec-root ou root dans --comptes ; --sauf : nom (motif, à toute profondeur) ou CHEMIN ni modifié ni
+          parcouru ; --prive : CHEMIN et son contenu à COMPTE seul (go-rwx) ; --regle : CHEMIN et son contenu à COMPTE (« - » :
+          gardé) et GROUPE (« - » : celui de l'arbre), en FICHIERS et DOSSIERS ; CHEMIN : absolu, ou motif relatif à DOSSIER,
+          composant par composant et ancré à sa profondeur (« */work ») ; la première règle qui couvre une entrée l'emporte,
+          les règles --prive passant toujours avant les règles --regle
         droits.py dossier CHEMIN MODE PROPRIO GROUPE [--admis A,B] [--creer] [--sous BASE] [--groupe-racine G]
           dossier CHEMIN (créé s'il manque avec --creer) mis à PROPRIO:GROUPE en MODE ; refusé si c'est un lien, s'il
           appartient à un compte hors de root, PROPRIO et --admis, s'il est à root sans le groupe G, ou à root, non vide
@@ -43,6 +45,10 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           seulement si elles manquent (40 caractères pour le secret, 32 pour jetons et clés, clé Fernet ; clé en service
           différente : gardée, valeur laissée) ; un lien ou un fichier spécial est refusé ; sortie : les clés de
           config.json à retirer (écrites ou égales à la clé, ou sans valeur retenue), une par ligne
+        droits.py memoire SANDBOXES MEMOIRE
+          memory/ de chaque compte de SANDBOXES (et l'ancien .memory/ s'il n'y a pas de memory/) déplacé dans MEMOIRE/<compte>/
+          par renommage, sans suivre de lien ; destination présente, lien, autre système de fichiers ou refus : laissé,
+          signalé (code 1)
         droits.py reprendre DOSSIER NOM COMPTE CIBLE
           contenu de DOSSIER/NOM, fichier ordinaire de COMPTE à un seul lien que nul autre ne peut écrire, écrit dans
           CIBLE (0600), puis NOM retiré ; code 2 si NOM est refusé
@@ -302,6 +308,23 @@ def _refus(chemin: str, e: BaseException) -> bool:
     return False
 
 
+def _cible(chemin: str) -> str | tuple[str, ...]:
+    """Chemin d'une règle : absolu (normalisé), sinon motif relatif à l'arbre, un motif par composant, sans « . » ni « .. »."""
+    if chemin.startswith("/"):
+        return os.path.normpath(chemin)
+    parties = tuple(chemin.split("/"))
+    if "\0" in chemin or any(p in ("", ".", "..") for p in parties):
+        raise SystemExit(f"droits.py : chemin de règle « {chemin} » non compris")
+    return parties
+
+
+def _couvre(cible: str | tuple[str, ...], complet: str, relatif: tuple[str, ...]) -> bool:
+    """Vrai si l'entrée (chemin COMPLET, ou RELATIF à l'arbre) est la CIBLE d'une règle ou se trouve dessous."""
+    if isinstance(cible, str):
+        return complet == cible or complet.startswith(cible + "/")
+    return len(relatif) >= len(cible) and all(fnmatch.fnmatchcase(n, m) for n, m in zip(relatif, cible))
+
+
 def arbre(args: list[str]) -> bool:
     racine, groupe, spec_f, spec_d, *reste = args
     o = _options(reste, {"--proprio", "--comptes", "--comptes-dossiers", "--sauf", "--prive", "--regle", "--sous"},
@@ -310,15 +333,15 @@ def arbre(args: list[str]) -> bool:
     regles = []
     for v in o.get("--prive", []):
         compte, _, chemin = v.partition(":")
-        regles.append((os.path.normpath(chemin), compte, "-", "go-rwx", "go-rwxs"))
+        regles.append((_cible(chemin), compte, "-", "go-rwx", "go-rwxs"))
     for v in o.get("--regle", []):
         compte, g, sf, sd, chemin = v.split(":", 4)
-        regles.append((os.path.normpath(chemin), compte, g, sf, sd))
+        regles.append((_cible(chemin), compte, g, sf, sd))
     regles = [(c, ident(a, pwd), ident(g, grp) if g != "-" else -2, sf, sd) for c, a, g, sf, sd in regles]
     comptes = _uids(",".join(o["--comptes"])) if "--comptes" in o else None
     ceder = "--avec-root" in o or (comptes is not None and 0 in comptes)
     comptes_dossiers = frozenset(_uids(",".join(o.get("--comptes-dossiers", []))))
-    sauf = [os.path.normpath(v) if v.startswith("/") else v for v in o.get("--sauf", [])]
+    sauf = [v if "/" not in v else _cible(v) for v in o.get("--sauf", [])]
     uid, gid, reussi = ident((o.get("--proprio") or ["-"])[-1], pwd), ident(groupe, grp), True
     try:
         fd = ouvrir_dossier(racine, sous=(o.get("--sous") or [None])[-1])
@@ -330,10 +353,12 @@ def arbre(args: list[str]) -> bool:
         dev = os.fstat(fd).st_dev
         for chemin, dossiers, fichiers, dfd in os.fwalk(".", dir_fd=fd, follow_symlinks=False):
             base = os.path.normpath(os.path.join(racine, chemin))
+            haut = () if chemin == "." else tuple(os.path.normpath(chemin).split("/"))
             for nom in list(dossiers) + fichiers:
                 complet = os.path.join(base, nom)
-                regle = next((r for r in regles if complet == r[0] or complet.startswith(r[0] + "/")), None)
-                if any(complet == m if m.startswith("/") else fnmatch.fnmatchcase(nom, m) for m in sauf):
+                regle = next((r for r in regles if _couvre(r[0], complet, (*haut, nom))), None)
+                if any(fnmatch.fnmatchcase(nom, m) if isinstance(m, str) and "/" not in m else _couvre(m, complet, (*haut, nom))
+                       for m in sauf):
                     parcourir = False
                 elif regle is not None:
                     _, ru, rg, sf, sd = regle
@@ -904,6 +929,79 @@ def copier(args: list[str]) -> bool:
         os.close(dfd)
 
 
+def _deplacer_memoire(sfd: int, compte: str, source: str, cible: str, ouvrir_cible) -> bool:
+    """memory/ (ou l'ancien .memory/ seul) de COMPTE renommé de SOURCE/COMPTE vers CIBLE/COMPTE, sans suivre de lien ; vrai si rien n'est laissé à signaler."""
+    try:
+        afd = os.open(compte, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=sfd)
+    except OSError:
+        return True
+    try:
+        presents = {}
+        for nom in ("memory", ".memory"):
+            with contextlib.suppress(FileNotFoundError):
+                presents[nom] = os.stat(nom, dir_fd=afd, follow_symlinks=False)
+        if "memory" in presents:
+            presents.pop(".memory", None)
+        reussi = True
+        for nom, st in presents.items():
+            de, vers = os.path.join(source, compte, nom), os.path.join(cible, compte, nom)
+            if not stat.S_ISDIR(st.st_mode):
+                _dire(f"[warn ] {de} : lien ou fichier, pas un dossier : laissé (à vérifier).", file=sys.stderr)
+                reussi = False
+                continue
+            try:
+                mfd = ouvrir_cible(compte)
+                try:
+                    if os.path.lexists(f"/proc/self/fd/{mfd}/{nom}"):
+                        raise Refus(f"{vers} existe déjà : les deux sont gardés (à fusionner à la main)")
+                    if os.fstat(mfd).st_dev != st.st_dev:
+                        raise Refus(f"autre système de fichiers que {cible} : déplacez-la à la main")
+                    os.rename(nom, nom, src_dir_fd=afd, dst_dir_fd=mfd)
+                finally:
+                    os.close(mfd)
+                _dire(f"[elpis] Mémoire de {compte} déplacée : {de} → {vers}.")
+            except (Refus, OSError) as e:
+                reussi = _refus(de, e if isinstance(e, Refus) else Refus(e.strerror or str(e))) and reussi
+        return reussi
+    finally:
+        os.close(afd)
+
+
+def memoire(args: list[str]) -> bool:
+    """memory/ de chaque compte de SANDBOXES (comptes en « . » ou « _ » exclus) déplacé dans MEMOIRE/<compte>/ ; vrai si rien n'est laissé à signaler."""
+    source, cible = _net(args[0]), _net(args[1])
+    try:
+        sfd = ouvrir_dossier(source, strict=False)
+    except FileNotFoundError:
+        return True
+    except (Refus, OSError) as e:
+        return _refus(source, e)
+    ouverte: list[int] = []
+
+    def ouvrir_cible(compte: str) -> int:
+        if not ouverte:
+            ouverte.append(ouvrir_dossier(cible, strict=False, creer=0o700))
+        with contextlib.suppress(FileExistsError):
+            os.mkdir(compte, 0o700, dir_fd=ouverte[0])
+        return os.open(compte, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=ouverte[0])
+
+    try:
+        lu = os.open(".", os.O_RDONLY | os.O_DIRECTORY, dir_fd=sfd)
+        try:
+            comptes = sorted(os.listdir(lu))
+        finally:
+            os.close(lu)
+        reussi = True
+        for compte in comptes:
+            if not compte.startswith((".", "_")):
+                reussi = _deplacer_memoire(sfd, compte, source, cible, ouvrir_cible) and reussi
+        return reussi
+    finally:
+        os.close(sfd)
+        for fd in ouverte:
+            os.close(fd)
+
+
 def reprendre(args: list[str]) -> int:
     """Code 0 : repris ; 2 : NOM refusé (signalé) ; 1 : échec."""
     dossier_, nom, compte, cible = args
@@ -1260,7 +1358,8 @@ if __name__ == "__main__":
     commandes = {"arbre": (arbre, 4), "dossier": (dossier, 4), "fichiers": (fichiers, 5), "secret": (secret, 2),
                  "ranger": (ranger, 2), "reprendre": (reprendre, 4), "retirer": (retirer, 1), "sur": (sur, 1),
                  "pid": (pid, 2), "mdp-base": (mdp_base, 3), "filtre": (filtre, 0), "journal": (journal, 1),
-                 "cle": (cle, 2), "cle-rendre": (cle_rendre, 6), "cle-etat": (cle_etat, 1), "copier": (copier, 3)}
+                 "cle": (cle, 2), "cle-rendre": (cle_rendre, 6), "cle-etat": (cle_etat, 1), "copier": (copier, 3),
+                 "memoire": (memoire, 2)}
     if len(sys.argv) < 2 or sys.argv[1] not in commandes or len(sys.argv) - 2 < commandes[sys.argv[1]][1]:
         raise SystemExit(USAGE)
     code = commandes[sys.argv[1]][0](sys.argv[2:])

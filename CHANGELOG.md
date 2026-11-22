@@ -61,6 +61,22 @@ follow [SemVer](https://semver.org/).
   are copied for the tool host instead). For a server, install in `/opt/elpis`
   ([operations.md](docs/operations.md#service-accounts)); then run `sudo ./elpis service install`
   again. `./install.sh --service` no longer adds the application account to the `docker` group.
+  Only the tool host writes the sandboxes folder (`2750 elpis-toolhost:elpis-donnees`), the file
+  history and the Office preview cache: main and the console read the sandboxes but never write
+  them (the skills mirror goes through the tool host's API on this machine too, and the console
+  sets aside, puts back and deletes an account's sandbox through the tool host). `service install`
+  gives the tool host what a former single account or the services left there and leaves each
+  `/work` to the sandboxes' user; a sandbox starts only when no other account can change the
+  folders it mounts (otherwise users are told to ask their administrator, and the server journal
+  asks for `sudo ./elpis service install`). A restore from the console then brings back each
+  account's `/work` and memory only, and reports the snapshots as not restored. Going back to one
+  account gives that account everything back. In every mode, each account's memory moves from
+  `<sandboxes>/<account>/memory` to `user_db/memoire/<account>` (`APP_MEMORY_DIR` chooses another
+  folder), wherever a restored archive keeps it; it is now part of the **Database** backup and is
+  deleted with its account (no longer kept with a set-aside sandbox), and the editor's file history
+  is no longer backed up. `./elpis start` moves it; under systemd, run
+  `sudo ./elpis service install` after upgrading, which moves it and sets the new rights: until
+  then, with one account per service, sandboxes do not start.
 - **`config.json` written by the console only.** Under systemd, `config.json` moves to
   `/etc/elpis/config/` (a link stays in the repository), its platform secrets go to their files,
   and main and the console no longer write the installation folder: only their state folders

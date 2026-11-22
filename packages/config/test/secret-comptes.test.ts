@@ -170,24 +170,40 @@ describe("APP_SESSION_SECRET_FILE (fichier explicite, lu seulement)", () => {
     expect(existsSync(fichierSecret(base))).toBe(false);
   });
 
-  it("précédence : valeur d'environnement, puis config.json, puis fichier explicite", () => {
+  it("précédence : valeur d'environnement, puis fichier explicite (config.json ignoré, signalé une fois), puis config.json", () => {
     const base = dossier();
     const explicite = path.join(base, "session.secret");
     writeFileSync(explicite, SECRET_FICHIER);
     expect(demarrer(base, { APP_SESSION_SECRET_FILE: explicite, APP_SESSION_SECRET: FORT }).secret).toBe(
       FORT,
     );
-    const { reglages } = calculerReglages(
-      {
-        APP_DB_PATH: path.join(base, "app.db"),
-        MCP_SERVERS_DIR: path.join(base, "mcp"),
-        APP_SESSION_SECRET_FILE: explicite,
-      },
-      { app: { session_secret: FORT } },
-      RACINE,
-      path.join(base, "config.json"),
-    );
-    expect(reglages.SESSION_SECRET).toBe(FORT);
+    const env = { APP_DB_PATH: path.join(base, "app.db"), MCP_SERVERS_DIR: path.join(base, "mcp") };
+    let erreurs = "";
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation(((m: string) => {
+      erreurs += m;
+      return true;
+    }) as typeof process.stderr.write);
+    try {
+      for (let i = 0; i < 2; i++) {
+        const { reglages } = calculerReglages(
+          { ...env, APP_SESSION_SECRET_FILE: explicite },
+          { app: { session_secret: FORT } },
+          RACINE,
+          path.join(base, "config.json"),
+        );
+        expect(reglages.SESSION_SECRET).toBe(SECRET_FICHIER);
+      }
+      const { reglages } = calculerReglages(
+        env,
+        { app: { session_secret: FORT } },
+        RACINE,
+        path.join(base, "config.json"),
+      );
+      expect(reglages.SESSION_SECRET).toBe(FORT);
+    } finally {
+      espion.mockRestore();
+    }
+    expect(erreurs.split("app.session_secret de config.json ignoré")).toHaveLength(2);
   });
 
   it("l'hôte d'outils ne lit pas le fichier explicite, même absent", () => {

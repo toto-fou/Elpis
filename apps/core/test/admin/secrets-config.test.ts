@@ -194,15 +194,77 @@ describe("secrets de config.json", () => {
     ecrire(cfg);
     const neuf = await patch([
       { path: "voice.stt.token", from: MASQUE_SECRET, to: "jeton-voix-neuf" },
-      { path: "rag.service_token", from: MASQUE_SECRET, to: "jeton-rag-neuf" },
+      { path: "rag.ocr.api_key", from: MASQUE_SECRET, to: "cle-ocr-neuve" },
       { path: "rag.embed.model", from: "m1", to: "m3" },
     ]);
     expect(neuf.statusCode, neuf.body).toBe(200);
     const apres = disque();
     expect(dig(apres, ["voice", "stt", "token"])).toEqual([true, "jeton-voix-neuf"]);
-    expect(dig(apres, ["rag", "service_token"])).toEqual([true, "jeton-rag-neuf"]);
+    expect(dig(apres, ["rag", "ocr", "api_key"])).toEqual([true, "cle-ocr-neuve"]);
     expect(dig(apres, ["rag", "embed", "model"])).toEqual([true, "m3"]);
     expect(dig(apres, ["rag", "embed", "api_key"])).toEqual([true, VALEURS["rag.embed.api_key"]]);
+  });
+
+  it("clés de la plateforme gérées par l'installation : posées ou changées, refusées par le fichier entier comme champ par champ ; masque, valeur inchangée et retrait passent", async () => {
+    const geres = [
+      "app.session_secret",
+      "app.encryption_key",
+      "rag.service_token",
+      "rag.qdrant_api_key",
+      "agent_memory.qdrant_api_key",
+    ];
+    const avant = readFileSync(fichier, "utf8");
+    const { cfg } = await lire();
+    for (const c of geres) {
+      const copie = JSON.parse(JSON.stringify(cfg)) as Dict;
+      plant(copie, c.split("."), "valeur-choisie-par-la-console");
+      const r = await admin.inject({
+        method: "POST",
+        url: "/api/admin/config-file",
+        headers: { "content-type": "application/json" },
+        payload: JSON.stringify({ type: "main", content: JSON.stringify(copie) }),
+      });
+      expect(r.statusCode, c).toBe(400);
+      expect((r.json() as { detail: string }).detail).toBe(
+        `Géré par l'installation, pas par la console : ${c}.`,
+      );
+      const p = await admin.inject({
+        method: "PATCH",
+        url: "/api/admin/config",
+        headers: { "content-type": "application/json" },
+        payload: JSON.stringify({
+          changes: [{ path: c, from: MASQUE_SECRET, to: "valeur-choisie-par-la-console" }],
+        }),
+      });
+      expect([p.statusCode, (p.json() as { paths: string[] }).paths], c).toEqual([400, [c]]);
+    }
+    const section = await admin.inject({
+      method: "PATCH",
+      url: "/api/admin/config",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        changes: [{ path: "agent_memory", to: { qdrant_api_key: "autre" } }],
+        force: true,
+      }),
+    });
+    expect(section.statusCode).toBe(400);
+    expect(readFileSync(fichier, "utf8")).toBe(avant);
+    const inchange = await admin.inject({
+      method: "PATCH",
+      url: "/api/admin/config",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        changes: [
+          { path: "app.session_secret", from: MASQUE_SECRET, to: MASQUE_SECRET },
+          { path: "rag.service_token", to: VALEURS["rag.service_token"] },
+          { path: "app.encryption_key", delete: true },
+        ],
+        force: true,
+      }),
+    });
+    expect(inchange.statusCode, inchange.body).toBe(200);
+    expect(dig(disque(), ["app", "encryption_key"])).toEqual([false, null]);
+    expect(dig(disque(), ["app", "session_secret"])).toEqual([true, VALEURS["app.session_secret"]]);
   });
 
   it("config.json.bak au propriétaire seul (0600) : un lien planté à sa place est remplacé, jamais suivi", async () => {

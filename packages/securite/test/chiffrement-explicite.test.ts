@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/securite/test/chiffrement-explicite.test.ts — `APP_ENCRYPTION_KEY_PATH` : fichier explicite lu seulement, jamais créé, précédence inchangée. */
+/** packages/securite/test/chiffrement-explicite.test.ts — `APP_ENCRYPTION_KEY_PATH` : fichier explicite lu seulement, jamais créé, avant config.json (alors ignoré, signalé). */
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -58,10 +58,11 @@ describe("clé héritée : fichier explicite", () => {
     expect(readdirSync(d)).toEqual(["vide.key"]);
   });
 
-  it("précédence : valeur d'environnement, puis config.json, puis fichier explicite", () => {
+  it("précédence : valeur d'environnement, puis fichier explicite (config.json ignoré, signalé une fois), puis config.json", () => {
     const d = dossier();
+    const cle = Fernet.generateKey();
     const explicite = join(d, "encryption.key");
-    writeFileSync(explicite, Fernet.generateKey());
+    writeFileSync(explicite, cle);
     const fichierCle = join(d, ".encryption_key");
     expect(
       loadOrCreateKey({
@@ -71,7 +72,13 @@ describe("clé héritée : fichier explicite", () => {
         fichierExplicite: explicite,
       }),
     ).toBe(coerceToFernetKey("valeur-env"));
-    expect(loadOrCreateKey({ cleConfig: "valeur-json", fichierCle, fichierExplicite: explicite })).toBe(
+    const journal = capturerJournal();
+    expect(loadOrCreateKey({ cleConfig: "valeur-json", fichierCle, fichierExplicite: explicite })).toBe(cle);
+    expect(loadOrCreateKey({ cleConfig: 42, fichierCle, fichierExplicite: explicite })).toBe(cle);
+    expect(
+      journal.filter(([, m]) => (m ?? "").includes("app.encryption_key de config.json ignorée")),
+    ).toHaveLength(1);
+    expect(loadOrCreateKey({ cleConfig: "valeur-json", fichierCle, fichierExplicite: "" })).toBe(
       coerceToFernetKey("valeur-json"),
     );
   });

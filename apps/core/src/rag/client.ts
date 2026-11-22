@@ -34,17 +34,24 @@ export function getServiceUrl(): string {
   ).replace(/\/+$/, "");
 }
 
-/** `RAG_SERVICE_TOKEN` > `rag.service_token` > fichier `RAG_SERVICE_TOKEN_FILE` (comme l'extracteur), sinon `user_db/.rag_service_token` (écrit par ./elpis configure). */
+let jetonConfigSignale = false;
+
+/** `RAG_SERVICE_TOKEN` > fichier `RAG_SERVICE_TOKEN_FILE` s'il est donné (comme l'extracteur ; l'installation le pose : `rag.service_token` de config.json alors ignoré, signalé une fois) > `rag.service_token` > `user_db/.rag_service_token` (écrit par ./elpis configure). */
 export function getServiceToken(): string {
   const env = stripPy(process.env["RAG_SERVICE_TOKEN"] ?? "");
   if (env) return env;
+  const explicite = stripPy(process.env["RAG_SERVICE_TOKEN_FILE"] ?? "");
   const tok = stripPy(
     strPy(veritePy(lire(sectionRag(), "service_token")) ? lire(sectionRag(), "service_token") : ""),
   );
-  if (tok) return tok;
-  const fichier =
-    stripPy(process.env["RAG_SERVICE_TOKEN_FILE"] ?? "") ||
-    path.join(config.PROJECT_ROOT, "user_db", ".rag_service_token");
+  if (tok && !explicite) return tok;
+  if (tok && !jetonConfigSignale) {
+    jetonConfigSignale = true;
+    process.stderr.write(
+      "[WARNING] rag.service_token de config.json ignoré : le jeton du RAG vient de RAG_SERVICE_TOKEN_FILE (installation).\n",
+    );
+  }
+  const fichier = explicite || path.join(config.PROJECT_ROOT, "user_db", ".rag_service_token");
   try {
     return stripPy(readFileSync(fichier, "utf8"));
   } catch {

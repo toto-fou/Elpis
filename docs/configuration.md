@@ -494,6 +494,9 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
   encryption key, session secret, signing key) are encrypted by `systemd-creds` in
   `/etc/elpis/credentials/` and handed by systemd to the units that use them; the units set the
   `…_PATH` and `…_FILE` variables below to them ([operations.md](operations.md#platform-keys)).
+  Their values in `config.json` are then ignored, and the console refuses to set or change
+  `app.session_secret`, `app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key` and
+  `agent_memory.qdrant_api_key` (managed by the installation) in every mode.
 - `elpis.target` also pulls in Caddy when HTTPS is active, and the local
   voice services (`elpis-whisper`, `elpis-tts`) when they are installed.
 - `.env` is read by each unit (`EnvironmentFile`); it overrides the
@@ -506,8 +509,9 @@ export APP_SESSION_SECRET="$(cat user_db/.session_secret)"
 ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs
 ```
 
-> **Session secret.** Order: `APP_SESSION_SECRET` > `config.json ›
-> app.session_secret` > `APP_SESSION_SECRET_FILE` (read only) > `user_db/.session_secret` (created with 0600 under an
+> **Session secret.** Order: `APP_SESSION_SECRET` > `APP_SESSION_SECRET_FILE` when set (read only; the
+> installation sets it, and `config.json › app.session_secret` is then ignored, with a warning) >
+> `config.json › app.session_secret` > `user_db/.session_secret` (created with 0600 under an
 > `fcntl` lock on first startup, and re-hardened to 0600 on every boot). The published
 > placeholders (`mysecretsessiontomodify`, `changeme`, …) are **treated
 > as absent** — otherwise the committed example would have served as the signing
@@ -634,7 +638,7 @@ disabled (the RAG page says so, no indexing).
 | Key | Role | Default |
 |---|---|---|
 | `service_url` | `rag_app` extractor (`RAG_SERVICE_URL` variable takes precedence) | `http://127.0.0.1:8000` |
-| `service_token` | Extractor token; without it, `RAG_SERVICE_TOKEN`, then the file `RAG_SERVICE_TOKEN_FILE` (with one account per service, `/etc/elpis/rag.token`, or the key `rag.token` handed by systemd: `%d/rag.token`), then `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
+| `service_token` | Extractor token, after `RAG_SERVICE_TOKEN` and the file `RAG_SERVICE_TOKEN_FILE` (with one account per service, `/etc/elpis/rag.token`, or the key `rag.token` handed by systemd: `%d/rag.token`; this value is then ignored); without either, `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
 | `store_dir` | File store (`RAG_STORE_DIR` takes precedence): originals, extracts, rendered pages, per account and per collection; `./elpis` gives the same folder to the extractor | `<database folder>/rag` (`user_db/rag`) |
 | `qdrant_url` | Qdrant, local (`./elpis` starts it on `127.0.0.1:6333`). Its API key comes from the environment only (`QDRANT_API_KEY`, then the file `QDRANT_API_KEY_FILE`) and goes to this address only: none by default; with one account per service and systemd 250 or later, the key `qdrant.key` handed by systemd (`%d/qdrant.key`) | `http://127.0.0.1:6333` |
 | `qdrant_api_key` | Not read by the core; with one account per service and systemd 250 or later, `service install` moves a value found here into the key `qdrant.key` | — |
@@ -950,9 +954,9 @@ as missing.
 | `APP_CONTEXT_CONFIG` | `app.context_config_path` | `packages/config/context_config.json` | LLM texts |
 | `APP_DB_PATH` | `app.db_path` | `user_db/app.db` | SQLite file (default engine) |
 | `APP_SESSION_SECRET` | `app.session_secret` | `user_db/.session_secret` | Session signing |
-| `APP_SESSION_SECRET_FILE` | — | — | File holding the session secret, after `APP_SESSION_SECRET` and `app.session_secret`: read only, never created nor replaced; missing, unreadable or shorter than 40 characters, the start is refused. Set by the units to the key handed by systemd (`%d/session.secret`) |
+| `APP_SESSION_SECRET_FILE` | — | — | File holding the session secret, after `APP_SESSION_SECRET` and before `app.session_secret`, then ignored: read only, never created nor replaced; missing, unreadable or shorter than 40 characters, the start is refused. Set by the units to the key handed by systemd (`%d/session.secret`) |
 | `APP_ENCRYPTION_KEY` | `app.encryption_key` | `.encryption_key` next to the database | Legacy (Fernet) encryption key |
-| `APP_ENCRYPTION_KEY_PATH` | — | — | File holding the legacy encryption key, after `APP_ENCRYPTION_KEY` and `app.encryption_key`: read only, never created (`.encryption_key` is then ignored); missing or invalid, encryption is unavailable (`CRITICAL` in the log). Set by the units to the key handed by systemd (`%d/encryption.key`) |
+| `APP_ENCRYPTION_KEY_PATH` | — | — | File holding the legacy encryption key, after `APP_ENCRYPTION_KEY` and before `app.encryption_key`, then ignored: read only, never created (`.encryption_key` is then ignored); missing or invalid, encryption is unavailable (`CRITICAL` in the log). Set by the units to the key handed by systemd (`%d/encryption.key`) |
 | `APP_MAX_RECENT_CHATS` | `app.max_recent_chats` | `100` | Max active conversations — **destructive** beyond it (see below); re-read live |
 | `APP_SANDBOX_DIR` | `app.sandbox_dir` | `user_sandboxes` | Sandbox root (propagated as an absolute path) |
 | `APP_SKILLS_DIR` / `APP_USER_SKILLS_DIR` | `skills.dir` / `skills.user_dir` | `skills` / `user_skills` | Skill stores |

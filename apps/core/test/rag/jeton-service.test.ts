@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/test/rag/jeton-service.test.ts — jeton du service RAG : `RAG_SERVICE_TOKEN` > `rag.service_token` > fichier `RAG_SERVICE_TOKEN_FILE` (celui de l'extracteur) > `user_db/.rag_service_token`. */
+/** apps/core/test/rag/jeton-service.test.ts — jeton du service RAG : `RAG_SERVICE_TOKEN` > fichier `RAG_SERVICE_TOKEN_FILE` (celui de l'extracteur ; config.json alors ignoré) > `rag.service_token` > `user_db/.rag_service_token`. */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -34,19 +34,27 @@ afterEach(() => {
 });
 
 describe("jeton du service RAG", () => {
-  it("fichier nommé par RAG_SERVICE_TOKEN_FILE avant le chemin par défaut, après l'environnement et config.json", () => {
+  it("fichier nommé par RAG_SERVICE_TOKEN_FILE avant config.json (alors ignoré) et le chemin par défaut, après l'environnement", () => {
     expect(getServiceToken()).toBe("jeton-par-defaut");
     const fichier = path.join(dossier, "rag.token");
     writeFileSync(fichier, " jeton-du-fichier \n");
     vi.stubEnv("RAG_SERVICE_TOKEN_FILE", fichier);
     expect(getServiceToken()).toBe("jeton-du-fichier");
-    vi.stubEnv("RAG_SERVICE_TOKEN_FILE", path.join(dossier, "absent.token"));
-    expect(getServiceToken()).toBe("");
     writeFileSync(
       path.join(dossier, "config.json"),
       JSON.stringify({ rag: { service_token: "jeton-config" } }),
     );
     invalidateConfigCache();
+    const espion = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      expect(getServiceToken()).toBe("jeton-du-fichier");
+      expect(String(espion.mock.calls[0]?.[0])).toContain("rag.service_token de config.json ignoré");
+    } finally {
+      espion.mockRestore();
+    }
+    vi.stubEnv("RAG_SERVICE_TOKEN_FILE", path.join(dossier, "absent.token"));
+    expect(getServiceToken()).toBe("");
+    vi.stubEnv("RAG_SERVICE_TOKEN_FILE", "");
     expect(getServiceToken()).toBe("jeton-config");
     vi.stubEnv("RAG_SERVICE_TOKEN", "jeton-env");
     expect(getServiceToken()).toBe("jeton-env");

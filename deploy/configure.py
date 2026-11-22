@@ -1033,10 +1033,22 @@ def _db_url(t: Dict[str, Any]) -> str:
             f"{quote(t['name'], safe='')}?tls={t['tls']}")
 
 
+def unites_separees() -> bool:
+    """Unités systemd à un compte par service installées (ELPIS_COMPTES=separes dans main, admin ou l'hôte d'outils)."""
+    racine = os.environ.get("ELPIS_PREFIXE_SYSTEME", "") + "/etc/systemd/system"
+    for s in ("main", "admin", "toolhost"):
+        with contextlib.suppress(OSError):
+            if 'Environment="ELPIS_COMPTES=separes"' in Path(f"{racine}/elpis-{s}.service").read_text(encoding="utf-8").splitlines():
+                return True
+    return False
+
+
 def base_sqlite_sure(path: Path) -> bool:
-    """Base SQLite que ce compte peut ouvrir : sous root, fichier ordinaire (jamais un lien) de root ou du propriétaire du dépôt, pas un fichier qu'un compte des services a pu écrire (vu juste avant l'ouverture)."""
+    """Base SQLite que ce compte peut ouvrir : sous root, jamais sous un compte par service (la base est aux services : le test passe par la console), sinon fichier ordinaire (jamais un lien) de root ou du propriétaire du dépôt (vu juste avant l'ouverture)."""
     if os.geteuid() != 0:
         return path.is_file()
+    if unites_separees():
+        return False
     try:
         st = os.lstat(path)
         return stat.S_ISREG(st.st_mode) and st.st_uid in (0, os.stat(ROOT).st_uid)

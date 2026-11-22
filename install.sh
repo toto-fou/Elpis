@@ -89,8 +89,9 @@
 #      (secrets par l'environnement : ELPIS_CFG_ADMIN_PASSWORD,
 #       ELPIS_CFG_DB_PASSWORD, ELPIS_CFG_LLM_API_KEY)
 #
-#  Journal complet : logs/install.log (les écrans de l'assistant n'y passent
-#  pas, les mots de passe non plus).
+#  Journal complet : sous root, /var/log/elpis-install.log ; sinon
+#  logs/install.log, ou .install.log à la racine sous un compte par service
+#  (les écrans de l'assistant n'y passent pas, les mots de passe non plus).
 # =============================================================================
 set -uo pipefail
 # « su » sans « - » garde le PATH de l'utilisateur, sans /usr/sbin ni /sbin :
@@ -161,11 +162,23 @@ case "$DB_MODE" in
 esac
 # Configuration en place : config.json, ou son lien vers le dossier de la console (services systemd), même illisible d'ici.
 config_presente() { [ -f "$ROOT/config.json" ] || [ -L "$ROOT/config.json" ]; }
+# conf_json CODE : CODE Python avec conf() : config.json au bout de ses liens, fichier ordinaire seulement, ouvert sans attendre, 4 Mio au plus (une FIFO ou /dev/zero mis à sa place par la console n'arrête ni n'épuise rien), 20 s au plus.
+conf_json() {
+    timeout 20 python3 -I -c 'import json, os, stat, sys
+def conf():
+    fd = os.open(os.path.realpath(sys.argv[1]), os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError(sys.argv[1])
+        return json.loads(os.read(fd, 4 << 20))
+    finally:
+        os.close(fd)
+'"$1" "$ROOT/config.json"
+}
 # Base encore réglée sur un moteur retiré (config.json, APP_DB_BACKEND) : refus avant toute modification.
 DB_RETIRE="$( { printf '%s\n' "${APP_DB_BACKEND:-}"
     if config_presente && command -v python3 >/dev/null; then
-        python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("database") or {}).get("backend") or "")' \
-            "$ROOT/config.json" 2>/dev/null
+        conf_json 'print((conf().get("database") or {}).get("backend") or "")' 2>/dev/null
     fi; } | tr -d ' ' | tr '[:upper:]' '[:lower:]' | grep -xE 'mysql|mariadb' | head -n1)"
 if [ -n "$DB_RETIRE" ]; then
     echo "Base « $DB_RETIRE » : MariaDB/MySQL n'est plus pris en charge. Avec la version précédente d'Elpis, quittez-le d'abord (console › Base de données › « Revenir à SQLite », ou ./elpis db transfer puis ./elpis db use vers PostgreSQL), puis relancez l'installation (docs/operations.md, « Upgrading »)." >&2
@@ -192,18 +205,44 @@ args_masques() {
     printf '%s' "${out[*]}"
 }
 
+# Messages sans caractère de contrôle (C0 sauf tabulation, DEL, C1) : un nom choisi par un service n'ajoute ni ligne ni séquence au terminal ou au journal.
+_propre() { local LC_ALL=C c1=$'\xc2[\x80-\x9f]' c0=$'[\x01-\x08\x0a-\x1f\x7f]'; MSG="${*//$c1/?}"; MSG="${MSG//$c0/?}"; }
+info() { local MSG; _propre "$@"; printf '\033[1;34m[install]\033[0m %s\n' "$MSG"; }
+ok()   { local MSG; _propre "$@"; printf '\033[1;32m[  ok   ]\033[0m %s\n' "$MSG"; }
+warn() { local MSG; _propre "$@"; printf '\033[1;33m[ warn  ]\033[0m %s\n' "$MSG" >&2; }
+die()  { local MSG; _propre "$@"; printf '\033[1;31m[erreur ]\033[0m %s\n' "$MSG" >&2; exit 1; }
+# Unités systemd à un compte par service installées (ELPIS_COMPTES=separes dans main, admin ou toolhost).
+unites_separees() { grep -qsx 'Environment="ELPIS_COMPTES=separes"' /etc/systemd/system/elpis-{main,admin,toolhost}.service; }
+
 # ── Journal ──────────────────────────────────────────────────────────────────
-if [ "$DRY_RUN" -eq 0 ]; then
-    mkdir -p "$ROOT/logs"
-    { echo; echo "===== install.sh $(date -Is) $(args_masques "$@") ====="; } >> "$ROOT/logs/install.log"
+# journal_install : chemin du journal : root, /var/log/elpis-install.log ; sinon logs/install.log, à défaut .install.log à la racine (seul, sous un compte par service : logs/ est aux services) ; dossier de ce compte (root : de root) fermé en écriture aux autres (groupe privé du compte admis, umask 002), fichier ordinaire de ce compte à un seul lien, créé 0600 : jamais un lien qu'un service aurait posé vers ld.so.preload ou authorized_keys ; tout refusé : rien, journal désactivé.
+journal_install() {
+    local d f moi masque refus=""; moi="$(id -u)"
+    if [ "$moi" -eq 0 ]; then set -- /var/log/elpis-install.log; masque=8#002
+    elif unites_separees; then set -- "$ROOT/.install.log"; masque=8#022
+    else mkdir -p "$ROOT/logs" 2>/dev/null; set -- "$ROOT/logs/install.log" "$ROOT/.install.log"; masque=8#022; fi
+    for f in "$@"; do
+        d="${f%/*}"; refus+="${refus:+, }$f"
+        [ -d "$d" ] && [ ! -L "$d" ] && [ "$(stat -c %u -- "$d")" = "$moi" ] || continue
+        [ $(( 8#$(stat -c %a -- "$d") & masque )) -eq 0 ] || { [ "$moi" -ne 0 ] && [ "$(stat -c %G -- "$d")" = "$(id -un)" ] \
+            && [ $(( 8#$(stat -c %a -- "$d") & 8#002 )) -eq 0 ]; } || continue
+        if [ -e "$f" ] || [ -L "$f" ]; then
+            [ -f "$f" ] && [ ! -L "$f" ] && [ "$(stat -c '%u %h' -- "$f")" = "$moi 1" ] || continue
+        else
+            ( umask 077 && : >> "$f" ) || continue
+        fi
+        chmod 0600 -- "$f" && printf '%s\n' "$f" && return 0
+    done
+    warn "Journal de l'installation désactivé : $refus refusé (dossier d'un autre compte ou ouvert à d'autres, lien, fichier spécial ou à plusieurs liens)."
+    return 1
+}
+JOURNAL_INSTALL=""
+if [ "$DRY_RUN" -eq 0 ] && JOURNAL_INSTALL="$(journal_install)"; then
+    { echo; echo "===== install.sh $(date -Is) $(args_masques "$@") ====="; } >> "$JOURNAL_INSTALL"
     # Tout ce qui s'affiche part aussi dans le journal. L'assistant, lui,
     # écrit sur /dev/tty : ses écrans (et les mots de passe) n'y passent pas.
-    exec > >(tee -a "$ROOT/logs/install.log") 2>&1
+    exec > >(tee -a "$JOURNAL_INSTALL") 2>&1
 fi
-info() { printf '\033[1;34m[install]\033[0m %s\n' "$*"; }
-ok()   { printf '\033[1;32m[  ok   ]\033[0m %s\n' "$*"; }
-warn() { printf '\033[1;33m[ warn  ]\033[0m %s\n' "$*" >&2; }
-die()  { printf '\033[1;31m[erreur ]\033[0m %s\n' "$*" >&2; exit 1; }
 WARNINGS=()
 note_warn() { warn "$*"; WARNINGS+=("$*"); }
 # --dry-run : raisons qui arrêteraient l'installation réelle ; ce que sudo y ferait, indispensable ou non.
@@ -289,8 +328,6 @@ fi
 # =============================================================================
 #  0 bis. Droits — vérifiés AVANT toute question
 # =============================================================================
-# Unités systemd à un compte par service installées (ELPIS_COMPTES=separes dans main, admin ou toolhost).
-unites_separees() { grep -qsx 'Environment="ELPIS_COMPTES=separes"' /etc/systemd/system/elpis-{main,admin,toolhost}.service; }
 # Compte unique des services systemd déjà installés (User= de main, admin ou toolhost, comme « ./elpis ») : gardé sans ELPIS_USER explicite ; rien pour des unités à un compte par service (l'opérateur reste celui de l'installation).
 compte_des_unites() {
     local s u
@@ -572,6 +609,10 @@ load_answers() {
     eval "$(python3 "$ROOT/deploy/wizard.py" export-sh "$ANSWERS")"
 }
 
+# Un compte par service, sous root : ni l'assistant (il lit config.json, que la console écrit) ni config.json pour décider : questions en lignes ; la configuration passe par ./elpis configure, sous le compte de la console.
+if [ "$(id -u)" -eq 0 ] && unites_separees && [ "$INTERACTIVE" -eq 1 ] && [ "$PLAIN" -eq 0 ]; then
+    PLAIN=1; info "Un compte par service, sous sudo : questions en lignes ; l'assistant de configuration s'ouvre ensuite sous le compte de la console."
+fi
 if [ "$INTERACTIVE" -eq 1 ] && [ "$PLAIN" -eq 0 ] && ensure_python3; then
     run_wizard
     case $? in
@@ -917,15 +958,10 @@ install_core() {
 # Un échec n'est plus un simple avertissement suivi d'un retour discret à
 # SQLite : l'installation s'arrête (--yes) ou demande quoi faire.
 DB_CONFIGURE_ARGS=(); DB_ERR=""; DB_CHECK_MSG=""
+# Mot de passe de la base locale (user_db/.db_password, dossier que les services écrivent) : lu ou créé par deploy/droits.py, sans lien suivi ni chmod/chown par chemin, 48 chiffres hexadécimaux seulement.
 db_password() {
-    local f="$ROOT/user_db/.db_password"
     mkdir -p "$ROOT/user_db"
-    if [ ! -s "$f" ]; then
-        ( umask 077; openssl rand -hex 24 > "$f" ) || die "openssl absent : mot de passe de base non généré."
-    fi
-    chmod 600 "$f"
-    [ "$AS_ROOT" -eq 1 ] && chown "$APP_USER": "$f"
-    tr -d '\n' < "$f"
+    python3 -I "$ROOT/deploy/droits.py" mdp-base "$ROOT/user_db" .db_password "$APP_USER" --admis elpis-admin
 }
 as_user() {   # as_user COMPTE COMMANDE… (root : runuser ; sinon sudo -u)
     local u="$1"; shift
@@ -935,11 +971,14 @@ provision_postgres() {
     have psql || { DB_ERR="PostgreSQL absent ($(prerequis_commande postgresql))"; return 1; }
     info "PostgreSQL : service, rôle et base « elpis »…"
     $SUDO systemctl enable --now postgresql >/dev/null 2>&1 || { DB_ERR="le service postgresql ne démarre pas"; return 1; }
-    local pw; pw="$(db_password)"
-    # Mot de passe par l'entrée standard, jamais dans la ligne de commande.
+    local pw
+    pw="$(db_password)" && [ "${#pw}" -eq 48 ] && [[ "$pw" != *[!0-9a-f]* ]] \
+        || { DB_ERR="mot de passe de user_db/.db_password refusé (voir ci-dessus)"; return 1; }
+    # Mot de passe par l'entrée standard (jamais dans la ligne de commande), en variable de psql (:'pw', citée par psql), jamais dans le texte SQL.
     ( cd / && as_user postgres psql -v ON_ERROR_STOP=1 -q -d postgres ) <<SQL || { DB_ERR="création du rôle ou de la base refusée par PostgreSQL"; return 1; }
+\set pw $pw
 SELECT 'CREATE ROLE elpis LOGIN' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'elpis')\gexec
-ALTER ROLE elpis LOGIN PASSWORD '$pw';
+ALTER ROLE elpis LOGIN PASSWORD :'pw';
 SELECT 'CREATE DATABASE elpis OWNER elpis ENCODING ''UTF8'' TEMPLATE template0'
  WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'elpis')\gexec
 SQL
@@ -1259,12 +1298,10 @@ fi
 host="$(hostname -I 2>/dev/null | awk '{print $1}')"; host="${host:-localhost}"
 # Adresse d'accès selon config.json : HTTPS (Caddy) ; sinon security.listen
 # (même règle que apps/core/src/ecoute.ts : écoute locale → 127.0.0.1).
-access_mode="$(python3 -c 'import json, sys
-sec = json.load(open(sys.argv[1])).get("security") or {}
+access_mode="$(conf_json 'sec = conf().get("security") or {}
 listen = sec.get("listen")
 print("https" if (sec.get("https") or {}).get("enabled") else "0.0.0.0"
-      if listen is None or str(listen).strip().lower() == "lan" else "127.0.0.1")' \
-    "$ROOT/config.json" 2>/dev/null || echo "127.0.0.1")"
+      if listen is None or str(listen).strip().lower() == "lan" else "127.0.0.1")' 2>/dev/null || echo "127.0.0.1")"
 case "$access_mode" in
     https)     access="https://$host/   (administration : https://$host:8443/admin)" ;;
     0.0.0.0)   access="http://$host:8001/   (administration : http://$host:8002/admin)" ;;
@@ -1277,11 +1314,11 @@ cat <<EOF
   Configuration : ./elpis configure        Diagnostic : ./elpis doctor
   Démarrage     : ./elpis start | stop | status | logs
   Au boot       : sudo ./elpis service install
-  Journal       : logs/install.log
+  Journal       : ${JOURNAL_INSTALL:-aucun (refusé, voir ci-dessus)}
 
 EOF
 # vLLM ou SGLang : drapeaux de lancement conseillés, les mêmes que ./elpis doctor.
-conseils="$(python3 "$ROOT/deploy/configure.py" --conseils-moteur 2>/dev/null)"
+conseils="$(bash "$ROOT/elpis" configure --conseils-moteur 2>/dev/null)"
 [ -n "$conseils" ] && printf '%s\n\n' "$conseils" | sed 's/^/  /'
 # Mot de passe administrateur généré : à l'écran seulement, jamais au journal.
 if [ "$TUI" -eq 1 ] && [ -n "$ANSWERS" ] && [ -f "$ANSWERS" ]; then

@@ -26,10 +26,10 @@ import { O_PATH } from "@elpis/securite";
 import { Feuilles } from "./autorite";
 import type { Autorite } from "./autorite";
 
-/** Verdict de l'hôte sur une destination : adresse à joindre (jamais résolue de nouveau) et toutes les adresses jugées, ou motif de refus en anglais. */
+/** Verdict de l'hôte sur une destination : adresse à joindre (jamais résolue de nouveau) et toutes les adresses jugées, ou motif de refus en anglais, celui que lit le modèle (`journal` : texte du journal de l'hôte s'il diffère). */
 export type VerdictRelais =
   | { readonly ok: true; readonly adresse: string; readonly adresses?: readonly string[] }
-  | { readonly ok: false; readonly motif: string };
+  | { readonly ok: false; readonly motif: string; readonly journal?: string };
 export type JugeRelais = (hote: string, port: number) => Promise<VerdictRelais>;
 
 /** Identifiants d'un secret, résolus par le core au dernier moment : SECRET, gardés en mémoire le temps de la liaison (purge des réponses). */
@@ -795,7 +795,7 @@ export class RelaisNavigateur {
     const v = await this.o.juger(hp.hote, hp.port);
     if (client.destroyed) return;
     if (!v.ok) {
-      this.journal(`refused tunnel ${req.url ?? ""}: ${v.motif}`);
+      this.journal(`refused tunnel ${req.url ?? ""}: ${v.journal ?? v.motif}`);
       const corps = `Blocked by the Elpis browser relay: ${v.motif}.`;
       return void client.end(
         `HTTP/1.1 403 Forbidden\r\ncontent-type: text/plain; charset=utf-8\r\ncontent-length: ${Buffer.byteLength(corps)}\r\n\r\n${corps}`,
@@ -868,7 +868,7 @@ export class RelaisNavigateur {
     const { port, hote } = p;
     const v = await this.o.juger(hote, port);
     if (!v.ok) {
-      this.journal(`refused ${origine}: ${v.motif}`);
+      this.journal(`refused ${origine}: ${v.journal ?? v.motif}`);
       return refuser(res, 403, v.motif);
     }
     const { liees, exactes } = await this.couvrant(p.schema, hote, port, v);

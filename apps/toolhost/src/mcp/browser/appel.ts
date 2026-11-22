@@ -113,7 +113,7 @@ export async function refusUrlAppel(appel: Appel, url: unknown): Promise<Dict | 
   const refus = (motif: string): Dict =>
     errPw("url_blocked", "", {
       message: `Address refused by the browser policy: ${motif}. URL: ${texte.slice(0, 200)}.`,
-      fix: "Sites served inside your sandbox are reachable at http://localhost:<port>; other destinations depend on the sandbox network profile.",
+      fix: "Sites served inside your sandbox are reachable at http://localhost:<port>; other destinations depend on the sandbox network.",
     });
   if (u === null || (u.protocol !== "http:" && u.protocol !== "https:"))
     return refus("only http and https addresses are allowed");

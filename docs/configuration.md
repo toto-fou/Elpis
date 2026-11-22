@@ -1651,6 +1651,13 @@ Design points:
 - **Catch-all sites**: any IP/name reaching the machine works.
   Main and admin share the hostname (different ports) → the host-scoped cookie
   stays shared.
+- **Certificate from your own PKI**: `install_caddy.sh --cert FULLCHAIN --key KEY`
+  (or `./install.sh --with-caddy --caddy-cert … --caddy-key …`) serves your
+  full chain (server certificate first) instead of the local CA, after
+  `caddy validate` has accepted it. No local CA is kept then (`/ca.crt` answers
+  404). Re-running with new files renews it, before its end date (the doctor
+  does not warn yet); to go back to a new local CA, see
+  [deploy/caddy/README.md](../deploy/caddy/README.md).
 - Caddy runs **permanently**; switching HTTPS ↔ direct HTTP is done from
   the admin console, which writes `security.https.enabled` then restarts the core
   (`SIGHUP`, restart by `./elpis` or systemd), which re-reads the flag at startup. An **anti-lockout

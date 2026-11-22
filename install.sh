@@ -56,6 +56,9 @@
 #    --with-office | --no-office      LibreOffice (aperçus Word/Excel/PowerPoint, pages
 #                                     de ces documents dans la visionneuse du RAG)
 #    --with-caddy  | --no-caddy       frontal HTTPS Caddy
+#    --caddy-cert FILE --caddy-key FILE
+#                                     certificat de votre PKI (fullchain) pour le frontal
+#                                     Caddy, au lieu de la CA locale (relancer = renouveler)
 #    --with-agpl   | --no-agpl        extras AGPL (PyMuPDF, pdf2docx ; plus utilisés)
 #    --with-browser | --no-browser    service navigateur (Chromium, dans la sandbox)
 #    --db sqlite|postgres-local|external
@@ -102,6 +105,7 @@ done
 export PATH
 
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+APPEL="$PWD"
 cd "$ROOT"
 VENV="$ROOT/venv"
 PYBIN="${PYTHON_BIN:-python3}"
@@ -115,7 +119,7 @@ PYBIN="${PYTHON_BIN:-python3}"
 
 # ── Options ──────────────────────────────────────────────────────────────────
 # Vide = pas encore décidé (question posée en mode interactif).
-WITH_OFFICE=""; WITH_CADDY=""; WITH_AGPL=""; WITH_BROWSER=""
+WITH_OFFICE=""; WITH_CADDY=""; WITH_AGPL=""; WITH_BROWSER=""; CADDY_CERT=""; CADDY_KEY=""
 SANDBOX_MODE=""; DB_MODE=""; DO_SYSTEM=1; DO_APT=1; OFFLINE_DIR=""; PULL_REF="${ELPIS_SANDBOX_PULL_REF:-}"
 ASSUME_YES=0; DRY_RUN=0; DO_CONFIGURE=""; AFTER=""; PLAIN=0   # AFTER : service | start | none
 CONFIGURE_ARGS=()
@@ -123,6 +127,12 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --with-office)  WITH_OFFICE=1 ;;  --no-office)  WITH_OFFICE=0 ;;
         --with-caddy)   WITH_CADDY=1 ;;   --no-caddy)   WITH_CADDY=0 ;;
+        --caddy-cert|--caddy-key)
+                        [ $# -ge 2 ] && [ -n "$2" ] || { echo "$1 attend un fichier." >&2; exit 2; }
+                        case "$2" in /*) _f="$2" ;; *) _f="$APPEL/$2" ;; esac
+                        [ -e "$_f" ] || { echo "$1 : $_f introuvable." >&2; exit 2; }
+                        if [ "$1" = "--caddy-cert" ]; then CADDY_CERT="$_f"; else CADDY_KEY="$_f"; fi
+                        shift ;;
         --with-agpl)    WITH_AGPL=1 ;;    --no-agpl)    WITH_AGPL=0 ;;
         --with-voice|--no-voice)
                         echo "$1 ignorée : le moteur vocal s'installe sur une machine dédiée (deploy/voice/README.md)." >&2 ;;
@@ -152,6 +162,13 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
+CADDY_ARGS=()
+if [ -n "$CADDY_CERT$CADDY_KEY" ]; then
+    [ -n "$CADDY_CERT" ] && [ -n "$CADDY_KEY" ] || { echo "--caddy-cert et --caddy-key vont ensemble." >&2; exit 2; }
+    [ "$WITH_CADDY" != 0 ] || { echo "--caddy-cert ne va pas avec --no-caddy." >&2; exit 2; }
+    WITH_CADDY=1
+    CADDY_ARGS=(--cert "$CADDY_CERT" --key "$CADDY_KEY")
+fi
 case "$SANDBOX_MODE" in ""|build|pull|none) ;; *) echo "--sandbox : build, pull ou none." >&2; exit 2 ;; esac
 case "$DB_MODE" in
     ""|sqlite|postgres-local|external) ;;
@@ -713,6 +730,7 @@ fi
 GROUPES_APT=(socle)
 [ "$SANDBOX_MODE" != none ] && GROUPES_APT+=(sandbox)
 [ "$WITH_OFFICE" -eq 1 ] && GROUPES_APT+=(apercus-office)
+[ "${#CADDY_ARGS[@]}" -eq 0 ] || [ "$WITH_CADDY" -eq 1 ] || die "Le certificat Caddy demandé ne peut pas être posé ici (droits administrateur requis)."
 [ "$WITH_CADDY" -eq 1 ] && GROUPES_APT+=(https)
 [ "$DB_MODE" = postgres-local ] && GROUPES_APT+=(postgresql-local)
 [ -z "$OFFLINE_DIR" ] && GROUPES_APT+=(construction-hote)
@@ -1170,9 +1188,13 @@ install_sandbox_image() {
 
 install_caddy() {
     # Paquet posé avec les prérequis apt (groupe https) : install_caddy.sh ne fait ici que la configuration.
-    have caddy || { note_warn "Caddy absent : $(prerequis_commande caddy), puis relancez ./install.sh."; return 0; }
+    have caddy || { [ "${#CADDY_ARGS[@]}" -eq 0 ] || die "Caddy absent : le certificat demandé ne peut pas être posé."; note_warn "Caddy absent : $(prerequis_commande caddy), puis relancez ./install.sh."; return 0; }
     info "Frontal HTTPS Caddy…"
-    $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
+    if [ "${#CADDY_ARGS[@]}" -gt 0 ]; then
+        $SUDO "$ROOT/deploy/caddy/install_caddy.sh" "${CADDY_ARGS[@]}" || die "Certificat de Caddy refusé ou installation incomplète (voir ci-dessus)."
+    else
+        $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
+    fi
 }
 
 # Les aperçus Office et les analyses de l'extracteur du RAG tournent dans une

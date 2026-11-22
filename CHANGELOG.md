@@ -8,6 +8,11 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **HTTPS front end: certificate from your own PKI.** `install_caddy.sh --cert FULLCHAIN --key KEY`
+  (or `./install.sh --with-caddy --caddy-cert … --caddy-key …`) serves your certificate chain and
+  key instead of the local CA, once Caddy has validated them; both files are installed `0640
+  root:caddy` and the local CA is removed. A plain re-run keeps the certificate, re-running with
+  new files renews it. See `deploy/caddy/README.md`.
 - **Console: what the sandboxes of a network profile reach.** Admin console › Sandbox › Network: a
   folded profile card also says whether its sandboxes run without `sudo`, how many of its domains
   have no address at the moment and how many accounts use it. Unfolded, the editor (same fields,

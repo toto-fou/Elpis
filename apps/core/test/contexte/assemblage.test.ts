@@ -65,7 +65,9 @@ const GIT_TOUS =
 const RESEAU: [string, string][] = [
   [
     "  • Network: OPEN via profile 'lan' (mode: bridge) — a refused connection means that destination is outside the profile, not a tool bug.",
-    `  • Network: full. The shell and the browser have open network access.\n${GIT_TOUS}`,
+    "  • Network: full. The shell and the browser have open network access. The browser never reaches the host " +
+      "machine or its container networks, nor local-network hosts outside the browser allowlist when the " +
+      `administrator set one.\n${GIT_TOUS}`,
   ],
   [
     "  • Network: NONE this session (profile 'isolated') — every outbound connection fails (expected, not a bug).",

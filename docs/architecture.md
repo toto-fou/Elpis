@@ -575,10 +575,12 @@ Rules to follow without exception:
   fragment alone, without `FRAGMENT_TOOLS`.
 - The `<runtime_context>` is **truthful**: it carries the **actual** reach of the
   sandbox network, resolved at assembly time from the account's applied profile
-  (`contexte/reseau.ts`: none, the listed destinations, or full access minus the
-  ticked protections; the Git relay rule; no root in a hardened sandbox), not
-  frozen prose and never the profile's name. Its lists are sorted: the text
-  changes only with the profile or its settings. A literal `<runtime_context>`
+  (`contexte/reseau.ts`: none; the allowed domains and ports, with only the
+  number of address ranges and DNS resolvers, never an address; or full access
+  minus the ticked protections and IPv6, and what the browser relay always
+  refuses; the Git relay rule and the refusals it shares; no root in a hardened
+  sandbox), not frozen prose and never the profile's name. Its lists are sorted:
+  the text changes only with the profile or its settings. A literal `<runtime_context>`
   written in a persona **disables** the injection.
 
 ### The reduction pipeline

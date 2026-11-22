@@ -13,6 +13,7 @@ vi.mock("../../../src/platform/vendor", () => ({
 import type { MessageMarkdown } from "../../../src/components/chat/ContenuMarkdown.vue";
 import { exporterConversation } from "../../../src/features/chat/export";
 import { moteurMarkdown } from "../../../src/features/chat/rendu/instance";
+import { parsePath } from "../../../src/utils/utils-purs";
 import {
   ATTRIBUT_COMPOSANT,
   ATTRIBUT_SANS_GRAPHIQUES,
@@ -162,6 +163,27 @@ describe("ContenuMarkdown enrichit son propre corps", () => {
 });
 
 describe("clic et export", () => {
+  it("lien Markdown /work ouvert dans l'éditeur sans navigation", () => {
+    const el = corps(
+      '<p><a href="/work/d/f.md:3">f</a> <a href="/work">r</a> <a href="/workshop/x">w</a></p>',
+    );
+    const ouverts: unknown[] = [];
+    const actions = {
+      ouvrirDansEditeur: (p: string, l?: number | null) => ouverts.push([p, l]),
+      analyserChemin: parsePath,
+    };
+    const clic = (i: number): boolean => {
+      const ev = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(ev, "target", { value: el.querySelectorAll("a")[i] });
+      clicMarkdown(ev, actions);
+      return ev.defaultPrevented;
+    };
+    expect(clic(0)).toBe(true);
+    expect(clic(1)).toBe(true);
+    expect(clic(2)).toBe(false);
+    expect(ouverts).toEqual([["d/f.md", 3]]);
+  });
+
   it("chemin cliquable vers l'éditeur, ancre interne vers son titre", () => {
     const el = corps(
       '<p><code class="elpis-path-link">src/a.py:12</code> <a href="#mon-titre">lien</a></p><h2>Mon titre</h2>',

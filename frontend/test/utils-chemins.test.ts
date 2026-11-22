@@ -3,7 +3,7 @@
 import { strict as assert } from "node:assert";
 import { it } from "vitest";
 
-import { looksLikePath, parsePath } from "../src/utils/utils-purs";
+import { canonPath, looksLikePath, parsePath, retirerPrefixeWork } from "../src/utils/utils-purs";
 
 const parse = parsePath;
 const looks = looksLikePath;
@@ -18,6 +18,18 @@ it("préfixes ./ et /work/ ramenés au chemin de la sandbox", () => {
   assert.strictEqual(parse("./src/a.js")?.path, "src/a.js");
   assert.strictEqual(parse("/work/proj/main.go:3")?.path, "proj/main.go");
   assert.strictEqual(parse("/work/proj/main.go:3")?.line, 3);
+});
+
+it("racine /work et chemins hors /work", () => {
+  assert.deepStrictEqual(parse("/work"), { path: "", line: 0, col: 0 });
+  assert.deepStrictEqual(parse("/work/"), { path: "", line: 0, col: 0 });
+  assert.strictEqual(parse("/work/a/b.md")?.path, "a/b.md");
+  assert.strictEqual(parse("/work/a/b.md:12")?.line, 12);
+  assert.strictEqual(parse("/etc/hosts"), null);
+  assert.strictEqual(parse("/workspace/a.md")?.path, "workspace/a.md");
+  assert.strictEqual(retirerPrefixeWork("/work/x/y:3"), "x/y:3");
+  assert.strictEqual(retirerPrefixeWork("/workshop/x"), "/workshop/x");
+  assert.strictEqual(canonPath("/work/../etc"), "etc");
 });
 
 it("nom seul accepté si l'extension est connue", () => {

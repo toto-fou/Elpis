@@ -344,6 +344,17 @@ describe("rendu incrémental", () => {
   it("chemin en code en ligne rendu cliquable", () => {
     expect(m.renderMarkdown("Voir `src/app.py:12`.")).toContain('class="elpis-path-link"');
   });
+
+  it("chemin /work affiché sans le préfixe, hors /work inchangé", () => {
+    const lien = (t: string) => `<code class="elpis-path-link" title="Ouvrir dans l'éditeur">${t}</code>`;
+    expect(m.renderMarkdown("`/work/a/b.md`")).toContain(lien("a/b.md"));
+    expect(m.renderMarkdown("`/work/a/b.md:12`")).toContain(lien("a/b.md:12"));
+    expect(m.renderMarkdown("`a/b.md`")).toContain(lien("a/b.md"));
+    expect(m.renderMarkdown("`/work`")).toContain("<code>/</code>");
+    expect(m.renderMarkdown("`/work/`")).toContain("<code>/</code>");
+    expect(m.renderMarkdown("`/etc/hosts`")).not.toContain("elpis-path-link");
+    expect(m.renderMarkdown("`/tmp/x.md`")).toContain(lien("/tmp/x.md"));
+  });
 });
 
 describe("caret de flux", () => {

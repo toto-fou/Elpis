@@ -30,7 +30,7 @@ export const MODES_COMPTES_SERVICES = ["separes", "unique", "repli"] as const;
 export const schemaReponseEtatHttps = z.object({
   enabled: z.boolean(),
   ports: schemaPortsHttps,
-  caddy: z.object({ main: z.boolean(), admin: z.boolean(), rag: z.boolean() }),
+  caddy: z.object({ main: z.boolean(), admin: z.boolean() }),
   current_scheme: z.enum(["http", "https"]),
   urls: z.record(z.string(), z.unknown()),
   listen: z.string(),

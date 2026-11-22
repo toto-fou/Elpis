@@ -40,6 +40,7 @@ follow [SemVer](https://semver.org/).
   text changes only with the profile or its settings, so the prompt cache holds.
   The browser's refusals (the relay's page, the `pw_*` tools) no longer name the profile either: they
   say what the sandbox network refuses, in the same words; the host journal still names the profile.
+- **Console: no RAG HTTPS port.** The HTTPS page and the HTTPS toggle no longer show or write a RAG port (`security.https.rag_port`); the RAG is internal-only. The toggle drops a leftover `rag_port` from `config.json`.
 
 ### Security
 

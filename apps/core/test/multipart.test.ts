@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/multipart.test.ts — formulaires multipart rejoués contre FastAPI (UploadFile, Form) : limites, 400, 422, copie plafonnée. */
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -195,6 +195,26 @@ describe("fichiers temporaires et copie plafonnée", () => {
       expect(octets).toBe(1000);
       expect(readFileSync(join(dossier, "copie.bin"), "latin1")).toBe("z".repeat(1000));
       await vi.waitFor(() => expect(existsSync(chemin)).toBe(false));
+    } finally {
+      rmSync(dossier, { recursive: true, force: true });
+    }
+  });
+
+  it("destination déjà présente, lien compris : refusée, la cible d'un lien reste intacte", async () => {
+    const dossier = mkdtempSync(join(tmpdir(), "elpis-copie-"));
+    try {
+      const cible = join(dossier, "cible.bin");
+      writeFileSync(cible, "intacte");
+      symlinkSync(cible, join(dossier, "copie.bin"));
+      const c = fichier(10);
+      const r = await app.inject({
+        method: "POST",
+        url: c.url,
+        headers: { ...c.entetes, "x-dossier": dossier },
+        payload: corps(c),
+      });
+      expect(r.statusCode).toBe(500);
+      expect(readFileSync(cible, "utf8")).toBe("intacte");
     } finally {
       rmSync(dossier, { recursive: true, force: true });
     }

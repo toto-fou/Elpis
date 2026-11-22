@@ -352,8 +352,14 @@ describe("scénario du moteur et routes /api/skins (vecteurs)", () => {
             expect(r.statusCode, libelle).toBe(200);
           } else if (ts !== undefined) {
             expect(r.statusCode, `${libelle} (écart E15)`).toBe(ts);
+          } else if (chemin.endsWith("/assets/alias.png")) {
+            // Écart voulu : une image qui est un lien n'est jamais ouverte.
+            expect(r.statusCode, libelle).toBe(404);
           } else {
             const py = pyJsonLoads(attendu.resultat ?? "{}", { mode: "natif" }) as RouteVue;
+            // Écart voulu : les images d'un skin s'ouvrent aussi en bac à sable (`sandbox`).
+            if (py.entetes["content-security-policy"] === "default-src 'none'")
+              py.entetes["content-security-policy"] = "default-src 'none'; sandbox";
             const vue = vueRoute(r.statusCode, r.headers, r.rawPayload, py.entetes);
             // Écart voulu : la liste des skins suit la fusion (taille comprise).
             const net = (v: RouteVue): RouteVue =>

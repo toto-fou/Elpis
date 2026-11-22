@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/comptes.test.ts — routes de comptes : aides rejouées contre le Python, puis scénarios de bout en bout sur SQLite et PostgreSQL. */
+import { execFileSync } from "node:child_process";
 import { pbkdf2Sync } from "node:crypto";
 import {
   existsSync,
@@ -782,8 +783,8 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     symlinkSync(dehors, join(dossier, "lien.png"));
     symlinkSync(join(racine, "absent.png"), join(dossier, "pendant.png"));
     for (const [url, statut] of [
-      ["/avatars/lien.png", 400],
-      ["/avatars/pendant.png", 400],
+      ["/avatars/lien.png", 404],
+      ["/avatars/pendant.png", 404],
       ["/avatars/", 404],
     ] as const)
       expect((await app.inject({ method: "GET", url })).statusCode).toBe(statut);
@@ -811,6 +812,57 @@ describe.each(MOTEURS)("routes de comptes (%s)", (moteur) => {
     });
     expect([plage.statusCode, plage.headers["content-range"]]).toEqual([416, `bytes */${PNG.length}`]);
   });
+
+  it("avatars : un tube, un lien ou un dossier remplacé par un lien répondent 404 sans bloquer", async () => {
+    const dossier = join(racine, "user_db", "avatars");
+    const ailleurs = join(racine, "ailleurs");
+    mkdirSync(dossier, { recursive: true });
+    mkdirSync(ailleurs);
+    writeFileSync(join(ailleurs, "1_1.png"), PNG);
+    symlinkSync(join(ailleurs, "1_1.png"), join(dossier, "lien.png"));
+    execFileSync("mkfifo", [join(dossier, "tube.png")]);
+    for (const nom of ["lien.png", "tube.png"])
+      expect((await app.inject({ method: "GET", url: `/avatars/${nom}` })).statusCode, nom).toBe(404);
+    rmSync(dossier, { recursive: true });
+    symlinkSync(ailleurs, dossier);
+    expect((await app.inject({ method: "GET", url: "/avatars/1_1.png" })).statusCode).toBe(404);
+  }, 10_000);
+
+  it("avatars : envoi sur un lien déposé à l'avance, suppression par un dossier ou un lien remplacés", async () => {
+    await login("admin", "a", "127.0.0.1");
+    const c = cookie(await login("admin", "a"));
+    const dossier = join(racine, "user_db", "avatars");
+    const victime = join(racine, "victime.png");
+    mkdirSync(dossier, { recursive: true });
+    writeFileSync(victime, "intacte");
+    const maintenant = Math.floor(Date.now() / 1000);
+    for (let s = maintenant - 2; s <= maintenant + 3; s++) symlinkSync(victime, join(dossier, `1_${s}.png`));
+    const f = formulaire(PNG);
+    const envoi = await app.inject({
+      method: "POST",
+      url: "/api/settings/avatar",
+      headers: { cookie: c, ...f.headers },
+      payload: f.payload,
+    });
+    const nom = envoi.json<{ avatar: string }>().avatar;
+    expect(readFileSync(victime, "utf8")).toBe("intacte");
+    expect(readFileSync(join(dossier, nom))).toEqual(PNG);
+    await t.base.run("UPDATE users SET avatar=? WHERE id=1", ["mien.png"]);
+    symlinkSync(victime, join(dossier, "mien.png"));
+    await app.inject({ method: "DELETE", url: "/api/settings/avatar", headers: { cookie: c } });
+    expect([existsSync(join(dossier, "mien.png")), readFileSync(victime, "utf8")]).toEqual([
+      false,
+      "intacte",
+    ]);
+    const reel = join(racine, "reel");
+    mkdirSync(reel);
+    writeFileSync(join(reel, "1_0.png"), PNG);
+    rmSync(dossier, { recursive: true });
+    symlinkSync(reel, dossier);
+    await t.base.run("UPDATE users SET avatar=? WHERE id=1", ["1_0.png"]);
+    await app.inject({ method: "DELETE", url: "/api/settings/avatar", headers: { cookie: c } });
+    expect(existsSync(join(reel, "1_0.png"))).toBe(true);
+  }, 10_000);
 
   it("aide : guide utilisateur seul ; absent ou illisible, un 503 sans détail", async () => {
     await login("admin", "a", "127.0.0.1");

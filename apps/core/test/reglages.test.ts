@@ -369,6 +369,12 @@ describe.each(MOTEURS)("différentiel contre create_app() (%s)", (moteur) => {
           ecarts.push(`${i} ${e.m} ${e.p} : modèles d'agents inattendus`);
         continue;
       }
+      // Écart voulu : un nom d'avatar que le système de fichiers refuse (trop long) répond 404 comme un avatar absent.
+      if (e.m === "GET" && e.p?.startsWith("/avatars/") && voulu.statut === 400 && obtenu.statut === 404) {
+        if (!String(obtenu.corps).includes("Avatar not found"))
+          ecarts.push(`${i} ${String(e.p).slice(0, 40)} : corps inattendu`);
+        continue;
+      }
       // Écart voulu : Parchemin fondu dans Elpis, réglage `skin_palette` ajouté (ecart-fusion-skins.ts).
       obtenu.corps = corpsSansFusion(obtenu.corps) as typeof obtenu.corps;
       voulu.corps = corpsSansFusion(voulu.corps) as typeof voulu.corps;

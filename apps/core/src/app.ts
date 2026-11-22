@@ -27,10 +27,11 @@ export interface OptionsApp {
   avantRoutes?: (app: FastifyInstance) => void | Promise<void>;
 }
 
-/** Connexions gardées 120 s comme Gunicorn ; une route de la console ne se monte jamais dans main ; gros JSON compressés. */
+/** Connexions gardées 120 s comme Gunicorn ; une route de la console ne se monte jamais dans main, la console n'admet aucune origine CORS ; gros JSON compressés. */
 export async function creerApp(options: OptionsApp): Promise<FastifyInstance> {
   return creerAppHttp({
     ...options,
+    corsOrigines: options.mode === "admin" ? [] : (options.corsOrigines ?? []),
     extensions: [...(options.extensions ?? []), installerCompressionJson],
     famillesParDefaut: () => famillesParDefaut(options.mode),
     verifierRoute: verificationDuMode(options.mode),

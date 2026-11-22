@@ -1,17 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/comptes.ts — connexion, session, mot de passe, liste des comptes, réglages, avatars et aide (accounts/routes_auth.py, routes_settings.py). */
-import {
-  open as ouvrirFichier,
-  mkdir,
-  readFile,
-  readlink,
-  realpath,
-  rm,
-  stat,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { closeSync, fstatSync, mkdirSync, readSync, unlinkSync } from "node:fs";
+import { open as ouvrirFichier, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import { setTimeout as attendre } from "node:timers/promises";
 
 import {
@@ -50,8 +41,11 @@ import {
   compareDigest,
   completerCoutRefus,
   empreinteIdentifiant,
+  ouvrirDossierSous,
+  ouvrirFeuille,
   texteBorne,
   tokenUrlsafe,
+  viaFd,
 } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -171,33 +165,33 @@ async function modeAmorcage(
     : null;
 }
 
-function dossierAvatars(dep: DependancesComptes): string {
-  return join(dep.racine, "user_db", "avatars");
+/** Dossier des avatars ouvert sans suivre de lien (`creer` : le crée) ; à refermer par l'appelant. */
+function ouvrirDossierAvatars(dep: DependancesComptes, creer = false): number {
+  const base = join(dep.racine, "user_db");
+  if (creer) mkdirSync(base, { recursive: true });
+  return ouvrirDossierSous(base, "avatars", { creer });
 }
 
-/** `Path.resolve()` : liens suivis même pendants, partie inexistante du chemin gardée telle quelle. */
-async function reel(chemin: string, sauts = 0): Promise<string> {
-  const resolu = await realpath(chemin).catch(() => null);
-  if (resolu !== null) return resolu;
-  const cible = sauts < 40 ? await readlink(chemin).catch(() => null) : null;
-  if (cible !== null) return reel(resolve(dirname(chemin), cible), sauts + 1);
-  const parent = dirname(chemin);
-  return parent === chemin ? chemin : join(await reel(parent, sauts), basename(chemin));
+/** Entrée du dossier des avatars retirée par son descripteur (un lien l'est lui-même, jamais sa cible) ; un échec est ignoré. */
+function delier(dfd: number, nom: string): void {
+  try {
+    unlinkSync(viaFd(dfd, nom));
+  } catch {
+    return;
+  }
 }
 
-function dedans(base: string, cible: string): boolean {
-  const rel = relative(base, cible);
-  return !(rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel));
-}
-
-/** `_safe_unlink_in_avatar_dir` : supprime un fichier du dossier des avatars, jamais au-dehors ; un échec est ignoré. */
-async function supprimerAvatar(dep: DependancesComptes, nom: unknown): Promise<void> {
-  if (!nom || typeof nom !== "string") return;
-  const cible = await reel(resolve(dossierAvatars(dep), nom));
-  if (!dedans(await reel(dossierAvatars(dep)), cible)) return;
-  await stat(cible)
-    .then((st) => (st.isFile() ? unlink(cible) : undefined))
-    .catch(() => undefined);
+/** `_safe_unlink_in_avatar_dir` : supprime un avatar du dossier des avatars, jamais au-dehors ; un échec est ignoré. */
+function supprimerAvatar(dep: DependancesComptes, nom: unknown): void {
+  if (!nom || typeof nom !== "string" || nom !== basename(nom)) return;
+  let dfd: number;
+  try {
+    dfd = ouvrirDossierAvatars(dep);
+  } catch {
+    return;
+  }
+  delier(dfd, nom);
+  closeSync(dfd);
 }
 
 async function sansEchec(action: () => Promise<unknown> | undefined): Promise<void> {
@@ -234,19 +228,24 @@ async function auditerRefusConnexion(
   });
 }
 
-/** `_read_and_validate_image` : extension tirée des 64 premiers octets ; l'en-tête Content-Type doit être image/*. */
-async function imageValide(f: FichierRecu): Promise<string> {
-  if (!f.contentType || !f.contentType.startsWith("image/"))
-    throw new HttpError(400, "Le fichier doit être une image");
+/** Extension d'image tirée des 64 premiers octets du fichier, `null` si la signature n'est pas reconnue. */
+async function signatureImage(chemin: string): Promise<string | null> {
   const tete = Buffer.alloc(64);
-  const fd = await ouvrirFichier(f.chemin, "r");
+  const fd = await ouvrirFichier(chemin, "r");
   let lus: number;
   try {
     ({ bytesRead: lus } = await fd.read(tete, 0, 64, 0));
   } finally {
     await fd.close();
   }
-  const ext = extensionImage(tete.subarray(0, lus));
+  return extensionImage(tete.subarray(0, lus));
+}
+
+/** `_read_and_validate_image` : extension tirée des 64 premiers octets ; l'en-tête Content-Type doit être image/*. */
+async function imageValide(f: FichierRecu): Promise<string> {
+  if (!f.contentType || !f.contentType.startsWith("image/"))
+    throw new HttpError(400, "Le fichier doit être une image");
+  const ext = await signatureImage(f.chemin);
   if (!ext) throw new HttpError(400, "Fichier image invalide (signature non reconnue).");
   return ext;
 }
@@ -261,8 +260,13 @@ async function enregistrerAvatar(
   });
   const ext = await imageValide(file);
   const nom = `${prefixe}${Math.floor(maintenant(dep))}${ext}`;
-  await mkdir(dossierAvatars(dep), { recursive: true });
-  await enregistrerBorne(file, join(dossierAvatars(dep), nom), config.MAX_AVATAR_BYTES);
+  const dfd = ouvrirDossierAvatars(dep, true);
+  try {
+    delier(dfd, nom);
+    await enregistrerBorne(file, viaFd(dfd, nom), config.MAX_AVATAR_BYTES);
+  } finally {
+    closeSync(dfd);
+  }
   return nom;
 }
 
@@ -575,7 +579,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const nom = await enregistrerAvatar(req, dep, `${uid}_`);
           try {
             const precedent = (await ligneUtilisateur(base, uid))?.avatar;
-            if (precedent && precedent !== nom) await supprimerAvatar(dep, precedent);
+            if (precedent && precedent !== nom) supprimerAvatar(dep, precedent);
           } catch (e) {
             dep.journal.warn(
               { err: e },
@@ -595,7 +599,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const uid = utilisateur(req);
           try {
             const actuel = (await ligneUtilisateur(base, uid))?.avatar;
-            if (actuel) await supprimerAvatar(dep, actuel);
+            if (actuel) supprimerAvatar(dep, actuel);
           } catch (e) {
             dep.journal.warn(
               { err: e },
@@ -663,15 +667,37 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const nom = (req.params as { filename: string }).filename;
           if (!nom || nom.includes("/")) throw new HttpError(404, "Not Found");
           if (["..", "\\", "\x00"].some((c) => nom.includes(c))) throw new HttpError(400, "Invalid filename");
-          const dossier = dossierAvatars(dep);
-          const cible = await reel(resolve(dossier, nom));
-          if (!dedans(await reel(dossier), cible)) throw new HttpError(400, "Invalid filename");
-          const infos = await stat(cible).catch((e: { code?: string }) => {
-            if (["ENOENT", "ENOTDIR", "ELOOP", "EBADF"].includes(e.code ?? "")) return null;
-            throw new HttpError(400, "Invalid filename");
-          });
-          if (!infos?.isFile()) throw new HttpError(404, "Avatar not found");
-          return reponseFichier(req, rep, cible, { mediaType: typeStatique(cible) });
+          let dfd = -1;
+          let fd = -1;
+          let ext: string | null;
+          try {
+            dfd = ouvrirDossierAvatars(dep);
+            fd = ouvrirFeuille(dfd, nom);
+            const tete = Buffer.alloc(64);
+            ext =
+              fstatSync(fd).size > config.MAX_AVATAR_BYTES
+                ? null
+                : extensionImage(tete.subarray(0, readSync(fd, tete, 0, 64, 0)));
+          } catch {
+            ext = null;
+          } finally {
+            if (dfd >= 0) closeSync(dfd);
+          }
+          if (ext === null) {
+            if (fd >= 0) closeSync(fd);
+            throw new HttpError(404, "Avatar not found");
+          }
+          try {
+            // Seule une image reconnue à sa signature est servie, sous son type à elle et en bac à sable ; le même inode, rouvert par le descripteur.
+            return await reponseFichier(req, rep, `/proc/self/fd/${fd}`, {
+              mediaType: typeStatique(`avatar${ext}`),
+              headers: {
+                "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+              },
+            });
+          } finally {
+            closeSync(fd);
+          }
         },
       },
       {

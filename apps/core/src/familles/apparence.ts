@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/apparence.ts — skins de l'instance servis à main et à la console, habillages personnels à main seul (shared_infra/appearance/routes.py). */
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { closeSync, fstatSync, readFileSync } from "node:fs";
 
 import { ligneUtilisateur } from "@elpis/auth";
 import { encoderUtf8Py, HttpError } from "@elpis/commun";
 import { PREFIXE_PERSO } from "@elpis/contracts";
 import { corpsJson } from "@elpis/http";
+import { ouvrirDossierSous, ouvrirFeuille } from "@elpis/securite";
 import type { Executeur } from "@elpis/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -19,10 +20,12 @@ import {
   IMAGE_MIME,
   isEnabled,
   listSkins,
+  MAX_ASSET_BYTES,
   mascotsCatalogue,
   renderCss,
   renderEditeur,
   SkinExistsError,
+  skinsDir,
 } from "../apparence/skins";
 import {
   enregistrerPerso,
@@ -35,7 +38,6 @@ import {
 import type { SkinPerso } from "../apparence/comptes-perso";
 import { evaluerSkinPerso } from "../apparence/perso";
 import type { ModeApp } from "../mode";
-import { estErreurOs } from "../skills/chemins";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
 import { reponseJsonPy } from "@elpis/http";
@@ -93,6 +95,24 @@ function servir(
 ): FastifyReply {
   if (req.headers["if-none-match"] === entetes["etag"]) return rep.code(304).headers(entetes).send();
   return rep.type(type).headers(entetes).send(octets);
+}
+
+/** Image d'un habillage lue par descripteur (dossier sans lien, fichier ordinaire seulement, plafonné) ; `null` si elle manque ou ne convient pas. */
+function lireImage(skinId: string, nom: string): Buffer | null {
+  let dfd = -1;
+  try {
+    dfd = ouvrirDossierSous(skinsDir(), `${skinId}/assets`);
+    const fd = ouvrirFeuille(dfd, nom);
+    try {
+      return fstatSync(fd).size > MAX_ASSET_BYTES ? null : readFileSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return null;
+  } finally {
+    if (dfd >= 0) closeSync(dfd);
+  }
 }
 
 /** Corps d'écriture : le manifeste, plus `overwrite` (booléen) qui n'en fait pas partie. */
@@ -215,23 +235,17 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
       }),
       route("/api/skins/:skin_id/assets/:name", async (req, rep) => {
         const { skin_id: skinId, name } = req.params as { skin_id: string; name: string };
-        const chemin = assetPath(skinId, name);
-        if (chemin === null) throw new HttpError(404, "Image inconnue");
+        if (assetPath(skinId, name) === null) throw new HttpError(404, "Image inconnue");
         await peutLire(req, skinId);
-        let octets: Buffer;
-        try {
-          octets = readFileSync(chemin);
-        } catch (e) {
-          if (estErreurOs(e)) throw new HttpError(404, "Image inconnue");
-          throw e;
-        }
+        const octets = lireImage(skinId, name);
+        if (octets === null) throw new HttpError(404, "Image inconnue");
         const type = detectImage(octets.subarray(0, 16));
         if (type === null || type !== assetType(name)) throw new HttpError(404, "Image inconnue");
         return servir(req, rep, octets, IMAGE_MIME[type] ?? "application/octet-stream", {
           etag: etag(octets),
           "cache-control": "private, max-age=300",
           "x-content-type-options": "nosniff",
-          "content-security-policy": "default-src 'none'",
+          "content-security-policy": "default-src 'none'; sandbox",
         });
       }),
     ],

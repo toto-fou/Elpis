@@ -116,7 +116,9 @@ run Elpis on a dedicated machine or VM. Details below.
   profile still reaches the network directly, unless its protections refuse it; the
   Git relay applies those protections too, with no IPv6 when one is ticked; only the
   servers chosen by the administrator escape the local network and host protections,
-  never the metadata one.
+  never the metadata one. Under a profile without network, this relay is the sandbox's
+  only way out (the browser relay refuses everything there): with chosen servers and
+  none listed, nothing leaves over the network.
 - Remote MCP server: its address is checked when it is registered, not
   at every DNS resolution. The server runs no command taken from its
   configuration: a third-party MCP server is reached over HTTP. An entry

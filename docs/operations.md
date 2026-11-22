@@ -123,7 +123,7 @@ password), so that a flaw in one service does not hand over the files of the oth
 | `elpis-donnees` | `elpis-main`, `elpis-admin`, `elpis-toolhost`, the operator | shared state: database and `user_db/`, sandboxes, `logs/`, `/run/elpis` |
 | `elpis-cle` | `elpis-main`, `elpis-admin` | remote backup credentials; without [keys handed by systemd](#platform-keys), also the vault key, legacy encryption key and session secret: never the tool host |
 | `elpis-journal` | `elpis-main`, `elpis-admin`, `elpis-toolhost` (writers), `syslog` (reader) | security journal, access log; without keys handed by systemd, also the signing key |
-| `elpis-rag` | `elpis-main`, `elpis-admin`; primary group of `elpis-rag` | RAG store (main and the console write it, the RAG reads it), RAG token |
+| `elpis-rag` | `elpis-main`, `elpis-admin`; primary group of `elpis-rag` | RAG store (main and the console write it, the RAG reads it); without keys handed by systemd, also the RAG token |
 
 The **operator** is the account that administers Elpis: `ELPIS_USER`, otherwise the account
 that ran `sudo`, otherwise the owner of the installation. It owns the code, joins
@@ -202,7 +202,7 @@ secrets, the relay authority, `run/chat_runs` and `run/task_resume` to their own
 | `user_db/` (and the folder of `app.db_path`, when `APP_DB_PATH` in `.env` names it too) | `2771 root:elpis-donnees`; content group `elpis-donnees`, `g+rwX`, nothing for others |
 | `.vault.key`, `.encryption_key`, `.session_secret` (and their `.lock`) | `0640 root:elpis-cle`; with [keys handed by systemd](#platform-keys), moved into `/etc/elpis/credentials/` (a fallback vault key kept for `vault rekey` stays here) |
 | `.local_mcp_token` | `0640 root:elpis-donnees` |
-| RAG token | moved from `user_db/.rag_service_token` (which `./elpis configure` may write again: it then wins at the next `service install` if it belongs to the operator, has one link and nobody else can write it; read through its descriptor, copied, then removed) to `/etc/elpis/rag.token`, `0440 root:elpis-rag` (`RAG_SERVICE_TOKEN_FILE` of main, the console and the RAG) |
+| RAG token | moved from `user_db/.rag_service_token` (which `./elpis configure` may write again: it then wins at the next `service install` if it belongs to the operator, has one link and nobody else can write it; read through its descriptor, copied, then removed) to `/etc/elpis/rag.token`, `0440 root:elpis-rag` (`RAG_SERVICE_TOKEN_FILE` of main, the console and the RAG); with keys handed by systemd, to the key `rag.token` |
 | RAG store (`user_db/rag` by default) | `2770 elpis-main:elpis-rag`, content group `elpis-rag`, `g+rwX`; read-only in the RAG unit |
 | `.db_password*` | `0640 elpis-admin:elpis-donnees` (the console rewrites it) |
 | `.backup_ssh_key`, `.backup_rsync_password` | `0640 elpis-admin:elpis-cle` (main runs the scheduled remote backups) |
@@ -295,10 +295,11 @@ unit alone (`LoadCredentialEncrypted=`, read from the unit's `$CREDENTIALS_DIREC
 | `encryption.key` | main, the console | `APP_ENCRYPTION_KEY_PATH` | `user_db/.encryption_key` (next to the database), or `app.encryption_key` of `config.json`; none: created, in the format the core creates |
 | `session.secret` | main, the console | `APP_SESSION_SECRET_FILE` | `user_db/.session_secret`, or `app.session_secret` of `config.json`; none: created |
 | `audit.key` | main, the console, the tool host | `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key`; none: created |
+| `rag.token` | main, the console, the RAG | `RAG_SERVICE_TOKEN_FILE` | `/etc/elpis/rag.token`, then `user_db/.rag_service_token` when `./elpis configure` wrote it again (it wins, as before), or `rag.service_token` of `config.json`; none: created |
 
-The tool host never receives the vault key, the encryption key nor the session secret; rsyslog
-(`elpis-journal`) reads the log files only, no longer the signing key; `elpis-cle` keeps the
-remote backup credentials only. Without such a systemd (or with one account for every service),
+The tool host never receives the vault key, the encryption key nor the session secret, the RAG
+its token only; rsyslog (`elpis-journal`) reads the log files only, no longer the signing key;
+`elpis-cle` keeps the remote backup credentials only, `elpis-rag` the RAG store only. Without such a systemd (or with one account for every service),
 the files of [Service accounts](#service-accounts) stay, and `./elpis doctor` says so.
 
 **Taking keys over.** At each `service install`, services stopped, a plaintext key found at its
@@ -309,7 +310,7 @@ then removed: no plaintext copy stays on the machine. A file that does not quali
 left as it is, and no new key replaces it. A plaintext file that differs from a key already in
 service is left too, with a warning: keep the right one (copy it off the machine first), remove
 the other, run `service install` again. Values of `config.json` (`app.session_secret`,
-`app.encryption_key`) are taken in two steps: `deploy/configure.py --ranger-secrets --sortie -
+`app.encryption_key`, `rag.service_token`) are taken in two steps: `deploy/configure.py --ranger-secrets --sortie -
 --garder` hands them over without removing them, root writes and checks the keys, then
 `--ranger-secrets --retirer` removes from `config.json` only the values written, if unchanged. A
 second pass changes nothing.
@@ -349,12 +350,14 @@ of the disk that includes `/var/lib/systemd/` holds both.
 | `encryption.key` | `.encryption_key` next to the database (`user_db/` by default) |
 | `session.secret` | `.session_secret` next to the database (without it, a new one is created: sessions are closed) |
 | `audit.key` | `/etc/elpis/audit.key` |
+| `rag.token` | not needed: a new one is created |
 
 **Back to one account, `service remove`.** `sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`
 decrypts each key back to its file of the single account (`/etc/elpis/vault.key` and
 `/etc/elpis/audit.key` `0440`, root and the key group; `.encryption_key` and `.session_secret`
-`0600` next to the database), then removes `/etc/elpis/credentials/`; `service remove` does the
-same for the operator. A file already there that differs keeps the key in the folder, with a
+`0600` next to the database; the RAG token to `/etc/elpis/rag.token`, which the single account's
+pass moves to `user_db/.rag_service_token`), then removes `/etc/elpis/credentials/`;
+`service remove` does the same for the operator. A file already there that differs keeps the key in the folder, with a
 warning. Both can be run again.
 
 **Commands.** Under `sudo`, the commands that need a key (`vault status`, `vault rekey`,

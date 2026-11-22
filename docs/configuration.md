@@ -634,7 +634,7 @@ disabled (the RAG page says so, no indexing).
 | Key | Role | Default |
 |---|---|---|
 | `service_url` | `rag_app` extractor (`RAG_SERVICE_URL` variable takes precedence) | `http://127.0.0.1:8000` |
-| `service_token` | Extractor token; without it, `RAG_SERVICE_TOKEN` then `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
+| `service_token` | Extractor token; without it, `RAG_SERVICE_TOKEN`, then the file `RAG_SERVICE_TOKEN_FILE` (with one account per service, `/etc/elpis/rag.token`, or the key `rag.token` handed by systemd: `%d/rag.token`), then `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
 | `store_dir` | File store (`RAG_STORE_DIR` takes precedence): originals, extracts, rendered pages, per account and per collection; `./elpis` gives the same folder to the extractor | `<database folder>/rag` (`user_db/rag`) |
 | `qdrant_url` | Qdrant, local and keyless (`./elpis` starts it on `127.0.0.1:6333`) | `http://127.0.0.1:6333` |
 | `embed.*` | OpenAI-compatible embeddings server (`/v1/embeddings`), model, key, batch size (1 to 512), timeout (1 to 600 s). Changing the model reindexes all collections (console) | model `bge-m3` |

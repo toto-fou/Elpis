@@ -66,6 +66,10 @@ follow [SemVer](https://semver.org/).
   (`--garder`, then `--retirer`), so that a write error no longer loses a secret moved out of
   `config.json`. Run `sudo ./elpis service install` again
   ([operations.md](docs/operations.md#platform-keys)).
+- **RAG token handed by systemd.** With these keys, the RAG token becomes the key `rag.token`,
+  taken from `/etc/elpis/rag.token` (or from `user_db/.rag_service_token` when `./elpis configure`
+  wrote it again) and given to main, the console and the RAG only; `elpis-rag` then only gives
+  the RAG store.
 - **systemd units: versioned and hardened.** The units of the services are rendered from
   templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
   privileges, with the system read-only except the folders it writes, a private `/tmp` and

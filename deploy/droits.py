@@ -38,8 +38,8 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           40 caractères ; un lien ou un fichier spécial à ce nom est refusé
         droits.py ranger BASE JETON [--magasin MAGASIN]
           secrets de l'objet JSON de l'entrée standard (deploy/configure.py --ranger-secrets --garder) dans
-          BASE/.session_secret, BASE/.encryption_key et JETON (0600) s'ils diffèrent, ou avec --magasin, secret de session
-          et clé de chiffrement en clés de systemd ; un lien ou un fichier spécial est refusé ; sortie : les clés de
+          BASE/.session_secret, BASE/.encryption_key et JETON (0600) s'ils diffèrent, ou avec --magasin, secret de session,
+          clé de chiffrement et jeton du RAG en clés de systemd ; un lien ou un fichier spécial est refusé ; sortie : les clés de
           config.json à retirer (écrites, ou sans valeur retenue), une par ligne
         droits.py reprendre DOSSIER NOM COMPTE CIBLE
           contenu de DOSSIER/NOM, fichier ordinaire de COMPTE à un seul lien que nul autre ne peut écrire, écrit dans
@@ -68,7 +68,7 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           déchiffrée et comparée avant d'être renommée) : reprise de FICHIER (fichier ordinaire à un seul lien d'un des
           comptes, sans écriture d'autrui, N caractères au moins), qui est retiré ensuite ; FICHIER différent d'une clé en
           service : laissés tous deux (sauf --source-gagne) ; sinon clé gardée, sinon créée sans FICHIER refusé (GENRE :
-          coffre, fernet, session, journal) ; --copie : commande de copie hors de la machine affichée quand la clé change
+          coffre, fernet, session, journal, jeton) ; --copie : commande de copie hors de la machine affichée quand la clé change
         droits.py cle-rendre MAGASIN NOM CIBLE PROPRIO GROUPE MODE
           clé NOM déchiffrée dans CIBLE (temporaire exclusif, PROPRIO:GROUPE, MODE octal) si CIBLE manque ou est la même,
           relue, puis retirée du magasin ; CIBLE « - » : clé retirée seulement ; CIBLE différente : laissées toutes deux
@@ -87,7 +87,7 @@ CLAUSE = re.compile(r"([ugo]+)([+-])([rwxXs]+)")
 MDP_BASE = re.compile(r"[0-9a-f]{48}")
 NOM_CLE = re.compile(r"[a-z0-9][a-z0-9.-]{0,63}")
 # Secrets de config.json rangés en clés de systemd (ranger --magasin) ; les autres vont à leurs fichiers.
-VERS_CLES = {"app.session_secret": "session.secret", "app.encryption_key": "encryption.key"}
+VERS_CLES = {"app.session_secret": "session.secret", "app.encryption_key": "encryption.key", "rag.service_token": "rag.token"}
 SECRETS_CONFIG = ("app.session_secret", "app.encryption_key", "rag.service_token")
 
 
@@ -587,9 +587,10 @@ def _octets_cle() -> bytes:
     return octets
 
 
-# Clés créées au format que leur code crée : vault setup (base64), Fernet.generateKey(), secret de session, audit setup.
+# Clés créées au format que leur code crée : vault setup (base64), Fernet.generateKey(), secret de session et jeton du RAG (droits.py secret), audit setup.
 GENRES = {"coffre": lambda: base64.b64encode(_octets_cle()) + b"\n", "fernet": lambda: base64.urlsafe_b64encode(os.urandom(32)),
-          "session": lambda: b"ELPIS_" + secrets.token_hex(32).encode(), "journal": lambda: secrets.token_hex(32).encode()}
+          "session": lambda: b"ELPIS_" + secrets.token_hex(32).encode(), "journal": lambda: secrets.token_hex(32).encode(),
+          "jeton": lambda: b"ELPIS_" + secrets.token_hex(32).encode() + b"\n"}
 
 
 def _lire_source(chemin: str, proprios: set[int], minimum: int, taille: int = 65536):

@@ -30,9 +30,6 @@
 #                                cible, copie vers une base vide, choix du
 #                                moteur (« ./elpis db use sqlite » = porte de
 #                                sortie si le serveur de base est tombé)
-#  ./elpis db keep-security|carry-security FICHIER   sécurité des comptes
-#                                gardée avant une remise de la base, puis
-#                                reportée sur la base remise
 #  sudo ./elpis vault setup      clé du coffre « Secrets » /etc/elpis/vault.key
 #                                (0440, groupe de la clé du journal), jamais
 #                                remplacée

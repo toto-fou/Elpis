@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/identite/etat.ts — invariant « au moins un administrateur actif à mot de passe local », vérifié dans la transaction de l'action qu'il garde. */
-import { CLAUSE_MOT_DE_PASSE_LOCAL } from "@elpis/auth";
 import { HttpError } from "@elpis/commun";
 import type { Executeur } from "@elpis/db";
 
-const ADMIN_LOCAL_ACTIF = `is_admin=1 AND (suspended_at IS NULL OR suspended_at=0) AND ${CLAUSE_MOT_DE_PASSE_LOCAL}`;
+const ADMIN_LOCAL_ACTIF = "is_admin=1 AND (suspended_at IS NULL OR suspended_at=0) AND pass_hash<>'!'";
 
 /** Nombre d'administrateurs actifs à mot de passe local, hors `sauf`. */
 export async function compterAdminsLocaux(x: Executeur, sauf?: number): Promise<number> {

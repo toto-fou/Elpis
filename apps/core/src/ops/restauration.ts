@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/ops/restauration.ts — restauration d'une sauvegarde de la console (routes/admin/lifecycle.py : _restore_from_zip) : base par l'API de sauvegarde de SQLite, chemins prouvés sous leur dossier, sandboxes sans suivre de lien. */
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { ErreurPython } from "@elpis/commun";
-import { config, pyJoin, realpathPy } from "@elpis/config";
+import { ErreurPython, floatPy, pyJsonDumps, pyJsonLoads, versFlottantPy } from "@elpis/commun";
+import { config, pyJoin, realpathPy, writeTextAtomic } from "@elpis/config";
 import { initialiserBase, prendreVerrouSchema } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import Database from "better-sqlite3";
@@ -14,7 +15,6 @@ import { MIGRATIONS_DU_CORE } from "../base";
 import type { Journal } from "../journal";
 import { portsMigrationsDuCore } from "../secrets/reprise";
 import { estErreurOs, texteErreurPy } from "./erreurs-os";
-import { fermerToutesSessions } from "./securite-gardee";
 import {
   AGENT_RUN_DIR,
   comptesDesSandboxes,
@@ -28,6 +28,7 @@ import {
 } from "./sauvegarde";
 import type { Portee } from "./sauvegarde";
 import { ecrireSous, ErreurCheminBac } from "@elpis/securite";
+import { avecVerrou, cheminVerrou } from "@elpis/verrous";
 import { LecteurZip } from "./zip-disque";
 
 export interface DossiersRestauration {
@@ -153,6 +154,35 @@ function estRefusEcriture(e: unknown): boolean {
   return (
     estErreurOs(e) || e instanceof ErreurCheminBac || (e instanceof ErreurPython && e.type === "ValueError")
   );
+}
+
+const objet = (v: unknown): Record<string, unknown> =>
+  v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+/** Toute session ouverte avant `ts` (secondes) est refusée (`security.session.global_min_ts` de config.json `chemin`, sous son verrou, jamais abaissé) ; JSON illisible : erreur. */
+export async function fermerToutesSessions(chemin: string, ts: number = Date.now() / 1000): Promise<void> {
+  await avecVerrou(cheminVerrou(chemin), {}, async () => {
+    let texte = "";
+    try {
+      texte = await readFile(chemin, "utf-8");
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    }
+    const cfg = objet(pyJsonLoads(texte.trim() || "{}"));
+    const securite = objet(cfg["security"]);
+    const session = objet(securite["session"]);
+    let actuel = 0;
+    try {
+      const v = floatPy(session["global_min_ts"] ?? 0);
+      if (Number.isFinite(v)) actuel = v;
+    } catch {
+      actuel = 0;
+    }
+    session["global_min_ts"] = versFlottantPy(Math.max(actuel, ts));
+    securite["session"] = session;
+    cfg["security"] = securite;
+    writeTextAtomic(chemin, pyJsonDumps(cfg, { ensureAscii: false, indent: 2 }));
+  });
 }
 
 /** `_restore_from_zip` : `(restaurés, erreurs, base_remplacée)` ; base remplacée : toutes les sessions coupées aussitôt, avant le reste (coupure globale de config.json) ; une archive illisible lève `ErreurZip`. */

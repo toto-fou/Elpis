@@ -16,26 +16,14 @@ export class ErreurNomUtilisateur extends Error {
 /** Empreinte d'un compte sans mot de passe local : aucune saisie ne la produit. */
 export const MARQUEUR_SANS_MOT_DE_PASSE = "!";
 
-/** Empreinte posée par un retour arrière de la base : compte verrouillé jusqu'à ce qu'un administrateur lui donne un mot de passe. */
-export const MOT_DE_PASSE_VERROUILLE = "!verrouille-par-retour";
-
-/** Empreintes qui ne sont pas un mot de passe local (aucune saisie ne les produit) : la seule liste, en code et en SQL. */
-export const SANS_MOT_DE_PASSE_LOCAL: readonly string[] = [
-  MARQUEUR_SANS_MOT_DE_PASSE,
-  MOT_DE_PASSE_VERROUILLE,
-];
-
-/** Condition SQL « a un mot de passe local » sur `pass_hash` (empreintes constantes, sans guillemet). */
-export const CLAUSE_MOT_DE_PASSE_LOCAL = `pass_hash NOT IN (${SANS_MOT_DE_PASSE_LOCAL.map((e) => `'${e}'`).join(", ")})`;
-
 /** Refus de poser un mot de passe sur un compte sans mot de passe local. */
 export class ErreurSansMotDePasseLocal extends Error {
   override name = "ErreurSansMotDePasseLocal";
 }
 
-/** Vrai si le compte se connecte par un mot de passe local (empreinte hors de `SANS_MOT_DE_PASSE_LOCAL`). */
+/** Vrai si le compte se connecte par un mot de passe local (empreinte autre que le marqueur). */
 export function aMotDePasseLocal(ligne: Record<string, unknown> | null | undefined): boolean {
-  return !SANS_MOT_DE_PASSE_LOCAL.includes(String(ligne?.pass_hash ?? ""));
+  return String(ligne?.pass_hash ?? "") !== MARQUEUR_SANS_MOT_DE_PASSE;
 }
 
 /** Vrai si la méthode de connexion d'une session est encore celle du compte : mot de passe local pour `password` (ou méthode absente), identité de CE fournisseur pour `oidc:<id>`. */

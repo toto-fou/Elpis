@@ -338,7 +338,7 @@
       "argv": [],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: the following arguments are required: cmd\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: the following arguments are required: cmd\n"
     },
     {
       "argv": [
@@ -356,7 +356,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: x\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: x\n"
     },
     {
       "argv": [
@@ -364,14 +364,14 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: argument cmd: invalid choice: 'inconnu' (choose from info, check, transfer, use, keep-security, carry-security)\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: argument cmd: invalid choice: 'inconnu' (choose from info, check, transfer, use)\n"
     },
     {
       "argv": [
         "-h"
       ],
       "code": 0,
-      "stdout": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n\nBase de donn\u00e9es de l'instance : \u00e9tat, test, copie et choix du moteur.\n\npositional arguments:\n  {info,check,transfer,use,keep-security,carry-security}\n    info                moteur actif, version, taille, sch\u00e9ma\n    check               tester une cible\n    transfer            copier les donn\u00e9es vers une base vide\n    use                 choisir la base de l'application\n    keep-security       garder la s\u00e9curit\u00e9 des comptes\n    carry-security      la reporter sur la base remise\n\noptions:\n  -h, --help            show this help message and exit\n  --password-env PASSWORD_ENV\n                        variable d'environnement qui porte le mot de passe\n",
+      "stdout": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n\nBase de donn\u00e9es de l'instance : \u00e9tat, test, copie et choix du moteur.\n\npositional arguments:\n  {info,check,transfer,use}\n    info                moteur actif, version, taille, sch\u00e9ma\n    check               tester une cible\n    transfer            copier les donn\u00e9es vers une base vide\n    use                 choisir la base de l'application\n\noptions:\n  -h, --help            show this help message and exit\n  --password-env PASSWORD_ENV\n                        variable d'environnement qui porte le mot de passe\n",
       "stderr": ""
     },
     {
@@ -423,7 +423,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: argument --password-env: expected one argument\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: argument --password-env: expected one argument\n"
     },
     {
       "argv": [
@@ -433,7 +433,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: --password-env PW\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: --password-env PW\n"
     },
     {
       "argv": [
@@ -462,7 +462,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: b\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: b\n"
     },
     {
       "argv": [
@@ -604,7 +604,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: x\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: x\n"
     },
     {
       "argv": [
@@ -678,7 +678,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: b\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: b\n"
     },
     {
       "argv": [
@@ -687,7 +687,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: --vite\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: --vite\n"
     },
     {
       "argv": [
@@ -696,7 +696,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: --vite\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: --vite\n"
     },
     {
       "argv": [
@@ -725,7 +725,7 @@
         "--help"
       ],
       "code": 0,
-      "stdout": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n\nBase de donn\u00e9es de l'instance : \u00e9tat, test, copie et choix du moteur.\n\npositional arguments:\n  {info,check,transfer,use,keep-security,carry-security}\n    info                moteur actif, version, taille, sch\u00e9ma\n    check               tester une cible\n    transfer            copier les donn\u00e9es vers une base vide\n    use                 choisir la base de l'application\n    keep-security       garder la s\u00e9curit\u00e9 des comptes\n    carry-security      la reporter sur la base remise\n\noptions:\n  -h, --help            show this help message and exit\n  --password-env PASSWORD_ENV\n                        variable d'environnement qui porte le mot de passe\n",
+      "stdout": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n\nBase de donn\u00e9es de l'instance : \u00e9tat, test, copie et choix du moteur.\n\npositional arguments:\n  {info,check,transfer,use}\n    info                moteur actif, version, taille, sch\u00e9ma\n    check               tester une cible\n    transfer            copier les donn\u00e9es vers une base vide\n    use                 choisir la base de l'application\n\noptions:\n  -h, --help            show this help message and exit\n  --password-env PASSWORD_ENV\n                        variable d'environnement qui porte le mot de passe\n",
       "stderr": ""
     },
     {
@@ -740,7 +740,7 @@
       ],
       "code": 2,
       "stdout": "",
-      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use,keep-security,carry-security} ...\n./elpis db: error: unrecognized arguments: x y\n"
+      "stderr": "usage: ./elpis db [-h] [--password-env PASSWORD_ENV]\n                  {info,check,transfer,use} ...\n./elpis db: error: unrecognized arguments: x y\n"
     }
   ]
 }

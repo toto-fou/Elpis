@@ -158,12 +158,15 @@ describe("ReadinessCache (test_readiness_cache.py)", () => {
 });
 
 describe("registre (get_user_sandbox)", () => {
-  it("une instance par (id, nom) : deux comptes non résolus ne partagent rien, oubli par compte", () => {
+  it("une instance par (id, nom) : deux comptes non résolus ne partagent rien, oubli par compte, remplacée pour un autre /work", () => {
     const a = getUserSandbox(0, "alice", path.join(tmp, "alice", "work"));
     const b = getUserSandbox(0, "bob", path.join(tmp, "bob", "work"));
     expect(a).not.toBe(b);
     expect(b.sandboxPath).toBe(path.join(tmp, "bob", "work"));
-    expect(getUserSandbox(0, "alice", path.join(tmp, "x"))).toBe(a);
+    expect(getUserSandbox(0, "alice", path.join(tmp, "alice", "work"))).toBe(a);
+    const ailleurs = getUserSandbox(0, "alice", path.join(tmp, "x"));
+    expect([ailleurs === a, ailleurs.sandboxPath]).toEqual([false, path.join(tmp, "x")]);
+    expect(getUserSandbox(0, "alice", path.join(tmp, "x"))).toBe(ailleurs);
     const c = getUserSandbox(2, "carol", "/c", "web");
     expect(getUserSandbox(2, "carol", "/c").networkProfileId).toBe("web");
     expect(getUserSandbox(2, "carol", "/c", "lan").networkProfileId).toBe("lan");

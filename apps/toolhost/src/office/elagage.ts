@@ -82,18 +82,14 @@ function trier(entrees: EntreeCache[]): EntreeCache[] {
   );
 }
 
-/** `_remove_key_dir` : dossier de clé supprimé sauf conversion en cours (son verrou `key-<clé>.lock` est tenu). */
+/** `_remove_key_dir` : dossier de clé supprimé sauf conversion en cours (son verrou `key-<clé>.lock` est tenu ; sans verrou, aucune conversion ne l'a tenue). */
 async function retirerDossierCle(
   chemin: string,
   cle: string,
   verrouilles: ReadonlySet<string>,
 ): Promise<boolean> {
-  try {
-    const st = await stat(path.join(dossierVerrous(), `key-${cle}.lock`), { bigint: true });
-    if (verrouilles.has(String(st.ino))) return false;
-  } catch {
-    // pas de fichier de verrou : aucune conversion n'a tenu cette clé
-  }
+  const st = await stat(path.join(dossierVerrous(), `key-${cle}.lock`), { bigint: true }).catch(() => null);
+  if (st !== null && verrouilles.has(String(st.ino))) return false;
   await rm(chemin, { recursive: true, force: true }).catch(() => undefined);
   return true;
 }

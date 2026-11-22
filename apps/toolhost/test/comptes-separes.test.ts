@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { poserCertificat } from "../src/mcp/browser/bac";
 import { cacheRoot } from "../src/office/apercu";
-import { releaseLock, surchargerDossierVerrous, tryLock } from "../src/office/conversion";
+import { dossierVerrous, releaseLock, surchargerDossierVerrous, tryLock } from "../src/office/conversion";
 
 const GID = String(process.getgid?.() ?? 0);
 let dossier = "";
@@ -46,6 +46,25 @@ describe("sous le groupe des données", () => {
     surchargerDossierVerrous(path.join(dossier, "verrous"));
     releaseLock(await tryLock("essai"));
     expect(mode(path.join(dossier, "verrous"))).toBe(0o700);
+  });
+
+  it("verrous Office : dans le dossier d'exécution privé de l'unité, jamais dans celui qu'elle partage", () => {
+    vi.stubEnv("ELPIS_OFFICE_LOCK_DIR", "");
+    vi.stubEnv("ELPIS_RUNTIME_DIR", path.join(dossier, "partage"));
+    vi.stubEnv("RUNTIME_DIRECTORY", `${path.join(dossier, "prive")}:${path.join(dossier, "autre")}`);
+    expect(dossierVerrous()).toBe(path.join(dossier, "prive", "office_locks"));
+    vi.stubEnv("RUNTIME_DIRECTORY", "");
+    expect(dossierVerrous()).toBe(path.join(dossier, "partage", "office_locks"));
+  });
+
+  it("dossier des verrous Office d'un autre compte : refus aussitôt (jamais une attente), détail au journal", async () => {
+    const autre = path.join(dossier, "verrous-autre");
+    mkdirSync(autre);
+    chmodSync(autre, 0o2770);
+    surchargerDossierVerrous(autre);
+    vi.spyOn(process, "geteuid").mockReturnValue((process.geteuid?.() ?? 0) + 1);
+    await expect(tryLock("essai")).rejects.toMatchObject({ code: "failed" });
+    expect(mode(autre)).toBe(0o2770);
   });
 
   it("cache d'aperçus d'un autre compte, ou lien à sa place : refusé", () => {

@@ -4502,6 +4502,12 @@
         },
         {
           "motif": [
+            "~.Mounts"
+          ],
+          "out": "{racine}/alice/work\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "137|false"
@@ -4547,6 +4553,13 @@
           "inspect",
           "--format",
           "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
           "elpis-sb-alice",
           5
         ],
@@ -4613,6 +4626,12 @@
         },
         {
           "motif": [
+            "~.Mounts"
+          ],
+          "out": "{racine}/alice/work\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "143|false"
@@ -4658,6 +4677,13 @@
           "inspect",
           "--format",
           "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
           "elpis-sb-alice",
           5
         ],
@@ -4947,6 +4973,12 @@
         },
         {
           "motif": [
+            "~.Mounts"
+          ],
+          "out": "{racine}/alice/work\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "0|false"
@@ -4992,6 +5024,13 @@
           "inspect",
           "--format",
           "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
           "elpis-sb-alice",
           5
         ],
@@ -5963,6 +6002,12 @@
         },
         {
           "motif": [
+            "~.Mounts"
+          ],
+          "out": "{racine}/alice/work\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "0|false"
@@ -6015,6 +6060,13 @@
           "inspect",
           "--format",
           "{{index .Config.Labels \"elpis.netcfg\"}}|{{index .Config.Labels \"elpis.spec\"}}|{{.Config.Image}}|{{index .Config.Labels \"elpis.agent\"}}|{{index .Config.Labels \"elpis.entry\"}}|{{index .Config.Labels \"elpis.durci\"}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
           "elpis-sb-alice",
           5
         ],
@@ -6423,6 +6475,12 @@
         },
         {
           "motif": [
+            "~.Mounts"
+          ],
+          "out": "{racine}/alice/work\n"
+        },
+        {
+          "motif": [
             "~ExitCode"
           ],
           "out": "137|false"
@@ -6474,6 +6532,13 @@
           "<charger>",
           "elpis/sandbox:1.8.0",
           true
+        ],
+        [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
+          "elpis-sb-alice",
+          5
         ],
         [
           "start",
@@ -9501,6 +9566,13 @@
           600
         ],
         [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
@@ -9645,6 +9717,13 @@
           600
         ],
         [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
+          "elpis-sb-alice",
+          5
+        ],
+        [
           "exec",
           "-u",
           "0:0",
@@ -9777,6 +9856,13 @@
           "10001:10001",
           "1",
           600
+        ],
+        [
+          "inspect",
+          "--format",
+          "{{range .Mounts}}{{if eq .Destination \"/work\"}}{{.Source}}{{end}}{{end}}",
+          "elpis-sb-alice",
+          5
         ],
         [
           "exec",

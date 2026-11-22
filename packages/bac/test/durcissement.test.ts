@@ -607,7 +607,7 @@ describe("garde de l'entrée du conteneur", () => {
       { motif: ["image", "inspect"], rc: 1 },
     ];
     function bacPerime(profil: string) {
-      const cli = new FauxCli(stale);
+      const cli = new FauxCli([{ motif: ["~.Mounts"], out: `${travail}\n` }, ...stale]);
       const cfg = sandboxAdminConfigDepuis({ network_profiles: PROFILS }, () => undefined);
       const sb = new UserSandbox(1, "alice", travail, cfg, profil, {
         cli,

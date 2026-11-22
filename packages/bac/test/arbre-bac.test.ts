@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** packages/bac/test/arbre-bac.test.ts — arbre d'un bac vu de l'hôte d'outils : dossier de l'agent en 01777 rechmodé seulement s'il le faut et qu'il est à ce compte, montages refusés avec un compte par service si un lien ou un autre compte peut changer l'arbre, marqueurs lus et écrits sans suivre de lien. */
+/** packages/bac/test/arbre-bac.test.ts — arbre d'un bac vu de l'hôte d'outils : dossier de l'agent en 01777 rechmodé seulement s'il le faut et qu'il est à ce compte, vidé des entrées d'un autre UID, montages refusés avec un compte par service si un lien ou un autre compte peut changer l'arbre (création, redémarrage, purge), marqueurs lus et écrits sans suivre de lien. */
 import { execFileSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   statSync,
@@ -14,15 +16,30 @@ import {
 import path from "node:path";
 
 import { brancherJournal, journalStderr } from "@elpis/commun";
+import { surchargerConfig } from "@elpis/config";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { dossierAgentPret, exigerMontagesSurs, ExecError } from "../src/conteneur";
+import { dossierAgentPret, exigerMontagesSurs, ExecError, viderDossierAgent } from "../src/conteneur";
+import {
+  agentEmpreinte,
+  definirFabriqueAgent,
+  netcfgHash,
+  reglagesBac,
+  reglagesMontages,
+  reglagesNavigateurBac,
+  RUN_SPEC,
+  sandboxAdminConfigDepuis,
+  UserSandbox,
+} from "../src/index";
+import type { EtatBac } from "../src/index";
+import { empreinteDemarrage } from "../src/montages";
 import { ecrireMarqueur, lireMarqueur } from "../src/travail";
-import { dossierTemporaire } from "./aides";
+import { dossierTemporaire, FauxCli } from "./aides";
+import type { Regle } from "./aides";
 
-const espions = vi.hoisted(() => ({ chmod: vi.fn(), refus: { actif: false } }));
+const espions = vi.hoisted(() => ({ chmod: vi.fn(), refus: { actif: false }, etrangers: new Set<string>() }));
 
-/** chmodSync et fchmodSync tracés ; « autre compte » simulé : ils lèvent EPERM, comme pour un dossier qui n'est pas à ce compte. */
+/** chmodSync et fchmodSync tracés ; « autre compte » simulé : ils lèvent EPERM, comme pour un dossier qui n'est pas à ce compte ; lstatSync voit les entrées nommées dans `etrangers` à un autre compte. */
 vi.mock("node:fs", async (importOriginal) => {
   const reel = await importOriginal<Record<string, unknown>>();
   const enveloppe =
@@ -34,11 +51,19 @@ vi.mock("node:fs", async (importOriginal) => {
     };
   const chmodSync = enveloppe("chmodSync");
   const fchmodSync = enveloppe("fchmodSync");
+  const lstatSync = (cible: unknown, ...r: unknown[]): unknown => {
+    const st = (reel["lstatSync"] as (...a: unknown[]) => object)(cible, ...r);
+    const nom = String(cible).slice(String(cible).lastIndexOf("/") + 1);
+    return espions.etrangers.has(nom)
+      ? Object.assign(Object.create(Object.getPrototypeOf(st)), st, { uid: 4242 })
+      : st;
+  };
   return {
     ...reel,
-    default: { ...(reel["default"] as object), chmodSync, fchmodSync },
+    default: { ...(reel["default"] as object), chmodSync, fchmodSync, lstatSync },
     chmodSync,
     fchmodSync,
+    lstatSync,
   };
 });
 
@@ -60,6 +85,7 @@ beforeEach(() => {
   avertis = [];
   espions.chmod.mockClear();
   espions.refus.actif = false;
+  espions.etrangers.clear();
   brancherJournal((d) => ({ ...journalStderr(d), warn: (...a: unknown[]) => avertis.push(a.join(" ")) }));
 });
 
@@ -114,16 +140,42 @@ describe("dossierAgentPret", () => {
     expect(avertis[0]).toContain("relancez sudo ./elpis service install");
   });
 
-  it("lien à la place du dossier : refusé, sa cible intacte", () => {
+  it("lien à la place du dossier : refus sobre, sa cible intacte, détail au journal", () => {
     const cible = path.join(tmp, "ailleurs");
     mkdirSync(cible);
     chmodSync(cible, 0o700);
     const d = path.join(tmp, ".elpis-agent");
     symlinkSync(cible, d);
     espions.chmod.mockClear();
-    expect(() => dossierAgentPret(d)).toThrow(ExecError);
+    expect(() => dossierAgentPret(d)).toThrow(new ExecError(DEMARRAGE_IMPOSSIBLE));
     expect(espions.chmod).not.toHaveBeenCalled();
     expect(mode(cible)).toBe(0o700);
+    expect(avertis.at(-1)).toContain("relancez sudo ./elpis service install");
+  });
+
+  it("UID des entrées changé : verrou, sockets et config git d'un autre compte retirés sans suivre de lien, le reste gardé", () => {
+    const d = path.join(tmp, ".elpis-agent");
+    mkdirSync(path.join(d, "x.sock"), { recursive: true });
+    chmodSync(d, 0o1777);
+    const cible = path.join(tmp, "cible");
+    writeFileSync(cible, "intact");
+    for (const f of ["agent.lock", "agent.sock", "gitconfig", "browser-ca.crt", "notes"])
+      writeFileSync(path.join(d, f), "x");
+    symlinkSync(cible, path.join(d, "y.sock"));
+    espions.chmod.mockClear();
+    const moi = process.geteuid?.() ?? 0;
+    viderDossierAgent(d, 10001);
+    expect(readdirSync(d).sort()).toHaveLength(7);
+    vi.spyOn(process, "geteuid").mockReturnValue(moi + 1);
+    viderDossierAgent(d, moi);
+    expect(readdirSync(d).sort()).toHaveLength(7);
+    viderDossierAgent(d, 10001);
+    expect(readdirSync(d).sort()).toEqual(["browser-ca.crt", "notes", "x.sock"]);
+    expect([readFileSync(cible, "utf8"), mode(d), espions.chmod.mock.calls.length]).toEqual([
+      "intact",
+      0o1777,
+      0,
+    ]);
   });
 });
 
@@ -183,6 +235,21 @@ describe("exigerMontagesSurs", () => {
     exigerMontagesSurs(path.join(P, "work"), S);
   });
 
+  it("dossier d'un compte en lien vers celui d'un autre : refusé, le dossier monté doit être l'entrée au nom du compte", () => {
+    mkdirSync(path.join(S, "bob", "work"), { recursive: true });
+    mkdirSync(path.join(S, "bob", ".elpis-agent"));
+    chmodSync(path.join(S, "bob"), 0o2750);
+    symlinkSync(path.join(S, "bob"), path.join(S, "carol"));
+    const resolu = path.join(S, "bob", "work");
+    exigerMontagesSurs(resolu, S, "bob");
+    expect(() => exigerMontagesSurs(resolu, S, "carol")).toThrow(new ExecError(DEMARRAGE_IMPOSSIBLE));
+    expect(avertis.at(-1)).toContain("lien ou entrée inattendue");
+    unlinkSync(path.join(S, "carol"));
+    mkdirSync(path.join(S, "carol"));
+    expect(() => exigerMontagesSurs(resolu, S, "carol")).toThrow(new ExecError(DEMARRAGE_IMPOSSIBLE));
+    expect(avertis.at(-1)).toContain(`${S}/carol n'est pas ${S}/bob`);
+  });
+
   it("/work hors de `<S>/<compte>/work` : refusé ; compte unique : aucun contrôle", () => {
     mkdirSync(path.join(tmp, "autre", "work"), { recursive: true });
     expect(() => exigerMontagesSurs(path.join(tmp, "autre", "work"), S)).toThrow(
@@ -192,6 +259,158 @@ describe("exigerMontagesSurs", () => {
     vi.unstubAllEnvs();
     symlinkSync(path.join(tmp, "ailleurs-absent"), path.join(S, "lien"));
     exigerMontagesSurs(path.join(S, "lien", "work"), S);
+  });
+});
+
+describe("conteneur d'un compte, un compte par service", () => {
+  const PROFILS = [{ id: "isolated", name: "Isolé", mode: "none", ips: [] }];
+  const ARRETE = { exists: true, running: false, container_name: "elpis-sb-alice" } as EtatBac;
+  const ABSENT = { exists: false, running: false, container_name: "elpis-sb-alice" } as EtatBac;
+  let S = "";
+  let travail = "";
+  let restaurer: () => void = () => undefined;
+
+  /** Arbre posé par l'installation (`<S>` et dossiers de comptes en 2750), agent factice, docker scripté. */
+  beforeEach(() => {
+    S = path.join(tmp, "sb");
+    travail = path.join(S, "alice", "work");
+    for (const d of ["alice/work", "alice/.elpis-agent", "bob/work", "bob/.elpis-agent", ".elpis-relay"])
+      mkdirSync(path.join(S, d), { recursive: true });
+    for (const d of [S, path.join(S, "alice"), path.join(S, "bob")]) chmodSync(d, 0o2750);
+    for (const d of ["alice/.elpis-agent", "bob/.elpis-agent"]) chmodSync(path.join(S, d), 0o1777);
+    mkdirSync(path.join(tmp, "agent"));
+    writeFileSync(path.join(tmp, "agent", "demarrage.sh"), "#!/bin/sh\n");
+    reglagesMontages.agentDir = path.join(tmp, "agent");
+    reglagesNavigateurBac.playwright = "/nonexistent/ms-playwright";
+    restaurer = surchargerConfig({ SANDBOX_DIR: S });
+    vi.stubEnv("SANDBOX_READINESS_CACHE", "0");
+    vi.stubEnv("ELPIS_GROUPE_DONNEES", String(process.getgid?.() ?? 0));
+    reglagesBac.attenteCreationMs = 0;
+    definirFabriqueAgent(() => ({
+      hello: async () => ({}),
+      archive: () => Promise.reject(new Error("inutile")),
+      extract: () => Promise.reject(new Error("inutile")),
+    }));
+  });
+
+  afterEach(() => {
+    definirFabriqueAgent(null);
+    reglagesMontages.agentDir = null;
+    reglagesNavigateurBac.playwright = null;
+    reglagesBac.attenteCreationMs = 800;
+    restaurer();
+  });
+
+  /** Bac de `nom` sur `chemin`, conteneur arrêté par un signal (143) aux options à jour, /work monté sur `source`. */
+  function bac(source: string, nom = "alice", chemin = travail, uid = 1, autres: Regle[] = []) {
+    const cfg = sandboxAdminConfigDepuis({ network_profiles: PROFILS }, () => undefined);
+    const temoin = new UserSandbox(uid, nom, chemin, cfg, "isolated", { cli: new FauxCli() });
+    const netcfg = `${netcfgHash(temoin.networkProfile)}|${RUN_SPEC}|${cfg.image}|${agentEmpreinte()}|${empreinteDemarrage()}|0\n`;
+    const cli = new FauxCli([
+      ...autres,
+      { motif: ["~ExitCode"], out: "143|false" },
+      { motif: ["~elpis.netcfg"], out: netcfg },
+      { motif: ["~.Mounts"], out: `${source}\n` },
+    ]);
+    return {
+      sb: new UserSandbox(uid, nom, chemin, cfg, "isolated", { cli, resoudreDomaines: async () => ({}) }),
+      cli,
+    };
+  }
+  const appels = (cli: FauxCli, verbe: string): unknown[][] => cli.appels.filter((a) => a[0] === verbe);
+
+  /** `<S>/alice/work` remplacé par un lien vers un dossier hors de l'arbre. */
+  function travailEnLien(): string {
+    const ailleurs = path.join(tmp, "ailleurs");
+    mkdirSync(ailleurs);
+    renameSync(travail, `${travail}.garde`);
+    symlinkSync(ailleurs, travail);
+    return ailleurs;
+  }
+
+  it("conteneur arrêté sur son arbre et son /work : redémarré tel quel", async () => {
+    const { sb, cli } = bac(travail);
+    await sb.ensureRunningLocked(ARRETE);
+    expect([appels(cli, "start").length, appels(cli, "rm").length, appels(cli, "run").length]).toEqual([
+      1, 0, 0,
+    ]);
+  });
+
+  it("conteneur arrêté, /work remplacé par un lien : jamais redémarré, retiré, recréation refusée", async () => {
+    travailEnLien();
+    const { sb, cli } = bac(travail);
+    await expect(sb.ensureRunningLocked(ARRETE)).rejects.toThrow(new ExecError(DEMARRAGE_IMPOSSIBLE));
+    expect([appels(cli, "start").length, appels(cli, "run").length]).toEqual([0, 0]);
+    expect(appels(cli, "rm")).toEqual([["rm", "-fv", "elpis-sb-alice", 10]]);
+    expect(avertis.join("\n")).toContain("relancez sudo ./elpis service install");
+  });
+
+  it("conteneur arrêté monté sur un autre dossier ou sur un dossier disparu : recréé sur le sien, jamais redémarré", async () => {
+    for (const source of [path.join(S, "bob", "work"), path.join(S, "disparu", "work"), ""]) {
+      const { sb, cli } = bac(source);
+      await sb.ensureRunningLocked(ARRETE);
+      expect([appels(cli, "start").length, appels(cli, "rm").length, appels(cli, "run").length]).toEqual([
+        0, 1, 1,
+      ]);
+      expect(appels(cli, "run")[0]).toContain(`${travail}:/work:rw`);
+    }
+  });
+
+  it("création sur un /work en lien ou un dossier de compte en lien vers un autre : refusée, aucun docker run", async () => {
+    const lien = bac(travail);
+    travailEnLien();
+    await expect(lien.sb.ensureRunningLocked(ABSENT)).rejects.toThrow(new ExecError(DEMARRAGE_IMPOSSIBLE));
+    expect(appels(lien.cli, "run")).toEqual([]);
+    symlinkSync(path.join(S, "bob"), path.join(S, "carol"));
+    writeFileSync(path.join(S, "bob", ".elpis-agent", "agent.lock"), "");
+    espions.etrangers.add("agent.lock");
+    const autre = bac(path.join(S, "bob", "work"), "carol", path.join(S, "bob", "work"), 2);
+    await expect(autre.sb.ensureRunningLocked(ABSENT)).rejects.toThrow(new ExecError(DEMARRAGE_IMPOSSIBLE));
+    const agentDeBob = existsSync(path.join(S, "bob", ".elpis-agent", "agent.lock"));
+    expect([appels(autre.cli, "run"), agentDeBob]).toEqual([[], true]);
+    const misDeCote = path.join(S, ".supprime-2-7");
+    mkdirSync(path.join(misDeCote, "work"), { recursive: true });
+    chmodSync(misDeCote, 0o2750);
+    const garde = bac(path.join(misDeCote, "work"), "carol", path.join(misDeCote, "work"), 2);
+    await garde.sb.ensureRunningLocked(ABSENT);
+    expect(appels(garde.cli, "run")).toHaveLength(1);
+  });
+
+  it("création : verrou et sockets de l'agent laissés par un autre UID retirés une fois les montages vérifiés, le reste gardé", async () => {
+    const agent = path.join(S, "alice", ".elpis-agent");
+    for (const f of ["agent.lock", "agent.sock", "browser-ca.crt"]) writeFileSync(path.join(agent, f), "");
+    for (const f of ["agent.lock", "agent.sock", "browser-ca.crt"]) espions.etrangers.add(f);
+    const { sb, cli } = bac(travail);
+    await sb.ensureRunningLocked(ABSENT);
+    expect([appels(cli, "run").length, readdirSync(agent)]).toEqual([1, ["browser-ca.crt"]]);
+  });
+
+  it("purge par une instance déjà vérifiée d'un conteneur en marche monté sur un autre dossier : recréé sur le sien avant d'être vidé", async () => {
+    const { sb, cli } = bac(path.join(S, "bob", "work"), "alice", path.join(S, "alice", "work"));
+    sb.mountVerified = true;
+    let present = true;
+    cli.suspendre = (args) => {
+      if (args[0] === "rm") present = false;
+      if (args[0] === "run") present = true;
+      if (args[0] !== "container" || args[1] !== "inspect") return null;
+      const etat = "abc|/elpis-sb-alice|true|elpis/sandbox:1.8.0|2026-10-10T00:00:00Z\n";
+      return Promise.resolve(
+        present ? [0, Buffer.from(etat), Buffer.alloc(0)] : [1, Buffer.alloc(0), Buffer.alloc(0)],
+      );
+    };
+    await sb.purge();
+    const verbes = cli.appels.map((a) =>
+      a[0] === "exec" ? a.find((x) => x === "find" || x === "pkill") : a[0],
+    );
+    expect(verbes.filter((v) => ["rm", "run", "pkill", "find"].includes(String(v)))).toEqual([
+      "rm",
+      "run",
+      "pkill",
+      "find",
+      "rm",
+    ]);
+    expect(appels(cli, "run")[0]).toContain(`${travail}:/work:rw`);
+    expect(existsSync(path.join(S, "bob", "work"))).toBe(true);
   });
 });
 

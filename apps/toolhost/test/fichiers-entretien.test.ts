@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/test/fichiers-entretien.test.ts — thread des remplacements par requête (expression coûteuse tuée à l'échéance, boucle de l'hôte et autres requêtes libres), texte d'un .docx, quota inconnu et balayages périodiques de l'hôte. */
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { Journal } from "@elpis/http";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { RAPPEL_ABSENT } from "../src/fichiers/commun";
 import { arreterPerimesAuDemarrage, BALAYAGES, boucleBalayage } from "../src/fichiers/entretien";
@@ -116,6 +120,27 @@ describe("balayage des envois abandonnés", () => {
     expect(lignes.join("\n")).toContain("balayage des tmp d'upload abandonnés échoué : docker absent");
     expect(lignes.join("\n")).toContain("2 verrous d'écriture périmés supprimés");
   });
+
+  it.skipIf(!existsSync("/proc/locks"))(
+    "verrous d'écriture : ceux du dossier des bacs de plus de 24 h retirés par l'hôte, les récents gardés",
+    async () => {
+      const bacs = mkdtempSync(path.join(tmpdir(), "elpis-balayage-hote-"));
+      try {
+        vi.stubEnv("APP_SANDBOX_DIR", bacs);
+        mkdirSync(path.join(bacs, ".write_locks"));
+        const [vieux, recent] = ["a", "b"].map((n) => path.join(bacs, ".write_locks", `${n}.lock`));
+        for (const f of [vieux, recent]) writeFileSync(f as string, "");
+        const t = Date.now() / 1000 - 2 * 86_400;
+        utimesSync(vieux as string, t, t);
+        const verrous = BALAYAGES.find((b) => b.quoi === "verrous d'écriture périmés");
+        expect(await verrous?.balayer()).toBe(1);
+        expect([existsSync(vieux as string), existsSync(recent as string)]).toEqual([false, true]);
+      } finally {
+        vi.unstubAllEnvs();
+        rmSync(bacs, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("balayages de l'hôte : envois abandonnés, verrous d'écriture et cache des aperçus Office (plus par main)", () => {
     expect(BALAYAGES.map((b) => b.quoi)).toEqual([

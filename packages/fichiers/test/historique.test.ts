@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MIT
 /** packages/fichiers/test/historique.test.ts — historique des fichiers : sessions, versions, renommages, blobs, verrou partagé avec un autre processus. */
-import { mkdirSync, readFileSync, readdirSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  symlinkSync,
+  truncateSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 import { config } from "@elpis/config";
@@ -16,6 +25,7 @@ import {
   MAX_FILE,
   normRel,
   nouvelIdSession,
+  racineHistorique,
   recordMove,
   recordWrite,
   sessionInfo,
@@ -37,8 +47,27 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   nettoyer();
+});
+
+describe("racine de l'historique", () => {
+  it("à ce compte : créée ou ramenée en 0700 ; à un autre compte ou lien à sa place : refus sobre (503)", async () => {
+    const d = path.join(racine, "h");
+    vi.stubEnv("APP_FILE_HISTORY_DIR", d);
+    expect([racineHistorique(), statSync(d).mode & 0o7777]).toEqual([d, 0o700]);
+    chmodSync(d, 0o2770);
+    expect([racineHistorique(), statSync(d).mode & 0o7777]).toEqual([d, 0o700]);
+    vi.spyOn(process, "geteuid").mockReturnValue((process.geteuid?.() ?? 0) + 1);
+    expect(() => racineHistorique()).toThrow("Demandez à votre administrateur");
+    await expect(sessionInfo(1)).rejects.toMatchObject({ statusCode: 503 });
+    vi.restoreAllMocks();
+    symlinkSync(d, path.join(racine, "lien"));
+    vi.stubEnv("APP_FILE_HISTORY_DIR", path.join(racine, "lien"));
+    expect(() => racineHistorique()).toThrow("Demandez à votre administrateur");
+    expect(readdirSync(d)).toEqual([]);
+  });
 });
 
 describe("sessions", () => {

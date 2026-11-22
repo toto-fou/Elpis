@@ -2,6 +2,7 @@
 /** packages/navigateur/test/relais.test.ts — relais des secrets du navigateur du bac : substitution seulement dans la fenêtre et vers l'origine du secret, purge des réponses, Basic et Digest résolus par le relais, TLS terminé avec l'autorité de l'instance pour les seules origines d'un secret, tunnel intact ailleurs, refus du juge et du jeton ; juge des destinations d'un bac. */
 import { X509Certificate } from "node:crypto";
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -22,7 +23,7 @@ import path from "node:path";
 import { connect as connexionTls } from "node:tls";
 import { gzipSync } from "node:zlib";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { chargerAutorite, Feuilles } from "../src/autorite";
 import type { Autorite } from "../src/autorite";
@@ -303,6 +304,30 @@ afterAll(async () => {
 });
 
 const port = (s: Server | ServeurNet): number => (s.address() as AddressInfo).port;
+
+describe("autorité, un compte par service", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("dossier de cet hôte fermé aux autres : rechargée ; ouvert au groupe, à un autre compte ou en lien : refusée, clé jamais lue ni écrite", () => {
+    vi.stubEnv("ELPIS_GROUPE_DONNEES", String(process.getgid?.() ?? 0));
+    expect(chargerAutorite(path.join(dossier, "ca")).empreinte).toBe(ac.empreinte);
+    const ouvert = path.join(dossier, "ca-ouverte");
+    mkdirSync(ouvert, { mode: 0o700 });
+    chmodSync(ouvert, 0o2770);
+    expect(() => chargerAutorite(ouvert)).toThrow("browser relay authority refused");
+    expect(readdirSync(ouvert)).toEqual([]);
+    symlinkSync(path.join(dossier, "ca"), path.join(dossier, "ca-lien"));
+    expect(() => chargerAutorite(path.join(dossier, "ca-lien"))).toThrow();
+    vi.spyOn(process, "geteuid").mockReturnValue((process.geteuid?.() ?? 0) + 1);
+    expect(() => chargerAutorite(path.join(dossier, "ca"))).toThrow("browser relay authority refused");
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    expect(chargerAutorite(ouvert).empreinte).not.toBe(ac.empreinte);
+  });
+});
 
 describe("relais des secrets (socket unix réel)", () => {
   it("autorité : clé 0600, certificat CA réutilisé au rechargement", () => {

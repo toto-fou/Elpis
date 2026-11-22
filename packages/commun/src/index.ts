@@ -59,6 +59,7 @@ export {
   port,
   quoteLatin1,
   quotePy,
+  sansBarresAuxBouts,
   sansBarresFinales,
   urljoin,
   urlparse,

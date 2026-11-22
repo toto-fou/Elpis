@@ -278,3 +278,12 @@ export function sansBarresFinales(s: string): string {
   while (fin > 0 && s.charCodeAt(fin - 1) === 0x2f) fin--;
   return fin === s.length ? s : s.slice(0, fin);
 }
+
+/** Retire les barres des deux bouts (`/^\/+|\/+$/`) sans regex. */
+export function sansBarresAuxBouts(s: string): string {
+  let debut = 0;
+  let fin = s.length;
+  while (debut < fin && s.charCodeAt(debut) === 0x2f) debut++;
+  while (fin > debut && s.charCodeAt(fin - 1) === 0x2f) fin--;
+  return s.slice(debut, fin);
+}

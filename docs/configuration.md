@@ -1655,6 +1655,8 @@ Design points:
   the admin console, which writes `security.https.enabled` then restarts the core
   (`SIGHUP`, restart by `./elpis` or systemd), which re-reads the flag at startup. An **anti-lockout
   guard** probes the ports before cutting off direct access.
+- Caddy's **admin API is off** (`admin off`): any change to its configuration
+  restarts it (brief cut), there is no `caddy reload`.
 - `@bootstrap`: the desktop agent's install routes stay in clear text on
   `:80` — the target machine does not know the CA yet. See
   [deploy/caddy/README.md](../deploy/caddy/README.md).

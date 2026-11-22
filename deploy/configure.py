@@ -1545,7 +1545,7 @@ def apply_https(https: Dict[str, Any]) -> None:
              "ou relancez l'assistant en compte unique pour Let's Encrypt.")
         return
     if mode == "local":
-        info("Certificat local et Caddyfile (sudo)…")
+        info("Certificat et Caddyfile du frontal (sudo)…")
         rc = subprocess.run(sudo_prefix() + [str(ROOT / "deploy/caddy/install_caddy.sh")]
                             + ([https["host"]] if https.get("host") else [])).returncode
         (ok if rc == 0 else warn)("Caddy configuré." if rc == 0 else "install_caddy.sh a échoué.")
@@ -1555,8 +1555,7 @@ def apply_https(https: Dict[str, Any]) -> None:
             warn(err)
             return
     tpl = (ROOT / "deploy/caddy/Caddyfile.acme.template").read_text(encoding="utf-8")
-    email_block = "{\n\t__EMAIL_LINE__\n}\n"
-    tpl = tpl.replace(email_block, f"{{\n\temail {https['email']}\n}}\n" if https.get("email") else "")
+    tpl = tpl.replace("\t__EMAIL_LINE__\n", f"\temail {https['email']}\n" if https.get("email") else "")
     body = tpl.replace("__DOMAIN__", https["domain"])
     # Caddyfile rédigé dans un dossier temporaire privé, jamais sous user_db (que d'autres comptes écrivent) avant sa copie par root.
     prive = tempfile.mkdtemp(prefix="elpis-caddy-")
@@ -1565,9 +1564,10 @@ def apply_https(https: Dict[str, Any]) -> None:
         tmp.write_text(body, encoding="utf-8")
         info("Caddyfile Let's Encrypt (sudo)…")
         rc = 1
-        for cmd in (["install", "-m", "0644", str(tmp), "/etc/caddy/Caddyfile"],
-                    ["caddy", "validate", "--config", "/etc/caddy/Caddyfile"],
-                    ["systemctl", "reload-or-restart", "caddy"]):
+        for cmd in (["install", "-m", "0644", str(tmp), "/etc/caddy/Caddyfile.new"],
+                    ["caddy", "validate", "--config", "/etc/caddy/Caddyfile.new", "--adapter", "caddyfile"],
+                    ["mv", "-f", "/etc/caddy/Caddyfile.new", "/etc/caddy/Caddyfile"],
+                    ["systemctl", "restart", "caddy"]):
             rc = subprocess.run(sudo_prefix() + cmd).returncode
             if rc != 0:
                 break

@@ -34,6 +34,10 @@ follow [SemVer](https://semver.org/).
   interface or the API now answers 400 for everyone, administrators included, and the forms no
   longer offer the type; an entry already stored is kept unchanged (read-only, flagged as no longer
   supported) and is still never run. `GET /api/mcp/custom-servers` (folder listing) is removed.
+- **Caddy's admin API is off.** Both HTTPS Caddyfile templates (and the tool host one) set
+  `admin off`: nothing listens on `:2019`. `systemctl reload caddy` no longer works; a change to
+  the Caddy configuration restarts it (brief cut), which `install_caddy.sh` and `./elpis
+  configure` now do.
 - **One account per service.** `sudo ./elpis service install` now runs main, the console and the
   tool host under their own system accounts (`elpis-main`, `elpis-admin`, `elpis-toolhost`, no
   shell), sharing their state through the `elpis-donnees` group. Only the tool host unit gets

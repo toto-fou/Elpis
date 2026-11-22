@@ -66,6 +66,13 @@ New LAN IP: re-run the script (the CA does not change;
 only machines in "exception" mode will see a warning again,
 once).
 
+**Caddy's admin API is off** (`admin off` in the global block of both
+Caddyfile templates): nothing listens on `:2019`, so `caddy reload` and
+`systemctl reload caddy` no longer work. Every change to the Caddy
+configuration (re-running `install_caddy.sh`, the Let's Encrypt Caddyfile
+written by `./elpis configure`) **restarts Caddy**, with a brief cut of
+HTTPS access.
+
 ## Bootstrapping the installers (in clear, on purpose)
 
 The desktop agent's install one-liners run on a

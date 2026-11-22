@@ -67,32 +67,36 @@ follow [SemVer](https://semver.org/).
   sets aside, puts back and deletes an account's sandbox through the tool host). `service install`
   gives the tool host what a former single account or the services left there, sets aside (renamed
   `.ecarte-<date>-<name>`, and reported) whatever is not a folder at the root of the sandboxes
-  folder, directly under `_snapshots/`, or in place of an account's `/work` or agent folder, takes
-  a skills folder that an older version left in a sandbox into the account's protected store when
-  it has none (a folder that a service can change is only reported), leaves each `/work` to the
-  sandboxes' user, closes each agent folder to the data group (`1707`), and removes this
-  instance's sandbox containers: they are created again at first use, `/work` is kept, and
-  processes that were running in a sandbox stop. A sandbox is created, or a stopped one started
-  again, only when no other account can change the folders it mounts and the account's folder is
-  its own; otherwise nothing is removed or created, users are told to ask their administrator,
-  and the server journal asks for `sudo ./elpis service install`. A stopped container whose
-  `/work` is another folder, or that runs the account's commands as another user than the one now
-  configured, is created again. A set-aside sandbox is emptied through a container of its own,
-  never through the container of an account of the same name. The chart cache belongs to main
-  (`2750`, read by the tool host for Office documents), and the tool host keeps its Office locks
-  in its own runtime folder. A restore from the console then brings back each account's `/work`
-  and memory only, and reports the snapshots as not restored. Going back to one account, or
-  `service remove`, gives that account back the state folders of the installation and of `.env`,
-  and the file history and Office preview cache wherever they are. In every mode, each account's
-  memory moves from `<sandboxes>/<account>/memory` to `user_db/memoire/<account>`
+  folder or directly under `_snapshots/`, neither a file nor a folder in an account's snapshots
+  folder, or in place of an account's `/work` or agent folder, takes a skills folder that an
+  older version left in a sandbox into the account's protected store when it has none (a folder
+  that a service can change is only reported), leaves each `/work` to the sandboxes' user, closes
+  each agent folder to the data group (`1707`), and stops this instance's running sandbox
+  containers: each one starts again at first use once its mounts are checked again, with what was
+  installed in it, while the processes that were running in it stop. A sandbox is created, or a
+  stopped one started again, only when no other account can change the folders it mounts and the
+  account's folder is its own; otherwise nothing is removed or created, users are told to ask
+  their administrator, and the server journal asks for `sudo ./elpis service install`. A stopped
+  container whose `/work` is another folder, or that runs the account's commands as another user
+  than the one now configured, is created again; containers now carry that user as a label, so
+  every existing container, in both modes, is created again once after this upgrade, at its
+  first use. The tool host runs no root step in a container whose options are out of date while
+  its recreation is postponed. A set-aside sandbox is emptied through a container of its own. The
+  chart cache
+  belongs to main (`2750`, read by the tool host for Office documents), and the tool host keeps
+  its Office locks in its own runtime folder. A restore from the console then brings back each
+  account's `/work` and memory only, and reports the snapshots as not restored. Going back to one
+  account, or `service remove`, gives that account back the state folders of the installation
+  and of `.env`, and the file history and Office preview cache wherever they are. In every mode,
+  each account's memory moves from `<sandboxes>/<account>/memory` to `user_db/memoire/<account>`
   (`APP_MEMORY_DIR` chooses another folder), wherever a restored archive keeps it; it is now part
   of the **Database** backup, is set aside, put back and deleted with its account's sandbox, and
   the editor's file history is no longer backed up. `./elpis start` moves it, and so does
   `./elpis upgrade` under systemd with one account (run by the units' account or root); with one
   account, a memory still at its former place is copied the first time it is read when the
   account has none yet. With one account per service, run `sudo ./elpis service install` after
-  upgrading, which moves it, gives it to main and sets the new rights: until then, a sandbox that
-  is not running does not start.
+  upgrading, which moves it, gives main what the operator, a former single account or a service
+  left in it (anything else is reported) and sets the new rights: until then, no sandbox works.
 - **`config.json` written by the console only.** Under systemd, `config.json` moves to
   `/etc/elpis/config/` (a link stays in the repository), its platform secrets go to their files,
   and main and the console no longer write the installation folder: only their state folders

@@ -99,6 +99,7 @@ export {
 } from "./reseau";
 export { argsRunPermis, reglagesSources, verifierMontages } from "./options-run";
 export {
+  estNomMisDeCote,
   messageSuppression,
   mettreBacDeCote,
   nomMisDeCote,

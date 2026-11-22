@@ -11,6 +11,7 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   statSync,
   unlinkSync,
 } from "node:fs";
@@ -101,6 +102,7 @@ import {
   RESEAU_CONFORME,
 } from "./reseau";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
+import { estNomMisDeCote } from "./suppression";
 import { ecrireMarqueur, lireMarqueur, MODES_MARKER, PERMS_MARKER_LEGACY, WORK_SUBDIR } from "./travail";
 
 /** Capacités du conteneur quand le compte peut y devenir root ; `CAPABILITIES_DURCIES` sinon. */
@@ -262,10 +264,37 @@ export function racinePrivee(racine: string): void {
   }
 }
 
+/** Entrées que l'agent et le navigateur du bac recréent dans leur dossier ; laissées par un autre UID, le sticky bit les rendrait impossibles à remplacer. */
+const ENTREES_AGENT = /^(?:agent\.lock|gitconfig|.*\.sock)$/u;
+
+/** Entrées de l'agent du dossier `dossier` (ouvert sans suivre de lien) laissées par un autre compte que cet hôte et l'UID des entrées du bac (`null` : inconnu), retirées par descripteur ; un échec est journalisé. */
+export function viderDossierAgent(dossier: string, uidExec: number | null): void {
+  let fd: number;
+  try {
+    fd = openSync(dossier, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  } catch (e) {
+    journalDe("sandbox").warn(`[sandbox] ${dossier} non relu : ${messageErreurOs(e, dossier)}`);
+    return;
+  }
+  try {
+    for (const nom of readdirSync(viaFd(fd))) {
+      if (!ENTREES_AGENT.test(nom)) continue;
+      try {
+        const st = lstatSync(viaFd(fd, nom));
+        if (st.isDirectory() || st.uid === process.geteuid?.() || st.uid === uidExec) continue;
+        unlinkSync(viaFd(fd, nom));
+      } catch (e) {
+        journalDe("sandbox").warn(`[sandbox] ${dossier}/${nom} non retiré : ${messageErreurOs(e, nom)}`);
+      }
+    }
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /** `<P>/.elpis-agent` (créé s'il manque, ouvert sans suivre de lien) en 01777 : rechmodé seulement s'il ne l'est pas et qu'il est à ce compte ; sinon détail au journal, refus sobre. */
 export function dossierAgentPret(dossier: string): void {
-  let mode: number;
-  let uid: number;
+  let motif = "";
   try {
     try {
       mkdirSync(dossier);
@@ -274,20 +303,19 @@ export function dossierAgentPret(dossier: string): void {
     }
     const fd = openSync(dossier, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     try {
-      ({ mode, uid } = fstatSync(fd));
-      if ((mode & 0o7777) === 0o1777) return;
-      if (uid === process.geteuid?.()) {
-        fchmodSync(fd, 0o1777);
-        return;
-      }
+      const { mode, uid } = fstatSync(fd);
+      if ((mode & 0o7777) !== 0o1777 && uid === process.geteuid?.()) fchmodSync(fd, 0o1777);
+      else if ((mode & 0o7777) !== 0o1777)
+        motif = `en ${(mode & 0o7777).toString(8).padStart(4, "0")} au lieu de 1777, à un autre compte (uid ${uid})`;
     } finally {
       closeSync(fd);
     }
   } catch (e) {
-    throw new ExecError(`Dossier de l'agent ${dossier} : ${messageErreurOs(e, dossier)}`);
+    motif = messageErreurOs(e, dossier);
   }
+  if (!motif) return;
   journalDe("sandbox").warn(
-    `[sandbox] dossier de l'agent ${dossier} en ${(mode & 0o7777).toString(8).padStart(4, "0")} au lieu de 1777, à un autre compte (uid ${uid}) : relancez sudo ./elpis service install`,
+    `[sandbox] dossier de l'agent ${dossier} ${motif} : relancez sudo ./elpis service install`,
   );
   throw new ExecError(DEMARRAGE_IMPOSSIBLE);
 }
@@ -298,36 +326,54 @@ function aCeCompte(fd: number): boolean {
   return (st.uid === process.geteuid?.() || st.uid === 0) && (st.mode & 0o022) === 0;
 }
 
-/** Un compte par service : `/work` monté seulement si `<S>` et `<P>` ne peuvent être changés que par ce compte et qu'aucun lien ne mène de `<S>` à `/work`, au dossier de l'agent ni au relais ; sinon détail au journal, refus sobre. */
-export function exigerMontagesSurs(sandboxPath: string, racine: string = String(config.SANDBOX_DIR)): void {
-  if (groupeDonnees() === null) return;
+/** Même dossier (périphérique et inode) derrière deux descripteurs. */
+function memeDossier(a: number, b: number): boolean {
+  const x = fstatSync(a, { bigint: true });
+  const y = fstatSync(b, { bigint: true });
+  return x.dev === y.dev && x.ino === y.ino;
+}
+
+/** Motif du refus des montages de `sandboxPath` (`""` : permis), voir `exigerMontagesSurs`. */
+export function motifMontages(sandboxPath: string, racine: string, nom?: string): string {
+  if (groupeDonnees() === null) return "";
   const S = realpathPy(racine);
   const P = pyParent(pyPath(sandboxPath));
+  const entree = nom ?? P.slice(P.lastIndexOf("/") + 1);
   const dossier = O_PATH | constants.O_DIRECTORY | constants.O_NOFOLLOW;
   let motif = "";
-  let fS = -1;
-  let fP = -1;
+  const fds: number[] = [];
   try {
     if (pyParent(P) !== S || pyJoin(P, WORK_SUBDIR) !== pyPath(sandboxPath))
-      motif = `${sandboxPath} hors de ${S}`;
-    else {
-      fS = openSync(S, dossier);
-      fP = openSync(viaFd(fS, P.slice(P.lastIndexOf("/") + 1)), dossier);
-      if (!aCeCompte(fS) || !aCeCompte(fP)) motif = `${S} ou ${P} modifiable par un autre compte`;
-      else
-        for (const [fd, nom] of [
-          [fP, WORK_SUBDIR],
-          [fP, AGENT_RUN_DIR],
-          [fS, RELAY_DIR],
-        ] as const)
-          if (!lstatSync(viaFd(fd, nom)).isDirectory())
-            motif = `lien ou entrée inattendue sous ${S} (${nom})`;
-    }
+      return `${sandboxPath} hors de ${S}`;
+    const fS = openSync(S, dossier);
+    fds.push(fS);
+    const fP = openSync(viaFd(fS, P.slice(P.lastIndexOf("/") + 1)), dossier);
+    fds.push(fP);
+    const fN = openSync(viaFd(fS, entree), dossier);
+    fds.push(fN);
+    if (!memeDossier(fN, fP)) return `${S}/${entree} n'est pas ${P}`;
+    if (!aCeCompte(fS) || !aCeCompte(fP)) return `${S} ou ${P} modifiable par un autre compte`;
+    for (const [fd, n] of [
+      [fP, WORK_SUBDIR],
+      [fP, AGENT_RUN_DIR],
+      [fS, RELAY_DIR],
+    ] as const)
+      if (!lstatSync(viaFd(fd, n)).isDirectory()) motif = `lien ou entrée inattendue sous ${S} (${n})`;
   } catch (e) {
     motif = `lien ou entrée inattendue sous ${S} (${(e as NodeJS.ErrnoException).code ?? String(e)})`;
   } finally {
-    for (const fd of [fS, fP]) if (fd >= 0) closeSync(fd);
+    for (const fd of fds) closeSync(fd);
   }
+  return motif;
+}
+
+/** Un compte par service : `/work` monté seulement si `<S>` et `<P>` ne peuvent être changés que par ce compte, que `<S>/<nom>` (le nom du compte, non résolu) est `<P>` même et qu'aucun lien ne mène de `<S>` à `/work`, au dossier de l'agent ni au relais ; sinon détail au journal, refus sobre. */
+export function exigerMontagesSurs(
+  sandboxPath: string,
+  racine: string = String(config.SANDBOX_DIR),
+  nom?: string,
+): void {
+  const motif = motifMontages(sandboxPath, racine, nom);
   if (!motif) return;
   journalDe("sandbox").warn(
     `[sandbox] montages de ${sandboxPath} refusés : ${motif} : relancez sudo ./elpis service install`,
@@ -447,7 +493,8 @@ export class UserSandbox implements BacPourAgent {
     return splitPy(decoderRemplace(out))[0] ?? null;
   }
 
-  private async workMountMatches(signal?: AbortSignal): Promise<boolean> {
+  /** /work du conteneur monté sur `sandboxPath` (sources résolues) ; dans le doute (inspection, source absente ou introuvable) : vrai, sauf `exact`. */
+  private async workMountMatches(signal?: AbortSignal, exact = false): Promise<boolean> {
     const [rc, out] = await this.appel(
       [
         "inspect",
@@ -458,14 +505,39 @@ export class UserSandbox implements BacPourAgent {
       5,
       signal,
     );
-    if (rc !== 0) return true;
+    if (rc !== 0) return !exact;
     const source = stripPy(decoderRemplace(out));
-    if (!source) return true;
+    if (!source) return !exact;
     try {
       return realpathPy(source) === realpathPy(this.sandboxPath);
     } catch {
-      return true;
+      return !exact;
     }
+  }
+
+  /** Nom de `<P>` sous `<S>` : celui du bac mis de côté de ce compte s'il s'agit de lui, sinon le nom sûr du compte (jamais un nom résolu). */
+  private entreeDuCompte(): string {
+    const P = pyParent(pyPath(this.sandboxPath));
+    const nom = P.slice(P.lastIndexOf("/") + 1);
+    return estNomMisDeCote(nom, this.userId) ? nom : this.username;
+  }
+
+  /** `exigerMontagesSurs` pour ce bac, sous `SANDBOX_DIR`. */
+  private exigerMontages(): void {
+    exigerMontagesSurs(this.sandboxPath, String(config.SANDBOX_DIR), this.entreeDuCompte());
+  }
+
+  /** Conteneur arrêté redémarrable tel quel : chaîne des montages sûre et /work monté sur `sandboxPath` même. */
+  private async redemarrable(signal?: AbortSignal): Promise<boolean> {
+    if (motifMontages(this.sandboxPath, String(config.SANDBOX_DIR), this.entreeDuCompte())) return false;
+    return this.workMountMatches(signal, true);
+  }
+
+  /** UID numérique des entrées du compte (`root` : 0) ; `null` pour un nom d'utilisateur de l'image. */
+  private uidExec(): number | null {
+    const u = this.utilisateurExec().split(":", 1)[0] ?? "";
+    if (u === "root") return 0;
+    return estChiffresPy(u) ? Number(u) : null;
   }
 
   private async reconcileWorkMount(st: EtatBac, signal?: AbortSignal): Promise<EtatBac> {
@@ -750,6 +822,14 @@ export class UserSandbox implements BacPourAgent {
         await this.create(signal);
       } else {
         this.refuserPerime();
+        if (!(await this.redemarrable(signal))) {
+          journalDe("sandbox").info(
+            `[sandbox] container ${this.containerName} arrêté, montages à revérifier → destroy + recreate`,
+          );
+          await this.appel(["rm", "-fv", this.containerName], 10, signal);
+          await this.create(signal);
+          return this.status(signal);
+        }
         const [rc, , err] = await this.appel(["start", this.containerName], 15, signal);
         if (rc !== 0) {
           journalDe("sandbox").warn(
@@ -990,7 +1070,8 @@ export class UserSandbox implements BacPourAgent {
     await this.ensureImage(signal);
     if (sousRacine(this.sandboxPath, config.SANDBOX_DIR)) racinePrivee(config.SANDBOX_DIR);
     mkdirSync(this.sandboxPath, { recursive: true });
-    dossierAgentPret(pyJoin(pyParent(this.sandboxPath), AGENT_RUN_DIR));
+    const dossierAgent = pyJoin(pyParent(this.sandboxPath), AGENT_RUN_DIR);
+    dossierAgentPret(dossierAgent);
     const dossierRelais = pyJoin(pyParent(pyParent(this.sandboxPath)), RELAY_DIR);
     try {
       if (!existsSync(dossierRelais) || !statSync(dossierRelais).isDirectory()) {
@@ -998,7 +1079,10 @@ export class UserSandbox implements BacPourAgent {
         chmodSync(dossierRelais, 0o755);
       }
     } catch (e) {
-      throw new ExecError(`Dossier du relais Git ${dossierRelais} : ${messageErreurOs(e, dossierRelais)}`);
+      journalDe("sandbox").warn(
+        `[sandbox] dossier du relais Git ${dossierRelais} : ${messageErreurOs(e, dossierRelais)} : relancez sudo ./elpis service install`,
+      );
+      throw new ExecError(DEMARRAGE_IMPOSSIBLE);
     }
     const profil = this.networkProfile;
     let resolus: Record<string, string[]> = {};
@@ -1022,7 +1106,8 @@ export class UserSandbox implements BacPourAgent {
       );
       throw new ExecError("La sandbox ne peut pas démarrer. Demandez à votre administrateur.");
     }
-    exigerMontagesSurs(this.sandboxPath);
+    this.exigerMontages();
+    viderDossierAgent(dossierAgent, this.uidExec());
     const lancement = await verifierMontages(this.buildRunArgs(profil, resolus, refusees));
     for (const r of lancement.refus)
       journalDe("sandbox").warn(
@@ -1083,9 +1168,19 @@ export class UserSandbox implements BacPourAgent {
     getReadinessCache().recordStopped(this.containerName);
   }
 
-  /** `purge` (suppression d'un compte) : processus du compte tués, /work vidé par le root du conteneur (redémarré si l'arrêt l'a stoppé), puis conteneur retiré. */
+  /** `purge` (suppression d'un compte) : processus du compte tués, /work vidé par le root du conteneur (redémarré si l'arrêt l'a stoppé, recréé s'il ne monte pas `sandboxPath` même), puis conteneur retiré. */
   async purge(): Promise<void> {
-    const st = await this.ensureRunning();
+    let st = await this.ensureRunning();
+    if (st.running && !(await this.workMountMatches(undefined, true))) {
+      journalDe("sandbox").info(
+        `[sandbox] ${this.containerName} : /work ne monte pas ${this.sandboxPath} → recréation avant de le vider`,
+      );
+      st = await sousVerrouDeCycle(this.userId, async () => {
+        await this.appel(["rm", "-fv", this.containerName], 10);
+        await this.create();
+        return this.status();
+      });
+    }
     if (!st.running) throw new ExecError(`${this.containerName} : conteneur arrêté, /work non vidé`);
     await this.exigerEntree(null);
     const uidExec = this.utilisateurExec().split(":", 1)[0] ?? "";

@@ -25,7 +25,7 @@ function cle(uid: number, username: string): string {
   return `${uid}\0${username}`;
 }
 
-/** `get_user_sandbox` : une instance par compte et par process ; configuration relue, profil mis à jour s'il est fourni. */
+/** `get_user_sandbox` : une instance par compte et par process (remplacée si elle sert un autre `/work`) ; configuration relue, profil mis à jour s'il est fourni. */
 export function getUserSandbox(
   uid: number,
   username: string,
@@ -33,7 +33,7 @@ export function getUserSandbox(
   networkProfileId: string | null = null,
 ): UserSandbox {
   const deja = bacs.get(cle(uid, username));
-  if (deja !== undefined) {
+  if (deja !== undefined && deja.sandboxPath === sandboxPath) {
     deja.cfg = loadAdminConfig();
     if (networkProfileId !== null && networkProfileId !== deja.networkProfileId) {
       deja.networkProfileId = networkProfileId;

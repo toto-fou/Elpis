@@ -9,13 +9,26 @@ import {
   X509Certificate,
 } from "node:crypto";
 import type { KeyObject } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { isIP } from "node:net";
 import path from "node:path";
 import { createSecureContext } from "node:tls";
 import type { SecureContext } from "node:tls";
 
+import { groupeDonnees, journalDe } from "@elpis/commun";
 import { config, pyJoin } from "@elpis/config";
+import { viaFd } from "@elpis/securite";
 
 // ── DER ──────────────────────────────────────────────────────────────
 
@@ -178,16 +191,38 @@ export function dossierAutorite(): string {
   );
 }
 
-/** Autorité de `dossier` (`ca.key` 0600, `ca.crt`), créée au premier appel (clé ECDSA P-256, `reglagesAutorite.jours`) et recréée quand son terme approche (`renouvelerAvantJours`) ; la supprimer puis relancer l'hôte d'outils la renouvelle aussi. */
+/** Dossier de l'autorité ouvert sans suivre de lien ; un compte par service : à cet hôte seul, sans droit du groupe ni des autres, sinon détail au journal et refus. */
+function ouvrirDossierAutorite(dossier: string): number {
+  mkdirSync(dossier, { recursive: true, mode: 0o700 });
+  const fd = openSync(dossier, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  const st = fstatSync(fd);
+  if (groupeDonnees() === null || (st.uid === process.geteuid?.() && (st.mode & 0o077) === 0)) return fd;
+  closeSync(fd);
+  journalDe("navigateur").warn(
+    `[navigateur] autorité du relais ${dossier} refusée : elle doit être un dossier de l'hôte d'outils, fermé aux autres comptes (uid ${st.uid}, mode ${(st.mode & 0o7777).toString(8)}) : relancez sudo ./elpis service install`,
+  );
+  throw new Error(`${dossier}: browser relay authority refused`);
+}
+
+/** Autorité de `dossier` (`ca.key` 0600, `ca.crt`, lus et écrits par le descripteur du dossier), créée au premier appel (clé ECDSA P-256, `reglagesAutorite.jours`) et recréée quand son terme approche (`renouvelerAvantJours`) ; la supprimer puis relancer l'hôte d'outils la renouvelle aussi. */
 export function chargerAutorite(dossier: string = dossierAutorite(), maintenant = Date.now()): Autorite {
-  const fCle = path.join(dossier, "ca.key");
-  const fCert = path.join(dossier, "ca.crt");
+  const fd = ouvrirDossierAutorite(dossier);
+  try {
+    return chargerDans(viaFd(fd), dossier, maintenant);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** `chargerAutorite` dans le dossier `d` (vu par son descripteur), `dossier` pour les messages. */
+function chargerDans(d: string, dossier: string, maintenant: number): Autorite {
+  const fCle = path.join(d, "ca.key");
+  const fCert = path.join(d, "ca.crt");
   const echue =
     existsSync(fCert) &&
     autoriteARenouveler({ echeance: echeanceDe(readFileSync(fCert, "utf8")) }, maintenant);
   if (!existsSync(fCle) || !existsSync(fCert) || echue) {
-    mkdirSync(dossier, { recursive: true, mode: 0o700 });
-    chmodSync(dossier, 0o700);
+    chmodSync(d, 0o700);
     const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
     const spki = publicKey.export({ type: "spki", format: "der" });
     const sujet = nom(`Elpis browser relay CA ${randomBytes(4).toString("hex")}`);
@@ -217,7 +252,7 @@ export function chargerAutorite(dossier: string = dossierAutorite(), maintenant 
   const tbs = enfants(x.raw)[0];
   const champs = tbs === undefined ? [] : enfants(x.raw, tbs[0]);
   const s = champs[5];
-  if (s === undefined) throw new Error(`${fCert}: unreadable certificate`);
+  if (s === undefined) throw new Error(`${dossier}/ca.crt: unreadable certificate`);
   return {
     certPem,
     cle,

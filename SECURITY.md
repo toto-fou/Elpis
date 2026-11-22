@@ -153,7 +153,10 @@ unit, decrypted for it alone, only the keys it uses: main and the console all fo
 token and the Qdrant API key, the tool host the signing key only, the RAG extractor its token
 only, Qdrant its API key only (it then refuses any request without it). `elpis-cle` then only gives the remote backup
 credentials, rsyslog reads the logs but not the signing key, and no platform key is left in
-`user_db/`, where the tool host could replace it. The commands root runs under the console's
+`user_db/`, where the tool host could replace it, except a fallback vault key `user_db/.vault.key`
+kept for `vault rekey --from` until its secrets are re-encrypted (`./elpis doctor` reports it). The
+values of `config.json` no longer choose these keys: when the units point the core at the key files,
+`config.json` is ignored, and the console refuses to set them. The commands root runs under the console's
 account are a transient unit (`systemd-run`) that gets the console's keys the same way; copies of
 the keys are kept off the machine (`docs/operations.md`, "Platform keys"). The RAG extractor, which
 converts untrusted documents, runs as `elpis-rag` and only reads the RAG store and its token. When other accounts cannot

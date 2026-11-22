@@ -330,7 +330,7 @@ def test_sources_du_bloc5_chiffrees_puis_retirees(depot):
     assert len(chiffres) == 5 and all(re.fullmatch(rf"encrypt --name=(\S+) --with-key=auto --tpm2-pcrs= - {re.escape(str(m))}/\.\1\.[0-9a-f]{{16}}", l)
                                       for l in chiffres), chiffres
     assert all(v.strip() not in "\n".join(trace) for v in (VAULT, FERNET, SESSION, JOURNAL))
-    assert "Copie hors de la machine (support hors ligne) : sudo systemd-creds decrypt --name=vault.key" in r.stdout
+    assert "Copie hors de la machine (support hors ligne) : sudo sh -c 'umask 077; systemd-creds decrypt --name=vault.key" in r.stdout
     avant = {p.name: p.stat().st_ctime_ns for p in m.iterdir()}
     (_sys(depot) / "creds.trace").unlink()
     r = _harnais(depot, corps, CREDS, **_faux(depot))
@@ -662,12 +662,12 @@ def test_setup_sans_fichier_en_clair(depot):
     assert r.returncode == 0, r.stdout + r.stderr
     etc = _sys(depot) / "etc/elpis"
     assert not (etc / "vault.key").exists() and re.fullmatch(r"[A-Za-z0-9+/]{43}=\n", _clair(_magasin(depot) / "vault.key"))
-    assert "kid 0123abcd" in r.stdout and f"sudo systemd-creds decrypt --name=vault.key {_magasin(depot)}/vault.key FICHIER" in r.stdout
+    assert "kid 0123abcd" in r.stdout and f"sudo sh -c 'umask 077; systemd-creds decrypt --name=vault.key {_magasin(depot)}/vault.key FICHIER'" in r.stdout
     assert [l for l in _lignes(depot, "creds.trace") if l.startswith("encrypt")][0].startswith("encrypt --name=vault.key --with-key=auto --tpm2-pcrs= - ")
     r = _harnais(depot, "cmd_audit setup", talons, FAUX_UID="1000", **_faux(depot))
     assert r.returncode == 0, r.stdout + r.stderr
     assert not (etc / "audit.key").exists() and re.fullmatch(r"[0-9a-f]{64}", _clair(_magasin(depot) / "audit.key"))
-    assert f"sudo systemd-creds decrypt --name=audit.key {_magasin(depot)}/audit.key FICHIER" in r.stdout
+    assert f"sudo sh -c 'umask 077; systemd-creds decrypt --name=audit.key {_magasin(depot)}/audit.key FICHIER'" in r.stdout
     assert sorted(p.name for p in _magasin(depot).iterdir()) == ["audit.key", "vault.key"]
     # Une clé en clair d'avant est validée, chiffrée, puis retirée ; ouverte en écriture à d'autres, elle est refusée et rien n'est créé.
     (_magasin(depot) / "vault.key").unlink()
@@ -748,7 +748,8 @@ def test_doctor_des_cles_remises_par_systemd(depot):
     # Clé illisible 1, jeton du RAG et clé de Qdrant absents 2, main et la console sans leurs 4 clés, l'hôte d'outils 2 (clé à tort, clé du journal absente), copie en clair 1.
     assert re.search(r"bad=([0-9]+)", r.stdout)[1] == str(1 + 2 + 4 + 4 + 2 + 1), sortie
     r = _harnais(depot, corps, TALONS + "version_systemd() { echo 249; }\n", **_faux(depot))
-    assert "systemd 249 : 250 ou plus et systemd-creds" in r.stderr and "bad=1" in r.stdout
+    # systemd trop ancien (Ubuntu 22.04 : 249) : avertissement, pas un problème compté.
+    assert "systemd 249 : 250 ou plus et systemd-creds" in r.stderr and "bad=0" in r.stdout
 
 
 # deploy/configure.py --ranger-secrets en deux temps : --garder ne retire rien ; --retirer n'ôte que les clés données, si elles n'ont pas changé.

@@ -116,7 +116,7 @@ password), so that a flaw in one service does not hand over the files of the oth
 | admin (console) | `elpis-admin`, primary group `elpis-donnees` |
 | toolhost | `elpis-toolhost`, primary group `elpis-donnees`, home `/var/lib/elpis-toolhost`; the only unit that gets the `docker` group (`SupplementaryGroups=docker`) |
 | rag | `elpis-rag`, primary group `elpis-rag`; cache in `/var/cache/elpis-rag` (`CacheDirectory=`); a static account, since `DynamicUser=` would impose `RestrictSUIDSGID=`, which bubblewrap does not survive |
-| qdrant | a dynamic account (`DynamicUser=yes`), storage in `/var/lib/elpis-qdrant` (`StateDirectory=`: systemd keeps it in `/var/lib/private/elpis-qdrant`, where `service install` moves `rag_app/qdrant/storage` once) |
+| qdrant | a dynamic account (`DynamicUser=yes`), storage in `/var/lib/elpis-qdrant` (`StateDirectory=`: systemd keeps it in `/var/lib/private/elpis-qdrant`, where `service install` moves `rag_app/qdrant/storage` once, the folder given back to root first so that systemd hands the whole tree to the dynamic account at the next start; back to one account, the storage returns to `rag_app/qdrant/storage`, to that account) |
 
 | Group | Members | For |
 |---|---|---|

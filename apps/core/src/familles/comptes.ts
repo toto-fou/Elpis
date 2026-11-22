@@ -98,6 +98,8 @@ export interface DependancesComptes {
   readonly libellesCategories?: () => Readonly<Record<string, string>>;
   /** Process servi (`APP_MODE`) : la console n'écrit que l'apparence. */
   readonly mode: ModeApp;
+  /** Fin de session chez le fournisseur OIDC qui a ouvert ce `_sid` : adresse de déconnexion, ou `null` ; sans appel sortant. */
+  readonly finDeSessionSso?: (sid: string) => Promise<string | null>;
 }
 
 const SANS_CACHE = { "cache-control": "no-cache" };
@@ -471,6 +473,14 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           } catch (e) {
             dep.journal.warn({ err: e }, "[auth] révocation de session au logout échouée");
           }
+          let logoutUrl: string | null = null;
+          try {
+            const sid = req.session.get("_sid");
+            if (veritePy(sid) && dep.finDeSessionSso !== undefined)
+              logoutUrl = await dep.finDeSessionSso(strPy(sid));
+          } catch (e) {
+            dep.journal.warn({ err: e }, "[auth] fin de session SSO au logout échouée");
+          }
           req.session.vider();
           if (uid !== null) {
             const nom = await getUsernameById(base, uid).catch(() => null);
@@ -482,7 +492,9 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             );
           }
           void rep.header("set-cookie", enteteSuppressionCookie(dep.auth.attributsCookie(), maintenant(dep)));
-          return { ok: true };
+          if (logoutUrl === null) return { ok: true };
+          void rep.header("cache-control", "no-store");
+          return { ok: true, logout_url: logoutUrl };
         },
       },
       {

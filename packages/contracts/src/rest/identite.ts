@@ -13,6 +13,10 @@ export type CorpsDepartOidc = z.infer<typeof schemaCorpsDepartOidc>;
 export const schemaReponseDepartOidc = z.object({ url: z.string() });
 export type ReponseDepartOidc = z.infer<typeof schemaReponseDepartOidc>;
 
+/** Réponse de la déconnexion : `logout_url` (origine de l'émetteur) seulement si le fournisseur demande aussi la fin de session ; l'interface s'y rend après avoir quitté la session locale. */
+export const schemaReponseDeconnexion = z.object({ ok: z.literal(true), logout_url: z.string().optional() });
+export type ReponseDeconnexion = z.infer<typeof schemaReponseDeconnexion>;
+
 /** Preuve du titulaire après un retour SSO : `pending` quand ce navigateur porte une demande en cours (`username` : le compte local visé) ; sinon `{ pending: false, username: null }`. */
 export const schemaReponsePreuveLien = z.object({ pending: z.boolean(), username: z.string().nullable() });
 export type ReponsePreuveLien = z.infer<typeof schemaReponsePreuveLien>;

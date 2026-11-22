@@ -10,7 +10,7 @@ import {
   getJwksCache,
   setJwksCache,
 } from "openid-client";
-import type { ExportedJWKSCache, ServerMetadata } from "openid-client";
+import type { ExportedJWKSCache, JWK, ServerMetadata } from "openid-client";
 
 import type { Base } from "@elpis/db";
 
@@ -24,6 +24,10 @@ import { RefusOidc } from "./refus";
 export const DUREE_DECOUVERTE_S = 3600;
 const DELAI_BIBLIOTHEQUE_S = 10;
 const ECHEC_DECOUVERTE_S = 60;
+const ECHEC_CLES_S = 60;
+const CLES_FRAICHES_S = 300;
+const CLES_RELECTURE_S = 60;
+const CLES_MAX = 50;
 
 interface Decouverte {
   readonly empreinte: string;
@@ -71,11 +75,53 @@ function echecGarde(
 export class FabriqueConfigurations {
   private readonly decouvertes = new Map<string, Decouverte>();
   private readonly echecs = new Map<string, EchecDecouverte>();
+  private readonly echecsCles = new Map<string, EchecDecouverte>();
   private readonly cles = new Map<string, ClesGardees>();
   private readonly o: OptionsConfigurations;
 
   constructor(o: OptionsConfigurations) {
     this.o = o;
+  }
+
+  /** Métadonnées de la dernière découverte (mêmes réglages), même périmées, sans aucun appel ; `null` si rien n'est gardé. */
+  metadonneesGardees(f: Fournisseur, publicUrl: string): ServerMetadata | null {
+    const c = this.decouvertes.get(f.id);
+    return c !== undefined && c.empreinte === empreinteFournisseur(f, publicUrl) ? c.metadonnees : null;
+  }
+
+  /** Clés de signature déjà gardées en mémoire (mêmes réglages), même anciennes, sans aucun appel ; `null` si rien n'est gardé. */
+  clesEnMemoire(f: Fournisseur, publicUrl: string): JWK[] | null {
+    return this.clesGardees(f, publicUrl)?.jwks.keys ?? null;
+  }
+
+  /** Clés de signature du fournisseur, dans le cache de la connexion : relues si le cache a plus de cinq minutes, ou, une fois par minute au plus, si la clé `kid` y manque. */
+  async clesDeSignature(f: Fournisseur, publicUrl: string, kid: string | undefined): Promise<JWK[]> {
+    const client = this.client(f);
+    const empreinte = empreinteFournisseur(f, publicUrl);
+    try {
+      const metadonnees = await this.decouvrir(f, publicUrl, client, empreinte);
+      const t = this.o.maintenant();
+      const gardees = this.clesGardees(f, publicUrl, empreinte);
+      const age = gardees === undefined ? Infinity : t - gardees.uat;
+      const absente = kid !== undefined && !(gardees?.jwks.keys ?? []).some((k) => k.kid === kid);
+      if (gardees !== undefined && age < CLES_FRAICHES_S && !(absente && age >= CLES_RELECTURE_S))
+        return gardees.jwks.keys;
+      echecGarde(this.echecsCles, f.id, empreinte, t);
+      let liste: unknown[];
+      try {
+        liste = await this.lireCles(client, metadonnees);
+      } catch (e) {
+        if (e instanceof RefusOidc)
+          this.echecsCles.set(f.id, { empreinte, jusqua: t + ECHEC_CLES_S, cause: e.cause_ });
+        throw e;
+      }
+      this.echecsCles.delete(f.id);
+      const keys = liste.filter((k): k is JWK => k !== null && typeof k === "object" && !Array.isArray(k));
+      this.cles.set(f.id, { empreinte, cache: { jwks: { keys }, uat: t } });
+      return keys;
+    } finally {
+      await client.fermer().catch(() => undefined);
+    }
   }
 
   /** Document JSON lu en GET ; `unavailable` (`<préfixe>:<cause>`) s'il manque, répond autrement que 200 ou n'est pas du JSON. */
@@ -94,6 +140,17 @@ export class FabriqueConfigurations {
     } catch {
       throw new RefusOidc("unavailable", `${prefixe}:json`);
     }
+  }
+
+  /** Liste `keys` du document de clés du fournisseur ; `unavailable` si la lecture échoue. */
+  private async lireCles(client: ClientHttps, metadonnees: ServerMetadata): Promise<unknown[]> {
+    const liste = (
+      (await this.lireJson(client, String(metadonnees.jwks_uri), "jwks")) as {
+        keys?: unknown;
+      } | null
+    )?.keys;
+    if (!Array.isArray(liste) || liste.length > CLES_MAX) throw new RefusOidc("unavailable", "jwks:invalid");
+    return liste;
   }
 
   /** Découverte du fournisseur gardée chaude (sans toucher aux clés) ; un échec reste dans le cache d'échec. */

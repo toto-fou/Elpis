@@ -51,8 +51,8 @@ export interface OptionsRelais {
 
 export interface Relais {
   readonly famille: Famille;
-  /** Révocation (bus d'événements) : WebSocket relayées du compte closes comme à l'expiration (4001 des deux côtés, l'hôte tue les PTY) ; `null` = toutes (rend -1). */
-  fermerTerminauxDuCompte(uid: number | null): number;
+  /** Révocation (bus d'événements) : WebSocket relayées du compte (avec `sid`, de cette seule session) closes comme à l'expiration (4001 des deux côtés, l'hôte tue les PTY) ; `null` = toutes (rend -1). */
+  fermerTerminauxDuCompte(uid: number | null, sid?: string): number;
   fermer(): Promise<void>;
 }
 
@@ -140,6 +140,11 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
     }
   }
 
+  function sidDeSession(requete: FastifyRequest): string | undefined {
+    const sid = requete.session.get("_sid");
+    return typeof sid === "string" && sid !== "" ? sid : undefined;
+  }
+
   /** Revalidation de la session lue à l'ouverture ; aucune pour un aperçu, dont l'identité est celle de son jeton. */
   function revalidation(requete: FastifyRequest, uid: number, apercu: boolean): Revalidation {
     if (apercu) return undefined;
@@ -176,6 +181,7 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
       url,
       entetes: await entetesRelais(hote, uid),
       chemin: unquotePy(chemin),
+      sid: apercu ? undefined : sidDeSession(requete),
       revalider: revalidation(requete, uid, apercu),
     };
   }
@@ -266,8 +272,9 @@ export function creerRelais(options: OptionsRelais = {}): Relais {
         ...PREVIEW_PREFIXES.flatMap((p) => routes(p, "public")),
       ],
     },
-    fermerTerminauxDuCompte(uid) {
-      const cibles = uid === null ? toutes() : [...(terminaux.get(uid) ?? [])];
+    fermerTerminauxDuCompte(uid, sid) {
+      const du = uid === null ? toutes() : [...(terminaux.get(uid) ?? [])];
+      const cibles = sid === undefined ? du : du.filter((c) => c.preparation.sid === sid);
       for (const c of cibles) c.expirer();
       return uid === null ? -1 : cibles.length;
     },

@@ -219,7 +219,7 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   c("session", "GET", "/api/me-lite", session.schemaReponseMoi),
   c("session", "GET", "/api/auth/check", null),
   c("session", "POST", "/api/login-lite", session.schemaReponseConnexion, session.schemaCorpsConnexion),
-  c("session", "POST", "/api/logout-lite", schemaOk),
+  c("session", "POST", "/api/logout-lite", identite.schemaReponseDeconnexion),
   c(
     "session",
     "POST",

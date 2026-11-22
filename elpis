@@ -2007,7 +2007,6 @@ cmd_auth() {
         reactivate) [ $# -eq 2 ] || die "Usage : ./elpis auth status | ./elpis auth doctor | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
         *) die "Usage : ./elpis auth status | ./elpis auth doctor | ./elpis auth off | ./elpis auth reactivate <compte>" ;;
     esac
-    charger_env
     charger_instance
     need_exploitation
     vault_core auth "$@"

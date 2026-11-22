@@ -170,6 +170,19 @@ def test_i1_env_modifiable_par_d_autres_refuse(depot):
     assert r.returncode != 0 and ".env refusé" in r.stderr and not [l for l in _trace(depot) if l.startswith("render")]
 
 
+def test_i1_auth_sous_root_lit_env_seulement_apres_sa_verification(depot):
+    for s in ("main", "admin", "toolhost"):
+        _unite(depot, s, f"elpis-{s}", "separes")
+    piege = depot.parent / "piege"
+    piege.mkdir()
+    _executable(piege / "python3", f"#!/bin/sh\ntouch {depot.parent}/python-du-piege\n")
+    (depot / ".env").write_text(f"PATH={piege}:/usr/bin:/bin\n", encoding="utf-8")
+    (depot / ".env").chmod(0o666)
+    r = _harnais(depot, "cmd_auth status")
+    assert r.returncode != 0 and ".env refusé" in r.stderr, r.stdout + r.stderr
+    assert not (depot.parent / "python-du-piege").exists()
+
+
 # I2 — dossiers de .env qui se chevauchent : refusés, ni secrets ni autorité ni journaux privés ouverts au groupe.
 @pytest.mark.parametrize("env", ["RAG_STORE_DIR={r}/user_db", "RAG_STORE_DIR={r}/user_db/browser-relay-ca",
                                  "RAG_STORE_DIR={r}/user_db/run/chat_runs", "APP_SANDBOX_DIR={r}/user_db",

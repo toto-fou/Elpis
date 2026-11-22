@@ -359,7 +359,8 @@ def test_secrets_de_config_ecrits_par_root_sans_lien_suivi(depot):
     assert (etc / "rag.token").read_text(encoding="utf-8") == "jeton\n" and _mode(db / ".encryption_key") == "600"
     # En deux temps : valeurs données sans être retirées, puis retirées une fois écrites et vérifiées par root.
     assert journal.read_text(encoding="utf-8").splitlines() == [
-        "--ranger-secrets --sortie - --garder", "--ranger-secrets --retirer app.session_secret app.encryption_key rag.service_token"]
+        "--ranger-secrets --sortie - --garder",
+        "--ranger-secrets --retirer app.session_secret app.encryption_key rag.service_token rag.qdrant_api_key"]
     assert any(l.startswith("runuser -u elpis-admin -- ") for l in _trace(depot)) and not (depot / "config.json.bak").exists()
     (db / ".encryption_key").unlink()
     (db / ".encryption_key").symlink_to(cible)

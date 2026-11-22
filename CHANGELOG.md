@@ -70,6 +70,11 @@ follow [SemVer](https://semver.org/).
   taken from `/etc/elpis/rag.token` (or from `user_db/.rag_service_token` when `./elpis configure`
   wrote it again) and given to main, the console and the RAG only; `elpis-rag` then only gives
   the RAG store.
+- **Qdrant with an API key.** With these keys, Qdrant runs with an API key (the key `qdrant.key`,
+  taken from `rag.qdrant_api_key` of `config.json` or created), read from its credentials by
+  `deploy/qdrant/lancer.sh`; main and the console send it (`QDRANT_API_KEY_FILE`), any other
+  request is refused, health checks keep working. With one account for every service and with
+  `./elpis start`, Qdrant keeps running without a key.
 - **systemd units: versioned and hardened.** The units of the services are rendered from
   templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
   privileges, with the system read-only except the folders it writes, a private `/tmp` and

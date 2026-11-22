@@ -295,11 +295,15 @@ unit alone (`LoadCredentialEncrypted=`, read from the unit's `$CREDENTIALS_DIREC
 | `encryption.key` | main, the console | `APP_ENCRYPTION_KEY_PATH` | `user_db/.encryption_key` (next to the database), or `app.encryption_key` of `config.json`; none: created, in the format the core creates |
 | `session.secret` | main, the console | `APP_SESSION_SECRET_FILE` | `user_db/.session_secret`, or `app.session_secret` of `config.json`; none: created |
 | `audit.key` | main, the console, the tool host | `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key`; none: created |
+| `qdrant.key` | main, the console, Qdrant | `QDRANT_API_KEY_FILE` (Qdrant: `QDRANT__SERVICE__API_KEY`, set by `deploy/qdrant/lancer.sh` from its credentials) | `rag.qdrant_api_key` of `config.json`; none: created (48 random characters) |
 | `rag.token` | main, the console, the RAG | `RAG_SERVICE_TOKEN_FILE` | `/etc/elpis/rag.token`, then `user_db/.rag_service_token` when `./elpis configure` wrote it again (it wins, as before), or `rag.service_token` of `config.json`; none: created |
 
 The tool host never receives the vault key, the encryption key nor the session secret, the RAG
 its token only; rsyslog (`elpis-journal`) reads the log files only, no longer the signing key;
-`elpis-cle` keeps the remote backup credentials only, `elpis-rag` the RAG store only. Without such a systemd (or with one account for every service),
+`elpis-cle` keeps the remote backup credentials only, `elpis-rag` the RAG store only. Qdrant then
+refuses any request without its key (its health endpoints `/healthz`, `/livez` and `/readyz` stay
+open); with one account for every service, and with `./elpis start`, Qdrant keeps running without
+a key, as before. Without such a systemd (or with one account for every service),
 the files of [Service accounts](#service-accounts) stay, and `./elpis doctor` says so.
 
 **Taking keys over.** At each `service install`, services stopped, a plaintext key found at its
@@ -310,7 +314,7 @@ then removed: no plaintext copy stays on the machine. A file that does not quali
 left as it is, and no new key replaces it. A plaintext file that differs from a key already in
 service is left too, with a warning: keep the right one (copy it off the machine first), remove
 the other, run `service install` again. Values of `config.json` (`app.session_secret`,
-`app.encryption_key`, `rag.service_token`) are taken in two steps: `deploy/configure.py --ranger-secrets --sortie -
+`app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key`) are taken in two steps: `deploy/configure.py --ranger-secrets --sortie -
 --garder` hands them over without removing them, root writes and checks the keys, then
 `--ranger-secrets --retirer` removes from `config.json` only the values written, if unchanged. A
 second pass changes nothing.
@@ -350,13 +354,14 @@ of the disk that includes `/var/lib/systemd/` holds both.
 | `encryption.key` | `.encryption_key` next to the database (`user_db/` by default) |
 | `session.secret` | `.session_secret` next to the database (without it, a new one is created: sessions are closed) |
 | `audit.key` | `/etc/elpis/audit.key` |
-| `rag.token` | not needed: a new one is created |
+| `rag.token`, `qdrant.key` | not needed: new ones are created |
 
 **Back to one account, `service remove`.** `sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`
 decrypts each key back to its file of the single account (`/etc/elpis/vault.key` and
 `/etc/elpis/audit.key` `0440`, root and the key group; `.encryption_key` and `.session_secret`
 `0600` next to the database; the RAG token to `/etc/elpis/rag.token`, which the single account's
-pass moves to `user_db/.rag_service_token`), then removes `/etc/elpis/credentials/`;
+pass moves to `user_db/.rag_service_token`; the Qdrant key is dropped, Qdrant running without one),
+then removes `/etc/elpis/credentials/`;
 `service remove` does the same for the operator. A file already there that differs keeps the key in the folder, with a
 warning. Both can be run again.
 
@@ -369,7 +374,9 @@ only root can read works. Without `sudo`, these commands say `lancez sudo ./elpi
 
 **What `./elpis doctor` checks.** The systemd version, that each key is there and that
 `systemd-creds` decrypts it (under `sudo`), that each unit carries the keys it uses and no other,
-and that no plaintext key is left in `/etc/elpis` or next to the database.
+and that no plaintext key is left in `/etc/elpis` or next to the database. Without `sudo`, the RAG
+checks are skipped once the units carry the RAG token or the Qdrant key: the operator holds
+neither (`sudo ./elpis doctor` runs them with the console's keys).
 
 ## System prerequisites (apt packages)
 

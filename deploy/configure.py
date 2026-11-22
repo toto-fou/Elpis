@@ -1563,7 +1563,7 @@ def apply_https(https: Dict[str, Any]) -> None:
     (ok if rc == 0 else warn)(f"Caddy : https://{https['domain']}/" if rc == 0 else "Configuration de Caddy échouée.")
 
 
-SECRETS_DE_PLATEFORME = (("app", "session_secret"), ("app", "encryption_key"), ("rag", "service_token"))
+SECRETS_DE_PLATEFORME = (("app", "session_secret"), ("app", "encryption_key"), ("rag", "service_token"), ("rag", "qdrant_api_key"))
 
 
 def retirer_secrets(cfg: Dict[str, Any], valeurs: Dict[str, str]) -> bool:
@@ -1730,7 +1730,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--check-llm", action="store_true",
                    help="sonde seulement le serveur LLM retenu (GET /v1/models, clé en Bearer), sans rien écrire (./elpis doctor)")
     g.add_argument("--ranger-secrets", action="store_true",
-                   help="retire app.session_secret, app.encryption_key et rag.service_token de config.json et de "
+                   help="retire app.session_secret, app.encryption_key, rag.service_token et rag.qdrant_api_key de config.json et de "
                         "config.json.bak, valeurs en JSON sur --sortie (compte propriétaire de config.json) ; en deux "
                         "temps : --sortie - --garder, puis --retirer")
     g.add_argument("--sortie", metavar="FD",

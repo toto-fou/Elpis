@@ -636,7 +636,8 @@ disabled (the RAG page says so, no indexing).
 | `service_url` | `rag_app` extractor (`RAG_SERVICE_URL` variable takes precedence) | `http://127.0.0.1:8000` |
 | `service_token` | Extractor token; without it, `RAG_SERVICE_TOKEN`, then the file `RAG_SERVICE_TOKEN_FILE` (with one account per service, `/etc/elpis/rag.token`, or the key `rag.token` handed by systemd: `%d/rag.token`), then `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
 | `store_dir` | File store (`RAG_STORE_DIR` takes precedence): originals, extracts, rendered pages, per account and per collection; `./elpis` gives the same folder to the extractor | `<database folder>/rag` (`user_db/rag`) |
-| `qdrant_url` | Qdrant, local and keyless (`./elpis` starts it on `127.0.0.1:6333`) | `http://127.0.0.1:6333` |
+| `qdrant_url` | Qdrant, local (`./elpis` starts it on `127.0.0.1:6333`). Its API key comes from the environment only (`QDRANT_API_KEY`, then the file `QDRANT_API_KEY_FILE`) and goes to this address only: none by default; with one account per service and systemd 250 or later, the key `qdrant.key` handed by systemd (`%d/qdrant.key`) | `http://127.0.0.1:6333` |
+| `qdrant_api_key` | Not read by the core; with one account per service and systemd 250 or later, `service install` moves a value found here into the key `qdrant.key` | — |
 | `embed.*` | OpenAI-compatible embeddings server (`/v1/embeddings`), model, key, batch size (1 to 512), timeout (1 to 600 s). Changing the model reindexes all collections (console) | model `bge-m3` |
 | `reranker.*` | Optional reranking (`/v1/rerank`) | disabled |
 | `ocr.*` | OpenAI-compatible vision model that reads scanned pages ("grounding" format of the DeepSeek-OCR family); empty `url` = no OCR. The core sends these settings to the extractor on every extraction of a collection where OCR is enabled | disabled |

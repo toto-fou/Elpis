@@ -904,7 +904,7 @@ doctor_coffre() {
     lignes_doctor "coffre (Secrets)" vault_core vault doctor
 }
 
-# Lignes « niveau<TAB>texte » de la sortie d'un diagnostic du core, rendues par ok / warn / info ; toute autre ligne, une alerte [CRITICAL] de son journal ou un échec sans défaut déjà compté sont des défauts (le reste du journal est tu).
+# Lignes « niveau<TAB>texte » de la sortie d'un diagnostic du core, rendues par ok / warn / info ; toute autre ligne, l'alerte de secret de session faible de son journal ou un échec sans défaut déjà compté sont des défauts (le reste du journal est tu).
 lignes_doctor() {
     local libelle="$1" niveau texte sortie code erreur defaut=0 f
     shift
@@ -920,7 +920,7 @@ lignes_doctor() {
     done <<< "$sortie"
     while IFS= read -r texte; do
         warn "$libelle : NON ($texte)"; bad=$((bad+1)); defaut=1
-    done < <(grep -a '\[CRITICAL\]' -- "$f")
+    done < <(grep -a '\[CRITICAL\] Elpis SESSION_SECRET FAIBLE' -- "$f")
     erreur="$(grep -av -e '^[[:space:]]*$' -e '^Node\.js v' -- "$f" | tail -n 1)"
     rm -f -- "$f"
     [ "$code" -eq 0 ] || [ "$defaut" -eq 1 ] || { warn "$libelle : NON (${erreur:-échec, code $code})"; bad=$((bad+1)); }

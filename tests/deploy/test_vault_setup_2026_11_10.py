@@ -266,6 +266,10 @@ def test_doctor_alerte_critique_du_journal_comptee(tmp_path):
     r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; "
                           "printf '\\n[CRITICAL] Elpis SESSION_SECRET FAIBLE/PAR DÉFAUT (len=8)\\n\\n' >&2")
     assert "NON ([CRITICAL] Elpis SESSION_SECRET FAIBLE/PAR DÉFAUT (len=8))" in r.stderr and "bad=1" in r.stdout
+    # Secret éphémère du seul processus du doctor (compte qui ne lit pas user_db) : rien à corriger côté service.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; "
+                          "printf '\\n[CRITICAL] Elpis SESSION_SECRET est ÉPHÉMÈRE\\n' >&2")
+    assert "NON" not in r.stderr and "bad=0" in r.stdout
 
 
 def test_doctor_echec_du_core_compte_comme_un_defaut(tmp_path):

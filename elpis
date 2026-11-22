@@ -1945,6 +1945,7 @@ doctor_cles_systemd() {
             case "$etat" in
                 ok) [ "$n" != audit.key ] || [ "${lg:-0}" -ge 32 ] || { warn "clé $n trop courte (32 octets au moins) : lignes non signées"; bad=$((bad+1)); } ;;
                 absent) warn "clé $n absente de $CLES_SYS (sudo ./elpis service install)"; bad=$((bad+1)) ;;
+                erreur) warn "clé $n : systemd-creds en échec passager (mémoire, TPM occupé ?) : relancez sudo ./elpis doctor"; bad=$((bad+1)) ;;
                 *) warn "clé $n illisible par systemd-creds (TPM ou clé de l'hôte changés ? docs/operations.md, « Platform keys »)"; bad=$((bad+1)) ;;
             esac
         done < <(poser_droits cle-etat "$CLES_SYS" $(cles_du_service console) 2>/dev/null)

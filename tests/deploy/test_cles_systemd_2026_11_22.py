@@ -40,15 +40,21 @@ conf = _cc.conf
 FORT, ranger = _cc.FORT, _cc.ranger
 REPO = Path(__file__).resolve().parents[2]
 
-# systemd-creds simulé : chiffré = en-tête portant le nom, puis le clair en base64 ; déchiffrement refusé sous un autre nom.
+# systemd-creds simulé : chiffré = en-tête portant le nom, puis le clair en base64 ; déchiffrement refusé sous un autre nom ; FAUX_CREDS_SANS_PCRS : systemd sans --tpm2-pcrs, FAUX_CREDS_ECHEC=occupe : TPM occupé.
 FAUX_CREDS = r'''#!/usr/bin/env python3
 import base64, os, sys
 args = sys.argv[1:]
 with open(os.environ["FAUX_CREDS_TRACE"], "a", encoding="utf-8") as f:
     f.write(" ".join(args) + "\n")
 verbe = args[0]
+if os.environ.get("FAUX_CREDS_SANS_PCRS") and any(a.startswith("--tpm2-pcrs") for a in args):
+    sys.stderr.write("systemd-creds: unrecognized option '--tpm2-pcrs='\n")
+    sys.exit(1)
 if verbe in os.environ.get("FAUX_CREDS_ECHEC", "").split(","):
     sys.stderr.write("échec simulé\n")
+    sys.exit(1)
+if verbe == "decrypt" and "occupe" in os.environ.get("FAUX_CREDS_ECHEC", ""):
+    sys.stderr.write("Failed to unseal secret using TPM2: Device or resource busy\n")
     sys.exit(1)
 nom = next(a.split("=", 1)[1] for a in args if a.startswith("--name="))
 pos = [a for a in args[1:] if not a.startswith("--")]
@@ -59,7 +65,7 @@ if verbe == "encrypt":
 else:
     tete, _, corps = donnees.partition(b"\n")
     if tete != b"FAUXCREDS " + nom.encode():
-        sys.stderr.write("nom ou clé différents\n")
+        sys.stderr.write(f"Embedded credential name does not match filename '{nom}', refusing.\n")
         sys.exit(1)
     blob = base64.b64decode(corps)
 if sortie == "-":
@@ -321,7 +327,7 @@ def test_sources_du_bloc5_chiffrees_puis_retirees(depot):
         assert not src[nom].exists(), nom
     trace = _lignes(depot, "creds.trace")
     chiffres = [l for l in trace if l.startswith("encrypt ")]
-    assert len(chiffres) == 5 and all(re.fullmatch(rf"encrypt --name=(\S+) --with-key=auto - {re.escape(str(m))}/\.\1\.[0-9a-f]{{16}}", l)
+    assert len(chiffres) == 5 and all(re.fullmatch(rf"encrypt --name=(\S+) --with-key=auto --tpm2-pcrs= - {re.escape(str(m))}/\.\1\.[0-9a-f]{{16}}", l)
                                       for l in chiffres), chiffres
     assert all(v.strip() not in "\n".join(trace) for v in (VAULT, FERNET, SESSION, JOURNAL))
     assert "Copie hors de la machine (support hors ligne) : sudo systemd-creds decrypt --name=vault.key" in r.stdout
@@ -382,6 +388,31 @@ def test_echec_de_relecture_garde_la_source(depot):
                  **{**_faux(depot), "FAUX_CREDS_ECHEC": "decrypt"})
     assert "rc=1" in r.stdout and all(p.exists() for p in src.values())
     assert [p.name for p in _magasin(depot).iterdir()] == []
+
+
+def test_cles_scellees_sans_pcr_et_systemd_sans_l_option(depot):
+    _sources(depot)
+    corps = 'BASE_DONNEES="$ROOT/user_db"; cles_vers_systemd "$MOI" ""; echo "rc=$?"'
+    r = _harnais(depot, corps, CREDS, **_faux(depot))
+    chiffrements = [l for l in _lignes(depot, "creds.trace") if l.startswith("encrypt ")]
+    assert "rc=0" in r.stdout and chiffrements and all(" --tpm2-pcrs= " in l for l in chiffrements), r.stderr
+    for p in _magasin(depot).iterdir():
+        p.unlink()
+    _sources(depot)
+    r = _harnais(depot, corps, CREDS, **{**_faux(depot), "FAUX_CREDS_SANS_PCRS": "1"})
+    assert "rc=0" in r.stdout and _clair(_magasin(depot) / "vault.key") == VAULT, r.stderr
+
+
+def test_echec_passager_de_systemd_creds_ne_remplace_rien(depot):
+    _poser(depot, vault_key="clé en service\n")
+    src = _sources(depot)
+    faux = {**_faux(depot), "FAUX_CREDS_ECHEC": "occupe"}
+    r = _harnais(depot, 'BASE_DONNEES="$ROOT/user_db"; cles_vers_systemd "$MOI" ""; echo "rc=$?"', CREDS, **faux)
+    assert "rc=1" in r.stdout and "Device or resource busy" in r.stderr and "illisible" not in r.stderr, r.stderr
+    assert src["vault.key"].read_text(encoding="utf-8") == VAULT and (_magasin(depot) / "vault.key").read_bytes() == _chiffre(
+        "vault.key", "clé en service\n")
+    r = _harnais(depot, f'poser_droits cle-etat "{_magasin(depot)}" vault.key', CREDS, **faux)
+    assert r.stdout.split() == ["vault.key", "erreur"]
 
 
 def test_installation_separee_range_les_cles_avant_les_unites(depot):
@@ -593,7 +624,7 @@ def test_setup_sans_fichier_en_clair(depot):
     etc = _sys(depot) / "etc/elpis"
     assert not (etc / "vault.key").exists() and re.fullmatch(r"[A-Za-z0-9+/]{43}=\n", _clair(_magasin(depot) / "vault.key"))
     assert "kid 0123abcd" in r.stdout and f"sudo systemd-creds decrypt --name=vault.key {_magasin(depot)}/vault.key FICHIER" in r.stdout
-    assert [l for l in _lignes(depot, "creds.trace") if l.startswith("encrypt")][0].startswith("encrypt --name=vault.key --with-key=auto - ")
+    assert [l for l in _lignes(depot, "creds.trace") if l.startswith("encrypt")][0].startswith("encrypt --name=vault.key --with-key=auto --tpm2-pcrs= - ")
     r = _harnais(depot, "cmd_audit setup", talons, FAUX_UID="1000", **_faux(depot))
     assert r.returncode == 0, r.stdout + r.stderr
     assert not (etc / "audit.key").exists() and re.fullmatch(r"[0-9a-f]{64}", _clair(_magasin(depot) / "audit.key"))

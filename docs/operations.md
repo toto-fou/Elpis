@@ -341,7 +341,9 @@ prints the command when it creates or takes over one of these keys, `vault setup
 
 **TPM.** With a TPM2 (and outside a container), `--with-key=auto` binds each key to the TPM2 and to
 the host key `/var/lib/systemd/credential.secret`: the keys can then only be decrypted on this
-machine. Clearing the TPM, replacing the motherboard (or the virtual TPM of a VM), or losing
+machine. They are bound to no PCR (`--tpm2-pcrs=`, set explicitly: systemd 250 to 257 bind to PCR 7
+by default, so a Secure Boot change such as a db/dbx update would have made every key unreadable at
+the next boot; this is not verified on a real or virtual TPM yet). Clearing the TPM, replacing the motherboard (or the virtual TPM of a VM), or losing
 `/var/lib/systemd/credential.secret` makes them unreadable; `./elpis doctor` reports it and the
 units, like the commands `sudo ./elpis` runs under the console's account, fail to start.
 Recovery: put the copies made off the machine back at their former places (table below), then run

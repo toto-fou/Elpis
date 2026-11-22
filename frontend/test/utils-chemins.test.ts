@@ -3,10 +3,10 @@
 import { strict as assert } from "node:assert";
 import { it } from "vitest";
 
-import { canonPath, looksLikePath, parsePath, retirerPrefixeWork } from "../src/utils/utils-purs";
+import { canonPath, parsePath, retirerPrefixeWork } from "../src/utils/utils-purs";
 
 const parse = parsePath;
-const looks = looksLikePath;
+const looks = (s: unknown): boolean => parsePath(s) !== null;
 
 it("chemins avec ligne et colonne", () => {
   assert.deepStrictEqual(parse("src/app.py:12"), { path: "src/app.py", line: 12, col: 0 });

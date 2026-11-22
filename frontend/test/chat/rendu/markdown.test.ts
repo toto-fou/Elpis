@@ -345,15 +345,23 @@ describe("rendu incrémental", () => {
     expect(m.renderMarkdown("Voir `src/app.py:12`.")).toContain('class="elpis-path-link"');
   });
 
-  it("chemin /work affiché sans le préfixe, hors /work inchangé", () => {
-    const lien = (t: string) => `<code class="elpis-path-link" title="Ouvrir dans l'éditeur">${t}</code>`;
-    expect(m.renderMarkdown("`/work/a/b.md`")).toContain(lien("a/b.md"));
-    expect(m.renderMarkdown("`/work/a/b.md:12`")).toContain(lien("a/b.md:12"));
-    expect(m.renderMarkdown("`a/b.md`")).toContain(lien("a/b.md"));
-    expect(m.renderMarkdown("`/work`")).toContain("<code>/</code>");
-    expect(m.renderMarkdown("`/work/`")).toContain("<code>/</code>");
-    expect(m.renderMarkdown("`/etc/hosts`")).not.toContain("elpis-path-link");
-    expect(m.renderMarkdown("`/tmp/x.md`")).toContain(lien("/tmp/x.md"));
+  it("chemin /work affiché sans le préfixe, celui écrit gardé pour le clic ; /work seul et hors /work inchangés", () => {
+    const code = (md: string): [string, string | null, string | null] => {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = m.renderMarkdown(md);
+      const el = tpl.content.querySelector("code");
+      return [el?.className ?? "", el?.getAttribute("data-chemin") ?? null, el?.textContent ?? null];
+    };
+    expect(code("`/work/a/b.md`")).toEqual(["elpis-path-link", "/work/a/b.md", "a/b.md"]);
+    expect(code("`/work/a/b.md:12`")).toEqual(["elpis-path-link", "/work/a/b.md:12", "a/b.md:12"]);
+    expect(code("`a/b.md`")).toEqual(["elpis-path-link", null, "a/b.md"]);
+    expect(code("`/tmp/x.md`")).toEqual(["elpis-path-link", null, "/tmp/x.md"]);
+    expect(code("`/work`")).toEqual(["", null, "/work"]);
+    expect(code("`/work/`")).toEqual(["", null, "/work/"]);
+    expect(code("`/etc/hosts`")).toEqual(["", null, "/etc/hosts"]);
+    expect(m.renderMarkdown("`a/b.md`")).toContain(
+      `<code class="elpis-path-link" title="Ouvrir dans l'éditeur">a/b.md</code>`,
+    );
   });
 });
 

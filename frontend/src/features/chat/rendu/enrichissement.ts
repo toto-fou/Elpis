@@ -600,14 +600,16 @@ export interface ActionsClicMarkdown {
   analyserChemin?: (texte: string) => { path: string; line?: number | null; col?: number | null } | null;
 }
 
-/** Clic dans un corps Markdown : action d'un bloc de code (Copier, Aperçu), chemin `fichier:ligne` vers l'éditeur, ancre interne vers son titre. */
+/** Clic dans un corps Markdown : action d'un bloc de code (Copier, Aperçu), chemin `fichier:ligne` vers l'éditeur (celui écrit, `data-chemin`, s'il est affiché sans `/work`), lien `/work/…` vers l'éditeur sans suivre l'URL, ancre interne vers son titre. */
 export function clicMarkdown(event: Event, actions: ActionsClicMarkdown): void {
   if (agirSurHabillage(event)) return;
   const cible = event.target as Element | null;
   if (!cible || typeof cible.closest !== "function") return;
   const pathCode = cible.closest("code.elpis-path-link");
   if (pathCode && !pathCode.closest("pre") && actions.ouvrirDansEditeur && actions.analyserChemin) {
-    const parsed = actions.analyserChemin(pathCode.textContent || "");
+    const parsed = actions.analyserChemin(
+      pathCode.getAttribute("data-chemin") ?? (pathCode.textContent || ""),
+    );
     if (parsed) {
       event.preventDefault();
       actions.ouvrirDansEditeur(parsed.path, parsed.line, parsed.col);
@@ -620,7 +622,6 @@ export function clicMarkdown(event: Event, actions: ActionsClicMarkdown): void {
   const chemin =
     href && (href === "/work" || href.startsWith("/work/")) ? actions.analyserChemin?.(href) : null;
   if (chemin && actions.ouvrirDansEditeur) {
-    // Lien Markdown vers un fichier du bac : ouvert dans l'éditeur, jamais suivi comme une URL.
     event.preventDefault();
     if (chemin.path) actions.ouvrirDansEditeur(chemin.path, chemin.line, chemin.col);
     return;

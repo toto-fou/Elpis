@@ -184,6 +184,47 @@ describe("clic et export", () => {
     expect(ouverts).toEqual([["d/f.md", 3]]);
   });
 
+  it("chemin /work affiché sans le préfixe : le clic ouvre celui écrit (journal, env, extension inconnue, fichier caché)", () => {
+    const ecrits = [
+      "/work/server.log",
+      "/work/app.env",
+      "/work/data.parquet",
+      "/work/script.mts",
+      "/work/.bashrc",
+      "/work/a/b.md:12",
+    ];
+    const el = corps(moteurMarkdown().renderMarkdown(ecrits.map((c) => "`" + c + "`").join(" ")));
+    const ouverts: unknown[] = [];
+    const actions = {
+      ouvrirDansEditeur: (p: string, l?: number | null) => ouverts.push([p, l]),
+      analyserChemin: parsePath,
+    };
+    const codes = [...el.querySelectorAll("code.elpis-path-link")];
+    expect(codes.map((c) => c.textContent)).toEqual([
+      "server.log",
+      "app.env",
+      "data.parquet",
+      "script.mts",
+      ".bashrc",
+      "a/b.md:12",
+    ]);
+    const empeches = codes.map((c) => {
+      const ev = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(ev, "target", { value: c });
+      clicMarkdown(ev, actions);
+      return ev.defaultPrevented;
+    });
+    expect(empeches).toEqual(ecrits.map(() => true));
+    expect(ouverts).toEqual([
+      ["server.log", 0],
+      ["app.env", 0],
+      ["data.parquet", 0],
+      ["script.mts", 0],
+      [".bashrc", 0],
+      ["a/b.md", 12],
+    ]);
+  });
+
   it("chemin cliquable vers l'éditeur, ancre interne vers son titre", () => {
     const el = corps(
       '<p><code class="elpis-path-link">src/a.py:12</code> <a href="#mon-titre">lien</a></p><h2>Mon titre</h2>',

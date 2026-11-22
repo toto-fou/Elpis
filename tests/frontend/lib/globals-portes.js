@@ -11,7 +11,6 @@ function globalsUtilitaires() {
         escapeHtml: utils.escapeHtml,
         elpisEscape: utils.escapeHtml,
         elpisParsePath: utils.parsePath,
-        elpisLooksLikePath: utils.looksLikePath,
         fmtElapsed: utils.fmtElapsed,
         elpisFmtElapsed: utils.fmtElapsed,
         elpisFmtElapsedMs: utils.fmtElapsedMs,

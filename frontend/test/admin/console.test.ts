@@ -165,7 +165,6 @@ const CLES_ANCIENNE_SURFACE = [
   "securityBusy",
   "loadSecurityOverview",
   "revokeAllSessions",
-  "clearUserRevocation",
   "httpsStatus",
   "httpsBusy",
   "httpsRedirectUrl",
@@ -1224,6 +1223,19 @@ describe("setupAdmin", () => {
       expect(A.adminChangeSecret({ path: chemin }), chemin).toBe(false);
   });
 
+  it("palette : la page SSO OpenID Connect se trouve par ses mots-clés (oidc, openid, sso, entreprise)", () => {
+    const { A } = monter(() => json({}));
+    for (const q of ["oidc", "openid", "sso", "entreprise"]) {
+      A.openPalette();
+      A.paletteQuery.value = q;
+      expect(
+        A.paletteResults.value.some((r) => r.page === "oidc" && r.label === "SSO OpenID Connect"),
+        q,
+      ).toBe(true);
+      A.closePalette();
+    }
+  });
+
   it("la palette classe les pages avant les réglages et retrouve un réglage par son libellé", () => {
     const { A } = monter(() => json({}));
     A.openPalette();
@@ -1241,6 +1253,8 @@ describe("setupAdmin", () => {
       is_admin: 1,
       created_at: 1,
       avatar: null,
+      suspended_at: 0,
+      suspended_by: null,
       group_names: "",
       group_ids: [],
       sandbox_quota_mb: 0,

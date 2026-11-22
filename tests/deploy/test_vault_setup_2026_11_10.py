@@ -210,7 +210,7 @@ ROOT={depot}; CORE_DIST="$ROOT/apps/core/dist"
 compte_services() {{ :; }}; groupe_propre() {{ return 0; }}; compte_lit() {{ return 0; }}
 vault_core() {{ {talon_core}; }}
 """
-    return subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
+    return subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre", "lignes_doctor") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
                           env=_env(depot), capture_output=True, text=True, timeout=60, cwd=str(depot),
                           stdin=subprocess.DEVNULL)
 
@@ -232,6 +232,63 @@ def test_doctor_lit_les_lignes_du_core_et_compte_les_avertissements(depot):
 def test_doctor_sans_core_non_verifie(depot):
     r = _doctor(depot, "echo 'ne doit pas être appelé'")
     assert "non vérifié (core non construit" in r.stdout and "bad=0" in r.stdout
+
+
+def _lignes(tmp_path: Path, corps: str) -> subprocess.CompletedProcess:
+    tete = f"""set -uo pipefail
+info() {{ printf '[elpis] %s\\n' "$*"; }}; ok() {{ printf '[ ok  ] %s\\n' "$*"; }}
+warn() {{ printf '[warn ] %s\\n' "$*" >&2; }}
+diag() {{ {corps}; }}
+"""
+    tmp = tmp_path / "tmp"
+    tmp.mkdir(exist_ok=True)
+    r = subprocess.run(["bash", "-c", tete + _fonctions("lignes_doctor")
+                        + '\nbad=0; lignes_doctor "SSO OpenID Connect" diag; echo "bad=$bad"'],
+                       env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C.UTF-8", "TMPDIR": str(tmp)},
+                       capture_output=True, text=True, errors="replace", timeout=30, cwd=str(tmp_path),
+                       stdin=subprocess.DEVNULL)
+    assert list(tmp.iterdir()) == [], "fichier temporaire laissé"
+    return r
+
+
+def test_doctor_journal_du_core_n_est_pas_un_controle(tmp_path):
+    # Avertissement de journal du core sur stderr (clé de repli du coffre) : le contrôle reste vert.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; "
+                          "echo 'WARNING [coffre] coffre : clé de repli /x en usage' >&2")
+    assert "[ ok  ] SSO OpenID Connect : keycloak" in r.stdout
+    assert "NON" not in r.stdout + r.stderr and "bad=0" in r.stdout
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : sans fin de ligne'")
+    assert "[ ok  ] SSO OpenID Connect : sans fin de ligne" in r.stdout and "bad=0" in r.stdout
+
+
+def test_doctor_alerte_critique_du_journal_comptee(tmp_path):
+    # Secret de session faible : seule alerte du journal qui reste un défaut, même si la commande réussit.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; "
+                          "printf '\\n[CRITICAL] Elpis SESSION_SECRET FAIBLE/PAR DÉFAUT (len=8)\\n\\n' >&2")
+    assert "NON ([CRITICAL] Elpis SESSION_SECRET FAIBLE/PAR DÉFAUT (len=8))" in r.stderr and "bad=1" in r.stdout
+    # Secret éphémère du seul processus du doctor (compte qui ne lit pas user_db) : rien à corriger côté service.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; "
+                          "printf '\\n[CRITICAL] Elpis SESSION_SECRET est ÉPHÉMÈRE\\n' >&2")
+    assert "NON" not in r.stderr and "bad=0" in r.stdout
+
+
+def test_doctor_echec_du_core_compte_comme_un_defaut(tmp_path):
+    r = _lignes(tmp_path, "echo 'WARNING [x] bruit' >&2; echo 'Error: base illisible' >&2; return 1")
+    assert "[warn ] SSO OpenID Connect : NON (Error: base illisible)\n" in r.stderr
+    assert "bruit" not in r.stderr and "bad=1" in r.stdout
+    r = _lignes(tmp_path, "return 3")
+    assert "NON (échec, code 3)" in r.stderr and "bad=1" in r.stdout
+    # Mort par signal après des lignes vertes : le contrôle manquant ne passe pas pour vert.
+    r = _lignes(tmp_path, "printf 'ok\\tSSO OpenID Connect : keycloak\\n'; return 137")
+    assert "NON (échec, code 137)" in r.stderr and "bad=1" in r.stdout
+    # Échec qui suit un défaut déjà compté : une seule fois.
+    r = _lignes(tmp_path, "printf 'warn\\tSSO OpenID Connect : secret absent\\n'; echo 'WARNING [x] bruit' >&2; return 1")
+    assert r.stderr.count("[warn ]") == 1 and "bad=1" in r.stdout
+    r = _lignes(tmp_path, "echo 'ligne hors format'")
+    assert "NON (ligne hors format" in r.stderr and "bad=1" in r.stdout
+    # Plantage de Node hors du try : la ligne de version n'est pas l'erreur ; journal non UTF-8 lu quand même.
+    r = _lignes(tmp_path, "printf 'Error: pool \\xff fermé\\n\\nNode.js v24.21.0\\n' >&2; return 1")
+    assert "NON (Error: pool" in r.stderr and "Node.js" not in r.stderr and "bad=1" in r.stdout
 
 
 def _unites(depot: Path, **env: str) -> dict[str, str]:
@@ -303,7 +360,7 @@ SYS_PREFIXE="$ELPIS_PREFIXE_SYSTEME"; VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vaul
 CORE_DIST="$ROOT/apps/core/dist"; compte_services() {{ echo {MOI}; }}
 vault_core() {{ echo "ne doit pas être appelé" >&2; }}
 """
-        r = subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
+        r = subprocess.run(["bash", "-c", tete + _fonctions("doctor_coffre", "lignes_doctor") + '\nbad=0; doctor_coffre; echo "bad=$bad"'],
                            env=_env(depot, PATH=f"{faux}:{os.environ.get('PATH', '/usr/bin:/bin')}"),
                            capture_output=True, text=True, timeout=60, cwd=str(depot), stdin=subprocess.DEVNULL)
     finally:

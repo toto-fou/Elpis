@@ -21,9 +21,6 @@ import { journalDeTest } from "./aides-journal";
 import type { JournalDeTest } from "./aides-journal";
 
 const port: PortBac = {
-  async supprimerSurHote() {
-    return null;
-  },
   async retirerConteneur() {},
   async purgerTravail() {},
   async detruireConteneur() {},

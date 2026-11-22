@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { creerGardes, installerAuth, leverMinSession, revaliderFlux, revoquerSid } from "../src/index";
 import type { DependancesAuth } from "../src/index";
+import { poserIdentite } from "./aides-session";
 
 const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
 let t: BaseDeTest;
@@ -58,9 +59,8 @@ async function creer(moteur: "sqlite" | "postgres"): Promise<void> {
   installerAuth(app, dep);
   const g = creerGardes(dep);
   app.post("/connexion/:uid", async (req) => {
-    req.session.set("user_id", Number((req.params as { uid: string }).uid));
-    req.session.set("_login_ts", horloge);
-    req.session.set("_sid", `sid-${(req.params as { uid: string }).uid}`);
+    const uid = (req.params as { uid: string }).uid;
+    poserIdentite(req.session, { user_id: Number(uid), _login_ts: horloge, _sid: `sid-${uid}` });
     return { ok: true };
   });
   app.post("/deconnexion", async (req) => {

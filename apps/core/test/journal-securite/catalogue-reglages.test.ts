@@ -242,14 +242,10 @@ describe("journal de sécurité : réglages et sécurité de la console", () => 
     expect(j.brut()).not.toContain("Jeton-Scrape-Secret-1");
   });
 
-  it("sécurité : écoute, HTTPS et levée de révocation", async () => {
+  it("sécurité : écoute et HTTPS", async () => {
     await app.inject({ method: "POST", url: "/api/admin/security/listen", payload: { listen: "local" } });
     expect(j.derniere("admin.security.listen").details).toEqual({ before: "lan", after: "local" });
     await app.inject({ method: "POST", url: "/api/admin/security/https", payload: { enabled: true } });
     expect(j.derniere("admin.security.https").details).toEqual({ before: false, after: true });
-    await app.inject({ method: "POST", url: "/api/admin/security/sessions/clear-user-revocation/2" });
-    expect(j.derniere("admin.security.sessions.clear_user_revocation").details).toEqual({
-      target_user_id: 2,
-    });
   });
 });

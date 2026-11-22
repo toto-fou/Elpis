@@ -2,7 +2,7 @@
 /** apps/core/test/admin/aides-bac.ts — console d'administration composée comme en service (session d'administrateur, base du process posée) pour les essais du pilote du bac. */
 import { createUser, signerSession } from "@elpis/auth";
 import { initialiserBase } from "@elpis/db";
-import { ouvrirBaseDeTest } from "@elpis/db/test";
+import { ouvrirBaseDeTest, PG_DE_TEST } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import type { FastifyInstance } from "fastify";
 
@@ -16,6 +16,8 @@ import { appTest, journalMuet } from "../aides";
 const T = 1_791_331_200;
 const SECRET = "secret-de-test";
 
+export const MOTEURS = PG_DE_TEST ? (["sqlite", "postgres"] as const) : (["sqlite"] as const);
+
 export interface ConsoleDeTest {
   readonly app: FastifyInstance;
   readonly t: BaseDeTest;
@@ -26,9 +28,12 @@ export interface ConsoleDeTest {
   fermer(): Promise<void>;
 }
 
-/** Process admin composé sur une base SQLite jetable : `root` administrateur et les comptes demandés. */
-export async function ouvrirConsole(comptes: readonly string[]): Promise<ConsoleDeTest> {
-  const t = ouvrirBaseDeTest("sqlite");
+/** Process admin composé sur une base jetable (SQLite ou PostgreSQL) : `root` administrateur et les comptes demandés. */
+export async function ouvrirConsole(
+  comptes: readonly string[],
+  moteur: (typeof MOTEURS)[number] = "sqlite",
+): Promise<ConsoleDeTest> {
+  const t = ouvrirBaseDeTest(moteur);
   await initialiserBase(t.base);
   remplacerBase(t.base);
   const id = async (nom: string): Promise<number> =>

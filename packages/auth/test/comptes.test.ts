@@ -62,7 +62,10 @@ function insererBrut(t: BaseDeTest, nom: string, reglages: string | null = "{}")
 }
 
 function groupesTries(l: Dict[], sep: string): Dict[] {
-  return l.map((r) => ({ ...r, groups: String(r.groups).split(sep).filter(Boolean).sort().join(sep) }));
+  return l.map(({ ext_username: _e, provider_label: _p, ...r }) => ({
+    ...r,
+    groups: String(r.groups).split(sep).filter(Boolean).sort().join(sep),
+  }));
 }
 
 it.each(Object.entries(V.noms.canon))("_canon_username(%j)", (nom, canon) => {

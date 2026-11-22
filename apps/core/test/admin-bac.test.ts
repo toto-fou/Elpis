@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/admin-bac.test.ts — bac à sable vu de la console : occupation (du, repli, cache), suppression, dossier d'un compte. */
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -8,10 +17,10 @@ import { surchargerConfig } from "@elpis/config";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  mettreBacDeCoteDuCompte,
   oublierOccupations,
   racineBac,
   sandboxUsageBytes,
-  supprimerBac,
   tailleBac,
   travailBac,
 } from "../src/admin/bac";
@@ -27,8 +36,6 @@ beforeEach(() => {
 
 afterEach(() => {
   restaurer();
-  for (const p of [join(dossier, "sb", "bob", "work", "verrou"), join(dossier, "sb", "bob", "work")])
-    if (existsSync(p)) chmodSync(p, 0o700);
   rmSync(dossier, { recursive: true, force: true });
 });
 
@@ -65,20 +72,27 @@ describe("occupation du bac", () => {
   });
 });
 
-describe("suppression du bac", () => {
+describe("suppression du bac mis de côté", () => {
+  const gardes = (): string[] => readdirSync(join(dossier, "sb")).filter((n) => n.startsWith(".supprime-"));
+  const supprimerBac = async (): Promise<[boolean, string | null]> =>
+    (await mettreBacDeCoteDuCompte(2, "bob")).supprimer();
+
   it("dossier absent : rien à faire", async () => {
-    expect(await supprimerBac(2, "bob", join(dossier, "sb", "bob"))).toEqual([false, null]);
+    mkdirSync(join(dossier, "sb"), { recursive: true });
+    expect(await supprimerBac()).toEqual([false, null]);
   });
 
-  it("/work refusé à l'hôte sans pilote : erreur rendue, le dossier reste", async () => {
+  it("/work refusé à l'hôte sans pilote : erreur rendue, le dossier mis de côté reste", async () => {
     const travail = join(dossier, "sb", "bob", "work");
     mkdirSync(join(travail, "verrou"), { recursive: true });
     writeFileSync(join(travail, "verrou", "x"), "x");
     chmodSync(join(travail, "verrou"), 0o500);
-    const [supprime, erreur] = await supprimerBac(2, "bob", join(dossier, "sb", "bob"));
+    const [supprime, erreur] = await supprimerBac();
     expect(supprime).toBe(false);
     expect(erreur).toMatch(/^\[Errno 13\] Permission denied: '/u);
-    expect(existsSync(join(dossier, "sb", "bob"))).toBe(true);
+    expect(gardes()).toHaveLength(1);
+    expect(existsSync(join(dossier, "sb", "bob"))).toBe(false);
+    chmodSync(join(dossier, "sb", gardes()[0] as string, "work", "verrou"), 0o700);
   });
 
   it("/work en lien symbolique : refusé comme shutil.rmtree, la cible intacte", async () => {
@@ -87,18 +101,19 @@ describe("suppression du bac", () => {
     writeFileSync(join(ailleurs, "garde"), "x");
     mkdirSync(join(dossier, "sb", "bob"), { recursive: true });
     symlinkSync(ailleurs, join(dossier, "sb", "bob", "work"));
-    const [supprime, erreur] = await supprimerBac(2, "bob", join(dossier, "sb", "bob"));
-    expect([supprime, erreur]).toEqual([
-      false,
-      `[Errno None] None: PosixPath('${join(dossier, "sb", "bob", "work")}')`,
-    ]);
+    const [supprime, erreur] = await supprimerBac();
+    expect(supprime).toBe(false);
+    expect(erreur).toBe(
+      `[Errno None] None: PosixPath('${join(dossier, "sb", gardes()[0] as string, "work")}')`,
+    );
     expect(existsSync(join(ailleurs, "garde"))).toBe(true);
   });
 
   it("/work vide : tout le dossier supprimé", async () => {
     mkdirSync(join(dossier, "sb", "bob", "work"), { recursive: true });
     writeFileSync(join(dossier, "sb", "bob", ".work-migrated"), "1");
-    expect(await supprimerBac(2, "bob", join(dossier, "sb", "bob"))).toEqual([true, null]);
+    expect(await supprimerBac()).toEqual([true, null]);
+    expect(gardes()).toEqual([]);
     expect(existsSync(join(dossier, "sb", "bob"))).toBe(false);
   });
 });

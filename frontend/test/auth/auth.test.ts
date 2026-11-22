@@ -65,6 +65,7 @@ describe("checkAuth", () => {
       is_admin: false,
       role: "user",
       avatar: null,
+      password_managed: false,
     });
     expect(session.compte?.id).toBe(1);
     expect(ctx.loadChatsList).toHaveBeenCalled();
@@ -353,5 +354,16 @@ describe("configuration publique : logo de l'application", () => {
       "/api/app-logo?v=x",
     ])
       expect(await charger(autre), String(autre)).toBe("static/elpis-256.png");
+  });
+});
+
+describe("password_managed", () => {
+  it("est relayé sur le compte quand le serveur le rend, faux sinon", async () => {
+    const a = monter(reponses({ "/api/me-lite": () => json({ ...MOI_A, password_managed: true }) }));
+    await a.auth.checkAuth();
+    expect(a.refs.user.value?.password_managed).toBe(true);
+    const b = monter(reponses({ "/api/me-lite": () => json(MOI_A) }));
+    await b.auth.checkAuth();
+    expect(b.refs.user.value?.password_managed).toBe(false);
   });
 });

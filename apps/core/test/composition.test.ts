@@ -109,7 +109,6 @@ const ROUTES_B133A: readonly string[] = [
   "GET /api/admin/security/sessions",
   "POST /api/admin/security/sessions/revoke-all",
   "POST /api/admin/security/sessions/revoke-user/:user_id",
-  "POST /api/admin/security/sessions/clear-user-revocation/:user_id",
   "GET /api/admin/security/https",
   "POST /api/admin/security/https",
   "POST /api/admin/security/listen",

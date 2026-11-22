@@ -21,6 +21,7 @@ const PARTAGEES: Readonly<Record<string, string>> = {
   evenements: "flux d'événements de chaque process",
   apparence: "skins et mascottes de chaque page",
   "admin-cycle": "redémarrage par la route interne (jeton de service, boucle locale)",
+  identite: "départ d'une connexion SSO depuis l'application comme depuis la console",
 };
 
 let t: BaseDeTest;

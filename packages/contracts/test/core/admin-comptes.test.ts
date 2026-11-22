@@ -39,6 +39,15 @@ describe("contrats REST : comptes de la console (core réel)", () => {
     expect(
       await core.appeler("POST", "/api/admin/users/3/role", { cookie, corps: { role: "moderator" } }),
     ).toEqual({ ok: true, role: "moderator" });
+    expect(await core.appeler("POST", "/api/admin/users/2/suspend", { cookie })).toEqual({
+      ok: true,
+      propagated: false,
+      tokens_revoked: 0,
+      oauth_revoked: 0,
+    });
+    expect(await core.appeler("POST", "/api/admin/users/2/unsuspend", { cookie })).toEqual({ ok: true });
+    await core.appeler("POST", "/api/admin/users/99/suspend", { cookie });
+    await core.appeler("POST", "/api/admin/users/99/unsuspend", { cookie });
     await core.appeler("POST", "/api/admin/users/1/role", { cookie, corps: { role: "user" } });
     await core.appeler("POST", "/api/admin/users/99/role", { cookie, corps: { role: "user" } });
     expect(
@@ -53,9 +62,10 @@ describe("contrats REST : comptes de la console (core réel)", () => {
     );
     expect(liste.users.map((u) => u.username).sort()).toEqual(["bob", "lou", "zoe"]);
     await core.appeler("GET", "/api/admin/users-with-groups", { cookie: cookieLou });
+    // Compte sans espace de travail : rien à supprimer.
     expect(await core.appeler("DELETE", "/api/admin/users/3?delete_sandbox=true", { cookie })).toEqual({
       ok: true,
-      sandbox_deleted: true,
+      sandbox_deleted: false,
     });
     await core.appeler("DELETE", "/api/admin/users/3", { cookie });
     await core.appeler("DELETE", "/api/admin/users/1", { cookie });

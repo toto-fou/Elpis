@@ -77,6 +77,11 @@ function ecartResetPassword(e: Etape, attendu: Sortie): Sortie {
   };
 }
 
+/** Écart voulu : un dossier que la suppression n'a pas pu vider est déjà mis de côté, il ne reste plus sous le nom du compte. */
+function ecartMiseDeCote(e: Etape, attendu: Sortie): Sortie {
+  return e.existe === "frank" ? { ...attendu, existe: false } : attendu;
+}
+
 /** Droits rendus avant suppression (un dossier en 0500 bloquerait le nettoyage). */
 function rendreDroits(racine: string): void {
   if (!existsSync(racine)) return;
@@ -98,15 +103,18 @@ describe.each(MOTEURS)("console : comptes, groupes, clients OAuth (%s)", (moteur
   let restaurer: () => void;
   const horloge = V.t0;
   const revoques: unknown[] = [];
+  const noms = new Map<number, string>();
   const appels: unknown[][] = [];
 
   const port: PortBac = {
-    async supprimerSurHote() {
-      return null;
-    },
     async retirerConteneur() {},
     async purgerTravail(uid, username, travail) {
-      appels.push(["purger", uid, username, relative(bac, travail)]);
+      appels.push([
+        "purger",
+        uid,
+        username,
+        relative(bac, travail).replace(/^\.supprime-\d+-\d+/u, username),
+      ]);
       rendreDroits(travail);
       rmSync(travail, { recursive: true });
     },
@@ -223,6 +231,8 @@ describe.each(MOTEURS)("console : comptes, groupes, clients OAuth (%s)", (moteur
         const entetes: Record<string, string> = {};
         if (e.corps !== undefined) entetes["content-type"] = "application/json";
         if (e.compte) entetes["x-uid"] = String(V.ids[e.compte]);
+        for (const u of await t.base.all<{ id: number; username: string }>("SELECT id, username FROM users"))
+          noms.set(u.id, u.username);
         const r = await app.inject({
           method: e.m as "GET",
           url: e.u ?? "",
@@ -236,7 +246,15 @@ describe.each(MOTEURS)("console : comptes, groupes, clients OAuth (%s)", (moteur
             vusEntetes[k] = k === "content-type" ? (String(v).split(";")[0] ?? "") : String(v);
         }
         res.statut = r.statusCode;
-        res.corps = r.body.replaceAll(bac, "{bac}");
+        // Écart voulu : l'état de suspension et l'identité rattachée (absents du Python) sont retirés de la liste avant comparaison.
+        res.corps = r.body
+          .replaceAll(bac, "{bac}")
+          .replace(
+            /\{bac\}\/\.supprime-(\d+)-\d+\//gu,
+            (_m, uid: string) => `{bac}/${noms.get(Number(uid)) ?? uid}/`,
+          )
+          .replaceAll(',"suspended_at":0.0,"suspended_by":null', "")
+          .replaceAll(',"identity":null,"has_local_password":true,"role_managed":false', "");
         res.entetes = vusEntetes;
       }
       const lignes = lignesAudit();
@@ -248,10 +266,13 @@ describe.each(MOTEURS)("console : comptes, groupes, clients OAuth (%s)", (moteur
       res.config = texte !== configAvant && e.config === undefined ? texte : null;
       configAvant = texte;
       const vecteur = V.sorties[i] as Sortie;
-      const attendu = ecartResetPassword(e, {
-        ...vecteur,
-        audit: (vecteur.audit as string[]).map(champsAuditV0),
-      });
+      const attendu = ecartMiseDeCote(
+        e,
+        ecartResetPassword(e, {
+          ...vecteur,
+          audit: (vecteur.audit as string[]).map(champsAuditV0),
+        }),
+      );
       const attenduNormalise = attendu.entetes
         ? {
             ...attendu,

@@ -266,6 +266,19 @@ describe("relais WebSocket : révocation, arrêt, battement, contre-pression", (
     expect(await parUrl("/ws/terminal/c")?.fermeture).toEqual(expiree);
   });
 
+  it("révocation par session : seuls les terminaux ouverts par cette session se ferment, ceux d'une autre session du même compte restent", async () => {
+    const autre = await banc.connecter(1, "sid-autre");
+    const a1 = await ouvrirWs(banc, "/ws/terminal/a", { cookie });
+    const a2 = await ouvrirWs(banc, "/ws/terminal/b", { cookie: autre });
+    await attendreQue(() => hote.ws.length === 2 && [a1, a2].every((c) => c.messages.length === 1));
+    expect(banc.relais.fermerTerminauxDuCompte(1, "sid-inconnu")).toBe(0);
+    expect(banc.relais.fermerTerminauxDuCompte(1, "sid-1")).toBe(1);
+    expect(await a1.fermeture).toEqual({ code: 4001, raison: "session expired" });
+    expect(a2.ws.readyState).toBe(WebSocket.OPEN);
+    expect(banc.relais.fermerTerminauxDuCompte(1, "sid-autre")).toBe(1);
+    expect(await a2.fermeture).toEqual({ code: 4001, raison: "session expired" });
+  });
+
   it("arrêt du process : 1012 vers le navigateur, 1000 vers l'hôte ; une connexion tardive est refermée sans joindre l'hôte", async () => {
     const c = await ouvrirWs(banc, "/ws/terminal", { cookie });
     await attendreQue(() => hote.ws.length === 1);

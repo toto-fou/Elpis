@@ -27,6 +27,7 @@ import {
   installerLecteurCorps,
   installerMultipart,
 } from "@elpis/http";
+import { poserIdentite } from "../aides-session";
 
 export const JETON_TOOLHOST = "jeton-de-service-du-toolhost";
 export const SECRET = "secret-de-session-des-tests";
@@ -92,9 +93,11 @@ const familleConnexion: Famille = {
       acces: "public",
       traiter: (requete) => {
         const sid = randomUUID();
-        requete.session.set("user_id", Number((requete.params as { uid: string }).uid));
-        requete.session.set("_login_ts", Date.now() / 1000);
-        requete.session.set("_sid", sid);
+        poserIdentite(requete.session, {
+          user_id: Number((requete.params as { uid: string }).uid),
+          _login_ts: Date.now() / 1000,
+          _sid: sid,
+        });
         return { sid };
       },
     },

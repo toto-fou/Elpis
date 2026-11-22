@@ -145,7 +145,7 @@ def _unite_bloc4(depot: Path) -> None:
 
 
 def _etat(depot: Path) -> None:
-    """Installation d'un compte unique (bloc 4) : secrets 0600, bac avec son /work et son dossier d'agent, un lien piège."""
+    """Installation d'un compte unique (bloc 4) : secrets 0600, bac avec son /work, son dossier d'agent et le miroir de son magasin de skills, un lien piège."""
     db = depot / "user_db"
     for nom in ("app.db", ".session_secret", ".vault.key", ".local_mcp_token", ".backup_ssh_key", ".backup_known_hosts",
                 ".db_password"):
@@ -173,6 +173,7 @@ def _etat(depot: Path) -> None:
     (bac / "skills").mkdir()
     (bac / "skills/s.md").write_text("s", encoding="utf-8")
     (bac / "skills/s.md").chmod(0o644)
+    (depot / "user_skills/alice").mkdir(parents=True)
     (depot / "user_sandboxes").chmod(0o700)
     (depot / "mcp.json").write_text("{}", encoding="utf-8")
     (depot / "mcp.json").chmod(0o600)

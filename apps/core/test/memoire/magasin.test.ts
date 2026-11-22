@@ -1,10 +1,21 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/test/memoire/magasin.test.ts — mémoire : verrous du magasin, écritures atomiques, portées, fournisseur figé, gestionnaire, migration et journal (port de tests/memory). */
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { setTimeout as dormir } from "node:timers/promises";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { ErreurPython, strPy } from "@elpis/commun";
 import { surchargerConfig } from "@elpis/config";
@@ -351,6 +362,57 @@ describe("migration de l'ancien .memory", () => {
     await writeFile(path.join(d, "carol", LEGACY_MEMORY_SUBDIR, "USER.md"), "ancien");
     expect(await migrateLegacyMemory(d, "carol")).toBe(neuf);
     expect(await readFile(path.join(neuf, "USER.md"), "utf8")).toBe("courant");
+  });
+
+  it("magasin manquant : repris de <bacs>/<compte>/memory, sinon de .memory, sans suivre de lien ni toucher la source ; présent, même vide, jamais regarni", async () => {
+    const d = await tmp();
+    const memoire = path.join(d, "memoire");
+    const bacs = path.join(d, "sb");
+    const dehors = path.join(d, "dehors");
+    await mkdir(dehors);
+    await writeFile(path.join(dehors, "secret"), "hors du magasin");
+    await mkdir(path.join(bacs, "alice", MEMORY_SUBDIR, "scopes", "abc"), { recursive: true });
+    await writeFile(path.join(bacs, "alice", MEMORY_SUBDIR, "USER.md"), "profil alice");
+    await writeFile(path.join(bacs, "alice", MEMORY_SUBDIR, "scopes", "abc", "MEMORY.md"), "portée");
+    await symlink(path.join(dehors, "secret"), path.join(bacs, "alice", MEMORY_SUBDIR, "lien"));
+    await symlink(dehors, path.join(bacs, "alice", MEMORY_SUBDIR, "dossier-lien"));
+    await mkdir(path.join(bacs, "bob", LEGACY_MEMORY_SUBDIR), { recursive: true });
+    await writeFile(path.join(bacs, "bob", LEGACY_MEMORY_SUBDIR, "MEMORY.md"), "note bob");
+    await symlink(path.join(bacs, "alice"), path.join(bacs, "carol"));
+    await mkdir(path.join(bacs, "_snapshots", MEMORY_SUBDIR), { recursive: true });
+    await writeFile(path.join(bacs, "_snapshots", MEMORY_SUBDIR, "1.tar.zst"), "instantané");
+    await mkdir(path.join(memoire, "dan", MEMORY_SUBDIR), { recursive: true });
+    await mkdir(path.join(bacs, "dan", MEMORY_SUBDIR), { recursive: true });
+    await writeFile(path.join(bacs, "dan", MEMORY_SUBDIR, "USER.md"), "ancien profil de dan");
+    const neuf = await migrateLegacyMemory(memoire, "alice", bacs);
+    expect((await readdir(neuf)).sort()).toEqual(["USER.md", "scopes"]);
+    expect(await readFile(path.join(neuf, "scopes", "abc", "MEMORY.md"), "utf8")).toBe("portée");
+    expect(await readFile(path.join(bacs, "alice", MEMORY_SUBDIR, "USER.md"), "utf8")).toBe("profil alice");
+    for (const f of ["USER.md", "scopes/abc/MEMORY.md"]) await rm(path.join(neuf, f));
+    await migrateLegacyMemory(memoire, "alice", bacs);
+    expect(await existe(path.join(neuf, "USER.md"))).toBe(false);
+    expect(
+      await readFile(path.join(await migrateLegacyMemory(memoire, "bob", bacs), "MEMORY.md"), "utf8"),
+    ).toBe("note bob");
+    expect(await readdir(await migrateLegacyMemory(memoire, "carol", bacs))).toEqual([]);
+    expect(await readdir(await migrateLegacyMemory(memoire, "_snapshots", bacs))).toEqual([]);
+    expect(await readdir(await migrateLegacyMemory(memoire, "dan", bacs))).toEqual([]);
+    expect((await readdir(path.join(memoire, "alice"))).sort()).toEqual([MEMORY_SUBDIR]);
+    await unlink(path.join(bacs, "carol"));
+  });
+
+  it("ancien magasin des sandboxes d'un autre compte (un compte par service) : laissé, jamais repris", async () => {
+    const d = await tmp();
+    const memoire = path.join(d, "memoire");
+    const bacs = path.join(d, "sb");
+    await mkdir(path.join(bacs, "alice", MEMORY_SUBDIR), { recursive: true });
+    await writeFile(path.join(bacs, "alice", MEMORY_SUBDIR, "USER.md"), "écrit par un autre compte");
+    vi.spyOn(process, "geteuid").mockReturnValue((process.geteuid?.() ?? 0) + 1);
+    try {
+      expect(await readdir(await migrateLegacyMemory(memoire, "alice", bacs))).toEqual([]);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it("nom de compte assaini ; une copie en échec crée quand même le dossier, sans lever", async () => {

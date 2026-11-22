@@ -65,6 +65,7 @@ const PERMIS_BACS = [
       "messageSuppression",
       "mettreBacDeCote",
       "netcfgHash",
+      "nomMisDeCote",
       "oublierOccupations",
       "profilFiltre",
       "profilParId",

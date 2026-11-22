@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/admin/bac.ts — bac à sable vu de la console : dossier d'un compte, occupation (`sandbox_usage_bytes`), suppression et port du pilote du bac. */
+import { rename } from "node:fs/promises";
+
 import {
   messageSuppression,
   mettreBacDeCote,
+  nomMisDeCote,
   remettreBacMisDeCote,
   supprimerBacMisDeCote,
   WORK_SUBDIR,
 } from "@elpis/bac";
-import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
+import { config, pyJoin, pyPath, realpathPy, safeSandboxName } from "@elpis/config";
+import { supprimerEntreeSous } from "@elpis/securite";
 
+import { safeUsername } from "../memoire/portee";
 import type { SandboxHost } from "../relais/hotes";
 
 /** Pilote du bac (hôtes d'outils, `piloteBac` : jamais Docker dans le core) : absent, la branche `except` du Python. */
@@ -52,15 +57,35 @@ export function travailBac(username: string | null, uid: number): string {
 /** `_sandbox_size_bytes`, `sandbox_usage_bytes` : partagés avec l'hôte d'outils (@elpis/bac). */
 export { oublierOccupations, sandboxUsageBytes, tailleBac } from "@elpis/bac";
 
-/** Bac gardé d'un compte supprimé : mis de côté (`.supprime-<uid>-<horodatage>`), puis remis en place ou supprimé. */
+/** Bac et mémoire gardés d'un compte supprimé : mis de côté (`.supprime-<uid>-<horodatage>`), puis remis en place ou supprimés ensemble. */
 export interface BacMisDeCote {
-  /** Local puis hôte distant remis sous le nom du compte (la suppression a échoué) ; la première erreur est levée. */
+  /** Local, hôte distant puis mémoire remis sous le nom du compte (la suppression a échoué) ; la première erreur est levée. */
   remettre(): Promise<void>;
-  /** Dossiers mis de côté supprimés, localement et sur l'hôte ; `[supprimé, erreur]`, les deux côtés tentés. */
+  /** Dossiers mis de côté (bac et mémoire) supprimés, localement et sur l'hôte ; `[supprimé, erreur]`, tous tentés. */
   supprimer(): Promise<[boolean, string | null]>;
 }
 
-/** Conteneur retiré, puis `P` et instantanés du nom (de cette machine, par son hôte d'outils s'il est seul à écrire le dossier des bacs, puis ceux de l'hôte distant) renommés hors de portée des noms de comptes ; un échec remet le local en place et lève. */
+/** `de` renommé en `vers` s'il existe ; vrai s'il a été renommé. */
+async function renommerSiPresent(de: string, vers: string): Promise<boolean> {
+  try {
+    await rename(de, vers);
+    return true;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw e;
+  }
+}
+
+/** Mémoire du compte (`<MEMORY_DIR>/<compte>`) et son nom mis de côté sous l'horodatage ; `null` quand elle vit dans le dossier des bacs, où elle suit `P`. */
+function memoireMiseDeCote(uid: number, username: string, horodatage: number): [string, string] | null {
+  if (pyPath(config.MEMORY_DIR) === pyPath(config.SANDBOX_DIR)) return null;
+  return [
+    pyJoin(config.MEMORY_DIR, safeUsername(username)),
+    pyJoin(config.MEMORY_DIR, nomMisDeCote(uid, horodatage)),
+  ];
+}
+
+/** Conteneur retiré, puis `P` et instantanés du nom (de cette machine, par son hôte d'outils s'il est seul à écrire le dossier des bacs, puis ceux de l'hôte distant) et mémoire du compte renommés hors de portée des noms de comptes ; un échec remet en place ce qui l'était et lève. */
 export async function mettreBacDeCoteDuCompte(
   uid: number,
   username: string,
@@ -69,12 +94,19 @@ export async function mettreBacDeCoteDuCompte(
   const racine = realpathPy(config.SANDBOX_DIR);
   const nomSur = safeSandboxName(username);
   const horodatage = Date.now();
+  const memoire = memoireMiseDeCote(uid, username, horodatage);
   await port?.retirerConteneur(uid, username, pyJoin(pyJoin(racine, nomSur), WORK_SUBDIR));
   const hote = (await port?.hoteDistantDuCompte?.(uid)) ?? null;
   const ici = (await port?.hoteIci?.()) ?? null;
   const remettreIci = async (): Promise<void> => {
     if (ici === null) await remettreBacMisDeCote(racine, nomSur, uid, horodatage);
     else await port?.remettreSurHote?.(ici, uid, username, horodatage);
+  };
+  const remettreDistant = async (): Promise<void> => {
+    if (hote !== null) await port?.remettreSurHote?.(hote, uid, username, horodatage);
+  };
+  const remettreMemoire = async (): Promise<void> => {
+    if (memoire !== null) await renommerSiPresent(memoire[1], memoire[0]);
   };
   if (ici === null) await mettreBacDeCote(racine, nomSur, uid, horodatage);
   else await port?.mettreDeCoteSurHote?.(ici, uid, username, horodatage);
@@ -84,15 +116,16 @@ export async function mettreBacDeCoteDuCompte(
     await remettreIci().catch(() => undefined);
     throw e;
   }
+  try {
+    if (memoire !== null) await renommerSiPresent(memoire[0], memoire[1]);
+  } catch (e) {
+    for (const remise of [remettreDistant, remettreIci]) await remise().catch(() => undefined);
+    throw e;
+  }
   return {
     async remettre() {
       const erreurs: unknown[] = [];
-      for (const remise of [
-        remettreIci,
-        async () => {
-          if (hote !== null) await port?.remettreSurHote?.(hote, uid, username, horodatage);
-        },
-      ])
+      for (const remise of [remettreIci, remettreDistant, remettreMemoire])
         await remise().catch((e: unknown) => erreurs.push(e));
       if (erreurs.length > 0) throw erreurs[0];
     },
@@ -120,7 +153,13 @@ export async function mettreBacDeCoteDuCompte(
         } catch (e) {
           erreurLocale = messageSuppression(e);
         }
-      const echec = erreur ?? erreurLocale;
+      let erreurMemoire: string | null = null;
+      try {
+        if (memoire !== null) await supprimerEntreeSous(memoire[1]);
+      } catch (e) {
+        erreurMemoire = messageSuppression(e);
+      }
+      const echec = erreur ?? erreurLocale ?? erreurMemoire;
       return [echec === null && (distant === true || local), echec];
     },
   };

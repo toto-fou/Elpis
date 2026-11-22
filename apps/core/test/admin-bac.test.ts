@@ -24,6 +24,8 @@ import {
   travailBac,
 } from "../src/admin/bac";
 import type { PortBac } from "../src/admin/bac";
+import { piloteBac } from "../src/admin/pilote-bac";
+import { oublierHotes } from "../src/relais/hotes";
 import type { SandboxHost } from "../src/relais/hotes";
 
 let dossier: string;
@@ -31,7 +33,7 @@ let restaurer: () => void;
 
 beforeEach(() => {
   dossier = mkdtempSync(join(tmpdir(), "elpis-admin-bac-"));
-  restaurer = surchargerConfig({ SANDBOX_DIR: join(dossier, "sb") });
+  restaurer = surchargerConfig({ SANDBOX_DIR: join(dossier, "sb"), MEMORY_DIR: join(dossier, "memoire") });
   oublierOccupations();
 });
 
@@ -109,6 +111,22 @@ describe("suppression du bac mis de côté", () => {
     expect(existsSync(join(ailleurs, "garde"))).toBe(true);
   });
 
+  it("mémoire du compte mise de côté sous le même horodatage, remise avec le bac, supprimée avec lui", async () => {
+    const memoire = join(dossier, "memoire");
+    mkdirSync(join(memoire, "bob", "memory"), { recursive: true });
+    writeFileSync(join(memoire, "bob", "memory", "USER.md"), "profil");
+    mkdirSync(join(memoire, "alice", "memory"), { recursive: true });
+    mkdirSync(join(dossier, "sb", "bob", "work"), { recursive: true });
+    const mis = await mettreBacDeCoteDuCompte(2, "bob");
+    const gardee = readdirSync(memoire).filter((n) => n.startsWith(".supprime-2-"));
+    expect([gardee.length, gardes()]).toEqual([1, gardee]);
+    expect(existsSync(join(memoire, "bob"))).toBe(false);
+    await mis.remettre();
+    expect(readdirSync(memoire).sort()).toEqual(["alice", "bob"]);
+    expect(await (await mettreBacDeCoteDuCompte(2, "bob")).supprimer()).toEqual([true, null]);
+    expect([readdirSync(memoire), gardes()]).toEqual([["alice"], []]);
+  });
+
   it("/work vide : tout le dossier supprimé", async () => {
     mkdirSync(join(dossier, "sb", "bob", "work"), { recursive: true });
     writeFileSync(join(dossier, "sb", "bob", ".work-migrated"), "1");
@@ -166,6 +184,34 @@ describe("un compte par service : bac de cette machine laissé à son hôte d'ou
     ]);
     expect(readdirSync(join(dossier, "sb"))).toEqual(["bob"]);
     expect(existsSync(join(dossier, "sb", "bob", "work", "f"))).toBe(true);
+  });
+
+  it("pilote de la console : l'hôte de cette machine (boucle locale avec jeton) sert le bac local seulement avec un compte par service", async () => {
+    const manifeste = join(dossier, "mcp.json");
+    writeFileSync(
+      manifeste,
+      JSON.stringify({
+        sandboxHosts: {
+          loin: { url: "https://hote.example", token: "a" },
+          sans: { url: "http://127.0.0.1:9000" },
+          ici: { url: "http://127.0.0.1:8765/", token: "t" },
+        },
+      }),
+    );
+    vi.stubEnv("APP_MCP_MANIFEST", manifeste);
+    vi.stubEnv("LOCAL_MCP_URL", "");
+    oublierHotes();
+    try {
+      expect(await piloteBac().hoteIci?.()).toMatchObject({
+        id: "ici",
+        url: "http://127.0.0.1:8765",
+        token: "t",
+      });
+      vi.stubEnv("ELPIS_GROUPE_DONNEES", "");
+      expect(await piloteBac().hoteIci?.()).toBeNull();
+    } finally {
+      oublierHotes();
+    }
   });
 
   it("refus de l'hôte distant : le bac de cette machine est remis par son hôte, l'erreur remonte", async () => {

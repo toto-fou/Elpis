@@ -252,6 +252,8 @@ export class ServiceJobs {
   private readonly admissions = new Map<string, { uid: number; chatId: string }>();
   private readonly enFond = new Set<Promise<unknown>>();
   private readonly toursEnCours = new Set<Promise<unknown>>();
+  /** Dernière publication `chat_job` en cours par job : les suivantes s'y enchaînent, l'entrée part au repos. */
+  private readonly publications = new Map<string, Promise<void>>();
   private desabonner: (() => void) | null = null;
   private annulerBalayage: (() => void) | null = null;
   private annulerVeille: (() => void) | null = null;
@@ -506,9 +508,23 @@ export class ServiceJobs {
     };
   }
 
-  /** `chat_job` : création ou changement d'état d'un job (puce « Tâches de fond »). */
-  private async publierJob(job: Job): Promise<void> {
+  /** `chat_job` : création ou changement d'état d'un job (puce « Tâches de fond ») ; publications d'un même job en série, chacune relisant job et compteurs : la dernière parue est la plus récente. */
+  private publierJob(job: Pick<Job, "userId" | "id">): Promise<void> {
+    const suite = (this.publications.get(job.id) ?? Promise.resolve()).then(() =>
+      this.publierEtat(job.userId, job.id),
+    );
+    this.publications.set(job.id, suite);
+    void suite.finally(() => {
+      if (this.publications.get(job.id) === suite) this.publications.delete(job.id);
+    });
+    return suite;
+  }
+
+  /** État du job relu au moment de publier ; un job disparu (conversation supprimée) n'est plus publié. */
+  private async publierEtat(uid: number, id: string): Promise<void> {
     try {
+      const job = await lireJob(this.base, uid, id);
+      if (job === null) return;
       const data = {
         user_id: job.userId,
         chat_id: job.chatId,
@@ -576,8 +592,7 @@ export class ServiceJobs {
     const evts = await prendre(this.base, uid, chatId, marque("tool", runId), this.maintenant());
     if (!evts.length) return null;
     this.noter(runId, "tool", evts);
-    for (const id of new Set(evts.map((e) => e.jobId)))
-      this.fond(lireJob(this.base, uid, id).then((j) => (j === null ? undefined : this.publierJob(j))));
+    for (const id of new Set(evts.map((e) => e.jobId))) this.fond(this.publierJob({ userId: uid, id }));
     return this.rendre(evts, null);
   }
 

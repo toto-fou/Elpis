@@ -6,6 +6,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Dict } from "@elpis/commun";
+import type { Base } from "@elpis/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { deleteChat, enforceRecentChatsCap, getChat, upsertChat } from "../../src/chats/stockage";
@@ -346,6 +347,63 @@ describe("réveil d'une conversation", () => {
     expect(etats.at(-1)).toMatchObject({ state: "exited", wake: true, pending_events: 0 });
     expect(reveils(b)).toEqual([]);
     expect(b.tours).toHaveLength(0);
+  });
+
+  it("JB-07 : `chat_job` d'un même job publiés dans l'ordre : l'état lu avant la prise du résultat d'outil ne paraît jamais après celui d'après", async () => {
+    let retenir = false;
+    let atteint = (): void => undefined;
+    let lacher = (): void => undefined;
+    const arrive = new Promise<void>((ok) => (atteint = ok));
+    const porte = new Promise<void>((ok) => (lacher = ok));
+    // Publication retenue au compte des jobs actifs de la conversation : ses événements en attente sont déjà lus.
+    const base = new Proxy(b.t.base, {
+      get(cible, cle) {
+        const v = Reflect.get(cible, cle, cible) as unknown;
+        if (cle !== "get") return typeof v === "function" ? (v as () => unknown).bind(cible) : v;
+        return async (sql: string, params?: Parameters<Base["get"]>[1]) => {
+          const r = await cible.get(sql, params);
+          if (retenir && sql.includes("AND chat_id=? AND state IN")) {
+            retenir = false;
+            atteint();
+            await porte;
+          }
+          return r;
+        };
+      },
+    });
+    b.service.arreter();
+    const neuf = new ServiceJobs({
+      base,
+      hote: { tuer: async () => [], veiller: async () => true },
+      publier: (m) => void b.publications.push(m),
+      horloge: b.horloge,
+      reglages: () => b.reglages,
+    });
+    b.service = neuf;
+    installerServiceJobs(neuf);
+    await neuf.demarrer();
+    const fin = tourActif(1, "c1");
+    const id = String((await neuf.enregistrer(1, corps("c1"), "local"))["job_id"]);
+    await neuf.poserEtat(1, id, "running", 4242, "");
+    const enAttenteDuJob = (): unknown[] =>
+      b.publications
+        .filter((p) => p["type"] === "chat_job")
+        .map((p) => (p["data"] as Dict)["job"] as Dict)
+        .filter((j) => j["id"] === id)
+        .map((j) => j["pending_events"]);
+    const avant = enAttenteDuJob().length;
+    retenir = true;
+    const recu = neuf.recevoir(1, [ev(id)], 0);
+    await arrive;
+    expect(await neuf.prendrePourResultat(1, "c1")).toContain(id);
+    for (let i = 0; i < 200 && enAttenteDuJob().length === avant; i++)
+      await new Promise((ok) => setImmediate(ok));
+    lacher();
+    await recu;
+    await neuf.calme(false);
+    fin();
+    expect(enAttenteDuJob().slice(avant)).toEqual([1, 0]);
+    expect((neuf as unknown as { publications: Map<string, unknown> }).publications.size).toBe(0);
   });
 
   it("livraison d'un tour qui n'a rien persisté : événements rendus, sans réveil immédiat, joints au message suivant (ni perte)", async () => {

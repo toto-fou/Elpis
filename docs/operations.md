@@ -202,7 +202,7 @@ secrets, the relay authority, `run/chat_runs` and `run/task_resume` to their own
 | `user_db/` (and the folder of `app.db_path`, when `APP_DB_PATH` in `.env` names it too) | `2771 root:elpis-donnees`; content group `elpis-donnees`, `g+rwX`, nothing for others |
 | `.vault.key`, `.encryption_key`, `.session_secret` (and their `.lock`) | `0640 root:elpis-cle`; with [keys handed by systemd](#platform-keys), moved into `/etc/elpis/credentials/` (a fallback vault key kept for `vault rekey` stays here) |
 | `.local_mcp_token` | `0640 root:elpis-donnees` |
-| RAG token | moved from `user_db/.rag_service_token` (which `./elpis configure` may write again: it then wins at the next `service install` if it belongs to the operator, has one link and nobody else can write it; read through its descriptor, copied, then removed) to `/etc/elpis/rag.token`, `0440 root:elpis-rag` (`RAG_SERVICE_TOKEN_FILE` of main, the console and the RAG); with keys handed by systemd, to the key `rag.token` |
+| RAG token | moved from `user_db/.rag_service_token` (which `./elpis configure` may write again: it then wins at the next `service install` if it belongs to the operator, has one link and nobody else can write it; read through its descriptor, copied, then removed) to `/etc/elpis/rag.token`, `0440 root:elpis-rag` (`RAG_SERVICE_TOKEN_FILE` of main, the console and the RAG); with keys handed by systemd, to the key `rag.token`; a copy left in `user_db` (refused, or written again) is closed to its owner (`0600`), never shared |
 | RAG store (`user_db/rag` by default) | `2770 elpis-main:elpis-rag`, content group `elpis-rag`, `g+rwX`; read-only in the RAG unit |
 | `.db_password*` | `0640 elpis-admin:elpis-donnees` (the console rewrites it) |
 | `.backup_ssh_key`, `.backup_rsync_password` | `0640 elpis-admin:elpis-cle` (main runs the scheduled remote backups) |
@@ -362,10 +362,10 @@ of the disk that includes `/var/lib/systemd/` holds both.
 **Back to one account, `service remove`.** `sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`
 decrypts each key back to its file of the single account (`/etc/elpis/vault.key` and
 `/etc/elpis/audit.key` `0440`, root and the key group; `.encryption_key` and `.session_secret`
-`0600` next to the database; the RAG token to `/etc/elpis/rag.token`, which the single account's
-pass moves to `user_db/.rag_service_token`; the Qdrant key is dropped, Qdrant running without one),
-then removes `/etc/elpis/credentials/`;
-`service remove` does the same for the operator. A file already there that differs keeps the key in the folder, with a
+`0600` next to the database and the RAG token to `user_db/.rag_service_token`, `0600`, all three to
+that account, the state folders being given back to it first; the Qdrant key is dropped, Qdrant
+running without one), then removes `/etc/elpis/credentials/`; `service remove` does the same for
+the operator, so the next `service install` takes the token over again. A file already there that differs keeps the key in the folder, with a
 warning. Both can be run again.
 
 **Commands.** Under `sudo`, the commands that need a key (`vault status`, `vault rekey`,

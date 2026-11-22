@@ -309,6 +309,7 @@ def test_jeton_du_rag_ecrivable_par_d_autres_ignore(depot):
     assert r.returncode == 0, r.stdout + r.stderr
     assert f"{depot}/user_db/.rag_service_token ignoré (à {MOI}, en 620" in r.stderr
     assert (_sys(depot) / "etc/elpis/rag.token").read_text(encoding="utf-8") != "r" * 43 + "\n"
+    assert _mode(depot / "user_db/.rag_service_token") == "600"
 
 
 def test_secret_de_session_garde_si_donne_par_l_environnement(depot):

@@ -69,9 +69,10 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           comptes, sans écriture d'autrui, N caractères au moins), qui est retiré ensuite ; FICHIER différent d'une clé en
           service : laissés tous deux (sauf --source-gagne) ; sinon clé gardée, sinon créée sans FICHIER refusé (GENRE :
           coffre, fernet, session, journal, jeton, qdrant) ; --copie : commande de copie hors de la machine affichée quand la clé change
-        droits.py cle-rendre MAGASIN NOM CIBLE PROPRIO GROUPE MODE
+        droits.py cle-rendre MAGASIN NOM CIBLE PROPRIO GROUPE MODE [--remplacer]
           clé NOM déchiffrée dans CIBLE (temporaire exclusif, PROPRIO:GROUPE, MODE octal) si CIBLE manque ou est la même,
           relue, puis retirée du magasin ; CIBLE « - » : clé retirée seulement ; CIBLE différente : laissées toutes deux
+          (--remplacer : CIBLE remplacée par la clé en service, signalé)
         droits.py cle-etat MAGASIN NOM...
           une ligne par clé : « NOM ok LONGUEUR », « NOM absent » ou « NOM illisible » (jamais le contenu)
         droits.py copier FICHIER DOSSIER NOM [--proprio A,B]
@@ -723,8 +724,8 @@ def cle(args: list[str]) -> bool:
         os.close(dfd)
 
 
-def _poser_clair(cible: str, clair: bytes, proprio: str, groupe: str, mode: int, nom_cle: str) -> bool:
-    """CIBLE posée à CLAIR (temporaire exclusif à PROPRIO:GROUPE en MODE, relue) si elle manque, gardée (droits reposés) si elle le vaut ; différente, lien ou fichier spécial : laissée, signalée."""
+def _poser_clair(cible: str, clair: bytes, proprio: str, groupe: str, mode: int, nom_cle: str, remplacer: bool = False) -> bool:
+    """CIBLE posée à CLAIR (temporaire exclusif à PROPRIO:GROUPE en MODE, relue) si elle manque, gardée (droits reposés) si elle le vaut ; différente : laissée, signalée (REMPLACER : remplacée) ; lien ou fichier spécial : laissé, signalé."""
     tete, nom = os.path.split(_net(cible))
     try:
         dfd = ouvrir_dossier(tete)
@@ -741,14 +742,18 @@ def _poser_clair(cible: str, clair: bytes, proprio: str, groupe: str, mode: int,
             return False
         if fd is not None:
             with os.fdopen(fd, "rb") as f:
-                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode) or f.read(65537) != clair:
-                    _dire(f"[warn ] {cible} existe et diffère de la clé {nom_cle} : laissés tous deux (à vérifier).",
-                          file=sys.stderr)
+                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                    _dire(f"[warn ] {cible} : fichier spécial : laissé, clé {nom_cle} gardée (à vérifier).", file=sys.stderr)
                     return False
-                if RACINE:
-                    os.fchown(f.fileno(), uid, gid)
-                os.fchmod(f.fileno(), mode)
-            return True
+                if f.read(65537) == clair:
+                    if RACINE:
+                        os.fchown(f.fileno(), uid, gid)
+                    os.fchmod(f.fileno(), mode)
+                    return True
+            if not remplacer:
+                _dire(f"[warn ] {cible} existe et diffère de la clé {nom_cle} : laissés tous deux (à vérifier).", file=sys.stderr)
+                return False
+            _dire(f"[warn ] {cible} différait de la clé {nom_cle} en service : remplacé par elle.", file=sys.stderr)
         tmp = f".{nom}.{secrets.token_hex(8)}"
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
         try:
@@ -775,8 +780,8 @@ def _poser_clair(cible: str, clair: bytes, proprio: str, groupe: str, mode: int,
 
 
 def cle_rendre(args: list[str]) -> bool:
-    magasin, nom, cible, proprio, groupe, mode = args
-    if not NOM_CLE.fullmatch(nom) or not re.fullmatch(r"0?[0-7]{3}", mode):
+    magasin, nom, cible, proprio, groupe, mode, *reste = args
+    if not NOM_CLE.fullmatch(nom) or not re.fullmatch(r"0?[0-7]{3}", mode) or reste not in ([], ["--remplacer"]):
         raise SystemExit(USAGE)
     magasin = _net(magasin)
     try:
@@ -795,7 +800,7 @@ def cle_rendre(args: list[str]) -> bool:
                 _dire(f"[warn ] {os.path.join(magasin, nom)} : illisible par systemd-creds ({e}) : gardée ; remettez sa copie "
                       f"hors de la machine à {cible}.", file=sys.stderr)
                 return False
-            if not _poser_clair(cible, clair, proprio, groupe, int(mode, 8), nom):
+            if not _poser_clair(cible, clair, proprio, groupe, int(mode, 8), nom, bool(reste)):
                 return False
         os.unlink(nom, dir_fd=dfd)
         _dire(f"[elpis] Clé {nom} " + (f"rendue à {cible} ({mode}), " if cible != "-" else "") + f"retirée de {magasin}.")

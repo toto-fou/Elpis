@@ -19,6 +19,7 @@ from tests.deploy import (
     test_lanceur_exploitation_ts as _lt,
 )
 from tests.deploy.test_comptes_separes_2026_11_21 import (
+    GROUPE,
     INSTALLE_SEPARE,
     MOI,
     TALONS,
@@ -396,6 +397,48 @@ def test_installation_separee_range_les_cles_avant_les_unites(depot):
     avant = {p.name: p.stat().st_ctime_ns for p in _magasin(depot).iterdir()}
     r = _harnais(depot, INSTALLE_SEPARE, CREDS, **_faux(depot))
     assert r.returncode == 0 and {p.name: p.stat().st_ctime_ns for p in _magasin(depot).iterdir()} == avant
+
+
+def test_jeton_du_rag_aller_retour_par_le_compte_unique(depot):
+    _unite_bloc4(depot)
+    _etat(depot)
+    _sources(depot)
+    jeton, db = "r" * 43 + "\n", depot / "user_db"
+    assert _harnais(depot, INSTALLE_SEPARE, CREDS, **_faux(depot)).returncode == 0
+    assert _clair(_magasin(depot) / "rag.token") == jeton
+    (_sys(depot) / "etc/trace").write_text("", encoding="utf-8")
+    r = _harnais(depot, INSTALLE_SEPARE, CREDS + _cs.TRACE_DROITS, ELPIS_COMPTE_UNIQUE="1", **_faux(depot))
+    assert r.returncode == 0, r.stdout + r.stderr
+    # Là où le compte unique le lit, à lui : la reprise suivante l'accepte.
+    assert f"droits cle-rendre {_magasin(depot)} rag.token {db}/.rag_service_token {MOI} {GROUPE} 0600 --remplacer" in _trace(depot)
+    assert (db / ".rag_service_token").read_text(encoding="utf-8") == jeton and _mode(db / ".rag_service_token") == "600"
+    assert not (_sys(depot) / "etc/elpis/rag.token").exists() and not _magasin(depot).exists()
+    r = _harnais(depot, INSTALLE_SEPARE, CREDS, **_faux(depot))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert _clair(_magasin(depot) / "rag.token") == jeton and not (db / ".rag_service_token").exists()
+
+
+def test_jeton_du_rag_en_service_remplace_le_fichier_au_retour(depot):
+    _unite_bloc4(depot)
+    _poser(depot, rag_token="jeton-en-service\n")
+    db = depot / "user_db"
+    (db / ".rag_service_token").write_text("autre-jeton\n", encoding="utf-8")
+    (db / ".rag_service_token").chmod(0o600)
+    r = _harnais(depot, INSTALLE_SEPARE, CREDS, ELPIS_COMPTE_UNIQUE="1", **_faux(depot))
+    assert r.returncode == 0 and "remplacé par elle" in r.stderr, r.stdout + r.stderr
+    assert (db / ".rag_service_token").read_text(encoding="utf-8") == "jeton-en-service\n" and not _magasin(depot).exists()
+
+
+def test_jeton_du_rag_refuse_ferme_et_remplace(depot):
+    _unite_bloc4(depot)
+    _etat(depot)
+    _sources(depot)
+    db = depot / "user_db"
+    (db / ".rag_service_token").chmod(0o620)
+    r = _harnais(depot, INSTALLE_SEPARE, CREDS, **_faux(depot))
+    assert r.returncode == 0 and ".rag_service_token" in r.stderr, r.stdout + r.stderr
+    assert _mode(db / ".rag_service_token") == "600" and (db / ".rag_service_token").read_text(encoding="utf-8") == "r" * 43 + "\n"
+    assert re.fullmatch(r"ELPIS_[0-9a-f]{64}\n", _clair(_magasin(depot) / "rag.token"))
 
 
 # Retour à un compte et retrait des services : chaque clé rendue à son fichier du compte unique, magasin retiré.

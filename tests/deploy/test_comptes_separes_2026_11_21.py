@@ -746,6 +746,25 @@ def test_retour_au_compte_unique_rend_les_dossiers_d_etat(depot):
     assert {p: _mode(depot / p) for p in attendus} == attendus
 
 
+
+# poser_droits tracé : l'ordre des étapes de root se lit dans la trace.
+TRACE_DROITS = ('eval "$(declare -f poser_droits | sed \'1s/^poser_droits/poser_droits_vrai/\')"\n'
+                'poser_droits() { trace droits "$@"; poser_droits_vrai "$@"; }\n')
+
+
+def test_retour_au_compte_unique_rend_les_dossiers_d_abord(depot):
+    _unite_bloc4(depot)
+    _etat(depot)
+    assert _harnais(depot, INSTALLE_SEPARE).returncode == 0
+    (_sys(depot) / "etc/trace").write_text("", encoding="utf-8")
+    r = _harnais(depot, INSTALLE_SEPARE, TALONS + TRACE_DROITS, ELPIS_COMPTE_UNIQUE="1")
+    assert r.returncode == 0 and "refusé" not in r.stderr, r.stdout + r.stderr
+    t = _trace(depot)
+    rendus = [i for i, l in enumerate(t) if l.startswith(f"droits dossier {depot}/user_db 00700 {MOI} ")]
+    assert len(rendus) == 2 and rendus[0] < t.index(f"audit_setup {MOI} unique") < t.index(f"render unique {MOI}") < rendus[1], t
+    assert _mode(depot / "user_db") == "700" and _mode(depot / "user_db/rag") == "700"
+
+
 def test_installeur_garde_les_dossiers_d_etat_sous_des_unites_separees(tmp_path):
     unites, faux, racine = tmp_path / "unites", tmp_path / "bin", tmp_path / "elpis"
     for d in (unites, faux, racine / "user_db/run", racine / "logs", racine / "user_skins", racine / "user_sandboxes/alice/work",
@@ -853,6 +872,31 @@ def test_droits_sans_lien_suivi_ni_lien_physique_ni_sauf(tmp_path):
     os.unlink(tmp_path / "double2")
     assert _droits("arbre", str(d), GROUPE, "g+rwX,o-rwx", "g+rwXs,o-rwx", "--sauf", "work").returncode == 0
     assert (d / "f").stat().st_ctime_ns == avant
+
+
+
+@pytest.mark.parametrize("mode,membres,cede", [(0o755, [], True), (0o775, [], True), (0o775, ["autre"], False), (0o777, [], False)])
+def test_dossier_de_root_cede_sous_un_parent_du_seul_compte(tmp_path, monkeypatch, capfd, mode, membres, cede):
+    sys.path.insert(0, str(REPO / "deploy"))
+    try:
+        import droits
+    finally:
+        sys.path.pop(0)
+    parent = tmp_path / "depot"
+    (parent / "user_db/rag").mkdir(parents=True)
+    parent.chmod(mode)
+    moi, vrai = droits.pwd.getpwnam(MOI), droits.pwd.getpwuid
+    # Rôle de root simulé : user_db « à root », groupe du dépôt privé à ce compte, sauf MEMBRES.
+    monkeypatch.setattr(droits, "RACINE", True)
+    monkeypatch.setattr(droits.pwd, "getpwuid", lambda uid: vrai(0) if uid == moi.pw_uid else vrai(uid))
+    monkeypatch.setattr(droits.pwd, "getpwall", lambda: [moi])
+    monkeypatch.setattr(droits.grp, "getgrgid", lambda gid: droits.grp.struct_group((MOI, "x", gid, membres)))
+    try:
+        assert droits.dossier([str(parent / "user_db"), "00700", MOI, GROUPE]) is cede
+    finally:
+        parent.chmod(0o755)
+    assert (_mode(parent / "user_db") == "700") is cede
+    assert ("refusé" in capfd.readouterr().err) is not cede
 
 
 def test_droits_secret_cree_garde_remplace_refuse(tmp_path):

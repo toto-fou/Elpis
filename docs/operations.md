@@ -232,7 +232,10 @@ folder. A refused folder is
 reported at each `service install` and left as it is: create it yourself
 (`sudo install -d -o root -g elpis-donnees -m 2770 /srv/elpis-data`), then run `service install`
 again. With one account for every service, a folder of that account is accepted too, and each
-pass gives the state folders back to it (`0700`), content left by the Elpis accounts included.
+pass gives the state folders back to it (`0700`), content left by the Elpis accounts included;
+coming back from one account per service, this is the first step, before any key is written
+into them. A non-empty folder of root goes to that account only if nobody else can write its
+parent (no write for group or others, or a parent of that account written by its private group).
 Under units with one account per service, `sudo ./install.sh` leaves the owners and groups of the
 state folders alone.
 

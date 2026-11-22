@@ -490,6 +490,21 @@ def test_retour_au_compte_unique_rend_les_fichiers(depot):
     assert r.returncode == 0 and {p: (p.read_text(encoding="utf-8"), _mode(p)) for p in attendus} == attendus
 
 
+def test_retrait_des_services_ferme_les_dossiers_avant_les_cles(depot):
+    _unite_bloc4(depot)
+    _etat(depot)
+    _sources(depot)
+    assert _harnais(depot, INSTALLE_SEPARE, CREDS, **_faux(depot)).returncode == 0
+    (_sys(depot) / "etc/trace").write_text("", encoding="utf-8")
+    r = _harnais(depot, 'MOI="$MOI"\ncmd_service remove', CREDS + _cs.TRACE_DROITS, **_faux(depot))
+    assert r.returncode == 0, r.stdout + r.stderr
+    t, db = _trace(depot), depot / "user_db"
+    ferme = next(i for i, l in enumerate(t) if l.startswith(f"droits dossier {db} 00700 {MOI} "))
+    assert ferme < next(i for i, l in enumerate(t) if l.startswith("droits cle-rendre ")), t
+    assert _mode(db) == "700" and not _magasin(depot).exists()
+    assert (db / ".rag_service_token").read_text(encoding="utf-8") == "r" * 43 + "\n" and _mode(db / ".rag_service_token") == "600"
+
+
 def test_retrait_des_services_rend_les_cles_a_l_operateur(depot):
     _poser(depot, vault_key=VAULT, encryption_key=FERNET, session_secret=SESSION, audit_key=JOURNAL)
     db = depot / "user_db"
@@ -637,9 +652,21 @@ def test_setup_sans_fichier_en_clair(depot):
     r = _harnais(depot, "cmd_vault setup", talons, FAUX_UID="1000", **_faux(depot))
     assert r.returncode != 0 and "en 664" in r.stderr and not (_magasin(depot) / "vault.key").exists()
     (etc / "vault.key").chmod(0o600)
+    # Unités qui lisent encore le fichier : chiffré mais gardé ; une fois qu'elles reçoivent la clé, retiré.
     r = _harnais(depot, "cmd_vault setup", talons, FAUX_UID="1000", **_faux(depot))
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert _clair(_magasin(depot) / "vault.key") == VAULT and not (etc / "vault.key").exists()
+    assert r.returncode == 0 and "gardé : des unités le lisent encore" in r.stdout, r.stdout + r.stderr
+    assert _clair(_magasin(depot) / "vault.key") == VAULT and (etc / "vault.key").read_text(encoding="utf-8") == VAULT
+    (etc / "audit.key").write_text(JOURNAL, encoding="utf-8")
+    (etc / "audit.key").chmod(0o440)
+    (_magasin(depot) / "audit.key").unlink()
+    r = _harnais(depot, "cmd_audit setup", talons, FAUX_UID="1000", **_faux(depot))
+    assert r.returncode == 0 and (etc / "audit.key").exists() and _clair(_magasin(depot) / "audit.key") == JOURNAL, r.stderr
+    with (_sys(depot) / "etc/systemd/system/elpis-main.service").open("a", encoding="utf-8") as f:
+        f.write(f"LoadCredentialEncrypted=vault.key:{_magasin(depot)}/vault.key\nLoadCredentialEncrypted=audit.key:{_magasin(depot)}/audit.key\n")
+    r = _harnais(depot, "cmd_vault setup", talons, FAUX_UID="1000", **_faux(depot))
+    assert r.returncode == 0 and not (etc / "vault.key").exists(), r.stdout + r.stderr
+    r = _harnais(depot, "cmd_audit setup", talons, FAUX_UID="1000", **_faux(depot))
+    assert r.returncode == 0 and not (etc / "audit.key").exists(), r.stdout + r.stderr
 
 
 # config.json rangé en deux temps : un échec entre les deux laisse la valeur dans config.json.

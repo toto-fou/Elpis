@@ -900,6 +900,37 @@ def test_dossier_de_root_cede_sous_un_parent_du_seul_compte(tmp_path, monkeypatc
     assert ("refusé" in capfd.readouterr().err) is not cede
 
 
+def test_cle_rendue_par_inode_et_jamais_sur_plusieurs_liens(tmp_path, monkeypatch, capfd):
+    sys.path.insert(0, str(REPO / "deploy"))
+    try:
+        import droits
+    finally:
+        sys.path.pop(0)
+    db, cle = tmp_path / "db", b"cle-en-service\n"
+    db.mkdir()
+    vrai = os.replace
+
+    # Un compte qui écrit le dossier remet son propre fichier, de même contenu et ouvert à tous, juste après le renommage.
+    def echange(src, dst, *, src_dir_fd=None, dst_dir_fd=None):
+        vrai(src, dst, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+        (db / "autre").write_bytes(cle)
+        (db / "autre").chmod(0o666)
+        vrai(db / "autre", db / dst)
+
+    monkeypatch.setattr(droits.os, "replace", echange)
+    assert droits._poser_clair(str(db / ".encryption_key"), cle, "-", "-", 0o600, "encryption.key") is False
+    assert "remplacé par un autre fichier juste après l'écriture" in capfd.readouterr().err
+    monkeypatch.setattr(droits.os, "replace", vrai)
+    (db / ".encryption_key").unlink()
+    (db / ".encryption_key").write_bytes(cle)
+    os.link(db / ".encryption_key", tmp_path / "lien")
+    assert droits._poser_clair(str(db / ".encryption_key"), cle, "-", "-", 0o600, "encryption.key", True) is False
+    assert "plusieurs liens" in capfd.readouterr().err
+    os.unlink(tmp_path / "lien")
+    assert droits._poser_clair(str(db / ".encryption_key"), cle, "-", "-", 0o600, "encryption.key") is True
+    assert _mode(db / ".encryption_key") == "600"
+
+
 def test_droits_secret_cree_garde_remplace_refuse(tmp_path):
     assert _droits("secret", str(tmp_path), ".s").returncode == 0
     texte = (tmp_path / ".s").read_text(encoding="ascii")

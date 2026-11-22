@@ -1662,6 +1662,7 @@ cmd_service() {
             fi
             ;;
         remove)
+            local etait; etait="$(mode_installe)"
             systemctl disable --now "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
             for s in "${SERVICES[@]}" "${SERVICES_RETIRES[@]}"; do
                 systemctl disable --now "${UNIT_PREFIX}-$s.service" >/dev/null 2>&1 || true
@@ -1669,6 +1670,11 @@ cmd_service() {
             done
             rm -f "$unit_dir/${UNIT_PREFIX}.target" "/etc/tmpfiles.d/${UNIT_PREFIX}.conf"
             rm -rf "/run/${UNIT_PREFIX}"
+            # Comme au retour à un seul compte : dossiers d'état d'un compte par service rendus et fermés à l'opérateur avant d'y rendre la moindre clé.
+            if [ "$etait" = separes ]; then
+                ( op="$(operateur)"; charger_env_sur && chemins_separes && droits_unique "${DB_FICHIER%/*}" "$op" "" ) \
+                    || warn "Dossiers d'état non tous rendus à l'opérateur (voir ci-dessus) : relancez sudo ./elpis service remove une fois corrigé."
+            fi
             [ ! -d "$CLES_SYS" ] || cles_au_retrait \
                 || warn "Clés remises par systemd non toutes rendues à leurs fichiers (voir ci-dessus) : $CLES_SYS gardé ; relancez sudo ./elpis service remove une fois corrigé."
             ptrace_restreint retire
@@ -2594,7 +2600,7 @@ audit_deplacer() {
     return "$echec"
 }
 
-# Contrôle final : mode des dossiers et de la clé (remise par systemd : la clé chiffrée, sans copie en clair), propriétaire et groupe sous root, clé d'au moins 32 octets ; liste les écarts.
+# Contrôle final : mode des dossiers et de la clé (remise par systemd : la clé chiffrée, sans copie en clair une fois les unités servies), propriétaire et groupe sous root, clé d'au moins 32 octets ; liste les écarts.
 audit_controle() {
     local c chemin attendu vu echec=0 journaux="2750 $1" etc="750 root ${GRP_CLE:-?}" cle="$AUDIT_KEY_SYS|440 root ${GRP_CLE:-?}"
     [ "${MODE_COMPTES:-}" != separes ] || { journaux="2770 root"; etc="751 root root"; }
@@ -2607,14 +2613,15 @@ audit_controle() {
         [ "$vu" = "$attendu" ] || { warn "$chemin : $vu (attendu $attendu)."; echec=1; }
     done
     if [ "${cle%%|*}" != "$AUDIT_KEY_SYS" ]; then
-        [ ! -e "$AUDIT_KEY_SYS" ] && [ ! -L "$AUDIT_KEY_SYS" ] || { warn "$AUDIT_KEY_SYS : copie en clair restée (voir ci-dessus)."; echec=1; }
+        ! cle_des_unites audit.key || { [ ! -e "$AUDIT_KEY_SYS" ] && [ ! -L "$AUDIT_KEY_SYS" ]; } \
+            || { warn "$AUDIT_KEY_SYS : copie en clair restée (voir ci-dessus)."; echec=1; }
     elif [ ! -f "$AUDIT_KEY_SYS" ] || [ -L "$AUDIT_KEY_SYS" ] || [ "$(tr -d ' \t\r\n' < "$AUDIT_KEY_SYS" | wc -c)" -lt 32 ]; then
         warn "Clé $AUDIT_KEY_SYS absente, illisible ou trop courte (32 octets au moins)."; echec=1
     fi
     return "$echec"
 }
 
-# Journal de sécurité hors du dépôt (AUDIT_SETUP COMPTE [ANCIENS_COMPTES] [DÉPLACER]) : groupes, dossiers 2750 au compte (mode séparé : 2770 à root, COMPTE n'y fait que déplacer), clé (remise par systemd : /etc/elpis/audit.key chiffrée puis retirée, sinon gardée, sinon créée en mémoire, aucun fichier en clair), droits réappliqués, logs/audit déplacé si DÉPLACER=1, contrôle final ; non nul au moindre échec.
+# Journal de sécurité hors du dépôt (AUDIT_SETUP COMPTE [ANCIENS_COMPTES] [DÉPLACER]) : groupes, dossiers 2750 au compte (mode séparé : 2770 à root, COMPTE n'y fait que déplacer), clé (remise par systemd : /etc/elpis/audit.key chiffrée puis retirée, gardée tant que les unités la lisent, sinon la clé en place gardée, sinon créée en mémoire, aucun fichier en clair), droits réappliqués, logs/audit déplacé si DÉPLACER=1, contrôle final ; non nul au moindre échec.
 audit_setup() {
     local compte="$1" ancien="${2:-}" deplacer="${3:-1}" nouveau=0 echec=0 dossiers=0 d mode=2750 proprio="$1"
     [ "${MODE_COMPTES:-}" != separes ] || { mode=2770; proprio=root; }
@@ -2638,7 +2645,8 @@ audit_setup() {
         GRP_CLE="$GROUPE_JOURNAL"
         if ! dossier_sur "$SYS_PREFIXE/etc/elpis" 0751 root root; then echec=1
         elif cles_systemd; then
-            { magasin_cles && poser_droits cle "$CLES_SYS" audit.key --source "$AUDIT_KEY_SYS" --proprio "root,$(operateur)" --creer journal --copie; } || echec=1
+            { magasin_cles && poser_droits cle "$CLES_SYS" audit.key --source "$AUDIT_KEY_SYS" --proprio "root,$(operateur)" --creer journal --copie \
+                $(cle_des_unites audit.key || echo --garder-source); } || echec=1
         else cle_audit || echec=1; fi
     elif groupe_de_cle "$compte" && dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE"; then cle_audit || echec=1; else echec=1; fi
     if [ "$dossiers" -eq 2 ]; then
@@ -2668,7 +2676,7 @@ cle_coffre() {
     cle_regroupee "$cle" "$GRP_CLE"
 }
 
-# Clé du coffre remise par systemd (vault setup, un compte par service) : /etc/elpis/vault.key validée par le cœur, chiffrée puis retirée, sinon la clé en place gardée, sinon créée en mémoire et chiffrée (aucun fichier en clair) ; validée par le cœur (clair par un tube), commande de copie hors de la machine affichée.
+# Clé du coffre remise par systemd (vault setup, un compte par service) : /etc/elpis/vault.key validée par le cœur, chiffrée puis retirée (gardée tant que les unités la lisent), sinon la clé en place gardée, sinon créée en mémoire et chiffrée (aucun fichier en clair) ; validée par le cœur (clair par un tube), commande de copie hors de la machine affichée.
 cle_coffre_systemd() {
     local verdict cle="$CLES_SYS/vault.key"
     if [ -L "$VAULT_KEY_SYS" ] || { [ -e "$VAULT_KEY_SYS" ] && [ ! -f "$VAULT_KEY_SYS" ]; }; then
@@ -2680,6 +2688,7 @@ cle_coffre_systemd() {
     fi
     magasin_cles || die "Magasin $CLES_SYS refusé (voir ci-dessus)."
     poser_droits cle "$CLES_SYS" vault.key --source "$VAULT_KEY_SYS" --proprio "root,$(operateur)" --creer coffre \
+        $(cle_des_unites vault.key || echo --garder-source) \
         || die "Clé du coffre non posée dans $CLES_SYS (voir ci-dessus), puis relancez sudo ./elpis vault setup."
     verdict="$(systemd-creds decrypt --name=vault.key "$cle" - | core_cmd vault check-key 2>&1)" \
         || die "$cle : ${verdict:-clé refusée par le cœur} : à vérifier."

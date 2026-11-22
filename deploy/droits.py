@@ -66,7 +66,8 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           fichier ordinaire à un seul lien de PROPRIO, de root ou d'un compte admis, ou créé (0600, à PROPRIO) s'il manque
           ou est vide ; autre contenu : refusé
         droits.py cle MAGASIN NOM [--source FICHIER] [--proprio A,B] [--min N] [--creer GENRE] [--copie]
-          clé NOM du magasin de systemd (systemd-creds encrypt --name=NOM --with-key=auto, clair par un tube, 0600 root,
+          clé NOM du magasin de systemd (systemd-creds encrypt --name=NOM --with-key=auto --tpm2-pcrs=, sans PCR : une mise à
+          jour de Secure Boot ne la rend pas illisible ; clair par un tube, 0600 root,
           déchiffrée et comparée avant d'être renommée) : reprise de FICHIER (fichier ordinaire à un seul lien d'un des
           comptes, sans écriture d'autrui, N caractères au moins), qui est retiré ensuite ; FICHIER différent d'une clé en
           service : laissés tous deux ; sinon clé gardée, sinon créée sans FICHIER refusé (GENRE :
@@ -76,7 +77,8 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           relue, puis retirée du magasin ; CIBLE « - » : clé retirée seulement ; CIBLE différente : laissées toutes deux
           (--remplacer : CIBLE remplacée par la clé en service, signalé)
         droits.py cle-etat MAGASIN NOM...
-          une ligne par clé : « NOM ok LONGUEUR », « NOM absent » ou « NOM illisible » (jamais le contenu)
+          une ligne par clé : « NOM ok LONGUEUR », « NOM absent », « NOM illisible » ou « NOM erreur » (échec passager de
+          systemd-creds) ; jamais le contenu
         droits.py copier FICHIER DOSSIER NOM [--proprio A,B]
           FICHIER (fichier ordinaire à un seul lien d'un des comptes, 4 Kio au plus), lu sans suivre de lien, recopié dans
           DOSSIER/NOM (0600, création exclusive)
@@ -525,10 +527,19 @@ def _motif(r: subprocess.CompletedProcess) -> str:
     return (r.stderr.decode("utf-8", "replace").strip().splitlines() or [f"code {r.returncode}"])[-1]
 
 
+# Échecs de systemd-creds qui disent la clé illisible (clé de l'hôte ou TPM changés, autre nom, contenu abîmé) ; tout autre (mémoire, TPM occupé, délai) ne remplace rien.
+ILLISIBLE = re.compile(r"bad message|does not match|not valid|failed to unseal|failed to decrypt|host key|not available|too short",
+                       re.I)
+PASSAGER = re.compile(r"resource busy|temporarily unavailable|cannot allocate|out of memory|timed out|interrupted|try again", re.I)
+
+
 def _dechiffrer(magasin: str, nom: str) -> bytes:
     r = _creds("decrypt", f"--name={nom}", os.path.join(magasin, nom), "-")
     if r.returncode != 0:
-        raise Illisible(_motif(r))
+        texte = r.stderr.decode("utf-8", "replace")
+        if ILLISIBLE.search(texte) and not PASSAGER.search(texte):
+            raise Illisible(_motif(r))
+        raise OSError(errno.EAGAIN, f"systemd-creds decrypt : {_motif(r)} (rien n'est remplacé)")
     return r.stdout
 
 
@@ -551,10 +562,12 @@ def _cle_presente(dfd: int, nom: str) -> bool:
 
 
 def _chiffrer(magasin: str, dfd: int, nom: str, clair: bytes) -> None:
-    """Clé NOM posée : chiffrée par systemd-creds dans un temporaire du magasin, mise à 0600 root, déchiffrée et comparée, puis renommée ; rien de laissé en cas d'échec."""
+    """Clé NOM posée : chiffrée par systemd-creds (sans PCR ; option inconnue : sans elle) dans un temporaire du magasin, mise à 0600 root, déchiffrée et comparée, puis renommée ; rien de laissé en cas d'échec."""
     tmp = f".{nom}.{secrets.token_hex(8)}"
     try:
-        r = _creds("encrypt", f"--name={nom}", "--with-key=auto", "-", os.path.join(magasin, tmp), entree=clair)
+        r = _creds("encrypt", f"--name={nom}", "--with-key=auto", "--tpm2-pcrs=", "-", os.path.join(magasin, tmp), entree=clair)
+        if r.returncode != 0 and re.search(rb"unrecognized option|invalid option|unknown option", r.stderr, re.I):
+            r = _creds("encrypt", f"--name={nom}", "--with-key=auto", "-", os.path.join(magasin, tmp), entree=clair)
         if r.returncode != 0:
             raise OSError(errno.EIO, f"systemd-creds encrypt : {_motif(r)}")
         fd = os.open(tmp, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
@@ -853,8 +866,10 @@ def cle_etat(args: list[str]) -> bool:
                     print(f"{nom} absent")
                     continue
                 print(f"{nom} ok {len(_dechiffrer(magasin, nom).strip())}")
-            except (Refus, Illisible, OSError):
+            except (Refus, Illisible):
                 print(f"{nom} illisible")
+            except OSError:
+                print(f"{nom} erreur")
         return True
     finally:
         if dfd is not None:

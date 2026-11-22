@@ -274,7 +274,6 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       expect([r.statusCode, r.json()]).toEqual([200, { ok: true, sandbox_deleted: true }]);
       expect(hote.requetes.map((q) => [q.methode, q.url, q.identite?.user_id, q.identite?.username])).toEqual(
         [
-          ["POST", "/api/internal/sandboxes/destroy", compte, "pbacfaux"],
           ["POST", "/api/internal/sandbox/set-aside", compte, "pbacfaux"],
           ["POST", "/api/internal/account/purge", compte, "pbacfaux"],
           ["POST", "/api/internal/sandbox/discard", compte, "pbacfaux"],
@@ -337,7 +336,6 @@ describe.each(MOTEURS)("suppression d'un compte avec son bac (%s)", (moteur) => 
       const r = await supprimer();
       expect(r.statusCode).toBe(502);
       expect(hote.requetes.map((q) => q.url)).toEqual([
-        "/api/internal/sandboxes/destroy",
         "/api/internal/sandbox/set-aside",
         "/api/internal/account/purge",
         "/api/internal/sandbox/restore",

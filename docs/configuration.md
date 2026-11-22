@@ -1331,6 +1331,7 @@ this machine is renamed by the console, which never runs Docker: the tool host o
 container (``POST /api/internal/sandboxes/destroy``) and empties its /work when the console has no right to
 (``POST /api/internal/sandbox/purge-work``, same timestamp). An enforced network profile destroys the
 container on the account's host.
+Cleanup of this machine's own sandbox folder only ever goes to a tool host declared on loopback with a service token, never to a remote one.
 Every account deletion also calls ``POST /api/internal/account/purge`` on
 each declared host that has a URL and a service token (same signed envelope), before the account is deleted: the site credentials in the account's AX memory
 are removed from the host's database. A host that is unreachable or fails refuses the deletion

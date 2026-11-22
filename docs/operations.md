@@ -86,7 +86,9 @@ own files; it never writes the operator's files: the lines `.env` would get are 
 copied into `.env` from the operator's account, `mcp.json` is updated by `./elpis configure
 --migrer-mcp` (without `sudo`), Caddy by `sudo deploy/caddy/install_caddy.sh`, and the platform
 secrets and tokens are created by `service install`. `./elpis configure` without `sudo` stops
-with that advice (its checking options, `--check-llm`, `--verifier-mcp`…, still run). With one
+with that advice before any question (`--migrer-mcp` and the checks that run no core,
+`--check-llm`, `--conseils-moteur`, `--verifier-mcp` and `--verifier-familles-mcp`, still run;
+`--check-db` needs `sudo`). With one
 account for every service, they belong to that account, and `sudo ./elpis configure` runs
 `deploy/configure.py` as root: it then writes every file through its folder opened without
 following any link (a random temporary file created exclusively, then renamed; owner and group
@@ -127,10 +129,16 @@ password), so that a flaw in one service does not hand over the files of the oth
 
 The **operator** is the account that administers Elpis: `ELPIS_USER`, otherwise the account
 that ran `sudo`, otherwise the owner of the installation. It owns the code, joins
-`elpis-donnees` (taken by a new session: `./elpis doctor` and `db` read the services' files
-through it) and is no longer added to the `docker` group nor to the key groups: commands that need
-a key run with `sudo` (`sudo ./elpis backup`, `sudo ./elpis vault status`, `sudo ./elpis audit
-verify`). An `elpis-*` account that already exists must be a system account without shell (uid 1
+`elpis-donnees` (taken by a new session: `./elpis doctor` reads the services' files through it)
+and is no longer added to the `docker` group nor to the key groups. It runs no code of the
+application on the services' configuration: without their keys, the core would create new ones
+next to the database. The commands that run it ask for `sudo` (`sudo ./elpis db info`,
+`sudo ./elpis backup`, `sudo ./elpis vault status`, `sudo ./elpis secret ls`, `sudo ./elpis audit
+verify`, `--key` included, `sudo ./elpis configure`); `./elpis doctor` skips the core's checks (file
+locks, database, LLM server, RAG, vault), which `sudo ./elpis doctor` runs. The checks of the tool
+host bundle (`./elpis doctor`, the installer) run as the tool host does (`APP_SERVICE=toolhost`,
+which never reads nor creates the session secret), and the bubblewrap probe reads no
+configuration. An `elpis-*` account that already exists must be a system account without shell (uid 1
 to 999, `nologin` or `false`): otherwise `service install` stops.
 
 Root runs no code of the application. Every call `./elpis` makes under `sudo` to the core
@@ -156,9 +164,10 @@ differs, with the line to put in `.env`. A mounted remote backup destination out
 folders is reported too: open it to main and the console with a drop-in
 (`sudo systemctl edit elpis-main elpis-admin`, `ReadWritePaths=`). `.env` must be absent or a
 regular file of root or the operator, with one link, that no service account can write or
-replace (nor its folder): otherwise these commands stop. `./elpis start`, `restart` and
-`upgrade` refuse to run as root under such units (`sudo systemctl start|restart elpis.target`;
-`./elpis upgrade` from the operator's account).
+replace (nor its folder): otherwise these commands stop. `./elpis start` and `restart` refuse
+to run under such units, as root or as the operator (`sudo systemctl start|restart
+elpis.target`); `./elpis upgrade` refuses root and runs from the operator's account: the backup
+and the restart ask for `sudo` by themselves, and it ends with `sudo ./elpis doctor`.
 
 What root starts under another account never gets root's terminal: each command runs in a
 session of its own (`setsid`), its input is `/dev/null` when it is a terminal, and its outputs,
@@ -380,13 +389,14 @@ warning. Both can be run again.
 receives its keys from systemd. For `vault rekey --from FILE`, root checks `FILE` (a regular file
 of root or the operator, one link) and hands a copy of it to that unit (`LoadCredential=`): a copy
 only root can read works. Without `sudo`, these commands say `lancez sudo ./elpis …`
-(`audit verify --key FILE` runs with the key given).
+([Service accounts](#service-accounts)); under `sudo`, `audit verify --key FILE` reads `FILE` as
+the console's account (a copy it can read, outside `/tmp`).
 
 **What `./elpis doctor` checks.** The systemd version, that each key is there and that
 `systemd-creds` decrypts it (under `sudo`), that each unit carries the keys it uses and no other,
-and that no plaintext key is left in `/etc/elpis` or next to the database. Without `sudo`, the RAG
-checks are skipped once the units carry the RAG token or the Qdrant key: the operator holds
-neither (`sudo ./elpis doctor` runs them with the console's keys).
+and that no plaintext key is left in `/etc/elpis` or next to the database. Without `sudo`, the
+core's checks, the RAG's included, are skipped: the operator runs no code on the services'
+configuration (`sudo ./elpis doctor` runs them with the console's keys).
 
 ## System prerequisites (apt packages)
 
@@ -1019,7 +1029,7 @@ Checks the signature of each line and the continuity of the numbers (`seq`) of e
 |---|---|
 | 0 | `intact`: every line signed and valid, no gap, both ends of the journal established |
 | 1 | `anomalies`: invalid signature, unreadable, missing, duplicated or out-of-order lines |
-| 2 | Bad command line; `--key` missing, unreadable or shorter than 32 bytes; or signed lines and no readable key (the default key is readable by the service account only: run the command as that account, or pass `--key`) |
+| 2 | Bad command line; `--key` missing, unreadable or shorter than 32 bytes; or signed lines and no readable key (the default key is readable by the service account only: run the command as that account, or pass `--key`; with one account per service, `sudo ./elpis audit verify`, `--key` included) |
 | 3 | `non_verifie` (unsigned lines, unknown key, start or end of the journal not established, reason printed) or `vide` (nothing in the period) |
 
 The command is itself written to the journal (`cli.audit.verify`). The same check is available in

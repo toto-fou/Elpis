@@ -162,11 +162,12 @@ need_exploitation() {
     [ -f "$CORE_DIST/exploitation.mjs" ] || die "Core non construit ($CORE_DIST/exploitation.mjs absent) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
     node_ok || die "Node.js « $("$NODE" -v 2>/dev/null || echo "$NODE absent") » : le core demande Node 24.x, $NODE_MIN au moins (./install.sh installe $NODE_VERSION dans node/, ou ELPIS_NODE=chemin)."
 }
-# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services, l'hôte d'outils local (/work des comptes pour « backup ») et, sous des unités à un compte par service, le groupe des données (fichiers créés partagés) ; root sous un compte par service : sous le compte de la console (app_console).
+# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services, l'hôte d'outils local (/work des comptes pour « backup ») et, sous des unités à un compte par service, le groupe des données (fichiers créés partagés) ; root sous un compte par service : sous le compte de la console (app_console) ; l'opérateur de ces unités : natif, empreinte et bwrap seulement, qui ne lisent pas la configuration.
 core_cmd() {
     local e=("ELPIS_RACINE=$ROOT") b=()
     [ "${1:-}" != bwrap ] || b=(--bac)
     if racine_separee; then app_console ${b[@]+"${b[@]}"} "$NODE" "$CORE_DIST/exploitation.mjs" "$@"; return; fi
+    case "${1:-}" in natif|empreinte|bwrap) ;; *) ! operateur_separe || die "Un compte par service : le core lit la configuration et les clés des services : lancez la commande avec sudo." ;; esac
     [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
     e+=("LOCAL_MCP_URL=http://127.0.0.1:${MCP_PORT}/mcp")
     [ "$(mode_installe)" != separes ] || e+=("ELPIS_GROUPE_DONNEES=$GROUPE_DONNEES" "${CHEMINS_FIXES[@]}")
@@ -255,10 +256,12 @@ cle_des_unites() {
     return 1
 }
 
-# Commande de l'opérateur sans sudo qui demande la clé NOM, remise par systemd aux seuls services : arrêt, avec la commande à lancer.
-refuser_sans_cle() {
-    [ "$(id -u)" -ne 0 ] && cle_des_unites "$1" || return 0
-    die "Clé $1 remise par systemd aux seuls services : lancez sudo ./elpis $2"
+# Opérateur d'unités à un compte par service (ni root ni le compte de la console) : jamais de code de l'application qui lit la configuration des services, faute de leurs clés (le core en créerait d'autres près de la base).
+operateur_separe() { [ "$(id -u)" -ne 0 ] && [ "$(id -un)" != "$UNIT_PREFIX-admin" ] && [ "$(mode_installe)" = separes ]; }
+
+# Commande de l'opérateur qui lancerait ce code : arrêt, avec la commande à lancer sous sudo.
+refuser_operateur_separe() {
+    ! operateur_separe || die "Un compte par service : cette commande lit la configuration et les clés des services : lancez sudo ./elpis $1"
 }
 
 # Opérateur : le compte qui a lancé sudo, sinon le propriétaire de l'installation (jamais root).
@@ -390,6 +393,13 @@ cmd_configure() {
         elif [ -t 0 ] && [ -t 1 ]; then app_console --terminal bash "$ROOT/elpis" configure "${a[@]}"
         else app_console bash "$ROOT/elpis" configure "${a[@]}"; fi
         return
+    fi
+    # Opérateur d'unités à un compte par service : les options que deploy/configure.py sert avant tout, sans le core (jamais les options dans le message : elles peuvent porter des secrets).
+    if operateur_separe; then
+        case " $* " in
+            *" --migrer-mcp "*|*" --verifier-mcp "*|*" --verifier-familles-mcp "*|*" --check-llm "*|*" --conseils-moteur "*|*" -h "*|*" --help "*) ;;
+            *) die "Un compte par service : config.json est écrit par la console, avec les clés des services : lancez sudo ./elpis configure (mêmes options)." ;;
+        esac
     fi
     # Sans option, dans un terminal : assistant par pages (deploy/wizard.py) —
     # toutes les réponses d'abord, puis application sans question. Avec des
@@ -829,10 +839,12 @@ ptrace_restreint() {
         || { warn "ptrace : $f non écrit ou non appliqué (sysctl) : la console peut tracer les commandes que root lance sous son compte."; return 1; }
 }
 
-# Root sous des unités à un compte par service : jamais de service lancé à la main (il tournerait sous root).
+# Unités à un compte par service : jamais de service lancé à la main, ni sous root (il tournerait sous root) ni sous l'opérateur (sans les clés des services, le core en créerait d'autres près de la base).
 refuser_racine_separee() {
-    [ "$(id -u)" -ne 0 ] || [ "$(mode_installe)" != separes ] \
-        || die "Un compte par service : les services se lancent par systemd (sudo systemctl $1 ${UNIT_PREFIX}.target), jamais à la main sous root."
+    local qui=""
+    [ "$(mode_installe)" = separes ] || return 0
+    [ "$(id -u)" -ne 0 ] || qui=" sous root"
+    die "Un compte par service : les services se lancent par systemd (sudo systemctl $1 ${UNIT_PREFIX}.target), jamais à la main$qui."
 }
 
 # Le core d'abord, main et admin ensemble : outils et RAG servent encore pendant qu'il finit.
@@ -2058,7 +2070,9 @@ doctor_coffre() {
     elif [ "$(id -u)" -ne 0 ] && [ -d "$dossier" ] && [ ! -x "$dossier" ]; then
         info "coffre (Secrets) : clé non vérifiable par ce compte ($dossier réservé au compte des services $compte : doctor sous ce compte ou avec sudo)"; return 0
     fi
-    if [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
+    if operateur_separe; then
+        info "coffre (Secrets) : secrets non vérifiés par ce compte (configuration et clés des services : sudo ./elpis doctor)"; return 0
+    elif [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
         info "coffre (Secrets) : non vérifié (core non construit ou config.json absent)"; return 0
     fi
     lignes_doctor "coffre (Secrets)" vault_core vault doctor
@@ -2132,7 +2146,7 @@ cmd_doctor() {
         if racine_separee; then app_console env -C "$ROOT/office" "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'
         else (cd "$ROOT/office" && "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'); fi
     }
-    doctor_hote_empreinte() { app_cmd env ELPIS_RACINE="$ROOT" "$NODE" "$HOTE_DIST/main.mjs" --empreinte; }
+    doctor_hote_empreinte() { app_cmd env APP_SERVICE=toolhost ELPIS_RACINE="$ROOT" "$NODE" "$HOTE_DIST/main.mjs" --empreinte; }
     doctor_llm() {
         if racine_separee; then app_console --env "ELPIS_CFG_LLM_API_KEY=$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"
         else ELPIS_CFG_LLM_API_KEY="$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"; fi
@@ -2174,13 +2188,13 @@ cmd_doctor() {
         check_out "module natif du core" "./install.sh" core_cmd natif
         check_out "bundle du core" "./install.sh, ou ./install.sh --offline <paquet de cette version>" core_cmd empreinte
     fi
-    # Hôte d'outils : construit, à jour des sources, node-pty (PTY du terminal) et better-sqlite3 chargés pour cette machine.
+    # Hôte d'outils : construit, à jour des sources, node-pty (PTY du terminal) et better-sqlite3 chargés pour cette machine ; sous APP_SERVICE=toolhost, comme le service : ni lecture ni création du secret de session.
     check "hôte d'outils construit (apps/toolhost/dist/main.mjs)" "./install.sh, ou ./install.sh --offline <paquet de cette version>" test -f "$HOTE_DIST/main.mjs"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
         check_out "bundle de l'hôte d'outils" "./install.sh, ou ./install.sh --offline <paquet de cette version>" \
             doctor_hote_empreinte
         check_out "modules natifs de l'hôte d'outils" "bundle incomplet ou d'une autre architecture : paquet hors ligne de cette architecture, ou construction sur place (build-essential, python3 : npm ci y compile node-pty)" \
-            app_cmd timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --natif
+            app_cmd env APP_SERVICE=toolhost timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --natif
     fi
     if [ -n "${SSL_CERT_FILE:-}${SSL_CERT_DIR:-}" ]; then
         check "autorités de confiance (${SSL_CERT_FILE:-SSL_CERT_DIR=$SSL_CERT_DIR})" \
@@ -2209,7 +2223,7 @@ cmd_doctor() {
     check "hôte d'outils ($th_host:$MCP_PORT)" "./elpis logs toolhost" curl --noproxy '*' -fsS -m 3 -o /dev/null "http://$th_host:$MCP_PORT/health"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
         local natives
-        natives="$(app_cmd env ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
+        natives="$(app_cmd env APP_SERVICE=toolhost ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
         info "hôte d'outils : familles servies ${natives:-aucune} (toolhost.json › families)"
         local th_conf="${TOOLHOST_CONFIG:-$ROOT/toolhost.json}"; case "$th_conf" in /*) ;; *) th_conf="$ROOT/$th_conf" ;; esac
         if [ -f "$th_conf" ] && grep -qE '"(familles_natives|mcp_upstream|mcp_upstream_sse)"[[:space:]]*:[[:space:]]*([^[:space:]"]|"[^"])' "$th_conf"; then
@@ -2229,10 +2243,13 @@ cmd_doctor() {
             app_cmd env ELPIS_RACINE="$ROOT" "$NODE" "$ROOT/browser-service/dist/empreinte.mjs"
     fi
     doctor_navigateur_bac
-    # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
-    local distants core_ok=0
+    # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit, ou sous l'opérateur d'unités à un compte par service (sudo ./elpis doctor).
+    local distants core_ok=0 sans_cles=""
     [ -f "$CORE_DIST/exploitation.mjs" ] && core_ok=1
-    if [ "$core_ok" -eq 0 ]; then
+    ! operateur_separe || sans_cles=" (configuration et clés des services : sudo ./elpis doctor)"
+    if [ -n "$sans_cles" ]; then
+        info "verrous de fichiers : non vérifiés par ce compte$sans_cles"
+    elif [ "$core_ok" -eq 0 ]; then
         info "verrous de fichiers : non vérifiés (core non construit)"
     elif distants="$(core_cmd fs-local 2>/dev/null)"; then
         ok "verrous de fichiers : dossiers de données sur disque local"
@@ -2255,7 +2272,9 @@ cmd_doctor() {
         check "reconnaissance vocale (:8090)" "systemctl status elpis-whisper" curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8090/health
         check "synthèse vocale (:8091)" "systemctl status elpis-tts" curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8091/health
     fi
-    if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
+    if [ -n "$sans_cles" ]; then
+        info "base de données et serveur LLM : non vérifiés par ce compte$sans_cles"
+    elif [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
         local db_hint="./elpis db info pour le détail ; ./elpis db use sqlite en secours"
         if [ "$(core_cmd config base-retiree 2>/dev/null)" = oui ]; then
             db_hint="MariaDB/MySQL n'est plus pris en charge : docs/operations.md, « Upgrading »"
@@ -2276,8 +2295,8 @@ cmd_doctor() {
                     else ELPIS_CFG_LLM_API_KEY="$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}"; fi 2>/dev/null)
         fi
     fi
-    if [ "$(id -u)" -ne 0 ] && { cle_des_unites rag.token || cle_des_unites qdrant.key; }; then
-        info "RAG : jeton du service et clé de Qdrant remis par systemd aux seuls services, non vérifiés par ce compte (sudo ./elpis doctor)"
+    if [ -n "$sans_cles" ]; then
+        info "RAG : non vérifié par ce compte$sans_cles"
     elif [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
         # Extracteur, jeton et magasin partagés, Qdrant, embeddings, reclassement et OCR : vus par le core.
         lignes_doctor "RAG" app_cmd env ELPIS_RACINE="$ROOT" timeout 120 "$NODE" --use-system-ca "$CORE_DIST/exploitation.mjs" rag
@@ -2327,6 +2346,7 @@ cmd_backup() {
 
 # Base de données : état, test d'une cible, copie, choix du moteur (« use sqlite » ne touche à aucune base).
 cmd_db() {
+    refuser_operateur_separe "db $*"
     charger_instance
     need_exploitation
     core_cmd db "$@"
@@ -2371,7 +2391,7 @@ cmd_audit() {
     fi
     charger_instance
     need_exploitation
-    case " $* " in *" --key "*) ;; *) refuser_sans_cle audit.key "audit $*" ;; esac
+    refuser_operateur_separe "audit $*"
     core_cmd audit "$@"
 }
 
@@ -2385,7 +2405,7 @@ cmd_vault() {
         status|rekey|doctor)
             charger_instance
             need_exploitation
-            refuser_sans_cle vault.key "vault $*"
+            refuser_operateur_separe "vault $*"
             if [ "$1" = rekey ] && [ "${2:-}" = --from ] && [ -n "${3:-}" ]; then
                 f="$3"; case "$f" in /*) ;; *) f="$ROOT/$f" ;; esac
                 set -- rekey --from "$f" "${@:4}"
@@ -2401,7 +2421,7 @@ cmd_secret() {
     [ "${1:-}" = ls ] || die "Usage : ./elpis secret ls [--user COMPTE]"
     charger_instance
     need_exploitation
-    refuser_sans_cle vault.key "secret $*"
+    refuser_operateur_separe "secret $*"
     vault_core secret "$@"
 }
 
@@ -2821,6 +2841,8 @@ puis ./elpis restart. Sans elle, fichiers, éditeur et git des sandboxes ne marc
         cmd_stop
         cmd_start || die "L'application ne répond pas après la mise à jour (voir ci-dessus) : ./elpis logs main"
     fi
+    # Un compte par service : base et diagnostic vus par le core avec les clés des services, sous sudo.
+    if operateur_separe; then ok "Mise à jour appliquée ; diagnostic (sudo ./elpis doctor) :"; sudo "$ROOT/elpis" doctor || true; return 0; fi
     local base
     base="$(core_cmd migrations 2>/dev/null)" || die "Base après la mise à jour : ${base:-injoignable} (./elpis db info, ./elpis logs main)"
     case "$base" in

@@ -114,13 +114,13 @@ bundle_sain() {
     return 0
 }
 
-# bundle_hote_sain DOSSIER NODE : mêmes sources que le dépôt, node-pty et better-sqlite3 chargés pour cette machine ; MOTIF dit sinon pourquoi.
+# bundle_hote_sain DOSSIER NODE : mêmes sources que le dépôt, node-pty et better-sqlite3 chargés pour cette machine ; MOTIF dit sinon pourquoi ; sous APP_SERVICE=toolhost, comme le service : ni lecture ni création du secret de session.
 bundle_hote_sain() {
     local dossier="$1" node="$2" rc=0
     [ -f "$dossier/main.mjs" ] || { MOTIF="main.mjs absent"; return 1; }
-    MOTIF="$(ELPIS_RACINE="$ROOT" "$node" "$dossier/main.mjs" --empreinte 2>&1)" || rc=$?
+    MOTIF="$(APP_SERVICE=toolhost ELPIS_RACINE="$ROOT" "$node" "$dossier/main.mjs" --empreinte 2>&1)" || rc=$?
     if [ "$rc" -ne 0 ]; then MOTIF="autre version que ce dépôt : ${MOTIF:-contrôle interrompu (code $rc)}"; return 1; fi
-    MOTIF="$(timeout 30 "$node" "$dossier/main.mjs" --natif 2>&1)" || rc=$?
+    MOTIF="$(APP_SERVICE=toolhost timeout 30 "$node" "$dossier/main.mjs" --natif 2>&1)" || rc=$?
     if [ "$rc" -ne 0 ]; then MOTIF="modules natifs : ${MOTIF:-contrôle interrompu (code $rc)}"; return 1; fi
     return 0
 }

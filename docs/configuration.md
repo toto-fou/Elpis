@@ -303,7 +303,8 @@ Operations (`./elpis db …`, served by the core: `apps/core/dist/exploitation.m
 ./elpis db use sqlite                             # escape hatch if the server goes down
 ```
 
-Password: `--password-env VARIABLE_NAME` or masked input. The
+With one account per service, these commands run with `sudo` (`sudo ./elpis db info`): they read
+the services' configuration and keys. Password: `--password-env VARIABLE_NAME` or masked input. The
 transfer copies the tables in foreign-key order, sets aside and counts
 orphan rows, resets the identity sequences, checks counts and checksums, and
 writes a JSON report. From the console, the **Data** page does the

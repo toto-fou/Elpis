@@ -149,8 +149,9 @@ the `elpis-donnees` group, the local backups to the operator, nothing to other a
 systemd 250 or later, the platform keys are no longer files a group reads: the vault key, the
 legacy encryption key, the session secret and the signing key are encrypted by `systemd-creds` in
 `/etc/elpis/credentials/` (root only; bound to the TPM2 when there is one) and systemd hands each
-unit, decrypted for it alone, only the keys it uses: main and the console all four and the RAG
-token, the tool host the signing key only, the RAG extractor its token only. `elpis-cle` then only gives the remote backup
+unit, decrypted for it alone, only the keys it uses: main and the console all four plus the RAG
+token and the Qdrant API key, the tool host the signing key only, the RAG extractor its token
+only, Qdrant its API key only (it then refuses any request without it). `elpis-cle` then only gives the remote backup
 credentials, rsyslog reads the logs but not the signing key, and no platform key is left in
 `user_db/`, where the tool host could replace it. The commands root runs under the console's
 account are a transient unit (`systemd-run`) that gets the console's keys the same way; copies of

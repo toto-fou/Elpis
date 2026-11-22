@@ -10,6 +10,7 @@ Type=simple
 SyslogIdentifier=@PREFIX@-qdrant
 WorkingDirectory=@WORKDIR@
 @ENV@
+@CLES@
 EnvironmentFile=-@ROOT@/.env
 UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
 InaccessiblePaths=-@VAULT_KEY_SYS@

@@ -222,21 +222,23 @@ cles_systemd() {
     [ "$CLES_SYSTEMD" = oui ]
 }
 
-# Clés remises par systemd à un service : main, la console et les commandes que root lance sous son compte (console), toutes ; l'hôte d'outils, la clé du journal seule ; le RAG, son jeton seul.
+# Clés remises par systemd à un service : main, la console et les commandes que root lance sous son compte (console), toutes ; l'hôte d'outils, la clé du journal seule ; le RAG, son jeton seul ; Qdrant, sa clé d'API seule.
 cles_du_service() {
     case "$1" in
-        main|admin|console) echo vault.key encryption.key session.secret audit.key rag.token ;;
+        main|admin|console) echo vault.key encryption.key session.secret audit.key rag.token qdrant.key ;;
         toolhost) echo audit.key ;;
         rag) echo rag.token ;;
+        qdrant) echo qdrant.key ;;
     esac
 }
 
-# Variable qui donne au code le chemin d'une clé remise par systemd.
+# Variable qui donne au code du SERVICE le chemin d'une clé remise par systemd ; aucune pour Qdrant, que deploy/qdrant/lancer.sh lit dans $CREDENTIALS_DIRECTORY.
 variable_de_cle() {
+    [ "${2:-}" != qdrant ] || return 0
     case "$1" in
         vault.key) echo ELPIS_VAULT_KEY_PATH ;; encryption.key) echo APP_ENCRYPTION_KEY_PATH ;;
         session.secret) echo APP_SESSION_SECRET_FILE ;; audit.key) echo ELPIS_AUDIT_KEY_PATH ;;
-        rag.token) echo RAG_SERVICE_TOKEN_FILE ;;
+        rag.token) echo RAG_SERVICE_TOKEN_FILE ;; qdrant.key) echo QDRANT_API_KEY_FILE ;;
     esac
 }
 
@@ -1031,7 +1033,7 @@ _umask_unite() {
     esac
 }
 
-# Environnement et dossier propres au mode des comptes : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, les chemins des données fixés (CHEMINS_FIXES : config.json ne les change plus), ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG ; remis par systemd, il passe par _cles_unite), le cache systemd du RAG, le stockage de Qdrant dans son dossier d'état et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
+# Environnement, dossier et commande propres au mode des comptes (Qdrant lancé avec sa clé d'API remise par systemd : deploy/qdrant/lancer.sh) : ELPIS_COMPTES (main, admin, toolhost) ; en mode séparé, les chemins des données fixés (CHEMINS_FIXES : config.json ne les change plus), ELPIS_GROUPE_DONNEES, ELPIS_GROUPE_CLE (main et console : groupe des secrets des sauvegardes distantes), le jeton du RAG hors de user_db (main, console, RAG ; remis par systemd, il passe par _cles_unite), le cache systemd du RAG, le stockage de Qdrant dans son dossier d'état et, pour l'hôte d'outils, les navigateurs des bacs (NAV).
 _env_comptes() {
     local e jeton=()
     case "$1" in main|admin|toolhost) SPEC_ENV+=("ELPIS_COMPTES=$MODE_COMPTES") ;; esac
@@ -1045,17 +1047,20 @@ _env_comptes() {
         rag) _env_unite "RAG_CACHE_DIR=/var/cache/$UNIT_PREFIX-rag"
              if [ "${#jeton[@]}" -eq 0 ]; then _env_retire RAG_SERVICE_TOKEN_FILE; else _env_unite "${jeton[0]}"; fi ;;
         qdrant) SPEC_DIR="/var/lib/$UNIT_PREFIX-qdrant"
-                SPEC_ENV+=("QDRANT__STORAGE__STORAGE_PATH=$SPEC_DIR/storage" "QDRANT__STORAGE__SNAPSHOTS_PATH=$SPEC_DIR/storage/snapshots") ;;
+                SPEC_ENV+=("QDRANT__STORAGE__STORAGE_PATH=$SPEC_DIR/storage" "QDRANT__STORAGE__SNAPSHOTS_PATH=$SPEC_DIR/storage/snapshots")
+                ! cles_systemd || ! cle_presente qdrant.key || SPEC_CMD=(/bin/sh "$ROOT/deploy/qdrant/lancer.sh" "${SPEC_CMD[@]}") ;;
     esac
 }
 
 # Lignes des clés remises par systemd au service S (un compte par service, systemd 250 ou plus) : pour chaque clé de S présente dans le magasin (vu par ce compte), LoadCredentialEncrypted= et sa variable (%d : dossier des credentials du service) ; aucune sinon (fichiers du bloc 5).
 _cles_unite() {
-    local n
+    local n v
     [ "$MODE_COMPTES" = separes ] && cles_systemd || return 0
     for n in $(cles_du_service "$1"); do
         cle_presente "$n" || continue
-        printf 'LoadCredentialEncrypted=%s:%s/%s\nEnvironment="%s=%%d/%s"\n' "$n" "$CLES_SYS" "$n" "$(variable_de_cle "$n")" "$n"
+        printf 'LoadCredentialEncrypted=%s:%s/%s\n' "$n" "$CLES_SYS" "$n"
+        v="$(variable_de_cle "$n" "$1")"
+        [ -z "$v" ] || printf 'Environment="%s=%%d/%s"\n' "$v" "$n"
     done
 }
 
@@ -1419,7 +1424,7 @@ ranger_secrets() {
     fi
     liste="$(printf '%s' "$sortie" | poser_droits ranger "$BASE_DONNEES" "$jeton" ${magasin[@]+"${magasin[@]}"})"; rc=$?
     [ "$rc" -eq 0 ] || warn "Secrets de config.json pas tous écrits (voir ci-dessus) : ceux-là restent dans config.json ; relancez sudo ./elpis service install une fois corrigé."
-    mapfile -t cles < <(printf '%s\n' "$liste" | grep -xE 'app\.(session_secret|encryption_key)|rag\.service_token')
+    mapfile -t cles < <(printf '%s\n' "$liste" | grep -xE 'app\.(session_secret|encryption_key)|rag\.(service_token|qdrant_api_key)')
     if [ "${#cles[@]}" -gt 0 ]; then
         printf '%s' "$sortie" | ranger_cfg "$c" --retirer "${cles[@]}" \
             || { warn "Secrets rangés mais pas tous retirés de config.json (voir ci-dessus) : relancez sudo ./elpis service install."; rc=1; }
@@ -1450,7 +1455,7 @@ jeton_rag() {
 # Magasin des clés remises par systemd : CLES_SYS, 0700 root:root (deploy/droits.py dossier : ni lien ni autre propriétaire).
 magasin_cles() { poser_droits dossier "$CLES_SYS" 0700 root root --creer; }
 
-# Un compte par service et systemd 250 ou plus, services arrêtés : clés de la plateforme chiffrées par systemd-creds dans le magasin, chacune reprise de sa source en clair du bloc 5 (deploy/droits.py cle : lue sans suivre de lien, à root, à l'opérateur OPÉRATEUR ou à un ancien compte unique d'ANCIENS ; chiffrée, déchiffrée et comparée, puis retirée), sinon gardée, sinon créée : clé du coffre (/etc/elpis/vault.key ; la clé de repli seule devient la clé, mêmes secrets sans rekey, et reste sinon pour vault rekey --from), clé de chiffrement héritée et secret de session (près de la base), clé du journal.
+# Un compte par service et systemd 250 ou plus, services arrêtés : clés de la plateforme chiffrées par systemd-creds dans le magasin, chacune reprise de sa source en clair du bloc 5 (deploy/droits.py cle : lue sans suivre de lien, à root, à l'opérateur OPÉRATEUR ou à un ancien compte unique d'ANCIENS ; chiffrée, déchiffrée et comparée, puis retirée), sinon gardée, sinon créée : clé du coffre (/etc/elpis/vault.key ; la clé de repli seule devient la clé, mêmes secrets sans rekey, et reste sinon pour vault rekey --from), clé de chiffrement héritée et secret de session (près de la base), clé du journal ; clé d'API de Qdrant créée (rag.qdrant_api_key de config.json la remplace ensuite).
 cles_vers_systemd() {
     local proprios="root,$1" n e=0 source="$VAULT_KEY_SYS" session=(--creer session)
     for n in ${2:-}; do case "$n" in root|"$UNIT_PREFIX"-*) ;; *) proprios+=",$n" ;; esac; done
@@ -1462,10 +1467,11 @@ cles_vers_systemd() {
     poser_droits cle "$CLES_SYS" session.secret --source "$BASE_DONNEES/.session_secret" --proprio "$proprios" --min 40 \
         ${session[@]+"${session[@]}"} || e=1
     poser_droits cle "$CLES_SYS" audit.key --source "$AUDIT_KEY_SYS" --proprio "$proprios" --creer journal --copie || e=1
+    poser_droits cle "$CLES_SYS" qdrant.key --creer qdrant || e=1
     return "$e"
 }
 
-# cles_rendues COMPTE GROUPE : clés remises par systemd que le mode en place n'emploie pas (retour à un compte, retrait des services, systemd trop ancien) rendues à leurs fichiers du compte unique, sans suivre de lien : clés du coffre et du journal 0440 root:GROUPE dans /etc/elpis, clé de chiffrement et secret de session 0600 à COMPTE près de la base des unités séparées, jeton du RAG 0600 à root dans /etc/elpis (que jeton_rag reprend) ; une cible différente garde la clé ; magasin retiré une fois vide ; rien sans magasin.
+# cles_rendues COMPTE GROUPE : clés remises par systemd que le mode en place n'emploie pas (retour à un compte, retrait des services, systemd trop ancien) rendues à leurs fichiers du compte unique, sans suivre de lien : clés du coffre et du journal 0440 root:GROUPE dans /etc/elpis, clé de chiffrement et secret de session 0600 à COMPTE près de la base des unités séparées, jeton du RAG 0600 à root dans /etc/elpis (que jeton_rag reprend), clé d'API de Qdrant retirée (un seul compte : Qdrant sans clé) ; une cible différente garde la clé ; magasin retiré une fois vide ; rien sans magasin.
 cles_rendues() {
     local proprio="$1" g="$2" gb base e=0
     [ -d "$CLES_SYS" ] || return 0
@@ -1477,6 +1483,7 @@ cles_rendues() {
     poser_droits cle-rendre "$CLES_SYS" encryption.key "$base/.encryption_key" "$proprio" "$gb" 0600 || e=1
     poser_droits cle-rendre "$CLES_SYS" session.secret "$base/.session_secret" "$proprio" "$gb" 0600 || e=1
     poser_droits cle-rendre "$CLES_SYS" rag.token "$JETON_RAG_SYS" root root 0600 || e=1
+    poser_droits cle-rendre "$CLES_SYS" qdrant.key - root root 0600 || e=1
     [ "$e" -eq 0 ] || return 1
     rmdir -- "$CLES_SYS" 2>/dev/null || { warn "$CLES_SYS non vide : gardé (à vérifier)."; return 1; }
     info "Clés de la plateforme rendues à leurs fichiers ; $CLES_SYS retiré."
@@ -2242,7 +2249,9 @@ cmd_doctor() {
                     else ELPIS_CFG_LLM_API_KEY="$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}"; fi 2>/dev/null)
         fi
     fi
-    if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
+    if [ "$(id -u)" -ne 0 ] && { cle_des_unites rag.token || cle_des_unites qdrant.key; }; then
+        info "RAG : jeton du service et clé de Qdrant remis par systemd aux seuls services, non vérifiés par ce compte (sudo ./elpis doctor)"
+    elif [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
         # Extracteur, jeton et magasin partagés, Qdrant, embeddings, reclassement et OCR : vus par le core.
         lignes_doctor "RAG" app_cmd env ELPIS_RACINE="$ROOT" timeout 120 "$NODE" --use-system-ca "$CORE_DIST/exploitation.mjs" rag
     else

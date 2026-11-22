@@ -2,7 +2,7 @@
 /** apps/core/src/rag/outils-chat.ts — famille d'outils `rag` du chat (rag_search, rag_read, rag_list, rag_index) : définitions statiques, portée réduite aux collections actives revérifiées à chaque appel, passages numérotés `[n]` et sources du message. */
 import { EXTRAIT_SOURCE_RAG_MAX, SOURCES_MESSAGE_RAG_MAX } from "@elpis/contracts";
 import type { ModeRechercheRag, SourceCiteeRag } from "@elpis/contracts";
-import { estErreurAnnulation, pyJsonDumps } from "@elpis/commun";
+import { estErreurAnnulation, pyJsonDumps, sansBarresAuxBouts } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import { normaliserExt, rechercher } from "@elpis/rag";
 import type {
@@ -333,7 +333,7 @@ async function documentsDesignes(base: Base, collectionId: string, v: string): P
 
 /** Identifiants des documents sous un dossier (préfixe de chemin, casse ignorée), bornés. */
 async function documentsDuDossier(base: Base, collectionId: string, dossier: string): Promise<string[]> {
-  const prefixe = dossier.replace(/^\/+|\/+$/gu, "");
+  const prefixe = sansBarresAuxBouts(dossier);
   if (!prefixe) return [];
   const lignes = await base.valeurs<[unknown]>(
     `SELECT id FROM rag_documents WHERE collection_id=? AND LOWER(rel_path) LIKE ? ESCAPE '\\' LIMIT ${DOCUMENTS_FILTRE_MAX}`,

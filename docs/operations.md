@@ -391,13 +391,21 @@ the database from before the upgrade.
 
 ```bash
 sudo systemctl stop elpis.target
+./elpis db keep-security ~/elpis-security.json    # current account security, new code still in place
+# SQLite database: the backup snapshot is a standalone file.
+unzip -p backups/backup_complet_<horodatage>.zip db/app.db > user_db/app.db
+./elpis db carry-security ~/elpis-security.json   # carried over the restored database
+rm ~/elpis-security.json
 git update-index -q --refresh      # install.sh touched tracked files
 git reset --keep a1b2c3d           # start commit printed by upgrade
 venv/bin/pip install -r requirements-rag.txt
-# SQLite database: the backup snapshot is a standalone file.
-unzip -p backups/backup_complet_<horodatage>.zip db/app.db > user_db/app.db
 sudo systemctl start elpis.target
 ```
+
+The two `db` commands keep what was done for security since the upgrade (see
+[Keeping account security across a database restore](#keeping-account-security-across-a-database-restore)):
+without them, the restored database brings back passwords, roles, suspensions
+and SSO identities as they were before the upgrade.
 
 Since the version where the sandbox agent alone writes to `/work`, the files
 in `/work` belong to the container user, with no write access for others: the
@@ -412,6 +420,78 @@ Admin console › System › Data › Restore, within the limit of 500 MB per up
 a PostgreSQL server: restore it with the server's tools, or start again from
 the backup's SQLite snapshot (see [Recovering from an
 incident](#recovering-from-an-incident)).
+
+### Keeping account security across a database restore
+
+A database put back from an older copy (the snapshot taken before an upgrade,
+a backup) brings back the accounts as they were then: a password changed
+since, a role withdrawn, a suspension, a detached SSO identity, a cancelled
+prepared link, a provider switched off or a revoked token would all come back.
+Two commands carry the current security state over the restored database. Run
+them under the application account, services stopped, in this order:
+
+1. `./elpis db keep-security FILE` on the current database, with the **new**
+   code still in place. It reads the database and `config.json` without
+   changing anything and writes `FILE` (mode 0600; an existing file is never
+   replaced: exit code 2). Choose a path outside the installation and outside
+   the backups.
+2. Put back the database (SQLite file, or the server's tools for PostgreSQL),
+   and `config.json` if the rollback restores it.
+3. `./elpis db carry-security FILE`, still with the **new** code: the state of
+   `FILE` is carried over the database and `config.json` now in place, then
+   every session is cut (everyone signs in again). It prints the number of
+   accounts carried and the names of the accounts locked or suspended, never a
+   password hash or a token. An unreadable file, or one not written by
+   `keep-security`, is refused with nothing changed (exit code 2).
+4. Put back the old code, then start the services.
+
+`FILE` holds the password hashes of every account: delete it as soon as step 3
+has succeeded. Step 3 can be run again with the same file (same result).
+
+What is kept, for each account of the restored database that has the same id
+and the same name in `FILE`: password, role, forced password change,
+suspension or reactivation, its session cut, its SSO identity and prepared
+link, and its group memberships, kept as in `FILE` within the groups the
+restored database has (a group created since does not exist there). The
+provider test state becomes that of `FILE`. API tokens deleted since stay
+deleted, OAuth accesses revoked or gone since are revoked, revoked sessions
+stay revoked, and new accounts take ids after those of `FILE`. An account of
+the restored database that is not in `FILE` under the same id and name
+(deleted since) comes back locked (no password matches it), suspended by an
+administrator, without SSO identity or prepared link: give it a new password
+and reactivate it to reopen it, or delete it again. In `config.json`, the
+`security` and `auth` sections are those of `FILE` (an `auth` section absent
+from `FILE` is removed), the most recent global session cut wins. Everything
+else is that of the restored copy.
+
+Provider secrets are in the secrets vault, in the database: like every secret
+of the vault, they come back as they were in the restored copy. A provider
+secret entered or changed since is to be entered again in the console; until
+then the provider stays switched on but **Inopérant** (its last test no longer
+matches the stored secret): switch it off, enter the secret again in
+**3. Client**, switch it on. The secret of the provider's last successful test
+needs no new sign-in trial; another one does.
+
+When no active administrator with a local password is left in the restored
+database (all of them created since, or suspended, demoted or deleted since),
+`carry-security` says so on one line (on stderr, exit code still 0): no
+administrator can open the console with a password. Once the old code is back,
+reopen one from the host: `./elpis configure`, step **Compte administrateur**
+(it offers a new password for an existing administrator), then
+`./elpis auth reactivate ACCOUNT` if that account is suspended. An administrator that signed in only
+through a provider has no local password and cannot be reopened this way.
+
+The schema of the restored database is never changed: nothing is created or
+migrated, and a table or column it does not have is skipped. A database from a
+version older than SSO (no suspension) cannot hold a suspension: a suspended
+account has its local password locked instead (an account without a local
+password stays without one), its sessions are cut, and it is in the printed
+list. That older version has no SSO either: an account that signed in only
+through a provider cannot sign in there, and its "administrators only" local
+password mode does not exist there.
+
+Both commands write a line to the security journal: `cli.db.keep_security` and
+`cli.db.carry_security` (see [audit-events.md](audit-events.md#command-line-elpis)).
 
 ### Returning to the Python version (tag `python-final`)
 

@@ -1118,7 +1118,11 @@ export class RelaisNavigateur {
     const port = Number(u.port || (tls ? 443 : 80));
     const hote = hoteNormal(u.hostname);
     const v = await this.o.juger(hote, port);
-    if (!v.ok || client.destroyed) return void client.destroy();
+    if (!v.ok) {
+      this.journal(`refused websocket ${u.origin}: ${v.journal ?? v.motif}`);
+      return void client.destroy();
+    }
+    if (client.destroyed) return void client.destroy();
     // Amont en TLS comme pour une requête : strict, sauf liaisons exactes qui le relâchent toutes.
     const { exactes } = await this.couvrant(tls ? "https" : "http", hote, port, v);
     if (client.destroyed) return;

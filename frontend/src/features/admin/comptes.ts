@@ -6,12 +6,14 @@ import {
   schemaReponseComptesConsole,
   schemaReponseGroupesConsole,
   schemaReponseMachinesCompte,
+  schemaReponseSuspension,
 } from "@elpis/contracts";
 import type { CompteConsole, schemaMoteurChoisissable } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, listeObjets, lireSchema, objet } from "../../utils/lecture-json";
 import { confirmerParMot } from "./confirmation";
+import { heureLocale } from "./horodatage";
 import type { BaseAdmin, GroupeAffiche } from "./etat";
 import { lireChemin } from "./etat";
 import type { z } from "zod";
@@ -373,12 +375,6 @@ export function creerComptes(b: BaseAdmin) {
         } else {
           showToast("Utilisateur supprimé" + (avecBac ? " (sandbox introuvable)" : ""));
         }
-        const hotes = data["hosts_purge_errors"];
-        if (Array.isArray(hotes) && hotes.length)
-          showToast(
-            `Identifiants de sites non purgés sur un hôte d'outils (${hotes.map(String).join(" ; ")}). Retirez-les avant de recréer un compte de ce nom.`,
-            "warning",
-          );
         void loadUsers();
         void lien.loadAdminStats();
       }
@@ -706,6 +702,42 @@ export function creerComptes(b: BaseAdmin) {
       void loadUserAccess(u.id);
     } else showToast("Révocation impossible.", "error");
   }
+  /** Date de désactivation en infobulle, avec l'auteur quand c'est un administrateur. */
+  function titreDesactivation(u: CompteConsole): string {
+    const quand = heureLocale(u.suspended_at);
+    return u.suspended_by === "admin" ? `${quand} · par un administrateur` : quand;
+  }
+  /** Désactive ou réactive un compte après confirmation ; un refus du serveur (400, 409) s'affiche avec son message. */
+  async function changerDesactivation(u: CompteConsole, desactiver: boolean): Promise<void> {
+    const ok = desactiver
+      ? await openConfirm(
+          `Désactiver ${u.username} ?`,
+          "Ce compte ne pourra plus se connecter. Ses sessions sont fermées, ses jetons et ses accès d'applications sont révoqués, ses routines sont bloquées, ses données sont conservées.",
+          true,
+          "Désactiver",
+        )
+      : await openConfirm(
+          `Réactiver ${u.username} ?`,
+          "Ce compte pourra de nouveau se connecter.",
+          false,
+          "Réactiver",
+        );
+    if (!ok) return;
+    const action = desactiver ? "suspend" : "unsuspend";
+    const r = await fetchAuth(`/api/admin/users/${u.id}/${action}`, { method: "POST" }, true);
+    if (r?.ok) {
+      const propage = desactiver
+        ? ((await lireSchema(r, schemaReponseSuspension))?.propagated ?? true)
+        : true;
+      if (propage) showToast(`${u.username} : ${desactiver ? "compte désactivé" : "compte réactivé"}`);
+      else
+        showToast(
+          `${u.username} : compte désactivé ; ses tâches en cours s'arrêteront à leur prochaine étape.`,
+          "warning",
+        );
+      await loadUsers();
+    } else showToast(detailErreur(await corpsJson(r)) || "Mise à jour du compte impossible.", "error");
+  }
   const userEditOpen = (u: CompteConsole): boolean => !!(userEdit.value && userEdit.value.id === u.id);
   const closeUserEdit = (): void => {
     userEdit.value = null;
@@ -898,6 +930,8 @@ export function creerComptes(b: BaseAdmin) {
     closeUserEdit,
     saveUserEdit,
     revokeUserAccess,
+    titreDesactivation,
+    changerDesactivation,
     admRoleLabel,
     admNetProfileName,
     admDesktopLabel,

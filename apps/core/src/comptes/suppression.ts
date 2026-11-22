@@ -12,6 +12,7 @@ import { purgerCacheGraphique } from "../graphiques/incrustation";
 import { deleteUserDir } from "../images/magasin";
 import { journal } from "../journal";
 import { deletePrincipalRows } from "../llm/acces-moteurs";
+import { exigerAdminLocal } from "../identite/etat";
 import { invaliderAccesRag, purgerCompteRag } from "../rag/acces";
 import { nettoyerRagCompte } from "../rag/nettoyage";
 import type { CollectionPartieRag } from "../rag/nettoyage";
@@ -28,12 +29,21 @@ async function toleree(base: Base, f: (x: Executeur) => Promise<unknown>): Promi
   }
 }
 
-/** Dossiers du nom à purger : ni repliés sur « guest » (nom ancien sans caractère admis), ni partagés avec un compte restant (même nom sûr), relu juste avant la purge. */
-async function dossiersAPurger(base: Base, nom: string): Promise<boolean> {
+/** Nom sûr du compte propre à lui seul : ni replié sur « guest » (nom ancien sans caractère admis), ni réservé (`_` ou `.` initial), ni partagé avec un autre compte (hors `sauf`), relu à l'instant. */
+async function nomSurExclusif(base: Base, nom: string, sauf?: number): Promise<boolean> {
   if (!nomCanonique(nom)) return false;
   const sur = safeSandboxName(nom);
-  const comptes = await base.all<{ username: string | null }>("SELECT username FROM users");
-  return !comptes.some((u) => safeSandboxName(u.username) === sur);
+  if (sur.startsWith("_") || sur.startsWith(".")) return false;
+  const autres = await base.all<{ username: string | null }>(
+    sauf === undefined ? "SELECT username FROM users" : "SELECT username FROM users WHERE id<>?",
+    sauf === undefined ? [] : [sauf],
+  );
+  return !autres.some((u) => safeSandboxName(u.username) === sur);
+}
+
+/** Vrai si le dossier du bac de ce nom n'appartient à aucun autre compte : il peut être mis de côté puis supprimé. */
+export function bacDuNomMisDeCote(base: Base, uid: number, nom: string): Promise<boolean> {
+  return nomSurExclusif(base, nom, uid);
 }
 
 /** Magasins rangés par nom de compte (skills perso et leur miroir hors /work, mémoire, cache des graphiques) : purgés, sinon un compte recréé sous ce nom en hériterait. */
@@ -67,6 +77,7 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
   let rag: CollectionPartieRag[] = [];
   let nom = "";
   const supprime = await base.ecriture(async (x) => {
+    await exigerAdminLocal(x, { sauf: uid });
     const ligne = await x.get("SELECT username FROM users WHERE id=?", [uid]);
     nom = typeof ligne?.["username"] === "string" ? ligne["username"] : "";
     await x.run("DELETE FROM chats WHERE user_id=?", [uid]);
@@ -93,6 +104,6 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
     log.error({ err: e }, "[users] purge des habillages personnels échouée");
   }
   await nettoyerRagCompte(uid, rag);
-  if (nom && (await dossiersAPurger(base, nom))) await purgerDossiersDuNom(nom);
+  if (nom && (await nomSurExclusif(base, nom))) await purgerDossiersDuNom(nom);
   return true;
 }

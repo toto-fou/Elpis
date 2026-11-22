@@ -28,6 +28,7 @@ import { blockRemoteUrlReason, configureAudit, defaultAuditDir, defaultAuditKeyP
 
 import type { Extension } from "./app";
 import { CycleDeVie } from "./cycle";
+import { brancherPurgeRevocations } from "./ops/purge-revocations";
 import { installerRefusGeneriques, signalerRefusAuth } from "./journal-securite/auditer";
 import { etatJournalSecurite } from "./journal-securite/etat";
 import {
@@ -42,7 +43,9 @@ import { brancherBoucle } from "./boucle/branchements";
 import { brancherContexte } from "./contexte/branchements";
 import { brancherExecutions } from "./executions/branchements";
 import { brancherTour } from "./tour/branchements";
-import { isGenerationActive } from "./tour/etat";
+import { annulerEnFondDuCompte } from "./outils/integres/task/fond";
+import { arreterToursDuCompte, isGenerationActive } from "./tour/etat";
+import { jobsTour } from "./tour/ports-jobs";
 import { famillesParDefaut } from "./familles";
 import { creerFamilleAdminAgents } from "./familles/admin-agents";
 import { creerFamilleAdminExecuteurs } from "./familles/admin-executeurs";
@@ -139,7 +142,7 @@ import type { Relais } from "./relais";
 import { ouvrirSessionHistorique } from "./relais/services";
 import { brancherIndexationRag } from "./rag/service";
 import { installerMeneur, Meneur, meneur } from "./routines/meneur";
-import { installerPlanificateur, Planificateur } from "./routines/planificateur";
+import { installerPlanificateur, Planificateur, planificateurDuProcess } from "./routines/planificateur";
 import type { Famille, Gardes } from "./routes";
 import { brancherCoffreMcpDuCore } from "./secrets/mcp";
 import { installerComptesSkills } from "./skills/ports";
@@ -264,8 +267,19 @@ function brancherBus(
     surOuvertureFlux,
     redemarrage: SOURCE_REDEMARRAGE,
     fermerTerminaux: (uid) => relais?.fermerTerminauxDuCompte(uid) ?? 0,
+    arreterExecutions: (uid) => arreterExecutionsDuCompte(uid),
     rafraichirModeles,
   });
+}
+
+/** Coupe tout ce que le compte fait dans ce process (tours, runs de routine, sous-agents en fond) et oublie ses réveils en attente ; nombre d'exécutions coupées. */
+function arreterExecutionsDuCompte(uid: number): number {
+  jobsTour()?.oublierCompte(uid);
+  return (
+    arreterToursDuCompte(uid) +
+    (planificateurDuProcess()?.arreterCompte(uid) ?? 0) +
+    annulerEnFondDuCompte(uid)
+  );
 }
 
 /** Vue d'ensemble de la console : sondes et faits réels, réglages en attente lus auprès de main. */
@@ -392,6 +406,7 @@ export async function composer(
   const planificateur = brancherPlanificateur(mode, base, cycle);
   brancherPrechauffageMcp(mode, cycle);
   brancherNettoyageNavigateursEnfants(cycle, journal);
+  brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());
@@ -503,6 +518,7 @@ export async function composer(
         auth,
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
+        publierSuspension: async (uid) => (await evenements.suspendre(uid)).propage,
         bac: piloteBac(),
       }),
       creerFamilleAdminSecurite({

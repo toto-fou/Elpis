@@ -17,12 +17,18 @@ export const schemaCorpsReinitialisationMotDePasse = z.object({
   target_id: entier,
   new_password: z.string(),
 });
+/** `propagated` faux : main n'a pas reçu l'événement, les exécutions en cours s'arrêtent à leur prochaine étape. */
+export const schemaReponseSuspension = z.object({
+  ok: z.literal(true),
+  propagated: z.boolean(),
+  tokens_revoked: z.number().int(),
+  oauth_revoked: z.number().int(),
+});
 export const schemaReponseSuppressionCompte = z.object({
   ok: z.literal(true),
   sandbox_deleted: z.boolean(),
   sandbox_error: z.string().optional(),
   /** Hôtes d'outils où les identifiants de sites du compte n'ont pas été purgés. */
-  hosts_purge_errors: z.array(z.string()).optional(),
 });
 
 export const schemaProfilReseau = z.object({
@@ -47,6 +53,8 @@ export const schemaCompteConsole = z.object({
   is_admin: entier,
   created_at: horodatage,
   avatar: z.string().nullable(),
+  suspended_at: horodatage,
+  suspended_by: z.string().nullable(),
   group_names: z.string(),
   group_ids: z.array(entier),
   sandbox_quota_mb: entier,

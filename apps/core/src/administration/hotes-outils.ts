@@ -130,7 +130,9 @@ async function exporterTravail(uid: number, hostId: string): Promise<Buffer> {
   if (hote === null) throw new Error(`hôte inconnu : ${hostId}`);
   const client = new ClientHttp({ delais: delais(DELAI_MIGRATION_S) });
   try {
-    const r = await client.get(`${hote.url}/api/sandbox/export`, { headers: await entetesRelais(hote, uid) });
+    const r = await client.get(`${hote.url}/api/sandbox/export`, {
+      headers: await entetesRelais(hote, uid, undefined, { tolererSuspension: true }),
+    });
     raiseForStatus(r);
     return Buffer.from(r.content);
   } finally {
@@ -143,7 +145,7 @@ async function importerTravail(uid: number, hostId: string, archive: Buffer): Pr
   const hote = hoteDe(hostId);
   if (hote === null) throw new Error(`hôte inconnu : ${hostId}`);
   const url = `${hote.url}/api/sandbox/import`;
-  const relais = await entetesRelais(hote, uid);
+  const relais = await entetesRelais(hote, uid, undefined, { tolererSuspension: true });
   const limite = randomBytes(16).toString("hex");
   const corps = Buffer.concat([
     Buffer.from(

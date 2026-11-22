@@ -64,5 +64,7 @@ export const schemaReponseRestauration = z.object({
   restored: entier,
   errors: z.array(z.unknown()),
   restart_required: z.boolean(),
+  /** Base remplacée : toutes les sessions sont coupées, l'administrateur se reconnecte. */
+  sessions_closed: z.boolean(),
 });
 export const schemaDonneesRestauration = dictionnaire;

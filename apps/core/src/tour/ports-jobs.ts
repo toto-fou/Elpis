@@ -24,6 +24,8 @@ export interface PortJobsTour {
   arretUtilisateur(uid: number, chatId: string): void;
   /** Tour lancé par l'utilisateur (message ou « Continuer ») : les réveils suspendus par « Arrêter » reprennent. */
   tourUtilisateur(uid: number, chatId: string): void;
+  /** Compte suspendu : file, lots, relances et admissions en attente oubliés. */
+  oublierCompte(uid: number): void;
 }
 
 let port: PortJobsTour | null = null;

@@ -9,6 +9,8 @@ export interface CiblesRevocation {
   readonly systemEvents: SystemEvents;
   /** Terminaux du compte (`null` : tous) ; rend leur nombre, -1 pour « tous ». */
   readonly fermerTerminaux?: (uid: number | null) => number | Promise<number>;
+  /** Exécutions en cours du compte (tours de chat, runs de routine) ; rend leur nombre coupé. */
+  readonly arreterExecutions?: (uid: number) => number | Promise<number>;
   readonly journal?: Journal;
 }
 
@@ -46,4 +48,20 @@ export async function applySessionRevocation(
     );
   }
   return { uid, systeme, terminaux };
+}
+
+/** `{"type": "account_suspended", "uid": N}` : flux et terminaux fermés comme une révocation, puis exécutions du compte coupées ; idempotent. */
+export async function applyAccountSuspension(
+  payload: Message,
+  cibles: CiblesRevocation,
+): Promise<BilanRevocation | null> {
+  const bilan = await applySessionRevocation(payload, cibles);
+  if (bilan === null || bilan.uid === null) return bilan;
+  try {
+    const n = (await cibles.arreterExecutions?.(bilan.uid)) ?? 0;
+    if (n) cibles.journal?.info(`[account_suspended] uid=${bilan.uid} : ${n} exécution(s) coupée(s)`);
+  } catch (e) {
+    cibles.journal?.error({ err: e }, "[account_suspended] arrêt des exécutions échoué");
+  }
+  return bilan;
 }

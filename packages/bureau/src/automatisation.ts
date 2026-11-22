@@ -216,6 +216,8 @@ export type OptionsMatrice = {
   elpis_url?: string;
   elpis_token?: string;
   total_budget_s?: number | null;
+  /** Relu avant chaque cible : faux (compte suspendu) arrête la matrice, les cibles restantes sont sautées. */
+  compte_actif?: (() => Promise<boolean>) | null;
 };
 
 /** `x == 0` de Python (`0`, `0.0`, `False`). */
@@ -238,9 +240,15 @@ export async function runAutomationCore(
   const budget = o.total_budget_s ?? null;
   const t0 = h.maintenant();
   const resultats: Dict[] = [];
+  let suspendue = false;
   for (const target of targets.filter((t) => stripPy(texteOu(t, "")))) {
     const nom = target as string;
     const debut = h.maintenant();
+    if (suspendue || (o.compte_actif && !(await o.compte_actif().catch(() => true)))) {
+      suspendue = true;
+      resultats.push({ target, ok: false, error: "skipped", message: "compte suspendu" });
+      continue;
+    }
     if (budget !== null && debut - t0 >= budget) {
       resultats.push({
         target,
@@ -284,6 +292,11 @@ export async function runAutomationCore(
         arret = "timeout";
         break;
       }
+      if (o.compte_actif && !(await o.compte_actif().catch(() => true))) {
+        arret = "suspendu";
+        suspendue = true;
+        break;
+      }
       const cur = await automationStatusCore(username, nom, runId);
       if (veritePy(getPy(cur, "error"))) {
         erreurs += 1;
@@ -304,22 +317,24 @@ export async function runAutomationCore(
       const cible = await resolveTargetStrict(nom, username);
       if (cible) await agentReq(cible, "/run_stop", { run_id: runId });
       dernier =
-        arret === "timeout"
-          ? {
-              error: "timeout",
-              message: `exécution interrompue après ${Math.trunc(echeance - lance)} s`,
-              running: false,
-            }
-          : {
-              error: "status_lost",
-              running: false,
-              message:
-                "suivi perdu (" +
-                strPy(
-                  ou(ou(getPy(derniereErreur, "message"), getPy(derniereErreur, "error")), "état inconnu"),
-                ) +
-                ") — exécution arrêtée",
-            };
+        arret === "suspendu"
+          ? { error: "account_suspended", message: "exécution arrêtée : compte suspendu", running: false }
+          : arret === "timeout"
+            ? {
+                error: "timeout",
+                message: `exécution interrompue après ${Math.trunc(echeance - lance)} s`,
+                running: false,
+              }
+            : {
+                error: "status_lost",
+                running: false,
+                message:
+                  "suivi perdu (" +
+                  strPy(
+                    ou(ou(getPy(derniereErreur, "message"), getPy(derniereErreur, "error")), "état inconnu"),
+                  ) +
+                  ") — exécution arrêtée",
+              };
     }
     const rep = ou(getPy(dernier, "report"), {});
     resultats.push({

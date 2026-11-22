@@ -507,6 +507,8 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminComptes.schemaCorpsReinitialisationMotDePasse,
   ),
   c("admin-comptes", "GET", "/api/admin/users-with-groups", adminComptes.schemaReponseComptesConsole),
+  c("admin-comptes", "POST", "/api/admin/users/:target_id/suspend", adminComptes.schemaReponseSuspension),
+  c("admin-comptes", "POST", "/api/admin/users/:target_id/unsuspend", schemaOk),
   c(
     "admin-comptes",
     "PUT",
@@ -583,12 +585,6 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     "POST",
     "/api/admin/security/sessions/revoke-user/:user_id",
     adminSecurite.schemaReponseRevocationCompte,
-  ),
-  c(
-    "admin-securite",
-    "POST",
-    "/api/admin/security/sessions/clear-user-revocation/:user_id",
-    adminSecurite.schemaReponseFinRevocation,
   ),
   c("admin-securite", "GET", "/api/admin/security/https", adminSecurite.schemaReponseEtatHttps),
   c(

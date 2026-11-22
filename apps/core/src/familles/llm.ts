@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/llm.ts — `/api/llm` : connecteurs du compte, modèles et propriétés, santé, chargement, infill sous l'ordonnanceur, file (shared_infra/llm/routes*.py). */
 
-import { getUserSettings, ligneUtilisateur, revaliderFlux } from "@elpis/auth";
+import { getUserSettings, ligneUtilisateur, metaSession, revaliderFlux } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import {
   arrondiPy,
@@ -985,6 +985,7 @@ async function fluxFile(
   dep.journal.info(`[queue-status/stream] subscribe uid=${uid}`);
   const loginTs = req.session.get("_login_ts");
   const sid = req.session.get("_sid");
+  const meta = metaSession(req.session);
   const sortie = ouvrirFlux(rep, ENTETES_FILE, dep.arret);
   const file = diffuseur.abonner();
   let controle = performance.now();
@@ -994,7 +995,7 @@ async function fluxFile(
         controle = performance.now();
         let encore = true;
         try {
-          encore = await revaliderFlux(dep.auth, uid, loginTs, sid);
+          encore = await revaliderFlux(dep.auth, uid, loginTs, sid, meta);
         } catch {
           encore = true;
         }

@@ -231,6 +231,23 @@ export default defineConfig(
     plugins: { elpis: { rules: { "reglages-vifs": regleReglagesVifs } } },
     rules: { "elpis/reglages-vifs": "error" },
   },
+  {
+    files: ["apps/*/src/**/*.ts", "packages/*/src/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["**/test/**"], message: "Le code de production n'importe aucun fichier de test." },
+            {
+              group: ["**/packages/auth/src/session*"],
+              message: "Les sessions s'ouvrent par @elpis/auth, jamais par son fichier interne.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   { files: [RATIO], rules: { "no-restricted-syntax": ["error", ...requeteJetons] } },
   {
     files: ["frontend/src/**/*.{ts,vue}", "frontend/test/**/*.ts", "frontend/*.mts"],

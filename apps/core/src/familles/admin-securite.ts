@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-securite.ts — console : révocation des sessions, mode HTTPS et écoute (admin/security.py). */
 import {
+  dureeMaxSession,
   estLocalDirect,
-  effacerMinSession,
   leverMinSession,
   ligneUtilisateur,
   revoquerTousAcces,
@@ -102,8 +102,9 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     const revoques: Dict[] = [];
     try {
       const lignes = await base.valeurs<[unknown, unknown, unknown]>(
-        "SELECT id, username, session_min_ts FROM users WHERE session_min_ts IS NOT NULL AND session_min_ts > 0 " +
+        "SELECT id, username, session_min_ts FROM users WHERE session_min_ts IS NOT NULL AND session_min_ts > ? " +
           "ORDER BY session_min_ts DESC LIMIT 200",
+        [maintenant() - dureeMaxSession(auth.config())],
       );
       for (const [id, nom, ts] of lignes)
         revoques.push({
@@ -175,18 +176,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       dep.journal.error({ err: e }, "revoke-user failed");
       throw new HttpError(500, "Échec de la révocation");
     }
-  }
-
-  async function effacerRevocation(req: FastifyRequest): Promise<Dict> {
-    const cible = cheminEntier(req, "user_id");
-    try {
-      await effacerMinSession(base, cible);
-    } catch (e) {
-      dep.journal.error({ err: e }, "clear-user-revocation failed");
-      throw new HttpError(500, "Échec du reset");
-    }
-    auditer(req, "admin.security.sessions.clear_user_revocation", { target_user_id: cible });
-    return { ok: true, user_id: cible };
   }
 
   async function etatHttps(req: FastifyRequest): Promise<Dict> {
@@ -288,7 +277,6 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       route("GET", "/api/admin/security/sessions", sessions),
       route("POST", "/api/admin/security/sessions/revoke-all", revoquerTout),
       route("POST", "/api/admin/security/sessions/revoke-user/:user_id", revoquerCompte),
-      route("POST", "/api/admin/security/sessions/clear-user-revocation/:user_id", effacerRevocation),
       route("GET", "/api/admin/security/https", etatHttps),
       route("POST", "/api/admin/security/https", basculerHttps),
       route("POST", "/api/admin/security/listen", changerEcoute),

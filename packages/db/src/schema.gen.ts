@@ -80,6 +80,9 @@ export const TABLES: readonly Table[] = [
       { name: "settings_json", type: "text" },
       { name: "must_change_pwd", type: "int", default: 0 },
       { name: "session_min_ts", type: "real", default: 0 },
+      { name: "suspended_at", type: "real", default: 0 },
+      { name: "suspended_by", type: "text" },
+      { name: "last_login_at", type: "real", default: 0 },
     ],
   },
   {
@@ -348,8 +351,9 @@ export const TABLES: readonly Table[] = [
       { name: "sid", type: "text", primary: true },
       { name: "user_id", type: "int" },
       { name: "revoked_at", type: "real", null: false },
+      { name: "expires_at", type: "real", default: 0 },
     ],
-    indexes: [{"name": "idx_revoked_sessions_at", "cols": ["revoked_at"]}],
+    indexes: [{"name": "idx_revoked_sessions_expires", "cols": ["expires_at"]}],
   },
   {
     name: "runs",

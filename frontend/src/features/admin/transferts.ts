@@ -286,19 +286,16 @@ export function creerTransferts(b: BaseAdmin) {
     if (!(entree instanceof HTMLInputElement)) return;
     entree.value = "";
     const libelle = LIBELLES_PORTEE[portee] || portee;
+    const base = portee === "db" || portee === "full";
+    const avertissement =
+      "Les données existantes seront remplacées par celles de l'archive. Sans retour arrière." +
+      (base
+        ? " Les suspensions, révocations de jetons et changements de mot de passe faits depuis la sauvegarde " +
+          "seront annulés : refaites-les ensuite."
+        : "");
     const confirme = ctx.openTypedConfirm
-      ? await ctx.openTypedConfirm(
-          `Restauration ${libelle}`,
-          "Les données existantes seront remplacées par celles de l'archive. Sans retour arrière.",
-          "RESTAURER",
-          "Choisir l'archive",
-        )
-      : await openConfirm(
-          `Restauration ${libelle}`,
-          "Les données existantes seront remplacées par celles de l'archive. Sans retour arrière.",
-          true,
-          "Choisir l'archive",
-        );
+      ? await ctx.openTypedConfirm(`Restauration ${libelle}`, avertissement, "RESTAURER", "Choisir l'archive")
+      : await openConfirm(`Restauration ${libelle}`, avertissement, true, "Choisir l'archive");
     if (!confirme) return;
     entree.onchange = async (ev: Event) => {
       const fichier = ev.target instanceof HTMLInputElement ? ev.target.files?.[0] : undefined;
@@ -319,12 +316,20 @@ export function creerTransferts(b: BaseAdmin) {
         const data = r.data;
         transferModal.value.done = true;
         const erreurs = Array.isArray(data["errors"]) ? data["errors"].length : 0;
+        // Base remplacée : toutes les sessions sont coupées, la page rechargée (ou l'action suivante) mène à la connexion.
+        const reconnexion =
+          data["sessions_closed"] === true
+            ? " Sessions fermées : reconnectez-vous, puis refaites les suspensions et révocations faites depuis la sauvegarde."
+            : "";
         if (erreurs > 0) {
-          showToast(`${nombre(data["restored"])} fichiers restaurés, ${erreurs} erreur(s)`, "error");
+          showToast(
+            `${nombre(data["restored"])} fichiers restaurés, ${erreurs} erreur(s).${reconnexion}`,
+            "error",
+          );
         } else {
           showToast(
             data["restart_required"]
-              ? `${nombre(data["restored"])} fichiers restaurés. Redémarrage conseillé.`
+              ? `${nombre(data["restored"])} fichiers restaurés. Redémarrage conseillé.${reconnexion}`
               : `${nombre(data["restored"])} fichiers restaurés avec succès`,
           );
           if (portee === "db" || portee === "full") setTimeout(() => window.location.reload(), 1500);

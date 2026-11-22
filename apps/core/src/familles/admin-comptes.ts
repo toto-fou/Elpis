@@ -51,12 +51,14 @@ import type { Base, Executeur } from "@elpis/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, entierBase, entierPy, exigerTexte, niveauDuRole } from "../admin/aides";
-import { racineBac, sandboxUsageBytes, supprimerBac, travailBac } from "../admin/bac";
-import type { PortBac } from "../admin/bac";
+import { mettreBacDeCoteDuCompte, sandboxUsageBytes, travailBac } from "../admin/bac";
+import type { BacMisDeCote, PortBac } from "../admin/bac";
 import { purgerCompteSurHotes } from "../admin/pilote-bac";
 import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } from "../admin/comptes";
 import { validerMotDePasse } from "../comptes/aides";
-import { deleteUserFull } from "../comptes/suppression";
+import { reactiver, suspendre } from "../comptes/etat";
+import { bacDuNomMisDeCote, deleteUserFull } from "../comptes/suppression";
+import { exigerAdminLocal } from "../identite/etat";
 import type { Journal } from "../journal";
 import {
   deletePrincipalRows,
@@ -79,6 +81,8 @@ export interface DependancesAdminComptes {
   readonly journal: Journal;
   /** `publish_event({"type": "session_revoked", "uid": …})` : flux du compte coupés dans tous les process. */
   readonly revoquer: (uid: number | null) => Promise<unknown>;
+  /** Suspension propagée aux process (flux, terminaux, exécutions) ; absente : une simple révocation. */
+  readonly publierSuspension?: (uid: number) => Promise<boolean>;
   readonly bac?: PortBac;
 }
 
@@ -128,23 +132,46 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     const uid = utilisateur(req);
     const cible = cheminEntier(req, "target_id");
     if (uid === cible) throw new HttpError(400, "Vous ne pouvez pas vous supprimer vous-même.");
+    await exigerAdminLocal(base, { sauf: cible });
     const avecBac = (parametreRequete(req, "delete_sandbox") ?? "false").toLowerCase() === "true";
-    let dossier: string | null = null;
-    if (avecBac) {
-      try {
-        dossier = racineBac(await getUsernameById(base, cible), cible);
-      } catch {
-        dossier = null;
-      }
-    }
+    const parti = await getUsernameById(base, cible);
     try {
       await dep.revoquer(cible);
     } catch (e) {
       dep.journal.error({ err: e }, "[admin] publication session_revoked (delete) échouée");
     }
-    const parti = await getUsernameById(base, cible);
-    if (!(await deleteUserFull(base, cible))) throw new HttpError(404, "Utilisateur introuvable");
-    const purgeHotes: Promise<string[]> = parti ? purgerCompteSurHotes(cible, parti) : Promise.resolve([]);
+    let misDeCote: BacMisDeCote | null = null;
+    try {
+      if (parti && (await bacDuNomMisDeCote(base, cible, parti)))
+        misDeCote = await mettreBacDeCoteDuCompte(cible, parti, dep.bac);
+    } catch (e) {
+      dep.journal.error(
+        { err: e },
+        "[admin] espace de travail du compte non mis de côté, suppression refusée",
+      );
+      throw new HttpError(502, "Suppression impossible pour le moment : demandez à votre administrateur.");
+    }
+    const remettre = async (): Promise<void> => {
+      await misDeCote
+        ?.remettre()
+        .catch((e: unknown) =>
+          dep.journal.error({ err: e }, "[admin] espace de travail mis de côté non remis en place"),
+        );
+    };
+    const echecsHotes = parti ? await purgerCompteSurHotes(cible, parti) : [];
+    if (echecsHotes.length) {
+      for (const echec of echecsHotes) dep.journal.error(`[admin] purge du compte échouée : ${echec}`);
+      await remettre();
+      throw new HttpError(502, "Suppression impossible pour le moment : demandez à votre administrateur.");
+    }
+    let supprimeDeLaBase: boolean;
+    try {
+      supprimeDeLaBase = await deleteUserFull(base, cible);
+    } catch (e) {
+      await remettre();
+      throw e;
+    }
+    if (!supprimeDeLaBase) throw new HttpError(404, "Utilisateur introuvable");
     if (parti) {
       try {
         await definirAccesBureau(parti, new Set());
@@ -154,15 +181,54 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     }
     let supprime = false;
     let erreur: string | null = null;
-    if (avecBac && dossier !== null)
-      [supprime, erreur] = await supprimerBac(cible, parti ?? "", dossier, dep.bac);
+    if (avecBac && misDeCote !== null) [supprime, erreur] = await misDeCote.supprimer();
     auditer(req, "admin.user.delete", { target_user_id: cible, target_username: parti });
-    const echecsHotes = await purgeHotes;
-    for (const echec of echecsHotes) dep.journal.error(`[admin] purge du compte échouée : ${echec}`);
     const reponse: Dict = { ok: true, sandbox_deleted: supprime };
     if (erreur) reponse["sandbox_error"] = erreur;
-    if (echecsHotes.length) reponse["hosts_purge_errors"] = echecsHotes;
     return reponse;
+  }
+
+  /** Compte visé par une suspension : jamais l'opérateur. */
+  async function cibleDeSuspension(req: FastifyRequest): Promise<number> {
+    const operateur = utilisateur(req);
+    const cible = cheminEntier(req, "target_id");
+    if (cible === operateur) throw new HttpError(400, "Vous ne pouvez pas suspendre votre propre compte.");
+    if (!(await ligneUtilisateur(base, cible))) throw new HttpError(404, "Utilisateur introuvable");
+    return cible;
+  }
+
+  async function suspendreCompte(req: FastifyRequest): Promise<Dict> {
+    const cible = await cibleDeSuspension(req);
+    const bilan = await suspendre(
+      {
+        base,
+        acces: auth,
+        maintenant,
+        publierSuspension: dep.publierSuspension ?? (async (uid) => (await dep.revoquer(uid), true)),
+        bac: dep.bac,
+        journal: dep.journal,
+      },
+      cible,
+      "admin",
+    );
+    if (bilan.change)
+      auditer(req, "admin.user.suspend", {
+        target_user_id: cible,
+        by: utilisateur(req),
+        propagated: bilan.propage,
+        sandbox_stopped: bilan.bacArrete,
+        tokens_revoked: bilan.tokens,
+        oauth_revoked: bilan.oauth,
+        ...(bilan.remplace === null ? {} : { replaced_origin: bilan.remplace }),
+      });
+    return { ok: true, propagated: bilan.propage, tokens_revoked: bilan.tokens, oauth_revoked: bilan.oauth };
+  }
+
+  async function reactiverCompte(req: FastifyRequest): Promise<Dict> {
+    const cible = await cibleDeSuspension(req);
+    await reactiver({ base, maintenant }, cible);
+    auditer(req, "admin.user.unsuspend", { target_user_id: cible, by: utilisateur(req) });
+    return { ok: true };
   }
 
   async function creerCompte(req: FastifyRequest): Promise<Dict> {
@@ -202,7 +268,10 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (!avant) throw new HttpError(404, "Utilisateur non trouvé");
     if (cible === uid && niveau !== 1)
       throw new HttpError(400, "Impossible de retirer vos propres droits admin");
-    await base.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
+    await base.ecriture(async (x) => {
+      if (niveau !== 1) await exigerAdminLocal(x, { sauf: cible });
+      await x.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
+    });
     invaliderAccesRag(base);
     auditer(req, "admin.user.role", {
       target_user_id: cible,
@@ -562,6 +631,8 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       route("DELETE", "/api/admin/users/:target_id", supprimerCompte),
       route("POST", "/api/admin/users/new", creerCompte),
       route("POST", "/api/admin/users/:target_id/role", changerRole),
+      route("POST", "/api/admin/users/:target_id/suspend", suspendreCompte),
+      route("POST", "/api/admin/users/:target_id/unsuspend", reactiverCompte),
       route("POST", "/api/admin/reset-password", reinitialiserMotDePasse),
       route("GET", "/api/admin/users-with-groups", comptesEtGroupes),
       route("PUT", "/api/admin/users/:target_id/desktop-targets", machinesDuCompte),

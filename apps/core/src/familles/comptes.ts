@@ -24,9 +24,11 @@ import {
   getUsernameById,
   getUsersLite,
   ipDuClient,
+  dureeMaxSession,
   leverMinSession,
   ligneUtilisateur,
   rehacherSiAncien,
+  renouvelerSession,
   resetUserPassword,
   revoquerSid,
   revoquerTousAcces,
@@ -59,6 +61,7 @@ import {
   validerMotDePasse,
 } from "../comptes/aides";
 import { DebitConnexion } from "../comptes/debit-connexion";
+import { ConnexionRefusee, etablirConnexion } from "../comptes/ouverture";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
 import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
@@ -331,13 +334,14 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           if (attente > 0)
             throw new HttpError(429, REFUS_DEBIT_CONNEXION, { "Retry-After": String(Math.ceil(attente)) });
           const essai = debitConnexion.prendre(username, ip, arrivee);
+          const plancher = async (): Promise<void> => {
+            if (essai.delaiMs > 0) await attendre(essai.delaiMs);
+          };
           let uid: number | null;
+          let verifieParMotDePasse: number | null;
           try {
             uid = await verifyUser(base, username, secret);
-            if (uid !== null) {
-              const verifie = uid;
-              await sansEchec(() => rehacherSiAncien(base, verifie, secret));
-            }
+            verifieParMotDePasse = uid;
             if (uid === null) {
               uid = await sousVerrouAmorcage(async () => {
                 const comptes = await getAllUsers(base);
@@ -374,22 +378,47 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           if (uid === null) {
             if (essai.epuise)
               await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison: "rate_limited" });
-            if (essai.delaiMs > 0) await attendre(essai.delaiMs);
+            await plancher();
             throw new HttpError(401, "invalid credentials");
           }
-          debitConnexion.reussite(essai, maintenant(dep));
           const ligne = await ligneUtilisateur(base, uid);
-          const t = maintenant(dep);
-          req.session.vider();
-          req.session.set("uid", uid);
-          req.session.set("user", uid);
-          req.session.set("user_id", uid);
-          req.session.set("_login_ts", t);
-          req.session.set("_sid", tokenUrlsafe(18));
-          const id = uid;
-          await sansEchec(() => dep.demarrerHistoriqueFichiers?.(id));
-          dep.logMetric?.("user_login", 1, { user: username });
-          auditLogin({ userId: uid, username, ip, userAgent: ua, success: true });
+          try {
+            await etablirConnexion(
+              {
+                base,
+                maintenant: () => maintenant(dep),
+                dureeMax: () => dureeMaxSession(dep.auth.config()),
+                demarrerHistoriqueFichiers: dep.demarrerHistoriqueFichiers,
+                logMetric: dep.logMetric,
+              },
+              { session: req.session, uid, username, methode: "password", ip, userAgent: ua },
+            );
+          } catch (e) {
+            if (e instanceof ConnexionRefusee) await plancher();
+            else {
+              dep.journal.error(
+                { err: e },
+                "[auth] ouverture de session échouée après une vérification réussie",
+              );
+              auditLogin({
+                userId: uid,
+                username,
+                ip,
+                userAgent: ua,
+                success: false,
+                reason: "session_open_failed",
+                loginMethod: "password",
+              });
+              await plancher();
+              throw new HttpError(401, "invalid credentials");
+            }
+            throw e;
+          }
+          if (verifieParMotDePasse !== null) {
+            const verifie = verifieParMotDePasse;
+            await sansEchec(() => rehacherSiAncien(base, verifie, secret));
+          }
+          debitConnexion.reussite(essai, maintenant(dep));
           return {
             ok: true,
             is_admin: ligne ? [1, 2].includes(Number(ligne.is_admin)) : false,
@@ -414,7 +443,10 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const ua = entete(req, "user-agent") ?? null;
           try {
             const sid = req.session.get("_sid");
-            if (veritePy(sid)) await revoquerSid(base, strPy(sid), uid, maintenant(dep));
+            if (veritePy(sid)) {
+              const exp = req.session.get("_exp");
+              await revoquerSid(base, strPy(sid), uid, maintenant(dep), typeof exp === "number" ? exp : 0);
+            }
           } catch (e) {
             dep.journal.warn({ err: e }, "[auth] révocation de session au logout échouée");
           }
@@ -466,7 +498,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           await resetUserPassword(base, uid, motDePasse);
           const t = maintenant(dep);
           await leverMinSession(base, uid, t);
-          req.session.set("_login_ts", t);
+          renouvelerSession(req.session, t);
           await revoquerTousAcces(dep.auth, uid);
           await base.run("UPDATE users SET must_change_pwd=0 WHERE id=?", [uid]);
           auditerRequete(req, "auth.password.change", {});

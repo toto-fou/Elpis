@@ -109,6 +109,8 @@ function errSansCatalogue(code: string, message: string, o: OptionsErreur = {}):
 /** Services des outils `desktop_*` ; `lireSandbox` lit dans la sandbox du compte (garde de l'Espace, sans suivre de lien), en UTF-8 strict, borné à `maxOctets` ; un échec rend le repli de Python. */
 export interface ServicesOutilsBureau {
   idCompte(username: string): Promise<number | null>;
+  /** Le cœur refuse ce compte (inconnu ou suspendu) ; faux si le cœur ne répond pas. */
+  compteRefuse?(username: string): Promise<boolean>;
   lireSandbox(username: string, chemin: string, maxOctets: number): Promise<string>;
   notifier(compte: { user_id: number; username: string }, titre: string, corps: string): Promise<void>;
 }

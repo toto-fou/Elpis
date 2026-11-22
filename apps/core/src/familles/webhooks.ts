@@ -26,6 +26,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
+import { compteSuspendu, ligneUtilisateur } from "@elpis/auth";
 import { egauxEnTempsConstant } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -198,6 +199,7 @@ export function creerFamilleWebhooks(dep: DependancesWebhooks): Famille {
       log.warn(`[webhooks] secret invalide routine=${id} ip=${ip} (${nature})`);
       return ok(rep);
     }
+    if (compteSuspendu(await ligneUtilisateur(base, intPy(r["owner_user_id"])))) return ok(rep);
     let event = lowerPy(
       stripPy(
         entete(req, "x-gitea-event") || entete(req, "x-github-event") || entete(req, "x-webhook-event"),

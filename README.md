@@ -120,9 +120,8 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 For a server run as systemd services (`./install.sh --service`), clone into
 `/opt/elpis` instead (`sudo install -d -o "$USER" /opt/elpis` first): each service then runs
 under its own system account, which a clone in a home folder does not allow
-([docs/operations.md](docs/operations.md#service-accounts)). From a home folder, a first
-installation with systemd services stops before its steps and prints the command that moves the
-clone there.
+([docs/operations.md](docs/operations.md#service-accounts)). From a home folder, `./install.sh`
+says so before installing anything and prints the command that moves the clone there.
 
 `install.sh` asks for sudo right away (once, kept alive during the
 installation), installs the system base if it is missing, then opens a

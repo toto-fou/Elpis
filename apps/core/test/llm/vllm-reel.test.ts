@@ -2,6 +2,7 @@
 /** apps/core/test/llm/vllm-reel.test.ts — profil vLLM contre un VRAI vLLM 0.31 (`ELPIS_VLLM_URL`, sauté sinon) : sonde, santé, fenêtre, tokenisation exacte égale au `prompt_tokens` du moteur, et formats du faux serveur comparés au vrai. */
 import "./environnement-fournisseurs";
 
+import { rstripPy } from "@elpis/commun";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { demarrerFauxMoteur } from "../../../../tests/frontend/lib/faux-moteurs.mjs";
@@ -10,7 +11,7 @@ import { lireEchantillons } from "../../src/llm/metriques-moteur";
 import { moteurFrais } from "./moteur-frais";
 import type { Moteur } from "./moteur-frais";
 
-const URL_VLLM = (process.env["ELPIS_VLLM_URL"] ?? "").replace(/\/+$/u, "");
+const URL_VLLM = rstripPy(process.env["ELPIS_VLLM_URL"] ?? "", "/");
 const CLE = process.env["ELPIS_VLLM_CLE"] ?? "";
 
 type Dict = Record<string, unknown>;

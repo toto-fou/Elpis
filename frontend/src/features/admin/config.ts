@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/config.ts — configuration de l'instance (config.json) dans la console : chargement avec défauts, enregistrement champ par champ (PATCH) et reprise des conflits, logos, machines de bureau, commandes d'installation, mascottes de l'écran d'accueil. */
+import { rstripPy } from "@elpis/commun/python";
 import { schemaConflitConfig, schemaReponseFichierConfig } from "@elpis/contracts";
 import { shallowRef } from "vue";
 import type { Ref } from "vue";
@@ -570,7 +571,7 @@ export function creerConfig(b: BaseAdmin) {
   // Les routes /api/desktop/* ne vivent que sur le process principal : en mode scindé on préfère l'URL publique du process main.
   const baseInstallation = computed(() => {
     const main = ctx.mainAppUrl?.value;
-    return typeof main === "string" && main ? main.replace(/\/+$/, "") : window.location.origin;
+    return typeof main === "string" && main ? rstripPy(main, "/") : window.location.origin;
   });
   const baseAmorcage = computed(() => {
     const base = baseInstallation.value;

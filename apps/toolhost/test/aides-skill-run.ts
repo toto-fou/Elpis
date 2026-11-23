@@ -2,6 +2,7 @@
 /** apps/toolhost/test/aides-skill-run.ts — aides des tests skill_run : contexte d'appel qui note les notifications, membres d'une archive tar comme `tarfile` les relit. */
 import { createHash } from "node:crypto";
 
+import { rstripPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
@@ -48,7 +49,7 @@ export function membresTar(archive: Buffer): Dict[] {
       }
       continue;
     }
-    const nom = (pax["path"] ?? texte(h.subarray(0, 100))).replace(/\/+$/u, "");
+    const nom = rstripPy(pax["path"] ?? texte(h.subarray(0, 100)), "/");
     const e: Dict = {
       nom,
       nature: type === "5" ? "d" : type === "2" ? "l" : type === "0" ? "f" : type,

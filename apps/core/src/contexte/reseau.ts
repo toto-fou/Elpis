@@ -30,7 +30,7 @@ const DISPENSES_GIT: Readonly<Partial<Record<Refus, string>>> = {
   host: "on the host machine",
 };
 
-/** Refus propres au relais du navigateur, quel que soit le profil ouvert. */
+/** Refus propres au relais du navigateur, à chaque niveau qui a du réseau. */
 const NAVIGATEUR =
   "The browser never reaches the host machine or its container networks, nor local-network hosts outside " +
   "the browser allowlist when the administrator set one.";
@@ -74,7 +74,8 @@ function phraseReseau(c: CapaciteReseau): string {
     return "none. The shell and the browser reach nothing outside the sandbox (localhost only): every outbound connection fails (expected, not a bug).";
   if (c.niveau === "full") {
     const refus = c.refus.map((r) => NOMS_REFUS[r]);
-    if (refus.length === 0) return `full. The shell and the browser have open network access. ${NAVIGATEUR}`;
+    if (refus.length === 0)
+      return `full. The shell and the browser have open network access; the shell has no IPv6. ${NAVIGATEUR}`;
     const liste = refus.length > 1 ? `${refus.slice(0, -1).join(", ")} and ${refus.at(-1)!}` : refus[0]!;
     return `full. The shell and the browser have open network access, except to ${liste}: a connection there, or over IPv6, is refused (expected, not a bug). ${NAVIGATEUR}`;
   }
@@ -88,12 +89,12 @@ function phraseReseau(c: CapaciteReseau): string {
     ? `on TCP ${nom(c.ports.length, "port", "ports")} ${c.ports.join(", ")}`
     : "on every port";
   const atteint = cibles.length
-    ? `The shell and the browser reach only ${cibles.join(" and ")}, ${ports}.`
+    ? `The shell and the browser reach only ${cibles.join(" and ")}, ${ports}; the shell has no IPv6.`
     : "No destination is listed.";
   const dns = c.dns
     ? `DNS for the shell: ${c.dns} ${nom(c.dns, "resolver", "resolvers")} set by the administrator.`
     : `No DNS resolver for the shell${c.domaines.length ? ": only the listed domains resolve" : ""}.`;
-  return `limited. ${atteint} ${dns} A connection to anything else is refused (expected, not a bug).`;
+  return `limited. ${atteint} ${dns} A connection to anything else is refused (expected, not a bug). ${NAVIGATEUR}`;
 }
 
 function phraseGit(g: RegleRelaisGit): string {

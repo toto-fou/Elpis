@@ -36,7 +36,7 @@ reportés depuis dans les JSON, chacun signalé dans le message de son commit :
 | `apps/core/test/vecteurs/openapi.json` | le jeton d'un autre genre refusé sur `/api/tools` est un jeton de vision (`evt_…`), plus un `pcr_…` |
 | `apps/core/test/vecteurs/pont-mcp.json` | plus de jeton `opencode` en base ; le pont refuse un ancien `pcr_…` (401 `invalid_token`) |
 | `apps/core/test/vecteurs/reglages.json` | `opencode_mcp_families` ni rendu ni gardé (une ancienne valeur envoyée reste acceptée et ignorée) ; création d'un jeton `opencode` refusée (422), d'où les identifiants suivants décalés d'un ; listes de jetons sans `opencode_enabled` |
-| `apps/core/test/vecteurs/contexte-ports.json` | `reseau` : la ligne réseau du `<runtime_context>` donne la capacité réelle du bac (niveau ; domaines et ports permis, plages d'adresses et résolveurs DNS comptés ; protections cochées et IPv6, refus propres au navigateur) puis la règle du relais Git, et ne nomme plus le profil |
+| `apps/core/test/vecteurs/contexte-ports.json` | `reseau` : la ligne réseau du `<runtime_context>` donne la capacité réelle du bac (niveau ; domaines et ports permis, plages d'adresses et résolveurs DNS comptés ; protections cochées et IPv6 ; dès que le bac a du réseau, pas d'IPv6 pour le shell et refus propres au navigateur) puis la règle du relais Git, et ne nomme plus le profil |
 | `tests/goldens/payload_fold_fs.json` | même ligne réseau dans le `<runtime_context>` du premier message (profil sans réseau), suivie de la règle du relais Git ; le reste du golden inchangé |
 
 Les autres écarts sont déclarés dans les tests qui relisent les vecteurs, sans toucher aux JSON :

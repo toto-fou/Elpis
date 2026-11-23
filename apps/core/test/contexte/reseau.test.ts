@@ -19,7 +19,8 @@ const NAVIGATEUR =
 const REFUS = `: a connection there, or over IPv6, is refused (expected, not a bug).${NAVIGATEUR}`;
 const REFUS_GIT = " The relay refuses what the sandbox network refuses";
 const LISTE = "  • Network: limited. ";
-const RESTE = " A connection to anything else is refused (expected, not a bug).";
+const RESTE = ` A connection to anything else is refused (expected, not a bug).${NAVIGATEUR}`;
+const SANS_IPV6 = "; the shell has no IPv6.";
 
 const texte = (p: ProfilEffectif): string => texteReseau(capaciteReseau(p));
 
@@ -120,7 +121,7 @@ describe("texte vu par le modèle", () => {
     expect(texte({ mode: "none" })).toBe(`${AUCUN}\n${GIT_TOUS}`);
   });
 
-  it("liste blanche : domaines nommés, plages d'adresses et résolveurs du shell comptés, ports (aucun : tous)", () => {
+  it("liste blanche : domaines nommés, plages d'adresses et résolveurs du shell comptés, ports (aucun : tous), pas d'IPv6 pour le shell, refus propres au navigateur", () => {
     expect(
       texte({
         mode: "allowlist_ip",
@@ -131,21 +132,21 @@ describe("texte vu par le modèle", () => {
       }),
     ).toBe(
       `${LISTE}The shell and the browser reach only the domains files.pythonhosted.org, pypi.org and 2 address ` +
-        `ranges set by the administrator, on TCP ports 80, 443. DNS for the shell: 1 resolver set by the ` +
+        `ranges set by the administrator, on TCP ports 80, 443${SANS_IPV6} DNS for the shell: 1 resolver set by the ` +
         `administrator.${RESTE}\n${GIT_TOUS}`,
     );
     expect(texte({ mode: "allowlist_ip", domains: ["pypi.org"] })).toBe(
-      `${LISTE}The shell and the browser reach only the domain pypi.org, on every port. No DNS resolver for the ` +
+      `${LISTE}The shell and the browser reach only the domain pypi.org, on every port${SANS_IPV6} No DNS resolver for the ` +
         `shell: only the listed domains resolve.${RESTE}\n${GIT_TOUS}`,
     );
     expect(
       texte({ mode: "allowlist_ip", ips: ["10.0.0.1"], ports: [443], dns: ["10.0.0.54", "10.0.0.53"] }),
     ).toBe(
-      `${LISTE}The shell and the browser reach only 1 address range set by the administrator, on TCP port 443. ` +
+      `${LISTE}The shell and the browser reach only 1 address range set by the administrator, on TCP port 443${SANS_IPV6} ` +
         `DNS for the shell: 2 resolvers set by the administrator.${RESTE}\n${GIT_TOUS}`,
     );
     expect(texte({ mode: "allowlist_ip", ips: ["10.0.0.1"] })).toBe(
-      `${LISTE}The shell and the browser reach only 1 address range set by the administrator, on every port. No ` +
+      `${LISTE}The shell and the browser reach only 1 address range set by the administrator, on every port${SANS_IPV6} No ` +
         `DNS resolver for the shell.${RESTE}\n${GIT_TOUS}`,
     );
     expect(texte({ mode: "allowlist_ip", ports: [443] })).toBe(
@@ -153,9 +154,9 @@ describe("texte vu par le modèle", () => {
     );
   });
 
-  it("ouvert : sans protection (refus propres au navigateur), puis chaque protection cochée (IPv6 refusé, refus partagés par le relais Git), puis toutes", () => {
+  it("ouvert : sans protection (pas d'IPv6 pour le shell, refus propres au navigateur), puis chaque protection cochée (IPv6 refusé, refus partagés par le relais Git), puis toutes", () => {
     const gitProtege = `${GIT}the relay allows every repository.${REFUS_GIT}${SHELL}`;
-    expect(texte({ mode: "bridge" })).toBe(`${OUVERT}.${NAVIGATEUR}\n${GIT_TOUS}`);
+    expect(texte({ mode: "bridge" })).toBe(`${OUVERT}${SANS_IPV6}${NAVIGATEUR}\n${GIT_TOUS}`);
     expect(texte({ mode: "bridge", block_metadata: true })).toBe(
       `${OUVERT}, except to cloud metadata${REFUS}\n${gitProtege}`,
     );
@@ -205,7 +206,7 @@ describe("texte vu par le modèle", () => {
   it("règle du relais Git dite à chaque niveau : tous, serveurs choisis (un, plusieurs, aucun), comptes Git vérifiés", () => {
     for (const [mode, debut] of [
       ["none", AUCUN],
-      ["bridge", `${OUVERT}.${NAVIGATEUR}`],
+      ["bridge", `${OUVERT}${SANS_IPV6}${NAVIGATEUR}`],
     ] as const) {
       expect(texte({ mode, git_access: "servers", git_servers: ["github.com/acme"] })).toBe(
         `${debut}\n${GIT}the relay allows only this server: github.com/acme${SHELL}`,

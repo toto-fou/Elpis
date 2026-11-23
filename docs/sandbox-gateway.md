@@ -98,11 +98,12 @@ links (`packages/securite/src/confinement.ts`).
 - What the assistant is told (`<runtime_context>`,
   `apps/core/src/contexte/reseau.ts`): the sandbox's real network (none, the
   allowed domains and ports with the number of address ranges and DNS
-  resolvers, or full access minus the profile's protections and IPv6) and the
+  resolvers, or full access minus the profile's protections and IPv6; no IPv6
+  for the shell and the browser relay's own refusals on both) and the
   profile's Git rule, with the refusals this relay applies on a protected
   profile. Its Git tools reach remote repositories through this relay; a `git`
   command in its shell has only the sandbox network. It is never told the
-  profile's name or id, nor any address of the profile.
+  profile's name or id, nor an address range or resolver of the profile.
 
 ## Archives: what to know
 

@@ -233,8 +233,8 @@ describe.each(MOTEURS)("ports du contexte branchés (%s)", (moteur) => {
       const limite = await tete("carol", tour1);
       expect(limite).toContain(
         "  • Network: limited. The shell and the browser reach only the domains files.pythonhosted.org, pypi.org " +
-          "and 2 address ranges set by the administrator, on TCP ports 80, 443. DNS for the shell: 1 resolver " +
-          "set by the administrator.",
+          "and 2 address ranges set by the administrator, on TCP ports 80, 443; the shell has no IPv6. DNS for the " +
+          "shell: 1 resolver set by the administrator.",
       );
       expect(limite).not.toMatch(/10\.0\.0\.|192\.0\.2\./u);
       expect(await tete("carol", tour2)).toBe(limite);

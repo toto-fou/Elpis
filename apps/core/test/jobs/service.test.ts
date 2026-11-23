@@ -43,6 +43,47 @@ afterEach(async () => {
 
 const contenuDernier = (tour: Dict[] | undefined): string => String(tour?.at(-1)?.["content"] ?? "");
 
+/** Service neuf dont la base, une fois armée, retient jusqu'à `lacher` la première lecture `get` dont le SQL contient `motif`. */
+async function serviceRetenu(
+  motif: string,
+): Promise<{ service: ServiceJobs; armer: () => void; arrive: Promise<void>; lacher: () => void }> {
+  let retenir = false;
+  let atteint = (): void => undefined;
+  let lacher = (): void => undefined;
+  const arrive = new Promise<void>((ok) => (atteint = ok));
+  const porte = new Promise<void>((ok) => (lacher = ok));
+  const base = new Proxy(b.t.base, {
+    get(cible, cle) {
+      const v = Reflect.get(cible, cle, cible) as unknown;
+      if (cle !== "get") return typeof v === "function" ? (v as () => unknown).bind(cible) : v;
+      return async (sql: string, params?: Parameters<Base["get"]>[1]) => {
+        const r = await cible.get(sql, params);
+        if (retenir && sql.includes(motif)) {
+          retenir = false;
+          atteint();
+          await porte;
+        }
+        return r;
+      };
+    },
+  });
+  b.service.arreter();
+  const service = new ServiceJobs({
+    base,
+    hote: { tuer: async () => [], veiller: async () => true },
+    publier: (m) => void b.publications.push(m),
+    horloge: b.horloge,
+    reglages: () => b.reglages,
+  });
+  b.service = service;
+  installerServiceJobs(service);
+  await service.demarrer();
+  return { service, armer: () => (retenir = true), arrive, lacher };
+}
+
+const publicationsJob = (): Dict[] =>
+  b.publications.filter((p) => p["type"] === "chat_job").map((p) => p["data"] as Dict);
+
 function lignesJournal(): Dict[] {
   const out: Dict[] = [];
   const parcourir = (d: string): void => {
@@ -350,38 +391,8 @@ describe("réveil d'une conversation", () => {
   });
 
   it("JB-07 : `chat_job` d'un même job publiés dans l'ordre : l'état lu avant la prise du résultat d'outil ne paraît jamais après celui d'après", async () => {
-    let retenir = false;
-    let atteint = (): void => undefined;
-    let lacher = (): void => undefined;
-    const arrive = new Promise<void>((ok) => (atteint = ok));
-    const porte = new Promise<void>((ok) => (lacher = ok));
     // Publication retenue au compte des jobs actifs de la conversation : ses événements en attente sont déjà lus.
-    const base = new Proxy(b.t.base, {
-      get(cible, cle) {
-        const v = Reflect.get(cible, cle, cible) as unknown;
-        if (cle !== "get") return typeof v === "function" ? (v as () => unknown).bind(cible) : v;
-        return async (sql: string, params?: Parameters<Base["get"]>[1]) => {
-          const r = await cible.get(sql, params);
-          if (retenir && sql.includes("AND chat_id=? AND state IN")) {
-            retenir = false;
-            atteint();
-            await porte;
-          }
-          return r;
-        };
-      },
-    });
-    b.service.arreter();
-    const neuf = new ServiceJobs({
-      base,
-      hote: { tuer: async () => [], veiller: async () => true },
-      publier: (m) => void b.publications.push(m),
-      horloge: b.horloge,
-      reglages: () => b.reglages,
-    });
-    b.service = neuf;
-    installerServiceJobs(neuf);
-    await neuf.demarrer();
+    const { service: neuf, armer, arrive, lacher } = await serviceRetenu("AND chat_id=? AND state IN");
     const fin = tourActif(1, "c1");
     const id = String((await neuf.enregistrer(1, corps("c1"), "local"))["job_id"]);
     await neuf.poserEtat(1, id, "running", 4242, "");
@@ -392,7 +403,7 @@ describe("réveil d'une conversation", () => {
         .filter((j) => j["id"] === id)
         .map((j) => j["pending_events"]);
     const avant = enAttenteDuJob().length;
-    retenir = true;
+    armer();
     const recu = neuf.recevoir(1, [ev(id)], 0);
     await arrive;
     expect(await neuf.prendrePourResultat(1, "c1")).toContain(id);
@@ -403,7 +414,31 @@ describe("réveil d'une conversation", () => {
     await neuf.calme(false);
     fin();
     expect(enAttenteDuJob().slice(avant)).toEqual([1, 0]);
-    expect((neuf as unknown as { publications: Map<string, unknown> }).publications.size).toBe(0);
+    expect((neuf as unknown as { publications: Map<number, unknown> }).publications.size).toBe(0);
+  });
+
+  it("`chat_job` d'un même compte publiés dans l'ordre : deux jobs finis ensemble, compteurs du compte frais dans la dernière publication", async () => {
+    // Publication du premier job retenue au compte des jobs actifs du compte, déjà lu.
+    const { service: neuf, armer, arrive, lacher } = await serviceRetenu("WHERE user_id=? AND state IN");
+    await creerChat(b, 1, "c2");
+    const a = await lancerJob(b, 1, "c1");
+    const z = await lancerJob(b, 1, "c2");
+    const avant = publicationsJob().length;
+    armer();
+    const finA = neuf.recevoir(1, [ev(a)], 0);
+    await arrive;
+    const finZ = neuf.recevoir(1, [ev(z)], 0);
+    for (let i = 0; i < 200 && publicationsJob().length === avant; i++)
+      await new Promise((ok) => setImmediate(ok));
+    lacher();
+    await Promise.all([finA, finZ]);
+    await neuf.calme(false);
+    const apres = publicationsJob().slice(avant);
+    expect(apres.map((d) => [(d["job"] as Dict)["id"], d["active_total"]])).toEqual([
+      [a, 1],
+      [z, 0],
+    ]);
+    expect((neuf as unknown as { publications: Map<number, unknown> }).publications.size).toBe(0);
   });
 
   it("livraison d'un tour qui n'a rien persisté : événements rendus, sans réveil immédiat, joints au message suivant (ni perte)", async () => {
@@ -689,6 +724,31 @@ describe("arrêts, suppression, plafond, redémarrage", () => {
     expect(b.tours).toHaveLength(0);
     expect(await getChat(b.t.base, 1, "c1")).toBeNull();
     expect(await b.service.recevoir(1, [ev(id)], 0)).toMatchObject({ accepted: 0, rejected: 1 });
+  });
+
+  it("JB-20 : conversation supprimée avec un job en cours → sa fin (`killed`) publiée avec les compteurs du compte, plus de carte « en cours » ni de compte périmé", async () => {
+    await creerChat(b, 1, "c2");
+    const id = await lancerJob(b, 1, "c1");
+    await lancerJob(b, 1, "c2");
+    const avant = publicationsJob().length;
+    const t = b.horloge.t;
+    expect(await deleteChat(b.t.base, 1, "c1")).toBe(true);
+    await b.horloge.avancer(10, b.service);
+    const apres = publicationsJob().slice(avant);
+    expect(
+      apres.map((d) => {
+        const j = d["job"] as Dict;
+        return [
+          j["id"],
+          j["state"],
+          j["ended_at"],
+          j["pending_events"],
+          d["chat_id"],
+          d["active"],
+          d["active_total"],
+        ];
+      }),
+    ).toEqual([[id, "killed", t, 0, "c1", 0, 1]]);
   });
 
   it("JB-20 : hôte injoignable à la suppression → jobs détachés, hors des listes, purge réessayée par le balayage puis lignes effacées", async () => {

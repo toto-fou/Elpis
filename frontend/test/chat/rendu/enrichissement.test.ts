@@ -225,6 +225,25 @@ describe("clic et export", () => {
     ]);
   });
 
+  it("chemin de la racine /work (écrit ou en `data-chemin`) : clic retenu, rien d'ouvert", () => {
+    const el = corps(
+      '<p><code class="elpis-path-link" data-chemin="/work">work</code> <code class="elpis-path-link">/work/</code></p>',
+    );
+    const ouverts: unknown[] = [];
+    const actions = {
+      ouvrirDansEditeur: (p: string, l?: number | null) => ouverts.push([p, l]),
+      analyserChemin: parsePath,
+    };
+    const empeches = [...el.querySelectorAll("code")].map((c) => {
+      const ev = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(ev, "target", { value: c });
+      clicMarkdown(ev, actions);
+      return ev.defaultPrevented;
+    });
+    expect(empeches).toEqual([true, true]);
+    expect(ouverts).toEqual([]);
+  });
+
   it("chemin cliquable vers l'éditeur, ancre interne vers son titre", () => {
     const el = corps(
       '<p><code class="elpis-path-link">src/a.py:12</code> <a href="#mon-titre">lien</a></p><h2>Mon titre</h2>',

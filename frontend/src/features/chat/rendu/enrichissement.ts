@@ -612,7 +612,7 @@ export function clicMarkdown(event: Event, actions: ActionsClicMarkdown): void {
     );
     if (parsed) {
       event.preventDefault();
-      actions.ouvrirDansEditeur(parsed.path, parsed.line, parsed.col);
+      if (parsed.path) actions.ouvrirDansEditeur(parsed.path, parsed.line, parsed.col);
       return;
     }
   }

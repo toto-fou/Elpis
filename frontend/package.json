@@ -34,6 +34,6 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "6.0.10",
     "happy-dom": "21.0.4",
-    "vue-tsc": "3.3.11"
+    "vue-tsc": "3.3.14"
   }
 }

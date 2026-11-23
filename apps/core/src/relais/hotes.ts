@@ -2,7 +2,7 @@
 /** apps/core/src/relais/hotes.ts — hôtes d'outils déclarés dans mcp.json (`sandboxHosts`/`toolHosts`, `placement`) et hôte d'un compte. */
 import { readFileSync, statSync } from "node:fs";
 
-import { hostname, stripPy, urlsplit } from "@elpis/commun";
+import { hostname, rstripPy, stripPy, urlsplit } from "@elpis/commun";
 import { parseJsonPy } from "@elpis/config";
 import { manifestPath, stripMcpPath, substitute } from "@elpis/mcp";
 
@@ -165,7 +165,7 @@ export function hostFromSpec(id: string, spec: Spec): SandboxHost | null {
   const relay = lire(spec, "relay");
   return {
     id,
-    url: url.replace(/\/+$/u, ""),
+    url: rstripPy(url, "/"),
     token: texteOu(lire(spec, "token"), ""),
     relay: typeof relay === "boolean" ? relay : !isLoopback(url),
   };

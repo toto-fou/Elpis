@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/editor/clonage.ts — fenêtre « Cloner un dépôt » : ce que dit l'adresse saisie (hôte et dépôt lus, compte git que le serveur prendra, dossier créé, portées où ranger des identifiants saisis), compte dont les dépôts sont proposés, refus d'accès reconnu. */
+import { rstripPy } from "@elpis/commun/python";
+
 import {
   cheminPourType,
   cibleCompte,
@@ -108,10 +110,7 @@ export function lectureAdresse(url: string): LectureAdresse {
   if (!autorite) return { etat: suite ? "invalide" : "incomplete" };
   // Hôte et port lus comme pour chercher le compte (le schéma seul peut être en majuscules).
   if (depotDeLUrl(`${schema}://${apres}`) === null || /[?#]/u.test(suite)) return { etat: "invalide" };
-  const depot = suite
-    .slice(1)
-    .replace(/\/+$/u, "")
-    .replace(/\.git$/u, "");
+  const depot = rstripPy(suite.slice(1), "/").replace(/\.git$/u, "");
   if (!depot) return { etat: "incomplete" };
   if (SEGMENT_REFUSE.test(depot) || /[\\\0\r\n\t ]/u.test(depot)) return { etat: "invalide" };
   return { etat: "lue", hote: autorite.toLowerCase(), depot };

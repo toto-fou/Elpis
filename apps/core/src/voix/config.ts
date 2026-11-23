@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/voix/config.ts — configuration vocale coercée (défauts, bornes) relue à chaque appel, et drapeaux pour le front. */
-import { arrondiEntierPy, arrondiPy, floatPy, maxPy, minPy, stripPy, strPy, veritePy } from "@elpis/commun";
+import {
+  arrondiEntierPy,
+  arrondiPy,
+  floatPy,
+  maxPy,
+  minPy,
+  rstripPy,
+  stripPy,
+  strPy,
+  veritePy,
+} from "@elpis/commun";
 import { configView } from "@elpis/config";
 
 const STT_FORMATS = ["whisper.cpp", "openai", "llama-audio"];
@@ -72,7 +82,7 @@ export function configVoix(vue: Dict = configView() as Dict): ConfigVoix {
   return {
     enabled: brut["enabled"] === true,
     stt: {
-      endpoint_url: texte(stt["endpoint_url"], "").replace(/\/+$/, ""),
+      endpoint_url: rstripPy(texte(stt["endpoint_url"], ""), "/"),
       format: formatStt,
       model: texte(stt["model"], ""),
       language: texte(stt["language"], "fr"),
@@ -86,7 +96,7 @@ export function configVoix(vue: Dict = configView() as Dict): ConfigVoix {
       verify: booleen(stt["verify"], true),
     },
     tts: {
-      endpoint_url: texte(tts["endpoint_url"], "").replace(/\/+$/, ""),
+      endpoint_url: rstripPy(texte(tts["endpoint_url"], ""), "/"),
       format: formatTts,
       model: texte(tts["model"], ""),
       token: stripPy(chaineBrute(tts["token"])),

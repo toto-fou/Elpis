@@ -18,7 +18,7 @@ const MAX_DOWNLOAD = 40 * 1024 * 1024;
 
 /** Base « http://h:port », « …/v1 » ou route complète. */
 export function endpoint(base: string, suffix: string): string {
-  const b = (base || "").replace(/\/+$/, "");
+  const b = rstripPy(base || "", "/");
   if (b.endsWith(suffix)) return b;
   if (b.endsWith("/v1")) return b + suffix.slice(3);
   return b + suffix;

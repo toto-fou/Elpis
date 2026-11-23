@@ -2,6 +2,8 @@
 /** apps/core/src/ops/redemarrage.ts — rechargement gracieux du process (`schedule_self_reload`), générations en cours et appel de `restart-self` de main. */
 import { setTimeout as attendre } from "node:timers/promises";
 
+import { rstripPy } from "@elpis/commun";
+
 import type { PortCycleVie } from "../admin/securite";
 import type { CycleDeVie } from "../cycle";
 import { DELAI_ARRET_MS } from "../cycle";
@@ -34,7 +36,7 @@ export async function lireGenerationsMain(appel: {
   delaiMs?: number;
 }): Promise<number | null> {
   try {
-    const r = await (appel.fetch ?? fetch)(`${appel.url.replace(/\/+$/u, "")}${CHEMIN_GENERATIONS}`, {
+    const r = await (appel.fetch ?? fetch)(`${rstripPy(appel.url, "/")}${CHEMIN_GENERATIONS}`, {
       headers: { authorization: `Bearer ${appel.jeton()}` },
       signal: AbortSignal.timeout(appel.delaiMs ?? DELAI_APPEL_MAIN_MS),
     });
@@ -119,12 +121,12 @@ export function annulerRechargement(): void {
 
 /** URL de main pour `/api/admin/restart` : `MAIN_INTERNAL_URL`, sinon `MAIN_PUBLIC_URL`, sinon la boucle locale ; `/` finaux retirés. */
 export function urlMainRedemarrage(env: Record<string, string | undefined> = process.env): string {
-  return (env["MAIN_INTERNAL_URL"] || env["MAIN_PUBLIC_URL"] || "http://127.0.0.1:8001").replace(/\/+$/u, "");
+  return rstripPy(env["MAIN_INTERNAL_URL"] || env["MAIN_PUBLIC_URL"] || "http://127.0.0.1:8001", "/");
 }
 
 /** URL de main pour les bascules (base, HTTPS) : `MAIN_INTERNAL_URL` seule, sinon la boucle locale. */
 export function urlMainInterneBrute(env: Record<string, string | undefined> = process.env): string {
-  return (env["MAIN_INTERNAL_URL"] || "http://127.0.0.1:8001").replace(/\/+$/u, "");
+  return rstripPy(env["MAIN_INTERNAL_URL"] || "http://127.0.0.1:8001", "/");
 }
 
 export interface ReponseMain {

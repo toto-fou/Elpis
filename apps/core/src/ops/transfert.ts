@@ -133,14 +133,14 @@ export function parseTarget(texte: string | null, password?: string): Cible {
   const u = urlsplit(t);
   const backend = SCHEMAS[u.scheme.toLowerCase()];
   const hote = hostname(u);
-  if (backend === undefined || !hote || !u.path.replace(/^\/+|\/+$/gu, ""))
+  if (backend === undefined || !hote || !stripPy(u.path, "/"))
     throw new RangeError(`cible illisible : ${reprPy(t)} (attendu sqlite:/… ou postgres://…)`);
   const [utilisateur, motDePasse] = infoUtilisateur(u.netloc);
   return {
     backend,
     host: hote,
     port: port(u) || 5432,
-    name: unquotePy(u.path.replace(/^\/+|\/+$/gu, "")),
+    name: unquotePy(stripPy(u.path, "/")),
     user: unquotePy(utilisateur || "elpis"),
     password: password !== undefined ? password : unquotePy(motDePasse || ""),
     tls: valeursRequete(u.query, "tls")[0] ?? "off",

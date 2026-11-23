@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from tests.deploy import test_comptes_separes_2026_11_21 as _cs
-from tests.deploy.test_comptes_separes_2026_11_21 import INSTALLE_SEPARE, _harnais, _mode
+from tests.deploy.test_comptes_separes_2026_11_21 import INSTALLE_SEPARE, TALONS, TRACE_DROITS, _harnais, _mode, _trace
 
 depot = _cs.depot
 
@@ -17,11 +17,11 @@ def test_installation_neuve_pose_run_et_le_cache_des_graphiques(depot):
     assert _mode(depot / "user_db/run") == "2770" and _mode(depot / "user_db/run/charts") == "2750"
 
 
-# Mise à niveau : un run/ que main a créé fermé (0700) est rouvert au groupe, son cache des graphiques compris.
-def test_run_ferme_par_main_rouvert(depot):
-    (depot / "user_db/run").chmod(0o700)
-    (depot / "user_db/run/charts/alice").mkdir(parents=True, mode=0o750)
-    r = _harnais(depot, INSTALLE_SEPARE)
+# Ordre des étapes de root : user_db/run posé (2770, à root) avant le cache des graphiques, même quand il existe déjà.
+def test_run_pose_avant_le_cache_des_graphiques(depot):
+    r = _harnais(depot, INSTALLE_SEPARE, TALONS + TRACE_DROITS)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert {p: _mode(depot / p) for p in ("user_db/run", "user_db/run/charts", "user_db/run/charts/alice")} == {
-        "user_db/run": "2770", "user_db/run/charts": "2750", "user_db/run/charts/alice": "2750"}
+    t = _trace(depot)
+    run = [i for i, l in enumerate(t) if l.startswith(f"droits dossier {depot}/user_db/run 2770 root ")]
+    charts = [i for i, l in enumerate(t) if l.startswith(f"droits dossier {depot}/user_db/run/charts 2750 ")]
+    assert run and charts and run[0] < charts[0], t

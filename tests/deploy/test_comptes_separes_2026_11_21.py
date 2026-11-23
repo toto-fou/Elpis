@@ -62,6 +62,9 @@ runuser() {
     "$@"
 }
 chown() { trace chown "$@"; }; systemctl() { trace systemctl "$@"; }; systemd-tmpfiles() { trace systemd-tmpfiles "$@"; }
+# Unités, /run/<préfixe> et tmpfiles du vrai système : jamais effacés par un essai (une instance active y vit), tracés seulement.
+rm() { case " $* " in *" /etc/"*|*" /run/"*) trace rm "$@" ;; *) command rm "$@" ;; esac; }
+find() { case "${1:-}" in /etc/*|/run/*) trace find "$@" ;; *) command find "$@" ;; esac; }
 setsid() { [ "${1:-}" = -w ] && shift; "$@"; }; sysctl() { trace sysctl "$@"; }
 install() { trace install "$@"; }; sudo() { :; }; docker() { :; }
 load_runtime() { SANDBOX_DIR="$ROOT/user_sandboxes"; RAG_STORE="$ROOT/user_db/rag"; RAG_CACHE="$ROOT/user_db/rag-cache"; CHART_DIR="$ROOT/user_db/run/charts"; NODE=/bin/true; }

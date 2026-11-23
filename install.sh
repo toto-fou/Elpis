@@ -726,6 +726,20 @@ if [ "$TUI" -eq 0 ]; then
         fi
     fi
 fi
+# Premier dossier, du dépôt à « / », que les autres comptes ne traversent pas (comme ./elpis) ; échec si tous le permettent.
+dossier_ferme() { local d="$1"; while [ $(( 8#$(stat -c %a -- "$d" 2>/dev/null || echo 0) & 1 )) -ne 0 ]; do [ "$d" = / ] && return 1; d="$(dirname -- "$d")"; done; echo "$d"; }
+# Première installation en services systemd : un dépôt fermé aux comptes des services (dossier personnel, 0700 sous Debian) arrête tout ici, avec la commande qui le déplace.
+if [ "$AFTER" = service ] && ! config_presente && [ "${ELPIS_COMPTE_UNIQUE:-0}" != 1 ] && ferme="$(dossier_ferme "$ROOT")"; then
+    if [ "$ferme" = "$ROOT" ]; then
+        remede="chmod -R o+rX $(cite_sh "$ROOT") && ./install.sh"
+    else
+        cible=/opt/elpis; [ -e "$cible" ] && cible="/opt/<dossier libre>"
+        remede="$([ "$AS_ROOT" -eq 1 ] || echo "sudo ")mv $(cite_sh "$ROOT") $cible && cd $cible && ./install.sh"
+    fi
+    msg="Un compte par service impossible : $ferme est fermé aux autres comptes, les services ne pourraient pas lire le code. Installation arrêtée avant ses étapes ; relancez ainsi : $remede (mêmes options), ou ELPIS_COMPTE_UNIQUE=1 ./install.sh pour garder tous les services sous un seul compte."
+    [ "$DRY_RUN" -eq 1 ] || die "$msg"
+    bloquer "$msg"
+fi
 # Groupes de deploy/prerequis-apt.txt qu'exigent les composants choisis.
 GROUPES_APT=(socle)
 [ "$SANDBOX_MODE" != none ] && GROUPES_APT+=(sandbox)
@@ -1301,7 +1315,7 @@ if config_presente; then
         service)
             info "Services systemd…"
             if [ "$ADMIN_OK" -eq 1 ]; then
-                $SUDO env ELPIS_USER="$COMPTE_SERVICES" "$ROOT/elpis" service install \
+                $SUDO env ELPIS_USER="$COMPTE_SERVICES" ELPIS_COMPTE_UNIQUE="${ELPIS_COMPTE_UNIQUE:-0}" "$ROOT/elpis" service install \
                     || note_warn "Installation des services échouée (sudo ./elpis service install)."
             else
                 note_warn "Services systemd : droits administrateur requis (sudo ./elpis service install)."

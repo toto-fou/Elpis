@@ -30,7 +30,7 @@
     "@elpis/securite": "0.2.0",
     "@elpis/skills": "0.2.0",
     "@elpis/verrous": "0.2.0",
-    "@fastify/multipart": "10.1.8",
+    "@fastify/multipart": "10.1.9",
     "@fastify/send": "4.2.0",
     "@fastify/websocket": "11.3.7",
     "@modelcontextprotocol/sdk": "1.32.1",

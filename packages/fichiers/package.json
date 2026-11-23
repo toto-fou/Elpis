@@ -1,6 +1,6 @@
 {
   "name": "@elpis/fichiers",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -10,11 +10,11 @@
     "./test": "./test/aides.ts"
   },
   "dependencies": {
-    "@elpis/bac": "0.1.5",
-    "@elpis/commun": "0.1.5",
-    "@elpis/config": "0.1.5",
-    "@elpis/securite": "0.1.5",
-    "@elpis/verrous": "0.1.5",
+    "@elpis/bac": "0.2.0",
+    "@elpis/commun": "0.2.0",
+    "@elpis/config": "0.2.0",
+    "@elpis/securite": "0.2.0",
+    "@elpis/verrous": "0.2.0",
     "undici": "8.12.4"
   }
 }

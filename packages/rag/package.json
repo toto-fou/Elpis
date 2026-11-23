@@ -1,6 +1,6 @@
 {
   "name": "@elpis/rag",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -9,6 +9,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.5"
+    "@elpis/commun": "0.2.0"
   }
 }

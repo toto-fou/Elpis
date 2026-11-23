@@ -6,6 +6,8 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+## 0.2.0 — 2026-11-25
+
 ### Added
 
 - **Installation: the wizard's screen follows the installation to the end.** After the

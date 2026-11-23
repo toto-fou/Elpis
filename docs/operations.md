@@ -223,6 +223,7 @@ files aside). Every walk leaves the secrets, the relay authority, `run/chat_runs
 | `.backup_ssh_key`, `.backup_rsync_password` | `0640 elpis-admin:elpis-cle` (main runs the scheduled remote backups) |
 | `.backup_known_hosts` | `0660 elpis-admin:elpis-cle` (OpenSSH, run by main or the console, adds new hosts to it) |
 | `user_db/browser-relay-ca/` | `0700 elpis-toolhost` |
+| `user_db/run/` | `2770 root:elpis-donnees`, created by `service install` before the chart cache (main and the console create their folders in it) |
 | `user_db/run/chat_runs/`, `user_db/run/task_resume/` | `0700 elpis-main`, content included |
 | chart cache (`user_db/run/charts/`, `CHART_CACHE_DIR`) | `2750 elpis-main:elpis-donnees`, folders `2750`, files `0640`: main writes it, the tool host reads the charts of Office documents; left out of the walk of the folder that holds it |
 | `user_db/run/office_locks/`, `user_db/run/navigateur/` (left by a former single account) | `0700 elpis-toolhost`, content included; under systemd the tool host keeps its locks and browser tokens in its own runtime folder (`/run/elpis-toolhost`) |

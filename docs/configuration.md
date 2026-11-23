@@ -489,10 +489,11 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
   (`./elpis upgrade` does not rewrite them).
 - Service accounts: one per service (`elpis-main`, `elpis-admin`, `elpis-toolhost`,
   created by `service install`; only the tool host unit gets the `docker` group), when other
-  accounts can reach the installation (`/opt/elpis` recommended). Otherwise, or with
-  `ELPIS_COMPTE_UNIQUE=1`, one account for every service: the one who runs `sudo`
-  (suggested, changeable; `ELPIS_USER=name` with no question), which must be able to read the
-  repository and is added to the `docker` group. Details, groups and rights:
+  accounts can reach the installation (`/opt/elpis` recommended; from a home folder, a first
+  `./install.sh` says so before installing anything and prints the command that moves the
+  clone). Otherwise, or with `ELPIS_COMPTE_UNIQUE=1`, one account for every service: the one
+  who runs `sudo` (suggested, changeable; `ELPIS_USER=name` with no question), which must be
+  able to read the repository and is added to the `docker` group. Details, groups and rights:
   [operations.md](operations.md#service-accounts).
 - `config.json` moves to `/etc/elpis/config/` (a link stays in the repository) and only the
   console writes it; with one account per service, `./elpis configure` runs with `sudo`, then
@@ -998,7 +999,7 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | `ELPIS_GROUPE_JOURNAL` | `elpis-journal` | Group that reads the journal folders (`audit setup`; `adm` is accepted) |
 | `ELPIS_GROUPE_CLE` | `elpis-cle` | Group of the signing key when the service account's primary group is not its own (`audit setup`); with one account per service, group of the keys of main and the console, also set in their units (group of the remote backup credentials the console writes) |
 | `ELPIS_USER` | — | Service account (one account for every service), or the operator with one account per service, for `audit setup`, `service install` and `./install.sh` run as root; see [Production mode](#production-mode-systemd) |
-| `ELPIS_COMPTE_UNIQUE` | — | `1`: `service install` keeps one account for every service instead of one per service ([operations.md](operations.md#service-accounts)) |
+| `ELPIS_COMPTE_UNIQUE` | — | `1`: `service install` keeps one account for every service instead of one per service, and `./install.sh` (which passes it on) does not stop for a clone other accounts cannot reach ([operations.md](operations.md#service-accounts)) |
 | `ELPIS_COMPTES` | set in the units | Mode of the service accounts (`separes`, `unique`, `repli`), shown by the console and `./elpis doctor`; not to be set by hand |
 | `ELPIS_GROUPE_DONNEES` | set in the units | With one account per service, `elpis-donnees`: the services create their shared files for this group; not to be set by hand |
 

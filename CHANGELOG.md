@@ -41,11 +41,13 @@ follow [SemVer](https://semver.org/).
   The browser's refusals (the relay's page, the `pw_*` tools) no longer name the profile either: they
   say what the sandbox network refuses, in the same words; the host journal still names the profile.
 - **Console: no RAG HTTPS port.** The HTTPS page and the HTTPS toggle no longer show or write a RAG port (`security.https.rag_port`); the RAG is internal-only. The toggle drops a leftover `rag_port` from `config.json`.
-- **`install.sh`: a clone the service accounts cannot reach stops a first installation with
-  systemd services.** Before any of its steps, it prints the command that moves the clone to
-  `/opt/elpis` (or opens the clone itself when that is the closed folder), instead of ending with
-  every service under one account. `ELPIS_COMPTE_UNIQUE=1 ./install.sh` keeps one account, and is
-  now passed on to `service install`.
+- **`install.sh`: a clone the service accounts cannot reach is caught before installing
+  anything.** On a first installation, a folder between `/` and the clone that other accounts
+  cannot pass through (a home folder), or code they cannot read, stops `--service`, or is asked
+  about when the startup is not chosen yet, with the command that moves the clone to `/opt/elpis`
+  (or opens it). Services that still end up under one account make the installation end with a
+  warning. `ELPIS_COMPTE_UNIQUE=1 ./install.sh` keeps one account; it is now passed on to
+  `service install` and shown in the summary.
 
 ### Security
 

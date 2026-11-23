@@ -1410,6 +1410,8 @@ droits_separes() {
         poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0640 "${envois[@]}" --comptes "$legs" || e=1
         poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0660 .backup_known_hosts --comptes "$legs" || e=1
     done
+    # user_db/run (journaux de tour, reprises, cache des graphiques) posé ici au mode des données : créé au premier démarrage par main, il serait fermé (0700) et l'hôte d'outils ne lirait plus les graphiques.
+    dossier_donnees "$RUN_DIR" 2770 "$admis" root "$G" "$U" || e=1
     poser_droits fichiers "$ROOT" "$op" "$G" 0640 mcp.json toolhost.json config.json --comptes "root $legs" || e=1
     if [ -n "$S" ]; then
         if dossier_donnees "$S" 2750 "$admis" "$UNIT_PREFIX-toolhost"; then

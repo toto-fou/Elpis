@@ -602,15 +602,15 @@ export async function conversationsEnAttente(x: Executeur): Promise<{ uid: numbe
 /** Jobs d'une conversation supprimée : hors de toute liste, gardés jusqu'à leur purge sur l'hôte (réessayée par le balayage). */
 export const DETACHE = "chat_deleted";
 
-/** Détache les jobs de conversations supprimées (événements effacés, état terminal, purge due) ; rend leurs ids et leur genre. */
+/** Détache les jobs de conversations supprimées (événements effacés, état terminal, purge due) ; les rend tels qu'avant le détachement. */
 export async function detacherJobsDesChats(
   base: Base,
   uid: number,
   chatIds: readonly string[],
-): Promise<{ id: string; kind: GenreJob; detail: Dict }[]> {
+): Promise<Job[]> {
   if (!chatIds.length) return [];
   return base.ecriture(async (tx) => {
-    const ids: { id: string; kind: GenreJob; detail: Dict }[] = [];
+    const jobs: Job[] = [];
     for (let i = 0; i < chatIds.length; i += 500) {
       const tranche = chatIds.slice(i, i + 500);
       const marques = tranche.map(() => "?").join(",");
@@ -618,7 +618,7 @@ export async function detacherJobsDesChats(
         uid,
         ...tranche,
       ]);
-      ids.push(...lignes.map(jobDeLigne).map((j) => ({ id: j.id, kind: j.kind, detail: j.detail })));
+      jobs.push(...lignes.map(jobDeLigne));
       await tx.run(`DELETE FROM shell_job_events WHERE user_id=? AND chat_id IN (${marques})`, [
         uid,
         ...tranche,
@@ -629,7 +629,7 @@ export async function detacherJobsDesChats(
         [uid, ...tranche],
       );
     }
-    return ids;
+    return jobs;
   });
 }
 

@@ -252,8 +252,8 @@ export class ServiceJobs {
   private readonly admissions = new Map<string, { uid: number; chatId: string }>();
   private readonly enFond = new Set<Promise<unknown>>();
   private readonly toursEnCours = new Set<Promise<unknown>>();
-  /** Dernière publication `chat_job` en cours par job : les suivantes s'y enchaînent, l'entrée part au repos. */
-  private readonly publications = new Map<string, Promise<void>>();
+  /** Dernière publication `chat_job` en cours par compte : les suivantes s'y enchaînent, l'entrée part au repos. */
+  private readonly publications = new Map<number, Promise<void>>();
   private desabonner: (() => void) | null = null;
   private annulerBalayage: (() => void) | null = null;
   private annulerVeille: (() => void) | null = null;
@@ -508,22 +508,23 @@ export class ServiceJobs {
     };
   }
 
-  /** `chat_job` : création ou changement d'état d'un job (puce « Tâches de fond ») ; publications d'un même job en série, chacune relisant job et compteurs : la dernière parue est la plus récente. */
-  private publierJob(job: Pick<Job, "userId" | "id">): Promise<void> {
-    const suite = (this.publications.get(job.id) ?? Promise.resolve()).then(() =>
-      this.publierEtat(job.userId, job.id),
+  /** `chat_job` : création ou changement d'état d'un job (puce « Tâches de fond ») ; publications d'un même compte en série, chacune relisant job et compteurs (`fige` : fin d'un job détaché, que la base ne rend plus) : la dernière parue a les compteurs les plus récents. */
+  private publierJob(job: Pick<Job, "userId" | "id">, fige: Job | null = null): Promise<void> {
+    const uid = job.userId;
+    const suite = (this.publications.get(uid) ?? Promise.resolve()).then(() =>
+      this.publierEtat(uid, job.id, fige),
     );
-    this.publications.set(job.id, suite);
+    this.publications.set(uid, suite);
     void suite.finally(() => {
-      if (this.publications.get(job.id) === suite) this.publications.delete(job.id);
+      if (this.publications.get(uid) === suite) this.publications.delete(uid);
     });
     return suite;
   }
 
-  /** État du job relu au moment de publier ; un job disparu (conversation supprimée) n'est plus publié. */
-  private async publierEtat(uid: number, id: string): Promise<void> {
+  /** État du job relu au moment de publier, sinon celui qu'on lui donne ; un job introuvable n'est pas publié. */
+  private async publierEtat(uid: number, id: string, fige: Job | null): Promise<void> {
     try {
-      const job = await lireJob(this.base, uid, id);
+      const job = fige ?? (await lireJob(this.base, uid, id));
       if (job === null) return;
       const data = {
         user_id: job.userId,
@@ -1214,9 +1215,12 @@ export class ServiceJobs {
 
   // ── Suppression, plafond, rétention ───────────────────────────────────────
 
-  /** Conversations supprimées : jobs arrêtés et purgés sur l'hôte, lignes effacées, réveils oubliés (JB-20). */
+  /** Conversations supprimées : jobs arrêtés et purgés sur l'hôte, lignes effacées, réveils oubliés (JB-20) ; la fin des jobs arrêtés publiée avec les compteurs du compte. */
   async apresSuppression(uid: number, chatIds: readonly string[]): Promise<void> {
     const detaches = await detacherJobsDesChats(this.base, uid, chatIds);
+    const t = this.maintenant();
+    for (const j of detaches)
+      if (estActif(j.state)) this.fond(this.publierJob(j, { ...j, state: "killed", endedAt: t }));
     for (const j of detaches)
       if (j.kind === "agent" && j.detail["child_id"])
         this.dep.annulerAgent?.(uid, String(j.detail["child_id"]));

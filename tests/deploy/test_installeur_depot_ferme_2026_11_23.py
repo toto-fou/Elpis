@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
+import pty
+import select
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
-
-from tests.deploy.test_installeur_assistant_2026_09_27 import _drive
 
 # En root, une copie du dépôt à root arrête install.sh plus tôt (« Lancé en root… ») : rien à vérifier ici.
 pytestmark = pytest.mark.skipif(os.geteuid() == 0, reason="lancé en root")
@@ -46,6 +47,38 @@ def _env(**plus: str) -> dict[str, str]:
 def _install(racine: Path, *args: str, **env: str) -> subprocess.CompletedProcess:
     return subprocess.run(["bash", str(racine / "install.sh"), "--yes", *SANS, *args], capture_output=True, text=True,
                           timeout=120, stdin=subprocess.DEVNULL, env=_env(**env))
+
+
+def _repondre(argv: list[str], env: dict[str, str], question: str, touche: bytes, delai: float = 90) -> tuple[str, int | None]:
+    """Lance ARGV dans un pseudo-terminal, attend QUESTION à l'écran, tape TOUCHE ; (écran, code de sortie)."""
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.environ.update(env)
+        # Chef de session intermédiaire : sa sortie enverrait SIGHUP au filtre du journal avant ses dernières lignes.
+        os.execvp("bash", ["bash", "-c", '"$@"; c=$?; sleep 2; exit $c', "bash", *argv])
+    ecran, envoye, fin, code = b"", False, time.time() + delai, None
+    # Après la sortie de bash, le filtre du journal écrit encore ses dernières lignes : lecture prolongée, bornée.
+    while time.time() < fin:
+        if select.select([fd], [], [], 0.1)[0]:
+            try:
+                morceau = os.read(fd, 65536)
+            except OSError:
+                morceau = b""
+            if not morceau:
+                break
+            ecran += morceau
+        if not envoye and question.encode() in ecran:
+            os.write(fd, touche)
+            envoye = True
+        if code is None:
+            fini, etat = os.waitpid(pid, os.WNOHANG)
+            if fini:
+                code, fin = os.waitstatus_to_exitcode(etat), min(fin, time.time() + 5)
+    if code is None:
+        os.kill(pid, 9)
+        code = os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1])
+    os.close(fd)
+    return ecran.decode("utf-8", "replace"), code
 
 
 def _faux_sudo(dossier: Path) -> str:
@@ -140,7 +173,7 @@ def test_question_avant_l_assistant_quand_le_demarrage_n_est_pas_choisi(tmp_path
     racine = _depot(maison)
     maison.chmod(0o700)
     env = {"PATH": _faux_sudo(tmp_path), "TERM": "xterm", "LANG": "C.UTF-8"}
-    ecran, code = _drive(["bash", str(racine / "install.sh"), "--plain", *SANS], [b"\r"], env)
-    assert code == 1, ecran[-2000:]
-    assert "Continuer ici (sans service, ou services sous un seul compte) ?" in ecran and ARRET in ecran, ecran[-2000:]
+    ecran, code = _repondre(["bash", str(racine / "install.sh"), "--plain", *SANS], env,
+                            "Continuer ici (sans service, ou services sous un seul compte) ?", b"\r")
+    assert code == 1 and ARRET in ecran, ecran[-2000:]
     assert not (racine / "venv").exists()

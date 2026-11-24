@@ -200,29 +200,47 @@ def test_deplacement_puis_relance(tmp_path, tmp_ouvert, vide):
     assert vide or (tmp_ouvert / "opt").stat().st_mode & 0o777 == 0o755   # parent créé en 0755, quel que soit l'umask
 
 
-# Chemins des options rendus absolus avant le déplacement (--offline relatif au dépôt, certificats à l'appel), forme --offline=, rien après « -- ».
+# Chemins des options rendus absolus avant le déplacement (--offline relatif au dépôt, certificats à l'appel), --offline en une seule forme, rien après « -- ».
 def test_chemins_des_options_suivis(tmp_path, tmp_ouvert):
     racine, cible = _depot_d_essai(tmp_path), tmp_ouvert / "opt/elpis"
-    args = '--offline ../paquet --caddy-key k.pem --offline="$ROOT/p2" -- --offline x'
+    args = '--offline ../paquet --caddy-key -- --offline="$ROOT/p2" -- --offline x'
     r = _deplacer(tmp_path, cible, args=args)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert (f"relance [1] --offline {tmp_path}/paquet --caddy-key {tmp_path}/certs/c.key --offline={tmp_path}/paquet "
+    assert (f"relance [1] --offline={tmp_path}/paquet --caddy-key {tmp_path}/certs/c.key --offline={tmp_path}/paquet "
             "-- --offline x |") in r.stdout, r.stdout
 
 
+# Certificat donné en « ../ » depuis le dépôt : chemin physique et normalisé dès la lecture (sinon suivi à tort dans le dépôt déplacé).
+def test_certificat_relatif_normalise(tmp_path):
+    racine = _depot(tmp_path / "maison")
+    r = subprocess.run(["bash", str(racine / "install.sh"), "--dry-run", "--caddy-cert", "../absent.pem"], capture_output=True,
+                       text=True, timeout=60, cwd=racine, stdin=subprocess.DEVNULL, env=_env())
+    assert r.returncode == 2 and f"--caddy-cert : {tmp_path / 'maison/absent.pem'} introuvable." in r.stderr, r.stderr
+
+
 # Dossier refusé avant tout déplacement : occupé, relatif, dans le dépôt, sous un dossier fermé aux comptes des services ; venv/ retiré ensuite.
-@pytest.mark.parametrize("cas", ["occupee", "relative", "dans_le_depot", "parent_ferme"])
+@pytest.mark.parametrize("cas", ["occupee", "relative", "dans_le_depot", "parent_ferme", "lien_vers_ferme", "modifiable_par_tous"])
 def test_cible_refusee_avant_le_deplacement(tmp_path, tmp_ouvert, cas):
     racine = _depot_d_essai(tmp_path)
     cible = {"occupee": tmp_ouvert / "opt/elpis", "relative": "opt/elpis", "dans_le_depot": racine / "sous",
-             "parent_ferme": tmp_path / "ferme/elpis"}[cas]
+             "parent_ferme": tmp_path / "ferme/elpis", "lien_vers_ferme": tmp_ouvert / "lien/elpis",
+             "modifiable_par_tous": tmp_ouvert / "ecrit/elpis"}[cas]
     attendu = {"occupee": f"{cible} existe déjà et n'est pas un dossier vide", "relative": "opt/elpis n'est pas un chemin absolu",
-               "dans_le_depot": f"{cible} est dans le dépôt", "parent_ferme": "n'est pas traversable par les comptes des services"}[cas]
+               "dans_le_depot": f"{cible} est dans le dépôt", "parent_ferme": "n'est pas traversable par les comptes des services",
+               "lien_vers_ferme": "n'est pas traversable par les comptes des services",
+               "modifiable_par_tous": f"{tmp_ouvert / 'ecrit'} est modifiable par tous les comptes"}[cas]
     if cas == "occupee":
         (tmp_ouvert / "opt/elpis/autre").mkdir(parents=True)
+    if cas == "lien_vers_ferme":
+        (tmp_path / "loin").mkdir()
+        (tmp_ouvert / "lien").symlink_to(tmp_path / "loin")
+    if cas == "modifiable_par_tous":
+        (tmp_ouvert / "ecrit").mkdir()
+        (tmp_ouvert / "ecrit").chmod(0o777)
     r = _deplacer(tmp_path, cible)
     assert r.returncode == 1 and "Installation standard : " in r.stderr and attendu in r.stderr, r.stderr
     assert racine.is_dir() and (racine / "install.sh").is_file() and not (tmp_path / "ferme").exists()
+    assert not (tmp_path / "loin/elpis").exists()
 
 
 # venv/ d'un passage interrompu retiré avant le déplacement ; journal hors du dépôt gardé tel quel, jamais rouvert.

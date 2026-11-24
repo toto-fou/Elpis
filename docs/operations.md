@@ -332,8 +332,9 @@ of their reach are copied, above). A clone in a home folder is not (`/home/<name
 is 0700 on Debian, 0750 on Ubuntu). On a first installation, `./install.sh` asks for the mode
 before installing anything: in a standard installation (or with `--standard`), it moves such a
 clone to `/opt/elpis`. `ELPIS_DOSSIER_INSTALL` names another folder: an absolute path outside
-the clone, which must not exist or be an empty folder, below folders the service accounts can
-pass through; otherwise it stops before moving anything. It then removes the `venv/` left by an
+the clone, which must not exist or be an empty folder, below folders (links followed) the
+service accounts can pass through and not every account can write to (unless sticky, like
+`/tmp`); otherwise it stops before moving anything. It then removes the `venv/` left by an
 interrupted run and goes on from the new place with the same options (relative paths given to
 `--offline`, `--caddy-cert` and `--caddy-key` still point to the same files) and the same log.
 `--service` never moves the clone: it stops with the reason; code the service accounts cannot

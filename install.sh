@@ -111,7 +111,7 @@ done
 export PATH
 
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-APPEL="$PWD"
+APPEL="$(pwd -P)"
 # Relance de l'installation standard : dossier d'appel du premier passage (chemins relatifs des options), suivi dans le dépôt déplacé.
 [ -z "${ELPIS_INSTALL_RELANCE+x}" ] || APPEL="${ELPIS_APPEL_HERITE:-$PWD}"
 cd "$ROOT"
@@ -138,6 +138,7 @@ while [ $# -gt 0 ]; do
         --caddy-cert|--caddy-key)
                         [ $# -ge 2 ] && [ -n "$2" ] || { echo "$1 attend un fichier." >&2; exit 2; }
                         case "$2" in /*) _f="$2" ;; *) _f="$APPEL/$2" ;; esac
+                        _f="$(realpath -m -- "$_f")"
                         [ -e "$_f" ] || { echo "$1 : $_f introuvable." >&2; exit 2; }
                         if [ "$1" = "--caddy-cert" ]; then CADDY_CERT="$_f"; else CADDY_KEY="$_f"; fi
                         shift ;;
@@ -224,7 +225,7 @@ if [ -n "$DB_RETIRE" ]; then
     exit 2
 fi
 if [ -n "$OFFLINE_DIR" ]; then
-    OFFLINE_DIR="$(cd "$OFFLINE_DIR" 2>/dev/null && pwd)" \
+    OFFLINE_DIR="$(cd "$OFFLINE_DIR" 2>/dev/null && pwd -P)" \
         || { echo "Dossier hors-ligne introuvable." >&2; exit 2; }
 fi
 INTERACTIVE=1
@@ -281,11 +282,12 @@ ecrire_journal() {
     if command -v python3 >/dev/null 2>&1; then exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$1") 2>&1
     else exec > >(tee -a "$1") 2>&1; fi
 }
-# Relance de l'installation standard depuis son dossier : sorties déjà filtrées et journalisées par le premier passage, même journal ; rouvert si le déplacement a changé de système de fichiers (journal suivi jusque-là copié puis effacé).
+# Relance de l'installation standard depuis son dossier : sorties déjà filtrées et journalisées par le premier passage, même journal ; rouvert si le déplacement l'a copié (autre système de fichiers : journal suivi jusque-là effacé).
 if [ -n "${ELPIS_INSTALL_RELANCE+x}" ]; then
     JOURNAL_INSTALL="${ELPIS_JOURNAL_HERITE:-}"; MODE_INSTALL=standard; DEPLACE=1; [ -n "$AFTER" ] || AFTER=service
     [ "${ELPIS_JOURNAL_ROUVRIR:-0}" != 1 ] || [ -z "$JOURNAL_INSTALL" ] || ecrire_journal "$JOURNAL_INSTALL"
-    unset ELPIS_INSTALL_RELANCE ELPIS_JOURNAL_HERITE ELPIS_JOURNAL_ROUVRIR ELPIS_APPEL_HERITE
+    info "Installation standard : dépôt déplacé de ${ELPIS_DEPLACE_DE:-?} vers $ROOT ; l'installation continue de là (ensuite : cd $ROOT)."
+    unset ELPIS_INSTALL_RELANCE ELPIS_JOURNAL_HERITE ELPIS_JOURNAL_ROUVRIR ELPIS_APPEL_HERITE ELPIS_DEPLACE_DE
 elif [ "$DRY_RUN" -eq 0 ] && JOURNAL_INSTALL="$(journal_install)"; then
     { echo; echo "===== install.sh $(date -Is) $(args_masques "$@") ====="; } >> "$JOURNAL_INSTALL"
     ecrire_journal "$JOURNAL_INSTALL"
@@ -611,26 +613,29 @@ depot_ferme() {
 deplace_ici() { [ "$DEPLACE" -eq 0 ] || echo " ; le dépôt est maintenant dans $ROOT (cd $ROOT)"; }
 # Dossier de l'installation standard : ELPIS_DOSSIER_INSTALL (/opt/elpis), normalisé sans suivre de lien s'il est absolu.
 cible_install() { local c="${ELPIS_DOSSIER_INSTALL:-/opt/elpis}"; case "$c" in /*) realpath -ms -- "$c" ;; *) printf '%s\n' "$c" ;; esac; }
-# Raison du refus de ce dossier (rien s'il convient) : chemin absolu hors du dépôt, absent ou dossier vide, dossiers au-dessus traversables par les comptes des services.
+# Raison du refus de ce dossier (rien s'il convient) : chemin absolu hors du dépôt, absent ou dossier vide ; dossiers au-dessus, liens suivis, traversables par les comptes des services et non modifiables par tous (sauf sticky).
 refus_cible() {
-    local c="$1" d
+    local c="$1" r d m
     case "$c" in /?*) ;; *) echo "$c n'est pas un chemin absolu"; return 0 ;; esac
-    case "$c/" in "$ROOT"/*) echo "$c est dans le dépôt"; return 0 ;; esac
-    case "$ROOT/" in "$c"/*) echo "$c contient le dépôt"; return 0 ;; esac
+    r="$(realpath -m -- "$c")"
+    case "$r/" in "$ROOT"/*) echo "$c est dans le dépôt"; return 0 ;; esac
+    case "$ROOT/" in "$r"/*) echo "$c contient le dépôt"; return 0 ;; esac
     if [ -e "$c" ] || [ -L "$c" ]; then
         { [ -d "$c" ] && [ ! -L "$c" ] && [ -z "$(ls -A -- "$c" 2>/dev/null)" ]; } || { echo "$c existe déjà et n'est pas un dossier vide"; return 0; }
     fi
-    d="$(dirname -- "$c")"
+    d="$(dirname -- "$r")"
     while [ ! -e "$d" ]; do d="$(dirname -- "$d")"; done
     while :; do
-        [ $(( $(bits_autres "$d") & 1 )) -ne 0 ] || { echo "$d n'est pas traversable par les comptes des services"; return 0; }
+        m=$(( 8#$(stat -c %a -- "$d" 2>/dev/null || echo 0) ))
+        [ $(( m & 1 )) -ne 0 ] || { echo "$d n'est pas traversable par les comptes des services"; return 0; }
+        [ $(( m & 8#1002 )) -ne 2 ] || { echo "$d est modifiable par tous les comptes"; return 0; }
         [ "$d" = / ] && return 1
         d="$(dirname -- "$d")"
     done
 }
 # Installation standard : dossier vérifié d'abord (refus_cible), venv/ d'un passage interrompu retiré (chemins périmés), dépôt déplacé, puis install.sh relancé de là, mêmes options (chemins des options rendus absolus, ceux du dépôt suivis), même journal.
 vers_dossier_standard() {
-    local cible parent s="" a suite="" fin=0 args=() appel="$APPEL" journal rouvrir=0 refus
+    local cible parent s="" a suite="" fin=0 args=() appel="$APPEL" journal rouvrir=0 refus inode=""
     cible="$(cible_install)"; parent="$(dirname -- "$cible")"
     [ "$AS_ROOT" -eq 1 ] || s=sudo
     [ "$DEPLACE" -eq 0 ] || die "Installation standard : $cible n'est pas accessible aux comptes des services ($ferme) ; rien n'est installé. Choisissez un dossier qu'ils traversent : ELPIS_DOSSIER_INSTALL=/autre/dossier ./install.sh --standard."
@@ -638,18 +643,18 @@ vers_dossier_standard() {
     [ ! -d "$cible" ] || $s rmdir -- "$cible" || die "Installation standard : $cible non retiré (voir ci-dessus) ; rien n'est installé."
     [ ! -d "$ROOT/venv" ] || $s rm -rf -- "$ROOT/venv" || die "Installation standard : $ROOT/venv non retiré (voir ci-dessus) ; rien n'est installé."
     [ -d "$parent" ] || $s sh -c 'umask 022 && mkdir -p -- "$1"' sh "$parent" || die "Installation standard : $parent non créé (voir ci-dessus) ; rien n'est installé."
-    [ "$(stat -c %d -- "$ROOT")" = "$(stat -c %d -- "$parent")" ] || rouvrir=1
+    case "$JOURNAL_INSTALL" in "$ROOT"/*) inode="$(stat -c %d:%i -- "$JOURNAL_INSTALL" 2>/dev/null)" ;; esac
     $s mv -T -- "$ROOT" "$cible" || die "Installation standard : dépôt non déplacé vers $cible (voir ci-dessus) ; rien n'est installé."
-    info "Installation standard : dépôt déplacé de $ROOT vers $cible ; l'installation continue de là (ensuite : cd $cible)."
     cd -- "$cible" || die "Installation standard : $cible inaccessible."
     for a in ${ARGS_INSTALL[@]+"${ARGS_INSTALL[@]}"}; do
         if [ "$fin" -eq 0 ]; then
-            case "$suite" in --offline) a="$OFFLINE_DIR" ;; --caddy-cert) a="$CADDY_CERT" ;; --caddy-key) a="$CADDY_KEY" ;; esac
-            suite=""
-            case "$a" in
-                --) fin=1 ;;
-                --offline|--caddy-cert|--caddy-key) suite="$a" ;;
-                --offline=*) a="--offline=$OFFLINE_DIR" ;;
+            case "$suite" in --offline) a="--offline=$OFFLINE_DIR" ;; --caddy-cert) a="$CADDY_CERT" ;; --caddy-key) a="$CADDY_KEY" ;; esac
+            case "$suite:$a" in
+                :--) fin=1 ;;
+                :--offline) suite="$a"; continue ;;
+                :--caddy-cert|:--caddy-key) suite="$a" ;;
+                :--offline=*) a="--offline=$OFFLINE_DIR" ;;
+                *) suite="" ;;
             esac
         fi
         case "$a" in
@@ -659,9 +664,10 @@ vers_dossier_standard() {
         args+=("$a")
     done
     case "$appel" in "$ROOT"|"$ROOT"/*) appel="$cible${appel#"$ROOT"}" ;; esac
-    case "$JOURNAL_INSTALL" in "$ROOT"/*) journal="$cible${JOURNAL_INSTALL#"$ROOT"}" ;; *) journal="$JOURNAL_INSTALL"; rouvrir=0 ;; esac
+    case "$JOURNAL_INSTALL" in "$ROOT"/*) journal="$cible${JOURNAL_INSTALL#"$ROOT"}" ;; *) journal="$JOURNAL_INSTALL" ;; esac
+    [ -z "$inode" ] || [ "$(stat -c %d:%i -- "$journal" 2>/dev/null)" = "$inode" ] || rouvrir=1
     cleanup; trap - EXIT
-    ELPIS_INSTALL_RELANCE=1 ELPIS_JOURNAL_HERITE="$journal" ELPIS_JOURNAL_ROUVRIR="$rouvrir" ELPIS_APPEL_HERITE="$appel" \
+    ELPIS_INSTALL_RELANCE=1 ELPIS_JOURNAL_HERITE="$journal" ELPIS_JOURNAL_ROUVRIR="$rouvrir" ELPIS_APPEL_HERITE="$appel" ELPIS_DEPLACE_DE="$ROOT" \
         exec bash "$cible/install.sh" ${args[@]+"${args[@]}"}
 }
 # Première installation, démarrage pas encore choisi, services possibles : le mode d'abord, qui fixe le dossier (standard : un compte par service, dans le dossier de l'installation standard s'il le faut ; essai : sous ce compte, ./elpis start).

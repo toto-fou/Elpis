@@ -46,6 +46,10 @@ def test_docker_sous_l_operateur_non_verifiable(depot):
     assert "non vérifiables par ce compte (doctor avec sudo)" in r.stdout and "bad=0" in r.stdout, r.stdout + r.stderr
     r = _harnais(depot, corps.replace('[ "$*" = "is-active --quiet docker" ]', "return 3"), FAUX_UID="1000")
     assert "Docker : NON (service arrêté" in r.stderr and "bad=1" in r.stdout and "non vérifiables" not in r.stdout, r.stdout + r.stderr
+    # Démarré à la demande par son socket (docker.socket) ou installé en snap : pas en défaut.
+    for unite in ("docker.socket", "snap.docker.dockerd"):
+        r = _harnais(depot, corps.replace('[ "$*" = "is-active --quiet docker" ]', f'[ "$*" = "is-active --quiet {unite}" ]'), FAUX_UID="1000")
+        assert "non vérifiables par ce compte" in r.stdout and "bad=0" in r.stdout, r.stdout + r.stderr
     r = _harnais(depot, corps.replace("echo separes", "echo unique"), FAUX_UID="1000")
     assert "Docker joignable : NON" in r.stderr and "bad=2" in r.stdout, r.stdout + r.stderr
     r = _harnais(depot, corps, FAUX_UID="0")

@@ -1877,7 +1877,8 @@ doctor_docker() {
     if [ "$(id -u)" -ne 0 ] && [ "$(mode_installe)" = separes ] && ! docker info >/dev/null 2>&1; then
         if ! command -v docker >/dev/null 2>&1; then
             warn "Docker : NON (absent : installer docker ; sans lui, ni sandbox ni navigateur)"; bad=$((bad+1))
-        elif command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet docker; then
+        elif command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet docker && ! systemctl is-active --quiet docker.socket \
+                && ! systemctl is-active --quiet snap.docker.dockerd; then
             warn "Docker : NON (service arrêté : sudo systemctl start docker ; sans lui, ni sandbox ni navigateur)"; bad=$((bad+1))
         else
             info "Docker et image sandbox $image : pilotés par l'hôte d'outils seul (un compte par service), non vérifiables par ce compte (doctor avec sudo)"

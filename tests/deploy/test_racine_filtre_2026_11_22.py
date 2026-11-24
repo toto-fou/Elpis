@@ -54,7 +54,8 @@ def test_b_sorties_d_un_compte_filtrees_vers_un_tube(depot, tmp_path):
     assert "clair" in r.stdout and "fin" in r.stdout and "rc=0" in r.stdout, r.stdout + r.stderr
     assert "\x1b" not in r.stdout and "52;c" not in r.stdout and "\xc2" not in r.stdout
     texte = (REPO / "install.sh").read_text(encoding="utf-8")
-    assert 'exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$JOURNAL_INSTALL") 2>&1' in texte
+    assert 'exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$1") 2>&1' in texte
+    assert texte.count('ecrire_journal "$JOURNAL_INSTALL"') == 2   # premier passage, et relance après un changement de disque
     # Pseudo-terminal de sudo ./elpis configure : relayé par le filtre --tui.
     _unite(depot, "main", "elpis-main", "separes")
     talons = ('id() { [ "$*" = -u ] && echo 0 || command id "$@"; }\ncharger_env_sur() { ENV_CHARGE=1; }\n'

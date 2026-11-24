@@ -16,6 +16,10 @@
 #  réponse désactive les saisies qu'elle rend inutiles (sans Caddy, pas de
 #  HTTPS ; base locale, rien à saisir ; sans droits admin, rien qui en
 #  demande). Clavier : ↑↓ Espace Entrée, Tab pour changer de page.
+#  Première installation : le mode d'abord, où que soit le dépôt. Standard :
+#  Elpis démarre avec la machine (services systemd, un compte par service),
+#  dépôt déplacé dans /opt/elpis si ces comptes ne l'atteignent pas ; essai :
+#  ./elpis start dans ce dossier, à la demande.
 #
 #  Étapes :
 #    1. prérequis système : les paquets apt de deploy/prerequis-apt.txt,
@@ -46,7 +50,7 @@
 #    ./install.sh --plain             questions en lignes, sans assistant
 #    ./install.sh --yes               sans question : réponses par défaut
 #                                     (+ options ci-dessous), configure --yes,
-#                                     pas de démarrage sauf --start/--service
+#                                     pas de démarrage sauf --start/--service/--standard
 #    ./install.sh --dry-run           affiche dans l'ordre ce qui serait fait
 #                                     (paquets apt compris), sans question, sans
 #                                     sudo et sans rien écrire ; code 0 si
@@ -79,6 +83,8 @@
 #
 #  Après l'installation :
 #    --configure | --no-configure     configurer (défaut : oui)
+#    --standard                       installation standard : services systemd, un compte
+#                                     par service, dépôt déplacé dans /opt/elpis s'il le faut
 #    --service                        installer les services systemd
 #    --start                          démarrer tout de suite (./elpis start)
 #    --no-start                       ni l'un ni l'autre
@@ -106,6 +112,8 @@ export PATH
 
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 APPEL="$PWD"
+# Relance de l'installation standard : dossier d'appel du premier passage (chemins relatifs des options), suivi dans le dépôt déplacé.
+[ -z "${ELPIS_INSTALL_RELANCE+x}" ] || APPEL="${ELPIS_APPEL_HERITE:-$PWD}"
 cd "$ROOT"
 VENV="$ROOT/venv"
 PYBIN="${PYTHON_BIN:-python3}"
@@ -122,7 +130,7 @@ PYBIN="${PYTHON_BIN:-python3}"
 WITH_OFFICE=""; WITH_CADDY=""; WITH_AGPL=""; WITH_BROWSER=""; CADDY_CERT=""; CADDY_KEY=""
 SANDBOX_MODE=""; DB_MODE=""; DO_SYSTEM=1; DO_APT=1; OFFLINE_DIR=""; PULL_REF="${ELPIS_SANDBOX_PULL_REF:-}"
 ASSUME_YES=0; DRY_RUN=0; DO_CONFIGURE=""; AFTER=""; PLAIN=0   # AFTER : service | start | none
-CONFIGURE_ARGS=()
+CONFIGURE_ARGS=(); ARGS_INSTALL=("$@"); MODE_INSTALL=""; DEPLACE=0; HORS_STANDARD=0   # MODE_INSTALL : standard | essai ; DEPLACE : relancé après le déplacement
 while [ $# -gt 0 ]; do
     case "$1" in
         --with-office)  WITH_OFFICE=1 ;;  --no-office)  WITH_OFFICE=0 ;;
@@ -153,9 +161,10 @@ while [ $# -gt 0 ]; do
         --plain)        PLAIN=1 ;;
         --dry-run)      DRY_RUN=1 ;;
         --configure)    DO_CONFIGURE=1 ;; --no-configure) DO_CONFIGURE=0 ;;
+        --standard)     AFTER=service; MODE_INSTALL=standard ;;
         --service)      AFTER=service ;;
-        --start)        AFTER=start ;;
-        --no-start)     AFTER=none ;;
+        --start)        AFTER=start; HORS_STANDARD=1 ;;
+        --no-start)     AFTER=none; HORS_STANDARD=1 ;;
         --)             shift; CONFIGURE_ARGS=("$@"); break ;;
         -h|--help)      sed -n '3,/^#  Journal complet/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Option inconnue : $1 (voir --help)" >&2; exit 2 ;;
@@ -169,6 +178,7 @@ if [ -n "$CADDY_CERT$CADDY_KEY" ]; then
     WITH_CADDY=1
     CADDY_ARGS=(--cert "$CADDY_CERT" --key "$CADDY_KEY")
 fi
+[ "$MODE_INSTALL" != standard ] || [ "$HORS_STANDARD" -eq 0 ] || { echo "--standard ne va pas avec --start ni --no-start." >&2; exit 2; }
 case "$SANDBOX_MODE" in ""|build|pull|none) ;; *) echo "--sandbox : build, pull ou none." >&2; exit 2 ;; esac
 case "$DB_MODE" in
     ""|sqlite|postgres-local|external) ;;
@@ -266,13 +276,19 @@ journal_install() {
     return 1
 }
 JOURNAL_INSTALL=""
-if [ "$DRY_RUN" -eq 0 ] && JOURNAL_INSTALL="$(journal_install)"; then
+# Tout ce qui s'affiche part aussi dans le journal FICHIER (l'assistant écrit sur /dev/tty : ses écrans et les mots de passe n'y passent pas), filtré en une passe (deploy/droits.py filtre) : un texte venu des services n'y écrit aucune séquence.
+ecrire_journal() {
+    if command -v python3 >/dev/null 2>&1; then exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$1") 2>&1
+    else exec > >(tee -a "$1") 2>&1; fi
+}
+# Relance de l'installation standard depuis son dossier : sorties déjà filtrées et journalisées par le premier passage, même journal ; rouvert si le déplacement a changé de système de fichiers (journal suivi jusque-là copié puis effacé).
+if [ -n "${ELPIS_INSTALL_RELANCE+x}" ]; then
+    JOURNAL_INSTALL="${ELPIS_JOURNAL_HERITE:-}"; MODE_INSTALL=standard; DEPLACE=1; [ -n "$AFTER" ] || AFTER=service
+    [ "${ELPIS_JOURNAL_ROUVRIR:-0}" != 1 ] || [ -z "$JOURNAL_INSTALL" ] || ecrire_journal "$JOURNAL_INSTALL"
+    unset ELPIS_INSTALL_RELANCE ELPIS_JOURNAL_HERITE ELPIS_JOURNAL_ROUVRIR ELPIS_APPEL_HERITE
+elif [ "$DRY_RUN" -eq 0 ] && JOURNAL_INSTALL="$(journal_install)"; then
     { echo; echo "===== install.sh $(date -Is) $(args_masques "$@") ====="; } >> "$JOURNAL_INSTALL"
-    # Tout ce qui s'affiche part aussi dans le journal. L'assistant, lui,
-    # écrit sur /dev/tty : ses écrans (et les mots de passe) n'y passent pas.
-    # Sorties filtrées en une passe (deploy/droits.py filtre) avant l'écran et le journal : un texte venu des services n'y écrit aucune séquence.
-    if command -v python3 >/dev/null 2>&1; then exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$JOURNAL_INSTALL") 2>&1
-    else exec > >(tee -a "$JOURNAL_INSTALL") 2>&1; fi
+    ecrire_journal "$JOURNAL_INSTALL"
 fi
 WARNINGS=()
 note_warn() { warn "$*"; WARNINGS+=("$*"); }
@@ -591,34 +607,96 @@ depot_ferme() {
     done
     echo "$d"
 }
-# Première installation où des services systemd peuvent être choisis : un dépôt fermé à leurs comptes (dossier personnel, 0700 sous Debian) arrête tout avant la moindre installation, avec la commande qui le déplace ; choix encore ouvert : question.
-if [ "$ADMIN_OK" -eq 1 ] && ! config_presente && [ "${ELPIS_COMPTE_UNIQUE:-0}" != 1 ] \
-        && { [ "$AFTER" = service ] || { [ -z "$AFTER" ] && [ "$INTERACTIVE" -eq 1 ] && have systemctl; }; } && ferme="$(depot_ferme)"; then
-    s="$({ [ "$AS_ROOT" -eq 1 ] && [ -z "${SUDO_USER:-}" ]; } || echo "sudo ")"
-    if [ "$ferme" = "$ROOT" ]; then
-        remede="chmod -R o+rX $(cite_sh "$ROOT") && cd $(cite_sh "$ROOT") && ./install.sh"
-    else
-        cible=/opt/elpis; pre=""
-        if [ -d "$cible" ] && [ -z "$(ls -A "$cible" 2>/dev/null)" ]; then pre="${s}rmdir $cible && "
-        elif [ -e "$cible" ]; then cible="/opt/<dossier libre>"; fi
-        [ -d "$ROOT/venv" ] && pre="${pre}${s}rm -rf $(cite_sh "$ROOT/venv") && "
-        remede="${pre}${s}mv $(cite_sh "$ROOT") $cible && cd $cible && ./install.sh"
+# Rappel après le déplacement de l'installation standard : où est maintenant le dépôt.
+deplace_ici() { [ "$DEPLACE" -eq 0 ] || echo " ; le dépôt est maintenant dans $ROOT (cd $ROOT)"; }
+# Dossier de l'installation standard : ELPIS_DOSSIER_INSTALL (/opt/elpis), normalisé sans suivre de lien s'il est absolu.
+cible_install() { local c="${ELPIS_DOSSIER_INSTALL:-/opt/elpis}"; case "$c" in /*) realpath -ms -- "$c" ;; *) printf '%s\n' "$c" ;; esac; }
+# Raison du refus de ce dossier (rien s'il convient) : chemin absolu hors du dépôt, absent ou dossier vide, dossiers au-dessus traversables par les comptes des services.
+refus_cible() {
+    local c="$1" d
+    case "$c" in /?*) ;; *) echo "$c n'est pas un chemin absolu"; return 0 ;; esac
+    case "$c/" in "$ROOT"/*) echo "$c est dans le dépôt"; return 0 ;; esac
+    case "$ROOT/" in "$c"/*) echo "$c contient le dépôt"; return 0 ;; esac
+    if [ -e "$c" ] || [ -L "$c" ]; then
+        { [ -d "$c" ] && [ ! -L "$c" ] && [ -z "$(ls -A -- "$c" 2>/dev/null)" ]; } || { echo "$c existe déjà et n'est pas un dossier vide"; return 0; }
     fi
-    msg="Un compte par service impossible d'ici : $ferme n'est pas accessible aux comptes des services, qui ne pourraient pas lire le code. Rien n'est installé ; relancez ainsi : $remede (mêmes options). Sinon : ./install.sh --start (sans service), ou ELPIS_COMPTE_UNIQUE=1 ./install.sh (services sous un seul compte)."
-    if [ -n "$AFTER" ]; then
+    d="$(dirname -- "$c")"
+    while [ ! -e "$d" ]; do d="$(dirname -- "$d")"; done
+    while :; do
+        [ $(( $(bits_autres "$d") & 1 )) -ne 0 ] || { echo "$d n'est pas traversable par les comptes des services"; return 0; }
+        [ "$d" = / ] && return 1
+        d="$(dirname -- "$d")"
+    done
+}
+# Installation standard : dossier vérifié d'abord (refus_cible), venv/ d'un passage interrompu retiré (chemins périmés), dépôt déplacé, puis install.sh relancé de là, mêmes options (chemins des options rendus absolus, ceux du dépôt suivis), même journal.
+vers_dossier_standard() {
+    local cible parent s="" a suite="" fin=0 args=() appel="$APPEL" journal rouvrir=0 refus
+    cible="$(cible_install)"; parent="$(dirname -- "$cible")"
+    [ "$AS_ROOT" -eq 1 ] || s=sudo
+    [ "$DEPLACE" -eq 0 ] || die "Installation standard : $cible n'est pas accessible aux comptes des services ($ferme) ; rien n'est installé. Choisissez un dossier qu'ils traversent : ELPIS_DOSSIER_INSTALL=/autre/dossier ./install.sh --standard."
+    ! refus="$(refus_cible "$cible")" || die "Installation standard : $refus ; rien n'est installé. Libérez-le, ou choisissez un autre dossier (ELPIS_DOSSIER_INSTALL=/autre/dossier), puis relancez ./install.sh."
+    [ ! -d "$cible" ] || $s rmdir -- "$cible" || die "Installation standard : $cible non retiré (voir ci-dessus) ; rien n'est installé."
+    [ ! -d "$ROOT/venv" ] || $s rm -rf -- "$ROOT/venv" || die "Installation standard : $ROOT/venv non retiré (voir ci-dessus) ; rien n'est installé."
+    [ -d "$parent" ] || $s sh -c 'umask 022 && mkdir -p -- "$1"' sh "$parent" || die "Installation standard : $parent non créé (voir ci-dessus) ; rien n'est installé."
+    [ "$(stat -c %d -- "$ROOT")" = "$(stat -c %d -- "$parent")" ] || rouvrir=1
+    $s mv -T -- "$ROOT" "$cible" || die "Installation standard : dépôt non déplacé vers $cible (voir ci-dessus) ; rien n'est installé."
+    info "Installation standard : dépôt déplacé de $ROOT vers $cible ; l'installation continue de là (ensuite : cd $cible)."
+    cd -- "$cible" || die "Installation standard : $cible inaccessible."
+    for a in ${ARGS_INSTALL[@]+"${ARGS_INSTALL[@]}"}; do
+        if [ "$fin" -eq 0 ]; then
+            case "$suite" in --offline) a="$OFFLINE_DIR" ;; --caddy-cert) a="$CADDY_CERT" ;; --caddy-key) a="$CADDY_KEY" ;; esac
+            suite=""
+            case "$a" in
+                --) fin=1 ;;
+                --offline|--caddy-cert|--caddy-key) suite="$a" ;;
+                --offline=*) a="--offline=$OFFLINE_DIR" ;;
+            esac
+        fi
+        case "$a" in
+            "$ROOT"|"$ROOT"/*) a="$cible${a#"$ROOT"}" ;;
+            --offline="$ROOT"|--offline="$ROOT"/*) a="--offline=$cible${a#--offline="$ROOT"}" ;;
+        esac
+        args+=("$a")
+    done
+    case "$appel" in "$ROOT"|"$ROOT"/*) appel="$cible${appel#"$ROOT"}" ;; esac
+    case "$JOURNAL_INSTALL" in "$ROOT"/*) journal="$cible${JOURNAL_INSTALL#"$ROOT"}" ;; *) journal="$JOURNAL_INSTALL"; rouvrir=0 ;; esac
+    cleanup; trap - EXIT
+    ELPIS_INSTALL_RELANCE=1 ELPIS_JOURNAL_HERITE="$journal" ELPIS_JOURNAL_ROUVRIR="$rouvrir" ELPIS_APPEL_HERITE="$appel" \
+        exec bash "$cible/install.sh" ${args[@]+"${args[@]}"}
+}
+# Première installation, démarrage pas encore choisi, services possibles : le mode d'abord, qui fixe le dossier (standard : un compte par service, dans le dossier de l'installation standard s'il le faut ; essai : sous ce compte, ./elpis start).
+if [ -z "$MODE_INSTALL" ] && [ -z "$AFTER" ] && [ "$INTERACTIVE" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && have systemctl \
+        && ! config_presente && [ "${ELPIS_COMPTE_UNIQUE:-0}" != 1 ]; then
+    if [ "$(depot_ferme)" ]; then ou="dépôt déplacé dans $(cible_install)"; else ou="sur place, $ROOT"; fi
+    q="Où et comment installer Elpis ?"
+    standard="Elpis démarre avec la machine ; $ou"; essai="./elpis start à la demande, sous votre compte, sans démarrage automatique"
+    rc=3
+    if [ "$PLAIN" -eq 0 ] && have python3; then
+        MODE_INSTALL="$(python3 "$ROOT/deploy/wizard.py" ask --title "Elpis — installation" --question "$q" \
+            "standard:Installation standard (recommandé):$standard" "essai:Essai dans ce dossier:$essai")"; rc=$?
+    fi
+    [ "$rc" -ne 3 ] || MODE_INSTALL="$(ask_choice "$q" standard "standard:Installation standard (recommandé) : $standard" "essai:Essai dans ce dossier : $essai")"
+    case "$MODE_INSTALL" in
+        standard) AFTER=service ;;
+        essai) AFTER=start ;;
+        *) info "Installation annulée : rien n'a été modifié."; exit 0 ;;
+    esac
+fi
+# Services systemd sur une première installation, dépôt fermé aux comptes des services (dossier personnel, 0700 sous Debian) : installation standard, déplacé ; --service seul, arrêt avant la moindre installation, avec les commandes.
+if [ "$AFTER" = service ] && [ "$ADMIN_OK" -eq 1 ] && ! config_presente && [ "${ELPIS_COMPTE_UNIQUE:-0}" != 1 ] && ferme="$(depot_ferme)"; then
+    cible="$(cible_install)"
+    if [ "$ferme" = "$ROOT" ]; then
+        msg="Un compte par service impossible d'ici : le code de $ROOT n'est pas lisible par les comptes des services. Rien n'est installé ; relancez ainsi : chmod -R o+rX $(cite_sh "$ROOT") && cd $(cite_sh "$ROOT") && ./install.sh (mêmes options)."
         [ "$DRY_RUN" -eq 1 ] || die "$msg"
         bloquer "$msg"
+    elif [ "$MODE_INSTALL" = standard ]; then
+        if [ "$DRY_RUN" -eq 0 ]; then vers_dossier_standard
+        elif refus="$(refus_cible "$cible")"; then bloquer "Installation standard : $refus ; rien ne serait installé."
+        else info "Installation standard : le dépôt serait déplacé de $ROOT vers $cible, puis l'installation continuerait de là."; fi
     else
-        q="Dépôt inaccessible aux comptes des services ($ferme) : pas de services à un compte par service d'ici."
-        go=""
-        if [ "$PLAIN" -eq 0 ] && have python3; then
-            go="$(python3 "$ROOT/deploy/wizard.py" ask --title "Elpis — installation" --question "$q" \
-                "quit:Arrêter:$remede" "here:Continuer ici:sans service, ou services sous un seul compte")" || go=quit
-        else
-            warn "$q"
-            [ "$(ask_yn "Continuer ici (sans service, ou services sous un seul compte) ?" 0)" -eq 1 ] && go=here
-        fi
-        [ "$go" = here ] || die "$msg"
+        msg="Un compte par service impossible d'ici : $ferme n'est pas accessible aux comptes des services, qui ne pourraient pas lire le code. Rien n'est installé ; relancez avec --standard au lieu de --service (mêmes options) : le dépôt est alors déplacé dans $cible. Sinon : ./install.sh --start (sans service), ou ELPIS_COMPTE_UNIQUE=1 ./install.sh (services sous un seul compte)."
+        [ "$DRY_RUN" -eq 1 ] || die "$msg"
+        bloquer "$msg"
     fi
 fi
 # Le socle d'abord : l'assistant tourne en Python (--dry-run : avec les autres groupes, dans son plan).
@@ -672,7 +750,7 @@ print(json.dumps({"installer": sys.argv[1] == "1", "manquants": manquants}))' \
 run_wizard() {   # run_wizard [--in FICHIER] [--start PAGE] [--banner TEXTE]
     [ -n "$ANSWERS_PATH" ] || ANSWERS_PATH="$(mktemp -d)/install-answers.json" || die "Dossier temporaire indisponible."
     ANSWERS="$ANSWERS_PATH"
-    ELPIS_WIZ_ADMIN="$ADMIN_OK" ELPIS_WIZ_OFFLINE="$OFFLINE_DIR" ELPIS_WIZ_OS="$OS_NAME" \
+    ELPIS_WIZ_ADMIN="$ADMIN_OK" ELPIS_WIZ_OFFLINE="$OFFLINE_DIR" ELPIS_WIZ_OS="$OS_NAME" ELPIS_WIZ_MODE="$MODE_INSTALL" \
     ELPIS_WIZ_PRESET="$(preset_json)" ELPIS_WIZ_APT="$(apt_json)" \
     ELPIS_WIZ_CONFIGURE_ARGS="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${CONFIGURE_ARGS[@]}")" \
         python3 "$ROOT/deploy/wizard.py" install --out "$ANSWERS" "$@"
@@ -689,7 +767,7 @@ if [ "$INTERACTIVE" -eq 1 ] && [ "$PLAIN" -eq 0 ] && ensure_python3; then
     run_wizard
     case $? in
         0) TUI=1; load_answers; DO_CONFIGURE="${DO_CONFIGURE:-1}" ;;
-        1) info "Installation annulée : rien n'a été modifié."; exit 0 ;;
+        1) info "Installation annulée : rien n'a été installé$(deplace_ici)."; exit 0 ;;
         *) warn "Assistant indisponible dans ce terminal : questions en lignes." ;;
     esac
 fi
@@ -791,6 +869,7 @@ yn() { [ "$1" -eq 1 ] && echo oui || echo non; }
 cat <<EOF
 
   Récapitulatif
+    dossier           : $ROOT
     droits            : $([ "$AS_ROOT" -eq 1 ] && echo "root (application sous $APP_USER)" || { [ "$ADMIN_OK" -eq 1 ] && echo "sudo$([ "$DRY_RUN" -eq 1 ] && echo " (demandé au départ, pas en --dry-run)")" || echo "aucun"; })
     prérequis apt     : $APT_RECAP
 EOF
@@ -935,7 +1014,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 # L'assistant a déjà fait confirmer son résumé.
 if [ "$TUI" -eq 0 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$(ask_yn "Lancer l'installation ?" 1)" -eq 0 ]; then
-    info "Annulé."
+    info "Annulé$(deplace_ici)."
     exit 0
 fi
 installer_prerequis "${GROUPES_APT[@]}"
@@ -1390,6 +1469,7 @@ case "$access_mode" in
 esac
 cat <<EOF
 
+  Dossier       : $ROOT$([ "$DEPLACE" -eq 1 ] && echo "   (dépôt déplacé ici : cd $ROOT)")
   Accès         : $access
   Configuration : ./elpis configure        Diagnostic : ./elpis doctor
   Démarrage     : ./elpis start | stop | status | logs

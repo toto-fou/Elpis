@@ -283,6 +283,12 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **`./elpis doctor` with one account per service: no false alarms.** Under `sudo`, settings
+  such as `executors.allow_sudo` are read again, and the sandbox browsers are looked up where the
+  tool host reads them, not in root's cache. Run by the operator, who has no Docker access in this
+  mode, Docker and the sandbox image are reported as not verifiable from that account (`doctor`
+  with `sudo`) instead of two faults, unless Docker is missing or stopped (its service, its socket
+  and its snap all inactive); no swap alarm comes from an unreachable Docker.
 - **Chat: sandbox file links accept `/work` paths.** In inline code, `/work/a/b.md` and `/work/a/b.md:12` open the same file as `a/b.md` and are shown without the `/work/` prefix; `/work` and `/work/` stay as typed. A Markdown link to a `/work` file opens it in the editor instead of navigating to a broken URL (a link to `/work` itself opens nothing); links to other folders, to most files without an extension (`Makefile`, `Dockerfile` and dotfiles do open) and to percent-encoded names still navigate.
 
 ## 0.1.5 — 2026-11-22

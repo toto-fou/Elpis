@@ -41,11 +41,16 @@ follow [SemVer](https://semver.org/).
   The browser's refusals (the relay's page, the `pw_*` tools) no longer name the profile either: they
   say what the sandbox network refuses, in the same words; the host journal still names the profile.
 - **Console: no RAG HTTPS port.** The HTTPS page and the HTTPS toggle no longer show or write a RAG port (`security.https.rag_port`); the RAG is internal-only. The toggle drops a leftover `rag_port` from `config.json`.
-- **`install.sh`: a clone the service accounts cannot reach is caught before installing
-  anything.** On a first installation, a folder between `/` and the clone that other accounts
-  cannot pass through (a home folder), or code they cannot read, stops `--service`, or is asked
-  about when the startup is not chosen yet, with the command that moves the clone to `/opt/elpis`
-  (or opens it). Services that still end up under one account make the installation end with a
+- **`install.sh`: the mode first, wherever the clone is.** A first installation asks **Standard
+  installation** (Elpis starts with the machine: systemd services, one account per service) or
+  **Trial in this folder** (`./elpis start`, no automatic start) before anything else; the
+  wizard's startup choice follows it. In a standard installation, or with the new `--standard`
+  option, a clone the service accounts cannot reach (a home folder) is moved to `/opt/elpis`
+  (`ELPIS_DOSSIER_INSTALL`, checked before anything moves: absent or empty, below folders those
+  accounts can pass through), and the installation goes on from there with the same options and
+  log. `--standard` does not go with `--start` or `--no-start`. `--service` never moves it: it
+  stops before installing anything, as does code those accounts cannot read (with the `chmod`
+  that opens it). Services that still end up under one account make the installation end with a
   warning. `ELPIS_COMPTE_UNIQUE=1 ./install.sh` keeps one account; it is now passed on to
   `service install` and shown in the summary.
 

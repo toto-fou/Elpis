@@ -595,12 +595,14 @@ def build_pages(ctx: Ctx) -> List[T.Page]:
     ]))
 
     after_fields: List[T.Field] = []
+    mode = os.environ.get("ELPIS_WIZ_MODE", "")         # standard | essai : choisi par install.sh avant l'assistant
     if install:
         after_fields.append(T.Radio("after", "Démarrage", options=[
             T.Opt("service", "Services systemd", "démarrage au boot (recommandé)",
-                  disabled=lambda st: None if ctx.admin and ctx.have["systemctl"] else
-                  "droits administrateur et systemd requis"),
-            T.Opt("start", "Lancer maintenant", "./elpis start, sans service"),
+                  disabled=lambda st: "mode choisi au début : essai dans ce dossier" if mode == "essai" else
+                  None if ctx.admin and ctx.have["systemctl"] else "droits administrateur et systemd requis"),
+            T.Opt("start", "Lancer maintenant", "./elpis start, sans service",
+                  disabled=lambda st: "mode choisi au début : installation standard" if mode == "standard" else None),
             T.Opt("none", "Plus tard", "rien ne démarre"),
         ]))
     after_fields.append(T.Buttons("_action", "", options=[

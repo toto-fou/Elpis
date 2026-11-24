@@ -181,7 +181,8 @@ create new ones next to the database): those that need it ask for `sudo`. The RA
 converts untrusted documents, runs as `elpis-rag` and only reads the RAG store and its token. When other accounts cannot
 reach the installation (a clone in a home folder) or with `ELPIS_COMPTE_UNIQUE=1`, every service
 keeps one account, which then drives Docker itself; `./elpis doctor` warns about this fallback
-at every run, and a first `./install.sh` says so before installing anything.
+at every run; a first `./install.sh` in a standard installation moves such a clone to `/opt/elpis`, and
+`--service` stops before installing anything.
 `user_sandboxes/` is reserved to these accounts (2750, the tool host's): a container's root can
 place setuid files there; a dedicated `nosuid,nodev` mount point neutralizes them for the
 service accounts too.

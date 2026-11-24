@@ -201,13 +201,14 @@ settings (back to the Database page), switching to SQLite, or aborting.
 | Caddy (`--with-caddy`, `--no-caddy`) | no | HTTPS front end (`caddy` package installed with apt, then configured by install.sh; see [HTTPS](#https-caddy-front-end)) |
 | AGPL extras (`--with-agpl`, `--no-agpl`) | no | PyMuPDF and pdf2docx |
 | Configuration (`--configure`, `--no-configure`) | yes (first time) | `./elpis configure` |
+| Mode (`--standard`) | asked first (Standard installation, or Trial in this folder) | Standard: Elpis starts with the machine (systemd services, one account per service), clone moved to `/opt/elpis` when those accounts cannot reach it |
 | Startup (`--service`, `--start`, `--no-start`) | service | `sudo ./elpis service install` or `./elpis start` |
 
 `--yes` suppresses all questions (defaults + options); pass the options of
 `./elpis configure` after `--` (in wizard mode, they pre-fill the pages):
 
 ```bash
-ELPIS_CFG_ADMIN_PASSWORD='…' ./install.sh --yes --with-caddy --service -- \
+ELPIS_CFG_ADMIN_PASSWORD='…' ./install.sh --yes --with-caddy --standard -- \
     --llm-url http://gpu.example.lan:8080 --https local --embed-url http://gpu.example.lan:8081
 ```
 
@@ -490,8 +491,8 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
 - Service accounts: one per service (`elpis-main`, `elpis-admin`, `elpis-toolhost`,
   created by `service install`; only the tool host unit gets the `docker` group), when other
   accounts can reach the installation (`/opt/elpis` recommended; from a home folder, a first
-  `./install.sh` says so before installing anything and prints the command that moves the
-  clone). Otherwise, or with `ELPIS_COMPTE_UNIQUE=1`, one account for every service: the one
+  `./install.sh` in a standard installation, or with `--standard`, moves the clone there, and `--service`
+  stops before installing anything). Otherwise, or with `ELPIS_COMPTE_UNIQUE=1`, one account for every service: the one
   who runs `sudo` (suggested, changeable; `ELPIS_USER=name` with no question), which must be
   able to read the repository and is added to the `docker` group. Details, groups and rights:
   [operations.md](operations.md#service-accounts).
@@ -999,7 +1000,8 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | `ELPIS_GROUPE_JOURNAL` | `elpis-journal` | Group that reads the journal folders (`audit setup`; `adm` is accepted) |
 | `ELPIS_GROUPE_CLE` | `elpis-cle` | Group of the signing key when the service account's primary group is not its own (`audit setup`); with one account per service, group of the keys of main and the console, also set in their units (group of the remote backup credentials the console writes) |
 | `ELPIS_USER` | — | Service account (one account for every service), or the operator with one account per service, for `audit setup`, `service install` and `./install.sh` run as root; see [Production mode](#production-mode-systemd) |
-| `ELPIS_COMPTE_UNIQUE` | — | `1`: `service install` keeps one account for every service instead of one per service, and `./install.sh` (which passes it on) does not stop for a clone other accounts cannot reach ([operations.md](operations.md#service-accounts)) |
+| `ELPIS_COMPTE_UNIQUE` | — | `1`: `service install` keeps one account for every service instead of one per service, and `./install.sh` (which passes it on) neither stops for nor moves a clone other accounts cannot reach ([operations.md](operations.md#service-accounts)) |
+| `ELPIS_DOSSIER_INSTALL` | `/opt/elpis` | Folder where the standard installation of `./install.sh` moves a clone the service accounts cannot reach: an absolute path outside the clone, absent or an empty folder, below folders (links followed) those accounts can pass through and not every account can write to |
 | `ELPIS_COMPTES` | set in the units | Mode of the service accounts (`separes`, `unique`, `repli`), shown by the console and `./elpis doctor`; not to be set by hand |
 | `ELPIS_GROUPE_DONNEES` | set in the units | With one account per service, `elpis-donnees`: the services create their shared files for this group; not to be set by hand |
 

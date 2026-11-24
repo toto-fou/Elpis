@@ -113,12 +113,13 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 ./install.sh                                   # 2
 ```
 
-Pour un serveur en services systemd (`./install.sh --service`), clonez plutôt dans
-`/opt/elpis` (`sudo install -d -o "$USER" /opt/elpis` d'abord) : chaque service tourne alors
-sous son propre compte système, ce qu'un clone dans un dossier personnel ne permet pas
-([docs/operations.md](docs/operations.md#service-accounts)). Depuis un dossier personnel,
-`./install.sh` le signale avant d'installer quoi que ce soit et affiche la commande qui y déplace
-le clone.
+À la première installation, `./install.sh` demande d'abord le mode, où que soit le clone :
+**Installation standard** (recommandé) : Elpis démarre avec la machine, en services systemd
+chacun sous son propre compte système ([docs/operations.md](docs/operations.md#service-accounts)) ;
+un clone que ces comptes ne peuvent pas atteindre, comme dans un dossier personnel, est d'abord
+déplacé dans `/opt/elpis`, et l'installation continue de là. **Essai dans ce dossier** :
+`./elpis start` à la demande, sous votre compte, sans démarrage automatique. Sans questions,
+`--standard` fait comme le premier choix.
 
 `install.sh` demande sudo tout de suite (une fois, gardé actif pendant
 l'installation), installe le socle système s'il manque, puis ouvre un
@@ -211,7 +212,7 @@ sudo ./elpis service install   # services systemd
 **Sans question** (automatisation, CI) : chaque question a son option.
 
 ```bash
-./install.sh --yes --with-office --service -- \
+./install.sh --yes --with-office --standard -- \
     --llm-url http://gpu.example.lan:8080 --admin-user admin --embed-url http://gpu.example.lan:8081
 # mot de passe admin : ELPIS_CFG_ADMIN_PASSWORD=… (sinon généré et affiché une fois)
 ```
@@ -230,7 +231,8 @@ sudo ./elpis service install   # services systemd
 | `--offline <dir>` | sans réseau, depuis un paquet produit par `make_release.sh` (apt : miroir du LAN ou support de l'OS) |
 | `--no-apt` | paquets apt vérifiés, jamais installés : s'il en manque, la commande apt à lancer, puis arrêt |
 | `--skip-system` | paquets apt ni vérifiés ni installés (autre système) |
-| `--service` / `--start` / `--no-start` | démarrage après installation |
+| `--standard` | installation standard : services systemd, un compte par service, clone déplacé dans `/opt/elpis` si ces comptes ne l'atteignent pas |
+| `--service` / `--start` / `--no-start` | démarrage après installation (`--service` ne déplace jamais le clone : il s'arrête si les comptes des services ne l'atteignent pas) |
 | `-- <options>` | transmises à `./elpis configure` (`./elpis configure --help`) |
 
 ## Documentation

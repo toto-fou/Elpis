@@ -37,6 +37,7 @@ def _jouer(tmp_path: Path, *, demarrage=True, config=None, secu="name=seccomp", 
     docker = faux / "docker"
     docker.write_text(f"""#!/bin/sh
 case "$*" in
+  *ServerVersion*) [ "{int(docker_ko)}" = 1 ] && exit 1; echo '{version}' ;;
   *SecurityOptions*) [ "{int(docker_ko)}" = 1 ] && exit 1; echo '{secu}' ;;
   "network inspect"*) [ -n '{reseau}' ] && echo '{reseau}' || exit 1 ;;
   "version"*) echo '{version}' ;;

@@ -158,7 +158,7 @@ def test_4_config_json_vers_une_fifo_ou_dev_zero_sans_effet(depot):
     # Sous root et un compte par service : par la console (app_console), jamais sous root.
     _unite(depot, "main", "elpis-main", "separes")
     r = _harnais(depot, corps, talons='id() { [ "$*" = -u ] && echo 0 || command id "$@"; }\napp_console() { echo "console $1 $2 $3"; }')
-    assert r.stdout.startswith("console timeout 20 "), r.stdout + r.stderr
+    assert r.stdout.startswith("console env ELPIS_CONF_LIEN=") and r.stdout.strip().endswith(" timeout"), r.stdout + r.stderr
     assert "json.load(open(" not in (REPO / "elpis").read_text(encoding="utf-8")
 
 

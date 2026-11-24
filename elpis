@@ -1870,11 +1870,29 @@ PY
 }
 
 # Isolation des bacs : script de démarrage, réseau sans trafic entre bacs, filtrage du pont, version de Docker, swap, root remappé ou noyau applicatif, sudo ; script, réseau, filtrage et version comptés (compteur bad), le reste en conseil.
+# Docker et image des bacs ; un compte par service, sous l'opérateur sans accès à Docker (seul l'hôte d'outils le pilote) : absent ou arrêté, en défaut ; sinon non vérifiables, pas en défaut.
+doctor_docker() {
+    local image
+    image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
+    if [ "$(id -u)" -ne 0 ] && [ "$(mode_installe)" = separes ] && ! docker info >/dev/null 2>&1; then
+        if ! command -v docker >/dev/null 2>&1; then
+            warn "Docker : NON (absent : installer docker ; sans lui, ni sandbox ni navigateur)"; bad=$((bad+1))
+        elif command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet docker; then
+            warn "Docker : NON (service arrêté : sudo systemctl start docker ; sans lui, ni sandbox ni navigateur)"; bad=$((bad+1))
+        else
+            info "Docker et image sandbox $image : pilotés par l'hôte d'outils seul (un compte par service), non vérifiables par ce compte (doctor avec sudo)"
+        fi
+    else
+        check "Docker joignable" "installer docker, groupe docker ; sans lui, ni sandbox ni navigateur" docker info
+        check "image sandbox $image" "./install.sh ou deploy/docker/sandbox/build_offline.sh ; sans elle, ni sandbox ni navigateur" docker image inspect "$image"
+    fi
+}
+
 # conf_json CODE ARGUMENT… : CODE Python avec conf(CHEMIN) : config.json, ou le fichier au bout du seul lien que service install pose (vers $CONFIG_SYS), ouvert sans suivre de lien ni attendre (ni FIFO, ni /dev/zero, ni périphérique qui agit à l'ouverture), fichier ordinaire, 4 Mio et 20 s au plus ; sous le compte de la console quand root le lance sous un compte par service (app_cmd).
 conf_json() {
     local code="$1" py="${PY:-python3}"; shift
     [ -x "$py" ] || py=python3
-    ELPIS_CONF_LIEN="${CONFIG_SYS:-/etc/elpis/config}/config.json" app_cmd timeout 20 "$py" -c 'import json, os, stat, sys
+    app_cmd env ELPIS_CONF_LIEN="${CONFIG_SYS:-/etc/elpis/config}/config.json" timeout 20 "$py" -c 'import json, os, stat, sys
 def conf(p):
     if os.path.islink(p):
         if os.readlink(p) != os.environ.get("ELPIS_CONF_LIEN"):
@@ -1901,7 +1919,8 @@ doctor_isolation_bac() {
     local sec runtime sudo_permis reseau version majeure ouverts
     if [ -r "$ROOT/sandbox-agent/demarrage.sh" ]; then ok "script de démarrage des bacs présent"
     else warn "script de démarrage des bacs absent (sandbox-agent/demarrage.sh) : aucun bac ne démarre ; réinstallez ou mettez à jour"; bad=$((bad + 1)); fi
-    sec="$(docker info --format '{{join .SecurityOptions " "}}' 2>/dev/null)" || return 0
+    [ -n "$(docker info --format '{{.ServerVersion}}' 2>/dev/null)" ] || return 0
+    sec="$(docker info --format '{{join .SecurityOptions " "}}' 2>/dev/null)"
     if reseau="$(docker network inspect elpis-sandbox --format '{{.Driver}}|{{.EnableIPv6}}|{{index .Options "com.docker.network.bridge.enable_icc"}}|{{index .Options "com.docker.network.bridge.name"}}' 2>/dev/null)"; then
         if [ "$reseau" = "bridge|false|false|br-elpis-sb" ]; then ok "réseau des bacs : pont dédié, trafic entre bacs coupé"
         else warn "réseau Docker elpis-sandbox non conforme ($reseau) : les bacs des profils ouverts ou filtrés ne démarrent pas (docker network rm elpis-sandbox une fois les bacs arrêtés : il sera recréé)"; bad=$((bad + 1)); fi
@@ -1937,9 +1956,9 @@ print(" ".join(str(x.get("id")) for x in p if isinstance(x, dict) and x.get("mod
     return 0
 }
 
-# Navigateur, dans la sandbox de chaque compte seulement : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
+# Navigateur, dans la sandbox de chaque compte seulement : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell (celui que lit l'hôte d'outils, sous sudo celui du propriétaire du dépôt : jamais le cache de root), services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
 doctor_navigateur_bac() {
-    local ca cpu pw nm sb s d j jt n=0
+    local ca cpu pw nm sb s d j jt n=0 voit=1 vus=()
     # Navigateur non installé : déjà signalé par le contrôle « service navigateur ».
     [ -d "$ROOT/browser-service/node_modules" ] || return 0
     ca="${ELPIS_BROWSER_CA_DIR:-$ROOT/user_db/browser-relay-ca}"
@@ -1953,11 +1972,20 @@ doctor_navigateur_bac() {
     cpu="$(conf_json 'try: print(int(((conf(sys.argv[1]).get("executors") or {}).get("limits") or {}).get("cpu_quota_pct") or 100))
 except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
     [ "${cpu:-100}" -ge 200 ] || info "navigateur dans le bac : ${cpu:-100} % de CPU par bac (executors.limits.cpu_quota_pct) ; Chromium y partage ce quota, 200 conseillé (captures d'étape des pages lourdes hors délai à 100)."
-    pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
-    check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
+    pw="${PLAYWRIGHT_BROWSERS_PATH:-}"
+    [ -n "$pw" ] || [ "$(mode_installe)" != separes ] || pw="$(systemctl show -p Environment --value "$UNIT_PREFIX-toolhost" 2>/dev/null | tr ' ' '\n' | sed -n 's/^PLAYWRIGHT_BROWSERS_PATH=//p')"
+    [ -n "$pw" ] || { [ "$(mode_installe)" != separes ] && [ "$(id -u)" -ne 0 ]; } || pw="$(_navigateurs "$(stat -c %U -- "$ROOT")")"
+    pw="${pw:-$HOME/.cache/ms-playwright}"
+    [ ! -e "${pw%/*}" ] || [ -x "${pw%/*}" ] || voit=0
+    if [ "$voit" = 1 ]; then
+        check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
+    else
+        info "navigateur dans le bac : navigateurs de l'hôte d'outils ($pw) non vérifiables par ce compte (doctor avec sudo)"
+    fi
     nm="$(readlink -f "$ROOT/browser-service/node_modules" 2>/dev/null)"
+    vus=("$ROOT/browser-service" "$ROOT/browser-service/dist" "${nm:-/nonexistent}"); [ "$voit" = 0 ] || vus+=("$pw")
     check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules} browser-service/dist ; chmod o+r browser-service/dist/main.mjs" \
-        test "$(find "$ROOT/browser-service" "$ROOT/browser-service/dist" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 4 -a -n "$(find "$ROOT/browser-service/dist/main.mjs" -perm -o+r 2>/dev/null)"
+        test "$(find "${vus[@]}" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = "${#vus[@]}" -a -n "$(find "$ROOT/browser-service/dist/main.mjs" -perm -o+r 2>/dev/null)"
     if separe_vise; then sb="$SANDBOX_DIR"; else sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"; fi
     # Jetons du service : dossier d'exécution de l'hôte d'outils (unité systemd) ou, sans systemd, $RUN_DIR/navigateur.
     jt="$RUN_DIR/navigateur"
@@ -2372,10 +2400,7 @@ cmd_doctor() {
         warn "verrous de fichiers : NON (${distants:-vérification impossible} ; NFS/CIFS non pris en charge)"
         bad=$((bad+1))
     fi
-    check "Docker joignable" "installer docker, groupe docker ; sans lui, ni sandbox ni navigateur" docker info
-    local image
-    image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
-    check "image sandbox $image" "./install.sh ou deploy/docker/sandbox/build_offline.sh ; sans elle, ni sandbox ni navigateur" docker image inspect "$image"
+    doctor_docker
     doctor_isolation_bac
     check "bubblewrap (analyses du RAG et aperçus Office isolés)" \
         "apt install bubblewrap ; user namespaces autorisés ; core construit requis" core_cmd bwrap

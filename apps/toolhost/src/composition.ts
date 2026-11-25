@@ -29,7 +29,7 @@ import type { CycleDeVie } from "./cycle";
 import { arreterFilsCalcul } from "./fichiers/calcul-execution";
 import { BAC_REGISTRE } from "./fichiers/commun";
 import type { BacFichiers } from "./fichiers/commun";
-import { boucleBalayage } from "./fichiers/entretien";
+import { arreterPerimesAuDemarrage, boucleBalayage } from "./fichiers/entretien";
 import { installerMetrique } from "./fichiers/ecriture";
 import { creerFamilleFichiers } from "./fichiers/famille";
 import { metriqueHote } from "./fichiers/metrique";
@@ -154,6 +154,9 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
   installerUsageTerminal((uid, racine, quota) => sandboxUsageBytes(uid, racine, { quotaBytes: quota }));
   const cycle = o.cycle;
   if (cycle !== undefined) {
+    cycle.auDemarrage("arrêt des bacs à relancer", () => arreterPerimesAuDemarrage(o.journal), {
+      arrierePlan: true,
+    });
     cycle.auDemarrage("balayage des envois abandonnés", () => boucleBalayage(o.journal, cycle.signalArret), {
       arrierePlan: true,
     });

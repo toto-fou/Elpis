@@ -8,6 +8,8 @@ import { completerCoutRefus, hachageAJour, hashPassword, tokenHex, verifyPasswor
 import type { LigneUtilisateur } from "./session";
 
 const NOM_CANONIQUE = /^[A-Za-z0-9_-]+$/u;
+/** Noms qui croisent un dossier interne des bacs ou un repli : `_snapshots`, `guest`, `user_<n>`. */
+const NOM_RESERVE = /^(?:_snapshots|guest|user_[0-9]+)$/iu;
 
 export class ErreurNomUtilisateur extends Error {
   override name = "ErreurNomUtilisateur";
@@ -97,6 +99,8 @@ export async function validerNomUtilisateur(x: Executeur, username: string): Pro
   }
   if (username.startsWith("_"))
     throw new ErreurNomUtilisateur("username invalide : il ne peut pas commencer par _.");
+  if (NOM_RESERVE.test(username))
+    throw new ErreurNomUtilisateur("username réservé : choisissez un autre nom.");
   for (const u of await getAllUsers(x)) {
     const autre = u.username || "";
     if (autre !== username && nomCanonique(autre) === username) {

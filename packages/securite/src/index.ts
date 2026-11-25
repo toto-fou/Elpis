@@ -107,6 +107,8 @@ export { verifierJournalAudit } from "./audit-verification";
 export type { ResultatVerificationAudit } from "./audit-verification";
 export { CONTEXTE_JETON_INTERNE, jetonInterne } from "./interne";
 export { adresseCritique, blockRemoteUrlReason, GIT_REMOTE_SCHEMES } from "./ssrf";
+export { hostAddresses, INTERFACES_CONTENEURS, surLaMachine } from "./machine";
+export type { HoteMachine } from "./machine";
 export { cibleNonAmbigue, urlNonAmbigue } from "./url-whatwg";
 export type { OptionsGardeUrl, Resolveur } from "./ssrf";
 export {

@@ -30,7 +30,14 @@ const CODES_AGENT: Readonly<Record<string, string>> = {
 /** Messages français du bac et du relais Git (forme exacte), leur version anglaise. */
 const MESSAGES: readonly (readonly [RegExp, string | ((...m: string[]) => string)])[] = [
   [/^Container (\S+) n'a pas pu démarrer$/mu, "container $1 could not start"],
-  [/^docker run a échoué : /mu, "docker run failed: "],
+  [
+    /^La sandbox ne peut pas démarrer\. Demandez à votre administrateur\.$/mu,
+    "the sandbox cannot start; the administrator must check the installation.",
+  ],
+  [
+    /^Le réseau de la sandbox est indisponible\. Demandez à votre administrateur\.$/mu,
+    "the sandbox network is unavailable; the administrator must check it.",
+  ],
   [/^Dossier de l'agent (.*?) : /mu, "sandbox agent folder $1: "],
   [/^Dossier du relais Git (.*?) : /mu, "Git relay folder $1: "],
   [/^Image '([^']*)' indisponible\. /mu, "image '$1' unavailable. "],
@@ -47,8 +54,8 @@ const MESSAGES: readonly (readonly [RegExp, string | ((...m: string[]) => string
     "image $1 missing: the sandbox container comes from a previous version and cannot be recreated yet (files, editor and git unavailable); the administrator must build or load the sandbox image.",
   ],
   [
-    /^Isolation réseau : le retrait de net_admin n'est pas garanti dans (\S+) .*$/mu,
-    "network isolation: dropping net_admin is not guaranteed in $1 (`setpriv --bounding-set=-net_admin` unavailable or invalid exec_user); command refused so the IP allowlist cannot be modified. Check that the sandbox image provides `setpriv` (util-linux) and that `exec_user` has the form uid:gid.",
+    /^La sandbox doit être relancée\. .*$/mu,
+    "the sandbox must be restarted; if the problem persists, the administrator must check it.",
   ],
   [/^Remote « (.*) » introuvable$/mu, "remote '$1' not found"],
   [

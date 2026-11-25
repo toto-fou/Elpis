@@ -51,7 +51,7 @@ export const CHAMPS_RESEAU: readonly ChampReseau[] = Object.freeze([
     key: "ips",
     label: "Réseaux & IP",
     ph: "10.0.0.0/24",
-    hint: "IP ou CIDR",
+    hint: "IPv4 ou réseau IPv4",
     title:
       "Une IP (10.0.0.5) ou un réseau CIDR (10.0.0.0/24). Plusieurs valeurs acceptées, séparées par un espace ou une virgule.",
   },
@@ -68,8 +68,7 @@ export const CHAMPS_RESEAU: readonly ChampReseau[] = Object.freeze([
     label: "Ports",
     ph: "443",
     hint: "TCP sortant",
-    title:
-      "Ports TCP sortants autorisés. Nécessite une image sandbox ≥ 1.6.0 ; en deçà, le filtrage par port est ignoré.",
+    title: "Ports TCP sortants autorisés, pour toutes les destinations du profil.",
     quick: [
       { label: "Web", values: [80, 443] },
       { label: "SSH", values: [22] },
@@ -79,16 +78,14 @@ export const CHAMPS_RESEAU: readonly ChampReseau[] = Object.freeze([
     key: "dns",
     label: "Résolveurs DNS",
     ph: "10.0.0.1",
-    hint: "IP du serveur",
+    hint: "IPv4 du serveur",
     title:
       "Résolveurs joignables (--dns + port 53). Utile seulement si le conteneur doit résoudre en direct ; les domaines listés ci-dessus n'en ont pas besoin.",
   },
 ]);
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
-const IPV6 = /^[0-9a-f:]+$/i;
 const DOMAINE = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/i;
-const estIp = (s: string): boolean => IPV4.test(s) || (s.indexOf(":") >= 0 && IPV6.test(s));
 
 /** Le serveur revalide tout ; ici une faute de frappe ne se découvre pas qu'au 400 de la sauvegarde. */
 function normaliserValeur(
@@ -104,7 +101,7 @@ function normaliserValeur(
     return { value: n };
   }
   if (cle === "dns") {
-    if (!estIp(s)) return { error: `« ${s} » doit être l'IP d'un résolveur` };
+    if (!IPV4.test(s)) return { error: `« ${s} » doit être l'adresse IPv4 d'un résolveur` };
     return { value: s };
   }
   if (cle === "domains") {
@@ -115,12 +112,10 @@ function normaliserValeur(
     return { value: d };
   }
   const [addr = "", prefixe, ...extra] = s.split("/");
-  if (extra.length || !estIp(addr)) return { error: `« ${s} » n'est ni une IP ni un CIDR` };
-  if (prefixe !== undefined) {
-    const max = addr.indexOf(":") >= 0 ? 128 : 32;
-    if (!/^\d{1,3}$/.test(prefixe) || parseInt(prefixe, 10) > max)
-      return { error: `Préfixe invalide dans « ${s} » (0 à ${max})` };
-  }
+  if (extra.length || !IPV4.test(addr))
+    return { error: `« ${s} » n'est ni une adresse IPv4 ni un réseau IPv4` };
+  if (prefixe !== undefined && (!/^\d{1,2}$/.test(prefixe) || parseInt(prefixe, 10) > 32))
+    return { error: `Préfixe invalide dans « ${s} » (0 à 32)` };
   return { value: s };
 }
 

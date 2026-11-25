@@ -6,6 +6,45 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+### Security
+
+- **Accounts: reserved names refused.** An account can no longer be created as `_snapshots`,
+  `guest` or `user_<n>`: these names met an internal folder of the sandboxes or a fallback name.
+  An existing account named `_snapshots` gets its own sandbox folder, `_snapshots.compte`.
+- **Browser relay: socket folder kept open while listening**, so that closing the relay removes
+  its own socket and nothing else.
+- **Sandbox: swap, core dumps and container log bounded.** A sandbox no longer swaps beyond its
+  memory limit (`--memory-swap` equal to `--memory`), writes no core dump (`--ulimit core=0:0`)
+  and keeps at most two 1 MB files of container log (`json-file`); its background command writes to
+  `/dev/null`, not to that log. When the tool host starts, this instance's running sandboxes created
+  with older options are stopped, then recreated at their next use. `elpis.spec` 10.
+- **Sandbox: dedicated Docker network, no traffic between sandboxes.** Open and allowlist
+  sandboxes are attached to the `elpis-sandbox` network (bridge `br-elpis-sb`, traffic between
+  containers disabled), created on demand: on Docker's default bridge, a sandbox could reach the
+  ports of the other accounts' sandboxes. The host still reaches a sandbox (server preview). An
+  allowlist sandbox without resolvers receives a placeholder resolver, so that Docker's internal
+  DNS relays nothing. The Git relay and the server's Git API calls refuse the networks of the
+  machine's containers, the sandboxes among them, IPv4-mapped IPv6 included: a Git server running
+  in a container of the same machine is reached through a port published on the machine, not
+  through the container's address. The network is created without IPv6, even when the daemon
+  enables it by default. If the network exists with other settings, sandboxes on these profiles do
+  not start and the server journal says why. When a sandbox fails to start, its container logs go
+  to the server journal only. `elpis.spec` 9.
+- **Sandbox: startup script from the installation, allowlist closed by default.** Every sandbox
+  now starts with `sandbox-agent/demarrage.sh`, mounted read-only from the installation (no image
+  to rebuild; a third-party image needs `/bin/sh`, `setpriv` and, for allowlist profiles,
+  `iptables`). An allowlist profile refuses everything first, then sets its rules in one go: with no destination left (no domain resolved, entries ignored), the network stays
+  closed instead of open. Addresses and DNS resolvers of a profile are IPv4 only (an IPv6 entry
+  stopped the sandbox from starting): refused by the console, ignored when read, stored in
+  canonical form. Resolvers are reachable on port 53 only. `elpis.spec` 8.
+- **Sandbox: an account's commands no longer go through a root step.** Commands, the container
+  agent, the browser service and the terminal enter the container directly under the account's
+  UID. The container's own `PATH` holds system folders only; the account's folders in `/work` are
+  added for the account's commands alone, and the image health check is disabled. A sandbox on an
+  allowlist network profile now runs with `no-new-privileges`: `sudo` is refused there, because a
+  root in the container could undo the filter. Other profiles keep `sudo`. Containers are
+  recreated at their next use (`elpis.spec` 7); `/work` is kept.
+
 ## 0.1.5 — 2026-11-22
 
 ### Added

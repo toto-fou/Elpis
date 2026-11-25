@@ -3136,8 +3136,7 @@ Defined by the admin in `executors.network_profiles`:
 - The `isolated` profile is re-anchored on `mode: none`.
 - `allowlist_ip` filtering is applied by iptables in the container's
   namespace.
-- ⚠ Filtering by **ports** requires sandbox image ≥ 1.6.0 (default image;
-  an older container must be recreated).
+- Filtering by **ports** is done by the startup script of the installation, whatever the image.
 - `elpis.netcfg` serves as a drift marker: if the profile config changes, the
   container is reconfigured.
 

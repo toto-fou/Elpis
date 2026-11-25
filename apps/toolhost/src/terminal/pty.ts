@@ -5,7 +5,9 @@ import {
   binaireDocker,
   containerName,
   decoderRemplace,
-  privdrop,
+  entreePermise,
+  FORMAT_ENTREE,
+  PATH_COMPTE,
   racineTravail,
 } from "@elpis/bac";
 import { HttpError, intPy, stripPy } from "@elpis/commun";
@@ -34,8 +36,6 @@ export const TERM_BOOTSTRAP =
   "; " +
   "exec /bin/bash";
 export const PTY_EXEC_USER = "10001:10001";
-export const PTY_PRIVDROP_WRAP =
-  't=$(tty 2>/dev/null); [ -c "$t" ] && chown "$1:tty" "$t" 2>/dev/null; shift; exec "$@"';
 const PATH_ENFANT = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 /** Au-delà de 65 535, `struct.pack("HHHH")` lève : le Python ne redimensionne pas. */
 const TAILLE_MAX = 0xffff;
@@ -52,6 +52,18 @@ export const CONTAINER_NOT_READY = {
     "Le container Docker n'est pas démarré. Démarre-le dans tes paramètres ou utilise la modal d'init.",
 } as const;
 
+/** État du conteneur illisible pour l'instant : rien à relancer. */
+export const CONTAINER_NOT_READY_INSPECTION = {
+  error: "container_not_ready",
+  message: "La sandbox ne répond pas pour l'instant. Réessayez dans un instant.",
+} as const;
+
+/** Conteneur d'avant une mise à jour : la relance le recrée. */
+export const CONTAINER_A_RELANCER = {
+  error: "container_not_ready",
+  message: "La sandbox doit être relancée avant d'ouvrir un terminal. Relancez-la depuis vos paramètres.",
+} as const;
+
 /** `PTY_MAX_PER_USER` (env, défaut : sessions nommées + 2) : plafond de PTY vivants par compte dans ce process. */
 export function ptyMaxParCompte(env: NodeJS.ProcessEnv = process.env): number {
   try {
@@ -61,28 +73,14 @@ export function ptyMaxParCompte(env: NodeJS.ProcessEnv = process.env): number {
   }
 }
 
-/** `_build_pty_docker_cmd` : argv `docker exec -it` du terminal ; root puis `setpriv` (net_admin retiré) si la sonde a réussi, sinon forme historique, refusée si `exigerRetrait`. */
-export function construireCommandePty(conteneur: string, exigerRetrait = false): string[] {
-  const [utilisateur, prefixe] = privdrop.resolve(conteneur, PTY_EXEC_USER, exigerRetrait);
-  const queue = prefixe.length
-    ? [
-        "/bin/sh",
-        "-c",
-        PTY_PRIVDROP_WRAP,
-        "--",
-        PTY_EXEC_USER.split(":", 1)[0] ?? "",
-        ...prefixe,
-        "/bin/sh",
-        "-c",
-        TERM_BOOTSTRAP,
-      ]
-    : ["/bin/sh", "-c", TERM_BOOTSTRAP];
+/** `_build_pty_docker_cmd` : argv `docker exec -it` du terminal, sous l'UID du compte, sans étape root. */
+export function construireCommandePty(conteneur: string): string[] {
   return [
     "docker",
     "exec",
     "-it",
     "--user",
-    utilisateur,
+    PTY_EXEC_USER,
     "--workdir",
     "/work",
     "-e",
@@ -92,13 +90,17 @@ export function construireCommandePty(conteneur: string, exigerRetrait = false):
     "-e",
     "LC_ALL=C.UTF-8",
     "-e",
+    `PATH=${PATH_COMPTE}`,
+    "-e",
     "GIT_CONFIG_COUNT=1",
     "-e",
     "GIT_CONFIG_KEY_0=safe.directory",
     "-e",
     "GIT_CONFIG_VALUE_0=*",
     conteneur,
-    ...queue,
+    "/bin/sh",
+    "-c",
+    TERM_BOOTSTRAP,
   ];
 }
 
@@ -360,17 +362,17 @@ export class Terminaux {
     const racine = await racineTravail(nom);
     const conteneur = containerName(safeSandboxName(nom));
     if (!(await enMarche(conteneur))) throw new HttpError(503, { ...CONTAINER_NOT_READY });
-    const exigerRetrait = await aNetAdmin(conteneur);
-    await sonderPrivdrop(conteneur, exigerRetrait);
-    if (this.marque(uid, cle) !== marque) throw new Error("terminal fermé pendant sa création");
-    let argv: string[];
-    try {
-      argv = construireCommandePty(conteneur, exigerRetrait);
-    } catch (e) {
-      if (e instanceof privdrop.RetraitNetAdminAbsent)
-        throw new HttpError(503, { error: "privdrop_unavailable", message: e.message });
-      throw e;
+    const sure = await entreeSure(conteneur);
+    if (sure !== true) {
+      this.journal.warn(
+        `[pty] terminal refusé dans ${conteneur} : ${sure === null ? "inspection impossible" : "conteneur à relancer (options d'avant la mise à jour ou surchargées)"}`,
+      );
+      throw new HttpError(503, {
+        ...(sure === null ? CONTAINER_NOT_READY_INSPECTION : CONTAINER_A_RELANCER),
+      });
     }
+    if (this.marque(uid, cle) !== marque) throw new Error("terminal fermé pendant sa création");
+    const argv = construireCommandePty(conteneur);
     const mien = this.duCompte(uid);
     if (mien.length >= this.maxParCompte) {
       const victime = mien.reduce((a, b) => (b.lastIo < a.lastIo ? b : a));
@@ -443,32 +445,12 @@ async function enMarche(conteneur: string): Promise<boolean> {
   }
 }
 
-/** Conteneur lancé avec `NET_ADMIN` (liste blanche IP) ; inspection impossible : supposé oui, pour échouer fermé. */
-async function aNetAdmin(conteneur: string): Promise<boolean> {
+/** Entrée directe permise dans ce conteneur (`entreePermise` de @elpis/bac) ; `null` : inspection impossible. */
+async function entreeSure(conteneur: string): Promise<boolean | null> {
   try {
-    const r = await appelDocker(["inspect", "--format", "{{json .HostConfig.CapAdd}}", conteneur], 5_000);
-    if (r.code !== 0) return true;
-    return /NET_ADMIN/i.test(decoderRemplace(r.sortie));
+    const r = await appelDocker(["inspect", "--format", FORMAT_ENTREE, conteneur], 5_000);
+    return r.code === 0 ? entreePermise(decoderRemplace(r.sortie), PTY_EXEC_USER) : null;
   } catch {
-    return true;
+    return null;
   }
-}
-
-/** `_probe_privdrop` : une sonde (10 s) par conteneur, verdict retenu sauf erreur ou délai ; un refus mémorisé est resondé une fois si le retrait est exigé. */
-async function sonderPrivdrop(conteneur: string, exigerRetrait = false): Promise<void> {
-  const verdict = privdrop.cached(conteneur, PTY_EXEC_USER);
-  if (verdict === true) return;
-  if (verdict === false) {
-    if (!exigerRetrait) return;
-    privdrop.oublierVerdict(conteneur, PTY_EXEC_USER);
-  }
-  const argv = privdrop.probeArgv(conteneur, PTY_EXEC_USER);
-  if (argv === null) return;
-  let ok: boolean;
-  try {
-    ok = (await appelDocker(argv, 10_000)).code === 0;
-  } catch {
-    return;
-  }
-  privdrop.remember(conteneur, PTY_EXEC_USER, ok);
 }

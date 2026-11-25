@@ -223,10 +223,15 @@ export function dbPassword(): string {
   }
 }
 
-/** Nom canonique du dossier et du conteneur sandbox : garde `[A-Za-z0-9_-]`, supprime le reste, `guest` si vide. */
+/** Dossier interne de la racine des bacs qu'un nom de compte croiserait : celui des instantanés de tous les comptes. */
+const NOMS_INTERNES = /^_snapshots$/iu;
+
+/** Nom canonique du dossier et du conteneur sandbox : garde `[A-Za-z0-9_-]`, supprime le reste, `guest` si vide ; un compte au nom d'un dossier interne reçoit `<nom>.compte` (un nom de compte n'a jamais de point). */
 export function safeSandboxName(username: string | null | undefined): string {
   if (!username) return "guest";
-  return String(username).replace(/[^A-Za-z0-9_-]/g, "") || "guest";
+  const nom = String(username).replace(/[^A-Za-z0-9_-]/g, "");
+  if (!nom) return "guest";
+  return NOMS_INTERNES.test(nom) ? `${nom}.compte` : nom;
 }
 
 export function builtinLocalMcp(): Dict {

@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 
 import {
+  adresseIpOuNul,
   comparePointsDeCode,
   ErreurPython,
   estDict,
@@ -17,9 +18,11 @@ import {
   prefixePy,
   pyJsonDumps,
   reprPy,
+  reseauPy,
   rstripPy,
   stripPy,
   strPy,
+  texteIp,
   texteNet,
   texteOu,
   veritePy,
@@ -90,6 +93,22 @@ function profilIsole(): ProfilReseau {
   };
 }
 
+/** Adresse ou réseau IPv4 en forme canonique (`a.b.c.d` ou `a.b.c.d/n`, bits d'hôte effacés) ; `null` pour toute autre saisie, IPv6 comprise : le filtre du conteneur est IPv4. */
+export function ipv4Canonique(texte: string): string | null {
+  const r = reseauPy(stripPy(texte));
+  if (r === null || r.version !== 4) return null;
+  let prefixe = 0;
+  for (let m = r.masque; m > 0n; m >>= 1n) prefixe += Number(m & 1n);
+  const adresse = texteIp({ version: 4, valeur: r.adresse, zone: null });
+  return prefixe === 32 ? adresse : `${adresse}/${prefixe}`;
+}
+
+/** Résolveur DNS d'un profil : une adresse IPv4 seule, rendue en forme canonique ; `null` sinon. */
+export function resolveurValide(texte: string): string | null {
+  const a = adresseIpOuNul(stripPy(texte));
+  return a !== null && a.version === 4 && a.zone === null ? texteIp(a) : null;
+}
+
 /** `[str(x).strip() for x in (v or []) if str(x).strip()]`. */
 function textes(v: unknown): string[] {
   return iterExige(ouPy(v, []))
@@ -106,6 +125,25 @@ function entiers(v: unknown): number[] {
     } catch (e) {
       if (!estErreurPython(e, "TypeError", "ValueError")) throw e;
     }
+  }
+  return sortie;
+}
+
+/** Entrées d'une liste d'adresses du profil passées par leur validateur, les autres signalées et ignorées (config.json édité à la main). */
+function valides(
+  d: Dict,
+  cle: "ips" | "dns",
+  valider: (s: string) => string | null,
+  avertir: Avertir,
+): string[] {
+  const sortie: string[] = [];
+  for (const brut of textes(lire(d, cle))) {
+    const v = valider(brut);
+    if (v !== null) sortie.push(v);
+    else
+      avertir(
+        `profil réseau ${reprPy(strPy(lire(d, "id") ?? null))} : ${cle} ${reprPy(brut)} ignoré (IPv4 attendue)`,
+      );
   }
   return sortie;
 }
@@ -132,15 +170,20 @@ export function profilReseauDepuis(d: Dict, avertir: Avertir = signalerUneFois):
     throw new ErreurPython("ValueError", `identifiant de profil invalide : ${reprPy(pid)}`);
   }
   const mode = lire(d, "mode");
+  const demandes = entiers(lire(d, "ports"));
+  const ports = demandes.filter((p) => p >= 1 && p <= 65535);
+  // Des ports demandés dont aucun n'est valide : profil fermé, plutôt qu'ouvert sur tous les ports.
+  const ferme = iterExige(ouPy(lire(d, "ports"), [])).length > 0 && ports.length === 0;
+  if (ferme) avertir(`profil réseau ${reprPy(pid)} : aucun port valide, aucune destination gardée`);
   return {
     id: pid,
     name: prefixePy(texteNet(lire(d, "name")), 60),
     mode: MODES.includes(mode) ? mode : "none",
-    ips: textes(lire(d, "ips")),
+    ips: ferme ? [] : valides(d, "ips", ipv4Canonique, avertir),
     description: prefixePy(texteOu(lire(d, "description"), ""), 200),
-    domains: domainesValides(d, avertir),
-    ports: entiers(lire(d, "ports")),
-    dns: textes(lire(d, "dns")),
+    domains: ferme ? [] : domainesValides(d, avertir),
+    ports,
+    dns: valides(d, "dns", resolveurValide, avertir),
   };
 }
 
@@ -165,8 +208,8 @@ export function configBacDepuis(brut: unknown, avertir: Avertir = signalerUneFoi
     profils.push({
       id: "legacy",
       name: "Profil migré (legacy)",
-      mode: getPy(d, "network_mode", "none"),
-      ips: [...iterExige(ouPy(getPy(d, "network_allowlist"), []))],
+      mode: MODES.includes(getPy(d, "network_mode", "none")) ? getPy(d, "network_mode", "none") : "none",
+      ips: valides({ id: "legacy", ips: getPy(d, "network_allowlist") }, "ips", ipv4Canonique, avertir),
       description: "Migré automatiquement depuis l'ancienne config.",
       domains: [],
       ports: [],

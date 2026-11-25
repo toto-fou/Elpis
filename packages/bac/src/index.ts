@@ -84,7 +84,8 @@ export {
   SCRIPT_NAVIGATEUR,
   sourcesNavigateur,
 } from "./navigateur";
-export * as privdrop from "./privdrop";
+export { entreePermise, FORMAT_ENTREE, PATH_COMPTE } from "./durcissement";
+export { FORMAT_RESEAU, PONT_BACS, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
 export {
   messageSuppression,
   mettreBacDeCote,
@@ -98,11 +99,13 @@ export {
   chargerConfigBac,
   configBacDepuis,
   DOMAIN_RE,
+  ipv4Canonique,
   netcfgHash,
   oublierSignalements,
   PROFILE_ID_RE,
   profilParId,
   profilReseauDepuis,
+  resolveurValide,
   signalerUneFois,
 } from "./profils";
 export type { Avertir, ConfigBac, ProfilReseau } from "./profils";
@@ -134,6 +137,7 @@ export {
 } from "./seuils-disque";
 export type { SeuilsDisque } from "./seuils-disque";
 export {
+  arreterBacsPerimes,
   balayerPartsOrphelines,
   bumpSandboxUsage,
   invalidateSandboxUsage,

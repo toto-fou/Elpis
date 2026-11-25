@@ -26,11 +26,13 @@ case "$1" in
     n=$(nom "$@")
     [ -f "$d/$n.run" ] || { echo "Error: No such object: $n" >&2; exit 1; }
     case "$*" in
+      *HostConfig.Privileged*) printf 'false\\nnull\\n["no-new-privileges:false"]\\n' ;;
       *Mounts*) sed -n 's/^\\(.*\\):\\/work:rw$/\\1/p' "$d/$n.run" ;;
       *elpis.netcfg*)
         net=$(sed -n 's/^elpis.netcfg=//p' "$d/$n.run"); spec=$(sed -n 's/^elpis.spec=//p' "$d/$n.run")
         ag=$(sed -n 's/^elpis.agent=//p' "$d/$n.run"); nav=$(sed -n 's/^elpis.browser=//p' "$d/$n.run")
-        echo "$net|$spec|elpis/sandbox:1.8.0|$ag|$nav" ;;
+        en=$(sed -n 's/^elpis.entry=//p' "$d/$n.run")
+        echo "$net|$spec|elpis/sandbox:1.8.0|$ag|$en|$nav" ;;
       *State.Status*) echo "running|0" ;;
       *ExitCode*) echo "0|false" ;;
       *) echo "" ;;
@@ -44,6 +46,12 @@ case "$1" in
     echo "f00dcafe"; exit 0 ;;
   rm)
     for a; do case "$a" in -*) ;; rm) ;; *) rm -f "$d/$a.run" ;; esac; done; exit 0 ;;
+  network)
+    case "$2" in
+      inspect) [ -f "$d/reseau" ] && { echo "bridge|false|false|br-elpis-sb"; exit 0; }; echo "Error: No such network" >&2; exit 1 ;;
+      create) : > "$d/reseau"; exit 0 ;;
+    esac
+    exit 0 ;;
   stats) echo '{"cpu":"0.50%","mem":"12MiB / 2GiB","mem_pct":"0.59%","pids":"4"}'; exit 0 ;;
   logs) echo "journal du conteneur"; exit 0 ;;
   exec)

@@ -532,6 +532,8 @@ export class RelaisNavigateur {
   private readonly ouvertes = new Set<Socket>();
   private readonly journal: (m: string) => void;
   private ino: number | null = null;
+  /** Dossier du socket, gardé ouvert tant que le serveur écoute. */
+  private dossierFd: number | null = null;
   /** Octets de corps de requête gardés en mémoire en ce moment (borne `tamponsMax`). */
   private tampons = 0;
 
@@ -584,8 +586,17 @@ export class RelaisNavigateur {
   /** Écoute de nouveau (socket retiré ou remplacé dans le bac), liaisons gardées. */
   async rouvrir(): Promise<void> {
     this.serveur.close();
+    this.fermerDossier();
     this.serveur = this.creerServeur();
     await this.ouvrir();
+  }
+
+  /** Dossier du socket refermé, après le serveur : libuv retire le socket par ce chemin, qui doit encore désigner le même dossier. */
+  private fermerDossier(): void {
+    const fd = this.dossierFd;
+    if (fd === null) return;
+    this.dossierFd = null;
+    closeSync(fd);
   }
 
   private suivre(s: Socket): void {
@@ -608,9 +619,11 @@ export class RelaisNavigateur {
         this.serveur.once("error", ko);
         this.serveur.listen(`/proc/self/fd/${dossier}/${path.basename(this.o.socket)}`, () => ok());
       });
-    } finally {
+    } catch (e) {
       closeSync(dossier);
+      throw e;
     }
+    this.dossierFd = dossier;
     this.ino = ouvrirSocketATous(this.o.socket);
   }
 
@@ -627,6 +640,7 @@ export class RelaisNavigateur {
   async fermer(): Promise<void> {
     for (const s of this.ouvertes) s.destroy();
     await new Promise<void>((ok) => this.serveur.close(() => ok()));
+    this.fermerDossier();
     this.liaisons.clear();
   }
 

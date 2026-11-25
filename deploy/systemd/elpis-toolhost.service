@@ -49,7 +49,7 @@ RestrictRealtime=yes
 LockPersonality=yes
 SystemCallArchitectures=native
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-# 0022 sous un compte unique, 0007 en comptes séparés : le code pose lui-même les modes de ce qu'il partage avec les bacs.
+# 0022 sous un compte unique, 0027 en comptes séparés (le groupe des données lit sans écrire) : le code pose lui-même les modes de ce qu'il partage avec les bacs.
 UMask=@UMASK@
 MemoryMax=50%
 TasksMax=4096

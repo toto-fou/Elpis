@@ -24,9 +24,11 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           contenu de DOSSIER (sans franchir de point de montage) : GROUPE (et COMPTE), modes symboliques « g+rwX,o-rwx »
           (s : setgid des dossiers, « - » : inchangés ; setuid et setgid des fichiers toujours retirés) ; --comptes : entrées
           de ces comptes seulement (--comptes-dossiers : dossiers seulement) ; une entrée de root n'est donnée à un autre
-          compte qu'avec --avec-root ou root dans --comptes ; --sauf : nom (motif) ou chemin absolu ni modifié ni parcouru ; --prive :
-          chemin absolu et son contenu à COMPTE seul (go-rwx) ; --regle : chemin absolu et son contenu à COMPTE (« - » :
-          gardé) et GROUPE, en FICHIERS et DOSSIERS
+          compte qu'avec --avec-root ou root dans --comptes ; --sauf : nom (motif, à toute profondeur) ou CHEMIN ni modifié ni
+          parcouru ; --prive : CHEMIN et son contenu à COMPTE seul (go-rwx) ; --regle : CHEMIN et son contenu à COMPTE (« - » :
+          gardé) et GROUPE (« - » : celui de l'arbre), en FICHIERS et DOSSIERS ; CHEMIN : absolu, ou motif relatif à DOSSIER,
+          composant par composant et ancré à sa profondeur (« */work ») ; la première règle qui couvre une entrée l'emporte,
+          les règles --prive passant toujours avant les règles --regle
         droits.py dossier CHEMIN MODE PROPRIO GROUPE [--admis A,B] [--creer] [--sous BASE] [--groupe-racine G]
           dossier CHEMIN (créé s'il manque avec --creer) mis à PROPRIO:GROUPE en MODE ; refusé si c'est un lien, s'il
           appartient à un compte hors de root, PROPRIO et --admis, s'il est à root sans le groupe G, ou à root, non vide
@@ -43,6 +45,21 @@ USAGE = """usage : droits.py arbre DOSSIER GROUPE FICHIERS DOSSIERS [--proprio C
           seulement si elles manquent (40 caractères pour le secret, 32 pour jetons et clés, clé Fernet ; clé en service
           différente : gardée, valeur laissée) ; un lien ou un fichier spécial est refusé ; sortie : les clés de
           config.json à retirer (écrites ou égales à la clé, ou sans valeur retenue), une par ligne
+        droits.py memoire SANDBOXES MEMOIRE [PROPRIO GROUPE COMPTES]
+          memory/ de chaque compte de SANDBOXES (et l'ancien .memory/ s'il n'y a pas de memory/) déplacé dans MEMOIRE/<compte>/
+          par renommage, sans suivre de lien (une destination vide est remplacée), puis ses entrées des COMPTES données à
+          PROPRIO:GROUPE (g+rwX, rien pour les autres ; celles d'un autre compte, root compris : laissées, signalées,
+          code 1) ; lien ou fichier : laissé, signalé ; destination non vide, autre système de fichiers ou refus : laissé,
+          signalé (code 1)
+        droits.py skills SANDBOXES MAGASIN
+          ancien magasin skills/ de chaque compte de SANDBOXES renommé en MAGASIN/<compte> si ce dernier manque (sinon c'est
+          le miroir du magasin, laissé), sans suivre de lien ; lien, fichier ou dossier qu'un service peut changer : laissé,
+          signalé ; autre système de fichiers ou refus : laissé, signalé (code 1)
+        droits.py ecarter SANDBOXES
+          entrée de SANDBOXES ou de SANDBOXES/_snapshots qui n'est pas un dossier, entrée de SANDBOXES/_snapshots/<compte>
+          qui n'est ni un fichier ordinaire ni un dossier, et work ou .elpis-agent qui n'est pas un dossier dans un dossier de
+          compte (mis de côté compris) : renommée à part (« .ecarte-<date>-<nom> », même dossier), jamais suivie,
+          signalée ; une entrée en échec n'arrête pas les autres (code 1)
         droits.py reprendre DOSSIER NOM COMPTE CIBLE
           contenu de DOSSIER/NOM, fichier ordinaire de COMPTE à un seul lien que nul autre ne peut écrire, écrit dans
           CIBLE (0600), puis NOM retiré ; code 2 si NOM est refusé
@@ -302,6 +319,23 @@ def _refus(chemin: str, e: BaseException) -> bool:
     return False
 
 
+def _cible(chemin: str) -> str | tuple[str, ...]:
+    """Chemin d'une règle : absolu (normalisé), sinon motif relatif à l'arbre, un motif par composant, sans « . » ni « .. »."""
+    if chemin.startswith("/"):
+        return os.path.normpath(chemin)
+    parties = tuple(chemin.split("/"))
+    if "\0" in chemin or any(p in ("", ".", "..") for p in parties):
+        raise SystemExit(f"droits.py : chemin de règle « {chemin} » non compris")
+    return parties
+
+
+def _couvre(cible: str | tuple[str, ...], complet: str, relatif: tuple[str, ...]) -> bool:
+    """Vrai si l'entrée (chemin COMPLET, ou RELATIF à l'arbre) est la CIBLE d'une règle ou se trouve dessous."""
+    if isinstance(cible, str):
+        return complet == cible or complet.startswith(cible + "/")
+    return len(relatif) >= len(cible) and all(fnmatch.fnmatchcase(n, m) for n, m in zip(relatif, cible))
+
+
 def arbre(args: list[str]) -> bool:
     racine, groupe, spec_f, spec_d, *reste = args
     o = _options(reste, {"--proprio", "--comptes", "--comptes-dossiers", "--sauf", "--prive", "--regle", "--sous"},
@@ -310,15 +344,15 @@ def arbre(args: list[str]) -> bool:
     regles = []
     for v in o.get("--prive", []):
         compte, _, chemin = v.partition(":")
-        regles.append((os.path.normpath(chemin), compte, "-", "go-rwx", "go-rwxs"))
+        regles.append((_cible(chemin), compte, "-", "go-rwx", "go-rwxs"))
     for v in o.get("--regle", []):
         compte, g, sf, sd, chemin = v.split(":", 4)
-        regles.append((os.path.normpath(chemin), compte, g, sf, sd))
+        regles.append((_cible(chemin), compte, g, sf, sd))
     regles = [(c, ident(a, pwd), ident(g, grp) if g != "-" else -2, sf, sd) for c, a, g, sf, sd in regles]
     comptes = _uids(",".join(o["--comptes"])) if "--comptes" in o else None
     ceder = "--avec-root" in o or (comptes is not None and 0 in comptes)
     comptes_dossiers = frozenset(_uids(",".join(o.get("--comptes-dossiers", []))))
-    sauf = [os.path.normpath(v) if v.startswith("/") else v for v in o.get("--sauf", [])]
+    sauf = [v if "/" not in v else _cible(v) for v in o.get("--sauf", [])]
     uid, gid, reussi = ident((o.get("--proprio") or ["-"])[-1], pwd), ident(groupe, grp), True
     try:
         fd = ouvrir_dossier(racine, sous=(o.get("--sous") or [None])[-1])
@@ -330,10 +364,12 @@ def arbre(args: list[str]) -> bool:
         dev = os.fstat(fd).st_dev
         for chemin, dossiers, fichiers, dfd in os.fwalk(".", dir_fd=fd, follow_symlinks=False):
             base = os.path.normpath(os.path.join(racine, chemin))
+            haut = () if chemin == "." else tuple(os.path.normpath(chemin).split("/"))
             for nom in list(dossiers) + fichiers:
                 complet = os.path.join(base, nom)
-                regle = next((r for r in regles if complet == r[0] or complet.startswith(r[0] + "/")), None)
-                if any(complet == m if m.startswith("/") else fnmatch.fnmatchcase(nom, m) for m in sauf):
+                regle = next((r for r in regles if _couvre(r[0], complet, (*haut, nom))), None)
+                if any(fnmatch.fnmatchcase(nom, m) if isinstance(m, str) and "/" not in m else _couvre(m, complet, (*haut, nom))
+                       for m in sauf):
                     parcourir = False
                 elif regle is not None:
                     _, ru, rg, sf, sd = regle
@@ -904,6 +940,300 @@ def copier(args: list[str]) -> bool:
         os.close(dfd)
 
 
+def _noms(dfd: int) -> list[str]:
+    """Entrées du dossier DFD (descripteur O_PATH), triées."""
+    lu = os.open(".", os.O_RDONLY | os.O_DIRECTORY, dir_fd=dfd)
+    try:
+        return sorted(os.listdir(lu))
+    finally:
+        os.close(lu)
+
+
+def _comptes(sfd: int) -> list[str]:
+    """Dossiers de comptes du dossier des sandboxes SFD : vrais dossiers, ni les instantanés ni les dossiers réservés (« . »)."""
+    return [n for n in _noms(sfd) if n != "_snapshots" and not n.startswith(".")
+            and stat.S_ISDIR(os.stat(n, dir_fd=sfd, follow_symlinks=False).st_mode)]
+
+
+def _vide(fd: int, nom: str) -> bool:
+    """Vrai si NOM du dossier FD est un vrai dossier vide."""
+    try:
+        nfd = os.open(nom, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+    except OSError:
+        return False
+    try:
+        return not _noms(nfd)
+    finally:
+        os.close(nfd)
+
+
+def _etat(dfd: int, nom: str) -> os.stat_result:
+    """État de l'entrée NOM du dossier DFD, lu sur un descripteur ouvert sans la suivre."""
+    fd = os.open(nom, os.O_PATH | os.O_NOFOLLOW, dir_fd=dfd)
+    try:
+        return os.fstat(fd)
+    finally:
+        os.close(fd)
+
+
+def _renommer_vers(afd: int, nom: str, vers: str, ouvrir_cible, compte: str, cible_nom: str) -> None:
+    """NOM du dossier AFD (vrai dossier) renommé en CIBLE_NOM du dossier rendu par OUVRIR_CIBLE(COMPTE), même système de fichiers (vu d'abord), une destination vide remplacée ; Refus sinon."""
+    st = _etat(afd, nom)
+    mfd = ouvrir_cible(compte)
+    try:
+        if os.fstat(mfd).st_dev != st.st_dev:
+            raise Refus(f"autre système de fichiers que {vers} : déplacez-le à la main")
+        if os.path.lexists(f"/proc/self/fd/{mfd}/{cible_nom}"):
+            if not _vide(mfd, cible_nom):
+                raise Refus(f"{vers} existe déjà : les deux sont gardés (à fusionner à la main)")
+            os.rmdir(cible_nom, dir_fd=mfd)
+        os.rename(nom, cible_nom, src_dir_fd=afd, dst_dir_fd=mfd)
+    finally:
+        os.close(mfd)
+
+
+def _ceder(dfd: int, nom: str, affiche: str, uid: int, gid: int, comptes: set[int]) -> bool:
+    """Dossier NOM du dossier DFD et son contenu, entrées des COMPTES seulement, donnés à UID:GID (-1 : inchangé), g+rwX et rien pour les autres, sans suivre de lien ni changer de système de fichiers ; une entrée d'un autre compte (root compris) est signalée et laissée avec ce qu'elle contient ; vrai si tout est donné."""
+    specs, dev, reussi = ("g+rwX,o-rwx", "g+rwXs,o-rwx"), os.fstat(dfd).st_dev, True
+
+    def donner(sfd: int, n: str, aff: str) -> bool:
+        nonlocal reussi
+        try:
+            st = _etat(sfd, n)
+        except FileNotFoundError:
+            return False
+        if not (stat.S_ISREG(st.st_mode) or stat.S_ISDIR(st.st_mode)):
+            return False
+        if st.st_uid not in comptes:
+            _dire(f"[warn ] {aff} : à un autre compte (uid {st.st_uid}), laissé tel quel (à vérifier).", file=sys.stderr)
+            reussi = False
+            return False
+        ok, sous = poser(sfd, n, aff, uid, gid, specs, comptes, dev=dev)
+        reussi &= ok
+        return sous
+
+    if not donner(dfd, nom, affiche):
+        return reussi
+    fd = os.open(nom, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dfd)
+    try:
+        for chemin, dossiers, fichiers, sfd in os.fwalk(".", dir_fd=fd, follow_symlinks=False):
+            base = os.path.normpath(os.path.join(affiche, chemin))
+            for n in list(dossiers) + fichiers:
+                if not donner(sfd, n, os.path.join(base, n)) and n in dossiers:
+                    dossiers.remove(n)
+    finally:
+        os.close(fd)
+    return reussi
+
+
+def _deplacer_memoire(sfd: int, compte: str, source: str, cible: str, ouvrir_cible, donner=None) -> bool:
+    """memory/ (ou l'ancien .memory/ seul) de COMPTE renommé de SOURCE/COMPTE vers CIBLE/COMPTE sans suivre de lien, puis donné selon DONNER (uid, gid, uid des comptes repris) s'il est dit ; vrai si rien n'est laissé à signaler."""
+    try:
+        afd = os.open(compte, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=sfd)
+    except OSError:
+        return True
+    try:
+        presents = {}
+        for nom in ("memory", ".memory"):
+            with contextlib.suppress(FileNotFoundError):
+                presents[nom] = _etat(afd, nom)
+        if "memory" in presents:
+            presents.pop(".memory", None)
+        reussi = True
+        for nom, st in presents.items():
+            de, vers = os.path.join(source, compte, nom), os.path.join(cible, compte, nom)
+            if not stat.S_ISDIR(st.st_mode):
+                _dire(f"[elpis] Mémoire laissée dans {de} (lien ou fichier, pas un dossier) : "
+                      "si c'est un compte, déplacez-la à la main.")
+                continue
+            try:
+                _renommer_vers(afd, nom, vers, ouvrir_cible, compte, nom)
+            except (Refus, OSError) as e:
+                reussi = _refus(de, e if isinstance(e, Refus) else Refus(e.strerror or str(e))) and reussi
+                continue
+            _dire(f"[elpis] Mémoire de {compte} déplacée : {de} → {vers}.")
+            if donner is not None:
+                mfd = ouvrir_cible(compte)
+                try:
+                    reussi = _ceder(mfd, nom, vers, *donner) and reussi
+                finally:
+                    os.close(mfd)
+        return reussi
+    finally:
+        os.close(afd)
+
+
+def _deplacer_par_compte(args: list[str], cible_compte: bool, deplacer) -> bool:
+    """DEPLACER(sfd, compte, source, cible, ouvrir_cible) pour chaque dossier de compte de SOURCE ; OUVRIR_CIBLE(compte) : CIBLE/compte (créé), ou CIBLE même sans CIBLE_COMPTE."""
+    source, cible = _net(args[0]), _net(args[1])
+    try:
+        sfd = ouvrir_dossier(source, strict=False)
+    except FileNotFoundError:
+        return True
+    except (Refus, OSError) as e:
+        return _refus(source, e)
+    ouverte: list[int] = []
+
+    def ouvrir_cible(compte: str) -> int:
+        if not ouverte:
+            ouverte.append(ouvrir_dossier(cible, strict=False, creer=0o700))
+        if not cible_compte:
+            return os.dup(ouverte[0])
+        with contextlib.suppress(FileExistsError):
+            os.mkdir(compte, 0o700, dir_fd=ouverte[0])
+        return os.open(compte, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=ouverte[0])
+
+    try:
+        reussi = True
+        for compte in _comptes(sfd):
+            reussi = deplacer(sfd, compte, source, cible, ouvrir_cible) and reussi
+        return reussi
+    finally:
+        os.close(sfd)
+        for fd in ouverte:
+            os.close(fd)
+
+
+def memoire(args: list[str]) -> bool:
+    """memory/ de chaque compte de SANDBOXES (instantanés et dossiers en « . » exclus) déplacé dans MEMOIRE/<compte>/, ses entrées des COMPTES données à PROPRIO:GROUPE s'ils sont dits ; vrai si rien n'est laissé à signaler."""
+    donner = (ident(args[2], pwd), ident(args[3], grp), _uids(args[4])) if len(args) >= 5 else None
+    return _deplacer_par_compte(args, True, lambda *a: _deplacer_memoire(*a, donner=donner))
+
+
+def _adopter_skills(sfd: int, compte: str, source: str, cible: str, ouvrir_cible) -> bool:
+    """Ancien magasin skills/ de COMPTE renommé en CIBLE/COMPTE si ce dernier manque (sinon c'est son miroir, laissé), sans suivre de lien ; lien, fichier ou dossier qu'un service peut changer signalé et laissé ; vrai si rien n'est laissé à signaler."""
+    try:
+        afd = os.open(compte, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=sfd)
+    except OSError:
+        return True
+    de, vers = os.path.join(source, compte, "skills"), os.path.join(cible, compte)
+    try:
+        try:
+            st = _etat(afd, "skills")
+        except FileNotFoundError:
+            return True
+        mfd = ouvrir_cible(compte)
+        try:
+            if os.path.lexists(f"/proc/self/fd/{mfd}/{compte}"):
+                return True
+        finally:
+            os.close(mfd)
+        if not stat.S_ISDIR(st.st_mode) or ecrivable_par_services(st):
+            raison = ("lien ou fichier, pas un dossier" if not stat.S_ISDIR(st.st_mode)
+                      else "dossier qu'un service peut modifier, ou qui n'est pas un compte")
+            _dire(f"[elpis] Skills laissés dans {de} ({raison}) : si c'est un compte, reprenez-les à la main.")
+            return True
+        _renommer_vers(afd, "skills", vers, ouvrir_cible, compte, compte)
+    except (Refus, OSError) as e:
+        return _refus(de, e if isinstance(e, Refus) else Refus(e.strerror or str(e)))
+    finally:
+        os.close(afd)
+    _dire(f"[elpis] Skills de {compte} repris : {de} → {vers}.")
+    return True
+
+
+def skills(args: list[str]) -> bool:
+    """Ancien magasin skills/ de chaque compte de SANDBOXES repris dans MAGASIN/<compte> quand ce dernier manque ; vrai si rien n'est laissé à signaler."""
+    return _deplacer_par_compte(args, False, _adopter_skills)
+
+
+def _a_part(dfd: int, nom: str, affiche: str) -> bool:
+    """NOM du dossier DFD renommé à part en « .ecarte-<date>-NOM » du même dossier (255 octets au plus), sans le suivre ; vrai si c'est fait."""
+    date = time.strftime("%Y%m%d-%H%M%S")
+    for i in range(100):
+        octets = os.fsencode(f".ecarte-{date}{f'-{i}' if i else ''}-{nom}")
+        fin = min(len(octets), 255)
+        while 0 < fin < len(octets) and octets[fin] & 0xC0 == 0x80:
+            fin -= 1
+        vers = os.fsdecode(octets[:fin])
+        try:
+            os.stat(vers, dir_fd=dfd, follow_symlinks=False)
+            continue
+        except FileNotFoundError:
+            pass
+        os.rename(nom, vers, src_dir_fd=dfd, dst_dir_fd=dfd)
+        _dire(f"[warn ] {affiche} : lien ou entrée qui n'est pas un dossier, mis à part sous {vers} (à vérifier).",
+              file=sys.stderr)
+        return True
+    return _refus(affiche, Refus("aucun nom libre pour le mettre à part"))
+
+
+def _ecarter_dans(dfd: int, nom: str, affiche: str, fichiers: bool = False) -> bool:
+    """Entrée NOM du dossier DFD mise à part si elle n'est pas un dossier (ni, avec FICHIERS, un fichier ordinaire) ; vrai si rien n'est laissé à signaler (une erreur n'arrête que cette entrée)."""
+    try:
+        mode = _etat(dfd, nom).st_mode
+        if stat.S_ISDIR(mode) or (fichiers and stat.S_ISREG(mode)):
+            return True
+        return _a_part(dfd, nom, affiche)
+    except FileNotFoundError:
+        return True
+    except OSError as e:
+        return _refus(affiche, e)
+
+
+def _ecarter_instantanes(dfd: int, nom: str, affiche: str) -> bool:
+    """Dossier d'instantanés d'un compte (NOM du dossier DFD) : ce qui n'y est ni un fichier ordinaire ni un dossier, mis à part ; vrai si rien n'est laissé à signaler."""
+    try:
+        nfd = os.open(nom, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dfd)
+    except OSError:
+        return True
+    try:
+        reussi = True
+        for n in _noms(nfd):
+            if not n.startswith(".ecarte-"):
+                reussi = _ecarter_dans(nfd, n, os.path.join(affiche, n), fichiers=True) and reussi
+        return reussi
+    except OSError as e:
+        return _refus(affiche, e)
+    finally:
+        os.close(nfd)
+
+
+def ecarter(args: list[str]) -> bool:
+    """Dossier des sandboxes : entrées de sa racine et de _snapshots qui ne sont pas des dossiers, entrées des dossiers d'instantanés ni fichiers ordinaires ni dossiers, work et .elpis-agent de chaque dossier de compte (mis de côté compris) qui n'en sont pas, mis à part sans être suivis, entrée par entrée ; vrai si rien n'est laissé à signaler."""
+    racine = _net(args[0])
+    try:
+        sfd = ouvrir_dossier(racine)
+    except FileNotFoundError:
+        return True
+    except (Refus, OSError) as e:
+        return _refus(racine, e)
+    try:
+        reussi = True
+        for nom in _noms(sfd):
+            if nom.startswith(".ecarte-"):
+                continue
+            affiche = os.path.join(racine, nom)
+            if not _ecarter_dans(sfd, nom, affiche):
+                reussi = False
+                continue
+            sous = ("work", ".elpis-agent")
+            if nom == "_snapshots":
+                sous = None
+            elif nom.startswith(".") and not nom.startswith(".supprime-"):
+                continue
+            try:
+                afd = os.open(nom, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=sfd)
+            except FileNotFoundError:
+                continue
+            except OSError as e:
+                reussi = _refus(affiche, e) and reussi
+                continue
+            try:
+                noms = [n for n in _noms(afd) if not n.startswith(".ecarte-")] if sous is None else list(sous)
+                for n in noms:
+                    reussi = _ecarter_dans(afd, n, os.path.join(affiche, n)) and reussi
+                    if sous is None:
+                        reussi = _ecarter_instantanes(afd, n, os.path.join(affiche, n)) and reussi
+            except OSError as e:
+                reussi = _refus(affiche, e) and reussi
+            finally:
+                os.close(afd)
+        return reussi
+    finally:
+        os.close(sfd)
+
+
 def reprendre(args: list[str]) -> int:
     """Code 0 : repris ; 2 : NOM refusé (signalé) ; 1 : échec."""
     dossier_, nom, compte, cible = args
@@ -1260,7 +1590,8 @@ if __name__ == "__main__":
     commandes = {"arbre": (arbre, 4), "dossier": (dossier, 4), "fichiers": (fichiers, 5), "secret": (secret, 2),
                  "ranger": (ranger, 2), "reprendre": (reprendre, 4), "retirer": (retirer, 1), "sur": (sur, 1),
                  "pid": (pid, 2), "mdp-base": (mdp_base, 3), "filtre": (filtre, 0), "journal": (journal, 1),
-                 "cle": (cle, 2), "cle-rendre": (cle_rendre, 6), "cle-etat": (cle_etat, 1), "copier": (copier, 3)}
+                 "cle": (cle, 2), "cle-rendre": (cle_rendre, 6), "cle-etat": (cle_etat, 1), "copier": (copier, 3),
+                 "memoire": (memoire, 2), "skills": (skills, 2), "ecarter": (ecarter, 1)}
     if len(sys.argv) < 2 or sys.argv[1] not in commandes or len(sys.argv) - 2 < commandes[sys.argv[1]][1]:
         raise SystemExit(USAGE)
     code = commandes[sys.argv[1]][0](sys.argv[2:])

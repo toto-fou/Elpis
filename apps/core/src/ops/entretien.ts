@@ -26,7 +26,6 @@ export type NomPurge =
   | "session_messages"
   | "action_cache"
   | "stale_locks"
-  | "office_cache"
   | "generated_images"
   | "audit_files";
 
@@ -119,7 +118,6 @@ export async function runMaintenanceOnce(
     } catch (e) {
       journal?.debug({ err: e }, "[maintenance] run_journal.sweep failed");
     }
-    await tenter("office_cache", "office_cache", 0);
     await tenter("generated_images", "generated_images", 0);
   }
   try {

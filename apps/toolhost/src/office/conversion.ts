@@ -8,6 +8,7 @@ import {
   closeSync,
   constants,
   fstatSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -22,16 +23,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { bwrap, which } from "@elpis/bac";
-import {
-  ErreurPython,
-  intPy,
-  journalDe,
-  modePartage,
-  realpathPy,
-  splitlinesPy,
-  stripPy,
-  strPy,
-} from "@elpis/commun";
+import { ErreurPython, intPy, journalDe, realpathPy, splitlinesPy, stripPy, strPy } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 
 const log = journalDe("office");
@@ -165,7 +157,7 @@ function veriteTexte(x: unknown, defaut: string): string {
   return x === null || x === undefined || x === false || x === "" || x === 0 ? defaut : strPy(x);
 }
 
-const PROFILE_VERSION = "1";
+const PROFILE_VERSION = "2";
 const REGISTRY_XCU = `<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
@@ -209,24 +201,30 @@ export function surchargerDossierVerrous(d: string | null): void {
   dossierImpose = d;
 }
 
-/** `LOCK_DIR` : `runtime_path("office_locks", "ELPIS_OFFICE_LOCK_DIR", "/tmp/elpis_office_locks")`. */
+/** `LOCK_DIR` : `ELPIS_OFFICE_LOCK_DIR`, sinon `office_locks` du dossier d'exécution privé de cet hôte (`RUNTIME_DIRECTORY` de son unité, que nul autre service n'écrit), sinon `runtime_path("office_locks", …, "/tmp/elpis_office_locks")`. */
 export function dossierVerrous(): string {
   if (dossierImpose !== null) return dossierImpose;
   const propre = stripPy(process.env["ELPIS_OFFICE_LOCK_DIR"] ?? "");
   if (propre) return propre;
+  const prive = (process.env["RUNTIME_DIRECTORY"] ?? "").split(":")[0] ?? "";
+  if (prive) return path.join(prive, "office_locks");
   const racine = stripPy(process.env["ELPIS_RUNTIME_DIR"] ?? "");
   return racine ? path.join(racine, "office_locks") : "/tmp/elpis_office_locks";
 }
 
-/** Dossier des verrous en 0700 (0770 sous le groupe des données : l'élagage du cache par main y cherche les clés en conversion). */
-function dossierPret(d: string): boolean {
+/** Dossier des verrous à ce compte, en 0700 (l'élagage du cache, fait par cet hôte, y cherche les clés en conversion) ; inutilisable : détail au journal, refus aussitôt plutôt qu'une attente. */
+function exigerDossierVerrous(d: string): void {
   try {
-    mkdirSync(d, { recursive: true });
-    chmodSync(d, modePartage(0o700));
-    return true;
+    mkdirSync(d, { recursive: true, mode: 0o700 });
+    const st = lstatSync(d);
+    if (!st.isDirectory() || st.uid !== process.geteuid?.())
+      throw new Error("lien, ou dossier d'un autre compte");
+    if (st.mode & 0o7077) chmodSync(d, 0o700);
   } catch (e) {
-    log.warn(`[office] dossier de verrous ${d} inutilisable (${(e as Error).message})`);
-    return false;
+    log.warn(
+      `[office] dossier de verrous ${d} inutilisable (${(e as Error).message}) : relancez sudo ./elpis service install`,
+    );
+    throw new ErreurOffice("failed", 500, "Aperçu indisponible. Demandez à votre administrateur.");
   }
 }
 
@@ -245,10 +243,11 @@ function flockNonBloquant(fd: number): Promise<boolean | null> {
   });
 }
 
-/** `try_lock` : verrou exclusif non bloquant `<dossier>/<nom>.lock` → descripteur, ou `null`. */
+/** `try_lock` : verrou exclusif non bloquant `<dossier>/<nom>.lock` → descripteur, ou `null` ; dossier des verrous inutilisable : `ErreurOffice`. */
 export async function tryLock(nom: string): Promise<number | null> {
   const d = dossierVerrous();
-  if (!NOM_VERROU.test(nom) || !dossierPret(d)) return null;
+  if (!NOM_VERROU.test(nom)) return null;
+  exigerDossierVerrous(d);
   const chemin = path.join(d, `${nom}.lock`);
   for (let essai = 0; essai < 4; essai++) {
     let fd: number;

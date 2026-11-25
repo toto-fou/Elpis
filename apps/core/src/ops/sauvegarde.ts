@@ -51,12 +51,20 @@ export const HOST_ONLY = [
   ".backup_send.lock",
   ".backup_send.lock.reprise",
 ] as const;
-/** Sous-dossiers de `user_db/` ni sauvegardés ni restaurés : exécution en cours (journaux, PID), cache de l'extracteur du RAG (reconstruit à la demande). */
-export const RUNTIME_DIRS = ["logs", "run", "rag-cache"] as const;
+/** Sous-dossiers de `user_db/` ni sauvegardés ni restaurés : exécution en cours (journaux, PID), cache de l'extracteur du RAG (reconstruit à la demande), historique des fichiers (à l'hôte d'outils seul). */
+export const RUNTIME_DIRS = ["logs", "run", "rag-cache", "file_history"] as const;
 export const WORK_SUBDIR = "work";
 export const AGENT_RUN_DIR = ".elpis-agent";
 export const RELAY_DIR = ".elpis-relay";
 export const DL_SPOOL = ".dl_spool";
+/** Dossiers de la racine des bacs propres à l'hôte d'outils (relais, verrous, cache des aperçus) : régénérés, jamais sauvegardés ni restaurés. */
+export const HORS_SAUVEGARDE: ReadonlySet<string> = new Set([
+  RELAY_DIR,
+  DL_SPOOL,
+  ".write_locks",
+  ".lifecycle_locks",
+  ".office-cache",
+]);
 export const BACKUP_INCOMPLETE_SUFFIX = "_incomplet";
 const LIBELLES: Readonly<Record<string, string>> = {
   full: "complet",
@@ -406,7 +414,7 @@ async function construire(
     const travaux: string[] = [];
     try {
       for (const d of parcourirSous(p)) {
-        if (!d.relDir) d.dossiers = d.dossiers.filter((x) => x !== RELAY_DIR && x !== DL_SPOOL);
+        if (!d.relDir) d.dossiers = d.dossiers.filter((x) => !HORS_SAUVEGARDE.has(x));
         if (d.relDir && !d.relDir.includes("/")) {
           for (const x of [WORK_SUBDIR, AGENT_RUN_DIR]) {
             const i = d.dossiers.indexOf(x);

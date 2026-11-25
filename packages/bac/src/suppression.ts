@@ -78,6 +78,12 @@ export function nomMisDeCote(uid: number, horodatageMs: number): string {
   return `.supprime-${uid}-${horodatageMs}`;
 }
 
+/** Vrai si `nom` est celui d'un bac mis de côté du compte `uid` (`nomMisDeCote`). */
+export function estNomMisDeCote(nom: string, uid: number): boolean {
+  const prefixe = `.supprime-${uid}-`;
+  return nom.startsWith(prefixe) && /^[0-9]+$/u.test(nom.slice(prefixe.length));
+}
+
 /** Un nom sûr commençant par `_` ou `.` désigne un dossier réservé (instantanés, bacs mis de côté) : jamais mis de côté ni remis. */
 function exigerNomSurOrdinaire(nomSur: string): void {
   if (nomSur === "" || nomSur.startsWith("_") || nomSur.startsWith("."))

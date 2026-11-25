@@ -3,7 +3,7 @@
 import { statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 
-import { strPy, veritePy } from "@elpis/commun";
+import { groupeDonnees, strPy, veritePy } from "@elpis/commun";
 import { parseJsonPy } from "@elpis/config";
 import { Agent, FormData, request } from "undici";
 
@@ -60,7 +60,7 @@ export async function fetchRelayedBytes(
   }
 }
 
-/** Pousse le store de skills (tar.gz) vers l'hôte DISTANT du compte ; `false` en loopback (même disque), sans hôte ou en échec. */
+/** Pousse le store de skills (tar.gz) vers l'hôte du compte : distant, ou de cette machine avec un compte par service (lui seul écrit le dossier des bacs) ; `false` en loopback sous un compte unique (main l'écrit), sans hôte ou en échec. */
 export async function pushSkillsMirror(
   uid: number,
   dossier: string,
@@ -68,7 +68,8 @@ export async function pushSkillsMirror(
 ): Promise<boolean> {
   const delaiMs = options.delaiMs ?? 30_000;
   const hote = await sandboxHostFor(uid);
-  if (hote === null || !hote.relay || !hote.token || isLoopback(hote.url)) return false;
+  if (hote === null || !hote.token) return false;
+  if (isLoopback(hote.url) ? groupeDonnees() === null : !hote.relay) return false;
   try {
     if (!statSync(dossier).isDirectory()) return false;
   } catch {

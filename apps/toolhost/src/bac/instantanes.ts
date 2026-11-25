@@ -3,13 +3,15 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   closeSync,
-  existsSync,
+  constants,
+  createReadStream,
+  fstatSync,
+  lstatSync,
   mkdirSync,
   opendirSync,
   openSync,
   readFileSync,
   renameSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -30,6 +32,7 @@ import {
   getPy,
   HttpError,
   intPy,
+  journalDe,
   messageErreurOs,
   nomTypePy,
   ouPy,
@@ -90,18 +93,77 @@ export function nomDossierInstantanes(brut: string, uid: number): string {
   );
 }
 
+/** Refus de l'utilisateur quand le dossier des instantanés n'est pas celui attendu ; le détail va au journal. */
+const INSTANTANES_INDISPONIBLES = "Instantanés indisponibles. Demandez à votre administrateur.";
+
+/** Vrai dossier ouvert sans suivre de lien ; un lien ou autre chose : 403, détail au journal. */
+function exigerDossier(chemin: string): void {
+  let fd: number;
+  try {
+    fd = openSync(chemin, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  } catch (e) {
+    journalDe("sandbox").warn(`[snapshots] ${chemin} refusé : ${messageErreurOs(e, chemin)}`);
+    throw new HttpError(403, INSTANTANES_INDISPONIBLES);
+  }
+  closeSync(fd);
+}
+
+/** Descripteur d'un fichier ordinaire ouvert sans suivre de lien ; absent : ENOENT, lien ou autre entrée : erreur levée. */
+function ouvrirFichier(chemin: string): number {
+  const fd = openSync(chemin, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  if (!fstatSync(fd).isFile()) {
+    closeSync(fd);
+    throw Object.assign(new Error(`${chemin} : pas un fichier ordinaire`), { code: "EINVAL" });
+  }
+  return fd;
+}
+
+/** Contenu d'un fichier ordinaire lu sans suivre de lien (voir `ouvrirFichier`). */
+function lireFichier(chemin: string): Buffer {
+  const fd = ouvrirFichier(chemin);
+  try {
+    return readFileSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Vrai si `chemin` est un fichier ordinaire, sans suivre de lien. */
+function estFichier(chemin: string): boolean {
+  try {
+    return lstatSync(chemin).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Fichier écrit à neuf : entrée en place retirée (un lien l'est sans être suivi), puis créée en exclusif (0600). */
+function ecrireNeuf(chemin: string, texte: string): void {
+  try {
+    unlinkSync(chemin);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+  }
+  writeFileSync(chemin, texte, { encoding: "utf-8", flag: "wx", mode: 0o600 });
+}
+
+/** `<SANDBOX_DIR>/_snapshots`, créé à la demande, jamais un lien. */
 function racineInstantanes(): string {
-  const racine = realpathPy(pyJoin(config.SANDBOX_DIR, "_snapshots"));
+  const racine = pyJoin(realpathPy(config.SANDBOX_DIR), "_snapshots");
   mkdirSync(racine, { recursive: true });
+  exigerDossier(racine);
   return racine;
 }
 
-/** `_user_snap_dir` : dossier du compte sous `_snapshots`, créé à la demande ; 403 s'il en sortait. */
+/** `_user_snap_dir` : dossier du compte sous `_snapshots` (un seul composant), créé à la demande ; lien à sa place : 403. */
 async function dossierCompte(uid: number): Promise<string> {
-  const racine = racineInstantanes();
-  const p = realpathPy(pyJoin(racine, nomDossierInstantanes(await usernameFor(uid), uid)));
-  if (p !== racine && !p.startsWith(racine + "/")) throw new HttpError(403, "Snapshot path escape");
-  mkdirSync(p, { recursive: true });
+  const p = pyJoin(racineInstantanes(), nomDossierInstantanes(await usernameFor(uid), uid));
+  try {
+    mkdirSync(p);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+  }
+  exigerDossier(p);
   return p;
 }
 
@@ -113,7 +175,7 @@ function exigerId(snapId: string): void {
 function lireMeta(chemin: string): unknown {
   let octets: Buffer;
   try {
-    octets = readFileSync(chemin);
+    octets = lireFichier(chemin);
   } catch {
     return null;
   }
@@ -150,7 +212,7 @@ async function listerInstantanes(uid: number): Promise<Dict[]> {
       const id = getOu(meta, "id", null);
       if (!veritePy(id)) continue;
       if (typeof id !== "string") throw new TypeError("expected string or bytes-like object");
-      if (!SNAP_ID_RE.test(id) || !existsSync(pyJoin(dossier, `${id}.tar.gz`))) continue;
+      if (!SNAP_ID_RE.test(id) || !estFichier(pyJoin(dossier, `${id}.tar.gz`))) continue;
       out.push(meta);
     }
   } finally {
@@ -188,7 +250,7 @@ async function elaguer(uid: number): Promise<number> {
     try {
       const id = String(ancien["id"]);
       for (const f of [`${id}.tar.gz`, `${id}.json`])
-        if (existsSync(pyJoin(dossier, f))) unlinkSync(pyJoin(dossier, f));
+        if (estFichier(pyJoin(dossier, f))) unlinkSync(pyJoin(dossier, f));
       n += 1;
     } catch {
       // au mieux
@@ -252,8 +314,7 @@ async function* fluxCreation(uid: number, nom: string): AsyncGenerator<string> {
     const dossier = await dossierCompte(uid);
     const final = pyJoin(dossier, `${snapId}.tar.gz`);
     provisoire = pyJoin(dossier, `${snapId}.${randomBytes(6).toString("hex").slice(0, 8)}.tar.gz.tmp`);
-    closeSync(openSync(provisoire, "wx", 0o600));
-    fichier = await open(provisoire, "w");
+    fichier = await open(provisoire, "wx", 0o600);
     const debut = Date.now() / 1000;
     const { total } = plafonds();
     flux = await (
@@ -304,15 +365,11 @@ async function* fluxCreation(uid: number, nom: string): AsyncGenerator<string> {
       duration_sec: new FlottantPy(arrondiPy(Date.now() / 1000 - debut, 2)),
       file_count: intPy(ouPy(getPy(fin, "files"), 0)),
       src_bytes: intPy(ouPy(getPy(fin, "bytes"), 0)),
-      archive_bytes: statSync(provisoire).size,
+      archive_bytes: lstatSync(provisoire).size,
     };
     renameSync(provisoire, final);
     provisoire = null;
-    writeFileSync(
-      pyJoin(dossier, `${snapId}.json`),
-      pyJsonDumps(meta, { ensureAscii: false, indent: 2 }),
-      "utf-8",
-    );
+    ecrireNeuf(pyJoin(dossier, `${snapId}.json`), pyJsonDumps(meta, { ensureAscii: false, indent: 2 }));
     const elaguees = await elaguer(uid);
     if (elaguees) meta["pruned"] = elaguees;
     yield ev({ event: "done", phase: "snapshot", snapshot: meta });
@@ -360,17 +417,18 @@ function leverMarqueur(dossier: string): void {
 async function restaurer(
   uid: number,
   dossier: string,
-  archive: string,
+  archive: { fd: number; taille: number },
   envoye: { n: number },
 ): Promise<Dict> {
-  const { membre, total } = plafonds();
+  const flux = createReadStream("", { fd: archive.fd, highWaterMark: 1 << 20 });
   let res: Dict;
   try {
+    const { membre, total } = plafonds();
     res = await (
       await agentFor(uid)
     ).extract(
       "",
-      { chemin: archive },
+      { flux, taille: archive.taille },
       {
         maxBytes: total,
         maxFile: membre,
@@ -384,6 +442,7 @@ async function restaurer(
     if (estErreurAgent(e) && e.status) leverMarqueur(dossier);
     throw e;
   } finally {
+    flux.destroy();
     try {
       invaliderUsage(uid);
     } catch {
@@ -406,13 +465,13 @@ async function* fluxRestauration(uid: number, snapId: string): AsyncGenerator<st
   try {
     exigerId(snapId);
     const dossier = await dossierCompte(uid);
-    const archive = pyJoin(dossier, `${snapId}.tar.gz`);
-    if (!existsSync(archive)) {
+    const chemin = pyJoin(dossier, `${snapId}.tar.gz`);
+    if (!estFichier(chemin)) {
       yield ev({ event: "error", message: "Snapshot introuvable" });
       return;
     }
     const meta = ouPy(lireMeta(pyJoin(dossier, `${snapId}.json`)), {});
-    const taille = Math.max(1, statSync(archive).size);
+    const taille = Math.max(1, lstatSync(chemin).size);
     yield ev({
       event: "start",
       phase: "restore",
@@ -420,15 +479,23 @@ async function* fluxRestauration(uid: number, snapId: string): AsyncGenerator<st
       total_bytes: intPy(ouPy(getPy(meta, "src_bytes"), 0)),
     });
     try {
-      writeFileSync(
+      ecrireNeuf(
         pyJoin(dossier, RESTORE_MARKER_NAME),
         pyJsonDumps({ snap_id: snapId, ts: new FlottantPy(Date.now() / 1000) }),
-        "utf-8",
       );
     } catch {
       // au mieux
     }
     yield ev({ event: "phase", phase: "extract" });
+    let archive: { fd: number; taille: number };
+    try {
+      const fd = ouvrirFichier(chemin);
+      archive = { fd, taille: fstatSync(fd).size };
+    } catch {
+      leverMarqueur(dossier);
+      yield ev({ event: "error", message: "Snapshot introuvable" });
+      return;
+    }
     const envoye = { n: 0 };
     let fini = false;
     tache = restaurer(uid, dossier, archive, envoye);
@@ -517,7 +584,7 @@ export function routesInstantanes(arret?: AbortSignal): DefinitionRoute[] {
       const marqueur = pyJoin(await dossierCompte(uid), RESTORE_MARKER_NAME);
       let incomplet: unknown;
       try {
-        incomplet = pyJsonLoads(decoderUtf8(readFileSync(marqueur)));
+        incomplet = pyJsonLoads(decoderUtf8(lireFichier(marqueur)));
       } catch (e) {
         incomplet = (e as { code?: unknown }).code === "ENOENT" ? null : {};
       }
@@ -549,11 +616,11 @@ export function routesInstantanes(arret?: AbortSignal): DefinitionRoute[] {
       exigerId(snapId);
       const dossier = await dossierCompte(uid);
       const fichiers = [pyJoin(dossier, `${snapId}.tar.gz`), pyJoin(dossier, `${snapId}.json`)];
-      if (!fichiers.some((f) => existsSync(f))) throw new HttpError(404, "Snapshot not found");
+      if (!fichiers.some((f) => estFichier(f))) throw new HttpError(404, "Snapshot not found");
       let erreur: string | null = null;
       for (const f of fichiers) {
         try {
-          if (existsSync(f)) unlinkSync(f);
+          if (estFichier(f)) unlinkSync(f);
         } catch (e) {
           erreur = messageErreurOs(e, f);
         }

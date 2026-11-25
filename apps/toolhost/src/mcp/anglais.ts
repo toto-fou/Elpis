@@ -38,8 +38,6 @@ const MESSAGES: readonly (readonly [RegExp, string | ((...m: string[]) => string
     /^Le réseau de la sandbox est indisponible\. Demandez à votre administrateur\.$/mu,
     "the sandbox network is unavailable; the administrator must check it.",
   ],
-  [/^Dossier de l'agent (.*?) : /mu, "sandbox agent folder $1: "],
-  [/^Dossier du relais Git (.*?) : /mu, "Git relay folder $1: "],
   [/^Image '([^']*)' indisponible\. /mu, "image '$1' unavailable. "],
   [
     /^Le chargement de l'image '([^']*)' est toujours en cours \((.*)\)\. Réessayez dans quelques instants\.$/mu,

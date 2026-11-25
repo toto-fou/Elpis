@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/skills/miroir-distant.ts — magasin de skills d'un compte poussé vers son hôte d'outils distant (où skill_run_script lit le miroir) : un envoi à la fois par compte, les demandes faites pendant un envoi groupées en un seul envoi suivant du dernier état. */
+/** apps/core/src/skills/miroir-distant.ts — magasin de skills d'un compte poussé vers l'hôte d'outils qui écrit son miroir (distant, ou de cette machine avec un compte par service ; skill_run_script le lit) : un envoi à la fois par compte, les demandes faites pendant un envoi groupées en un seul envoi suivant du dernier état. */
 import { safeSandboxName } from "@elpis/config";
 import { current, userIdFor } from "@elpis/securite";
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/fichiers/src/historique.ts — historique des fichiers modifiés pendant une session (shared_infra/sandbox/file_history.py) : mêmes fichiers, même verrou et mêmes entrées que les services Python. */
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -15,6 +15,7 @@ import {
   estErreurValeur,
   FlottantPy,
   getPy,
+  HttpError,
   itemPy,
   journalDe,
   lireTextePy,
@@ -37,9 +38,28 @@ export const KEEP_SESSIONS = 3;
 export const USER_CAP = 300 * 1024 * 1024;
 const DELAI_VERROU_MS = 5_000;
 
-/** `APP_FILE_HISTORY_DIR` (relu à chaque appel), sinon `<racine>/user_db/file_history`. */
+/** `APP_FILE_HISTORY_DIR` (relu à chaque appel), sinon `<racine>/user_db/file_history` : dossier de ce compte seul (créé en 0700, ramené à 0700 s'il est à lui), refusé sinon. */
 export function racineHistorique(): string {
-  return process.env["APP_FILE_HISTORY_DIR"] || path.join(config.PROJECT_ROOT, "user_db", "file_history");
+  const racine =
+    process.env["APP_FILE_HISTORY_DIR"] || path.join(config.PROJECT_ROOT, "user_db", "file_history");
+  let st = null;
+  try {
+    mkdirSync(racine, { recursive: true, mode: 0o700 });
+    st = lstatSync(racine);
+    if (st.isDirectory() && st.uid === process.geteuid?.() && st.mode & 0o7077) {
+      chmodSync(racine, 0o700);
+      st = lstatSync(racine);
+    }
+  } catch (e) {
+    journalDe("file_history").warn(`[file_history] ${racine} inutilisable : ${(e as Error).message}`);
+  }
+  if (st === null || !st.isDirectory() || st.uid !== process.geteuid?.() || st.mode & 0o077) {
+    journalDe("file_history").warn(
+      `[file_history] ${racine} refusé : il doit être un dossier de ce compte, fermé aux autres comptes`,
+    );
+    throw new HttpError(503, "Historique des fichiers indisponible. Demandez à votre administrateur.");
+  }
+  return racine;
 }
 
 export function dossierCompte(uid: number): string {

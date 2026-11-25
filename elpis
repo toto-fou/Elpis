@@ -633,7 +633,7 @@ chemins_separes() {
     RAG_CACHE="$(chemin_absolu "${RAG_CACHE_DIR:-${RAG_STORE%/}-cache}")"
     CHART_DIR="$(chemin_absolu "${CHART_CACHE_DIR:-$RUN_DIR/charts}")"
     CHEMINS_FIXES=("APP_SANDBOX_DIR=$SANDBOX_DIR" "APP_DB_PATH=$DB_FICHIER" "RAG_STORE_DIR=$RAG_STORE" "CHART_CACHE_DIR=$CHART_DIR"
-        "APP_MEMORY_DIR=$(chemin_absolu "${APP_MEMORY_DIR:-$SANDBOX_DIR}")"
+        "APP_MEMORY_DIR=$(chemin_absolu "${APP_MEMORY_DIR:-user_db/memoire}")"
         "APP_SKILLS_DIR=$(chemin_absolu "${APP_SKILLS_DIR:-skills}")"
         "APP_USER_SKILLS_DIR=$(chemin_absolu "${APP_USER_SKILLS_DIR:-$(defaut_donnees "$base" user_skills user_skills)}")"
         "APP_SKINS_DIR=$(chemin_absolu "${APP_SKINS_DIR:-$(defaut_donnees "$base" user_skins user_skins)}")"
@@ -748,6 +748,7 @@ cmd_start() {
     load_runtime
     need_core
     [ -f "$ROOT/deploy/node/relance.sh" ] || die "deploy/node/relance.sh absent (mise à jour incomplète) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    { pid_of main || pid_of admin; } >/dev/null || deplacer_memoire "${SANDBOX_DIR:-}" "$(core_cmd config MEMORY_DIR 2>/dev/null)"
     migrer_mcp
     local s started=() retirer=()
     for s in "${SERVICES[@]}"; do
@@ -978,7 +979,7 @@ _chemins_hors_depot() {
         for e in "${CHEMINS_FIXES[@]}"; do
             case "${e%%=*}" in
                 MCP_SERVERS_DIR|APP_MEMORY_DIR|APP_SKILLS_DIR|APP_USER_SKILLS_DIR|APP_SKINS_DIR) printf 'main admin\t%s\n' "${e#*=}" ;;
-                APP_FILE_HISTORY_DIR|APP_OFFICE_CACHE_DIR) printf 'main admin toolhost\t%s\n' "${e#*=}" ;;
+                APP_FILE_HISTORY_DIR|APP_OFFICE_CACHE_DIR) printf 'toolhost\t%s\n' "${e#*=}" ;;
             esac
         done
         printf 'main admin\t%s\n' "$1"
@@ -992,12 +993,13 @@ _chemins_hors_depot() {
     lanceur ecritures
 }
 
-# Dossiers d'état d'un service : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris ; pour main et la console, ceux de la racine, config.json étant chez la console ; Qdrant sous un compte unique : son dossier du dépôt, binaire et réglages en lecture seule) ; chaque chemin validé d'abord (_chemin_unite), puis un dossier refusé d'après son chemin (chemin_etat_sur) est écarté.
+# Dossiers d'état d'un service : lignes ReadWritePaths= (ceux de _chemins_hors_depot, passés en 2e argument, que ce service écrit compris ; pour main et la console, ceux de la racine, config.json étant chez la console, et en mode séparé ni le dossier des sandboxes ni ceux de l'hôte d'outils, en lecture seule même dans user_db ; Qdrant sous un compte unique : son dossier du dépôt, binaire et réglages en lecture seule) ; chaque chemin validé d'abord (_chemin_unite), puis un dossier refusé d'après son chemin (chemin_etat_sur) est écarté.
 _ecritures_du_service() {
-    local d s l=() vu=" "
+    local d s l=() vu=" " ro=()
     case "$1" in
         main|admin) l=("$ROOT/user_db" "$LOG_DIR" "$ROOT/system_prompts" "$ROOT/skills" "$ROOT/user_skins"
-                       "$ROOT/user_skills" "$SANDBOX_DIR" "$RAG_STORE" "$CHART_DIR" "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS")
+                       "$ROOT/user_skills" "$RAG_STORE" "$CHART_DIR" "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS")
+                    if [ "$MODE_COMPTES" = separes ]; then ro=("$(fixe APP_FILE_HISTORY_DIR)" "$(fixe APP_OFFICE_CACHE_DIR)"); else l+=("$SANDBOX_DIR"); fi
                     [ "$1" = main ] || l+=("$CONFIG_SYS") ;;
         toolhost)   l=("$ROOT/user_db" "$LOG_DIR" "$SANDBOX_DIR" "$CHART_DIR" "$AUDIT_DIR_SYS") ;;
         rag)        [ "$MODE_COMPTES" = separes ] || l=("$RAG_CACHE") ;;
@@ -1015,6 +1017,11 @@ _ecritures_du_service() {
         case "$d" in "$AUDIT_DIR_SYS"|"$APPLOG_DIR_SYS"|"$CONFIG_SYS"|"$ROOT/system_prompts"|"$ROOT/skills") ;; *) chemin_etat_sur "$d" || continue ;; esac
         vu+="$d "
         printf 'ReadWritePaths=-%s\n' "$d"
+    done
+    for d in ${ro[@]+"${ro[@]}"}; do
+        [ -n "$d" ] || continue
+        _chemin_unite "Dossier en lecture seule de $1" "$d"
+        printf 'ReadOnlyPaths=-%s\n' "$d"
     done
 }
 
@@ -1045,10 +1052,11 @@ _compte_unite() {
     esac
 }
 
-# umask d'une unité : mode séparé, main, console et hôte d'outils 0007 (le code pose lui-même les modes de ce qu'il partage avec les bacs), RAG 0077 ; compte unique : 0027, hôte d'outils 0022 ; Qdrant 0077.
+# umask d'une unité : mode séparé, main et console 0007, hôte d'outils 0027 (le groupe des données lit ce qu'il écrit sans pouvoir l'écrire ; le code pose lui-même les modes de ce qu'il partage avec les bacs), RAG 0077 ; compte unique : 0027, hôte d'outils 0022 ; Qdrant 0077.
 _umask_unite() {
     case "$MODE_COMPTES:$1" in
-        separes:main|separes:admin|separes:toolhost) echo 0007 ;;
+        separes:main|separes:admin) echo 0007 ;;
+        separes:toolhost) echo 0027 ;;
         *:toolhost) echo 0022 ;;
         *:qdrant|separes:rag) echo 0077 ;;
         *) echo 0027 ;;
@@ -1122,6 +1130,7 @@ _render_units() {
     if [ "$MODE_COMPTES" = separes ]; then
         db="$DB_FICHIER"; BASE_DONNEES="${db%/*}"
         run="2770 root $GROUPE_DONNEES"; nav="$(_navigateurs "$run_user")"; COMPTE_ETAT=""
+        case "$(fixe APP_MEMORY_DIR)/" in "$SANDBOX_DIR/"*) die "APP_MEMORY_DIR ($(fixe APP_MEMORY_DIR)) est dans le dossier des sandboxes, que seul l'hôte d'outils écrit avec un compte par service : retirez-le de .env (défaut : user_db/memoire), puis relancez sudo ./elpis service install." ;; esac
         avertir_chemins_config
     else
         db="$(core_cmd config DB_PATH 2>/dev/null)"; db="${db:-$ROOT/user_db/app.db}"; BASE_DONNEES="$(base_sure "${db%/*}")"
@@ -1189,8 +1198,12 @@ avertir_chemins_config() {
             skins.dir) nom=APP_SKINS_DIR ;; mcp.servers_dir) nom=MCP_SERVERS_DIR ;; office_preview.cache_dir) nom=APP_OFFICE_CACHE_DIR ;;
             backup.remote.dest_path)
                 rw=0
-                for d in "$SANDBOX_DIR" "$ROOT/user_db" "$LOG_DIR" "$(fixe APP_FILE_HISTORY_DIR)"; do case "$v/" in "$d/"*) rw=1 ;; esac; done
-                [ "$rw" -eq 1 ] || { warn "config.json : sauvegarde distante « montée » vers $v, hors des dossiers que main et la console écrivent : à leur ouvrir (sudo systemctl edit ${UNIT_PREFIX}-main ${UNIT_PREFIX}-admin, ReadWritePaths=$v)."; ECARTS_CONFIG=$((ECARTS_CONFIG + 1)); }
+                for d in "$ROOT/user_db" "$LOG_DIR"; do case "$v/" in "$d/"*) rw=1 ;; esac; done
+                for d in "$SANDBOX_DIR" "$(fixe APP_FILE_HISTORY_DIR)" "$(fixe APP_OFFICE_CACHE_DIR)"; do case "$v/" in "$d/"*) rw=2 ;; esac; done
+                case "$rw" in
+                    0) warn "config.json : sauvegarde distante « montée » vers $v, hors des dossiers que main et la console écrivent : à leur ouvrir (sudo systemctl edit ${UNIT_PREFIX}-main ${UNIT_PREFIX}-admin, ReadWritePaths=$v)."; ECARTS_CONFIG=$((ECARTS_CONFIG + 1)) ;;
+                    2) warn "config.json : sauvegarde distante « montée » vers $v, dans un dossier que seul l'hôte d'outils écrit : choisissez une destination hors des sandboxes, de l'historique des fichiers et du cache des aperçus."; ECARTS_CONFIG=$((ECARTS_CONFIG + 1)) ;;
+                esac
                 continue ;;
             *) continue ;;
         esac
@@ -1319,15 +1332,15 @@ chemin_etat_sur() {
     return 1
 }
 
-# Dossier d'état accepté d'après son chemin (chemin_etat_sur) mis à PROPRIO:GROUPE (root et le groupe des données par défaut) en MODE par deploy/droits.py, au moment même (aucun verdict gardé) ; ADMIS : propriétaires actuels admis ; dans le dépôt (et le dossier MCP par défaut, voisin du dépôt), créé s'il manque ; ailleurs, existant, à un compte d'Elpis, au compte unique (COMPTE_ETAT) ou à root:<groupe des données>.
+# Dossier d'état accepté d'après son chemin (chemin_etat_sur) mis à PROPRIO:GROUPE (root et le groupe des données par défaut) en MODE par deploy/droits.py, au moment même (aucun verdict gardé) ; ADMIS : propriétaires actuels admis ; dans le dépôt (et le dossier MCP par défaut, voisin du dépôt) ou sous SOUS (dossier géré qui le contient, déjà posé), créé s'il manque ; ailleurs, existant, à un compte d'Elpis, au compte unique (COMPTE_ETAT) ou à root:<groupe des données>.
 dossier_donnees() {
     local opts=(--admis "$3" --creer)
     chemin_etat_sur "$1" || return 1
     case "$1/" in
         "$ROOT/"*|"${ROOT%/*}/mcp_custom_servers/") ;;
-        *) opts=(--admis "$UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag ${COMPTE_ETAT:-}" --groupe-racine "$GROUPE_DONNEES") ;;
+        *) [ -n "${6:-}" ] || opts=(--admis "$UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag ${COMPTE_ETAT:-}" --groupe-racine "$GROUPE_DONNEES") ;;
     esac
-    poser_droits dossier "$1" "$2" "${4:-root}" "${5:-$GROUPE_DONNEES}" "${opts[@]}"
+    poser_droits dossier "$1" "$2" "${4:-root}" "${5:-$GROUPE_DONNEES}" "${opts[@]}" ${6:+--sous "$6"}
 }
 
 # Premier des DOSSIERS que DOSSIER chevauche (le même, dedans, autour) ; échec s'il n'en chevauche aucun.
@@ -1340,22 +1353,27 @@ chevauchement() {
     return 1
 }
 
-# Droits du mode séparé, à chaque passage, services arrêtés, posés par deploy/droits.py au moment même : dossiers fixes du dépôt et dossiers de .env (jamais de config.json), refusés s'ils se chevauchent (le magasin du RAG peut être dans le dossier de la base) ; dossiers au groupe des données, contenu g+rwX ; seules les entrées de l'opérateur et des anciens comptes uniques sont reprises (jamais celles de root ni d'un service, qu'un service aurait pu y déplacer), dossiers de root compris ; secrets un à un (jeton du RAG laissé dans user_db, source refusée ou réécrite : fermé à son propriétaire, jamais partagé), autorité du relais à l'hôte d'outils, run/chat_runs et run/task_resume privés à main, exclusions sur chaque parcours ; backups/ privé à l'opérateur ; aucun lien suivi, aucun /work touché.
+# Dossiers de comptes du dossier des sandboxes (relatifs à lui) : noms sans point initial (instantanés à part), et bacs mis de côté ; jamais le relais, les verrous ni le cache.
+BACS_COMPTES=('[!.]*' '.supprime-*')
+
+# Droits du mode séparé, à chaque passage, services arrêtés, posés par deploy/droits.py au moment même : dossiers fixes du dépôt et dossiers de .env (jamais de config.json), refusés s'ils se chevauchent (le magasin du RAG peut être dans le dossier de la base) ; dossiers au groupe des données, contenu g+rwX ; seules les entrées de l'opérateur et des anciens comptes uniques sont reprises (jamais celles de root ni d'un service, qu'un service aurait pu y déplacer), dossiers de root compris ; secrets un à un (jeton du RAG laissé dans user_db, source refusée ou réécrite : fermé à son propriétaire, jamais partagé), autorité du relais à l'hôte d'outils, run/chat_runs et run/task_resume privés à main, exclusions sur chaque parcours ; dossier des sandboxes à l'hôte d'outils seul (2750, ce que les anciens comptes et les services y ont laissé compris, sans écriture du groupe ; ce qui n'y est pas un dossier, à sa racine ou au /work et au dossier de l'agent d'un compte, mis à part d'abord ; dans chaque dossier de compte, /work laissé au compte des bacs, dossier de l'agent en 1707 (à l'hôte d'outils et au compte des bacs, fermé au groupe) sans toucher à son contenu ; relais en 0755, instantanés à part), historique des fichiers, cache des aperçus, verrous Office et jetons du navigateur laissés dans run/ privés à l'hôte d'outils, cache des graphiques à main et lisible du groupe (2750, 0640 ; tous écartés du parcours du dossier géré qui les contient, refusés s'ils en contiennent un) ; ailleurs, aucun dossier nommé work ni .elpis-agent parcouru ; backups/ privé à l'opérateur ; aucun lien suivi, aucun /work touché.
 droits_separes() {
     local base="$1" op="$2" G="$GROUPE_DONNEES" og d n e=0 legs="" admis U="$ROOT/user_db" S="$SANDBOX_DIR" B="" R="$RAG_STORE" sousR="" x h
     og="$(id -gn "$op")" || return 1
-    # Anciens propriétaires repris : l'opérateur et les anciens comptes uniques, jamais root ni un compte des services.
-    for n in $op ${3:-}; do
-        case "$n" in root|"$UNIT_PREFIX"-*) continue ;; esac
-        case " $legs " in *" $n "*) ;; *) legs+="$n " ;; esac
-    done
+    legs="$(comptes_repris "$op" "${3:-}")"
     admis="$legs $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost"
     local cle=(.vault.key .vault.key.lock .encryption_key .encryption_key.lock .session_secret .session_secret.lock)
     local partages=(.local_mcp_token) prives=(.rag_service_token) base_console=('.db_password*') envois=(.backup_ssh_key .backup_rsync_password)
-    local fixes=("$U" "$LOG_DIR" "$ROOT/backups" "$ROOT/system_prompts" "$ROOT/skills") commun=() hors=() geres=()
-    commun=(--comptes "$legs" --comptes-dossiers root --sauf work --sauf .elpis-agent
-            --prive "$UNIT_PREFIX-main:$U/run/chat_runs" --prive "$UNIT_PREFIX-main:$U/run/task_resume")
+    local fixes=("$U" "$LOG_DIR" "$ROOT/backups" "$ROOT/system_prompts" "$ROOT/skills") commun=() hors=() geres=() hote=() sauf_hote=() bacs=() motifs=() c charts=()
+    commun=(--comptes "$legs" --comptes-dossiers root
+            --prive "$UNIT_PREFIX-main:$U/run/chat_runs" --prive "$UNIT_PREFIX-main:$U/run/task_resume"
+            --prive "$UNIT_PREFIX-toolhost:$U/run/office_locks" --prive "$UNIT_PREFIX-toolhost:$U/run/navigateur")
+    for c in "${BACS_COMPTES[@]}"; do
+        motifs+=(--sauf "$c/work" --sauf "$c/.elpis-agent/*" --regle "$UNIT_PREFIX-toolhost:-:-:1707:$c/.elpis-agent")
+    done
     for n in "${cle[@]}" "${partages[@]}" "${prives[@]}" "${base_console[@]}" "${envois[@]}" .backup_known_hosts; do commun+=(--sauf "$n"); done
+    bacs=(g+rX,g-w,o-rwx g+rXs,g-w,o-rwx --proprio "$UNIT_PREFIX-toolhost" --comptes "$admis" "${commun[@]}")
+    commun+=(--sauf work --sauf .elpis-agent)
     [ -z "$base" ] || [ "$base" = "$U" ] || B="$base"
     # Chevauchements : sandboxes et base ni l'une dans l'autre ni sur un dossier fixe ; magasin du RAG dans la base ou à part.
     if x="$(chevauchement "$S" "${fixes[@]}" "$B")"; then warn "Dossier des sandboxes $S refusé : il chevauche $x."; S=""; e=1; fi
@@ -1365,6 +1383,13 @@ droits_separes() {
         case "$R/" in "$sousR/run/"*|"$sousR/browser-relay-ca/"*|"$sousR/rag-cache/"*) warn "Magasin du RAG $R refusé : dans un dossier réservé de $sousR."; R=""; e=1 ;; esac
     elif x="$(chevauchement "$R" "${fixes[@]}" "$S" "$B")"; then warn "Magasin du RAG $R refusé : il chevauche $x."; R=""; e=1; fi
     geres=("${fixes[@]}" "$S" "$B" "$R")
+    for h in "$(fixe APP_FILE_HISTORY_DIR)" "$(fixe APP_OFFICE_CACHE_DIR)" "$CHART_DIR"; do
+        [ -n "$h" ] || continue
+        if x="$(chevauchement "$h" "${geres[@]}")" && [[ "$h/" != "$x/"?* ]]; then warn "Dossier $h refusé : il contient $x."; e=1; continue; fi
+        if [ "$h" = "$CHART_DIR" ]; then charts=("$h"); else hote+=("$h"); fi
+        sauf_hote+=(--sauf "$h")
+    done
+    geres+=(${hote[@]+"${hote[@]}"} ${charts[@]+"${charts[@]}"})
     while IFS= read -r h; do
         [ -n "$h" ] || continue
         if x="$(chevauchement "$h" "${geres[@]}" "${hors[@]}")"; then
@@ -1376,7 +1401,7 @@ droits_separes() {
     for d in "$U" "$B"; do
         [ -n "$d" ] || continue
         dossier_donnees "$d" 2771 "$admis" || { e=1; continue; }
-        poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" ${R:+--sauf "$R"} \
+        poser_droits arbre "$d" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" ${R:+--sauf "$R"} ${sauf_hote[@]+"${sauf_hote[@]}"} \
             --regle "$UNIT_PREFIX-toolhost:$G:-:go-rwxs:$d/browser-relay-ca" || e=1
         poser_droits fichiers "$d" root "$GROUPE_CLE" 0640 "${cle[@]}" --comptes "root $legs" || e=1
         poser_droits fichiers "$d" root "$G" 0640 "${partages[@]}" --comptes "root $legs" || e=1
@@ -1386,7 +1411,27 @@ droits_separes() {
         poser_droits fichiers "$d" "$UNIT_PREFIX-admin" "$GROUPE_CLE" 0660 .backup_known_hosts --comptes "$legs" || e=1
     done
     poser_droits fichiers "$ROOT" "$op" "$G" 0640 mcp.json toolhost.json config.json --comptes "root $legs" || e=1
-    if [ -n "$S" ]; then { dossier_donnees "$S" 2770 "$admis" && poser_droits arbre "$S" "$G" g+rwX g+rwXs "${commun[@]}" --sauf browser-relay-ca; } || e=1; fi
+    if [ -n "$S" ]; then
+        if dossier_donnees "$S" 2750 "$admis" "$UNIT_PREFIX-toolhost"; then
+            poser_droits ecarter "$S" || e=1
+            poser_droits arbre "$S" "$G" "${bacs[@]}" ${sauf_hote[@]+"${sauf_hote[@]}"} "${motifs[@]}" --sauf '_snapshots/*' \
+                --regle "$UNIT_PREFIX-toolhost:-:-:0755:$S/.elpis-relay" || e=1
+            poser_droits arbre "$S/_snapshots" "$G" "${bacs[@]}" --sous "$S" || e=1
+        else
+            e=1
+        fi
+    fi
+    for d in ${hote[@]+"${hote[@]}"} ${charts[@]+"${charts[@]}"}; do
+        x=""; for h in "${geres[@]}"; do [ -z "$h" ] || [[ "$d/" != "$h/"?* ]] || x="$h"; done
+        [ -n "$x" ] || case "$d/" in "$ROOT/"*) ;; *) [ -e "$d" ] || [ -L "$d" ] || continue ;; esac
+        if [ "$d" = "${charts[0]:-}" ]; then
+            { dossier_donnees "$d" 2750 "$admis" "$UNIT_PREFIX-main" "$G" "$x" \
+                && poser_droits arbre "$d" "$G" g+r,g-w,o-rwx g+rXs,g-w,o-rwx --proprio "$UNIT_PREFIX-main" --comptes "$admis" --comptes-dossiers root ${x:+--sous "$x"}; } || e=1
+            continue
+        fi
+        { dossier_donnees "$d" 0700 "$admis" "$UNIT_PREFIX-toolhost" "$G" "$x" \
+            && poser_droits arbre "$d" "$G" go-rwx go-rwxs --proprio "$UNIT_PREFIX-toolhost" --comptes "$admis" --comptes-dossiers root ${x:+--sous "$x"}; } || e=1
+    done
     { dossier_donnees "$LOG_DIR" 2770 "$admis" && poser_droits arbre "$LOG_DIR" "$G" g+rwX,o-rwx g+rwXs,o-rwx "${commun[@]}" --sauf browser-relay-ca; } || e=1
     { poser_droits dossier "$ROOT/backups" 00700 "$op" "$og" --admis "$admis" --creer \
         && poser_droits arbre "$ROOT/backups" "$og" go-rwx go-rwxs --proprio "$op" --comptes "root $legs"; } || e=1
@@ -1410,17 +1455,70 @@ droits_separes() {
     return "$e"
 }
 
-# Compte unique, à chaque passage, services arrêtés : dossiers d'état acceptés d'après leur chemin (base, sandboxes hors de leurs /work, journaux, magasin et cache du RAG, dossiers hors du dépôt) rendus au compte COMPTE en 0700 par deploy/droits.py, contenu u+rwX à lui (ce qui était à root, à un ancien compte ANCIENS ou à un compte d'Elpis), secrets de la base à lui seul ; aucun lien suivi.
+# Compte unique, à chaque passage, services arrêtés : dossiers d'état acceptés d'après leur chemin (base, sandboxes hors des /work de leurs comptes, journaux, magasin et cache du RAG, cache des graphiques, dossiers hors du dépôt) rendus au compte COMPTE en 0700 par deploy/droits.py, contenu u+rwX à lui (ce qui était à root, à un ancien compte ANCIENS ou à un compte d'Elpis ; dossier de l'agent d'un compte sans son contenu, instantanés à part), secrets de la base à lui seul ; aucun lien suivi.
 droits_unique() {
-    local base="$1" u="$2" g d e=0 comptes="root $2 ${3:-} $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag" liste=() sauf
+    local base="$1" u="$2" g d c e=0 comptes="root $2 ${3:-} $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost $UNIT_PREFIX-rag" liste=() sauf
     g="$(id -gn "$u")" || return 1
-    mapfile -t liste < <({ printf '%s\n' "$ROOT/user_db" "$base" "$SANDBOX_DIR" "$LOG_DIR" "$RAG_STORE" "$RAG_CACHE"; printf '%s\n' "${ECRITURES:-}" | cut -s -f2; } | sed '/^$/d' | sort -u)
+    mapfile -t liste < <({ printf '%s\n' "$ROOT/user_db" "$base" "$SANDBOX_DIR" "$LOG_DIR" "$RAG_STORE" "$RAG_CACHE" "${CHART_DIR:-}"; printf '%s\n' "${ECRITURES:-}" | cut -s -f2; } | sed '/^$/d' | sort -u)
     for d in "${liste[@]}"; do
-        sauf=(); [ "$d" != "$SANDBOX_DIR" ] || sauf=(--sauf work --sauf .elpis-agent)
-        { dossier_donnees "$d" 00700 "$comptes" "$u" "$g" && poser_droits arbre "$d" "$g" u+rwX u+rwx,g-s --proprio "$u" --comptes "$comptes" "${sauf[@]}"; } || e=1
+        sauf=(); [ "$d" != "$SANDBOX_DIR" ] || for c in "${BACS_COMPTES[@]}"; do sauf+=(--sauf "$c/work" --sauf "$c/.elpis-agent/*"); done
+        [ "$d" != "$SANDBOX_DIR" ] || sauf+=(--sauf '_snapshots/*')
+        dossier_donnees "$d" 00700 "$comptes" "$u" "$g" || { e=1; continue; }
+        poser_droits arbre "$d" "$g" u+rwX u+rwx,g-s --proprio "$u" --comptes "$comptes" "${sauf[@]}" || e=1
+        [ "$d" != "$SANDBOX_DIR" ] || poser_droits arbre "$d/_snapshots" "$g" u+rwX u+rwx,g-s --proprio "$u" --comptes "$comptes" --sous "$d" || e=1
     done
     [ -z "$base" ] || poser_droits fichiers "$base" "$u" "$g" 0600 .session_secret .encryption_key --avec-root || e=1
     return "$e"
+}
+
+# Dossiers d'état d'un compte par service (chemins de .env et du dépôt, et ceux de l'hôte d'outils hors du dépôt : historique des fichiers, cache des aperçus) rendus et fermés au compte COMPTE par droits_unique, ANCIENS repris : au retour à un seul compte et au retrait des services, avant d'y rendre la moindre clé.
+rendre_dossiers_separes() {
+    ( chemins_separes && ECRITURES="$(MODE_COMPTES=separes _chemins_hors_depot "${DB_FICHIER%/*}" | awk -F'\t' '$1 == "toolhost"')" \
+        && droits_unique "${DB_FICHIER%/*}" "$1" "${2:-}" )
+}
+
+# comptes_repris OPÉRATEUR ANCIENS : anciens propriétaires que root reprend avec un compte par service, l'opérateur et les anciens comptes uniques, jamais root ni un compte des services.
+comptes_repris() {
+    local n legs=""
+    for n in $1 ${2:-}; do
+        case "$n" in root|"$UNIT_PREFIX"-*) continue ;; esac
+        case " $legs " in *" $n "*) ;; *) legs+="$n " ;; esac
+    done
+    printf '%s' "$legs"
+}
+
+# Ancien magasin des skills des comptes (SANDBOXES/<compte>/skills, d'avant le magasin protégé) repris dans MAGASIN/<compte> par root, services arrêtés, quand il n'y en a pas encore (l'hôte d'outils remplacerait sinon ce dossier par le miroir) : par deploy/droits.py, sans suivre de lien ; ce qui est laissé est signalé (un dossier n'est pas toujours un compte), rien n'est arrêté.
+adopter_skills() {
+    [ -n "$1" ] && [ -n "$2" ] && [ -d "$1" ] || return 0
+    poser_droits skills "$1" "$2" \
+        || warn "Skills de comptes laissés dans $1 (voir ci-dessus) : à reprendre à la main."
+}
+
+# Un compte par service, services arrêtés : conteneurs des sandboxes en marche de cette instance (étiquette elpis.user_id, /work monté sous SANDBOXES) arrêtés par le seul client docker (stop, sinon kill), identifiants et chemins vérifiés ; redémarrés au premier usage une fois leurs montages revérifiés, couche du conteneur gardée ; un arrêt en échec fait échouer l'étape.
+arreter_conteneurs_bacs() {
+    local S="${1%/}" R id src n=0 e=0
+    [ -n "$S" ] && command -v docker >/dev/null 2>&1 || return 0
+    R="$(realpath -e -- "$S" 2>/dev/null)" || R="$S"
+    while IFS= read -r id; do
+        motif "$id" '^[0-9a-f]{64}$' || continue
+        src="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/work"}}{{.Source}}{{end}}{{end}}' "$id" 2>/dev/null)" || continue
+        [[ ( "$src" == "$S"/* || "$src" == "$R"/* ) && "$src" != *$'\n'* && "$src/" != */../* && "$src/" != */./* ]] || continue
+        if docker stop -t 10 "$id" >/dev/null 2>&1 || docker kill "$id" >/dev/null 2>&1; then n=$((n + 1))
+        else warn "Conteneur de sandbox ${id:0:12} non arrêté : docker stop ${id:0:12} à la main."; e=1; fi
+    done < <(docker ps -q --no-trunc --filter label=elpis.user_id 2>/dev/null)
+    [ "$n" -eq 0 ] || info "$n conteneur(s) de sandbox arrêté(s) : redémarrés au premier usage, une fois leurs montages revérifiés."
+    return "$e"
+}
+
+# deplacer_memoire SANDBOXES MEMOIRE [COMPTE] [OPÉRATEUR ANCIENS] : mémoire des comptes hors du dossier des sandboxes, services arrêtés : SANDBOXES/<compte>/memory (et l'ancien .memory) déplacés dans MEMOIRE/<compte>/ par deploy/droits.py, sans suivre de lien ni changer de système de fichiers, sous le compte COMPTE s'il est donné (compte unique : jamais au nom de root), seulement vers le dossier par défaut (user_db/memoire) ; avec un compte par service, entrées de l'opérateur, des anciens comptes et des services données à main ; ce qui est laissé est signalé, rien n'est arrêté.
+deplacer_memoire() {
+    local donner=()
+    [ -n "$1" ] && [ "${2%/}" = "$ROOT/user_db/memoire" ] && [ -d "$1" ] || return 0
+    ! separe_vise || donner=("$UNIT_PREFIX-main" "$GROUPE_DONNEES"
+        "$(comptes_repris "${4:-}") $UNIT_PREFIX-main $UNIT_PREFIX-admin $UNIT_PREFIX-toolhost")
+    if [ -n "${3:-}" ]; then (cd / && _hors_terminal runuser -u "$3" -- python3 -I "$ROOT/deploy/droits.py" memoire "$1" "$2")
+    else poser_droits memoire "$1" "$2" ${donner[@]+"${donner[@]}"}; fi \
+        || warn "Mémoire de comptes pas toute reprise de $1 (voir ci-dessus) : à reprendre à la main."
 }
 
 # ranger_cfg COMPTE ARGUMENT… : deploy/configure.py --ranger-secrets ARGUMENT… sous le propriétaire de config.json : la console en mode séparé (app_console), le compte unique COMPTE sinon (runuser, hors du terminal de root).
@@ -1622,7 +1720,7 @@ cmd_service() {
             [ "$MODE_COMPTES" = separes ] || ptrace_restreint "$MODE_COMPTES"
             # Retour à un seul compte : dossiers d'état du mode séparé (chemins de .env) rendus et fermés au compte unique avant tout le reste, avant d'y rendre la moindre clé.
             if [ "$MODE_COMPTES" != separes ] && [ "$(mode_installe)" = separes ]; then
-                ( chemins_separes && droits_unique "${DB_FICHIER%/*}" "$run_user" "$ancien" ) \
+                rendre_dossiers_separes "$run_user" "$ancien" \
                     || warn "Dossiers d'état du mode séparé non tous rendus à $run_user (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             fi
             # Clés remises par systemd que ce mode n'emploie pas (retour à un compte, systemd trop ancien) : rendues à leurs fichiers avant audit setup, qui en créerait une neuve.
@@ -1665,6 +1763,10 @@ cmd_service() {
             { [ "$MODE_COMPTES" = separes ] && cles_systemd; } || jeton_rag "$run_user" \
                 || warn "Jeton du service RAG non préparé (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
             if [ "$MODE_COMPTES" = separes ]; then
+                deplacer_memoire "$SANDBOX_DIR" "$(fixe APP_MEMORY_DIR)" "" "$run_user $ancien"
+                adopter_skills "$SANDBOX_DIR" "$(fixe APP_USER_SKILLS_DIR)"
+                arreter_conteneurs_bacs "$SANDBOX_DIR" \
+                    || warn "Conteneurs des sandboxes pas tous arrêtés (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
                 # Secret de session créé ici (0640 au groupe de la clé) : créé par main, il resterait illisible pour la console ; clés remises par systemd : déjà au magasin.
                 cles_systemd || [ -n "${APP_SESSION_SECRET:-}" ] || [ -z "$BASE_DONNEES" ] || poser_droits secret "$BASE_DONNEES" .session_secret \
                     || warn "Secret de session non créé dans $BASE_DONNEES (voir ci-dessus)."
@@ -1672,6 +1774,7 @@ cmd_service() {
             else
                 droits_unique "$BASE_DONNEES" "$run_user" "$ancien" \
                     || warn "Droits du compte unique incomplets (voir ci-dessus) : relancez sudo ./elpis service install une fois corrigé."
+                deplacer_memoire "$SANDBOX_DIR" "$(core_cmd config MEMORY_DIR 2>/dev/null)" "$run_user"
             fi
             [ ! -x "$ROOT/rag_app/qdrant/qdrant" ] || qdrant_stockage "$run_user" || warn "Stockage de Qdrant non déplacé (voir ci-dessus)."
             if compgen -G "$ROOT/logs/audit/audit-*.jsonl" >/dev/null; then
@@ -1695,7 +1798,7 @@ cmd_service() {
             rm -rf "/run/${UNIT_PREFIX}"
             # Comme au retour à un seul compte : dossiers d'état d'un compte par service rendus et fermés à l'opérateur avant d'y rendre la moindre clé.
             if [ "$etait" = separes ]; then
-                ( op="$(operateur)"; charger_env_sur && chemins_separes && droits_unique "${DB_FICHIER%/*}" "$op" "" ) \
+                ( op="$(operateur)"; charger_env_sur && rendre_dossiers_separes "$op" "" ) \
                     || warn "Dossiers d'état non tous rendus à l'opérateur (voir ci-dessus) : relancez sudo ./elpis service remove une fois corrigé."
             fi
             [ ! -d "$CLES_SYS" ] || cles_au_retrait \
@@ -1896,7 +1999,7 @@ doctor_comptes() {
     [ "${#CHEMINS_FIXES[@]}" -gt 0 ] || chemins_separes
     sb="$SANDBOX_DIR"; rs="$RAG_STORE"
     ECARTS_CONFIG=0; avertir_chemins_config; bad=$((bad + ECARTS_CONFIG))
-    for c in "$ROOT/user_db|2771 root $GROUPE_DONNEES" "${sb:-$ROOT/user_sandboxes}|2770 root $GROUPE_DONNEES" "$LOG_DIR|2770 root $GROUPE_DONNEES" \
+    for c in "$ROOT/user_db|2771 root $GROUPE_DONNEES" "${sb:-$ROOT/user_sandboxes}|2750 $UNIT_PREFIX-toolhost $GROUPE_DONNEES" "$LOG_DIR|2770 root $GROUPE_DONNEES" \
              "$ROOT/backups|700" "$SYS_PREFIXE/etc/elpis|751 root root" \
              "${rs:-$ROOT/user_db/rag}|2770 $UNIT_PREFIX-main $GROUPE_RAG" "$JETON_RAG_SYS|440 root $GROUPE_RAG"; do
         chemin="${c%%|*}"; attendu="${c#*|}"
@@ -2814,6 +2917,18 @@ ensure_sandbox_image() {
     return 1
 }
 
+# Unités relancées après une mise à jour ; compte unique (ses unités ne fixent pas le dossier de la mémoire) : arrêtées, mémoire des comptes déplacée sous le compte des unités (deplacer_memoire ; lancé par un autre compte : laissée, le core la recopie au premier usage), puis démarrées.
+relancer_unites() {
+    local u=""
+    if [ "$(mode_installe)" = separes ]; then sudo systemctl restart "${UNIT_PREFIX}.target"; return; fi
+    sudo systemctl stop "${UNIT_PREFIX}.target" || return 1
+    if u="$(compte_unique)" && [ -n "$u" ]; then
+        if [ "$(id -u)" -eq 0 ]; then deplacer_memoire "${SANDBOX_DIR:-}" "$(core_cmd config MEMORY_DIR 2>/dev/null)" "$u"
+        elif [ "$u" = "$(id -un)" ]; then deplacer_memoire "${SANDBOX_DIR:-}" "$(core_cmd config MEMORY_DIR 2>/dev/null)"; fi
+    fi
+    sudo systemctl start "${UNIT_PREFIX}.target"
+}
+
 cmd_upgrade() {
     local backup=1 req="$ROOT/requirements-rag.txt"
     case "${1:-}" in --no-backup) backup=0 ;; "") ;; *) die "Usage : ./elpis upgrade [--no-backup]" ;; esac
@@ -2870,7 +2985,7 @@ puis ./elpis restart. Sans elle, fichiers, éditeur et git des sandboxes ne marc
     info "Redémarrage (les migrations de la base s'appliquent au démarrage)…"
     if systemd_installed; then
         info "Unités systemd inchangées : sudo ./elpis service install quand le CHANGELOG le demande."
-        sudo systemctl restart "${UNIT_PREFIX}.target" || die "Redémarrage systemd échoué."
+        relancer_unites || die "Redémarrage systemd échoué."
         { wait_port "$MAIN_PORT" 120 && wait_port "$ADMIN_PORT" 60; } \
             || die "L'application ne répond pas après la mise à jour : ./elpis logs main"
     else

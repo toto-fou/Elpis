@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/admin/pilote-bac.ts — pilote du bac de la console (PortBac) : Docker local par @elpis/bac comme le Python (création et retrait du conteneur sous le verrou de cycle de vie) ; bac d'un hôte d'outils distant par cet hôte. */
-import { getUserSandbox, resetUserSandboxCache, which } from "@elpis/bac";
+/** apps/core/src/admin/pilote-bac.ts — pilote du bac de la console (PortBac) : bac d'un hôte distant mis de côté par cet hôte, conteneur et /work locaux par l'hôte de cette machine, jamais par Docker dans le core. */
 import { getOu, getPy } from "@elpis/commun";
 
 import { ClientHttp, delais } from "../llm/client-http";
@@ -12,10 +11,42 @@ import type { PortBac } from "./bac";
 const DELAI_HOTE_S = 600;
 const CONNEXION_HOTE_S = 5;
 
-/** Hôte d'outils du compte s'il est distant (hors loopback), lu sans affecter le compte ; `null` : bac local. */
+/** Hôte d'outils du compte (local compris), lu sans affecter le compte ; `null` : aucun hôte déclaré. */
+function hoteDuCompte(uid: number): Promise<SandboxHost | null> {
+  return sandboxHostFor(uid, false);
+}
+
+/** Hôte d'outils du compte s'il est distant (hors loopback) ; `null` : bac local. */
 async function hoteDistant(uid: number): Promise<SandboxHost | null> {
-  const hote = await sandboxHostFor(uid, false);
+  const hote = await hoteDuCompte(uid);
   return hote !== null && !isLoopback(hote.url) ? hote : null;
+}
+
+/** Hôte d'outils qui sert le `SANDBOX_DIR` de cette machine (premier hôte en boucle locale, sinon l'hôte par défaut), doté d'un jeton de service (sans lui, un hôte ne détient aucun bac) ; `null` : aucun. */
+async function hoteDeCetteMachine(): Promise<SandboxHost | null> {
+  try {
+    for (const [id, spec] of lireHotes().hotes) {
+      const hote = hostFromSpec(id, spec);
+      if (hote?.token && isLoopback(hote.url)) return hote;
+    }
+  } catch {
+    // manifeste illisible : hôte par défaut
+  }
+  const defaut = await sandboxHostFor(null, false);
+  return defaut?.token ? defaut : null;
+}
+
+/** Refus d'un hôte d'outils : statut HTTP et `detail` rendus par l'hôte. */
+export class ErreurHote extends Error {
+  readonly statut: number;
+  readonly detail: string;
+
+  constructor(message: string, statut: number, detail: string) {
+    super(message);
+    this.name = "ErreurHote";
+    this.statut = statut;
+    this.detail = detail;
+  }
 }
 
 /** Appel de l'hôte au nom du compte (suspension tolérée seulement pour un arrêt ou un nettoyage ; nom gardé : la base n'a peut-être plus sa ligne), corps JSON rendu ; un refus est levé avec le `detail` de l'hôte. */
@@ -23,7 +54,7 @@ export async function appelerHote(
   hote: SandboxHost,
   uid: number,
   username: string,
-  methode: "POST" | "DELETE",
+  methode: "GET" | "POST" | "DELETE",
   chemin: string,
   options: { json?: unknown; delaiS?: number; tolererSuspension?: boolean } = {},
 ): Promise<unknown> {
@@ -45,7 +76,11 @@ export async function appelerHote(
       detail = null;
     }
     const raison = typeof detail === "string" && detail ? detail : `HTTP ${r.statusCode}`;
-    throw new Error(`hôte d'outils ${hote.id} : ${raison}`);
+    throw new ErreurHote(
+      `hôte d'outils ${hote.id} : ${raison}`,
+      r.statusCode,
+      typeof detail === "string" ? detail : "",
+    );
   } finally {
     await client.aclose();
   }
@@ -75,7 +110,7 @@ export async function purgerCompteSurHotes(uid: number, username: string): Promi
   return (await Promise.all(essais)).filter((m): m is string => m !== null);
 }
 
-/** PortBac de la console : `P` d'un hôte distant mis de côté, remis ou supprimé par l'hôte, conteneur et purge locaux par @elpis/bac. */
+/** PortBac de la console : `P` d'un hôte distant mis de côté, remis ou supprimé par l'hôte ; conteneur et /work du reliquat local par l'hôte de cette machine, profil par l'hôte du compte ; seuls les hôtes touchent Docker. */
 export function piloteBac(): PortBac {
   return {
     hoteDistantDuCompte: hoteDistant,
@@ -99,32 +134,27 @@ export function piloteBac(): PortBac {
       });
       return getOu(r, "deleted", false) === true;
     },
-    async retirerConteneur(uid, username, travail) {
-      if (which("docker") === null) return;
-      try {
-        await getUserSandbox(uid, username, travail).destroy();
-      } finally {
-        resetUserSandboxCache(uid);
-      }
+    async retirerConteneur(uid, username) {
+      const hote = await hoteDeCetteMachine();
+      if (hote !== null)
+        await appelerHote(hote, uid, username, "POST", "/api/internal/sandboxes/destroy", {
+          tolererSuspension: true,
+        });
     },
-    async purgerTravail(uid, username, travail) {
-      try {
-        await getUserSandbox(uid, username, travail).purge();
-      } finally {
-        resetUserSandboxCache(uid);
-      }
+    async purgerTravail(uid, username, _travail, horodatage) {
+      const hote = await hoteDeCetteMachine();
+      if (hote === null) throw new Error("aucun hôte d'outils déclaré");
+      await appelerHote(hote, uid, username, "POST", "/api/internal/sandbox/purge-work", {
+        tolererSuspension: true,
+        json: { stamp: horodatage },
+      });
     },
-    async detruireConteneur(uid, username, travail, profilAvant) {
-      const hote = await hoteDistant(uid);
-      try {
-        if (hote !== null)
-          await appelerHote(hote, uid, username, "DELETE", "/api/sandbox/me", {
-            tolererSuspension: true,
-          });
-        else await getUserSandbox(uid, username, travail, profilAvant).destroy();
-      } finally {
-        resetUserSandboxCache(uid);
-      }
+    async detruireConteneur(uid, username) {
+      const hote = await hoteDuCompte(uid);
+      if (hote === null) throw new Error("aucun hôte d'outils déclaré");
+      await appelerHote(hote, uid, username, "POST", "/api/internal/sandboxes/destroy", {
+        tolererSuspension: true,
+      });
     },
   };
 }

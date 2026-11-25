@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/bac/interne.ts — routes internes du bac pour la console (hors des préfixes relayés par main : jamais atteintes depuis un navigateur) : mise de côté, remise en place et suppression du bac, et identifiants de sites, d'un compte supprimé. */
+/** apps/toolhost/src/bac/interne.ts — routes internes du bac pour la console (hors des préfixes relayés par main : jamais atteintes depuis un navigateur) : mise de côté, remise en place, /work vidé et suppression du bac, et identifiants de sites, d'un compte supprimé. */
 import {
   forgetPreviewIp,
   getUserSandbox,
@@ -9,16 +9,18 @@ import {
   remettreBacMisDeCote,
   resetUserSandboxCache,
   supprimerBacMisDeCote,
+  which,
   WORK_SUBDIR,
 } from "@elpis/bac";
 import { estDict, HttpError, pyJsonLoadsOctets } from "@elpis/commun";
 import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
-import { deleteOwnerCredentials } from "@elpis/navigateur";
+import { deleteOwnerCredentials, requeteService, urlCouranteDeSession } from "@elpis/navigateur";
 import { auditEvent, usernameFor } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import type { DefinitionRoute } from "../app";
 import { baseHote } from "../base-hote";
+import { serviceLu } from "../mcp/browser/bac";
 import { reponseJson } from "../socle";
 import { uidDe } from "./routes-me";
 
@@ -107,6 +109,30 @@ async function supprimerBacMisDeCoteDuCompte(
   }
 }
 
+/** /work du bac mis de côté sous l'horodatage vidé par le root du conteneur (fichiers à l'UID du conteneur), conteneur retiré, action de l'admin auditée ; sans docker, rien à faire ; refus → 502. */
+async function purgerTravail(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
+  const uid = uidDe(requete);
+  const username = await usernameFor(uid);
+  const stamp = horodatageDuCorps(requete, true);
+  const dossier = pyJoin(realpathPy(config.SANDBOX_DIR), nomMisDeCote(uid, stamp));
+  const sb = getUserSandbox(uid, username, pyJoin(dossier, WORK_SUBDIR));
+  try {
+    if (which("docker") === null) return reponseJson(reponse, { ok: true });
+    await sb.purge().catch((e: unknown) => {
+      throw new HttpError(502, messageSuppression(e));
+    });
+    auditEvent({
+      userId: uid,
+      username,
+      action: "admin.sandbox.purge_work",
+      details: { container: sb.containerName, stamp },
+    });
+    return reponseJson(reponse, { ok: true });
+  } finally {
+    resetUserSandboxCache(uid);
+  }
+}
+
 /** Identifiants de sites du compte de l'enveloppe retirés de la base de l'hôte (distincte de celle du core quand `db_path` est posé). */
 async function purgerCompte(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
   const uid = uidDe(requete);
@@ -116,6 +142,50 @@ async function purgerCompte(requete: FastifyRequest, reponse: FastifyReply): Pro
   const credentials = await deleteOwnerCredentials(base, username);
   auditEvent({ userId: uid, username, action: "user.toolhost.purge", details: { credentials } });
   return reponseJson(reponse, { ok: true, credentials });
+}
+
+/** Corps JSON de la requête en objet ; 400 s'il est illisible ou n'est pas un objet. */
+function corpsObjet(requete: FastifyRequest): Record<string, unknown> {
+  const corps = ((): unknown => {
+    try {
+      return JSON.parse(Buffer.from(requete.corpsBrut ?? "{}").toString("utf8") || "{}");
+    } catch {
+      return null;
+    }
+  })();
+  if (typeof corps === "object" && corps !== null && !Array.isArray(corps))
+    return corps as Record<string, unknown>;
+  throw new HttpError(400, "corps JSON invalide");
+}
+
+/** `POST /cleanup_children` au service navigateur du bac du compte de l'enveloppe, sans le démarrer : `{cleaned}`, 0 si le service est arrêté ou muet. */
+async function fermerEnfantsOrphelins(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
+  const age = corpsObjet(requete)["older_than_ms"];
+  if (typeof age !== "number" || !Number.isFinite(age) || age < 0)
+    throw new HttpError(400, "older_than_ms invalide");
+  const username = await usernameFor(uidDe(requete));
+  const cleaned = await requeteService(serviceLu(username), "/cleanup_children", {
+    methode: "POST",
+    entetes: { "content-type": "application/json" },
+    corps: JSON.stringify({ older_than_ms: age }),
+    delaiMs: 5000,
+  })
+    .then((r) => {
+      const d =
+        r.statut === 200 ? (JSON.parse(r.corps.toString("utf8")) as { cleaned?: unknown } | null) : null;
+      return typeof d?.cleaned === "number" ? d.cleaned : 0;
+    })
+    .catch(() => 0);
+  return reponseJson(reponse, { cleaned });
+}
+
+/** URL courante de la session Playwright `session_id` du compte de l'enveloppe, lue au service de son bac (sans le démarrer) ; `url` nul au moindre échec. */
+async function urlDeSession(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
+  const id = corpsObjet(requete)["session_id"];
+  if (typeof id !== "string" || id === "") throw new HttpError(400, "session_id invalide");
+  const username = await usernameFor(uidDe(requete));
+  const url = await urlCouranteDeSession(serviceLu(username), username, id).catch(() => null);
+  return reponseJson(reponse, { url });
 }
 
 export function routesInternes(): DefinitionRoute[] {
@@ -143,10 +213,31 @@ export function routesInternes(): DefinitionRoute[] {
     },
     {
       methode: "POST",
+      chemin: "/api/internal/sandbox/purge-work",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: purgerTravail,
+    },
+    {
+      methode: "POST",
       chemin: "/api/internal/account/purge",
       processus: ["toolhost"],
       acces: "enveloppe",
       traiter: purgerCompte,
+    },
+    {
+      methode: "POST",
+      chemin: "/api/internal/browser/cleanup-children",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: fermerEnfantsOrphelins,
+    },
+    {
+      methode: "POST",
+      chemin: "/api/internal/browser/session-url",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: urlDeSession,
     },
   ];
 }

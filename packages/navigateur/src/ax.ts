@@ -23,7 +23,8 @@ import type { Executeur } from "@elpis/db";
 import { Verrou } from "@elpis/mcp";
 import { neutraliserJetonsRole, neutraliserMarqueursTour } from "@elpis/securite";
 
-import { requeteService, serviceNavigateur } from "./mode";
+import { requeteService } from "./mode";
+import type { ServiceNavigateur } from "./mode";
 import { pwOwner } from "./session";
 
 export const log = (): ReturnType<typeof journalDe> => journalDe("ax");
@@ -470,10 +471,14 @@ export function detectSitesFromText(text: string | null | undefined): string[] {
   return out;
 }
 
-/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante au service navigateur du bac du compte (2 s) ; `null` au moindre échec. */
+/** Lecture de l'URL courante d'une session auprès du service navigateur du compte (hôte d'outils) ; `null` au moindre échec. */
+export type LireUrlSession = (sessionId: string, signal?: AbortSignal) => Promise<string | null>;
+
+/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante par `lire` ; `null` au moindre échec. */
 export async function detectSessionUrl(
   messages: readonly unknown[] | null | undefined,
-  owner = "",
+  owner: string,
+  lire: LireUrlSession,
   signal?: AbortSignal,
 ): Promise<string | null> {
   if (!messages || messages.length === 0) return null;
@@ -490,24 +495,34 @@ export async function detectSessionUrl(
   }
   if (!sessionId || !owner) return null;
   try {
-    const qs = new URLSearchParams({
-      session_id: sessionId,
-      owner: pwOwner(owner),
-      skip_screenshot: "true",
-      level: "lite",
-    });
-    const r = await requeteService(serviceNavigateur(owner), `/smart_inspect?${qs.toString()}`, {
-      delaiMs: 2000,
-      ...(signal ? { signal } : {}),
-    });
-    if (r.statut !== 200) return null;
-    const d = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(r.corps));
-    const u = estDict(d) ? (veritePy(d["url"]) ? d["url"] : d["current_url"]) : null;
-    return typeof u === "string" && u ? u : null;
+    return await lire(sessionId, signal);
   } catch {
     if (signal?.aborted) throw signal.reason;
     return null;
   }
+}
+
+/** `smart_inspect` léger de la session au service navigateur du bac du compte `owner` (2 s) : son URL courante, `null` si le service ne la donne pas. */
+export async function urlCouranteDeSession(
+  service: ServiceNavigateur,
+  owner: string,
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const qs = new URLSearchParams({
+    session_id: sessionId,
+    owner: pwOwner(owner),
+    skip_screenshot: "true",
+    level: "lite",
+  });
+  const r = await requeteService(service, `/smart_inspect?${qs.toString()}`, {
+    delaiMs: 2000,
+    ...(signal ? { signal } : {}),
+  });
+  if (r.statut !== 200) return null;
+  const d = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(r.corps));
+  const u = estDict(d) ? (veritePy(d["url"]) ? d["url"] : d["current_url"]) : null;
+  return typeof u === "string" && u ? u : null;
 }
 
 /** Signal minimal avant d'injecter un site (`AX_INJECT_MIN_SIGNAL`, lu au chargement comme en Python). */

@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/administration/executeurs.ts — réglages des bacs à sable vus et validés par la console, conteneurs des comptes par la CLI Docker locale (shared_infra/routes/admin/executors.py, executors/_user_sandbox.py, _image_loader.py). */
-import { lstatSync, readdirSync, statSync } from "node:fs";
-
+/** apps/core/src/administration/executeurs.ts — réglages des bacs à sable vus et validés par la console, conteneurs des comptes relevés par l'hôte d'outils (shared_infra/routes/admin/executors.py, executors/_user_sandbox.py, _image_loader.py). */
 import {
-  decoderUtf8Py,
-  ErreurJsonPy,
   ErreurPython,
   estDict,
   estErreurPython,
   getPy,
   HttpError,
   intPy,
-  itemPy,
   iterExige,
   lire,
   longueurPy,
@@ -20,11 +15,9 @@ import {
   ouPy,
   poserCle,
   prefixePy,
-  pyJsonLoads,
   reprPy,
   reseauPy,
   rstripPy,
-  splitlinesPy,
   stripPy,
   strPy,
   texteNet,
@@ -34,19 +27,14 @@ import type { Dict, Reseau } from "@elpis/commun";
 import {
   ACCES_GIT,
   adressesEpinglables,
-  appelDocker,
   argsRunPermis,
   assainirSeuilsDisque,
   configuredImage,
-  decoderRemplace,
   DEFAULT_IMAGE,
   DOMAIN_RE,
   domainesEpingles,
   domainesPerimes,
-  findImageArchive,
   ipv4Canonique,
-  labelFilter,
-  labelTpl,
   netcfgHash,
   PROFILE_ID_RE,
   profilFiltre,
@@ -58,16 +46,14 @@ import {
   RUN_SPEC,
   serveurGitCanonique,
   seuilsDisqueDepuis,
-  sousVerrouDeCycle,
-  which,
 } from "@elpis/bac";
 import type { ProfilReseau } from "@elpis/bac";
-import { config, pyJoin } from "@elpis/config";
 import { hostAddressesRecent } from "@elpis/securite";
 import type { HoteMachine } from "@elpis/securite";
 
 import { assainirReglagesJobs, reglagesJobsDepuis } from "../jobs/reglages";
-import { journal } from "../journal";
+import { appelerConsole } from "./hote-console";
+import type { Acteur } from "./hote-console";
 
 const MODES = ["none", "bridge", "allowlist_ip"];
 const EXEC_USER_RE = /^[0-9]{1,7}:[0-9]{1,7}$/u;
@@ -81,21 +67,7 @@ export const ETAT_CHARGEMENT_IMAGE = {
   archive_path: null,
   progress_msg: "",
 };
-const INDICE_DEMON =
-  "Le daemon Docker n'est pas joignable. Vérifie :\n" +
-  "  • sudo systemctl status docker\n" +
-  "  • L'utilisateur de l'app a-t-il le droit (groupe docker) ?\n" +
-  "  • Le socket /var/run/docker.sock existe-t-il ?";
-const log = journal("sandbox");
-/** Délais des appels Docker du Python (ms), réglables par les tests. */
-export const delaisDocker = {
-  version: 10_000,
-  image: 10_000,
-  ps: 15_000,
-  stop: 15_000,
-  rm: 20_000,
-  inspect: 5_000,
-};
+const INDICE_HOTE = "Demandez à votre administrateur de vérifier l'hôte d'outils.";
 
 /** `NetworkProfile.to_dict()` du profil par défaut (« isolated »). */
 function profilIsoleDict(): Dict {
@@ -396,10 +368,11 @@ export function configAssainie(nouveau: Dict, cur: unknown, profils: Dict[]): Di
   return assainie;
 }
 
-// ── Conteneurs des comptes (CLI Docker locale) ─────────────────────────────
+// ── Conteneurs des comptes (relevés par l'hôte d'outils) ─────────────────────────────
 
-/** `_find_stale_network_containers` : conteneurs en marche dont le réseau (`elpis.netcfg`), la version des options (`elpis.spec`), le durcissement (`elpis.durci`) ou, quand `domaines` donne la résolution du moment d'un profil, les adresses épinglées de ses domaines (`elpis.resolved`) ne suivent plus les réglages ; toute erreur → `[]`. */
+/** `_find_stale_network_containers` : conteneurs en marche (relevés par l'hôte d'outils) dont le réseau (`elpis.netcfg`), la version des options (`elpis.spec`), le durcissement (`elpis.durci`) ou, quand `domaines` donne la résolution du moment d'un profil, les adresses épinglées de ses domaines (`elpis.resolved`) ne suivent plus les réglages ; toute erreur → `[]`. */
 export async function conteneursPerimes(
+  acteur: Acteur | undefined,
   profils: readonly Dict[],
   reglagesDe: (uid: number) => Promise<Dict>,
   profilDe: (reglages: Dict) => string,
@@ -408,16 +381,11 @@ export async function conteneursPerimes(
 ): Promise<Dict[]> {
   try {
     const parId = new Map<string, ProfilReseau>(profils.map((p) => [strPy(p["id"]), profilReseauDepuis(p)]));
-    const format =
-      `{{.Names}}\t${labelTpl("user_id", true)}\t${labelTpl("username", true)}\t` +
-      `${labelTpl("netcfg", true)}\t${labelTpl("spec", true)}\t${labelTpl("durci", true)}\t` +
-      labelTpl("resolved", true);
-    const r = await appelDocker(["ps", ...labelFilter("user_id"), "--format", format], delaisDocker.ps);
-    if (r.delaiDepasse || r.code !== 0) return [];
+    const releve = await appelerConsole(acteur, "GET", "/api/internal/sandboxes/running", { delaiS: 30 });
+    const lignes = getPy(releve, "containers");
+    if (!Array.isArray(lignes)) return [];
     const perimes: Dict[] = [];
-    for (const ligne of splitlinesPy(decoderRemplace(r.sortie))) {
-      const parts = ligne.split("\t");
-      if (parts.length < 4) continue;
+    for (const parts of lignes as string[][]) {
       const [
         nomConteneur = "",
         uidTexte = "",
@@ -550,145 +518,58 @@ export async function etatDomaines(
   return etat;
 }
 
-/** `GET /api/admin/executors/healthcheck` : démon (10 s), image chargée (10 s), archive sur disque, état de chargement du process. */
-export async function controleSante(image: string): Promise<Dict> {
-  const r = await appelDocker(["version", "--format", "{{.Server.Version}}"], delaisDocker.version);
-  if (r.delaiDepasse)
-    return {
-      daemon_ok: false,
-      error: "Timeout — le daemon Docker ne répond pas",
-      hint: "Vérifie : sudo systemctl status docker",
-    };
-  if (r.code !== 0)
-    return {
-      daemon_ok: false,
-      error: prefixePy(stripPy(decoderRemplace(r.erreur)).split("\n")[0] ?? "", 300),
-      hint: INDICE_DEMON,
-    };
-  const version = stripPy(decoderUtf8Py(r.sortie));
-  const r2 = await appelDocker(["image", "inspect", image], delaisDocker.image);
-  const chargee = !r2.delaiDepasse && r2.code === 0;
-  const archive = chargee ? null : findImageArchive(image);
-  return {
-    daemon_ok: true,
-    server_version: version,
-    image,
-    image_loaded: chargee,
-    archive_available: archive !== null,
-    archive_path: archive,
-    image_load_state: { ...ETAT_CHARGEMENT_IMAGE },
-  };
+/** `GET /api/admin/executors/healthcheck` : démon, image chargée et archive sur disque relevés par l'hôte d'outils, plus l'état de chargement du process ; hôte injoignable : démon tenu pour absent. */
+export async function controleSante(acteur: Acteur | undefined, image: string): Promise<Dict> {
+  let r: unknown;
+  try {
+    r = await appelerConsole(
+      acteur,
+      "GET",
+      `/api/internal/sandboxes/health?image=${encodeURIComponent(image)}`,
+      {
+        delaiS: 30,
+      },
+    );
+  } catch (e) {
+    if (!(e instanceof HttpError)) throw e;
+    return { daemon_ok: false, error: e.message, hint: INDICE_HOTE };
+  }
+  if (!estDict(r)) throw new ErreurPython("TypeError", "réponse de l'hôte illisible");
+  return r["daemon_ok"] === true ? { ...r, image_load_state: { ...ETAT_CHARGEMENT_IMAGE } } : r;
 }
 
-const FORMAT_PS =
-  '{"id":"{{.ID}}","name":"{{.Names}}","image":"{{.Image}}",' +
-  '"state":"{{.State}}","status":"{{.Status}}","created":"{{.CreatedAt}}"}';
-
-/** `GET /api/admin/sandbox/containers` : conteneurs étiquetés `elpis.user_id`, compte relu par `docker inspect` ; 502 si `docker ps` échoue. */
-export async function listerConteneurs(): Promise<Dict> {
-  const r = await appelDocker(
-    ["ps", "-a", ...labelFilter("user_id"), "--format", FORMAT_PS],
-    delaisDocker.ps,
-  );
-  if (r.delaiDepasse) throw new HttpError(502, "docker ps timeout");
-  if (r.code !== 0) throw new HttpError(502, prefixePy(stripPy(decoderRemplace(r.erreur)), 300));
-  const conteneurs: unknown[] = [];
-  for (const brute of splitlinesPy(decoderUtf8Py(r.sortie))) {
-    const ligne = stripPy(brute);
-    if (!ligne) continue;
-    let c: unknown;
-    try {
-      c = pyJsonLoads(ligne);
-    } catch (e) {
-      if (e instanceof ErreurJsonPy) continue;
-      throw e;
-    }
-    const nom = itemPy(c, "name");
-    if (typeof nom !== "string")
-      throw new ErreurPython("TypeError", `expected str, bytes or os.PathLike object, not ${nomTypePy(nom)}`);
-    const ri = await appelDocker(
-      ["inspect", "--format", `${labelTpl("user_id")}|${labelTpl("username")}`, nom],
-      null,
-    );
-    const etiquette = stripPy(decoderUtf8Py(ri.sortie));
-    const i = etiquette.indexOf("|");
-    const [uidTexte, nomCompte] = i < 0 ? [etiquette, ""] : [etiquette.slice(0, i), etiquette.slice(i + 1)];
-    let uid: number | null;
-    try {
-      uid = intPy(uidTexte);
-    } catch (e) {
-      if (!estErreurPython(e, "ValueError")) throw e;
-      uid = null;
-    }
-    poserCle(c as Dict, "user_id", uid);
-    poserCle(c as Dict, "username", nomCompte || null);
-    conteneurs.push(c);
-  }
-  return { containers: conteneurs, count: conteneurs.length };
+/** `GET /api/admin/sandbox/containers` : conteneurs étiquetés `elpis.user_id` relevés par l'hôte d'outils ; 502 si `docker ps` échoue. */
+export async function listerConteneurs(acteur: Acteur | undefined): Promise<Dict> {
+  const r = await appelerConsole(acteur, "GET", "/api/internal/sandboxes/containers", { delaiS: 120 });
+  if (!estDict(r)) throw new ErreurPython("TypeError", "réponse de l'hôte illisible");
+  return r;
 }
 
 // ── Cycle de vie : arrêt, destruction, GC ──────────────────────────────────
 
-/** `UserSandbox.stop()` / `destroy()` : la commande Docker sous le verrou de cycle de vie, son résultat ignoré (124 au délai). */
-export async function actionConteneur(
-  uid: number,
-  conteneur: string,
-  action: "stop" | "destroy",
-): Promise<void> {
-  const args = action === "stop" ? ["stop", "-t", "5", conteneur] : ["rm", "-fv", conteneur];
-  await sousVerrouDeCycle(uid, () =>
-    appelDocker(args, action === "stop" ? delaisDocker.stop : delaisDocker.rm),
-  );
+/** Arrêt ou destruction du conteneur du compte (suspendu compris) par l'hôte d'outils du relevé (celui qui l'a listé), sous son verrou de cycle de vie. */
+export async function actionConteneur(compte: Acteur, action: "stop" | "destroy"): Promise<void> {
+  await appelerConsole(undefined, "POST", `/api/internal/sandboxes/${action}`, {
+    delaiS: 150,
+    compte,
+    tolererSuspension: true,
+  });
 }
 
-/** Dernière activité du `/work` d'un compte : mtime du dossier et des journaux de `.bg/` (liens non suivis) ; 0 si illisible. */
-function derniereActivite(travail: string): number {
-  let dernier: number;
+/** `gc_idle_containers` : l'hôte d'outils arrête les conteneurs dont le `/work` est inactif depuis `idle_kill_hours` ; rend leurs noms, `[]` si l'hôte ne répond pas. */
+export async function gcIdleContainers(acteur: Acteur | undefined, idleKillHours: number): Promise<string[]> {
+  if (idleKillHours * 3600 <= 0) return [];
   try {
-    dernier = statSync(travail).mtimeMs / 1000;
-  } catch {
-    dernier = 0;
+    const r = await appelerConsole(
+      acteur,
+      "POST",
+      `/api/internal/sandboxes/gc?idle_kill_hours=${encodeURIComponent(String(idleKillHours))}`,
+      { delaiS: 330 },
+    );
+    const arretes = getPy(r, "stopped");
+    return Array.isArray(arretes) ? arretes.map((n) => strPy(n)) : [];
+  } catch (e) {
+    if (e instanceof HttpError) return [];
+    throw e;
   }
-  try {
-    const bg = pyJoin(travail, ".bg");
-    if (statSync(bg).isDirectory() && !lstatSync(bg).isSymbolicLink()) {
-      for (const nom of readdirSync(bg)) {
-        try {
-          dernier = Math.max(dernier, lstatSync(pyJoin(bg, nom)).mtimeMs / 1000);
-        } catch {
-          continue;
-        }
-      }
-    }
-  } catch {
-    // dossier .bg absent ou illisible
-  }
-  return dernier;
-}
-
-/** `gc_idle_containers` : arrête les conteneurs dont le `/work` est inactif depuis `idle_kill_hours` ; rend leurs noms. */
-export async function gcIdleContainers(
-  idleKillHours: number,
-  maintenant = Date.now() / 1000,
-): Promise<string[]> {
-  if (which("docker") === null) return [];
-  const seuil = idleKillHours * 3600;
-  if (seuil <= 0) return [];
-  const r = await appelDocker(["ps", ...labelFilter("user_id"), "--format", "{{.Names}}"], delaisDocker.ps);
-  if (r.delaiDepasse || r.code !== 0) return [];
-  const arretes: string[] = [];
-  for (const brut of splitlinesPy(decoderUtf8Py(r.sortie))) {
-    const nom = stripPy(brut);
-    if (!nom) continue;
-    const r2 = await appelDocker(["inspect", "--format", labelTpl("username"), nom], delaisDocker.inspect);
-    if (r2.delaiDepasse || r2.code !== 0) continue;
-    const compte = stripPy(decoderUtf8Py(r2.sortie));
-    const dernier = derniereActivite(pyJoin(pyJoin(config.SANDBOX_DIR, compte), "work"));
-    if (maintenant - dernier > seuil) {
-      await appelDocker(["stop", "-t", "5", nom], delaisDocker.stop);
-      arretes.push(nom);
-      log.info(`[sandbox-gc] container stoppé (idle ${Math.trunc(maintenant - dernier)}s) : ${nom}`);
-    }
-  }
-  return arretes;
 }

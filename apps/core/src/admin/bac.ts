@@ -13,7 +13,7 @@ import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
 
 import type { SandboxHost } from "../relais/hotes";
 
-/** Pilote du bac (Docker local ou hôte d'outils distant du compte, `piloteBac`) : absent, la branche `except` du Python. */
+/** Pilote du bac (hôtes d'outils, `piloteBac` : jamais Docker dans le core) : absent, la branche `except` du Python. */
 export interface PortBac {
   /** Hôte d'outils distant du compte (hors loopback), résolu avant la suppression de sa ligne ; `null` : bac local. */
   hoteDistantDuCompte?(uid: number): Promise<SandboxHost | null>;
@@ -33,11 +33,11 @@ export interface PortBac {
     username: string,
     horodatage: number,
   ): Promise<boolean>;
-  /** Conteneur local du compte retiré (processus arrêtés) avant la suppression de P ; rien sans Docker. */
+  /** Conteneur du compte retiré par l'hôte de cette machine (processus arrêtés) avant la mise de côté de P ; rien sans hôte. */
   retirerConteneur(uid: number, username: string, travail: string): Promise<void>;
-  /** `get_user_sandbox(…).purge()` : vide /work par le root du conteneur (fichiers à l'UID du conteneur). */
-  purgerTravail(uid: number, username: string, travail: string): Promise<void>;
-  /** `get_user_sandbox(…, network_profile_id=avant).destroy()` puis `reset_user_sandbox_cache()`. */
+  /** /work `travail` du bac mis de côté sous `horodatage` vidé par le root du conteneur de l'hôte de cette machine (fichiers à l'UID du conteneur). */
+  purgerTravail(uid: number, username: string, travail: string, horodatage: number): Promise<void>;
+  /** Conteneur du compte détruit par son hôte (/work gardé), au changement de profil réseau ou à la suspension. */
   detruireConteneur(uid: number, username: string, travail: string, profilAvant: string): Promise<void>;
 }
 
@@ -110,7 +110,7 @@ export async function mettreBacDeCoteDuCompte(
         racine,
         uid,
         horodatage,
-        port ? (travail) => port.purgerTravail(uid, username, travail) : undefined,
+        port ? (travail) => port.purgerTravail(uid, username, travail, horodatage) : undefined,
       );
       const echec = erreur ?? erreurLocale;
       return [echec === null && (distant === true || local), echec];

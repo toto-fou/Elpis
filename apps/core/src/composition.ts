@@ -11,6 +11,7 @@ import {
   lireFraicheurs,
   mandatairesDuJournal,
 } from "@elpis/auth";
+import { getAllUsers } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons, DependancesOAuth, Fraicheurs } from "@elpis/auth";
 import {
   bootRaw,
@@ -363,12 +364,15 @@ export function brancherNettoyageNavigateursEnfants(
   cycle: CycleDeVie,
   journal: Journal,
   env: NodeJS.ProcessEnv = process.env,
+  base?: Base,
 ): void {
   if (["0", "false", "no", ""].includes((env["BROWSER_CHILD_CLEANUP"] ?? "1").trim().toLowerCase())) return;
   cycle.auDemarrage(
     "sessions de navigateur des sous-agents du process précédent",
     async () => {
-      const n = await fermerNavigateursEnfantsOrphelins();
+      const n = await fermerNavigateursEnfantsOrphelins(
+        base === undefined ? {} : { comptes: async () => await getAllUsers(base) },
+      );
       if (n > 0) journal.info(`${n} session(s) de navigateur de sous-agents du process précédent fermée(s)`);
     },
     { modes: ["main"], arrierePlan: true },
@@ -443,7 +447,7 @@ export async function composer(
     localReserveAuxAdmins,
   );
   brancherPrechauffageMcp(mode, cycle);
-  brancherNettoyageNavigateursEnfants(cycle, journal);
+  brancherNettoyageNavigateursEnfants(cycle, journal, process.env, base);
   brancherPurgeRevocations(mode, cycle, auth, journal.child({ domaine: "sessions" }));
   const configurationsOidc = new FabriqueConfigurations({
     base,

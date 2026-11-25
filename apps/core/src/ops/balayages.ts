@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/ops/balayages.ts — balayages des dossiers partagés de l'entretien : verrous périmés, tmp d'upload orphelins, cache des aperçus Office (shared_infra/ops/maintenance.py, sandbox/office_preview.py). */
+/** apps/core/src/ops/balayages.ts — balayages des dossiers partagés de l'entretien : verrous périmés, cache des aperçus Office (shared_infra/ops/maintenance.py, sandbox/office_preview.py). */
 import { chmod, lstat, mkdir, readdir, readFile, rm, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 
@@ -90,9 +90,6 @@ export async function balayerVerrousPerimes(
     retires += await retirerVerrousLibres(dossier, maxAgeS, verrouilles, maintenant, () => true);
   return retires;
 }
-
-/** `_sweep_orphan_part_files` : partagé avec l'hôte d'outils (@elpis/bac). */
-export { balayerPartsOrphelines } from "@elpis/bac";
 
 function reglageOffice(cle: string, defaut: unknown): unknown {
   const v = liveConfigValue(`office_preview.${cle}`, defaut);

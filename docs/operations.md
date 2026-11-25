@@ -490,7 +490,8 @@ therefore needs the core bundle, which `./install.sh` builds before configuring.
 Deleting an account, with or without its sandbox, always runs in the same order, so that an account created later
 under the same name never inherits anything of the old one:
 
-1. Access is cut (sessions revoked, container removed).
+1. Access is cut (sessions revoked, container removed by the tool host of this machine: the console never runs
+   Docker; if that host does not answer, the account is not deleted).
 2. The sandbox folder and its snapshots (`user_sandboxes/_snapshots/<name>`) are renamed
    `.supprime-<account id>-<timestamp>` in the sandbox directory (`user_sandboxes/`), locally and on the remote
    tool host of the account. If a rename fails, the account is not deleted, everything is put back and the console
@@ -500,8 +501,9 @@ under the same name never inherits anything of the old one:
    server log: fix it, or remove the host from the manifest, then retry.
 4. The account is deleted from the database. If that fails, the renamed folders are put back; if the account was
    already deleted by a concurrent request, nothing is put back.
-5. With the sandbox (`delete_sandbox=true`), the renamed folders are then deleted, locally and on the remote host.
-   A failure here does not bring the account back: the console reports the reason (`sandbox_error`) and the
+5. With the sandbox (`delete_sandbox=true`), the renamed folders are then deleted, locally and on the remote host;
+   a `/work` that the console cannot empty (files owned by the container's UID) is emptied by the tool host of this
+   machine. A failure here does not bring the account back: the console reports the reason (`sandbox_error`) and the
    renamed folders stay out of reach of any account name until an administrator deletes them on the host.
 
 Without the sandbox (the console default), the renamed folders are kept: an administrator can recover files from
@@ -514,7 +516,7 @@ does, when deleted, never has its folders renamed or deleted.
 
 | Method | Use |
 |---|---|
-| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created); each account's `/work` is read by its sandbox's agent (started for the duration of the read if it was asleep); exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (unreadable sandbox; `./elpis upgrade` then continues) |
+| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created); each account's `/work` is read through the tool host, which must be running (`./elpis start`; it starts a sleeping sandbox for the duration of the read); without it, each sandbox line says its `/work` was not saved; exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (tool host stopped or sandbox unreadable; `./elpis upgrade` then continues) |
 | Admin console › System › Data › Backup | download of the same archive |
 | Admin console › System › Maintenance › Remote backup | scheduled upload: SFTP (key), rsync over SSH, or a mounted folder |
 | Admin console › System › Data › Restore | full archive or by scope |

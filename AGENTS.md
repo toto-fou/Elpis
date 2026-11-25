@@ -259,7 +259,13 @@ short, a change must never:
   place at any time. The only exceptions (creation of `P/work`,
   usage, last activity, account deletion) go through the
   descriptor-based primitives of `@elpis/securite` (`confinement.ts`). See
-  also [docs/sandbox-gateway.md](docs/sandbox-gateway.md).
+  also [docs/sandbox-gateway.md](docs/sandbox-gateway.md);
+- run the `docker` client or reach a sandbox container or its sockets (file
+  agent, browser service, relays) from the core (main, console, CLI): only
+  the tool host does it, the core calls its internal routes
+  (`/api/internal/…`); lint rule `no-restricted-imports` on `apps/core/src`
+  (`PERMIS_BACS` in `eslint.config.mjs`) and
+  `apps/core/test/architecture-bacs.test.ts`.
 
 ## Git and pull requests
 

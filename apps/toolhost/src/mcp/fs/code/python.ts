@@ -219,7 +219,7 @@ function docstring(corps: readonly Instr[]): string {
   const doc = etendreTabs(lus.map((l) => l.texte).join(""));
   const ligne =
     splitlinesPy(doc)
-      .map(stripPy)
+      .map((x) => stripPy(x))
       .find((x) => x) ?? "";
   return prefixePy(ligne, 120);
 }

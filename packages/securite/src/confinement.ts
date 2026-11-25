@@ -410,7 +410,7 @@ export function stripWorkPrefix(chemin: string | null | undefined): string {
 
 /** `to_container` : `""`/`"."` → `/work`, `src/x` → `/work/src/x`. */
 export function toContainer(rel: string | null | undefined): string {
-  const r = stripPy(rel || "").replace(/^\/+|\/+$/gu, "");
+  const r = stripPy(stripPy(rel || ""), "/");
   return r === "" || r === "." ? CONTAINER_ROOT : `${CONTAINER_ROOT}/${r}`;
 }
 

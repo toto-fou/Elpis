@@ -2,7 +2,7 @@
 /** apps/core/src/evenements/canal.ts — canal interne main → admin (décision 4) : SSE à tampon circulaire, reprise par `Last-Event-ID`. */
 import { randomBytes } from "node:crypto";
 
-import { pyJsonDumps } from "@elpis/commun";
+import { pyJsonDumps, rstripPy } from "@elpis/commun";
 import type { FastifyReply } from "fastify";
 
 import type { Journal } from "../journal";
@@ -187,7 +187,7 @@ function dormir(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 function urlInterne(base: string, chemin: string): string {
-  return base.replace(/\/+$/u, "") + chemin;
+  return rstripPy(base, "/") + chemin;
 }
 
 export interface OptionsAbonnement {

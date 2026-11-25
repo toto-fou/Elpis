@@ -250,7 +250,7 @@ export function writeEventExtra(toolName: string, finalArgs: unknown, resultStr:
         }
       if (repo === "/work" || repo === "work") repo = "";
       const rel = stripPy(wp).replaceAll("\\", "/").replace(/^\/+/u, "");
-      const base = repo.replace(/^\/+|\/+$/gu, "");
+      const base = stripPy(repo, "/");
       const joint = base ? normpathPy(`${base}/${rel}`) : normpathPy(rel);
       if (joint === "." || joint === "" || joint.startsWith("..")) return out;
       wp = joint;

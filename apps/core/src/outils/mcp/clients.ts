@@ -17,6 +17,7 @@ import {
   port as portPy,
   pyJsonDumps,
   reseauPy,
+  rstripPy,
   strPy,
   stripPy,
   urlsplit,
@@ -913,7 +914,7 @@ function urlFamille(url: string, famille: string): string | null {
   } catch {
     return null;
   }
-  const chemin = u.path.replace(/\/+$/, "");
+  const chemin = rstripPy(u.path, "/");
   const dernier = chemin.slice(chemin.lastIndexOf("/") + 1);
   if (dernier !== "mcp" && dernier !== "sse") return null;
   return urlunsplit({ ...u, path: `${chemin}/${famille}` });
@@ -1126,7 +1127,7 @@ function clientIntegre(cfg: ConfigMcp): ClientMcp | null {
     );
     return null;
   }
-  const type = url.replace(/\/+$/, "").endsWith("/mcp") || entree.type === "http" ? "http" : "sse";
+  const type = rstripPy(url, "/").endsWith("/mcp") || entree.type === "http" ? "http" : "sse";
   const hote = entree.role === ROLE_TOOLHOST;
   const familles = hote ? FAMILY_NAMES.filter((f) => entree.families.includes(f)) : [];
   const urls = familles.map((f) => [f, urlFamille(url, f)] as const);

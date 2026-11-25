@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/rag/vision.ts — sonde du serveur de vision de l'OCR (`GET /v1/models`) pour l'essai de la console et `./elpis doctor`. */
+import { rstripPy } from "@elpis/commun";
 
 /** Modèles annoncés par un serveur de vision OpenAI-compatible (`GET /v1/models`, clé en Bearer), ou le motif d'échec lisible. */
 export async function modelesVision(
@@ -9,7 +10,7 @@ export async function modelesVision(
 ): Promise<{ modeles: string[] } | { erreur: string }> {
   let r: Response;
   try {
-    r = await fetch(`${url.replace(/\/+$/u, "").replace(/\/v1$/u, "")}/v1/models`, {
+    r = await fetch(`${rstripPy(url, "/").replace(/\/v1$/u, "")}/v1/models`, {
       headers: { accept: "application/json", ...(cle ? { authorization: `Bearer ${cle}` } : {}) },
       signal: AbortSignal.timeout(delaiMs),
       redirect: "error",

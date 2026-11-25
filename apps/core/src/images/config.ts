@@ -11,6 +11,7 @@ import {
   port,
   pyJsonDumps,
   pyJsonLoads,
+  rstripPy,
   stripPy,
   strPy,
   urlsplit,
@@ -213,7 +214,7 @@ export function getImageConfig(vue: unknown = configView()): ConfigImage {
   return {
     enabled: brut["enabled"] === true,
     provider,
-    url: texte(brut["url"], "").replace(/\/+$/, ""),
+    url: rstripPy(texte(brut["url"], ""), "/"),
     model: texte(brut["model"], ""),
     api_key_enc: stripPy(chaine(brut["api_key_enc"])),
     verify: booleen(brut["verify"], d.verify),

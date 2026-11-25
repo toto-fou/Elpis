@@ -2,13 +2,12 @@
 /** apps/core/src/llm/fournisseurs/llama-flux.ts — flux reprenable de llama-server : session nommée (HMAC), reprise, arrêt explicite, fin du raisonnement, signe de vie observé. */
 import { createHmac } from "node:crypto";
 
-import { strPy, utf8Remplace, veritePy } from "@elpis/commun";
+import { rstripPy, strPy, utf8Remplace, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 
 import { journal } from "../../journal";
 import { estDict } from "../../python";
 import type { Dict } from "../../python";
-import { sansBarresFinales } from "../client-http";
 import type { ClientHttp, Delais, ReponseFlux } from "../client-http";
 import { getPy, iterExige } from "../dict-py";
 import { currentEngine } from "../moteurs";
@@ -54,7 +53,7 @@ export async function lookupStreams(
   try {
     const payload: Dict = { conversation_ids: [...convIds] };
     if (model) payload["model"] = model;
-    const r = await client.post(`${sansBarresFinales(baseUrl)}/v1/streams/lookup`, {
+    const r = await client.post(`${rstripPy(baseUrl, "/")}/v1/streams/lookup`, {
       json: payload,
       timeout: 10.0,
       headers: options.headers ?? null,
@@ -85,7 +84,7 @@ export function resumeRequest(
 ): Promise<ReponseFlux> {
   const params: Record<string, string | number> = { conv_id: convId, from: Math.trunc(fromBytes) };
   if (model) params["model"] = model;
-  return client.stream("GET", `${sansBarresFinales(baseUrl)}/v1/stream`, {
+  return client.stream("GET", `${rstripPy(baseUrl, "/")}/v1/stream`, {
     params,
     ...(timeout !== undefined && timeout !== null ? { timeout } : {}),
     headers: options.headers ?? null,
@@ -105,7 +104,7 @@ export async function cancelStream(
   try {
     const params: Record<string, string> = { conv_id: convId };
     if (model) params["model"] = model;
-    const r = await client.delete(`${sansBarresFinales(baseUrl)}/v1/stream`, {
+    const r = await client.delete(`${rstripPy(baseUrl, "/")}/v1/stream`, {
       params,
       timeout: 10.0,
       headers: options.headers ?? null,
@@ -150,7 +149,7 @@ export async function endReasoning(
   try {
     const corps: Dict = { id: completionId, action: "reasoning_end" };
     if (model) corps["model"] = model;
-    const r = await client.post(`${sansBarresFinales(baseUrl)}/v1/chat/completions/control`, {
+    const r = await client.post(`${rstripPy(baseUrl, "/")}/v1/chat/completions/control`, {
       json: corps,
       timeout: 10.0,
       headers: options.headers ?? null,

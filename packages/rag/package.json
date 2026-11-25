@@ -7,5 +7,8 @@
   "description": "Moteur du RAG intégré, sans base ni droits ni configuration : client REST de Qdrant (vecteurs dense et creux BM25), découpage des blocs de l'extracteur en passages, BM25 côté client, embeddings et reclassement par HTTP, recherche multi-collections (RRF, quasi-doublons, seuil adaptatif, budget de temps)",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.5"
   }
 }

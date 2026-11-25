@@ -5,7 +5,7 @@ import * as tls from "node:tls";
 import { Agent, request } from "undici";
 import type { Dispatcher } from "undici";
 
-import { CancelledError, estErreurAnnulation, pyJsonDumps, quotePy } from "@elpis/commun";
+import { CancelledError, estErreurAnnulation, pyJsonDumps, quotePy, rstripPy } from "@elpis/commun";
 import { config, parseJsonPy } from "@elpis/config";
 import { autoritesTls } from "@elpis/http";
 
@@ -718,20 +718,13 @@ function nouveauClient(): ClientHttp {
   return new ClientHttp({ delais: DELAIS_LLM, limites: LIMITES_LLM });
 }
 
-/** `s.rstrip("/")`. */
-export function sansBarresFinales(s: string): string {
-  let fin = s.length;
-  while (fin > 0 && s.charAt(fin - 1) === "/") fin--;
-  return s.slice(0, fin);
-}
-
 /** Client partagé du llama-server local, ou client dédié (LRU de 16) d'un fournisseur distant. */
 export function getLlmClient(baseUrl?: string | null): ClientHttp {
   if (!baseUrl) {
     if (clientLlm === null || clientLlm.isClosed) clientLlm = nouveauClient();
     return clientLlm;
   }
-  const cle = sansBarresFinales(baseUrl.trim());
+  const cle = rstripPy(baseUrl.trim(), "/");
   let c = clientsParBase.get(cle);
   if (c === undefined || c.isClosed) {
     c = nouveauClient();

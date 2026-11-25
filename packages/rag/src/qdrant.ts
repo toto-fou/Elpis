@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** packages/rag/src/qdrant.ts — client REST minimal de Qdrant 1.16 : collection dense + BM25 creux, écriture, remplacement par document, requêtes, parcours. */
+import { rstripPy } from "@elpis/commun";
+
 import type { VecteurCreux } from "./bm25";
 import type { BoitesPage, Passage } from "./decoupage";
 import { ErreurRag } from "./erreurs";
 import type { CodeErreurRag } from "./erreurs";
-import { appeler, estObjet, extrait, jsonOuNul, sansBarresFinales } from "./reseau";
+import { appeler, estObjet, extrait, jsonOuNul } from "./reseau";
 import type { FetchRag, ReponseHttp } from "./reseau";
 import { idPoint } from "./uuid";
 
@@ -282,7 +284,7 @@ export class ClientQdrant {
   private readonly fetchImpl: FetchRag;
 
   constructor(options: OptionsQdrant) {
-    this.url = sansBarresFinales(options.url);
+    this.url = rstripPy(options.url, "/");
     this.cleApi = options.cleApi && options.cleApi !== "" ? options.cleApi : undefined;
     this.surRefusAcces = options.surRefusAcces;
     this.delaiMs = options.delaiMs ?? DELAI_LECTURE_MS;

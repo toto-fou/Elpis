@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/changements.ts — fichiers modifiés par une commande (shell, script de skill, action git) : relevé avant/après par l'agent, historique de session et `files_changed` (llm_core/tools/_work_changes.py). */
-import { estDict, journalDe, longueurPy, splitlinesPy, unifiedDiff } from "@elpis/commun";
+import { estDict, journalDe, longueurPy, rstripPy, splitlinesPy, unifiedDiff } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { safeSandboxName } from "@elpis/config";
 import {
@@ -122,7 +122,7 @@ export class WorkChanges {
     this.uid = uid;
     this.username = username;
     this.source = source;
-    this.prefixe = containerPrefix.replace(/\/+$/u, "");
+    this.prefixe = rstripPy(containerPrefix, "/");
     this.bac = safeSandboxName(username);
   }
 

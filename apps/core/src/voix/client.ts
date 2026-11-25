@@ -17,6 +17,7 @@ import {
   prefixePy,
   pyJsonDumps,
   pyJsonLoads,
+  rstripPy,
   stripPy,
   strPy,
   texteJsonPy,
@@ -85,7 +86,7 @@ export function delaiStt(timeoutSec: number, dureeMs: number): number {
 
 /** `_url` : base ou route complète, `/v1` jamais doublé ; adresse vide = fonction désactivée. */
 export function urlMoteur(base: string | null | undefined, suffixe: string): string {
-  const b = (base ?? "").replace(/\/+$/, "");
+  const b = rstripPy(base ?? "", "/");
   if (!b) throw new VoiceDesactive("Aucune adresse configurée pour le moteur vocal.");
   if (b.endsWith(suffixe)) return b;
   if (suffixe.startsWith("/v1/") && b.endsWith("/v1")) return b + suffixe.slice(3);
@@ -514,7 +515,7 @@ async function synthesePiper(
   timeout: number,
   tete: Record<string, string>,
 ): Promise<ReponseHttp> {
-  const base = (cfg.endpoint_url || "").replace(/\/+$/, "");
+  const base = rstripPy(cfg.endpoint_url || "", "/");
   if (!base) throw new VoiceDesactive("Aucune adresse configurée pour le moteur vocal.");
   const corps: Dict = { text: texteADire };
   if (nomVoix) corps["voice"] = nomVoix;
@@ -582,10 +583,9 @@ export async function voixDisponibles(cfg: SectionVoix): Promise<string[]> {
 
 /** `_racine` : la base sans une route d'appel collée par l'administrateur. */
 export function racineMoteur(base: string | null | undefined): string {
-  const b = (base ?? "").replace(/\/+$/, "");
+  const b = rstripPy(base ?? "", "/");
   if (!b) throw new VoiceDesactive("Aucune adresse renseignée.");
-  for (const route of ROUTES_CONNUES)
-    if (b.endsWith(route)) return b.slice(0, -route.length).replace(/\/+$/, "");
+  for (const route of ROUTES_CONNUES) if (b.endsWith(route)) return rstripPy(b.slice(0, -route.length), "/");
   return b;
 }
 

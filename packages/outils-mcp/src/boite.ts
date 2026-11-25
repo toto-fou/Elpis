@@ -473,8 +473,7 @@ export function globMatch(rel: string, motif: string): boolean {
   let pat = stripPy(motif);
   while (pat.startsWith("./")) pat = pat.slice(2);
   if (!pat.includes("/")) return fnmatchPy(rel.slice(rel.lastIndexOf("/") + 1), pat) || fnmatchPy(rel, pat);
-  const psegs = pat
-    .replace(/^\/+|\/+$/gu, "")
+  const psegs = stripPy(pat, "/")
     .split("/")
     .filter((s) => s !== "");
   const rsegs = rel.split("/").filter((s) => s !== "");

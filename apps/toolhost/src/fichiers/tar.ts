@@ -6,6 +6,8 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
 
+import { rstripPy } from "@elpis/commun";
+
 const BLOC = 512;
 const UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
@@ -123,7 +125,7 @@ function entete(bloc: Buffer, premier: boolean): Entete | null {
   let nom = nts(bloc.subarray(0, 100));
   const prefixe = nts(bloc.subarray(345, 500));
   if (type === "\0" && nom !== null && nom.endsWith("/")) type = "5";
-  if (type === "5" && nom !== null) nom = nom.replace(/\/+$/u, "");
+  if (type === "5" && nom !== null) nom = rstripPy(nom, "/");
   if (prefixe && nom !== null && !["L", "K", "S", "M", "N", "V", "D"].includes(type))
     nom = `${prefixe}/${nom}`;
   if (prefixe === null) nom = null;
@@ -195,7 +197,7 @@ async function* membres(source: AsyncIterable<Buffer>): AsyncGenerator<[Membre, 
       etendu = {};
       suiteAttendue = false;
       const genre = ["0", "\0", "7"].includes(e.type) ? "fichier" : e.type === "5" ? "dossier" : "autre";
-      yield [{ nom: genre === "dossier" && nom !== null ? nom.replace(/\/+$/u, "") : nom, genre, taille }, l];
+      yield [{ nom: genre === "dossier" && nom !== null ? rstripPy(nom, "/") : nom, genre, taille }, l];
       const reste = genre === "fichier" || genre === "autre" ? taille : 0;
       if (reste > 0) await sauter(l, arrondi(reste) - (consommes.get(l) ?? 0));
       consommes.delete(l);

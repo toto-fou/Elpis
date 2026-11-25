@@ -13,6 +13,7 @@ import {
   prefixePy,
   pyJsonLoads,
   pyJsonLoadsOctets,
+  rstripPy,
   stripPy,
   strPy,
   texteJsonPy,
@@ -61,7 +62,7 @@ function corpsObjet(req: FastifyRequest): Dict {
 
 /** `str(url or "").strip().rstrip("/")`. */
 function normUrl(url: unknown): string {
-  return stripPy(strPy(veritePy(url) ? url : "")).replace(/\/+$/, "");
+  return rstripPy(stripPy(strPy(veritePy(url) ? url : "")), "/");
 }
 
 const fourni = (data: Dict, cle: string): boolean => getOu(data, cle, null) !== null;

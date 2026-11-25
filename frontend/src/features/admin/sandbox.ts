@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/sandbox.ts — console › Sandbox : limites et politique, profils réseau (cartes repliables, puces validées à la saisie, ce que voient leurs sandboxes), conteneurs des comptes et nettoyage. */
+import { rstripPy } from "@elpis/commun/python";
 import {
   schemaReponseConteneurs,
   schemaReponseEtatExecuteurs,
@@ -155,10 +156,7 @@ const SERVEUR_GIT =
 
 /** Serveur Git saisi, en forme (`https://` et `.git` retirés, hôte sans la casse, chemin tel quel) ; `null` s'il ne se lit pas. */
 function serveurGitSaisi(brut: string): string | null {
-  let s = brut
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/+$/, "");
+  let s = rstripPy(brut.trim().replace(/^https?:\/\//i, ""), "/");
   if (s.toLowerCase().endsWith(".git")) s = s.slice(0, -4);
   const barre = s.indexOf("/");
   s = barre < 0 ? s.toLowerCase() : s.slice(0, barre).toLowerCase() + s.slice(barre);

@@ -107,7 +107,7 @@ export async function sandboxDelete(agent: AgentClient, rel: string): Promise<vo
   const r = stripPy(stripWorkPrefix(rel));
   if (r === "" || r === ".") throw new HttpError(400, "Cible invalide pour suppression");
   const rp = validateRelPath(rel);
-  const norm = rp.replace(/^\/+|\/+$/gu, "");
+  const norm = stripPy(rp, "/");
   if (!norm || norm === "." || norm === "/work" || norm === "work")
     throw new HttpError(400, "Cible invalide pour suppression");
   await parAgent(agent, "Suppression", (a) =>

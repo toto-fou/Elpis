@@ -216,7 +216,7 @@ export async function reponseAgent(
       "cache-control": "no-cache, must-revalidate",
     };
     entetesSecurite(entetes, mediaType);
-    const siAucun = (premierEntete(requete, "if-none-match") ?? "").split(",").map(stripPy);
+    const siAucun = (premierEntete(requete, "if-none-match") ?? "").split(",").map((x) => stripPy(x));
     if (siAucun.includes(etag))
       return reponse
         .code(304)

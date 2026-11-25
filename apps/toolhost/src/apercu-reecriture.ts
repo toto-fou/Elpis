@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/apercu-reecriture.ts — références absolues-racine d'une page en aperçu (preview_rewrite.py) : réécrites vers le résolveur `~r/d<dossier>/<chemin>` du jeton. */
-import { BLANC_PY, motifPy, pyJsonDumps, quotePy } from "@elpis/commun";
+import { BLANC_PY, motifPy, pyJsonDumps, quotePy, stripPy } from "@elpis/commun";
 import { desechapper } from "@elpis/http";
 
 export const RESOLVER = "~r";
@@ -23,7 +23,7 @@ const SHIM =
 
 /** `<prefixe>~r/d<dossier encodé>/` ; `d` seul pour la racine (un segment « . » serait normalisé par le navigateur). */
 export function resolverBase(prefixe: string, dossier: string): string {
-  return `${prefixe}${RESOLVER}/d${quotePy(dossier.replace(/^\/+|\/+$/gu, ""), "")}/`;
+  return `${prefixe}${RESOLVER}/d${quotePy(stripPy(dossier, "/"), "")}/`;
 }
 
 /** `d<dossier>/<chemin>` → `[dossier, chemin]`, ou `null`. */

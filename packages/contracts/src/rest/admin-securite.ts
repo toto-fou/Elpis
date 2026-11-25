@@ -25,6 +25,8 @@ export const schemaReponseRevocationCompte = z.object({
 });
 
 const schemaPortsHttps = z.record(z.string(), z.unknown());
+/** Comptes des services sous les unités systemd : séparés, compte unique choisi, compte unique de repli (racine non atteignable) ; absent : sans unités. */
+export const MODES_COMPTES_SERVICES = ["separes", "unique", "repli"] as const;
 export const schemaReponseEtatHttps = z.object({
   enabled: z.boolean(),
   ports: schemaPortsHttps,
@@ -33,6 +35,7 @@ export const schemaReponseEtatHttps = z.object({
   urls: z.record(z.string(), z.unknown()),
   listen: z.string(),
   client_local: z.boolean(),
+  service_accounts: z.enum(MODES_COMPTES_SERVICES).optional(),
 });
 export type ReponseEtatHttps = z.infer<typeof schemaReponseEtatHttps>;
 export const schemaCorpsHttps = z.object({ enabled: z.boolean() });

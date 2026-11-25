@@ -21,6 +21,8 @@ import type { RoleRag } from "./acces";
 import { ErreurRouteRag, MESSAGE_SOURCES_FERMEES } from "./http";
 import {
   assurerRacineMagasinRag,
+  modeDossierRag,
+  modeFichierRag,
   ouvrirDossierMagasinRag,
   relCollectionRag,
   relPageRag,
@@ -223,7 +225,7 @@ async function rendreEtGarder(
         assurerRacineMagasinRag(),
         relPageRag(cible.proprietaire, cible.collectionId, doc.id, page),
         r.octets,
-        { creerParents: true, modeDossier: 0o700, modeDefaut: 0o600 },
+        { creerParents: true, modeDossier: modeDossierRag(), modeDefaut: modeFichierRag() },
       );
       elaguerRendus(cible, doc.id);
     } catch (e) {

@@ -66,7 +66,8 @@ reports one status:
 
 Exit code 2 means a bad command line, a `--key` that is missing, unreadable or shorter than
 32 bytes, or signed lines while no key could be read (the default key is readable by the service
-account only: run the command as that account or pass `--key`).
+account only: run the command as that account or pass `--key`; with one account per service,
+`sudo ./elpis audit verify`, `--key` included).
 
 Continuity is checked per `boot` over the whole period, so a clock moved back across midnight does
 not create false gaps. The `prev` field of each `audit.writer.start` must match the last line of the

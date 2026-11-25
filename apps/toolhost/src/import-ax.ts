@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/import-ax.ts — reprise au démarrage, en arrière-plan, des anciens identifiants AX de la base de l'hôte (`ax_credentials`) dans le coffre du core : comptes retrouvés par leur nom ou leur forme canonique, lignes déchiffrées par la clé Fernet de l'hôte, remises compte par compte (`/api/internal/secrets/import-ax`, enveloppe signée), effacées sans trace après accusé de réception (`secure_delete`, WAL tronqué sous le verrou de schéma, jamais de `VACUUM` de la base) ; reprise retentée tant que des lignes attendent, puis au démarrage suivant. */
+/** apps/toolhost/src/import-ax.ts — reprise au démarrage, en arrière-plan, des anciens identifiants AX de la base de l'hôte (`ax_credentials`) dans le coffre du core : comptes retrouvés par leur nom ou leur forme canonique, valeurs remises telles que stockées (le core déchiffre un jeton Fernet avec sa clé : l'hôte n'en a pas), compte par compte (`/api/internal/secrets/import-ax`, enveloppe signée), effacées sans trace après accusé de réception (`secure_delete`, WAL tronqué sous le verrou de schéma, jamais de `VACUUM` de la base) ; reprise retentée tant que des lignes attendent, puis au démarrage suivant. */
 import { setTimeout as attendre } from "node:timers/promises";
 
 import { prendreVerrouSchema, supprimerSansTrace } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import { verrouAx } from "@elpis/navigateur";
-import { cleFernetPresente, decryptStrict, estJetonFernet, InvalidToken } from "@elpis/securite";
 
 import type { Journal } from "./journal";
 import type { ClientRappel, LigneAxRemise } from "./rappel";
@@ -26,18 +25,8 @@ interface LigneAx {
 export interface BilanRepriseAx {
   /** Lignes retirées : reprises, déjà au coffre, jamais importables, compte disparu, valeur indéchiffrable. */
   readonly retirees: number;
-  /** Lignes gardées pour une prochaine passe (core injoignable, clé Fernet absente, limite du compte). */
+  /** Lignes gardées pour une prochaine passe (core injoignable, clé Fernet absente du core, limite du compte). */
   readonly gardees: number;
-}
-
-/** Mot de passe Fernet relu sans jamais créer de clé ; "" s'il est illisible (clé changée). */
-function dechiffrer(jeton: string): string {
-  try {
-    return decryptStrict(jeton);
-  } catch (e) {
-    if (e instanceof InvalidToken) return "";
-    throw e;
-  }
 }
 
 /** Verrou de schéma partagé avec le core, pris le temps de l'effacement (injecté par les essais). */
@@ -77,7 +66,7 @@ async function compteDuProprietaire(
   return exact.etat === "inconnu" ? rappel.compteParNom(owner, true) : exact;
 }
 
-/** Une passe : chaque compte connu du core reçoit ses lignes lisibles ; compte inconnu du core (supprimé) ou valeur indéchiffrable : lignes retirées ; jamais une valeur au journal. */
+/** Une passe : chaque compte connu du core reçoit ses lignes telles que stockées ; compte inconnu du core (supprimé), ou valeur indéchiffrable pour le core : lignes retirées ; jamais une valeur au journal. */
 export async function reprendreIdentifiantsAx(
   base: Base,
   rappel: Pick<ClientRappel, "actif" | "compteParNom" | "importerAx">,
@@ -96,7 +85,6 @@ export async function reprendreIdentifiantsAx(
   }));
   if (!lignes.length) return { retirees: 0, gardees: 0 };
   if (!rappel.actif) return { retirees: 0, gardees: lignes.length };
-  const fernet = cleFernetPresente();
   const parCompte = new Map<string, LigneAx[]>();
   for (const l of lignes) parCompte.set(l.owner, [...(parCompte.get(l.owner) ?? []), l]);
   let gardees = 0;
@@ -113,21 +101,12 @@ export async function reprendreIdentifiantsAx(
       ecartees.push(...siennes.map((l) => `${l.site} (account gone)`));
       continue;
     }
-    const lisibles: { brute: LigneAx; remise: LigneAxRemise }[] = [];
-    for (const l of siennes) {
-      const chiffre = estJetonFernet(l.password);
-      if (chiffre && !fernet) {
-        gardees += 1;
-        continue;
-      }
-      const clair = chiffre ? dechiffrer(l.password) : l.password;
-      if (chiffre && !clair) {
-        aEffacer.push(l);
-        ecartees.push(`${l.site} (undecryptable)`);
-      } else lisibles.push({ brute: l, remise: { site: l.site, username: l.username, password: clair } });
-    }
-    for (let i = 0; i < lisibles.length; i += LOT_MAX) {
-      const lot = lisibles.slice(i, i + LOT_MAX);
+    const remises: { brute: LigneAx; remise: LigneAxRemise }[] = siennes.map((l) => ({
+      brute: l,
+      remise: { site: l.site, username: l.username, password: l.password },
+    }));
+    for (let i = 0; i < remises.length; i += LOT_MAX) {
+      const lot = remises.slice(i, i + LOT_MAX);
       const issues = await rappel.importerAx(
         c.compte,
         lot.map((l) => l.remise),
@@ -158,7 +137,7 @@ export async function reprendreIdentifiantsAx(
   return { retirees, gardees };
 }
 
-/** Reprise au démarrage, retentée tant que des lignes attendent (core injoignable, clé Fernet absente, limite du compte), au plus `ESSAIS_MAX` fois, puis au démarrage suivant ; s'arrête avec le process. */
+/** Reprise au démarrage, retentée tant que des lignes attendent (core injoignable, clé Fernet absente du core, limite du compte), au plus `ESSAIS_MAX` fois, puis au démarrage suivant ; s'arrête avec le process. */
 export async function boucleRepriseAx(
   base: () => Base | null,
   rappel: Pick<ClientRappel, "actif" | "compteParNom" | "importerAx">,

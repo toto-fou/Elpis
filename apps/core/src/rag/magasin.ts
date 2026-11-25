@@ -3,6 +3,7 @@
 import { closeSync, lstatSync, mkdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 
+import { modePartage } from "@elpis/commun";
 import { configRag } from "@elpis/config";
 import { ouvrirDossierSous, supprimerArbreSous } from "@elpis/securite";
 
@@ -36,7 +37,16 @@ const RE_REL = new RegExp(
 );
 const RE_DOSSIER = new RegExp(`^${UID}(?:/${UUID}(?:/(?:sources|extraits|pages(?:/${UUID})?))?)?$`, "u");
 const RE_QDRANT = /^elpis_([0-9a-f]{32})(?:_g([1-9][0-9]{0,5}))?$/u;
-const MODE_DOSSIER = 0o700;
+
+/** Dossiers du magasin en 0700 ; 0770 sous le groupe des données (groupe du magasin : main l'écrit, la console y supprime collections et comptes, le service RAG le lit). */
+export function modeDossierRag(): number {
+  return modePartage(0o700);
+}
+
+/** Fichiers du magasin en 0600 ; 0660 sous le groupe des données (même groupe que ses dossiers). */
+export function modeFichierRag(): number {
+  return modePartage(0o600);
+}
 
 /** Chemin refusé : hors des formes permises, hors de la racine, lien symbolique ou fichier spécial. */
 export class ErreurMagasinRag extends Error {
@@ -70,7 +80,7 @@ export function racineMagasinRag(): string {
 /** Crée la racine si besoin (0700) et la rend résolue ; la racine elle-même peut être un lien posé par l'administrateur. */
 export function assurerRacineMagasinRag(): string {
   const racine = racineMagasinRag();
-  mkdirSync(racine, { recursive: true, mode: MODE_DOSSIER });
+  mkdirSync(racine, { recursive: true, mode: modeDossierRag() });
   return realpathSync(racine);
 }
 
@@ -154,7 +164,7 @@ export function ouvrirDossierMagasinRag(rel: string, options: { creer?: boolean 
   if (typeof rel !== "string" || !RE_DOSSIER.test(rel))
     throw new ErreurMagasinRag("dossier hors des formes du magasin RAG");
   const racine = options.creer ? assurerRacineMagasinRag() : racineResolue();
-  return ouvrirDossierSous(racine, rel, { creer: options.creer ?? false, modeDossier: MODE_DOSSIER });
+  return ouvrirDossierSous(racine, rel, { creer: options.creer ?? false, modeDossier: modeDossierRag() });
 }
 
 /** Crée `sources/`, `extraits/` et `pages/` d'une collection (0700, aucun lien suivi). */

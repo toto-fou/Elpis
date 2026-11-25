@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/rag/acces.ts — droits RAG : droit du compte, rôle sur une collection (propriétaire, lecteur), collections lisibles, publication ; cache court invalidé entre processus. */
-import { closeSync, mkdirSync, openSync, statSync, utimesSync } from "node:fs";
+import { mkdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { modePartage } from "@elpis/commun";
 import { configRag } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
 
 import { journal } from "../journal";
-import { cheminExecution } from "../llm/acces-moteurs";
+import { avancerTemoin, cheminExecution } from "../llm/acces-moteurs";
 import { estUuidRag } from "./magasin";
 import type { CollectionPartieRag } from "./nettoyage";
 
@@ -98,16 +99,12 @@ function tamponCourant(): bigint {
   }
 }
 
-/** Avance le témoin d'au moins 1 µs : tout cache de tout processus est périmé à sa prochaine lecture. */
+/** Avance le témoin d'au moins 1 µs : tout cache de tout processus est périmé à sa prochaine lecture (main et la console le touchent : dossier et fichier au groupe des données). */
 function toucherTampon(): void {
   try {
     const p = cheminTampon();
-    mkdirSync(dirname(p), { recursive: true, mode: 0o700 });
-    closeSync(openSync(p, "a", 0o600));
-    const avant = statSync(p, { bigint: true }).mtimeNs;
-    const maintenant = BigInt(Date.now()) * 1_000_000n;
-    const cible = Number(maintenant > avant + 1_000n ? maintenant : avant + 1_000n) / 1e9;
-    utimesSync(p, cible, cible);
+    mkdirSync(dirname(p), { recursive: true, mode: modePartage(0o700) });
+    avancerTemoin(p, modePartage(0o600));
   } catch (e) {
     log.warn(`[rag] témoin des droits non touché (${String(e)}) : les autres processus suivront après 3 s`);
   }

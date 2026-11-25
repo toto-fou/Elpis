@@ -3,10 +3,16 @@
 import { EXTRAIT_SOURCE_RAG_MAX, SOURCES_MESSAGE_RAG_MAX } from "@elpis/contracts";
 import type { ModeRechercheRag, SourceCiteeRag } from "@elpis/contracts";
 import { estErreurAnnulation, pyJsonDumps } from "@elpis/commun";
-import { configRag } from "@elpis/config";
 import type { Base } from "@elpis/db";
-import { ClientQdrant, normaliserExt, rechercher } from "@elpis/rag";
-import type { ClientEmbeddings, ClientReranker, CollectionCible, FiltreRag, PassageTrouve } from "@elpis/rag";
+import { normaliserExt, rechercher } from "@elpis/rag";
+import type {
+  ClientEmbeddings,
+  ClientQdrant,
+  ClientReranker,
+  CollectionCible,
+  FiltreRag,
+  PassageTrouve,
+} from "@elpis/rag";
 import { neutraliserJetonsRole } from "@elpis/securite";
 
 import { journal } from "../journal";
@@ -20,6 +26,7 @@ import { RefusIndexationRag } from "./erreurs-indexation";
 import { rerankerConfigure } from "./essai";
 import { clientEmbeddingsRag } from "./indexeur";
 import { estUuidRag } from "./magasin";
+import { clientQdrant } from "./qdrant";
 import { serviceIndexationRag } from "./service";
 import type { ServiceIndexationRag } from "./service";
 import { droitSources, fenetrePassages, lectureRestreintePermise } from "./sources";
@@ -364,7 +371,7 @@ const MESSAGES_ERREUR: Readonly<Record<string, string>> = {
 /** Construit la famille `rag` d'un tour ; chaque appel relit la sélection du chat et revérifie le droit de chaque collection. */
 export function creerOutilsChatRag(o: OptionsOutilsChatRag): OutilsChatRag {
   const numerotation = new NumerotationRag(o.precedentes ?? []);
-  const qdrant = o.qdrant ?? ((): ClientQdrant => new ClientQdrant({ url: configRag().qdrant_url }));
+  const qdrant = o.qdrant ?? ((): ClientQdrant => clientQdrant());
   const embeddings = o.embeddings ?? clientEmbeddingsRag;
   const reranker = o.reranker ?? rerankerConfigure;
   const service = o.service ?? serviceIndexationRag;

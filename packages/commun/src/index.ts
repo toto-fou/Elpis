@@ -125,6 +125,14 @@ export {
   stMtimePy,
 } from "./fichiers";
 export { fnmatchPy, normpathPy, pyJoin, pyParent, pyPath, realpathPy } from "./chemins";
+export {
+  bitsInterdits,
+  dossierDeConfiance,
+  ecrireSecret,
+  gidGroupeCle,
+  groupeDonnees,
+  modePartage,
+} from "./droits";
 export { egalPy, inferieurPy, trierPy } from "./comparaisons";
 export { JSONDecodeError, jsonLoads, rawDecodePy } from "./json-brut";
 export { motifPy } from "./motifs";

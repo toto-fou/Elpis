@@ -8,6 +8,7 @@ import {
   revoquerTousAcces,
 } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
+import { MODES_COMPTES_SERVICES } from "@elpis/contracts";
 import {
   floatPy,
   getPy,
@@ -58,6 +59,11 @@ export interface DependancesAdminSecurite {
 
 const REFUS_LOCAL =
   "Passer en écoute locale depuis le réseau vous couperait l'accès : faites-le depuis le serveur (http://127.0.0.1:8002/admin) ou ./elpis configure --listen local.";
+/** `ELPIS_COMPTES` posé par les unités systemd (comptes séparés, compte unique choisi ou de repli), `null` hors unités ou inconnu. */
+function modeComptes(): string | null {
+  const mode = stripPy(process.env["ELPIS_COMPTES"] ?? "");
+  return (MODES_COMPTES_SERVICES as readonly string[]).includes(mode) ? mode : null;
+}
 
 function route(methode: "GET" | "POST", chemin: string, traiter: Traitement): DefinitionRoute {
   return { methode, chemin, processus: ["admin"], acces: "admin", traiter };
@@ -198,6 +204,7 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       urls: urlsHttps(hotePublicDe(req), actif, ports),
       listen: modeEcoute(cfg),
       client_local: clientLocal(req),
+      ...(modeComptes() === null ? {} : { service_accounts: modeComptes() }),
     };
   }
 

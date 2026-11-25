@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis-admin.service — admin (console d'administration) : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis — admin
+PartOf=@PREFIX@.target
+After=@PREFIX@-toolhost.service @PREFIX@-rag.service caddy.service@AFTER_DB@
+@WANTS_DB@
+
+[Service]
+Type=simple
+@COMPTE@
+SyslogIdentifier=@PREFIX@-admin
+WorkingDirectory=@WORKDIR@
+@ENV@
+@CLES@
+Environment="ELPIS_RUNTIME_DIR=/run/@PREFIX@"
+# Journaux de tours et reprises de tâches sur disque (jusqu'à 64 Mo et 8 Mo pièce) : /run est en mémoire.
+Environment="ELPIS_CHAT_RUNS_DIR=@ROOT@/user_db/run/chat_runs"
+Environment="ELPIS_TASK_RESUME_DIR=@ROOT@/user_db/run/task_resume"
+EnvironmentFile=-@ROOT@/.env
+ExecStart=@EXEC@
+# Relancé après SIGHUP (sortie 75, tenue pour un succès) ; 310 s = 300 s de générations + 5 s de fermeture forcée.
+Restart=always
+SuccessExitStatus=75
+RestartSec=3
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=310
+
+# Durcissement : système en lecture seule hors de l'état d'Elpis, /tmp et /dev privés, aucun privilège ni espace de noms.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths=/run/@PREFIX@
+@RW@
+# Le socket Docker (compte du groupe docker) n'est qu'à l'hôte d'outils.
+InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock
+ProtectHome=@PROTECT_HOME@
+PrivateTmp=yes
+PrivateIPC=yes
+RemoveIPC=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+UMask=@UMASK@
+MemoryMax=25%
+TasksMax=512
+
+[Install]
+WantedBy=@PREFIX@.target

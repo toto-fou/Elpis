@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis-rag.service — extracteur du RAG (uvicorn, conversions en prison bubblewrap) : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis — rag
+PartOf=@PREFIX@.target
+After=@PREFIX@-qdrant.service
+
+[Service]
+Type=simple
+@COMPTE@
+SyslogIdentifier=@PREFIX@-rag
+WorkingDirectory=@WORKDIR@
+@ENV@
+@CLES@
+EnvironmentFile=-@ROOT@/.env
+UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
+InaccessiblePaths=-@VAULT_KEY_SYS@
+InaccessiblePaths=-@VAULT_KEY_REPLI@
+# Ni le socket Docker ni la clé de signature du journal de sécurité : ce service ne signe aucune ligne.
+InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock
+InaccessiblePaths=-@AUDIT_KEY_SYS@
+ExecStart=@EXEC@
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=30
+
+# Durcissement : ni espaces de noms, ni réglages du noyau, ni nom d'hôte protégés, ni setuid filtré (bubblewrap des conversions monte un /proc neuf, essayé sous systemd), pas de mémoire W+X interdite (LibreOffice).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+@RW@
+ProtectHome=@PROTECT_HOME@
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectProc=invisible
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+UMask=@UMASK@
+MemoryMax=50%
+TasksMax=1024
+
+[Install]
+WantedBy=@PREFIX@.target

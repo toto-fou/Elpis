@@ -24,6 +24,79 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **One account per service.** `sudo ./elpis service install` now runs main, the console and the
+  tool host under their own system accounts (`elpis-main`, `elpis-admin`, `elpis-toolhost`, no
+  shell), sharing their state through the `elpis-donnees` group. Only the tool host unit gets
+  the `docker` group; the vault key, the session secret and the remote backup credentials are
+  reserved to main and the console, the signing key to the journal writers, and nothing is left
+  readable by other accounts. Rights are set again at each `service install`, without following
+  links or entering the sandboxes' `/work`, and only on the installation's state folders or on
+  folders already reserved to Elpis; backups then run with `sudo ./elpis backup`. When other
+  accounts cannot reach the installation
+  (a clone in a home folder), or with `ELPIS_COMPTE_UNIQUE=1`, the services keep one account, as
+  before; `./elpis doctor` then warns at every run (Playwright browsers in a closed home folder
+  are copied for the tool host instead). For a server, install in `/opt/elpis`
+  ([operations.md](docs/operations.md#service-accounts)); then run `sudo ./elpis service install`
+  again. `./install.sh --service` no longer adds the application account to the `docker` group.
+- **`config.json` written by the console only.** Under systemd, `config.json` moves to
+  `/etc/elpis/config/` (a link stays in the repository), its platform secrets go to their files,
+  and main and the console no longer write the installation folder: only their state folders
+  stay writable. With one account per service, `./elpis configure` needs `sudo`, followed by
+  `sudo ./elpis service install`; after a restore from the console, run `service install` again.
+- **RAG extractor under its own account.** With one account per service, the RAG service runs as
+  `elpis-rag`: it reads the RAG store (`2770 elpis-main:elpis-rag`, read-only in its unit) and
+  the RAG token, moved to `/etc/elpis/rag.token` (`0440`, group `elpis-rag`), and keeps its cache
+  in `/var/cache/elpis-rag`; it no longer reaches the database, the keys nor the sandboxes.
+- **Qdrant under a dynamic account.** With one account per service, Qdrant runs under a dynamic
+  account (`DynamicUser=yes`) and keeps its storage in `/var/lib/elpis-qdrant`;
+  `service install` moves `rag_app/qdrant/storage` there once, services stopped.
+- **Platform keys handed by systemd.** With one account per service and systemd 250 or later,
+  `sudo ./elpis service install` encrypts the vault key, the legacy encryption key, the session
+  secret and the signing key of the journal with `systemd-creds` into `/etc/elpis/credentials/`
+  (root only; bound to the TPM2 when there is one), and each unit receives only the keys it uses
+  (`LoadCredentialEncrypted=`): main and the console all four, the tool host the signing key only.
+  The plaintext files are taken over and removed once the encrypted copy has been read back;
+  `vault setup` and `audit setup` write no plaintext file and print the command that copies a key
+  off the machine (`sudo sh -c 'umask 077; systemd-creds decrypt --name=vault.key
+  /etc/elpis/credentials/vault.key FILE'`): backups no longer contain these keys, keep that copy. Commands run with `sudo` (vault,
+  secrets, journal, backup, doctor, configure) run in a transient unit of the console
+  (`systemd-run`) that gets its keys from systemd; `vault rekey --from` accepts a copy only root
+  can read; without `sudo` they say so. Going back to one account or `service remove` puts the
+  keys back in their files. `deploy/configure.py --ranger-secrets` now works in two steps
+  (`--garder`, then `--retirer`), so that a write error no longer loses a secret moved out of
+  `config.json`. Run `sudo ./elpis service install` again
+  ([operations.md](docs/operations.md#platform-keys)).
+- **RAG token handed by systemd.** With these keys, the RAG token becomes the key `rag.token`,
+  taken from `/etc/elpis/rag.token` or `user_db/.rag_service_token` while none is in service, and
+  given to main, the console and the RAG only; `elpis-rag` then only gives the RAG store.
+- **Platform keys no longer chosen by `config.json`.** With the units' key files set, the values of
+  `config.json` are ignored, and the console refuses to set or change `app.session_secret`,
+  `app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key` and `agent_memory.qdrant_api_key`;
+  `service install` imports such a value only into a missing key, checking its length or format.
+- **The operator runs no code on the services' configuration.** With one account per service, the
+  commands the operator runs without `sudo` no longer start the core on the services'
+  configuration, where, without their keys, it created new ones next to the database
+  (`user_db/.session_secret`, `.encryption_key`, a fallback vault key): `db`, `vault`, `secret`,
+  `auth`, `audit verify` (`--key` included) and `configure` (except `--migrer-mcp` and the checks that run
+  no core) say `lancez sudo ./elpis …`, `start` and `restart` refuse as under root, `doctor` skips
+  the core's checks (`sudo ./elpis doctor`) and `upgrade` ends with `sudo ./elpis doctor`. The
+  checks of the tool host bundle run as the tool host (`APP_SERVICE=toolhost`: no session secret
+  read or created) and the bubblewrap probe no longer loads the configuration. Under `sudo`, each
+  `audit verify --key FILE` is checked and handed to the console's unit like `vault rekey --from`,
+  and `db --password-env NAME` passes `NAME` from root's environment through the unit's
+  environment file.
+- **Qdrant with an API key.** With these keys, Qdrant runs with an API key (the key `qdrant.key`,
+  taken from `rag.qdrant_api_key` of `config.json` or created), read from its credentials by
+  `deploy/qdrant/lancer.sh`; main and the console send it (`QDRANT_API_KEY_FILE`), any other
+  request is refused, health checks keep working. With one account for every service and with
+  `./elpis start`, Qdrant keeps running without a key.
+- **systemd units: versioned and hardened.** The units of the services are rendered from
+  templates in `deploy/systemd/` by `sudo ./elpis service install`. Each service runs without
+  privileges, with the system read-only except the folders it writes, a private `/tmp` and
+  `/dev`, protected kernel settings, and memory and task limits; main, the console and the tool
+  host share `/run/elpis` (created at boot by systemd-tmpfiles). The exposure score given by
+  `systemd-analyze security` drops from 9.0 ("UNSAFE") to 1.2-4.3 ("OK"). Run
+  `sudo ./elpis service install` again to apply it.
 - **Sandbox browser: no long-lived token next to the sandbox, nothing kept from a vault login.**
   The two tokens of the browser service of an account are now created at each start of that
   service and kept by the tool host, in memory and in its private runtime directory

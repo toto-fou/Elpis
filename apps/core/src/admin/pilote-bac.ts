@@ -22,7 +22,7 @@ async function hoteDistant(uid: number): Promise<SandboxHost | null> {
   return hote !== null && !isLoopback(hote.url) ? hote : null;
 }
 
-/** Hôte d'outils qui sert le `SANDBOX_DIR` de cette machine (premier hôte en boucle locale, sinon l'hôte par défaut), doté d'un jeton de service (sans lui, un hôte ne détient aucun bac) ; `null` : aucun. */
+/** Hôte d'outils qui sert le `SANDBOX_DIR` de cette machine : le premier hôte en boucle locale doté d'un jeton de service (sans lui, un hôte ne détient aucun bac), jamais un hôte distant ; `null` : aucun. */
 async function hoteDeCetteMachine(): Promise<SandboxHost | null> {
   try {
     for (const [id, spec] of lireHotes().hotes) {
@@ -30,10 +30,9 @@ async function hoteDeCetteMachine(): Promise<SandboxHost | null> {
       if (hote?.token && isLoopback(hote.url)) return hote;
     }
   } catch {
-    // manifeste illisible : hôte par défaut
+    // manifeste illisible : aucun hôte
   }
-  const defaut = await sandboxHostFor(null, false);
-  return defaut?.token ? defaut : null;
+  return null;
 }
 
 /** Refus d'un hôte d'outils : statut HTTP et `detail` rendus par l'hôte. */

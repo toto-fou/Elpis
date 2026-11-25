@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { closeSync, constants, mkdirSync, openSync } from "node:fs";
 import path from "node:path";
 
-import { journalDe, realpathPy } from "@elpis/commun";
+import { journalDe, modePartage, realpathPy } from "@elpis/commun";
 import { config } from "@elpis/config";
 
 export const DELAI_VERROU_S = 3.0;
@@ -77,7 +77,7 @@ function flockSurDescripteur(fd: number, delaiS: number, signal?: AbortSignal): 
   });
 }
 
-/** `file_write_lock` : `flock` exclusif sur le sidecar du chemin RÉSOLU `chemin` ; `obtenu` faux en fail-open (désactivé, indisponible, délai dépassé). */
+/** `file_write_lock` : `flock` exclusif sur le sidecar du chemin RÉSOLU `chemin` (dossier ouvert au groupe des données : l'entretien de main retire les sidecars périmés) ; `obtenu` faux en fail-open (désactivé, indisponible, délai dépassé). */
 export async function prendreVerrouEcriture(
   chemin: string,
   o: { delaiS?: number; signal?: AbortSignal } = {},
@@ -87,7 +87,7 @@ export async function prendreVerrouEcriture(
   let obtenu = false;
   if (base !== null) {
     try {
-      mkdirSync(base, { recursive: true });
+      mkdirSync(base, { recursive: true, mode: modePartage(0o777) });
       fd = openSync(path.join(base, lockName(chemin)), constants.O_CREAT | constants.O_RDWR, 0o644);
       obtenu = await flockSurDescripteur(fd, o.delaiS ?? DELAI_VERROU_S, o.signal);
     } catch (e) {

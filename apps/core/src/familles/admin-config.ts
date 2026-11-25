@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-config.ts — console : compression, fichier config.json et écritures champ par champ (admin/config.py). */
-import { copyFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 import {
+  ecrireSecret,
   egalPy,
   ErreurJsonPy,
   ErreurPython,
@@ -44,6 +45,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { auditer, entierPy, exigerTexte, lireConfigPourEcrire } from "../admin/aides";
 import {
   applySectionOwnership,
+  cheminsGeresChanges,
   dig,
   estSecretMasque,
   MASQUE_SECRET,
@@ -52,6 +54,7 @@ import {
   PATCH_MAX_CHANGES,
   PATCH_PATH_RE,
   plant,
+  refusGereInstallation,
   tropProfond,
   removePath,
   restaurerSecretsMasques,
@@ -131,6 +134,11 @@ function champsCompression(c: typeof config = config): Dict {
   };
 }
 
+/** config.json.bak : copie de config.json au propriétaire seul (0600), nouveau fichier renommé sans suivre de lien. */
+function copierConfigJson(chemin: string): void {
+  if (existePy(chemin)) ecrireSecret(cheminCopieConfigJson(chemin), readFileSync(chemin), 0o600);
+}
+
 function messageDe(e: unknown, chemin: string): string {
   return typeof (e as { code?: unknown }).code === "string"
     ? messageErreurOs(e, chemin)
@@ -138,6 +146,9 @@ function messageDe(e: unknown, chemin: string): string {
       ? e.message
       : String(e);
 }
+
+/** Issue d'un PATCH sous verrou : fichier illisible, conflits, clés gérées par l'installation, ou nombre de champs écrits. */
+type IssuePatch = ["illisible"] | ["conflit", Dict[]] | ["gere", string[]] | ["ok", number];
 
 export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
   const fermerClient = dep.fermerClientCompression ?? closeEndpointClient;
@@ -327,8 +338,16 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         );
         throw new HttpError(500, "Enregistrement impossible : le fichier n'a pas été modifié.");
       }
+      let final: unknown;
       try {
-        if (existePy(chemin)) copyFileSync(chemin, cheminCopieConfigJson(chemin));
+        final = pyJsonLoads(texte);
+      } catch {
+        final = {};
+      }
+      const geres = cheminsGeresChanges(estDict(final) ? final : {}, avantDisque);
+      if (geres.length) throw new HttpError(400, refusGereInstallation(geres));
+      try {
+        copierConfigJson(chemin);
         writeTextAtomic(chemin, texte);
       } catch (e) {
         throw new HttpError(500, `Error writing file: ${messageDe(e, chemin)}`);
@@ -372,7 +391,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       });
     const chemin = config.CONFIG_JSON_PATH;
     let ecrits: ReturnType<typeof diffConfig> = { changes: [] };
-    const issue = await sousVerrouConfigJson((): ["illisible"] | ["conflit", Dict[]] | ["ok", number] => {
+    const issue = await sousVerrouConfigJson((): IssuePatch => {
       let disque: unknown = {};
       let texte = "{}";
       if (existePy(chemin)) {
@@ -400,6 +419,10 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         }
         if (conflits.length) return ["conflit", conflits];
       }
+      const vise: Dict = {};
+      for (const [parties, c] of lus) if (!veritePy(getPy(c, "delete", null))) plant(vise, parties, c["to"]);
+      const geres = cheminsGeresChanges(vise, d);
+      if (geres.length) return ["gere", geres];
       // Copie relue avant modification : le journal compare les deux configs entières, secrets masqués à toute profondeur.
       const relu = pyJsonLoads(texte);
       const avant = estDict(relu) ? relu : {};
@@ -408,11 +431,13 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         else if (!(estSecretMasque(parties) && c["to"] === MASQUE_SECRET)) plant(d, parties, c["to"]);
       }
       ecrits = diffConfig(avant, d);
-      if (existePy(chemin)) copyFileSync(chemin, cheminCopieConfigJson(chemin));
+      copierConfigJson(chemin);
       writeTextAtomic(chemin, pyJsonDumps(d, { ensureAscii: false, indent: 2 }));
       return ["ok", lus.length];
     });
     if (issue[0] === "illisible") throw new HttpError(500, CONFIG_ILLISIBLE);
+    if (issue[0] === "gere")
+      return reponseJsonPy(rep.code(400), { detail: refusGereInstallation(issue[1]), paths: issue[1] });
     if (issue[0] === "conflit")
       return reponseJsonPy(rep.code(409), { detail: "Modifié ailleurs entre-temps.", conflicts: issue[1] });
     invalidateConfigCache();

@@ -201,6 +201,29 @@ function avecValeur(d: Dict, chemin: readonly string[], valeur: unknown): Dict {
   return copie;
 }
 
+/** Clés de la plateforme, posées par l'installation (un compte par service : remises par systemd) : jamais choisies par la console. */
+export const CHEMINS_GERES_INSTALLATION: readonly (readonly string[])[] = [
+  "app.session_secret",
+  "app.encryption_key",
+  "rag.service_token",
+  "rag.qdrant_api_key",
+  "agent_memory.qdrant_api_key",
+].map((c) => c.split("."));
+
+/** Clés de l'installation que `entrant` pose ou change par rapport à `disque` ; un masque, une valeur vide ou un retrait passent. */
+export function cheminsGeresChanges(entrant: Dict, disque: Dict): string[] {
+  return CHEMINS_GERES_INSTALLATION.filter((c) => {
+    const [trouve, valeur] = dig(entrant, c);
+    if (!trouve || valeur === MASQUE_SECRET || valeur === "") return false;
+    const [surDisque, ancienne] = dig(disque, c);
+    return !surDisque || !sameValue(valeur, ancienne);
+  }).map((c) => c.join("."));
+}
+
+/** Refus de la console pour ces clés (texte pour l'administrateur). */
+export const refusGereInstallation = (chemins: readonly string[]): string =>
+  `Géré par l'installation, pas par la console : ${chemins.join(", ")}.`;
+
 /** Chemin d'un secret masqué ? */
 export function estSecretMasque(parties: readonly string[]): boolean {
   return SECRETS_MASQUES.some((c) => c.length === parties.length && c.every((p, i) => p === parties[i]));

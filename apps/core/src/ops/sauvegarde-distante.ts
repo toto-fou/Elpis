@@ -4,8 +4,14 @@ import { spawn } from "node:child_process";
 import {
   accessSync,
   chmodSync,
+  closeSync,
   constants,
   copyFileSync,
+  fchmodSync,
+  fchownSync,
+  lstatSync,
+  mkdtempSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -19,14 +25,18 @@ import path from "node:path";
 import { setTimeout as attendre } from "node:timers/promises";
 
 import {
+  ecrireSecret,
   ErreurPython,
   estDict,
   FlottantPy,
   floatPy,
   getPy,
+  gidGroupeCle,
   intPy,
+  modePartage,
   ouPy,
   prefixePy,
+  pyJsonDumps,
   rstripPy,
   stripPy,
   strPy,
@@ -38,8 +48,10 @@ import {
   lireConfigDisque,
   liveConfigValue,
   pyJoin,
+  readJsonFile,
   sousVerrouConfigJson,
   writeConfigJson,
+  writeTextAtomic,
 } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { VerrouFichier } from "@elpis/verrous";
@@ -85,6 +97,26 @@ export function rsyncPasswordPath(): string {
 
 export function sendLockPath(): string {
   return pyJoin(userDb(), ".backup_send.lock");
+}
+
+/** Dernier envoi, écrit par main (envoi planifié) comme par la console (envoi manuel) : hors de config.json, que la console seule écrit quand chaque service a son compte. */
+export function lastSendPath(): string {
+  return pyJoin(userDb(), ".backup_last_send.json");
+}
+
+/** `backup.remote` brut de config.json relu sur disque (`{}` s'il manque). */
+function remoteBrut(): Dict {
+  const lu = lireConfigDisque() ?? {};
+  const backup = get(lu, "backup", {});
+  const brut = estDict(backup) ? get(backup, "remote", {}) : {};
+  return estDict(brut) ? brut : {};
+}
+
+/** Dernier envoi : fichier d'état, sinon l'ancien `backup.remote.last_send` de config.json (avant le premier envoi qui l'y remplace). */
+export function lireDernierEnvoi(remote: Dict): Dict {
+  const etat = readJsonFile(lastSendPath());
+  if (Object.keys(etat).length) return etat;
+  return estDict(remote["last_send"]) ? remote["last_send"] : {};
 }
 
 /** `os.path.exists` : toute erreur vaut faux. */
@@ -163,12 +195,10 @@ export function nextRunAt(cfg: Dict, now: number | null = null): number | null {
   return at + intervalle;
 }
 
-/** `get_remote_config` : `backup.remote` relu et normalisé, présence de la clé et du mot de passe, prochaine échéance. */
+/** `get_remote_config` : `backup.remote` relu et normalisé (dernier envoi du fichier d'état), présence de la clé et du mot de passe, prochaine échéance. */
 export function getRemoteConfig(): Dict {
-  const lu = lireConfigDisque() ?? {};
-  const backup = get(lu, "backup", {});
-  const brut = estDict(backup) ? get(backup, "remote", {}) : {};
-  const cfg = normalizeRemoteConfig(brut);
+  const brut = remoteBrut();
+  const cfg = normalizeRemoteConfig({ ...brut, last_send: lireDernierEnvoi(brut) });
   const cle = cfg["key_path"] as string;
   cfg["key_present"] = Boolean(cle) && existeOs(cle);
   cfg["password_present"] = existeOs(rsyncPasswordPath());
@@ -205,7 +235,7 @@ export function validateRemoteConfig(cfg: Dict): [boolean, string] {
   return [true, ""];
 }
 
-/** `save_remote_config` : champs entrants fusionnés sous `backup.remote`, `last_send` existant préservé. */
+/** `save_remote_config` : champs entrants fusionnés sous `backup.remote`, `last_send` existant préservé ; la réponse porte le dernier envoi du fichier d'état. */
 export async function saveRemoteConfig(entrant: unknown): Promise<Dict> {
   const cfg = normalizeRemoteConfig(entrant);
   await sousVerrouConfigJson(() => {
@@ -217,9 +247,11 @@ export async function saveRemoteConfig(entrant: unknown): Promise<Dict> {
     complet["backup"] = backup;
     writeConfigJson(complet);
   });
+  const etat = readJsonFile(lastSendPath());
   const cle = cfg["key_path"] as string;
   return {
     ...cfg,
+    ...(Object.keys(etat).length ? { last_send: etat } : {}),
     key_present: Boolean(cle) && existeOs(cle),
     password_present: existeOs(rsyncPasswordPath()),
   };
@@ -240,20 +272,55 @@ export function encoderTexte(s: string): Buffer {
   throw new ErreurPython("ValueError", raison);
 }
 
-/** `store_ssh_key` : clé privée en fichier 0600 (temporaire puis renommage) ; rend son chemin. */
+/** Secret de la sauvegarde distante (exclusif, aucun lien suivi) : 0600 ; sous le groupe de clé (lu par main et la console), à ce groupe, droits d'un fichier existant à ce compte gardés dans la limite de 0640, sinon 0640. */
+function ecrireSecretSauvegarde(chemin: string, corps: Buffer): void {
+  const gid = gidGroupeCle();
+  if (gid === null) return ecrireSecret(chemin, corps, 0o600);
+  let mode = 0o640;
+  try {
+    const st = lstatSync(chemin);
+    if (st.isFile() && st.uid === process.geteuid?.()) mode = st.mode & 0o640;
+  } catch (e) {
+    if ((e as { code?: unknown }).code !== "ENOENT") throw e;
+  }
+  ecrireSecret(chemin, corps, mode, gid);
+}
+
+/** `known_hosts` absent sous le groupe de clé : créé vide (groupe de clé, 0660) avant qu'OpenSSH y ajoute un hôte, hors de portée de l'hôte d'outils ; au mieux. */
+function assurerKnownHosts(cfg: Dict): void {
+  const gid = gidGroupeCle();
+  const chemin = strPy(cfg["known_hosts"]);
+  if (gid === null || !chemin) return;
+  let fd: number;
+  try {
+    fd = openSync(
+      chemin,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    );
+  } catch {
+    return;
+  }
+  try {
+    fchownSync(fd, -1, gid);
+    fchmodSync(fd, 0o660);
+  } catch {
+    rmSync(chemin, { force: true });
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** `store_ssh_key` : clé privée en fichier secret (`ecrireSecretSauvegarde`) ; rend son chemin. */
 export function storeSshKey(contenu: string, keyPath?: string): string {
   const chemin = keyPath || (getRemoteConfig()["key_path"] as string);
   mkdirParentsPy(path.dirname(chemin));
   const corps = encoderTexte(contenu.endsWith("\n") ? contenu : `${contenu}\n`);
-  const tmp = `${chemin}.tmp`;
-  writeFileSync(tmp, corps, { mode: 0o600 });
-  chmodSync(tmp, 0o600);
-  renameSync(tmp, chemin);
-  chmodSync(chemin, 0o600);
+  ecrireSecretSauvegarde(chemin, corps);
   return chemin;
 }
 
-/** `store_rsync_password` : mot de passe en fichier 0600, vide = retrait ; vrai s'il est désormais enregistré. */
+/** `store_rsync_password` : mot de passe en fichier secret (`ecrireSecretSauvegarde`), vide = retrait ; vrai s'il est désormais enregistré. */
 export function storeRsyncPassword(motDePasse: string): boolean {
   const chemin = rsyncPasswordPath();
   if (!motDePasse) {
@@ -267,11 +334,7 @@ export function storeRsyncPassword(motDePasse: string): boolean {
   if (motDePasse.includes("\n") || motDePasse.includes("\r"))
     throw new ErreurPython("ValueError", "Le mot de passe ne peut pas contenir de saut de ligne");
   mkdirParentsPy(path.dirname(chemin));
-  const tmp = pyJoin(path.dirname(chemin), `${path.basename(chemin)}.tmp`);
-  const corps = encoderTexte(`${motDePasse}\n`);
-  writeFileSync(tmp, corps, { mode: 0o600 });
-  chmodSync(tmp, 0o600);
-  renameSync(tmp, chemin);
+  ecrireSecretSauvegarde(chemin, encoderTexte(`${motDePasse}\n`));
   return true;
 }
 
@@ -369,6 +432,26 @@ function sshOpts(cfg: Dict): string[] {
     "-i",
     strPy(cfg["key_path"]),
   ];
+}
+
+/** `f` avec une config dont la clé est privée : celle de la config si elle l'est déjà (0600), sinon une copie 0600 dans un dossier 0700 du temporaire (OpenSSH refuse une clé lisible par le groupe), retirée après l'appel. */
+async function avecClePrivee<T>(cfg: Dict, f: (cfg: Dict) => Promise<T>): Promise<T> {
+  const cle = strPy(cfg["key_path"]);
+  let mode: number;
+  try {
+    mode = statSync(cle).mode;
+  } catch {
+    return f(cfg);
+  }
+  if ((mode & 0o077) === 0) return f(cfg);
+  const dossier = mkdtempSync(path.join(tmpdir(), "elpis-cle-ssh-"));
+  try {
+    const copie = path.join(dossier, "cle");
+    writeFileSync(copie, readFileSync(cle), { mode: 0o600, flag: "wx" });
+    return await f({ ...cfg, key_path: copie });
+  } finally {
+    rmSync(dossier, { recursive: true, force: true });
+  }
 }
 
 function rstripBarres(s: string): string {
@@ -525,6 +608,7 @@ export async function runTest(): Promise<Dict> {
     if (!dossierInscriptible(d)) return { ok: false, error: "Dossier non inscriptible" };
     return { ok: true, error: "" };
   }
+  assurerKnownHosts(cfg);
   if (cfg["connector"] === "rsync") {
     return avecMotDePasse(async (env) => {
       if (env === null) return { ok: false, error: "Mot de passe absent — enregistrez-le d'abord." };
@@ -534,11 +618,11 @@ export async function runTest(): Promise<Dict> {
   }
   if (!existeOs(cfg["key_path"] as string))
     return { ok: false, error: "Clé SSH absente — téléverse-la d'abord." };
-  const [ok2, msg] = await executerCommande(buildTestArgv(cfg), 20);
+  const [ok2, msg] = await avecClePrivee(cfg, (c) => executerCommande(buildTestArgv(c), 20));
   return { ok: ok2, error: msg };
 }
 
-/** `_record_last_send` : `backup.remote.last_send` persisté (best-effort), `ok_at` gardant le dernier succès. */
+/** `_record_last_send` : dernier envoi persisté (best-effort) dans son fichier d'état, sous le verrou d'envoi de l'appelant ; `ok_at` garde le dernier succès. */
 export async function recordLastSend(
   ok: boolean,
   nom: string,
@@ -548,25 +632,20 @@ export async function recordLastSend(
   journal?: Journal,
 ): Promise<void> {
   try {
-    await sousVerrouConfigJson(() => {
-      const complet = lireConfigPy();
-      const backup: Dict = estDict(complet["backup"]) ? complet["backup"] : {};
-      const remote: Dict = estDict(backup["remote"]) ? backup["remote"] : {};
-      const prec: Dict = estDict(remote["last_send"]) ? remote["last_send"] : {};
-      const now = horloge();
-      remote["last_send"] = {
-        at: new FlottantPy(now),
-        ok,
-        filename: nom,
-        error: erreur,
-        trigger,
-        incomplete,
-        ok_at: new FlottantPy(ok ? now : floatPy(ouPy(get(prec, "ok_at", null), 0))),
-      };
-      backup["remote"] = remote;
-      complet["backup"] = backup;
-      writeConfigJson(complet);
-    });
+    const prec = lireDernierEnvoi(remoteBrut());
+    const now = horloge();
+    const etat: Dict = {
+      at: new FlottantPy(now),
+      ok,
+      filename: nom,
+      error: erreur,
+      trigger,
+      incomplete,
+      ok_at: new FlottantPy(ok ? now : floatPy(ouPy(get(prec, "ok_at", null), 0))),
+    };
+    const chemin = lastSendPath();
+    writeTextAtomic(chemin, `${pyJsonDumps(etat, { ensureAscii: false })}\n`);
+    chmodSync(chemin, modePartage(0o600));
   } catch (e) {
     journal?.debug({ err: e }, "[backup_remote] last_send non persisté");
   }
@@ -633,6 +712,7 @@ async function envoyer(base: Base, scope: unknown, trigger: string, journal?: Jo
         res = { ok: true, error: "", filename: nom };
       }
     } else if (cfg["connector"] === "rsync") {
+      assurerKnownHosts(cfg);
       res = await avecMotDePasse(async (env) => {
         if (env === null) return { ok: false, error: "Mot de passe absent" };
         const [ok2, msg] = await executerCommande(
@@ -645,9 +725,9 @@ async function envoyer(base: Base, scope: unknown, trigger: string, journal?: Jo
     } else if (!existeOs(cfg["key_path"] as string)) {
       res = { ok: false, error: "Clé SSH absente" };
     } else {
-      const [ok2, msg] = await executerCommande(
-        buildSendArgv(cfg, chemin, nom),
-        cfg["timeout_sec"] as number,
+      assurerKnownHosts(cfg);
+      const [ok2, msg] = await avecClePrivee(cfg, (c) =>
+        executerCommande(buildSendArgv(c, chemin, nom), cfg["timeout_sec"] as number),
       );
       res = { ok: ok2, error: msg, filename: ok2 ? nom : "" };
     }

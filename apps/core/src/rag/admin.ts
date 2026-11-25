@@ -4,7 +4,8 @@ import { getUserSettings, reglagesDepuis } from "@elpis/auth";
 import { configRag, lireQuotasRag, QUOTAS_RAG_MAX } from "@elpis/config";
 import type { QuotasRag } from "@elpis/config";
 import type { Base, Executeur } from "@elpis/db";
-import { ClientEmbeddings, ClientQdrant, ClientReranker, ErreurRag } from "@elpis/rag";
+import { ClientEmbeddings, ClientReranker, ErreurRag } from "@elpis/rag";
+import type { ClientQdrant } from "@elpis/rag";
 
 import { MASQUE_SECRET } from "../admin/config";
 import { journal } from "../journal";
@@ -15,6 +16,7 @@ import { audiencePublicationRag } from "./collections";
 import { ErreurRouteRag } from "./http";
 import { estUuidRag } from "./magasin";
 import { modelesVision } from "./vision";
+import { clientQdrant } from "./qdrant";
 import { definirQuotaRagCompte, surchargeQuotaRag } from "./quotas";
 import type { ServiceIndexationRag } from "./service";
 import {
@@ -107,7 +109,7 @@ async function sonderExtracteur(dep: DependancesAdminRag): Promise<SondeServices
 async function sonderQdrant(dep: DependancesAdminRag, url: string): Promise<SondeServices["qdrant"]> {
   if (url === "") return { ok: false, version: null, error: null };
   try {
-    const client = (dep.qdrant ?? ((u: string) => new ClientQdrant({ url: u })))(url);
+    const client = (dep.qdrant ?? ((u: string) => clientQdrant(u)))(url);
     const s = await client.sante(AbortSignal.timeout(SONDE_MS));
     return { ok: s.ok, version: s.version ?? null, error: s.erreur ?? null };
   } catch (e) {
@@ -301,7 +303,7 @@ export async function essaiServiceRag(
     }
     const url = adresseEssai(corps.url, conf.qdrant_url);
     if (url === "") return echec("Adresse de Qdrant absente ou invalide.");
-    const sante = await (dep.qdrant ?? ((u: string) => new ClientQdrant({ url: u })))(url).sante(
+    const sante = await (dep.qdrant ?? ((u: string) => clientQdrant(u)))(url).sante(
       AbortSignal.timeout(ESSAI_MS),
     );
     if (!sante.ok) return echec(sante.erreur ?? "Qdrant ne répond pas correctement.");

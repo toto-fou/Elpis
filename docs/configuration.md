@@ -154,8 +154,19 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 venv), installs, configures with the wizard's answers, then starts
 (systemd services or `./elpis start`). It is idempotent: running it again
 redoes only what is missing, and the wizard then picks up the configuration in
-place. Everything is logged in `logs/install.log`, except the wizard screens
-and passwords (written to the terminal only).
+place. Everything is logged, except the wizard screens and passwords (written
+to the terminal only): under `sudo`, in `/var/log/elpis-install.log`; otherwise
+in `logs/install.log`, or `.install.log` at the root of the installation when
+`logs/` belongs to the services (one account per service). The log is a regular
+file of the account that runs the installer, `0600`, in a folder no other
+account can write; a link or another file at its place disables it. With one
+account per service, `sudo ./install.sh` asks its questions in plain lines
+(its wizard would read `config.json`, written by the console) and takes no
+decision from `config.json`; the configuration wizard then runs under the
+console's account (`./elpis configure`). Questions asked by `./elpis configure` during
+an interactive installation, and their answers, go to the terminal only, not to the log.
+Everything the installer shows goes through the same filter as `./elpis` (see
+docs/operations.md, « Service accounts ») before the screen and the log.
 `./install.sh --dry-run` prints the plan and does nothing.
 
 **Permissions.** From a normal account: `sudo -v` at launch (a single
@@ -172,8 +183,8 @@ changing anything. An answer disables the inputs it makes useless (with
 the reason shown); a value that has become impossible falls back to the first
 possible value (Caddy unchecked: HTTPS goes back to "Direct HTTP"). LLM and embeddings
 addresses are probed (`GET /v1/models`) and you pick the model from the announced list.
-Answers are stored in `user_db/run/install-answers.json`
-(0600, secrets included), deleted at the end. `--plain` keeps the questions as
+Answers are stored in a private temporary folder (`install-answers.json`, 0600,
+secrets included; never under `user_db/`), deleted at the end. `--plain` keeps the questions as
 plain lines; without a terminal (or with `TERM=dumb`), they are plain lines too.
 
 **Database.** Prepared (local server) and tested right after the venv,
@@ -228,15 +239,16 @@ the connection to the selected database.
 | 7. Database | engine (SQLite, PostgreSQL), host, port, database, user, password (masked), TLS; connection tested; copy of the data from an existing SQLite database to an empty one | `config.json › database`, `user_db/.db_password` (0600) |
 | 8. Admin | name and password (masked, confirmed, 8 characters min.; empty = generated, to change at first sign-in); if accounts exist: password change offered | database `user_db/app.db` |
 
-Generated secrets (0600 files): `app.session_secret`,
-`user_db/.local_mcp_token` (tool host, referenced by `mcp.json`),
-`user_db/.rag_service_token`. Each answer can be given as an option
+Generated secrets (0600 files): `.session_secret` next to the database (only when no session
+secret is set: `APP_SESSION_SECRET`, `app.session_secret` outside the example values, or a file of
+40 characters or more; `--force` regenerates it), `user_db/.local_mcp_token` (tool host,
+referenced by `mcp.json`), `user_db/.rag_service_token`. Each answer can be given as an option
 (`./elpis configure --help`) or an `ELPIS_CFG_*` variable (`ELPIS_CFG_ENGINE`,
 `ELPIS_CFG_LLM_URL`, `ELPIS_CFG_LLM_API_KEY`, `ELPIS_CFG_CLOUD_API_KEY`,
 `ELPIS_CFG_ADMIN_PASSWORD`…); `--yes` asks no questions. Secrets
 go through these variables (the wizard passes them this way): an option such as
 `--llm-api-key` is visible in the process list. No key appears
-in the summary, in the logs (`logs/install.log` masks them) or in `export-sh`.
+in the summary, in the logs (the installer's log masks them) or in `export-sh`.
 
 An existing configuration stays valid as is: without `engine`
 (llama.cpp), with `ip` and `port` only, or with a full
@@ -256,7 +268,7 @@ with Elpis. MariaDB/MySQL is no longer supported (see
 | `install.sh` choice | What is done |
 |---|---|
 | `sqlite` | nothing to install |
-| `postgres-local` | `postgresql` package, `elpis` role and database (UTF-8, `template0`), `unaccent` extension, random password in `user_db/.db_password` |
+| `postgres-local` | `postgresql` package, `elpis` role and database (UTF-8, `template0`), `unaccent` extension, random password in `user_db/.db_password` (48 hexadecimal digits, read and created through `deploy/droits.py` without following any link; any other content is refused; given to `psql` as a variable on its standard input, never in the SQL text) |
 | `external` | `./elpis configure` questions: host, port, database, user, password, TLS of a PostgreSQL server |
 
 Offline (`--offline`), no database server is in the package: only
@@ -291,7 +303,10 @@ Operations (`./elpis db …`, served by the core: `apps/core/dist/exploitation.m
 ./elpis db use sqlite                             # escape hatch if the server goes down
 ```
 
-Password: `--password-env VARIABLE_NAME` or masked input. The
+With one account per service, these commands run with `sudo` (`sudo ./elpis db info`): they read
+the services' configuration and keys, and the password then comes only from `--password-env NAME`,
+read from root's environment (`sudo --preserve-env=NAME ./elpis db --password-env NAME check …`).
+Otherwise, password: `--password-env VARIABLE_NAME` or masked input. The
 transfer copies the tables in foreign-key order, sets aside and counts
 orphan rows, resets the identity sequences, checks counts and checksums, and
 writes a JSON report. From the console, the **Data** page does the
@@ -468,9 +483,23 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
   journald under the tag `elpis-<service>` (`./elpis logs main -f`).
   Rerun `sudo ./elpis service install` after an update that changes the units
   (`./elpis upgrade` does not rewrite them).
-- Service user: the one who runs `sudo` (suggested, changeable;
-  `ELPIS_USER=name` with no question). It must be able to read the repository; it is
-  added to the `docker` group.
+- Service accounts: one per service (`elpis-main`, `elpis-admin`, `elpis-toolhost`,
+  created by `service install`; only the tool host unit gets the `docker` group), when other
+  accounts can reach the installation (`/opt/elpis` recommended). Otherwise, or with
+  `ELPIS_COMPTE_UNIQUE=1`, one account for every service: the one who runs `sudo`
+  (suggested, changeable; `ELPIS_USER=name` with no question), which must be able to read the
+  repository and is added to the `docker` group. Details, groups and rights:
+  [operations.md](operations.md#service-accounts).
+- `config.json` moves to `/etc/elpis/config/` (a link stays in the repository) and only the
+  console writes it; with one account per service, `./elpis configure` runs with `sudo`, then
+  `sudo ./elpis service install` again ([operations.md](operations.md#configjson-under-systemd)).
+- With one account per service and systemd 250 or later, the platform keys (vault key, legacy
+  encryption key, session secret, signing key) are encrypted by `systemd-creds` in
+  `/etc/elpis/credentials/` and handed by systemd to the units that use them; the units set the
+  `…_PATH` and `…_FILE` variables below to them ([operations.md](operations.md#platform-keys)).
+  Their values in `config.json` are then ignored, and the console refuses to set or change
+  `app.session_secret`, `app.encryption_key`, `rag.service_token`, `rag.qdrant_api_key` and
+  `agent_memory.qdrant_api_key` (managed by the installation) in every mode.
 - `elpis.target` also pulls in Caddy when HTTPS is active, and the local
   voice services (`elpis-whisper`, `elpis-tts`) when they are installed.
 - `.env` is read by each unit (`EnvironmentFile`); it overrides the
@@ -483,8 +512,9 @@ export APP_SESSION_SECRET="$(cat user_db/.session_secret)"
 ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs
 ```
 
-> **Session secret.** Order: `APP_SESSION_SECRET` > `config.json ›
-> app.session_secret` > `user_db/.session_secret` (created with 0600 under an
+> **Session secret.** Order: `APP_SESSION_SECRET` > `APP_SESSION_SECRET_FILE` when set (read only; the
+> installation sets it, and `config.json › app.session_secret` is then ignored, with a warning) >
+> `config.json › app.session_secret` > `user_db/.session_secret` (created with 0600 under an
 > `fcntl` lock on first startup, and re-hardened to 0600 on every boot). The published
 > placeholders (`mysecretsessiontomodify`, `changeme`, …) are **treated
 > as absent** — otherwise the committed example would have served as the signing
@@ -611,9 +641,10 @@ disabled (the RAG page says so, no indexing).
 | Key | Role | Default |
 |---|---|---|
 | `service_url` | `rag_app` extractor (`RAG_SERVICE_URL` variable takes precedence) | `http://127.0.0.1:8000` |
-| `service_token` | Extractor token; without it, `RAG_SERVICE_TOKEN` then `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
+| `service_token` | Extractor token, after `RAG_SERVICE_TOKEN` and the file `RAG_SERVICE_TOKEN_FILE` (with one account per service, `/etc/elpis/rag.token`, or the key `rag.token` handed by systemd: `%d/rag.token`; this value is then ignored); without either, `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
 | `store_dir` | File store (`RAG_STORE_DIR` takes precedence): originals, extracts, rendered pages, per account and per collection; `./elpis` gives the same folder to the extractor | `<database folder>/rag` (`user_db/rag`) |
-| `qdrant_url` | Qdrant, local and keyless (`./elpis` starts it on `127.0.0.1:6333`) | `http://127.0.0.1:6333` |
+| `qdrant_url` | Qdrant, local (`./elpis` starts it on `127.0.0.1:6333`). Its API key comes from the environment only (`QDRANT_API_KEY`, then the file `QDRANT_API_KEY_FILE`) and goes to this address only: none by default; with one account per service and systemd 250 or later, the key `qdrant.key` handed by systemd (`%d/qdrant.key`) | `http://127.0.0.1:6333` |
+| `qdrant_api_key` | Not read by the core; with one account per service and systemd 250 or later, `service install` moves a value found here into the key `qdrant.key` | — |
 | `embed.*` | OpenAI-compatible embeddings server (`/v1/embeddings`), model, key, batch size (1 to 512), timeout (1 to 600 s). Changing the model reindexes all collections (console) | model `bge-m3` |
 | `reranker.*` | Optional reranking (`/v1/rerank`) | disabled |
 | `ocr.*` | OpenAI-compatible vision model that reads scanned pages ("grounding" format of the DeepSeek-OCR family); empty `url` = no OCR. The core sends these settings to the extractor on every extraction of a collection where OCR is enabled | disabled |
@@ -926,6 +957,9 @@ as missing.
 | `APP_CONTEXT_CONFIG` | `app.context_config_path` | `packages/config/context_config.json` | LLM texts |
 | `APP_DB_PATH` | `app.db_path` | `user_db/app.db` | SQLite file (default engine) |
 | `APP_SESSION_SECRET` | `app.session_secret` | `user_db/.session_secret` | Session signing |
+| `APP_SESSION_SECRET_FILE` | — | — | File holding the session secret, after `APP_SESSION_SECRET` and before `app.session_secret`, then ignored: read only, never created nor replaced; missing, unreadable or shorter than 40 characters, the start is refused. Set by the units to the key handed by systemd (`%d/session.secret`) |
+| `APP_ENCRYPTION_KEY` | `app.encryption_key` | `.encryption_key` next to the database | Legacy (Fernet) encryption key |
+| `APP_ENCRYPTION_KEY_PATH` | — | — | File holding the legacy encryption key, after `APP_ENCRYPTION_KEY` and before `app.encryption_key`, then ignored: read only, never created (`.encryption_key` is then ignored); missing or invalid, encryption is unavailable (`CRITICAL` in the log). Set by the units to the key handed by systemd (`%d/encryption.key`) |
 | `APP_MAX_RECENT_CHATS` | `app.max_recent_chats` | `100` | Max active conversations — **destructive** beyond it (see below); re-read live |
 | `APP_SANDBOX_DIR` | `app.sandbox_dir` | `user_sandboxes` | Sandbox root (propagated as an absolute path) |
 | `APP_SKILLS_DIR` / `APP_USER_SKILLS_DIR` | `skills.dir` / `skills.user_dir` | `skills` / `user_skills` | Skill stores |
@@ -948,14 +982,17 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | Variable | Default | Description |
 |---|---|---|
 | `ELPIS_AUDIT_DIR` | `/var/lib/elpis/audit` if writable, otherwise `logs/audit` in the repository | Folder of the security journal |
-| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned |
+| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned. Keys handed by systemd: set by the units of main, the console and the tool host (`%d/audit.key`) |
 | `ELPIS_APP_LOG_DIR` | `user_db/logs` of the repository (`/var/log/elpis` under systemd) | Folder of the access log `app.log.jsonl` |
 | `ELPIS_APP_LOG_MAX_MO` | `8` | Size in MB at which `app.log.jsonl` is rotated (1 to 1024) |
 | `ELPIS_APP_LOG_ROTATIONS` | `3` | Rotated files kept, `app.log.jsonl.1` to `.N` (1 to 50) |
 | `ACCESS_LOG_TRUSTED_PROXIES` | `127.0.0.0/8,::1` | Proxies (addresses or networks, comma-separated) whose `X-Forwarded-For` is believed for the client address of the access log and of the security journal |
 | `ELPIS_GROUPE_JOURNAL` | `elpis-journal` | Group that reads the journal folders (`audit setup`; `adm` is accepted) |
-| `ELPIS_GROUPE_CLE` | `elpis-cle` | Group of the signing key when the service account's primary group is not its own (`audit setup`) |
-| `ELPIS_USER` | — | Service account for `audit setup`, `service install` and `./install.sh` run as root; see [Production mode](#production-mode-systemd) |
+| `ELPIS_GROUPE_CLE` | `elpis-cle` | Group of the signing key when the service account's primary group is not its own (`audit setup`); with one account per service, group of the keys of main and the console, also set in their units (group of the remote backup credentials the console writes) |
+| `ELPIS_USER` | — | Service account (one account for every service), or the operator with one account per service, for `audit setup`, `service install` and `./install.sh` run as root; see [Production mode](#production-mode-systemd) |
+| `ELPIS_COMPTE_UNIQUE` | — | `1`: `service install` keeps one account for every service instead of one per service ([operations.md](operations.md#service-accounts)) |
+| `ELPIS_COMPTES` | set in the units | Mode of the service accounts (`separes`, `unique`, `repli`), shown by the console and `./elpis doctor`; not to be set by hand |
+| `ELPIS_GROUPE_DONNEES` | set in the units | With one account per service, `elpis-donnees`: the services create their shared files for this group; not to be set by hand |
 
 #### Secrets vault
 
@@ -966,7 +1003,7 @@ wins; setup, backup and key change are in [operations.md](operations.md#secrets-
 | Variable | Default | Description |
 |---|---|---|
 | `ELPIS_VAULT_KEY` | — | The key itself: 32 bytes in canonical base64 (44 characters, as printed by `base64`) or 64 hexadecimal digits; a key made of one repeated byte is refused. An invalid value is an error, with no fallback |
-| `ELPIS_VAULT_KEY_PATH` | `/etc/elpis/vault.key` | Key file, same format, created by `sudo ./elpis vault setup` (0440, root and the key group of the security journal). A path set here must exist: no fallback |
+| `ELPIS_VAULT_KEY_PATH` | `/etc/elpis/vault.key` | Key file, same format, created by `sudo ./elpis vault setup` (0440, root and the key group of the security journal). A path set here must exist: no fallback. Keys handed by systemd: set by the units of main and the console (`%d/vault.key`) |
 | — | `user_db/.vault.key` | Fallback when neither is set and `/etc/elpis/vault.key` does not exist: created 0600 next to the database when the first secret is saved, and only while the vault is empty. It travels with the backups of `user_db/`, so `./elpis doctor` warns while it is in use |
 
 - **Prefer the key file to `ELPIS_VAULT_KEY`.** A value in `.env` sits in a file of the repository
@@ -1294,6 +1331,7 @@ this machine is renamed by the console, which never runs Docker: the tool host o
 container (``POST /api/internal/sandboxes/destroy``) and empties its /work when the console has no right to
 (``POST /api/internal/sandbox/purge-work``, same timestamp). An enforced network profile destroys the
 container on the account's host.
+Cleanup of this machine's own sandbox folder only ever goes to a tool host declared on loopback with a service token, never to a remote one.
 Every account deletion also calls ``POST /api/internal/account/purge`` on
 each declared host that has a URL and a service token (same signed envelope), before the account is deleted: the site credentials in the account's AX memory
 are removed from the host's database. A host that is unreachable or fails refuses the deletion

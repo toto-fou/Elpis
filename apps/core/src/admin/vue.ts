@@ -39,6 +39,7 @@ import type { Journal } from "../journal";
 import { getSharedSecret, listSharedConnectors } from "../llm/connecteurs";
 import { testConnector } from "../llm/fournisseurs/decouverte";
 import { getLlmHealth } from "../llm/sante";
+import { lireDernierEnvoi } from "../ops/sauvegarde-distante";
 import { allToolNames } from "../outils/categories";
 import { getServiceUrl, isConfigured, ping, RagServiceError } from "../rag/client";
 import { configVoix, drapeauxVoix } from "../voix/config";
@@ -371,13 +372,13 @@ function prefixe(v: unknown, n: number): unknown {
   throw new ErreurPython("TypeError", `'${nomTypePy(v)}' object is not subscriptable`);
 }
 
-/** Sous-section `backup.remote` réduite à ce que lit la vue (`get_remote_config` : mêmes conversions qui lèvent). */
+/** Sous-section `backup.remote` réduite à ce que lit la vue (`get_remote_config` : mêmes conversions qui lèvent, dernier envoi du fichier d'état). */
 function sauvegardeDistante(): Dict {
   const sauvegarde = getPy(readConfigJson(), "backup", {});
   const brut = estDict(sauvegarde) ? getPy(sauvegarde, "remote", {}) : {};
   const r = estDict(brut) ? brut : {};
   intPy(veritePy(getPy(r, "timeout_sec", 300)) ? getPy(r, "timeout_sec", 300) : 300);
-  const dernier = estDict(getPy(r, "last_send", null)) ? (getPy(r, "last_send", null) as Dict) : {};
+  const dernier = lireDernierEnvoi(r);
   const actif = veritePy(getPy(r, "enabled", false));
   const derniereFois: Dict = {
     at: getPy(dernier, "at", 0),

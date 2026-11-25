@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/ops/restauration.ts — restauration d'une sauvegarde de la console (routes/admin/lifecycle.py : _restore_from_zip) : base par l'API de sauvegarde de SQLite, chemins prouvés sous leur dossier, sandboxes sans suivre de lien. */
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import type { Stats } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { ErreurPython, floatPy, pyJsonDumps, pyJsonLoads, versFlottantPy } from "@elpis/commun";
+import { ecrireSecret, ErreurPython, floatPy, pyJsonDumps, pyJsonLoads, versFlottantPy } from "@elpis/commun";
 import { config, pyJoin, realpathPy, writeTextAtomic } from "@elpis/config";
 import { initialiserBase, prendreVerrouSchema } from "@elpis/db";
 import type { Base } from "@elpis/db";
@@ -150,6 +151,21 @@ export interface ResultatRestauration {
   dbReplaced: boolean;
 }
 
+/** Fichier privé restauré en 0600 par un nouveau fichier renommé ; un dossier ou le fichier d'un autre compte sont refusés comme une écriture en place (EISDIR, EACCES), jamais écrits. */
+function ecrirePrive(dest: string, donnees: Buffer): void {
+  let st: Stats | undefined;
+  try {
+    st = lstatSync(dest);
+  } catch (e) {
+    if ((e as { code?: unknown }).code !== "ENOENT") throw e;
+  }
+  if (st !== undefined && (st.isDirectory() || st.uid !== process.geteuid?.())) {
+    const [code, errno] = st.isDirectory() ? ["EISDIR", -21] : ["EACCES", -13];
+    throw Object.assign(new Error(`${code}: open '${dest}'`), { code, errno, syscall: "open", path: dest });
+  }
+  ecrireSecret(dest, donnees, 0o600);
+}
+
 function estRefusEcriture(e: unknown): boolean {
   return (
     estErreurOs(e) || e instanceof ErreurCheminBac || (e instanceof ErreurPython && e.type === "ValueError")
@@ -213,8 +229,8 @@ export async function restoreFromZip(
       } else {
         const dest = destSous(racine, rel);
         mkdirParentsPy(path.dirname(dest));
-        writeFileSync(dest, donnees);
-        if (options.prive) chmodSync(dest, 0o600);
+        if (options.prive) ecrirePrive(dest, donnees);
+        else writeFileSync(dest, donnees);
       }
       restored.push(entree);
     } catch (e) {

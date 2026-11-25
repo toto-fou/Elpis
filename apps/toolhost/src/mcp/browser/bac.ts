@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import {
   closeSync,
   constants,
+  fchmodSync,
   fstatSync,
   lstatSync,
   mkdirSync,
@@ -203,7 +204,7 @@ async function jetonsDuService(username: string): Promise<JetonsCompte | null> {
   return j;
 }
 
-/** Certificat de l'autorité posé dans le dossier de l'agent du bac (où le bac écrit) s'il manque ou diffère, sans jamais suivre de lien : lu en O_NOFOLLOW|O_NONBLOCK (fichier ordinaire seul), écrit dans un temporaire O_EXCL|O_NOFOLLOW renommé sur la cible (rename remplace un lien sans le suivre) ; vrai s'il a changé (rotation). */
+/** Certificat de l'autorité posé dans le dossier de l'agent du bac (où le bac écrit) s'il manque ou diffère, sans jamais suivre de lien : lu en O_NOFOLLOW|O_NONBLOCK (fichier ordinaire seul), écrit dans un temporaire O_EXCL|O_NOFOLLOW en 0644 quel que soit l'umask (lu par le compte du bac) puis renommé sur la cible (rename remplace un lien sans le suivre) ; vrai s'il a changé (rotation). */
 export function poserCertificat(chemin: string, pem: string): boolean {
   let present = false;
   try {
@@ -225,6 +226,7 @@ export function poserCertificat(chemin: string, pem: string): boolean {
     0o644,
   );
   try {
+    fchmodSync(fd, 0o644);
     writeSync(fd, pem);
   } finally {
     closeSync(fd);

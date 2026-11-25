@@ -2,13 +2,21 @@
 /** apps/core/src/rag/qdrant.ts — côté Qdrant de l'indexation : port du client, effacements (collection de toutes générations, document, génération) et marqueurs de reprise quand Qdrant est injoignable. */
 import { closeSync, constants, openSync, readdirSync, unlinkSync } from "node:fs";
 
+import { rstripPy } from "@elpis/commun";
 import { configRag } from "@elpis/config";
 import { ClientQdrant, ErreurRag } from "@elpis/rag";
-import type { Distance, InfoCollection, PointAEcrire } from "@elpis/rag";
+import type { Distance, InfoCollection, OptionsQdrant, PointAEcrire } from "@elpis/rag";
 import { ouvrirDossierSous } from "@elpis/securite";
 
 import { journal } from "../journal";
-import { analyserNomQdrantRag, assurerRacineMagasinRag, estNomQdrantRag, estUuidRag } from "./magasin";
+import {
+  analyserNomQdrantRag,
+  assurerRacineMagasinRag,
+  estNomQdrantRag,
+  estUuidRag,
+  modeDossierRag,
+  modeFichierRag,
+} from "./magasin";
 
 const log = journal("rag");
 
@@ -30,9 +38,31 @@ export interface PortQdrantRag {
   supprimerCollection(nom: string, signal?: AbortSignal): Promise<boolean>;
 }
 
+let dernierRefus = 0;
+
+/** Journal serveur d'un refus d'accès de Qdrant (une ligne par minute) : nomme la variable que l'utilisateur ne voit jamais. */
+function journaliserRefus(statut: number): void {
+  const maintenant = Date.now();
+  if (maintenant - dernierRefus < 60_000) return;
+  dernierRefus = maintenant;
+  log.error(
+    `Qdrant a refusé l'accès (HTTP ${statut}) : vérifier QDRANT_API_KEY_FILE (ou QDRANT_API_KEY) du service.`,
+  );
+}
+
+/** Seul constructeur de `ClientQdrant` du cœur : porte la clé d'API de l'environnement, seulement vers l'adresse configurée (jamais vers une adresse saisie à l'essai). */
+export function clientQdrant(
+  url: string = configRag().qdrant_url,
+  options: Pick<OptionsQdrant, "delaiMs" | "fetch"> = {},
+): ClientQdrant {
+  const conf = configRag();
+  const cleApi = rstripPy(url, "/") === rstripPy(conf.qdrant_url, "/") ? conf.qdrant_api_key : "";
+  return new ClientQdrant({ ...options, url, cleApi, surRefusAcces: journaliserRefus });
+}
+
 /** Client Qdrant de la configuration courante (`rag.qdrant_url`, relue à chaque appel). */
 export function clientQdrantRag(): PortQdrantRag {
-  return new ClientQdrant({ url: configRag().qdrant_url });
+  return clientQdrant();
 }
 
 const DOSSIER_MARQUEURS = ".purges";
@@ -51,10 +81,10 @@ export function noterPurgeQdrant(marqueur: string): void {
   if (!RE_MARQUEUR.test(marqueur)) throw new Error(`marqueur de purge invalide : ${marqueur}`);
   const dfd = ouvrirDossierSous(assurerRacineMagasinRag(), DOSSIER_MARQUEURS, {
     creer: true,
-    modeDossier: 0o700,
+    modeDossier: modeDossierRag(),
   });
   try {
-    closeSync(openSync(viaFd(dfd, marqueur), O_CREAT | O_WRONLY | O_NOFOLLOW, 0o600));
+    closeSync(openSync(viaFd(dfd, marqueur), O_CREAT | O_WRONLY | O_NOFOLLOW, modeFichierRag()));
   } finally {
     closeSync(dfd);
   }

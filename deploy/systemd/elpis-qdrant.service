@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis-qdrant.service — base de vecteurs du RAG : gabarit rendu par « sudo ./elpis service install ».
+[Unit]
+Description=Elpis — qdrant
+PartOf=@PREFIX@.target
+
+[Service]
+Type=simple
+@COMPTE@
+SyslogIdentifier=@PREFIX@-qdrant
+WorkingDirectory=@WORKDIR@
+@ENV@
+@CLES@
+EnvironmentFile=-@ROOT@/.env
+UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH
+InaccessiblePaths=-@VAULT_KEY_SYS@
+InaccessiblePaths=-@VAULT_KEY_REPLI@
+# Ni le socket Docker ni la clé de signature du journal de sécurité : ce service ne signe aucune ligne.
+InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock
+InaccessiblePaths=-@AUDIT_KEY_SYS@
+ExecStart=@EXEC@
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=30
+
+# Durcissement complet : seul son dossier (stockage, repère d'initialisation) en écriture, binaire et réglages en lecture seule.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+@RW@
+ProtectHome=@PROTECT_HOME@
+PrivateTmp=yes
+PrivateIPC=yes
+RemoveIPC=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# Boucle locale seulement (le cœur et le RAG l'appellent en 127.0.0.1) : pas l'adresse du réseau de la machine, aucune sortie réseau.
+IPAddressDeny=any
+IPAddressAllow=localhost
+UMask=@UMASK@
+MemoryMax=50%
+TasksMax=1024
+
+[Install]
+WantedBy=@PREFIX@.target

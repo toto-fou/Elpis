@@ -233,6 +233,8 @@ export interface SourceCle {
   cleEnv?: string | null | undefined;
   cleConfig?: unknown;
   fichierCle: string;
+  /** `APP_ENCRYPTION_KEY_PATH` : fichier explicite lu seulement (jamais créé, `fichierCle` ignoré). */
+  fichierExplicite?: string | null | undefined;
 }
 
 function critique(message: string): null {
@@ -384,11 +386,37 @@ function creerCle(fichier: string): string | null {
   return cleOuRefus(fichier, lireCle(fichier));
 }
 
-/** Clé maître : env, config.json, sinon le fichier dédié (créé s'il est absent, sous `.encryption_key.lock` v1.1) ; `null` (CRITICAL) sinon. */
+/** Clé du fichier explicite `APP_ENCRYPTION_KEY_PATH`, lu seulement ; `null` (CRITICAL nommant la variable) s'il manque ou est invalide. */
+function lireCleExplicite(fichier: string): string | null {
+  const dit = (motif: string): null =>
+    critique(
+      `APP_ENCRYPTION_KEY_PATH (${fichier}) ${motif} : fichier laissé intact, chiffrement indisponible. ` +
+        "Le fournir au service, ou définir APP_ENCRYPTION_KEY.",
+    );
+  if (!isAbsolute(fichier)) return dit("n'est pas un chemin absolu");
+  const lue = lireCle(fichier);
+  if (lue.absent) return dit("est introuvable");
+  if (!lue.texte) return dit(lue.motif);
+  return coerceToFernetKey(lue.texte);
+}
+
+let cleConfigSignalee = false;
+
+/** Clé maître : env, `APP_ENCRYPTION_KEY_PATH` s'il est donné (l'installation le pose : `app.encryption_key` de config.json alors ignorée, signalée une fois), config.json, sinon le fichier dédié (créé s'il est absent, sous `.encryption_key.lock` v1.1) ; `null` (CRITICAL) sinon. */
 export function loadOrCreateKey(source: SourceCle): string | null {
   const env = texteDefini(source.cleEnv);
   if (env) return coerceToFernetKey(env);
   const config = source.cleConfig;
+  const explicite = texteDefini(source.fichierExplicite);
+  if (explicite) {
+    if (config !== null && config !== undefined && config !== "" && !cleConfigSignalee) {
+      cleConfigSignalee = true;
+      journalDe("encryption").warn(
+        "app.encryption_key de config.json ignorée : la clé vient de APP_ENCRYPTION_KEY_PATH (installation).",
+      );
+    }
+    return lireCleExplicite(explicite);
+  }
   if (config !== null && config !== undefined && typeof config !== "string") {
     return critique(
       "app.encryption_key de config.json n'est pas un texte : clé refusée (l'écrire entre guillemets).",
@@ -437,6 +465,12 @@ export function configurerChiffrement(s: SourceCle): void {
   lecteur = null;
 }
 
+/** Clé d'un fichier lisible et valide, `null` sinon (rien n'est journalisé ni créé). */
+function cleDuFichierSansCreer(fichier: string): string | null {
+  const lue = lireCle(fichier);
+  return !lue.absent && lue.texte ? coerceToFernetKey(lue.texte) : null;
+}
+
 /** Clé maître déjà posée (env, config.json, fichier lisible), jamais créée ; `null` sinon. */
 function cleExistante(s: SourceCle): string | null {
   const env = texteDefini(s.cleEnv);
@@ -444,6 +478,8 @@ function cleExistante(s: SourceCle): string | null {
   if (s.cleConfig !== null && s.cleConfig !== undefined && typeof s.cleConfig !== "string") return null;
   const json = texteDefini(s.cleConfig as string | null | undefined);
   if (json) return coerceToFernetKey(json);
+  const explicite = texteDefini(s.fichierExplicite);
+  if (explicite) return isAbsolute(explicite) ? cleDuFichierSansCreer(explicite) : null;
   if (!isAbsolute(s.fichierCle)) return null;
   const lue = lireCle(s.fichierCle);
   return !lue.absent && lue.texte ? coerceToFernetKey(lue.texte) : null;

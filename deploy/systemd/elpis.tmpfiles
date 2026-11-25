@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: MIT
+# deploy/systemd/elpis.tmpfiles — dossier d'exécution partagé par main, la console et l'hôte d'outils (verrous, journaux des tours, repères), rendu dans /etc/tmpfiles.d/.
+d /run/@PREFIX@ @RUN@ -

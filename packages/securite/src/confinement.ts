@@ -96,7 +96,7 @@ function code(e: unknown): string {
   return String((e as { code?: unknown }).code ?? "");
 }
 
-/** `open_dir_beneath` : dossier `base/rel` ouvert composant par composant sans suivre de lien (`O_PATH`) ; `creer` fait les dossiers manquants ; `lisible` ouvre le dernier en lecture (listage). */
+/** `open_dir_beneath` : dossier `base/rel` ouvert composant par composant sans suivre de lien (`O_PATH`) ; `creer` fait les dossiers manquants (en `modeDossier`, rechmodés seulement si l'umask l'a réduit : un setgid hérité du parent reste) ; `lisible` ouvre le dernier en lecture (listage). */
 export function ouvrirDossierSous(
   base: string,
   rel = "",
@@ -114,17 +114,18 @@ export function ouvrirDossierSous(
         suivant = openSync(viaFd(fd, nom), drapeaux);
       } catch (e) {
         if (code(e) !== "ENOENT" || !options.creer) throw e;
+        const mode = options.modeDossier;
         let cree = false;
         try {
-          mkdirSync(viaFd(fd, nom), 0o777);
+          mkdirSync(viaFd(fd, nom), mode ?? 0o777);
           cree = true;
         } catch (x) {
           if (code(x) !== "EEXIST") throw x;
         }
         suivant = openSync(viaFd(fd, nom), drapeaux);
-        const mode = options.modeDossier;
         const cible = viaFd(suivant);
-        if (cree && mode !== undefined) tenter(() => chmodSync(cible, mode));
+        if (cree && mode !== undefined && (fstatSync(suivant).mode & 0o777) !== (mode & 0o777))
+          tenter(() => chmodSync(cible, mode));
       }
       closeSync(fd);
       fd = suivant;

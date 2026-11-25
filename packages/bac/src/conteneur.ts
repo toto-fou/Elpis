@@ -5,6 +5,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, w
 import { lookup } from "node:dns/promises";
 
 import {
+  bitsInterdits,
   comparePointsDeCode,
   decoderUtf8,
   estChiffresPy,
@@ -14,6 +15,7 @@ import {
   journalDe,
   lowerPy,
   messageErreurOs,
+  modePartage,
   ouPy,
   prefixePy,
   pyJsonLoads,
@@ -239,12 +241,12 @@ export async function resolveProfileDomains(profil: ProfilReseau): Promise<Recor
   return resolus;
 }
 
-/** `_racine_privee` : racine des bacs réservée au compte de service (0700). */
+/** `_racine_privee` : racine des bacs réservée au compte de service (0700), ou au groupe des données (0770 : main y élague verrous d'écriture et cache Office). */
 export function racinePrivee(racine: string): void {
   try {
-    mkdirSync(racine, { recursive: true, mode: 0o700 });
+    mkdirSync(racine, { recursive: true, mode: modePartage(0o700) });
     const st = statSync(racine);
-    if (st.uid === process.getuid?.() && st.mode & 0o077) chmodSync(racine, 0o700);
+    if (st.uid === process.getuid?.() && st.mode & bitsInterdits()) chmodSync(racine, modePartage(0o700));
   } catch (e) {
     journalDe("sandbox").warn(`[sandbox] ${racine} : droits non restreints (${(e as Error).message})`);
   }
@@ -919,8 +921,10 @@ export class UserSandbox implements BacPourAgent {
     }
     const dossierRelais = pyJoin(pyParent(pyParent(this.sandboxPath)), RELAY_DIR);
     try {
-      if (!existsSync(dossierRelais) || !statSync(dossierRelais).isDirectory())
+      if (!existsSync(dossierRelais) || !statSync(dossierRelais).isDirectory()) {
         mkdirSync(dossierRelais, { mode: 0o755 });
+        chmodSync(dossierRelais, 0o755);
+      }
     } catch (e) {
       throw new ExecError(`Dossier du relais Git ${dossierRelais} : ${messageErreurOs(e, dossierRelais)}`);
     }

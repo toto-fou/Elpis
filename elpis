@@ -577,6 +577,11 @@ _render_units() {
             echo "[Service]"
             echo "Type=simple"
             echo "User=$run_user"
+            # Jetons du navigateur des bacs : dossier d'exécution privé de l'hôte d'outils, vidé à l'arrêt ; main le lit pour les contrôles des tâches.
+            case "$s" in
+                toolhost) echo "RuntimeDirectory=${UNIT_PREFIX}-toolhost"; echo "RuntimeDirectoryMode=0700"; echo "RuntimeDirectoryPreserve=restart" ;;
+                main)     echo "Environment=ELPIS_TOOLHOST_RUN_DIR=/run/${UNIT_PREFIX}-toolhost" ;;
+            esac
             # Identifiant syslog du service (journald, rsyslog) au lieu de « node » ou « uvicorn ».
             echo "SyslogIdentifier=${UNIT_PREFIX}-$s"
             echo "WorkingDirectory=$SPEC_DIR"
@@ -796,7 +801,7 @@ print(" ".join(str(x.get("id")) for x in p if isinstance(x, dict) and x.get("mod
 
 # Navigateur, dans la sandbox de chaque compte seulement : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
 doctor_navigateur_bac() {
-    local ca cpu pw nm sb s d j n=0
+    local ca cpu pw nm sb s d j jt n=0
     # Navigateur non installé : déjà signalé par le contrôle « service navigateur ».
     [ -d "$ROOT/browser-service/node_modules" ] || return 0
     ca="${ELPIS_BROWSER_CA_DIR:-$ROOT/user_db/browser-relay-ca}"
@@ -813,9 +818,12 @@ except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
     check "navigateur dans le bac : service, modules et headless shell lisibles par l'UID du bac (o+rx)" "chmod o+rx ${nm:-browser-service/node_modules} browser-service/dist ; chmod o+r browser-service/dist/main.mjs" \
         test "$(find "$ROOT/browser-service" "$ROOT/browser-service/dist" "${nm:-/nonexistent}" "$pw" -maxdepth 0 -perm -o+rx 2>/dev/null | wc -l)" = 4 -a -n "$(find "$ROOT/browser-service/dist/main.mjs" -perm -o+r 2>/dev/null)"
     sb="$(core_cmd config SANDBOX_DIR 2>/dev/null)"
+    # Jetons du service : dossier d'exécution de l'hôte d'outils (unité systemd) ou, sans systemd, $RUN_DIR/navigateur.
+    jt="$RUN_DIR/navigateur"
+    if systemd_active && [ "$(systemctl show -p WorkingDirectory --value "${UNIT_PREFIX}-toolhost.service" 2>/dev/null)" = "$ROOT" ]; then jt="/run/${UNIT_PREFIX}-toolhost/navigateur"; fi
     for s in "${sb:-/nonexistent}"/*/.elpis-agent/browser.sock; do
         [ -S "$s" ] || continue
-        d="$(dirname "$(dirname "$s")")"; j="$d/.browser-service.token"; n=$((n+1))
+        d="$(dirname "$(dirname "$s")")"; j="$jt/${d##*/}.service.token"; n=$((n+1))
         if [ -s "$j" ] && sante_navigateur_bac "$s" "$j"; then
             check "navigateur du bac ${d##*/} : en marche, relais de l'hôte à l'écoute" "./elpis logs toolhost ; ./elpis logs browser ${d##*/}" test ! -L "$d/.elpis-agent/browser-relay.sock" -a -S "$d/.elpis-agent/browser-relay.sock"
         else

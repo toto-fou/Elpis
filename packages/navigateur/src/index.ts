@@ -18,7 +18,14 @@ export {
 } from "./session";
 export { hostAddresses, jugeRelaisBac, reglagesJugeBac } from "./url";
 export type { HoteNavigateur, OptionsGardeNavigateur, ProfilRelais } from "./url";
-export { cheminsNavigateurBac, jetonDuBac, requeteService, serviceNavigateur, servicesDesBacs } from "./mode";
+export {
+  cheminsNavigateurBac,
+  dossierJetonsNavigateur,
+  jetonDuBac,
+  requeteService,
+  serviceNavigateur,
+  servicesDesBacs,
+} from "./mode";
 export type { ServiceNavigateur } from "./mode";
 export {
   autoriteARenouveler,

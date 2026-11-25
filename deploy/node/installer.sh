@@ -148,6 +148,15 @@ preparer_npm() {
         || die "npm ci échoué (réseau vers le registre npm ? hors ligne : ./install.sh --offline <paquet>)."
 }
 
+# construire LIBELLÉ ARGS… : npm ARGS… à la racine, avec le npm de la construction ; tuée par le système (code 137, le plus souvent faute de mémoire), le dit.
+construire() {
+    local libelle="$1" rc=0
+    shift
+    ( cd "$ROOT" && PATH="$NPM_CHEMIN" npm "$@" ) || rc=$?
+    [ "$rc" -ne 137 ] || die "$libelle : construction arrêtée par le système, probablement faute de mémoire (prévoir environ 1,5 Go libres, swap compris) ; fermez des applications ou ajoutez du swap, puis relancez."
+    return "$rc"
+}
+
 # installer_bundle LIBELLÉ DIST DOSSIER_DU_PAQUET CONTRÔLE ESPACE_NPM ANTÉRIEUR : bundle du paquet hors ligne (vérifié), sinon npm ci et construction (`npm run build -w ESPACE`, ou le script ESPACE s'il ne commence pas par @) ; un bundle abîmé est remplacé d'un coup.
 installer_bundle() {
     local libelle="$1" dist="$2" paquet="$3" controle="$4" espace="$5" anterieur="$6" node neuf rel
@@ -180,7 +189,7 @@ installer_bundle() {
     preparer_npm
     local construction=(run build -w "$espace")
     case "$espace" in @*) ;; *) construction=(run "$espace") ;; esac
-    ( cd "$ROOT" && PATH="$NPM_CHEMIN" npm "${construction[@]}" ) \
+    construire "$libelle" "${construction[@]}" \
         || die "Construction échouée ($libelle) ; l'hôte d'outils compile node-pty : build-essential et python3 requis (deploy/prerequis-apt.txt)."
     "$controle" "$dist" "$node" || die "$libelle construit mais inutilisable ($MOTIF)."
     ok "$libelle construit ($rel) : $MOTIF"
@@ -203,7 +212,7 @@ installer_web() {
     fi
     info "Frontend : npm ci puis construction (Vite)…"
     preparer_npm
-    ( cd "$ROOT" && PATH="$NPM_CHEMIN" npm run build -w @elpis/web ) || die "Construction du frontend échouée."
+    construire "Frontend" run build -w @elpis/web || die "Construction du frontend échouée."
     [ -f "$DIST_WEB/.vite/manifest.json" ] || die "Frontend construit sans manifeste (frontend/dist/.vite/manifest.json)."
     ok "Frontend construit (frontend/dist)."
 }

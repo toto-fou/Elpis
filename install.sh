@@ -280,6 +280,8 @@ note_warn() { warn "$*"; WARNINGS+=("$*"); }
 DRY_BLOQUANTS=(); DRY_SUDO_REQUIS=(); DRY_SUDO_FACULTATIF=(); DRY_SANS=(); DRY_RESEAU=()
 bloquer() { warn "$*"; DRY_BLOQUANTS+=("$*"); }
 have() { command -v "$1" >/dev/null 2>&1; }
+# Mot entre guillemets simples pour sh -c.
+cite_sh() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 
 # ask_yn QUESTION DÉFAUT(0|1) → 0/1 sur stdout
 ask_yn() {
@@ -578,6 +580,47 @@ installer_prerequis() {
     if [ "$raison" = apt-get ]; then die "Prérequis système manquants : apt-get a échoué."; fi
     die "Prérequis système manquants ($raison) : rien n'a été installé."
 }
+# Bits « autres » d'un chemin (0 s'il est illisible).
+bits_autres() { echo $(( 8#$(stat -c %a -- "$1" 2>/dev/null || echo 0) & 7 )); }
+# Ce qui ferme le dépôt aux comptes des services : le premier dossier, du dépôt à « / », qu'ils ne traversent pas (comme ./elpis), sinon le dépôt si son code leur est illisible ; échec si rien.
+depot_ferme() {
+    local d="$ROOT"
+    while [ $(( $(bits_autres "$d") & 1 )) -ne 0 ]; do
+        [ "$d" = / ] && { [ $(( $(bits_autres "$ROOT/elpis") & 4 )) -ne 0 ] && return 1; echo "$ROOT"; return 0; }
+        d="$(dirname -- "$d")"
+    done
+    echo "$d"
+}
+# Première installation où des services systemd peuvent être choisis : un dépôt fermé à leurs comptes (dossier personnel, 0700 sous Debian) arrête tout avant la moindre installation, avec la commande qui le déplace ; choix encore ouvert : question.
+if [ "$ADMIN_OK" -eq 1 ] && ! config_presente && [ "${ELPIS_COMPTE_UNIQUE:-0}" != 1 ] \
+        && { [ "$AFTER" = service ] || { [ -z "$AFTER" ] && [ "$INTERACTIVE" -eq 1 ] && have systemctl; }; } && ferme="$(depot_ferme)"; then
+    s="$({ [ "$AS_ROOT" -eq 1 ] && [ -z "${SUDO_USER:-}" ]; } || echo "sudo ")"
+    if [ "$ferme" = "$ROOT" ]; then
+        remede="chmod -R o+rX $(cite_sh "$ROOT") && cd $(cite_sh "$ROOT") && ./install.sh"
+    else
+        cible=/opt/elpis; pre=""
+        if [ -d "$cible" ] && [ -z "$(ls -A "$cible" 2>/dev/null)" ]; then pre="${s}rmdir $cible && "
+        elif [ -e "$cible" ]; then cible="/opt/<dossier libre>"; fi
+        [ -d "$ROOT/venv" ] && pre="${pre}${s}rm -rf $(cite_sh "$ROOT/venv") && "
+        remede="${pre}${s}mv $(cite_sh "$ROOT") $cible && cd $cible && ./install.sh"
+    fi
+    msg="Un compte par service impossible d'ici : $ferme n'est pas accessible aux comptes des services, qui ne pourraient pas lire le code. Rien n'est installé ; relancez ainsi : $remede (mêmes options). Sinon : ./install.sh --start (sans service), ou ELPIS_COMPTE_UNIQUE=1 ./install.sh (services sous un seul compte)."
+    if [ -n "$AFTER" ]; then
+        [ "$DRY_RUN" -eq 1 ] || die "$msg"
+        bloquer "$msg"
+    else
+        q="Dépôt inaccessible aux comptes des services ($ferme) : pas de services à un compte par service d'ici."
+        go=""
+        if [ "$PLAIN" -eq 0 ] && have python3; then
+            go="$(python3 "$ROOT/deploy/wizard.py" ask --title "Elpis — installation" --question "$q" \
+                "quit:Arrêter:$remede" "here:Continuer ici:sans service, ou services sous un seul compte")" || go=quit
+        else
+            warn "$q"
+            [ "$(ask_yn "Continuer ici (sans service, ou services sous un seul compte) ?" 0)" -eq 1 ] && go=here
+        fi
+        [ "$go" = here ] || die "$msg"
+    fi
+fi
 # Le socle d'abord : l'assistant tourne en Python (--dry-run : avec les autres groupes, dans son plan).
 [ "$DRY_RUN" -eq 1 ] || installer_prerequis socle
 
@@ -595,8 +638,6 @@ groupes_manquants() {
     local g
     for g in $(id -Gn "$APP_USER"); do id -Gn | tr ' ' '\n' | grep -qxF -- "$g" || echo "$g"; done
 }
-# Mot entre guillemets simples pour sh -c.
-cite_sh() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 
 # =============================================================================
 #  1. Les choix : assistant par pages, questions en lignes, ou options seules
@@ -765,7 +806,7 @@ cat <<EOF
     LibreOffice       : $(yn "$WITH_OFFICE")
     Caddy (HTTPS)     : $(yn "$WITH_CADDY")
     configuration     : $([ "$TUI" -eq 1 ] && echo "réponses de l'assistant" || yn "$DO_CONFIGURE")
-    démarrage         : $AFTER
+    démarrage         : $AFTER$([ "$AFTER" = service ] && [ "${ELPIS_COMPTE_UNIQUE:-0}" = 1 ] && echo " (un seul compte : ELPIS_COMPTE_UNIQUE=1)")
     source            : ${OFFLINE_DIR:-en ligne}
 EOF
 echo
@@ -1301,8 +1342,11 @@ if config_presente; then
         service)
             info "Services systemd…"
             if [ "$ADMIN_OK" -eq 1 ]; then
-                $SUDO env ELPIS_USER="$COMPTE_SERVICES" "$ROOT/elpis" service install \
+                $SUDO env ELPIS_USER="$COMPTE_SERVICES" ELPIS_COMPTE_UNIQUE="${ELPIS_COMPTE_UNIQUE:-0}" "$ROOT/elpis" service install \
                     || note_warn "Installation des services échouée (sudo ./elpis service install)."
+                # Repli sur un seul compte, quelle qu'en soit la cause (umask, relance après --start) : jamais une fin « verte ».
+                grep -qsx 'Environment="ELPIS_COMPTES=repli"' /etc/systemd/system/elpis-main.service \
+                    && note_warn "Services sous un seul compte (repli) : le code n'est pas accessible aux comptes des services ; ./elpis doctor dit pourquoi et quoi faire."
             else
                 note_warn "Services systemd : droits administrateur requis (sudo ./elpis service install)."
             fi

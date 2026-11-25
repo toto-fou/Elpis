@@ -41,6 +41,13 @@ follow [SemVer](https://semver.org/).
   The browser's refusals (the relay's page, the `pw_*` tools) no longer name the profile either: they
   say what the sandbox network refuses, in the same words; the host journal still names the profile.
 - **Console: no RAG HTTPS port.** The HTTPS page and the HTTPS toggle no longer show or write a RAG port (`security.https.rag_port`); the RAG is internal-only. The toggle drops a leftover `rag_port` from `config.json`.
+- **`install.sh`: a clone the service accounts cannot reach is caught before installing
+  anything.** On a first installation, a folder between `/` and the clone that other accounts
+  cannot pass through (a home folder), or code they cannot read, stops `--service`, or is asked
+  about when the startup is not chosen yet, with the command that moves the clone to `/opt/elpis`
+  (or opens it). Services that still end up under one account make the installation end with a
+  warning. `ELPIS_COMPTE_UNIQUE=1 ./install.sh` keeps one account; it is now passed on to
+  `service install` and shown in the summary.
 
 ### Security
 
@@ -276,6 +283,18 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Installing on a machine with 2 GB of memory: the interface build fits.** The build compressed
+  all its files at once and ran out of memory on a small machine with a desktop session; it now
+  compresses two at a time, which brings its peak from about 2.3 GB to 1.4 GB for the same files.
+  When the system kills the build outright (most often for lack of memory), `install.sh` and
+  `./elpis upgrade` say it probably ran out of memory and what to do (close applications or add
+  swap) instead of a bare npm error.
+- **`./elpis doctor` with one account per service: no false alarms.** Under `sudo`, settings
+  such as `executors.allow_sudo` are read again, and the sandbox browsers are looked up where the
+  tool host reads them, not in root's cache. Run by the operator, who has no Docker access in this
+  mode, Docker and the sandbox image are reported as not verifiable from that account (`doctor`
+  with `sudo`) instead of two faults, unless Docker is missing or stopped (its service, its socket
+  and its snap all inactive); no swap alarm comes from an unreachable Docker.
 - **Chat: sandbox file links accept `/work` paths.** In inline code, `/work/a/b.md` and `/work/a/b.md:12` open the same file as `a/b.md` and are shown without the `/work/` prefix; `/work` and `/work/` stay as typed. A Markdown link to a `/work` file opens it in the editor instead of navigating to a broken URL (a link to `/work` itself opens nothing); links to other folders, to most files without an extension (`Makefile`, `Dockerfile` and dotfiles do open) and to percent-encoded names still navigate.
 
 ## 0.1.5 — 2026-11-22

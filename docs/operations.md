@@ -223,6 +223,7 @@ files aside). Every walk leaves the secrets, the relay authority, `run/chat_runs
 | `.backup_ssh_key`, `.backup_rsync_password` | `0640 elpis-admin:elpis-cle` (main runs the scheduled remote backups) |
 | `.backup_known_hosts` | `0660 elpis-admin:elpis-cle` (OpenSSH, run by main or the console, adds new hosts to it) |
 | `user_db/browser-relay-ca/` | `0700 elpis-toolhost` |
+| `user_db/run/` | `2770 root:elpis-donnees`, created by `service install` before the chart cache (main and the console create their folders in it) |
 | `user_db/run/chat_runs/`, `user_db/run/task_resume/` | `0700 elpis-main`, content included |
 | chart cache (`user_db/run/charts/`, `CHART_CACHE_DIR`) | `2750 elpis-main:elpis-donnees`, folders `2750`, files `0640`: main writes it, the tool host reads the charts of Office documents; left out of the walk of the folder that holds it |
 | `user_db/run/office_locks/`, `user_db/run/navigateur/` (left by a former single account) | `0700 elpis-toolhost`, content included; under systemd the tool host keeps its locks and browser tokens in its own runtime folder (`/run/elpis-toolhost`) |
@@ -328,10 +329,14 @@ read; with one account per service, only `service install` moves it.
 The service accounts read the code: every folder from `/` down to the installation must let
 other accounts through (`o+x`), and the code must be readable by them (Playwright browsers out
 of their reach are copied, above). A clone in a home folder is not (`/home/<name>`
-is 0700 on Debian, 0750 on Ubuntu): `service install` then keeps one account for every service,
-as before (fallback mode, `ELPIS_COMPTES=repli`), says why, and `./elpis doctor` warns at every
-run. This fallback only happens on a first installation: once units with one account per
-service are installed, or the `elpis-main` account exists, a closed folder or a failed probe
+is 0700 on Debian, 0750 on Ubuntu): on a first installation, `./install.sh` says so before
+installing anything and prints the command that moves the clone (`sudo mv … /opt/elpis`); it
+stops with `--service` and asks when the startup is not chosen yet (`ELPIS_COMPTE_UNIQUE=1`: one
+account, no question). Run by hand, `service install` keeps one account for every service, as
+before (fallback mode, `ELPIS_COMPTES=repli`), says why, and `./elpis doctor` warns at every
+run; `./install.sh` then ends with a warning. This fallback only happens on a first installation:
+once units with one account per service are installed, or the `elpis-main` account exists, a
+closed folder or a failed probe
 stops `service install` with the reason and leaves the units as they were (a service must not
 be able to force the fallback); one account is then chosen only explicitly
 (`sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`). For a server, install in `/opt/elpis`:

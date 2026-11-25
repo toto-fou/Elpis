@@ -1577,13 +1577,14 @@ def apply_https(https: Dict[str, Any]) -> None:
     (ok if rc == 0 else warn)(f"Caddy : https://{https['domain']}/" if rc == 0 else "Configuration de Caddy échouée.")
 
 
-SECRETS_DE_PLATEFORME = (("app", "session_secret"), ("app", "encryption_key"), ("rag", "service_token"), ("rag", "qdrant_api_key"))
+# Champs de config.json rangés à part, (section, nom) : des noms, jamais leurs valeurs.
+CHAMPS_RANGES = (("app", "session_secret"), ("app", "encryption_key"), ("rag", "service_token"), ("rag", "qdrant_api_key"))
 
 
 def retirer_secrets(cfg: Dict[str, Any], valeurs: Dict[str, str]) -> bool:
     """Secrets de plateforme retirés de ``cfg``, valeurs que le core retiendrait dans ``valeurs`` ; un non-texte ou un secret de session de moins de 40 caractères reste ; vrai si ``cfg`` a changé."""
     change = False
-    for sec, cle in SECRETS_DE_PLATEFORME:
+    for sec, cle in CHAMPS_RANGES:
         bloc = cfg.get(sec)
         if not isinstance(bloc, dict) or cle not in bloc:
             continue
@@ -1616,7 +1617,7 @@ def copie_sans_secrets(reel: Path, cles: Optional[Sequence[str]] = None) -> None
         warn(f"{bak.name} est illisible : laissé tel quel (à retirer s'il porte des secrets).")
         return
     change = False
-    for sec, cle in SECRETS_DE_PLATEFORME:
+    for sec, cle in CHAMPS_RANGES:
         if cles is not None and f"{sec}.{cle}" not in cles:
             continue
         if isinstance(copie.get(sec), dict) and cle in copie[sec]:
@@ -1631,7 +1632,7 @@ def copie_sans_secrets(reel: Path, cles: Optional[Sequence[str]] = None) -> None
 
 def retirer_ranges(cles: Sequence[str]) -> int:
     """``--ranger-secrets --retirer CLE…`` (second temps), sous le compte propriétaire de config.json : chaque CLE retirée de config.json et de config.json.bak si sa valeur est celle de l'objet JSON lu sur l'entrée standard (sortie du premier temps), vide ou d'exemple ; code 0 : config.json sans elles, 1 : une valeur a changé (laissée) ou écriture impossible, 2 : usage, terminal ou autre compte."""
-    connues = {f"{s}.{c}" for s, c in SECRETS_DE_PLATEFORME}
+    connues = {f"{s}.{c}" for s, c in CHAMPS_RANGES}
     if not cles or any(c not in connues for c in cles):
         warn(f"--retirer : clés attendues parmi {', '.join(sorted(connues))}.")
         return 2

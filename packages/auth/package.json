@@ -1,6 +1,6 @@
 {
   "name": "@elpis/auth",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -9,10 +9,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.5",
-    "@elpis/config": "0.1.5",
-    "@elpis/db": "0.1.5",
-    "@elpis/securite": "0.1.5",
+    "@elpis/commun": "0.2.0",
+    "@elpis/config": "0.2.0",
+    "@elpis/db": "0.2.0",
+    "@elpis/securite": "0.2.0",
     "fastify": "5.12.8"
   }
 }

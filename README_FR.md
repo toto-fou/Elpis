@@ -125,6 +125,14 @@ déplacé dans `/opt/elpis`, et l'installation continue de là. **Essai dans ce 
 l'installation), installe le socle système s'il manque, puis ouvre un
 **assistant par pages** dans le terminal : toutes les questions d'abord, un
 résumé, et l'installation se déroule ensuite sans autre question.
+L'écran de l'assistant reste jusqu'à la fin et suit l'installation : ses
+étapes, une barre de progression, le temps passé et les dernières lignes de
+l'étape en cours. À la fin, les étapes et le bilan restent dans le terminal ;
+en cas d'échec, l'étape en cause, ses dernières lignes et le chemin du journal
+de l'installation. Toute la sortie va dans ce journal
+(`/var/log/elpis-install.log` sous root, sinon `logs/install.log`, ou `.install.log`
+avec un compte par service). Avec
+`--plain`, `--yes` ou sans terminal, la sortie défile en texte simple.
 
 Côté système, il installe par `apt-get` (sans question, `apt-get update`
 d'abord) les paquets de [deploy/prerequis-apt.txt](deploy/prerequis-apt.txt)

@@ -128,7 +128,14 @@ same as the first choice.
 `install.sh` asks for sudo right away (once, kept alive during the
 installation), installs the system base if it is missing, then opens a
 **paged wizard** in the terminal: all the questions first, a summary, then
-the installation runs with no further questions.
+the installation runs with no further questions. The wizard's screen stays
+until the end and follows the installation: its steps, a progress bar, the
+time spent and the last lines of the current step. When it ends, the steps
+and the summary stay in the terminal; on a failure, the failed step, its last
+lines and the path of the installation log. The full output goes to that log
+(`/var/log/elpis-install.log` under root, otherwise `logs/install.log`, or `.install.log`
+with one account per service). With
+`--plain`, `--yes` or no terminal, the output scrolls as plain text instead.
 
 On the system side, it installs with `apt-get` (no questions, `apt-get update`
 first) the packages from [deploy/prerequis-apt.txt](deploy/prerequis-apt.txt)

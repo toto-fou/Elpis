@@ -277,17 +277,54 @@ journal_install() {
     return 1
 }
 JOURNAL_INSTALL=""
-# Tout ce qui s'affiche part aussi dans le journal FICHIER (l'assistant écrit sur /dev/tty : ses écrans et les mots de passe n'y passent pas), filtré en une passe (deploy/droits.py filtre) : un texte venu des services n'y écrit aucune séquence.
+# Tout ce qui s'affiche part aussi dans le journal FICHIER (l'assistant écrit sur /dev/tty : ses écrans et les mots de passe n'y passent pas), filtré en une passe (deploy/droits.py filtre) : un texte venu des services n'y écrit aucune séquence ; installation interactive au terminal : affichée par deploy/suivi.py (écran de suivi après l'assistant), journal tenu même s'il s'arrête.
 ecrire_journal() {
-    if command -v python3 >/dev/null 2>&1; then exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$1") 2>&1
-    else exec > >(tee -a "$1") 2>&1; fi
+    if ! command -v python3 >/dev/null 2>&1; then exec > >(tee -a "$1") 2>&1
+    elif [ -t 1 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$PLAIN" -eq 0 ] && suivi_preparer; then
+        exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -i -p -a "$1" \
+            | python3 -I "$ROOT/deploy/suivi.py" --journal "$1" --acquit "$SUIVI_ACQUIT") 2>&1
+    else exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$1") 2>&1; fi
 }
+# suivi_preparer : dossier d'acquittement (0700) et clé des repères, posés tout ou rien.
+suivi_preparer() {
+    local d c
+    d="$(mktemp -d)" || return 1
+    c="$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+    if [ "${#c}" -eq 16 ] && ( umask 077 && printf '%s' "$c" > "$d/cle" ); then SUIVI_ACQUIT="$d"; SUIVI_CLE="$c"; return 0; fi
+    rm -rf -- "$d"
+    return 1
+}
+# Écran de suivi : SUIVI=1 une fois son plan annoncé ; ses repères « == … == [clé] » passent par la sortie (et le journal), dans l'ordre des lignes ; la clé (dossier 0700 d'acquittement) les distingue d'une sortie qui les imiterait.
+SUIVI=0; SUIVI_N=0; SUIVI_ACQUIT=""; SUIVI_CLE=""; SUIVI_STTY=""
+suivi_repere()  { printf '== %s == [%s]\n' "$1" "$SUIVI_CLE"; }
+suivi_etape()   { [ "$SUIVI" -eq 0 ] || suivi_repere "Étape : $1"; }
+suivi_pause()   { [ "$SUIVI" -eq 0 ] || suivi_attendre "Question à l'écran"; }
+suivi_reprise() { [ "$SUIVI" -eq 0 ] || { suivi_repere "Suite de l'installation"; suivi_plan; }; }
+suivi_bilan()   { [ "$SUIVI" -eq 0 ] || suivi_repere Bilan; }
+suivi_texte()   { [ "$SUIVI" -eq 0 ] || suivi_attendre "Texte"; }
+suivi_fin()     { [ "$SUIVI" -eq 0 ] || { SUIVI=0; suivi_attendre Fin; }; }
+# suivi_attendre REPÈRE : repère numéroté, attendu le temps que l'écran rende le terminal ; écran muet 5 s : terminal remis comme au départ, plus d'écran.
+suivi_attendre() {
+    local i
+    SUIVI_N=$((SUIVI_N + 1))
+    suivi_repere "$1 ($SUIVI_N)"
+    for ((i = 0; i < 100; i++)); do [ -e "$SUIVI_ACQUIT/ack-$SUIVI_N" ] && return 0; sleep 0.05; done
+    SUIVI=0
+    { printf '\033[0m\033[?25h\033[?1049l'; stty "${SUIVI_STTY:-sane}"
+      printf '\n  Écran de suivi arrêté : la sortie complète de l\x27installation est dans %s.\n' "${JOURNAL_INSTALL:-son journal}"; } 2>/dev/null </dev/tty >/dev/tty
+    return 1
+}
+# Dossier d'acquittement hérité de la relance : dossier de ce compte, 0700, pas un lien ; sinon pas d'écran.
+suivi_dossier_sur() { [ -d "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u %a' -- "$1")" = "$(id -u) 700" ]; }
 # Relance de l'installation standard depuis son dossier : sorties déjà filtrées et journalisées par le premier passage, même journal ; rouvert si le déplacement l'a copié (autre système de fichiers : journal suivi jusque-là effacé).
 if [ -n "${ELPIS_INSTALL_RELANCE+x}" ]; then
     JOURNAL_INSTALL="${ELPIS_JOURNAL_HERITE:-}"; MODE_INSTALL=standard; DEPLACE=1; [ -n "$AFTER" ] || AFTER=service
+    if [ -n "${ELPIS_SUIVI_ACQUIT:-}" ] && suivi_dossier_sur "$ELPIS_SUIVI_ACQUIT"; then
+        SUIVI_ACQUIT="$ELPIS_SUIVI_ACQUIT"; SUIVI_CLE="$(cat -- "$SUIVI_ACQUIT/cle" 2>/dev/null)"
+    fi
     [ "${ELPIS_JOURNAL_ROUVRIR:-0}" != 1 ] || [ -z "$JOURNAL_INSTALL" ] || ecrire_journal "$JOURNAL_INSTALL"
     info "Installation standard : dépôt déplacé de ${ELPIS_DEPLACE_DE:-?} vers $ROOT ; l'installation continue de là (ensuite : cd $ROOT)."
-    unset ELPIS_INSTALL_RELANCE ELPIS_JOURNAL_HERITE ELPIS_JOURNAL_ROUVRIR ELPIS_APPEL_HERITE ELPIS_DEPLACE_DE
+    unset ELPIS_INSTALL_RELANCE ELPIS_JOURNAL_HERITE ELPIS_JOURNAL_ROUVRIR ELPIS_APPEL_HERITE ELPIS_DEPLACE_DE ELPIS_SUIVI_ACQUIT
 elif [ "$DRY_RUN" -eq 0 ] && JOURNAL_INSTALL="$(journal_install)"; then
     { echo; echo "===== install.sh $(date -Is) $(args_masques "$@") ====="; } >> "$JOURNAL_INSTALL"
     ecrire_journal "$JOURNAL_INSTALL"
@@ -338,10 +375,14 @@ ask_choice() {
 
 # Nettoyage : le fichier de réponses porte des secrets (mots de passe, clé API) ; l'archive de Node.js n'a servi qu'à cette installation.
 ANSWERS=""; SUDO_KEEPALIVE=""; ELPIS_NODE_CACHE=""
+# Ctrl-C ignoré ici (un second appui laisserait les réponses, secrets compris) ; les secrets d'abord, l'écran de suivi ensuite.
 cleanup() {
+    trap '' INT
     [ -n "$SUDO_KEEPALIVE" ] && kill "$SUDO_KEEPALIVE" 2>/dev/null
     [ -n "$ANSWERS" ] && rm -rf -- "${ANSWERS%/*}"
     [ -n "$ELPIS_NODE_CACHE" ] && rm -rf "$ELPIS_NODE_CACHE"
+    suivi_fin
+    [ -n "$SUIVI_ACQUIT" ] && rm -rf -- "$SUIVI_ACQUIT"
     return 0
 }
 trap cleanup EXIT
@@ -635,7 +676,7 @@ refus_cible() {
 }
 # Installation standard : dossier vérifié d'abord (refus_cible), venv/ d'un passage interrompu retiré (chemins périmés), dépôt déplacé, puis install.sh relancé de là, mêmes options (chemins des options rendus absolus, ceux du dépôt suivis), même journal.
 vers_dossier_standard() {
-    local cible parent s="" a suite="" fin=0 args=() appel="$APPEL" journal rouvrir=0 refus inode=""
+    local cible parent s="" a suite="" fin=0 args=() appel="$APPEL" journal rouvrir=0 refus inode="" acquit
     cible="$(cible_install)"; parent="$(dirname -- "$cible")"
     [ "$AS_ROOT" -eq 1 ] || s=sudo
     [ "$DEPLACE" -eq 0 ] || die "Installation standard : $cible n'est pas accessible aux comptes des services ($ferme) ; rien n'est installé. Choisissez un dossier qu'ils traversent : ELPIS_DOSSIER_INSTALL=/autre/dossier ./install.sh --standard."
@@ -666,9 +707,10 @@ vers_dossier_standard() {
     case "$appel" in "$ROOT"|"$ROOT"/*) appel="$cible${appel#"$ROOT"}" ;; esac
     case "$JOURNAL_INSTALL" in "$ROOT"/*) journal="$cible${JOURNAL_INSTALL#"$ROOT"}" ;; *) journal="$JOURNAL_INSTALL" ;; esac
     [ -z "$inode" ] || [ "$(stat -c %d:%i -- "$journal" 2>/dev/null)" = "$inode" ] || rouvrir=1
-    cleanup; trap - EXIT
+    acquit="$SUIVI_ACQUIT"; SUIVI_ACQUIT=""
+    cleanup; trap - EXIT INT
     ELPIS_INSTALL_RELANCE=1 ELPIS_JOURNAL_HERITE="$journal" ELPIS_JOURNAL_ROUVRIR="$rouvrir" ELPIS_APPEL_HERITE="$appel" ELPIS_DEPLACE_DE="$ROOT" \
-        exec bash "$cible/install.sh" ${args[@]+"${args[@]}"}
+        ELPIS_SUIVI_ACQUIT="$acquit" exec bash "$cible/install.sh" ${args[@]+"${args[@]}"}
 }
 # Première installation, démarrage pas encore choisi, services possibles : le mode d'abord, qui fixe le dossier (standard : un compte par service, dans le dossier de l'installation standard s'il le faut ; essai : sous ce compte, ./elpis start).
 if [ -z "$MODE_INSTALL" ] && [ -z "$AFTER" ] && [ "$INTERACTIVE" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && have systemctl \
@@ -1023,6 +1065,31 @@ if [ "$TUI" -eq 0 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$(ask_yn "Lancer l'install
     info "Annulé$(deplace_ici)."
     exit 0
 fi
+# Écran de suivi : après l'assistant, si sudo ne redemandera pas de mot de passe ; ses étapes, dans l'ordre de la suite.
+suivi_debut() {
+    [ "$TUI" -eq 1 ] && [ -n "$SUIVI_ACQUIT" ] && [ -n "$SUIVI_CLE" ] || return 0
+    [ -z "$SUDO" ] || sudo -n true 2>/dev/null || return 0
+    ( umask 077 && printf '%s' "$JOURNAL_INSTALL" > "$SUIVI_ACQUIT/journal" ) 2>/dev/null
+    SUIVI_STTY="$(stty -g </dev/tty 2>/dev/null)"
+    SUIVI=1
+    suivi_plan
+}
+# Plan des étapes selon les choix (annoncé de nouveau après une question qui peut les changer).
+suivi_plan() {
+    local plan t
+    plan=("Paquets système" "Python" "Node.js" "Core et hôte d'outils" "Interface" "Isolation (bubblewrap)" "Base de données")
+    [ "$WITH_BROWSER" -eq 1 ] && plan+=("Navigateur")
+    plan+=("Qdrant")
+    case "$SANDBOX_MODE" in build|pull) plan+=("Image de la sandbox") ;; esac
+    [ "$WITH_OFFICE" -eq 1 ] && plan+=("LibreOffice")
+    [ "$WITH_CADDY" -eq 1 ] && plan+=("Caddy (HTTPS)")
+    plan+=("Configuration")
+    [ "$AFTER" = none ] || plan+=("Démarrage")
+    t="$(printf ' | %s' "${plan[@]}")"
+    suivi_repere "Étapes : ${t:3}"
+}
+suivi_debut
+suivi_etape "Paquets système"
 installer_prerequis "${GROUPES_APT[@]}"
 # Le dépôt revient au compte de l'application — SAUF le contenu des
 # sandboxes : chaque /work appartient à l'utilisateur du conteneur (seul
@@ -1102,10 +1169,13 @@ install_core() {
     if [ -z "$OFFLINE_DIR" ] && [ -z "$ELPIS_NODE_CACHE" ]; then
         ELPIS_NODE_CACHE="$(as_app mktemp -d "$ROOT/.node-cache.XXXXXX")" || ELPIS_NODE_CACHE=""
     fi
+    suivi_etape "Node.js"
     as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" node "${o[@]}" \
         || die "Node.js du core non installé (voir ci-dessus)."
+    suivi_etape "Core et hôte d'outils"
     as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" bundles "${o[@]}" \
         || die "Core ou hôte d'outils non installé (voir ci-dessus)."
+    suivi_etape "Interface"
     as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" web "${o[@]}" \
         || die "Frontend non installé (voir ci-dessus)."
 }
@@ -1209,7 +1279,9 @@ setup_database() {
             if db_check; then ok "Base de données : $DB_CHECK_MSG"; else DB_ERR="$DB_CHECK_MSG"; fi
         fi
         [ -z "$DB_ERR" ] && return 0
+        suivi_pause
         db_failure "$DB_ERR"
+        suivi_reprise
     done
 }
 
@@ -1361,17 +1433,21 @@ check_office() {
 # =============================================================================
 # Sans sandbox, ni service docker ni groupe docker (équivalent root) : rien à configurer.
 [ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && [ "$SANDBOX_MODE" != none ] && configurer_docker
+suivi_etape "Python"
 install_python
 install_core
+suivi_etape "Isolation (bubblewrap)"
 ensure_bwrap
+suivi_etape "Base de données"
 setup_database
-[ "$WITH_BROWSER" -eq 1 ] && install_browser
+[ "$WITH_BROWSER" -eq 1 ] && { suivi_etape "Navigateur"; install_browser; }
+suivi_etape "Qdrant"
 install_qdrant
 case "$SANDBOX_MODE" in
-    build|pull) install_sandbox_image ;;
+    build|pull) suivi_etape "Image de la sandbox"; install_sandbox_image ;;
 esac
-[ "$WITH_OFFICE" -eq 1 ] && check_office
-[ "$WITH_CADDY" -eq 1 ] && install_caddy
+[ "$WITH_OFFICE" -eq 1 ] && { suivi_etape "LibreOffice"; check_office; }
+[ "$WITH_CADDY" -eq 1 ] && { suivi_etape "Caddy (HTTPS)"; install_caddy; }
 # Sous des unités à un compte par service, ces dossiers sont aux services (sudo ./elpis service install les pose) : rien n'y est créé ni changé ici.
 if ! unites_separees; then
     mkdir -p "$ROOT/user_db/logs" "$ROOT/user_sandboxes" "$ROOT/logs"
@@ -1382,10 +1458,13 @@ chmod +x "$ROOT/elpis" 2>/dev/null || true
 # =============================================================================
 #  8. Configuration et démarrage
 # =============================================================================
+suivi_etape "Configuration"
 if [ "$DO_CONFIGURE" = 1 ]; then
     echo
     if [ "$TUI" -eq 1 ]; then
         info "Configuration (réponses de l'assistant)…"
+        # Mot de passe administrateur ni saisi ni généré par l'assistant (réinstallation) : configure peut en créer un et l'écrire sur /dev/tty ; la suite en texte, sans écran qui l'effacerait.
+        [ "${ADMIN_MDP_CONNU:-0}" = 1 ] || suivi_texte
         "$ROOT/elpis" configure --answers "$ANSWERS" || note_warn "Configuration incomplète : relancez ./elpis configure."
     else
         info "Configuration (./elpis configure$([ "$INTERACTIVE" -eq 1 ] && echo " : questions et réponses à l'écran seulement, hors du journal"))…"
@@ -1422,6 +1501,7 @@ else
     note_warn "Journal de sécurité : droits administrateur requis (sudo ./elpis audit setup)."
 fi
 
+[ "$AFTER" = none ] || suivi_etape "Démarrage"
 if config_presente; then
     case "$AFTER" in
         service)
@@ -1453,6 +1533,7 @@ else
     [ "$AFTER" != none ] && note_warn "config.json absent : lancez ./elpis configure avant de démarrer."
 fi
 
+suivi_bilan
 echo
 if [ "${#WARNINGS[@]}" -gt 0 ]; then
     warn "Installation terminée avec ${#WARNINGS[@]} avertissement(s) :"
@@ -1486,6 +1567,8 @@ EOF
 # vLLM ou SGLang : drapeaux de lancement conseillés, les mêmes que ./elpis doctor.
 conseils="$(bash "$ROOT/elpis" configure --conseils-moteur 2>/dev/null)"
 [ -n "$conseils" ] && printf '%s\n\n' "$conseils" | sed 's/^/  /'
+# Écran de suivi rendu (étapes et bilan laissés au terminal) avant ce qui s'écrit sur /dev/tty.
+suivi_fin
 # Mot de passe administrateur généré : à l'écran seulement, jamais au journal.
 if [ "$TUI" -eq 1 ] && [ -n "$ANSWERS" ] && [ -f "$ANSWERS" ]; then
     python3 "$ROOT/deploy/wizard.py" final-note "$ANSWERS" > /dev/tty 2>/dev/null || true

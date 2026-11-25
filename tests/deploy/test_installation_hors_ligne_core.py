@@ -106,12 +106,12 @@ def _runtime_sh(script: str) -> str:
     return r.stdout
 
 
-def _arbre_officiel(racine: Path, version: str) -> Path:
+def _arbre_officiel(racine: Path, version: str, npm: str = 'echo "npm $*"') -> Path:
     a = racine / f"node-v{version}-{CIBLE}"
     for d in ("bin", "include/node", "lib/node_modules/npm/bin", "lib/node_modules/corepack/dist"):
         (a / d).mkdir(parents=True)
     (a / "bin/node").write_text(f'#!/bin/sh\n[ "$1" = -v ] && echo v{version}\n', encoding="utf-8")
-    (a / "lib/node_modules/npm/bin/npm-cli.js").write_text('#!/bin/sh\necho "npm $*"\n', encoding="utf-8")
+    (a / "lib/node_modules/npm/bin/npm-cli.js").write_text(f"#!/bin/sh\n{npm}\n", encoding="utf-8")
     (a / "lib/node_modules/npm/bin/npx-cli.js").write_text('#!/bin/sh\necho "npx $*"\n', encoding="utf-8")
     (a / "lib/node_modules/corepack/dist/corepack.js").write_text("// corepack\n", encoding="utf-8")
     for f in ("bin/node", "lib/node_modules/npm/bin/npm-cli.js", "lib/node_modules/npm/bin/npx-cli.js"):
@@ -131,8 +131,8 @@ def _tar(arbre: Path, sortie: Path) -> str:
     return hashlib.sha256(sortie.read_bytes()).hexdigest()
 
 
-def _version(tmp_path: Path, version: str) -> dict[str, str]:
-    officiel = _arbre_officiel(tmp_path / f"officiel-{version}", version)
+def _version(tmp_path: Path, version: str, npm: str = 'echo "npm $*"') -> dict[str, str]:
+    officiel = _arbre_officiel(tmp_path / f"officiel-{version}", version, npm)
     asset = f"{officiel.name}.tar.gz"
     somme = _tar(officiel, tmp_path / "telechargements" / asset)
     epure = tmp_path / f"epure-{version}" / officiel.name
@@ -295,6 +295,21 @@ def test_npm_temporaire_tire_de_l_archive_officielle(depot, tmp_path):
     assert sorted(p.name for p in (cible / "bin").iterdir()) == ["npm", "npx"]
     assert subprocess.run([cible / "bin/npm", "ci"], capture_output=True, text=True).stdout == "npm ci\n"
     assert not list(cible.glob(".archive.*")) and not (cible / "lib/node_modules/corepack").exists()
+
+
+# Construction tuée par le système (code 137, mémoire épuisée) : le message le dit et dit quoi faire, sans restes ; un autre échec garde son message.
+@pytest.mark.parametrize("action,libelle,echec", [("web", "Frontend", "Construction du frontend échouée"),
+                                                   ("core", "Core", "Construction échouée (Core)")])
+def test_construction_arretee_faute_de_memoire(depot, tmp_path, action, libelle, echec):
+    for arret, memoire in (("kill -9 $$", True), ("exit 1", False)):
+        essai = tmp_path / arret.split()[0]
+        v = _version(essai, "24.21.0", npm=f'case "$1" in run) {arret} ;; *) echo "npm $*" ;; esac')
+        _node_env(depot, v)
+        r = _installer(depot, action, PATH=_faux_curl(essai), ELPIS_NODE=str(_faux_node(depot)))
+        assert r.returncode == 1, r.stdout + r.stderr
+        assert (f"{libelle} : construction arrêtée par le système, probablement faute de mémoire" in r.stderr) is memoire, r.stderr
+        assert ("ajoutez du swap" in r.stderr) is memoire and (echec in r.stderr) is not memoire, r.stderr
+        assert _restes(depot) == []
 
 
 FAUX_NODE = """#!/bin/sh

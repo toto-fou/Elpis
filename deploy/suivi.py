@@ -19,10 +19,10 @@ from typing import Deque, List, Optional, Tuple
 sys.path.append(str(Path(__file__).resolve().parent))
 import tui as T  # noqa: E402
 
-REPERE = re.compile(r"== (.*) == \[([0-9a-f]{16})\]")
+REPERE = re.compile(r"== ((?:(?!== ).)*) == \[([0-9a-f]{16})\]$")
 PLAN, ETAPE = re.compile(r"Étapes : (.*)"), re.compile(r"Étape : (.*)")
 PAUSE, FIN = re.compile(r"Question à l'écran \((\d+)\)"), re.compile(r"Fin \((\d+)\)")
-SUITE, BILAN = "Suite de l'installation", "Bilan"
+SUITE, BILAN, TEXTE = "Suite de l'installation", "Bilan", re.compile(r"Texte \((\d+)\)")
 ALERTE = re.compile(r"\[ *(warn|erreur) *\]")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 LIGNE_MAX = 65536
@@ -92,18 +92,24 @@ class Suivi:
     def recopie(self) -> bool:
         return self.mode == "copie" or (self.secours and self.mode != "pause")
 
-    def repere(self, ligne: bytes) -> Optional[str]:
-        """Contenu d'un repère d'install.sh (avec la clé de cette installation), sinon None."""
-        if not self.cle or not ligne.startswith(b"== "):
+    def repere(self, ligne: bytes) -> Optional[Tuple[bytes, str]]:
+        """Repère d'install.sh (avec la clé de cette installation) en fin de ligne, même collé à une ligne inachevée (barre de progression) : (début de ligne, contenu), sinon None."""
+        if not self.cle or b"== " not in ligne:
             return None
-        m = REPERE.fullmatch(visible(ligne))
-        return m.group(1) if m and hmac.compare_digest(m.group(2), self.cle) else None
+        m = REPERE.search(visible(ligne))
+        if not m or not hmac.compare_digest(m.group(2), self.cle):
+            return None
+        i = ligne.rfind(m.group(0).encode())
+        return (ligne[:i] if i > 0 else b""), m.group(1)
 
     def ligne(self, ligne: bytes) -> None:
-        """Une ligne : repère appliqué, sinon recopiée ou gardée pour l'écran."""
-        r = self.repere(ligne)
-        if r is None:
+        """Une ligne : repère appliqué (le début d'une ligne inachevée gardé comme texte), sinon recopiée ou gardée pour l'écran."""
+        trouve = self.repere(ligne)
+        if trouve is None:
             return self.texte(ligne)
+        debut, r = trouve
+        if debut.strip(b"\r"):
+            self.texte(debut)
         if m := PLAN.fullmatch(r):
             return self.planifier([n for n in m.group(1).split(" | ") if n])
         if self.mode == "copie":
@@ -117,6 +123,9 @@ class Suivi:
         if r == SUITE:
             self.mode = "ecran"
             return self.entrer_ecran()
+        if m := TEXTE.fullmatch(r):
+            self.en_texte()
+            return self.acquitter(m.group(1))
         if r == BILAN:
             self.terminer_courante("ok")
             self.mode = "bilan"
@@ -188,13 +197,21 @@ class Suivi:
             self.courante.etat, self.courante.fin = etat, time.monotonic()
         self.courante = None if etat == "ok" else self.courante
 
+    def en_texte(self) -> None:
+        """La suite en texte (rien ne l'efface, pas même un terminal sans écran alternatif) : écran quitté, étapes passées laissées au terminal."""
+        if self.secours:
+            return
+        self.quitter_ecran()
+        self.secours = True
+        self.sortie("\n" + "\n".join(self.recap(200, fige=True)) + "\n\n")
+
     def finir(self, echec: bool) -> None:
         """Fin du suivi : écran quitté ; dans le terminal, les étapes puis le bilan, ou en échec les dernières lignes et le journal."""
         if echec:
             self.terminer_courante("echec")
         self.quitter_ecran()
-        if self.etapes:
-            self.sortie("\n" + "\n".join(self.recap(200)) + "\n")
+        if self.etapes and not self.secours:
+            self.sortie("\n" + "\n".join(self.recap(200, fige=True)) + "\n")
         if not self.secours:
             if echec:
                 self.sortie(b"\n" + b"\n".join(list(self.lignes)[-30:] + ([self.reste] if self.reste else [])) + b"\n")
@@ -204,11 +221,11 @@ class Suivi:
                 self.sortie(b"\n".join(self.bilan) + b"\n")
         self.etapes, self.courante, self.mode = [], None, "copie"
 
-    def recap(self, w: int) -> List[str]:
-        """Étapes, une par ligne : icône, nom, durée, avertissements."""
+    def recap(self, w: int, fige: bool = False) -> List[str]:
+        """Étapes, une par ligne : icône, nom, durée, avertissements ; fige : pour le terminal (étape en cours marquée, sans roue)."""
         out = []
         for e in self.etapes:
-            icone, style = self.icone(e)
+            icone, style = self.icone(e, fige)
             fin = e.fin or time.monotonic()
             temps = duree(fin - e.debut) if e.debut else ""
             alerte = f"   {e.alertes} avertissement{'s' if e.alertes > 1 else ''}" if e.alertes else ""
@@ -216,10 +233,10 @@ class Suivi:
                                       (temps, "d"), (alerte, "w")], w, self.color))
         return out
 
-    def icone(self, e: Etape) -> Tuple[str, str]:
+    def icone(self, e: Etape, fige: bool = False) -> Tuple[str, str]:
         g = self.g
         if e.etat == "cours":
-            return g.spin[int(time.monotonic() * 8) % len(g.spin)], "a"
+            return ("▸" if self.unicode else ">") if fige else g.spin[int(time.monotonic() * 8) % len(g.spin)], "a"
         return {"ok": (g.done, "g"), "echec": (g.bad, "e"),
                 "sautee": ("–" if self.unicode else "-", "d")}.get(e.etat, (g.todo, "d"))
 
@@ -243,19 +260,12 @@ class Suivi:
             term, self.term = self.term, None
             try:
                 termios.tcflush(term.fd, termios.TCIFLUSH)
+            except Exception:
+                pass
+            try:
                 term.__exit__(None, None, None)
             except Exception:
                 pass
-
-    def suspendre(self, *_a) -> None:
-        """Ctrl-Z : terminal rendu avant l'arrêt, écran rouvert à la reprise."""
-        ouvert = self.term is not None
-        self.quitter_ecran()
-        signal.signal(signal.SIGTSTP, signal.SIG_DFL)
-        os.kill(os.getpid(), signal.SIGTSTP)
-        signal.signal(signal.SIGTSTP, self.suspendre)
-        if ouvert and self.mode in ("ecran", "bilan"):
-            self.entrer_ecran()
 
     def dessiner(self) -> None:
         """Image complète, huit fois par seconde au plus (taille inconnue, 0×0 : 80×24) ; un dessin en panne rend la main à la copie."""
@@ -271,8 +281,7 @@ class Suivi:
             self.term.resized = False
             self.term.write(efface + "\x1b[H" + "\x1b[K\r\n".join(self.image(w, h)) + "\x1b[K\x1b[J")
         except Exception:
-            self.quitter_ecran()
-            self.secours = True
+            self.en_texte()
             self.sortie(b"\n".join(list(self.lignes)[-30:]) + b"\n")
         self.dessin, self.sale = maintenant, False
 
@@ -316,7 +325,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     a = ap.parse_args(argv)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     s = Suivi(a.journal, a.acquit)
-    signal.signal(signal.SIGTSTP, s.suspendre)
     while True:
         prets = select.select([0], [], [], 0.25 if s.term else None)[0]
         if prets:

@@ -280,28 +280,37 @@ JOURNAL_INSTALL=""
 # Tout ce qui s'affiche part aussi dans le journal FICHIER (l'assistant écrit sur /dev/tty : ses écrans et les mots de passe n'y passent pas), filtré en une passe (deploy/droits.py filtre) : un texte venu des services n'y écrit aucune séquence ; installation interactive au terminal : affichée par deploy/suivi.py (écran de suivi après l'assistant), journal tenu même s'il s'arrête.
 ecrire_journal() {
     if ! command -v python3 >/dev/null 2>&1; then exec > >(tee -a "$1") 2>&1
-    elif [ -t 1 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$PLAIN" -eq 0 ] && SUIVI_ACQUIT="$(mktemp -d)" \
-            && SUIVI_CLE="$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')" && [ "${#SUIVI_CLE}" -eq 16 ] \
-            && ( umask 077 && printf '%s' "$SUIVI_CLE" > "$SUIVI_ACQUIT/cle" ); then
+    elif [ -t 1 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$PLAIN" -eq 0 ] && suivi_preparer; then
         exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -i -p -a "$1" \
             | python3 -I "$ROOT/deploy/suivi.py" --journal "$1" --acquit "$SUIVI_ACQUIT") 2>&1
     else exec > >(python3 -I "$ROOT/deploy/droits.py" filtre | tee -a "$1") 2>&1; fi
 }
+# suivi_preparer : dossier d'acquittement (0700) et clé des repères, posés tout ou rien.
+suivi_preparer() {
+    local d c
+    d="$(mktemp -d)" || return 1
+    c="$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+    if [ "${#c}" -eq 16 ] && ( umask 077 && printf '%s' "$c" > "$d/cle" ); then SUIVI_ACQUIT="$d"; SUIVI_CLE="$c"; return 0; fi
+    rm -rf -- "$d"
+    return 1
+}
 # Écran de suivi : SUIVI=1 une fois son plan annoncé ; ses repères « == … == [clé] » passent par la sortie (et le journal), dans l'ordre des lignes ; la clé (dossier 0700 d'acquittement) les distingue d'une sortie qui les imiterait.
-SUIVI=0; SUIVI_N=0; SUIVI_ACQUIT=""; SUIVI_CLE=""
+SUIVI=0; SUIVI_N=0; SUIVI_ACQUIT=""; SUIVI_CLE=""; SUIVI_STTY=""
 suivi_repere()  { printf '== %s == [%s]\n' "$1" "$SUIVI_CLE"; }
 suivi_etape()   { [ "$SUIVI" -eq 0 ] || suivi_repere "Étape : $1"; }
 suivi_pause()   { [ "$SUIVI" -eq 0 ] || suivi_attendre "Question à l'écran"; }
 suivi_reprise() { [ "$SUIVI" -eq 0 ] || { suivi_repere "Suite de l'installation"; suivi_plan; }; }
 suivi_bilan()   { [ "$SUIVI" -eq 0 ] || suivi_repere Bilan; }
+suivi_texte()   { [ "$SUIVI" -eq 0 ] || suivi_attendre "Texte"; }
 suivi_fin()     { [ "$SUIVI" -eq 0 ] || { SUIVI=0; suivi_attendre Fin; }; }
-# suivi_attendre REPÈRE : repère numéroté, attendu le temps que l'écran rende le terminal ; écran muet 5 s (arrêté) : terminal remis en état ici.
+# suivi_attendre REPÈRE : repère numéroté, attendu le temps que l'écran rende le terminal ; écran muet 5 s : terminal remis comme au départ, plus d'écran.
 suivi_attendre() {
     local i
     SUIVI_N=$((SUIVI_N + 1))
     suivi_repere "$1 ($SUIVI_N)"
     for ((i = 0; i < 100; i++)); do [ -e "$SUIVI_ACQUIT/ack-$SUIVI_N" ] && return 0; sleep 0.05; done
-    { printf '\033[0m\033[?25h\033[?1049l'; stty sane
+    SUIVI=0
+    { printf '\033[0m\033[?25h\033[?1049l'; stty "${SUIVI_STTY:-sane}"
       printf '\n  Écran de suivi arrêté : la sortie complète de l\x27installation est dans %s.\n' "${JOURNAL_INSTALL:-son journal}"; } 2>/dev/null </dev/tty >/dev/tty
     return 1
 }
@@ -699,7 +708,7 @@ vers_dossier_standard() {
     case "$JOURNAL_INSTALL" in "$ROOT"/*) journal="$cible${JOURNAL_INSTALL#"$ROOT"}" ;; *) journal="$JOURNAL_INSTALL" ;; esac
     [ -z "$inode" ] || [ "$(stat -c %d:%i -- "$journal" 2>/dev/null)" = "$inode" ] || rouvrir=1
     acquit="$SUIVI_ACQUIT"; SUIVI_ACQUIT=""
-    cleanup; trap - EXIT
+    cleanup; trap - EXIT INT
     ELPIS_INSTALL_RELANCE=1 ELPIS_JOURNAL_HERITE="$journal" ELPIS_JOURNAL_ROUVRIR="$rouvrir" ELPIS_APPEL_HERITE="$appel" ELPIS_DEPLACE_DE="$ROOT" \
         ELPIS_SUIVI_ACQUIT="$acquit" exec bash "$cible/install.sh" ${args[@]+"${args[@]}"}
 }
@@ -1061,6 +1070,7 @@ suivi_debut() {
     [ "$TUI" -eq 1 ] && [ -n "$SUIVI_ACQUIT" ] && [ -n "$SUIVI_CLE" ] || return 0
     [ -z "$SUDO" ] || sudo -n true 2>/dev/null || return 0
     ( umask 077 && printf '%s' "$JOURNAL_INSTALL" > "$SUIVI_ACQUIT/journal" ) 2>/dev/null
+    SUIVI_STTY="$(stty -g </dev/tty 2>/dev/null)"
     SUIVI=1
     suivi_plan
 }
@@ -1453,10 +1463,9 @@ if [ "$DO_CONFIGURE" = 1 ]; then
     echo
     if [ "$TUI" -eq 1 ]; then
         info "Configuration (réponses de l'assistant)…"
-        # Mot de passe administrateur ni saisi ni généré par l'assistant (réinstallation) : configure peut en créer un et l'écrire sur /dev/tty, terminal rendu le temps de la configuration.
-        PAUSE_CONF=0; [ "${ADMIN_MDP_CONNU:-0}" = 1 ] || { suivi_pause; PAUSE_CONF=1; }
+        # Mot de passe administrateur ni saisi ni généré par l'assistant (réinstallation) : configure peut en créer un et l'écrire sur /dev/tty ; la suite en texte, sans écran qui l'effacerait.
+        [ "${ADMIN_MDP_CONNU:-0}" = 1 ] || suivi_texte
         "$ROOT/elpis" configure --answers "$ANSWERS" || note_warn "Configuration incomplète : relancez ./elpis configure."
-        [ "$PAUSE_CONF" -eq 0 ] || suivi_reprise
     else
         info "Configuration (./elpis configure$([ "$INTERACTIVE" -eq 1 ] && echo " : questions et réponses à l'écran seulement, hors du journal"))…"
         # Choix de base d'install.sh d'abord : les options après « -- » priment.

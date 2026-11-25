@@ -14,10 +14,10 @@ follow [SemVer](https://semver.org/).
   a progress bar, the time spent per step and in all, the warnings of each step and the last
   lines of the current one. When it ends, the steps and the summary stay in the terminal; on a
   failure or Ctrl+C, the failed step, its last lines and the path of the installation log. A
-  database question during the installation, or an admin password that the configuration
-  generates itself on a reinstall, briefly gives the terminal back; Ctrl+Z gives it back until
-  `fg`. The log keeps the full output, step headings included; `--plain`, `--yes` and installs
-  without a terminal are unchanged.
+  database question during the installation briefly gives the terminal back; on a reinstall with
+  the admin password left empty, the rest scrolls as text from the configuration on, so that a
+  password the configuration generates stays on screen. The log keeps the full output, step
+  headings included; `--plain`, `--yes` and installs without a terminal are unchanged.
 - **HTTPS front end: certificate from your own PKI.** `install_caddy.sh --cert FULLCHAIN --key KEY`
   (or `./install.sh --with-caddy --caddy-cert … --caddy-key …`) serves your certificate chain and
   key instead of the local CA, once Caddy has validated them; both files are installed `0640

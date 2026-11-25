@@ -268,8 +268,56 @@ def test_secrets_avant_l_ecran():
     nettoyage = texte[texte.index("cleanup() {"):]
     nettoyage = nettoyage[:nettoyage.index("\n}\n")]
     assert nettoyage.index("trap '' INT") < nettoyage.index('rm -rf -- "${ANSWERS%/*}"') < nettoyage.index("suivi_fin")
-    assert ('[ "${ADMIN_MDP_CONNU:-0}" = 1 ] || { suivi_pause; PAUSE_CONF=1; }\n'
-            '        "$ROOT/elpis" configure --answers "$ANSWERS"') in texte
+    assert '[ "${ADMIN_MDP_CONNU:-0}" = 1 ] || suivi_texte\n        "$ROOT/elpis" configure --answers "$ANSWERS"' in texte
+
+
+# Relance de l'installation standard : Ctrl-C rendu avant exec (ignoré par le nettoyage, il le resterait dans la relance).
+def test_ctrl_c_rendu_a_la_relance():
+    texte = (REPO / "install.sh").read_text(encoding="utf-8")
+    relance = texte[texte.index("vers_dossier_standard() {"):]
+    relance = relance[:relance.index("\n}\n")]
+    assert relance.index("cleanup; trap - EXIT INT") < relance.index("exec bash")
+    r = subprocess.run(["bash", "-c", "trap '' INT; trap - EXIT INT; exec grep SigIgn /proc/self/status"],
+                       capture_output=True, text=True, timeout=30)
+    assert int(r.stdout.split()[1], 16) & 2 == 0, r.stdout
+
+
+# Écran impossible à préparer (dossier, clé) : rien de posé, rien de laissé.
+def test_preparation_tout_ou_rien(tmp_path):
+    corps = _bloc_journal() + ('od() { echo abc; }\nsuivi_preparer; echo "rc=$? [$SUIVI_ACQUIT][$SUIVI_CLE]"\n'
+                               'unset -f od; suivi_preparer; echo "rc=$? ${#SUIVI_CLE}"; [ -s "$SUIVI_ACQUIT/cle" ] && echo cle\n')
+    r = subprocess.run(["bash", "-c", corps], capture_output=True, text=True, timeout=30,
+                       env={**ENV, "TMPDIR": str(tmp_path)})
+    assert "rc=1 [][]" in r.stdout and "rc=0 16" in r.stdout and "cle" in r.stdout, r.stdout + r.stderr
+    assert len(list(tmp_path.iterdir())) == 1
+
+
+# Repère collé à une ligne inachevée (Ctrl-C pendant une barre de progression) : reconnu, le début de ligne gardé.
+def test_repere_colle_a_une_ligne_inachevee(tmp_path):
+    e = _suivi(tmp_path)
+    e.ecrire(R("Étapes : Python", "Étape : Python") + "\r━━ 45 %")
+    e.attendre(lambda v: "━━ 45 %" in v)
+    e.ecrire(R("Fin (1)"))
+    e.attendre(lambda v: (tmp_path / "ack-1").exists() and SORTIE in v)
+    assert e.fermer() == 0
+    fin = _apres(e.vu, SORTIE)
+    assert "✗ Python" in fin and "━━ 45 %" in fin and CLE not in e.vu
+
+
+# Suite en texte (mot de passe que configure écrirait sur /dev/tty) : écran quitté, étapes passées laissées, la suite recopiée sans écran.
+def test_suite_en_texte(tmp_path):
+    e = _suivi(tmp_path)
+    e.ecrire(R("Étapes : Python | Configuration | Démarrage", "Étape : Python", "Étape : Configuration") + "conf\n"
+             + R("Texte (1)"))
+    e.attendre(lambda v: (tmp_path / "ack-1").exists() and SORTIE in v)
+    e.ecrire("Mot de passe affiché\n" + R("Étape : Démarrage") + "services\n" + R("Bilan") + "Installation terminée.\n"
+             + R("Fin (2)"))
+    e.attendre(lambda v: (tmp_path / "ack-2").exists() and "Installation terminée." in v)
+    assert e.fermer() == 0
+    fin = _apres(e.vu, SORTIE)
+    assert e.vu.count(ENTREE) == 1 and "✓ Python" in fin and "▸ Configuration" in fin and "· Démarrage" in fin
+    assert fin.index("▸ Configuration") < fin.index("Mot de passe affiché") < fin.index("── Démarrage ──")
+    assert fin.index("── Démarrage ──") < fin.index("services") < fin.index("Installation terminée.") and CLE not in e.vu
 
 
 # Réponses de l'assistant : mot de passe administrateur connu d'avance (saisi ou généré) ou non (réinstallation, champ vide).

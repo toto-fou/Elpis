@@ -52,10 +52,16 @@ const PATH_EXTS = new Set(
 );
 const PATH_RE = /^(\.{0,2}\/)?((?:[\w@.-]+\/)*[\w@.-]+?)(?::(\d+))?(?::(\d+))?$/;
 
+/** Texte d'un chemin sans le préfixe `/work` de la sandbox : `/work/a/b:12` → `a/b:12`, `/work` et `/work/` → vide. */
+export function retirerPrefixeWork(s: string): string {
+  return s === "/work" || s.startsWith("/work/") ? s.slice(6) : s;
+}
+
 /** Chemin de fichier plausible (message du chat, terminal) : { path, line, col } ou null. */
 export function parsePath(s: unknown): AnalyseChemin | null {
   const t = String(s == null ? "" : s).trim();
   if (!t || t.length > 300 || /\s/.test(t) || /:\/\//.test(t)) return null;
+  if (!retirerPrefixeWork(t)) return { path: "", line: 0, col: 0 };
   const m = PATH_RE.exec(t);
   if (!m) return null;
   const lead = m[1] || "";
@@ -80,10 +86,6 @@ export function parsePath(s: unknown): AnalyseChemin | null {
   if (dot <= 0 && !PATH_EXTS.has(ext)) return null;
   if (lead === "/" && path.indexOf("work/") === 0) path = path.slice(5);
   return resultat();
-}
-
-export function looksLikePath(s: unknown): boolean {
-  return !!parsePath(s);
 }
 
 /** Durée lisible en secondes entières : « 42 s », « 3 min 07 s », « 1 h 04 min » ; sous la seconde selon `opts`. */

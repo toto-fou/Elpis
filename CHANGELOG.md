@@ -274,6 +274,10 @@ follow [SemVer](https://semver.org/).
   as a sandboxed document, like the application logo. The console no longer applies
   `app.cors_origins`: cross-origin calls concern main only.
 
+### Fixed
+
+- **Chat: sandbox file links accept `/work` paths.** In inline code, `/work/a/b.md` and `/work/a/b.md:12` open the same file as `a/b.md` and are shown without the `/work/` prefix; `/work` and `/work/` stay as typed. A Markdown link to a `/work` file opens it in the editor instead of navigating to a broken URL (a link to `/work` itself opens nothing); links to other folders, to most files without an extension (`Makefile`, `Dockerfile` and dotfiles do open) and to percent-encoded names still navigate.
+
 ## 0.1.5 — 2026-11-22
 
 ### Added

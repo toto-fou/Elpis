@@ -8,9 +8,11 @@
 #
 #  Mêmes ports que Caddyfile.template (config.json › security.https) :
 #  443 = application, 8443 = administration (l'extracteur du RAG reste local).
+#  admin off : tout changement de configuration passe par un redémarrage de Caddy.
 #  Même compression que Caddyfile.template (voir son en-tête).
 # =====================================================================
 {
+	admin off
 	__EMAIL_LINE__
 }
 

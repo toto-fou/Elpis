@@ -388,7 +388,11 @@ POLITIQUE_CSP`). Fallback setting, re-read on every page (no restart needed):
 
 The sandbox previews, the HTML preview of chat code blocks (`/apercu-code`) and
 the OAuth consent screen keep their own policy, independent of this
-setting.
+setting. So do avatars, the images of a skin and the application logo, on main and
+on the console: their policy allows no script and opens them as a sandboxed document
+(`sandbox`). An avatar is served only when its first bytes are those of a PNG, JPEG,
+GIF or WebP image, with that image's type whatever the file name; any other file
+answers 404.
 
 ### Security journal (`security.audit`)
 
@@ -542,7 +546,7 @@ Sections:
 |---|---|
 | `llama` | `engine`, `url` (server base) or `ip`/`port`, `api_key`, `model`, timeouts, retries, `max_concurrency`, `max_models`, `n_ctx`, `max_tool_iterations`, `tool_timeout_s`, `thinking_budget_tokens`, `max_tokens_chat`/`max_tokens_thinking`, `thinking_output_uncapped`, `think_resume_max`/`think_resume_total_tokens` |
 | `mcp` | `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
-| `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, `system_prompts.*` paths |
+| `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, `system_prompts.*` paths, `cors_origins` (origins allowed to call main from a browser with its cookies, read at startup; the console ignores it and answers no cross-origin request) |
 | `llm` | `scheduling_mode`, `max_requests_per_user` (simultaneous engine requests per account: conversations, subagents, routines and `/compact` together; the surplus waits, interactive calls first; `0`, the default: no cap; re-read live; Admin console › Connections, engine card), `compression.*`, `compaction.*`, `prune.*`, `task.*` (subagents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
 | `agents` | Subagents (`task`), specific to the TS core, re-read live and written only by `POST /api/admin/agents` (Admin console › Sandbox › Subagents; the raw editor and field-by-field writes do not write it): `read_only.defaults.<type>` (read-only by default; `explore` and `web` true, the others false: a `web` agent keeps its whole browser, only writes to the sandbox are removed; the value written by the console, or set by the account for its agent, wins), `read_only.forced.<type>` (enforced: neither the account nor the main agent can lift it; false by default), `max_tasks_per_turn` (at most this many `task` launches per main-agent turn, 1 to 100, default 12; a resume by `task_id` does not count, and is limited to 3 per agent and per turn) and `max_child_tokens_per_turn` (cumulative input + output tokens of a turn's children at most, those still running counted at best from the usage already known, `0` or 10,000 to 50,000,000, default `0`: no cap) — beyond it, a new launch is refused before it starts (`task_budget_exhausted`, with `fix`), children already launched continue; applies to the chat (a routine has no subagents), re-read on every launch, never announced in the description of `task`. `thinking.defaults.<type>` (thinking: `off`, `on` or `inherit` = that of the main agent's turn; `implement` and `verify` `on`, `explore`, `web` and `pr` `off`, `custom` `inherit`), `thinking_budget_tokens` (thinking budget of a subagent, 512 to 131072, default `llama.thinking_budget_tokens`, see [Subagent thinking](#subagent-thinking-agentsthinking)). `background_timeout_s` (timeout of a background subagent, 300 to 21,600 s, default 3600: its `max_seconds` is bounded by it and the clean finish — soft deadline, report — is measured against it as for a synchronous launch, which `llm.task.child_timeout_s` bounds), `user_browser_session_allowed` (true by default; a value that is not a boolean closes it; false: no subagent receives the account's web session, even if set to "My web session" in the Agents page, Admin console › Sandbox › Subagents › Browser); a background launch counts toward `max_tasks_per_turn` and its tokens toward `max_child_tokens_per_turn` of the turn that launches it, as long as that turn runs. Types: `explore`, `implement`, `verify`, `web`, `pr` and `custom` (all personal agents). Effective read-only = enforced, OR requested by `task(read_only=true)`, OR the account's checkbox (if set, otherwise the default). An unreadable or out-of-range value falls back to its default |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
@@ -667,7 +671,11 @@ An unreadable or out-of-range value falls back to its default.
   accounts' configuration copies (`user_db/configs/`).
 - **Extractor.** Its own settings (timeouts, memory, sizes, isolation
   `RAG_ISOLATION`) are environment variables:
-  [`rag_app/README.md`](../rag_app/README.md). `RAG_EXTRACT_TIMEOUT_S` also sets
+  [`rag_app/README.md`](../rag_app/README.md). `./elpis` sets `RAG_ISOLATION=bwrap`
+  for the extractor in every installed mode: if bubblewrap cannot isolate, document
+  analyses are refused (users see "ask your administrator"), not run unjailed. Fix:
+  `apt install bubblewrap`, allow unprivileged user namespaces, check `./elpis doctor`
+  (which also flags `office_preview.isolation = "none"`). `RAG_EXTRACT_TIMEOUT_S` also sets
   the core's timeout. It listens on `127.0.0.1:8000` (`RAG_HOST` for a core on
   another machine, which must then see the same store).
 
@@ -982,7 +990,7 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | Variable | Default | Description |
 |---|---|---|
 | `ELPIS_AUDIT_DIR` | `/var/lib/elpis/audit` if writable, otherwise `logs/audit` in the repository | Folder of the security journal |
-| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned. Keys handed by systemd: set by the units of main, the console and the tool host (`%d/audit.key`) |
+| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned. `ELPIS_AUDIT_KEY_REQUIRED=1` (set by `elpis` with `ELPIS_AUDIT_DIR`) makes that loud: one `[CRITICAL]` line and one `audit.key.unavailable` event per process. Keys handed by systemd: set by the units of main, the console and the tool host (`%d/audit.key`) |
 | `ELPIS_APP_LOG_DIR` | `user_db/logs` of the repository (`/var/log/elpis` under systemd) | Folder of the access log `app.log.jsonl` |
 | `ELPIS_APP_LOG_MAX_MO` | `8` | Size in MB at which `app.log.jsonl` is rotated (1 to 1024) |
 | `ELPIS_APP_LOG_ROTATIONS` | `3` | Rotated files kept, `app.log.jsonl.1` to `.N` (1 to 50) |
@@ -1651,10 +1659,19 @@ Design points:
 - **Catch-all sites**: any IP/name reaching the machine works.
   Main and admin share the hostname (different ports) → the host-scoped cookie
   stays shared.
+- **Certificate from your own PKI**: `install_caddy.sh --cert FULLCHAIN --key KEY`
+  (or `./install.sh --with-caddy --caddy-cert … --caddy-key …`) serves your
+  full chain (server certificate first) instead of the local CA, after
+  `caddy validate` has accepted it. No local CA is kept then (`/ca.crt` answers
+  404). Re-running with new files renews it, before its end date (the doctor
+  does not warn yet); to go back to a new local CA, see
+  [deploy/caddy/README.md](../deploy/caddy/README.md).
 - Caddy runs **permanently**; switching HTTPS ↔ direct HTTP is done from
   the admin console, which writes `security.https.enabled` then restarts the core
   (`SIGHUP`, restart by `./elpis` or systemd), which re-reads the flag at startup. An **anti-lockout
   guard** probes the ports before cutting off direct access.
+- Caddy's **admin API is off** (`admin off`): any change to its configuration
+  restarts it (brief cut), there is no `caddy reload`.
 - `@bootstrap`: the desktop agent's install routes stay in clear text on
   `:80` — the target machine does not know the CA yet. See
   [deploy/caddy/README.md](../deploy/caddy/README.md).

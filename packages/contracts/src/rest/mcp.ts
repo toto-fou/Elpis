@@ -1,14 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/mcp.ts — serveurs MCP côté panneau : dossiers déposés, catégories d'outils, manifeste, bibliothèque partagée, bouton « Tester ». */
+/** packages/contracts/src/rest/mcp.ts — serveurs MCP côté panneau : catégories d'outils, manifeste, bibliothèque partagée, bouton « Tester ». */
 import { z } from "zod";
 
 import { entier } from "./commun";
-
-export const schemaDossierMcp = z.object({ name: z.string(), path: z.string(), suggested_cmd: z.string() });
-export const schemaReponseDossiersMcp = z.object({
-  servers: z.array(schemaDossierMcp),
-  root_path: z.string(),
-});
 
 export const schemaOutilCategorie = z.object({
   name: z.string(),

@@ -92,7 +92,8 @@ export {
   SERVER_TYPES,
   sharedId,
   signalerServeurIgnore,
-  StdioNotAllowed,
+  STDIO_REFUSE,
+  StdioRefused,
   updateShared,
   UrlNotAllowed,
 } from "./serveurs";

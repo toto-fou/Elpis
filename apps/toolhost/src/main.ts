@@ -12,6 +12,7 @@ import {
   brancherJournal as brancherJournalSecurite,
   configureAudit,
   defaultAuditDir,
+  auditCleRequise,
   defaultAuditKeyPath,
   demarrerAudit,
 } from "@elpis/securite";
@@ -88,6 +89,7 @@ async function principal(argv: readonly string[]): Promise<number | null> {
       service: "toolhost",
       auditDir: defaultAuditDir(process.env, path.resolve(import.meta.dirname, "..", "..", "..")),
       hmacKeyPath: defaultAuditKeyPath(process.env),
+      cleRequise: auditCleRequise(process.env),
     });
   } catch (e) {
     log.warn({ err: e }, "[audit] configuration impossible : audit sans signature HMAC");

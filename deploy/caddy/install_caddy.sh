@@ -5,6 +5,10 @@
 #
 #  Usage :  sudo ./install_caddy.sh [san-supplementaire ...]
 #           (arguments optionnels : IP flottante, alias DNS interne, …)
+#           sudo ./install_caddy.sh --cert FILE --key FILE
+#           (certificat de la PKI du client, fullchain : feuille puis
+#           intermédiaires, à la place de la CA locale ; relancer avec de
+#           nouveaux fichiers = renouvellement)
 #
 #  Fait tout :
 #    1. installe caddy — depuis les .deb vendorisés ./debs/ si présents
@@ -17,7 +21,9 @@
 #       cert est ce qui rend l'exception navigateur « Accepter le
 #       risque » définitive (1 clic par poste/port, jamais plus) ;
 #    4. pose le Caddyfile catch-all (copie telle quelle, pas de sed) ;
-#    5. valide et (re)démarre Caddy.
+#    (avec --cert : le certificat et la clé fournis sont validés par Caddy
+#    puis posés à la place ; aucune CA locale n'est générée.)
+#    5. valide et redémarre Caddy (API d'admin coupée : pas de reload).
 #
 #  Côté client : taper l'IP (http ou https), accepter UNE fois
 #  l'avertissement — terminé. Import de http://<ip>/ca.crt : optionnel,
@@ -38,6 +44,33 @@ DEBS_DIR="$SCRIPT_DIR/debs"
 if [ "$(id -u)" -ne 0 ]; then
     echo "Erreur : lancez ce script avec sudo (écrit /etc/caddy + systemctl)." >&2
     exit 1
+fi
+
+# ── 0. Arguments ; certificat du client copié en dossier privé et vérifié ──
+CERT=""; KEY=""; STAGE=""; declare -a EXTRAS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --cert|--key)
+            [ $# -ge 2 ] || { echo "Erreur : $1 attend un fichier." >&2; exit 2; }
+            if [ "$1" = "--cert" ]; then CERT="$2"; else KEY="$2"; fi
+            shift ;;
+        -*)      echo "Erreur : option inconnue : $1" >&2; exit 2 ;;
+        *)       EXTRAS+=("$1") ;;
+    esac
+    shift
+done
+
+refuser() { echo "Erreur : $*" >&2; exit 1; }
+trap '[ -z "$STAGE" ] || rm -rf -- "$STAGE"' EXIT
+
+if [ -n "$CERT$KEY" ]; then
+    [ -n "$CERT" ] && [ -n "$KEY" ] || refuser "--cert et --key vont ensemble."
+    [ "${#EXTRAS[@]}" -eq 0 ] || refuser "les SANs en argument ne s'appliquent pas à un certificat fourni."
+    STAGE="$(mktemp -d)"
+    cat -- "$CERT" > "$STAGE/fullchain.pem" 2>/dev/null || refuser "fichier illisible : $CERT"
+    cat -- "$KEY" > "$STAGE/server.key" 2>/dev/null || refuser "fichier illisible : $KEY"
+    openssl x509 -in "$STAGE/fullchain.pem" -noout -checkend 0 >/dev/null 2>&1 \
+        || refuser "$CERT n'est pas un certificat PEM lisible, ou il est expiré."
 fi
 
 # ── 1. Paquet caddy — .deb vendorisés d'abord (offline), apt en repli ─
@@ -85,7 +118,7 @@ for ip in $(hostname -I 2>/dev/null || true); do
 done
 _hn="$(hostname 2>/dev/null || true)"
 [ -n "$_hn" ] && SANS+=("DNS:$_hn")
-for extra in "$@"; do
+for extra in "${EXTRAS[@]}"; do
     if [[ "$extra" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         SANS+=("IP:$extra")
     else
@@ -94,70 +127,104 @@ for extra in "$@"; do
 done
 # Dédoublonnage en préservant l'ordre, puis liste "IP:a,DNS:b,…"
 SAN_LIST="$(printf '%s\n' "${SANS[@]}" | awk '!seen[$0]++' | paste -sd, -)"
-echo "SANs du certificat : $SAN_LIST"
 
-# ── 3. PKI locale stable ─────────────────────────────────────────────
+# ── 3. Certificat serveur ────────────────────────────────────────────
 mkdir -p "$PKI_DIR"
 chmod 755 "$PKI_DIR"
+MARQUE="$PKI_DIR/client-pki"
 
-# CA : générée UNE fois, jamais touchée ensuite (les postes qui l'ont
-# importée ne doivent jamais la voir changer).
-if [ ! -f "$PKI_DIR/ca.crt" ] || [ ! -f "$PKI_DIR/ca.key" ]; then
-    echo "--- Génération de la CA locale (10 ans) ---"
-    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
-        -keyout "$PKI_DIR/ca.key" -out "$PKI_DIR/ca.crt" -days 3650 \
-        -subj "/CN=Elpis Local CA/O=Elpis" \
-        -addext "basicConstraints=critical,CA:TRUE" \
-        -addext "keyUsage=critical,keyCertSign,cRLSign"
-else
-    echo "--- CA locale existante conservée ---"
-fi
-
-# Cert serveur : ré-émis seulement si les SANs ont changé (stabilité =
-# les exceptions déjà acceptées par les navigateurs restent valides).
-_needs_leaf=1
-if [ -f "$PKI_DIR/server.crt" ]; then
-    _current="$(openssl x509 -in "$PKI_DIR/server.crt" -noout -ext subjectAltName 2>/dev/null \
-        | tail -n +2 | tr -d ' \n' \
-        | sed 's/IPAddress:/IP:/g')"
-    _wanted="$(echo "$SAN_LIST" | tr -d ' ')"
-    if [ "$_current" = "$_wanted" ]; then
-        _needs_leaf=0
-        echo "--- Certificat serveur existant conservé (SANs inchangés) ---"
+# PKI locale : CA stable (jamais touchée) et certificat serveur ré-émis seulement si les SANs changent.
+pki_locale() {
+    echo "SANs du certificat : $SAN_LIST"
+    if [ ! -f "$PKI_DIR/ca.crt" ] || [ ! -f "$PKI_DIR/ca.key" ]; then
+        echo "--- Génération de la CA locale (10 ans) ---"
+        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
+            -keyout "$PKI_DIR/ca.key" -out "$PKI_DIR/ca.crt" -days 3650 \
+            -subj "/CN=Elpis Local CA/O=Elpis" \
+            -addext "basicConstraints=critical,CA:TRUE" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign"
     else
-        echo "--- SANs modifiés (avant: ${_current:-aucun}) → ré-émission du certificat serveur ---"
+        echo "--- CA locale existante conservée ---"
     fi
-fi
-if [ "$_needs_leaf" = "1" ]; then
-    echo "--- Émission du certificat serveur (10 ans) ---"
-    openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
-        -keyout "$PKI_DIR/server.key" -out "$PKI_DIR/server.csr" -subj "/CN=Elpis"
-    printf 'subjectAltName=%s\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n' \
-        "$SAN_LIST" > "$PKI_DIR/ext.cnf"
-    openssl x509 -req -in "$PKI_DIR/server.csr" \
-        -CA "$PKI_DIR/ca.crt" -CAkey "$PKI_DIR/ca.key" -CAcreateserial \
-        -days 3650 -out "$PKI_DIR/server.crt" -extfile "$PKI_DIR/ext.cnf"
-    cat "$PKI_DIR/server.crt" "$PKI_DIR/ca.crt" > "$PKI_DIR/fullchain.pem"
-    rm -f "$PKI_DIR/server.csr" "$PKI_DIR/ext.cnf"
-fi
 
-# Permissions : la clé serveur lisible par caddy, la clé CA root-only.
-chown root:caddy "$PKI_DIR/server.key" 2>/dev/null || true
-chmod 640 "$PKI_DIR/server.key"
-chmod 600 "$PKI_DIR/ca.key"
-chmod 644 "$PKI_DIR/ca.crt" "$PKI_DIR/server.crt" "$PKI_DIR/fullchain.pem"
+    _needs_leaf=1
+    if [ -f "$PKI_DIR/server.crt" ]; then
+        _current="$(openssl x509 -in "$PKI_DIR/server.crt" -noout -ext subjectAltName 2>/dev/null \
+            | tail -n +2 | tr -d ' \n' \
+            | sed 's/IPAddress:/IP:/g')"
+        _wanted="$(echo "$SAN_LIST" | tr -d ' ')"
+        if [ "$_current" = "$_wanted" ]; then
+            _needs_leaf=0
+            echo "--- Certificat serveur existant conservé (SANs inchangés) ---"
+        else
+            echo "--- SANs modifiés (avant: ${_current:-aucun}) → ré-émission du certificat serveur ---"
+        fi
+    fi
+    if [ "$_needs_leaf" = "1" ]; then
+        echo "--- Émission du certificat serveur (10 ans) ---"
+        openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
+            -keyout "$PKI_DIR/server.key" -out "$PKI_DIR/server.csr" -subj "/CN=Elpis"
+        printf 'subjectAltName=%s\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n' \
+            "$SAN_LIST" > "$PKI_DIR/ext.cnf"
+        openssl x509 -req -in "$PKI_DIR/server.csr" \
+            -CA "$PKI_DIR/ca.crt" -CAkey "$PKI_DIR/ca.key" -CAcreateserial \
+            -days 3650 -out "$PKI_DIR/server.crt" -extfile "$PKI_DIR/ext.cnf"
+        cat "$PKI_DIR/server.crt" "$PKI_DIR/ca.crt" > "$PKI_DIR/fullchain.pem"
+        rm -f "$PKI_DIR/server.csr" "$PKI_DIR/ext.cnf"
+    fi
+
+    chown root:caddy "$PKI_DIR/server.key" 2>/dev/null || true
+    chmod 640 "$PKI_DIR/server.key"
+    chmod 600 "$PKI_DIR/ca.key"
+    chmod 644 "$PKI_DIR/ca.crt" "$PKI_DIR/server.crt" "$PKI_DIR/fullchain.pem"
+}
+
+# Certificat du client : clé et fullchain en 0640 root:caddy, posés par renommage.
+pki_client() {
+    local n
+    chown root:root "$PKI_DIR"
+    for n in fullchain.pem server.key; do
+        rm -f -- "$PKI_DIR/$n.new"
+        (umask 077; cp -- "$STAGE/$n" "$PKI_DIR/$n.new")
+        chown root:caddy "$PKI_DIR/$n.new" 2>/dev/null || true
+        chmod 640 "$PKI_DIR/$n.new"
+    done
+    for n in fullchain.pem server.key; do mv -f -- "$PKI_DIR/$n.new" "$PKI_DIR/$n"; done
+    rm -f -- "$MARQUE"
+    : > "$MARQUE"
+}
+
+if [ -n "$CERT" ]; then
+    # Caddy lit les copies : il refuse une clé qui ne correspond pas ou une courbe non prise en charge.
+    sed "s#$PKI_DIR#$STAGE#g" "$TEMPLATE" > "$STAGE/Caddyfile"
+    _err="$(caddy validate --config "$STAGE/Caddyfile" --adapter caddyfile 2>&1)" \
+        || refuser "Caddy refuse ce certificat ou cette clé : $(printf '%s\n' "$_err" | tail -n 1)"
+    pki_client
+elif [ -f "$MARQUE" ]; then
+    echo "--- Certificat du client conservé (--cert pour le renouveler) ---"
+    [ "${#EXTRAS[@]}" -eq 0 ] || echo "Avis : SANs ignorés, le certificat du client reste en place."
+else
+    pki_locale
+fi
 
 # ── 4. Caddyfile (catch-all, copie sans substitution) ────────────────
 if [ -f "$CADDYFILE" ]; then
-    cp "$CADDYFILE" "${CADDYFILE}.bak.$(date +%Y%m%d%H%M%S)"
+    cp -- "$CADDYFILE" "${CADDYFILE}.bak.$(date +%Y%m%d%H%M%S)"
     echo "Backup : ${CADDYFILE}.bak.*"
 fi
-cp "$TEMPLATE" "$CADDYFILE"
+rm -f -- "$CADDYFILE.new"
+cp -- "$TEMPLATE" "$CADDYFILE.new"
 
-# ── 5. Validation puis (re)démarrage ─────────────────────────────────
-caddy validate --config "$CADDYFILE" --adapter caddyfile
-systemctl enable --now caddy
-systemctl reload caddy || systemctl restart caddy
+# ── 5. Validation puis redémarrage ───────────────────────────────────
+caddy validate --config "$CADDYFILE.new" --adapter caddyfile
+mv -f -- "$CADDYFILE.new" "$CADDYFILE"
+# admin off : pas de rechargement possible, un changement = un redémarrage
+systemctl enable caddy
+systemctl restart caddy
+if [ -f "$MARQUE" ]; then
+    [ ! -e "$PKI_DIR/ca.crt" ] || echo "--- CA locale retirée (remplacée par le certificat du client) ---"
+    rm -f -- "$PKI_DIR/ca.crt" "$PKI_DIR/ca.key" "$PKI_DIR/ca.srl" "$PKI_DIR/server.crt"
+fi
 
 _first_ip="$(printf '%s\n' "${SANS[@]}" | grep '^IP:' | grep -v 127.0.0.1 | head -1 | cut -d: -f2)"
 _first_ip="${_first_ip:-<ip-du-serveur>}"
@@ -167,13 +234,19 @@ echo "  Frontal TLS en place. Côté client : RIEN à installer."
 echo "    • App principale : https://${_first_ip}/   (ou juste ${_first_ip} → redirigé)"
 echo "    • Console admin  : https://${_first_ip}:8443/admin"
 echo ""
-echo "  Première connexion : le navigateur affiche un avertissement"
-echo "  (certificat local inconnu) → « Avancé » → « Accepter le risque »."
-echo "  Un seul clic par poste et par port — le certificat est stable"
-echo "  10 ans, l'avertissement ne reviendra pas."
-echo ""
-echo "  Optionnel (supprime même ce 1er avertissement) : importer"
-echo "  http://${_first_ip}/ca.crt dans le navigateur (voir README.md)."
+if [ ! -f "$MARQUE" ]; then
+  echo "  Première connexion : le navigateur affiche un avertissement"
+  echo "  (certificat local inconnu) → « Avancé » → « Accepter le risque »."
+  echo "  Un seul clic par poste et par port — le certificat est stable"
+  echo "  10 ans, l'avertissement ne reviendra pas."
+  echo ""
+  echo "  Optionnel (supprime même ce 1er avertissement) : importer"
+  echo "  http://${_first_ip}/ca.crt dans le navigateur (voir README.md)."
+else
+  echo "  Certificat de votre PKI en place : les postes qui font confiance à"
+  echo "  votre autorité n'ont aucun avertissement. Pour le renouveler,"
+  echo "  relancez avec --cert/--key."
+fi
 echo ""
 echo "  Puis activez le mode HTTPS dans la console admin"
 echo "  (Configuration → Accès HTTPS)."

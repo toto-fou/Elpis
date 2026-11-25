@@ -24,6 +24,10 @@
 #  ne désactive son buffering tout seul que pour text/event-stream).
 #  Les WebSockets (/ws/terminal) passent nativement.
 #
+#  admin off : pas d'API d'administration (:2019) ; tout changement de
+#  configuration passe donc par un redémarrage de Caddy (coupure brève),
+#  jamais par `caddy reload`.
+#
 #  (compression) : le core compresse déjà ses fichiers et ses gros JSON
 #  (Content-Encoding posé : Caddy les laisse tels quels). Caddy compresse
 #  le reste, pour les seules requêtes GET de même origine (pas d'attaque
@@ -32,6 +36,10 @@
 #  retiendrait leurs en-têtes jusqu'au premier octet ; NDJSON et SSE
 #  absents des types compressés.
 # =====================================================================
+
+{
+	admin off
+}
 
 (compression) {
 	@compressible {

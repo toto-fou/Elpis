@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/mcp.ts — `/api/mcp` : dossiers déjà déposés (liste, suppression ; plus de dépôt), catégories d'outils, serveurs du manifeste, bibliothèque partagée (écriture admin, stdio refusé), bouton « Tester » (shared_infra/mcp/panel.py). */
-import { lstatSync, opendirSync, readFileSync, rmSync, statSync } from "node:fs";
-import path from "node:path";
+/** apps/core/src/familles/mcp.ts — `/api/mcp` : dossiers déjà déposés (suppression seule ; plus de dépôt ni de liste), catégories d'outils, serveurs du manifeste, bibliothèque partagée (écriture admin, stdio refusé), bouton « Tester » (shared_infra/mcp/panel.py). */
+import { rmSync, statSync } from "node:fs";
 
 import { getUserSettings, ligneUtilisateur } from "@elpis/auth";
 import {
   arrondiPy,
-  decoderUtf8IgnorePy,
-  decoderUtf8Py,
-  ErreurPython,
   estDict,
   getPy,
   HttpError,
@@ -16,13 +12,12 @@ import {
   messageErreurOs,
   prefixePy,
   reprPy,
-  splitlinesPy,
   stripPy,
   strPy,
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { config, parseJsonPy, realpathPy } from "@elpis/config";
+import { config, realpathPy } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
   AUTH_MODES,
@@ -48,7 +43,9 @@ import {
   SERVER_TYPES,
   sharedId,
   signalBorne,
-  StdioNotAllowed,
+  UrlNotAllowed,
+  STDIO_REFUSE,
+  StdioRefused,
   updateShared,
 } from "@elpis/mcp";
 import type { ActeurMcp, ChampsPartage, ClientMcp, ConfigMcp, EtatSecrets } from "@elpis/mcp";
@@ -69,12 +66,7 @@ export interface DependancesMcp {
 /** Délai de l'essai d'un serveur (« Tester »), réglable par les tests. */
 export const reglagesMcp = { delaiEssaiMs: 20_000 };
 
-export const STDIO_REFUSE =
-  "Serveur MCP de type stdio (commande lancée sur le serveur) : non pris en charge par le core " +
-  "(plus aucun sous-processus) — publiez-le en HTTP streamable ou SSE.";
-const FICHIERS_DEMARRAGE = ["start", "start.txt", "start.sh", "start.bat"];
-const POINTS_ENTREE = ["main.py", "server.py", "__main__.py", "index.js", "server.js", "app.py", "app.js"];
-const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+export { STDIO_REFUSE };
 
 /** `os.path.join(a, b)` pour un nom sans `/`. */
 function joindre(a: string, b: string): string {
@@ -102,134 +94,6 @@ function messageDe(e: unknown): string {
   if (typeof code === "string" && /^E[A-Z]+$/u.test(code))
     return messageErreurOs(e, String((e as { path?: unknown }).path ?? ""));
   return e instanceof Error ? e.message : strPy(e);
-}
-
-// ── Dossiers déposés : commande suggérée (_detect_mcp_command) ──────────────
-
-/** `os.scandir` : entrées dans l'ordre du système de fichiers, dossiers reconnus à travers les liens. */
-function lireDossier(dossier: string): { nom: string; dossier: boolean }[] {
-  const d = opendirSync(dossier);
-  const out: { nom: string; dossier: boolean }[] = [];
-  try {
-    for (let e = d.readSync(); e !== null; e = d.readSync()) {
-      let estDossier = e.isDirectory();
-      if (e.isSymbolicLink() || (!estDossier && !e.isFile())) {
-        try {
-          estDossier = statSync(joindre(dossier, e.name)).isDirectory();
-        } catch {
-          estDossier = false;
-        }
-      }
-      out.push({ nom: e.name, dossier: estDossier });
-    }
-  } finally {
-    d.closeSync();
-  }
-  return out;
-}
-
-/** `os.walk(racine)` : (dossier, fichiers) en profondeur d'abord, liens vers des dossiers non suivis, erreurs ignorées. */
-function* parcourir(racine: string): Generator<[string, string[]]> {
-  let liste: { nom: string; dossier: boolean }[];
-  try {
-    liste = lireDossier(racine);
-  } catch {
-    return;
-  }
-  yield [racine, liste.filter((e) => !e.dossier).map((e) => e.nom)];
-  for (const e of liste) {
-    if (!e.dossier) continue;
-    const sous = joindre(racine, e.nom);
-    let lien: boolean;
-    try {
-      lien = lstatSync(sous).isSymbolicLink();
-    } catch {
-      lien = false;
-    }
-    if (!lien) yield* parcourir(sous);
-  }
-}
-
-/** `{f.lower(): f}` : le dernier nom du parcours l'emporte. */
-function parNomMinuscule(fichiers: readonly string[]): Map<string, string> {
-  return new Map(fichiers.map((f) => [lowerPy(f), f]));
-}
-
-/** `cle in conteneur` : clé d'un dict, élément d'une liste, sous-chaîne d'un texte ; TypeError sinon. */
-function contient(conteneur: unknown, cle: string): boolean {
-  if (typeof conteneur === "string") return conteneur.includes(cle);
-  if (Array.isArray(conteneur)) return conteneur.includes(cle);
-  if (estDict(conteneur)) return Object.hasOwn(conteneur, cle);
-  throw new ErreurPython("TypeError", "argument is not iterable");
-}
-
-/** `package.json` avec un script `start` ; toute erreur de lecture ou de forme = non. */
-function npmStart(dossier: string): boolean {
-  const fichier = joindre(dossier, "package.json");
-  if (!existe(fichier)) return false;
-  try {
-    const donnees = parseJsonPy(decoderUtf8Py(readFileSync(fichier)));
-    return estDict(donnees) && Object.hasOwn(donnees, "scripts") && contient(donnees["scripts"], "start");
-  } catch {
-    return false;
-  }
-}
-
-/** Première ligne ni vide ni commentaire d'un fichier `start*` (BOM : UTF-8 strict, sinon octets invalides ignorés). */
-function premiereLigne(chemin: string): string | null {
-  try {
-    const brut = readFileSync(chemin);
-    const contenu = brut.subarray(0, 3).equals(BOM)
-      ? decoderUtf8Py(brut.subarray(3))
-      : decoderUtf8IgnorePy(brut);
-    for (const ligne of splitlinesPy(contenu)) {
-      const l = stripPy(ligne);
-      if (l && !l.startsWith("#")) return l;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-/** `_detect_mcp_command` : `npm start`, première ligne utile d'un fichier `start*`, sinon `python`/`node` d'un point d'entrée ; `""` sinon. */
-export function detecterCommande(dossier: string): string {
-  if (npmStart(dossier)) return "npm start";
-  for (const [racine, fichiers] of parcourir(dossier)) {
-    const parNom = parNomMinuscule(fichiers);
-    for (const nom of FICHIERS_DEMARRAGE) {
-      const reel = parNom.get(nom);
-      if (reel === undefined) continue;
-      const ligne = premiereLigne(joindre(racine, reel));
-      if (ligne !== null) return ligne;
-    }
-  }
-  for (const [racine, fichiers] of parcourir(dossier)) {
-    const parNom = parNomMinuscule(fichiers);
-    for (const nom of POINTS_ENTREE) {
-      const reel = parNom.get(nom);
-      if (reel === undefined) continue;
-      const chemin = joindre(racine, reel);
-      if (path.posix.normalize(chemin).split("/").includes("node_modules")) continue;
-      const rel = path.posix.relative(path.posix.normalize(dossier), path.posix.normalize(chemin));
-      return nom.endsWith(".py") ? `python ${rel}` : `node ${rel}`;
-    }
-  }
-  return "";
-}
-
-function listerDossiers(req: FastifyRequest): Dict {
-  utilisateur(req);
-  const racine = config.MCP_SERVERS_DIR;
-  const servers: Dict[] = [];
-  if (existe(racine)) {
-    for (const e of lireDossier(racine)) {
-      if (!e.dossier) continue;
-      const chemin = joindre(racine, e.nom);
-      servers.push({ name: e.nom, path: chemin, suggested_cmd: detecterCommande(chemin) });
-    }
-  }
-  return { servers, root_path: racine };
 }
 
 function supprimerDossier(req: FastifyRequest): Dict {
@@ -292,7 +156,7 @@ export function champsPartage(data: Dict): ChampsPartage {
   const name = prefixePy(stripPy(texte("name")), 120);
   const type = lowerPy(stripPy(texte("type", "sse")));
   if (!(SERVER_TYPES as readonly string[]).includes(type))
-    throw new HttpError(400, "type doit être 'sse', 'http' ou 'stdio'");
+    throw new HttpError(400, "type doit être 'sse' ou 'http'");
   if (type === "stdio") throw new HttpError(400, STDIO_REFUSE);
   const url = prefixePy(stripPy(texte("url")), 2000);
   const command = prefixePy(stripPy(texte("command")), 2000);
@@ -450,7 +314,6 @@ function verifierPaires(data: Dict): void {
   }
 }
 
-/** Mêmes droits qu'à l'enregistrement : partagé = admin ; perso = son propriétaire (stdio réservé à l'admin, refusé à l'usage). */
 /** Cible d'un serveur (type normalisé, adresse ou commande) : le bouton « Tester » ne joint jamais les secrets enregistrés d'un serveur à une autre cible. */
 function cibleServeur(s: Dict): string {
   const brut = lowerPy(stripPy(strPy(veritePy(getPy(s, "type")) ? getPy(s, "type") : "sse")));
@@ -495,22 +358,19 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
     if (ancien !== null) etat = await secretsPerso(dep.base, uid, ancien);
     admin = await estAdmin(dep, uid);
     const type = lowerPy(stripPy(strPy(veritePy(getPy(brouillon, "type")) ? getPy(brouillon, "type") : "")));
-    if (type === "stdio" && !admin)
-      throw new HttpError(
-        403,
-        "Serveur MCP « Local » (commande exécutée sur le serveur) réservé aux administrateurs.",
-      );
+    if (type === "stdio") throw new HttpError(400, STDIO_REFUSE);
     verifierPaires(data);
   }
   const anciens = ancien !== null && Object.keys(ancien).length > 0 ? [{ ...ancien, id: "t" }] : [];
   let fusion: Awaited<ReturnType<typeof mergePersonalMcp>>;
   try {
     fusion = await mergePersonalMcp(anciens, [brouillon], {
-      allowStdio: admin,
+      confiance: admin,
       secrets: new Map([["t", etat]]),
     });
   } catch (e) {
-    if (e instanceof StdioNotAllowed) throw new HttpError(403, e.message);
+    if (e instanceof StdioRefused) throw new HttpError(400, e.message);
+    if (e instanceof UrlNotAllowed) throw new HttpError(403, e.message);
     throw e;
   }
   const premier = fusion[0];
@@ -522,7 +382,7 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
         "Secret enregistré inutilisable (illisible, retiré du coffre ou clé indisponible) : ressaisissez-le.",
     };
   const resultat = await sonderMcp(
-    await personalToConfig(premier.entree, { allowStdio: admin, secrets: premier.valeur }),
+    await personalToConfig(premier.entree, { confiance: admin, secrets: premier.valeur }),
   );
   if (partage && typeof resultat["error"] === "string")
     resultat["error"] = masquerAdresse(resultat["error"], url);
@@ -539,7 +399,6 @@ export function creerFamilleMcp(dep: DependancesMcp): Famille {
   return {
     nom: "mcp",
     routes: [
-      route("GET", "/api/mcp/custom-servers", "session", (req) => listerDossiers(req)),
       route("DELETE", "/api/mcp/custom-servers/:name", "admin", (req) => supprimerDossier(req)),
       route("GET", "/api/mcp/categories", "session", (req) => categories(req)),
       route("GET", "/api/mcp/manifest-servers", "session", (req) => serveursDuManifeste(req)),

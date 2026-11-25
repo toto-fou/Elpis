@@ -80,18 +80,6 @@ const MCP_PRESETS: Readonly<Record<string, Recette>> = {
     headers: [{ name: "X-API-Key", value: "", has_value: false }],
     env: [],
   },
-  wikijs_local: {
-    name: "Wiki.js (local)",
-    type: "stdio",
-    command: "npx -y wikijs-mcp",
-    auth_mode: "",
-    auth_user: "",
-    headers: [],
-    env: [
-      { name: "WIKIJS_URL", value: "", has_value: false },
-      { name: "WIKIJS_TOKEN", value: "", has_value: false },
-    ],
-  },
 };
 
 export const MODELES_MCP: readonly { cle: string; libelle: string; type: string }[] = Object.entries(
@@ -392,24 +380,23 @@ export function creerMcp(
   function mcpAppliquerModele(cle: string): void {
     const p = MCP_PRESETS[cle];
     const f = mcpForm.value;
-    if (!p || !f || f.id || (p.type === "stdio" && f.portee === "partage")) return;
+    if (!p || !f || f.id) return;
     Object.assign(f, formulaireVide(f.portee), clonerValeur(p));
     mcpErreurs.value = {};
   }
 
   function mcpSetType(type: string): void {
     const f = mcpForm.value;
-    if (!f || (type === "stdio" && f.portee === "partage")) return;
+    if (!f || type === "stdio") return;
     f.type = type;
     mcpErreurs.value = {};
   }
 
-  /** Portée d'un nouveau serveur ; la bibliothèque refuse les serveurs locaux. */
+  /** Portée d'un nouveau serveur. */
   function mcpSetPortee(portee: PorteeMcp): void {
     const f = mcpForm.value;
     if (!f || f.id) return;
     f.portee = portee;
-    if (portee === "partage" && f.type === "stdio") f.type = "http";
   }
 
   const mcpEffacerErreur = (champ: string): void => {

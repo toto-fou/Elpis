@@ -90,6 +90,7 @@ export {
   cleAuditCourante,
   configureAudit,
   defaultAuditDir,
+  auditCleRequise,
   defaultAuditKeyPath,
   demarrerAudit,
   empreinteIdentifiant,
@@ -131,6 +132,7 @@ export {
   supprimerArbreSous,
   supprimerEntreeSous,
   toContainer,
+  viaFd,
 } from "./confinement";
 export type { DossierParcouru, EntreeBrute, OptionsEcritureSous, OptionsLexical } from "./confinement";
 export {

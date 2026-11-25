@@ -35,7 +35,8 @@ export class ErreurCheminBac extends Error {
   override name = "SandboxPathError";
 }
 
-function viaFd(fd: number, nom = ""): string {
+/** Chemin `/proc/self/fd/<fd>[/nom]` : l'entrée vue à travers un descripteur de dossier, jamais par le chemin du dossier. */
+export function viaFd(fd: number, nom = ""): string {
   return nom ? `/proc/self/fd/${fd}/${nom}` : `/proc/self/fd/${fd}`;
 }
 

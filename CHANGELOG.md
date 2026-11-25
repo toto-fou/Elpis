@@ -8,6 +8,11 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **HTTPS front end: certificate from your own PKI.** `install_caddy.sh --cert FULLCHAIN --key KEY`
+  (or `./install.sh --with-caddy --caddy-cert … --caddy-key …`) serves your certificate chain and
+  key instead of the local CA, once Caddy has validated them; both files are installed `0640
+  root:caddy` and the local CA is removed. A plain re-run keeps the certificate, re-running with
+  new files renews it. See `deploy/caddy/README.md`.
 - **Console: what the sandboxes of a network profile reach.** Admin console › Sandbox › Network: a
   folded profile card also says whether its sandboxes run without `sudo`, how many of its domains
   have no address at the moment and how many accounts use it. Unfolded, the editor (same fields,
@@ -24,6 +29,24 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Security journal: a lost signature is now loud.** On an installation (`elpis` sets
+  `ELPIS_AUDIT_KEY_REQUIRED=1` with the journal folder, for the services and the command line), a
+  missing, unreadable or too short HMAC key makes each process write one `[CRITICAL]` line and one
+  `audit.key.unavailable` event (unsigned, since there is no key), then keep writing; `elpis` warns
+  when it renders a unit without the key. Existing installations get the flag when
+  `sudo ./elpis service install` (or `./elpis start`) runs again.
+- **MCP: servers that run a local command are refused.** Adding a `stdio` MCP server from the
+  interface or the API now answers 400 for everyone, administrators included, and the forms no
+  longer offer the type; an entry already stored is kept unchanged (read-only, flagged as no longer
+  supported) and is still never run. `GET /api/mcp/custom-servers` (folder listing) is removed.
+- **Caddy's admin API is off.** Both HTTPS Caddyfile templates (and the tool host one) set
+  `admin off`: nothing listens on `:2019`. `systemctl reload caddy` no longer works; a change to
+  the Caddy configuration restarts it (brief cut), which `install_caddy.sh` and `./elpis
+  configure` now do.
+- **Document analyses require their jail.** Every installed mode now starts the RAG extractor with
+  `RAG_ISOLATION=bwrap`: where bubblewrap cannot isolate, analyses are refused (users are told to
+  ask their administrator) instead of running unjailed. `./elpis doctor` also flags Office previews
+  set to `isolation = "none"`, and `install.sh` says what a missing or blocked bubblewrap costs.
 - **One account per service.** `sudo ./elpis service install` now runs main, the console and the
   tool host under their own system accounts (`elpis-main`, `elpis-admin`, `elpis-toolhost`, no
   shell), sharing their state through the `elpis-donnees` group. Only the tool host unit gets
@@ -193,6 +216,11 @@ follow [SemVer](https://semver.org/).
   allowlist network profile now runs with `no-new-privileges`: `sudo` is refused there, because a
   root in the container could undo the filter. Other profiles keep `sudo`. Containers are
   recreated at their next use (`elpis.spec` 7); `/work` is kept.
+- **Avatars and skin images: images only, sandboxed.** An avatar is served only when its first
+  bytes are those of a PNG, JPEG, GIF or WebP image, with that image's type whatever the file name;
+  any other file answers 404. Avatars and the images of a skin now carry a policy that opens them
+  as a sandboxed document, like the application logo. The console no longer applies
+  `app.cors_origins`: cross-origin calls concern main only.
 
 ## 0.1.5 — 2026-11-22
 

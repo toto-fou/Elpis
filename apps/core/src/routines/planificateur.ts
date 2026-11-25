@@ -242,7 +242,7 @@ export async function rehydrateMcpSecrets(
   base: Base,
   snapshot: unknown,
   reglages: unknown,
-  allowStdio = false,
+  confiance = false,
   proprietaire: number | null = null,
 ): Promise<Dict[]> {
   const r = ouPy(reglages, {});
@@ -294,7 +294,7 @@ export async function rehydrateMcpSecrets(
         signalerServeurIgnore(match["name"] ?? match["id"], motif);
         continue;
       }
-      const complete = await personalToConfig(match, { allowStdio, secrets: etat.valeur });
+      const complete = await personalToConfig(match, { confiance, secrets: etat.valeur });
       if (veritePy(complete)) out.push(complete);
     } else {
       const nom = strPy(ouPy(cfg["name"], ouPy(cfg["id"], "?")));
@@ -739,19 +739,19 @@ export class Planificateur {
         });
         return;
       }
-      let stdioOk = false;
+      let enConfiance = false;
       try {
         const proprietaire = await ligneUtilisateur(this.base, compte);
-        stdioOk = proprietaire !== undefined && Number(proprietaire["is_admin"]) === 1;
+        enConfiance = proprietaire !== undefined && Number(proprietaire["is_admin"]) === 1;
       } catch (e) {
-        log.warn(`[routines.stdio] compte illisible (${String(e)}) — stdio refusé`);
-        stdioOk = false;
+        log.warn(`[routines.confiance] compte illisible (${String(e)}) — entrées sans confiance`);
+        enConfiance = false;
       }
       const mcpConfigs = await rehydrateMcpSecrets(
         this.base,
         routine["mcp_snapshot"] ?? [],
         reglages,
-        stdioOk,
+        enConfiance,
         compte,
       );
       verifier();

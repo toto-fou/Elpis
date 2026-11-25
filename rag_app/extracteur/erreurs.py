@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 # rag_app/extracteur/erreurs.py — erreur typée portée jusqu'à la ligne NDJSON ou à la réponse HTTP.
 
-CODES_EXTRACTION = ("no_text", "encrypted", "unsupported", "too_large", "timeout", "corrupt", "ocr_unavailable")
+CODES_EXTRACTION = ("no_text", "encrypted", "unsupported", "too_large", "timeout", "corrupt", "ocr_unavailable",
+                    "isolation_unavailable")
 
 
 class ErreurExtracteur(Exception):

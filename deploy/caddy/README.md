@@ -66,6 +66,47 @@ New LAN IP: re-run the script (the CA does not change;
 only machines in "exception" mode will see a warning again,
 once).
 
+**Caddy's admin API is off** (`admin off` in the global block of both
+Caddyfile templates): nothing listens on `:2019`, so `caddy reload` and
+`systemctl reload caddy` no longer work. Every change to the Caddy
+configuration (re-running `install_caddy.sh`, the Let's Encrypt Caddyfile
+written by `./elpis configure`) **restarts Caddy**, with a brief cut of
+HTTPS access.
+
+## Certificate from your own PKI
+
+To serve a certificate issued by your organisation instead of the local CA:
+
+```bash
+sudo ./install_caddy.sh --cert fullchain.pem --key server.key
+./install.sh --with-caddy --caddy-cert fullchain.pem --caddy-key server.key
+```
+
+- `--cert` is a standard full chain: the server certificate first, then the
+  intermediates. It is served as given; the key must be unencrypted.
+- Both files are copied into a private temporary folder. The script checks
+  that the certificate is readable and not expired, then runs `caddy validate`
+  on a copy of the Caddyfile pointing at those copies: Caddy refuses a key that
+  does not match the certificate or a curve it does not support, and its error
+  is shown. Nothing is replaced before that succeeds.
+- `fullchain.pem` and `server.key` are installed in `/etc/caddy/elpis-pki/`
+  (both `0640 root:caddy`, so even a combined certificate and key file is not
+  world-readable) with an empty `client-pki` marker, and Caddy restarts.
+- Once Caddy has restarted, leftover local CA files (`ca.crt`, `ca.key`) are
+  removed: `http://<ip>/ca.crt` and `/api/desktop/ca.crt` answer 404. Client
+  machines are expected to already trust your authority.
+- Re-running `install_caddy.sh` (or `./install.sh --with-caddy`,
+  `./elpis configure`) **without** `--cert` keeps the installed certificate;
+  SAN arguments are then ignored, and the script says so.
+- **Renewal**: run the same command again with the new files. A certificate
+  from your PKI usually expires sooner than the 10-year local one, so renew it
+  before its end date: `./elpis doctor` does not warn about this yet.
+- **Back to the local CA**: delete `client-pki`, `fullchain.pem` and `server.*`
+  from `/etc/caddy/elpis-pki/`, then run `sudo ./install_caddy.sh` without
+  options. This creates a **new** CA (the old one was deleted): machines that
+  imported the previous `ca.crt` must import the new one and should remove the
+  old one.
+
 ## Bootstrapping the installers (in clear, on purpose)
 
 The desktop agent's install one-liners run on a

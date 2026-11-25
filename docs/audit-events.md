@@ -43,7 +43,11 @@ address. `?` when unknown.
 `hmac` is the last field. It is computed over the exact text of the line without the trailing
 `,"hmac":"..."`, so verification strips that suffix and recomputes, without re-serialising. The key
 is `/etc/elpis/audit.key` (`ELPIS_AUDIT_KEY_PATH`), at least 32 bytes. Without a usable key the
-lines are written unsigned (no `kid`, no `hmac`).
+lines are written unsigned (no `kid`, no `hmac`). An installation (`elpis` sets
+`ELPIS_AUDIT_KEY_REQUIRED=1` next to `ELPIS_AUDIT_DIR`) requires the key: when it is missing,
+unreadable or too short, each process writes a `[CRITICAL]` line on stderr and one
+`audit.key.unavailable` event (unsigned, since there is no key), then keeps writing. Without
+that variable (development, tests) a missing key stays quiet.
 
 Text fields are made well-formed (lone UTF-16 surrogates become U+FFFD), non-finite numbers become
 `null`, and `action`, `username` and `ip` are cut to 256 characters. A line over 4096 bytes is
@@ -122,6 +126,7 @@ checked with the same command, and only under two conditions:
 | `audit.writer.heartbeat` | Every hour.                       | `pid`, `failures`: number of lines that could not be written since start.                                 |
 | `audit.writer.stop`      | Clean shutdown.                   | `pid`                                                                                                     |
 | `audit.event.lost`       | An event could not be serialised. | `action` (64 characters at most), `error`                                                                 |
+| `audit.key.unavailable`  | The required HMAC key is unusable. | `reason`: `missing`, `unreadable`, `too_short`. Once per process; failure; the journal is unsigned.    |
 
 A `boot` without `audit.writer.stop` is a writer that is still running or stopped abruptly.
 Write failures never interrupt a request: the line is lost, `failures` grows and a message goes to

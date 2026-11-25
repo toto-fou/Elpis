@@ -118,7 +118,11 @@ run Elpis on a dedicated machine or VM. Details below.
   servers chosen by the administrator escape the local network and host protections,
   never the metadata one.
 - Remote MCP server: its address is checked when it is registered, not
-  at every DNS resolution.
+  at every DNS resolution. The server runs no command taken from its
+  configuration: a third-party MCP server is reached over HTTP. An entry
+  that asks for a local command is refused when it is added from the
+  interface or the API, and never run (a legacy entry left in a
+  configuration file is refused at use).
 - The site map of screen vision (sites and paths already visited
   by the control agent) is a memory shared by the team: an account
   sees the sites mapped by the others.

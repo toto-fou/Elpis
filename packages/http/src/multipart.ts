@@ -313,7 +313,7 @@ export function valeursFormulaire<S extends Readonly<Record<string, ParametreFor
   return sortie as { [K in keyof S]: ValeurDe<S[K]> };
 }
 
-/** `save_upload_bounded` : copie plafonnée ; au-delà, destination supprimée et 413 en Mo entiers. */
+/** `save_upload_bounded` : copie plafonnée vers une destination neuve (création exclusive, aucun lien suivi) ; au-delà, destination supprimée et 413 en Mo entiers. */
 export async function enregistrerBorne(
   f: FichierRecu,
   destination: string,
@@ -327,6 +327,6 @@ export async function enregistrerBorne(
       `Fichier trop volumineux (plafond : ${Math.floor(maxOctets / (1024 * 1024))} Mo).`,
     );
   }
-  await pipeline(createReadStream(f.chemin), createWriteStream(destination));
+  await pipeline(createReadStream(f.chemin), createWriteStream(destination, { flags: "wx" }));
   return f.taille;
 }

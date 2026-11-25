@@ -95,7 +95,8 @@ NOM_CLE = re.compile(r"[a-z0-9][a-z0-9.-]{0,63}")
 # Secrets de config.json rangés en clés de systemd (ranger --magasin) ; les autres vont à leurs fichiers.
 VERS_CLES = {"app.session_secret": "session.secret", "app.encryption_key": "encryption.key", "rag.service_token": "rag.token",
              "rag.qdrant_api_key": "qdrant.key"}
-SECRETS_CONFIG = ("app.session_secret", "app.encryption_key", "rag.service_token", "rag.qdrant_api_key")
+# Noms des champs de config.json rangés à part (des noms, jamais leurs valeurs : ce sont eux que ranger écrit sur la sortie).
+CHAMPS_RANGES = ("app.session_secret", "app.encryption_key", "rag.service_token", "rag.qdrant_api_key")
 
 
 class Refus(Exception):
@@ -489,7 +490,7 @@ def ranger(args: list[str]) -> bool:
     cibles = {"app.session_secret": (base, ".session_secret"), "app.encryption_key": (base, ".encryption_key"),
               "rag.service_token": os.path.split(jeton)}
     reussi, a_retirer = True, []
-    for cle_config in SECRETS_CONFIG:
+    for cle_config in CHAMPS_RANGES:
         valeur = valeurs.get(cle_config)
         if not (isinstance(valeur, str) and valeur.strip()):
             a_retirer.append(cle_config)

@@ -192,7 +192,7 @@ const ENTREES: readonly EntreeAdmin[] = [
     role: "admin",
     pages: [
       { id: "sandbox-limits", label: "Limites & politique", stores: ["exec"], loaders: [["loadExecConfig"]] },
-      { id: "sandbox-network", label: "Réseau", stores: ["exec"], loaders: [["loadExecConfig"]] },
+      { id: "sandbox-network", label: "Réseau", wide: true, stores: ["exec"], loaders: [["loadExecConfig"]] },
       { id: "sandbox-toolhosts", label: "Hôtes d’outils", loaders: [["loadExecConfig"], ["loadToolhosts"]] },
       { id: "sandbox-containers", label: "Conteneurs", wide: true, loaders: [["loadExecConfig"]] },
       {

@@ -480,6 +480,26 @@ export async function listConnectorHosts(x: Executeur, uid: number): Promise<str
   return lignes.filter((r) => veritePy(r.host)).map((r) => r.host as string);
 }
 
+/** Portées des comptes git du compte (règle Git « comptes Git du compte » du relais) : hôte, chemin (`""` : tout l'hôte ; compte sans chemin : celui de son secret) et casse exacte pour un service générique ; un compte au jeton à vérifier (importé du bac) n'en donne aucune. */
+export async function listConnectorScopes(
+  x: Executeur,
+  uid: number,
+): Promise<{ host: string; path: string; exact: boolean }[]> {
+  const lignes = (
+    await x.all<Record<string, unknown>>("SELECT * FROM git_connectors WHERE owner_user_id=?", [uid])
+  ).map(ligneDe);
+  const secrets = new Map((await lignesDe(x, uid, "git")).map((s) => [Number(s.id), s] as const));
+  const portees = new Map<string, { host: string; path: string; exact: boolean }>();
+  for (const l of lignes) {
+    const s = l.secret_id === null ? undefined : secrets.get(l.secret_id);
+    if (!l.host || s?.state === "unverified") continue;
+    const path = l.path ?? (s?.kind === "git" ? porteeGit(porteeDe(s)).path : "");
+    const exact = l.provider_type === "generic";
+    portees.set(JSON.stringify([l.host, path, exact]), { host: l.host, path, exact });
+  }
+  return [...portees.values()];
+}
+
 /** `bump_last_used` : au mieux, une écriture manquée ne gêne jamais la résolution. */
 export async function bumpLastUsed(x: Executeur, cid: number): Promise<void> {
   await x.run("UPDATE git_connectors SET last_used=? WHERE id=?", [maintenant(), cid]).catch(() => undefined);

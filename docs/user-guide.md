@@ -1950,6 +1950,7 @@ What you need to know:
 - An account marked **inactif** (inactive) is used for no repository: edit it to choose what it applies to.
 - An account marked **à vérifier** (to check) carries a token taken over from an old file in your sandbox. It is not used until you have checked it in **Secrets web**, or entered it again here.
 - The assistant cannot receive a token in the chat. When a repository asks for one, it invites you to add the account here.
+- Your administrator may limit the Git servers your sandbox reaches. A Git account on another server is then refused: ask your administrator. When only your own Git accounts are allowed, a repository that none of them covers is refused until you add one.
 
 ### Getting the most out of it
 

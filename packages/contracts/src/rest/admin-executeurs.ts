@@ -50,6 +50,29 @@ export const schemaConfigExecuteurs = z.object({
 });
 export type ConfigExecuteurs = z.infer<typeof schemaConfigExecuteurs>;
 export const schemaReponseExecuteurs = z.object({ config: schemaConfigExecuteurs, image: z.string() });
+/** Compte et profil réseau effectif de sa sandbox : imposé par l'administrateur (`forced`), choisi (`chosen`), sinon le profil isolé (`default`, aussi quand le profil voulu n'existe plus). */
+export const schemaCompteProfilReseau = z.object({
+  user_id: entier,
+  username: z.string(),
+  profile_id: z.string(),
+  origin: z.enum(["forced", "chosen", "default"]),
+});
+export type CompteProfilReseau = z.infer<typeof schemaCompteProfilReseau>;
+/** Ce que refuse la protection « hôte » : adresses IPv4 de la machine hors boucle et diffusions IPv4 de ses sous-réseaux. */
+export const schemaMachineReseau = z.object({
+  addresses: z.array(z.string()),
+  broadcasts: z.array(z.string()),
+});
+export type MachineReseau = z.infer<typeof schemaMachineReseau>;
+/** `GET /api/admin/executors/status` : résolution actuelle des domaines des profils en liste blanche (par profil puis par domaine : IPv4, vide si le nom ne se résout pas, `null` sans réponse à temps), conteneurs en marche à recréer, comptes par profil, relevé de la machine (`null` s'il échoue) et hôtes d'outils déclarés ailleurs que sur cette machine (`remote_toolhosts`). */
+export const schemaReponseEtatExecuteurs = z.object({
+  ok: z.literal(true),
+  domains_status: z.record(z.string(), z.record(z.string(), z.array(z.string()).nullable())),
+  stale_containers: z.array(z.unknown()),
+  accounts: z.array(schemaCompteProfilReseau),
+  machine: schemaMachineReseau.nullable(),
+  remote_toolhosts: z.boolean(),
+});
 export const schemaCorpsExecuteurs = z.object({ executors: dictionnaire });
 /** `stale_containers` : conteneurs dont le profil réseau enregistré ne correspond plus au profil du compte. */
 export const schemaReponseExecuteursEcrits = z.object({

@@ -6,8 +6,45 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Console: what the sandboxes of a network profile reach.** Admin console › Sandbox › Network: a
+  folded profile card also says whether its sandboxes run without `sudo`, how many of its domains
+  have no address at the moment and how many accounts use it. Unfolded, the editor (same fields,
+  in titled sections, each with a one-line help) sits next to *What the sandboxes see*, computed
+  in the browser as the profile is edited: the iptables rules a sandbox created now would receive,
+  ready to copy, and a graph and a table of the destinations whose verdicts are read from those
+  rules (allowed, partial with what gets through, inactive, refused, or reached through a host
+  relay, each with its cause; the open accesses to protect marked); below, the profile's accounts
+  (chosen, enforced, default) and a link to Users to enforce one. Cards slide open and closed and
+  tabs fade, both cut under reduced motion. `GET /api/admin/executors/status` also returns each
+  account with its sandbox's profile, the machine's addresses that the host protection refuses,
+  and whether tool hosts are declared on other machines (their sandboxes get those hosts'
+  addresses, which the console then says).
+
 ### Security
 
+- **Sandbox: a Git rule per network profile.** In the profile editor, *Git*: all repositories
+  (the default, as before), chosen servers (a whole server or a server and an organization), or
+  the repositories covered by each user's verified Git accounts. The Git relay applies it to every
+  request of an operation, whatever the profile's network mode, and pull requests follow it; a Git
+  account on a server the rule leaves out is refused, and a Git account's repository list keeps
+  the allowed repositories only. A chosen server's organization keeps its case, and a default
+  port matches whether written or not. The rule bounds the Git relay, not the network of an open
+  profile. The Git relay also applies the profile's protections, with no IPv6 when one is ticked;
+  only the chosen servers escape the local network and host protections, never the metadata one.
+- **Sandbox: an open network profile can refuse cloud metadata, the local network and the
+  host.** Three boxes in the profile editor (Admin console › Sandbox › network profiles,
+  *Refuse*); metadata and host are ticked on a new profile, existing profiles are unchanged and
+  `./elpis doctor` lists those left without protection. The host protection also refuses
+  broadcast and multicast; the machine's addresses are read again before each use, and a
+  sandbox that does not refuse a new address yet is recreated. A profile with a protection runs its sandboxes
+  without `sudo`, and the browser relay applies the same protections, with no IPv6. The console
+  also shows the allowlist domains that have no address at the moment, and lists the running
+  containers none of whose pinned addresses for a domain are still returned, ready to be
+  recreated. An allowlist domain no longer opens a loopback, link-local, multicast or cloud
+  metadata address, nor the host's own addresses: such an address is left out, with a warning
+  in the server journal, unless the profile lists it among its addresses.
 - **`./elpis doctor`: sandbox isolation.** It now reports the startup script, the sandbox network
   (exactly as Elpis creates it) and bridged-traffic filtering, Docker older than 26 (counted:
   traffic between sandboxes is not fully cut there), a kernel without container swap limits, a

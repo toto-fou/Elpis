@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** packages/bac/src/reseau.ts — réseau Docker des bacs en mode ouvert ou liste blanche : pont dédié, trafic entre conteneurs coupé ; les relais de l'hôte reconnaissent son pont à son nom (`br-`). */
+/** packages/bac/src/reseau.ts — réseau Docker des bacs en mode ouvert ou liste blanche : pont dédié, trafic entre conteneurs coupé ; les relais de l'hôte reconnaissent son pont à son nom (`br-`) ; plages refusées par les protections d'un profil ouvert. */
+import { adresseIpOuNul, comparePointsDeCode, dansReseau, reseauPy, texteIp } from "@elpis/commun";
+import type { AdresseIp, Reseau } from "@elpis/commun";
+import { adresseCritique, hostAddresses, surLaMachine } from "@elpis/securite";
+import type { HoteMachine } from "@elpis/securite";
 
 /** Réseau Docker des bacs : un pont à part, sans trafic entre conteneurs (ICC). */
 export const RESEAU_BACS = "elpis-sandbox";
@@ -30,4 +34,82 @@ export function argvCreationReseau(): string[] {
     `com.docker.network.bridge.name=${PONT_BACS}`,
     RESEAU_BACS,
   ];
+}
+
+/** Plages refusées par la protection « métadonnées » : lien local (services de métadonnées des clouds), ceux d'Alibaba Cloud et d'Azure (WireServer). */
+export const PLAGES_METADONNEES: readonly string[] = [
+  "169.254.0.0/16",
+  "100.100.100.200/32",
+  "168.63.129.16/32",
+];
+/** Plages refusées par la protection « réseau local » : adresses privées, partagées, lien local, multidiffusion et réservées. */
+export const PLAGES_LOCALES: readonly string[] = [
+  "10.0.0.0/8",
+  "172.16.0.0/12",
+  "192.168.0.0/16",
+  "100.64.0.0/10",
+  "169.254.0.0/16",
+  "224.0.0.0/4",
+  "240.0.0.0/4",
+];
+const RESEAUX_METADONNEES: readonly Reseau[] = PLAGES_METADONNEES.map((p) => reseauPy(p)).filter(
+  (r): r is Reseau => r !== null,
+);
+
+/** Sûre à épingler sans être listée : ni boucle, lien local, non spécifiée, multidiffusion ou métadonnées du cloud, ni la machine ou ses réseaux de conteneurs. */
+function epinglableSansListe(a: AdresseIp, h: HoteMachine): boolean {
+  const m = surLaMachine(a, h);
+  return (
+    !adresseCritique(a) && !RESEAUX_METADONNEES.some((r) => dansReseau(a, r)) && !m.adresse && !m.conteneurs
+  );
+}
+
+/** Adresses d'un domaine de liste blanche que la sandbox épingle : celles que les adresses listées du profil couvrent déjà, et les autres si elles sont sûres (relevé de la machine `null` : écartées). */
+export function adressesEpinglables(
+  ips: readonly string[],
+  listees: readonly unknown[],
+  h: HoteMachine | null,
+): { gardees: string[]; ecartees: string[] } {
+  const couvertes = listees
+    .map((x) => (typeof x === "string" ? reseauPy(x) : null))
+    .filter((r): r is Reseau => r !== null);
+  const gardees: string[] = [];
+  const ecartees: string[] = [];
+  for (const texte of ips) {
+    const ip = adresseIpOuNul(texte);
+    const gardee =
+      ip !== null && (couvertes.some((r) => dansReseau(ip, r)) || (h !== null && epinglableSansListe(ip, h)));
+    (gardee ? gardees : ecartees).push(texte);
+  }
+  return { gardees, ecartees };
+}
+
+/** Ce que la protection « hôte » refuse en plus des adresses de la machine : diffusion générale et multidiffusion. */
+const DIFFUSIONS: readonly string[] = ["255.255.255.255/32", "224.0.0.0/4"];
+
+/** Ce que la protection « hôte » lit de la machine : ses adresses IPv4 et les diffusions IPv4 de ses sous-réseaux, boucle exclue, sans doublon, triées (la console en montre les règles). */
+export function releveHote(h: HoteMachine): { adresses: string[]; diffusions: string[] } {
+  const ipv4 = (l: readonly AdresseIp[]): string[] =>
+    [...new Set(l.filter((a) => a.version === 4).map((a) => texteIp(a)))].sort(comparePointsDeCode);
+  return {
+    adresses: ipv4(h.adresses).filter((t) => !t.startsWith("127.")),
+    diffusions: ipv4(h.diffusions ?? []).filter((t) => !t.startsWith("127.")),
+  };
+}
+
+/** Réseaux IPv4 que refusent les protections cochées d'un profil ouvert ; « hôte » : le relevé de la machine fait à l'appel (`releveHote`, aucune adresse : erreur) ; vide sans protection. */
+export async function plagesRefusees(
+  protections: readonly string[],
+  machine: () => Promise<HoteMachine> = hostAddresses,
+): Promise<string[]> {
+  const plages = new Set<string>();
+  if (protections.includes("metadata")) for (const p of PLAGES_METADONNEES) plages.add(p);
+  if (protections.includes("lan")) for (const p of PLAGES_LOCALES) plages.add(p);
+  if (protections.includes("host")) {
+    const { adresses, diffusions } = releveHote(await machine());
+    if (adresses.length === 0) throw new Error("aucune adresse IPv4 de la machine relevée");
+    for (const ip of [...adresses, ...diffusions]) plages.add(`${ip}/32`);
+    for (const p of DIFFUSIONS) plages.add(p);
+  }
+  return [...plages].sort(comparePointsDeCode);
 }

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/durcissement.ts — durcissement des conteneurs des comptes : PATH des étapes root et du compte, entrée root de l'hôte, profil filtré. */
+import { protectionsDe } from "./profils";
 import type { ProfilReseau } from "./profils";
 
 /** Version des options de `docker run` qui touchent à la sécurité (étiquette `elpis.spec`) ; la changer recrée les conteneurs. */
-export const RUN_SPEC = "12";
+export const RUN_SPEC = "13";
 
 /** PATH des étapes root (démarrage, entretien de l'hôte) : dossiers du système seuls, jamais ceux de `/work`. */
 export const PATH_SYSTEME = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
@@ -52,9 +53,11 @@ export function optionsRacineDurcie(memoryMb: number): string[] {
   ];
 }
 
-/** Profil dont le réseau est filtré dans le conteneur : le compte n'y devient jamais root. */
-export function profilFiltre(profil: Pick<ProfilReseau, "mode">): boolean {
-  return profil.mode === "allowlist_ip";
+/** Profil dont le réseau est filtré dans le conteneur (liste blanche, ou profil ouvert avec une protection) : le compte n'y devient jamais root. */
+export function profilFiltre(
+  profil: Pick<ProfilReseau, "mode" | "block_metadata" | "block_lan" | "block_host">,
+): boolean {
+  return profil.mode === "allowlist_ip" || protectionsDe(profil).length > 0;
 }
 
 /** Gabarit `docker inspect` lu par `lireEntree` : privilégié, capacités ajoutées, options de sécurité, une valeur JSON par ligne. */

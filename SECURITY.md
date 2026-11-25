@@ -107,6 +107,16 @@ run Elpis on a dedicated machine or VM. Details below.
   a valid ticket is closed without relaying anything.
 - A Git remote over `http://` is relayed in clear, connector credential
   included.
+- Which repositories the Git relay reaches is set per network profile, whatever its
+  mode: all of them (the default), only servers chosen by the administrator (a whole
+  server, or a server and an organization), or only those covered by the account's own
+  verified Git accounts. A Git account on a server the rule leaves out is refused, and
+  the pull requests Elpis opens follow the same rule. The rule is read when an operation
+  starts and applied to each of its requests. It bounds the Git relay only: an open
+  profile still reaches the network directly, unless its protections refuse it; the
+  Git relay applies those protections too, with no IPv6 when one is ticked; only the
+  servers chosen by the administrator escape the local network and host protections,
+  never the metadata one.
 - Remote MCP server: its address is checked when it is registered, not
   at every DNS resolution.
 - The site map of screen vision (sites and paths already visited
@@ -142,9 +152,9 @@ default), never through a root step, and the container's own `PATH` holds system
 folders only. By default the account can become root in its own container with `sudo`
 (`executors.allow_sudo`); a kernel flaw is then all that separates that root from the
 host. With `sudo` turned off, and always on a network profile that filters
-(allowlist), the container is hardened: `no-new-privileges`, seven capabilities (plus
-`NET_ADMIN` for the startup script of an allowlist profile, dropped before the
-account's command), read-only root filesystem, `/tmp` in memory, and the account never
+(allowlist, or open with a protection), the container is hardened: `no-new-privileges`,
+seven capabilities (plus `NET_ADMIN` for the startup script of a filtered profile,
+dropped before the account's command), read-only root filesystem, `/tmp` in memory, and the account never
 runs as root there. Only the startup script, with a clean environment, and a few host
 steps (ownership of `/work`, process cleanup, the sweep of stale uploads, account
 purge) run as root, with system programs. Open and allowlist sandboxes are on the
@@ -152,9 +162,23 @@ purge) run as root, with system programs. Open and allowlist sandboxes are on th
 disabled (Docker 26 or later; `./elpis doctor` warns otherwise); the host still reaches
 a sandbox (server preview). An allowlist profile refuses everything, then opens its
 IPv4 destinations and its resolvers on port 53; with no destination left, nothing else
-is reachable. An open sandbox still reaches the LAN, the host's ports bound to all
-interfaces and a cloud metadata address; filter them on the host if needed, for
-example:
+is reachable. An open profile can refuse cloud metadata (169.254.0.0/16 and the other
+addresses of the main providers), the local network (private, shared, link-local,
+multicast and reserved ranges) and the host (its IPv4 addresses, broadcast and
+multicast; the list is read again before each use, and a container that does not
+refuse a new address yet is recreated); new profiles refuse metadata and the host. A profile with one of these
+protections runs hardened, and the browser relay applies the same protections, with no
+IPv6 at all; the account can read the refused list inside its sandbox. Names are
+resolved by Docker's internal DNS, which asks the host's resolvers from the host itself
+(Docker 26 and later), whatever the protections. The addresses
+of an allowlist's domains are pinned when the container is created, except loopback,
+link-local, multicast, cloud metadata addresses and the host's own addresses and
+container networks, which a domain never opens unless the profile lists them among
+its addresses; the console shows
+the domains that no longer resolve and offers to recreate the containers none of whose
+pinned addresses for a domain are still returned. An open profile without protection
+reaches the LAN, the host's ports bound to all interfaces and a cloud metadata
+address; filter them on the host if needed, for example:
 
 ```bash
 iptables -I DOCKER-USER -i br-elpis-sb -d 169.254.169.254 -j DROP

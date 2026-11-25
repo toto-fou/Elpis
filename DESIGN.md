@@ -161,9 +161,10 @@ De facto scale, to follow so a new layer finds its place:
   menus); `--courbe-fondu` (`ease-out`: opacity and small offsets),
   `--courbe-entree` (menu entries, dialogs, toasts, the save bar),
   `--courbe-volet` (sliding panels).
-- Animate `opacity` and `transform`, never layout properties, with one
-  exception: the width of a sliding panel, and the maximum width of the blocks
-  that follow it.
+- Animate `opacity` and `transform`, never layout properties, with two
+  exceptions: the width of a sliding panel, and the maximum width of the blocks
+  that follow it; the height of a network profile card that unfolds in the
+  console (the rows of its grid, `.np-depli`), cut under reduced motion.
 - Sliding panels (`.elpis-slide-panel`: history rail, console rail, MCP,
   Generation, editor) glide to their width (`--duree-longue` to open, `--duree`
   to close), and the chat column and the composer follow frame by frame: a

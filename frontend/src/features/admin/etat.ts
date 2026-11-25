@@ -50,8 +50,19 @@ export interface ProfilReseauEdite {
   domains: (string | number)[];
   ports: (string | number)[];
   dns: (string | number)[];
+  /** Protections d'un profil ouvert ; absentes : non cochées. */
+  block_metadata?: boolean;
+  block_lan?: boolean;
+  block_host?: boolean;
+  /** Règle Git du profil (`all` si absente) et serveurs choisis (`hôte[:port][/organisation]`). */
+  git_access?: string;
+  git_servers?: string[];
   _uid: string;
+  /** Identifiant au chargement (ou au dernier enregistrement) : les comptes du profil y sont rattachés. */
+  _idCharge: string;
   _open: boolean;
+  /** Onglet du panneau « Ce que voient les sandboxes » : graphe, tableau ou règles. */
+  _onglet: string;
   _portsMode: string;
   _draft: Record<string, string>;
   _err: Record<string, string>;

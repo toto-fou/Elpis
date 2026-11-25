@@ -63,6 +63,14 @@ const MESSAGES: readonly (readonly [RegExp, string | ((...m: string[]) => string
     "remote '$1' has several URLs, which the relay does not support",
   ],
   [/^Dépôt refusé \(anti-SSRF\) : /mu, "repository refused (SSRF protection): "],
+  [
+    /^Dépôt refusé : aucun de vos comptes Git ne couvre ce dépôt\..*$/mu,
+    "repository refused: none of the user's Git accounts covers it; the user can add one in Settings › Secrets › Git accounts, or ask the administrator.",
+  ],
+  [
+    /^Dépôt refusé : ce dépôt n'est pas autorisé pour votre sandbox\..*$/mu,
+    "repository refused: this repository is not allowed for this sandbox; only the administrator can allow it.",
+  ],
   [/^URL de dépôt mal formée$/mu, "malformed repository URL"],
   [
     /^URL de dépôt invalide \(identifiants, requête ou hôte\)$/mu,

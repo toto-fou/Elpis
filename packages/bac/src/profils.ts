@@ -39,6 +39,26 @@ export const DOMAIN_RE =
 
 const MODES: readonly unknown[] = ["none", "bridge", "allowlist_ip"];
 
+/** Règle Git d'un profil : tous les dépôts (`all`), ceux des serveurs choisis par l'administrateur (`servers`), ceux que couvrent les comptes Git du compte (`accounts`). */
+export const ACCES_GIT = ["all", "servers", "accounts"] as const;
+export type AccesGit = (typeof ACCES_GIT)[number];
+const SEGMENT_GIT = /^[A-Za-z0-9._~-]+$/u;
+const HOTE_GIT =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::[1-9][0-9]{0,4})?$/u;
+
+/** Serveur Git saisi par l'administrateur, en forme : `hôte[:port]` (tout le serveur) ou `hôte[:port]/organisation[/…]`, hôte sans la casse et chemin tel quel, `.git` et barres des bords retirés ; `null` s'il ne se lit pas. */
+export function serveurGitCanonique(texte: string): string | null {
+  let t = stripPy(texte).replace(/^https?:\/\//iu, "");
+  t = t.replace(/\/+$/u, "");
+  if (t.toLowerCase().endsWith(".git")) t = t.slice(0, -4);
+  const [brutHote = "", ...segments] = t.split("/");
+  const hote = brutHote.toLowerCase();
+  const port = /:([0-9]+)$/u.exec(hote)?.[1];
+  if (!HOTE_GIT.test(hote) || (port !== undefined && Number(port) > 65535)) return null;
+  if (segments.some((x) => !SEGMENT_GIT.test(x) || x === "." || x === "..")) return null;
+  return [hote, ...segments].join("/");
+}
+
 /** `NetworkProfile.to_dict()` ; un profil migré (legacy) garde `mode` et `ips` tels quels. */
 export interface ProfilReseau {
   id: string;
@@ -49,6 +69,13 @@ export interface ProfilReseau {
   domains: string[];
   ports: number[];
   dns: string[];
+  /** Protections d'un profil ouvert (`bridge`) : métadonnées du cloud, réseau local, machine hôte refusés ; sans effet dans les autres modes. */
+  block_metadata: boolean;
+  block_lan: boolean;
+  block_host: boolean;
+  /** Dépôts que joint le relais Git pour les bacs du profil, quel que soit son mode ; `git_servers` : serveurs en forme (`serveurGitCanonique`). */
+  git_access: AccesGit;
+  git_servers: string[];
 }
 
 /** `SandboxAdminConfig`, sans l'image (inutile à main). */
@@ -94,6 +121,11 @@ function profilIsole(): ProfilReseau {
     domains: [],
     ports: [],
     dns: [],
+    block_metadata: false,
+    block_lan: false,
+    block_host: false,
+    git_access: "all",
+    git_servers: [],
   };
 }
 
@@ -167,6 +199,36 @@ function domainesValides(d: Dict, avertir: Avertir): string[] {
   return sortie;
 }
 
+/** Règle Git lue : absente (ou `null`), tous les dépôts ; illisible, les serveurs listés seuls (signalé) ; serveurs illisibles, ou autre chose qu'une liste, ignorés et signalés. */
+export function regleGitDepuis(
+  d: Dict,
+  pid: string,
+  avertir: Avertir,
+): Pick<ProfilReseau, "git_access" | "git_servers"> {
+  const brut = lire(d, "git_access");
+  let acces: AccesGit = "all";
+  if ((ACCES_GIT as readonly unknown[]).includes(brut)) acces = brut as AccesGit;
+  else if (brut !== undefined && brut !== null) {
+    avertir(
+      `profil réseau ${reprPy(pid)} : git_access ${reprPy(strPy(brut))} illisible, serveurs listés seuls`,
+    );
+    acces = "servers";
+  }
+  const serveurs: string[] = [];
+  const brutServeurs = lire(d, "git_servers");
+  if (brutServeurs !== undefined && brutServeurs !== null && !Array.isArray(brutServeurs))
+    avertir(`profil réseau ${reprPy(pid)} : git_servers ignoré (une liste est attendue)`);
+  for (const x of Array.isArray(brutServeurs) ? textes(brutServeurs) : []) {
+    const v = serveurGitCanonique(x);
+    if (v !== null) serveurs.push(v);
+    else
+      avertir(
+        `profil réseau ${reprPy(pid)} : serveur Git ${reprPy(x)} ignoré (hôte[:port][/organisation] attendu)`,
+      );
+  }
+  return { git_access: acces, git_servers: serveurs };
+}
+
 /** `NetworkProfile.from_dict` : identifiant revérifié (ValueError sinon), domaines filtrés. */
 export function profilReseauDepuis(d: Dict, avertir: Avertir = signalerUneFois): ProfilReseau {
   const pid = prefixePy(texteNet(lire(d, "id")), 32);
@@ -188,6 +250,10 @@ export function profilReseauDepuis(d: Dict, avertir: Avertir = signalerUneFois):
     domains: ferme ? [] : domainesValides(d, avertir),
     ports,
     dns: valides(d, "dns", resolveurValide, avertir),
+    block_metadata: veritePy(lire(d, "block_metadata")),
+    block_lan: veritePy(lire(d, "block_lan")),
+    block_host: veritePy(lire(d, "block_host")),
+    ...regleGitDepuis(d, pid, avertir),
   };
 }
 
@@ -244,6 +310,11 @@ export function configBacDepuis(brut: unknown, avertir: Avertir = signalerUneFoi
       domains: [],
       ports: [],
       dns: [],
+      block_metadata: false,
+      block_lan: false,
+      block_host: false,
+      git_access: "all",
+      git_servers: [],
     });
   }
   const brutSudo = getPy(d, "allow_sudo", true);
@@ -281,9 +352,65 @@ export function chargerConfigBac(avertir: Avertir = signalerUneFois): ConfigBac 
   return configBacDepuis(ouPy(getPy(configView(), "executors"), {}), avertir);
 }
 
-/** `netcfg_hash` : empreinte stable (12 hex) de la config réseau d'un profil (étiquette `elpis.netcfg`). */
+/** `elpis.resolved` : adresses épinglées à la création pour chaque domaine résolu d'un profil en liste blanche (JSON compact, trié). */
+export function etiquetteDomaines(resolus: Readonly<Record<string, readonly string[]>>): string {
+  const tries: Record<string, string[]> = {};
+  for (const dom of Object.keys(resolus).sort(comparePointsDeCode)) {
+    const ips = [...(resolus[dom] ?? [])].sort(comparePointsDeCode);
+    if (ips.length > 0) tries[dom] = ips;
+  }
+  return pyJsonDumps(tries, { sortKeys: true, separators: [",", ":"] });
+}
+
+/** Adresses épinglées lues sur l'étiquette `elpis.resolved` ; absente ou illisible : `null`. */
+export function domainesEpingles(etiquette: string): Record<string, string[]> | null {
+  let v: unknown;
+  try {
+    v = JSON.parse(etiquette);
+  } catch {
+    return null;
+  }
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return null;
+  const sortie: Record<string, string[]> = {};
+  for (const [dom, ips] of Object.entries(v as Record<string, unknown>)) {
+    if (!Array.isArray(ips) || !ips.every((x) => typeof x === "string")) return null;
+    sortie[dom] = ips as string[];
+  }
+  return sortie;
+}
+
+/** Domaines à présent rendus dont aucune adresse n'est épinglée dans le conteneur (recréation utile) ; un domaine sans réponse (`null`) ou irrésoluble (`[]`) n'y entre pas. */
+export function domainesPerimes(
+  epingles: Readonly<Record<string, readonly string[]>>,
+  actuels: Readonly<Record<string, readonly string[] | null>>,
+): string[] {
+  return Object.entries(actuels)
+    .filter(
+      ([dom, ips]) => ips !== null && ips.length > 0 && !ips.some((ip) => (epingles[dom] ?? []).includes(ip)),
+    )
+    .map(([dom]) => dom);
+}
+
+/** Protections appliquées d'un profil : celles cochées d'un profil ouvert, aucune dans les autres modes. */
+export function protectionsDe(
+  p: Pick<ProfilReseau, "mode" | "block_metadata" | "block_lan" | "block_host">,
+): ("metadata" | "lan" | "host")[] {
+  if (p.mode !== "bridge") return [];
+  return (
+    [
+      ["metadata", p.block_metadata],
+      ["lan", p.block_lan],
+      ["host", p.block_host],
+    ] as const
+  )
+    .filter(([, coche]) => coche)
+    .map(([nom]) => nom);
+}
+
+/** `netcfg_hash` : empreinte stable (12 hex) de la config réseau d'un profil (étiquette `elpis.netcfg`) ; les protections n'y entrent que cochées (profils d'avant inchangés). */
 export function netcfgHash(p: ProfilReseau): string {
   const tries = (l: readonly unknown[]): string[] => l.map((x) => x as string).sort(comparePointsDeCode);
+  const protections = protectionsDe(p);
   const charge = pyJsonDumps(
     {
       mode: p.mode,
@@ -291,8 +418,16 @@ export function netcfgHash(p: ProfilReseau): string {
       domains: tries(p.domains),
       ports: p.ports.map((x) => intPy(x)).sort((a, b) => a - b),
       dns: tries(p.dns),
+      ...(protections.length > 0 ? { blocks: protections } : {}),
     },
     { sortKeys: true, separators: [",", ":"] },
   );
   return createHash("sha256").update(charge, "utf8").digest("hex").slice(0, 12);
+}
+
+/** Étiquette `elpis.netcfg` d'un conteneur : empreinte du profil, suivie pour un profil protégé de celle des plages refusées posées dans le conteneur (adresses de la machine comprises). */
+export function etiquetteNetcfg(p: ProfilReseau, refusees: readonly string[]): string {
+  if (protectionsDe(p).length === 0) return netcfgHash(p);
+  const plages = createHash("sha256").update(refusees.join(" "), "utf8").digest("hex").slice(0, 12);
+  return `${netcfgHash(p)}-${plages}`;
 }

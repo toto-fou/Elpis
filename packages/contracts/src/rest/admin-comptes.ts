@@ -41,6 +41,13 @@ export const schemaProfilReseau = z.object({
   domains: z.array(z.string()),
   ports: z.array(z.unknown()),
   dns: z.array(z.string()),
+  /** Protections d'un profil ouvert (métadonnées, réseau local, hôte) ; absentes : non cochées. */
+  block_metadata: z.boolean().optional(),
+  block_lan: z.boolean().optional(),
+  block_host: z.boolean().optional(),
+  /** Règle Git du profil : `all` (absente), `servers` (`git_servers` : `hôte[:port][/organisation]`) ou `accounts`. */
+  git_access: z.string().optional(),
+  git_servers: z.array(z.string()).optional(),
 });
 export const schemaMachineBureau = z.object({
   name: z.string(),

@@ -1,25 +1,42 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/admin-executeurs.ts — `/api/admin` des exécuteurs et des hôtes d'outils : réglages des bacs à sable, santé Docker, conteneurs des comptes, GC ; affectations et migration entre hôtes (shared_infra/routes/admin/executors.py, toolhosts.py). */
-import { getUserSettings, getUsernameById } from "@elpis/auth";
+import { getUserSettings, getUsernameById, reglagesDepuis } from "@elpis/auth";
 import {
   argsRunPermis,
   chargerConfigBac,
   configuredImage,
   containerName,
+  releveHote,
   verifierMontages,
 } from "@elpis/bac";
-import { estDict, getPy, HttpError, intPy, ouPy, poserCle, prefixePy, stripPy, strPy } from "@elpis/commun";
+import {
+  estDict,
+  getPy,
+  HttpError,
+  intPy,
+  lire,
+  ouPy,
+  poserCle,
+  prefixePy,
+  stripPy,
+  strPy,
+  texteNet,
+} from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { safeSandboxName } from "@elpis/config";
 import type { Base } from "@elpis/db";
+import { hostAddresses } from "@elpis/securite";
+import type { HoteMachine } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { lireConfigJson, modifierConfigJson } from "../administration/config-sous-verrou";
 import {
   actionConteneur,
+  comptesDesProfils,
   configAssainie,
   conteneursPerimes,
   controleSante,
+  etatDomaines,
   gcIdleContainers,
   listerConteneurs,
   profilsAssainis,
@@ -45,6 +62,8 @@ export interface DependancesAdminExecuteurs {
   readonly journal: Journal;
   /** `_sync_user_mirror` après une migration ; par défaut le miroir des skills du compte. */
   readonly synchroniserMiroir?: (uid: number) => Promise<void>;
+  /** Relevé de la machine que montre la console (protection « hôte ») ; par défaut celui des relais. */
+  readonly machine?: () => Promise<HoteMachine>;
 }
 
 function route(methode: DefinitionRoute["methode"], chemin: string, traiter: Traitement): DefinitionRoute {
@@ -87,6 +106,73 @@ async function enregistrer(dep: DependancesAdminExecuteurs, req: FastifyRequest)
     getPy(assainie, "allow_sudo", true) === true,
   );
   return { ok: true, config: assainie, warnings: avertissements, stale_containers: perimes };
+}
+
+/** Relevé de la machine pour la console, `null` s'il échoue. */
+async function machineVue(
+  dep: DependancesAdminExecuteurs,
+): Promise<{ addresses: string[]; broadcasts: string[] } | null> {
+  try {
+    const { adresses, diffusions } = releveHote(await (dep.machine ?? hostAddresses)());
+    return { addresses: adresses, broadcasts: diffusions };
+  } catch {
+    return null;
+  }
+}
+
+/** Un hôte d'outils déclaré ailleurs que sur cette machine (URL ni en boucle locale ni sur une adresse relevée) : ses sandboxes ne reçoivent pas le relevé fait ici ; manifeste illisible : aucun. */
+function hotesDistants(adresses: readonly string[]): boolean {
+  let declares: ReturnType<typeof hotesDeclares>;
+  try {
+    declares = hotesDeclares();
+  } catch {
+    return false;
+  }
+  for (const spec of declares.hotes.values()) {
+    let nom: string;
+    try {
+      nom = new URL(texteNet(lire(spec, "url"))).hostname.replace(/^\[|\]$/gu, "").toLowerCase();
+    } catch {
+      continue;
+    }
+    if (nom !== "localhost" && nom !== "::1" && !nom.startsWith("127.") && !adresses.includes(nom))
+      return true;
+  }
+  return false;
+}
+
+/** État du moment : adresses des domaines des profils en liste blanche, conteneurs en marche à recréer (réglages, ou adresses des domaines changées depuis leur création), comptes de chaque profil, relevé de la machine et présence d'hôtes d'outils distants. */
+async function etat(dep: DependancesAdminExecuteurs): Promise<Dict> {
+  const cfg = chargerConfigBac();
+  const domaines = await etatDomaines(cfg.network_profiles);
+  const perimes = await conteneursPerimes(
+    cfg.network_profiles.map((p) => ({ ...p })),
+    (uid) => getUserSettings(dep.base, uid),
+    (reglages) => resolveNetworkProfileId(reglages),
+    cfg.allow_sudo,
+    domaines,
+  );
+  const lignes = await dep.base.all<{ id: number; username: string; settings_json: unknown }>(
+    "SELECT id, username, settings_json FROM users ORDER BY username ASC",
+  );
+  const comptes = comptesDesProfils(
+    lignes.map((l) => ({
+      id: intPy(l.id),
+      username: strPy(l.username),
+      reglages: reglagesDepuis(l.settings_json),
+    })),
+    cfg.network_profiles,
+    (reglages) => resolveNetworkProfileId(reglages),
+  );
+  const machine = await machineVue(dep);
+  return {
+    ok: true,
+    domains_status: domaines,
+    stale_containers: perimes,
+    accounts: comptes,
+    machine,
+    remote_toolhosts: hotesDistants(machine?.addresses ?? []),
+  };
 }
 
 async function sante(): Promise<Dict> {
@@ -187,6 +273,7 @@ export function creerFamilleAdminExecuteurs(dep: DependancesAdminExecuteurs): Fa
       ),
       route("POST", "/api/admin/executors", (req) => enregistrer(dep, req)),
       route("GET", "/api/admin/executors/healthcheck", () => sante()),
+      route("GET", "/api/admin/executors/status", () => etat(dep)),
       route("GET", "/api/admin/sandbox/containers", async (_req, rep) =>
         reponseJsonPy(rep, await listerConteneurs()),
       ),

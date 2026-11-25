@@ -2,8 +2,10 @@
 <!-- frontend/src/components/admin/PageSandbox.vue — pages Sandbox. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import { pluriel } from "../../features/admin/formats";
 import InterrupteurConsole from "./InterrupteurConsole.vue";
 import ChampNombreConsole from "./ChampNombreConsole.vue";
+import PanneauReseauProfil from "./PanneauReseauProfil.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -90,7 +92,8 @@ const adm = domaineAdmin();
       >
         <p class="text-xs text-amber-800 font-medium flex items-center gap-1.5">
           <i class="ph ph-warning" aria-hidden="true"></i>
-          {{ adm.staleNetContainers.length }} conteneur(s) en marche utilisent encore d'anciens réglages.
+          {{ adm.staleNetContainers.length }} conteneur(s) en marche utilisent encore d'anciens réglages ou
+          d'anciennes adresses.
         </p>
         <p class="text-[11px] text-amber-700 mt-0.5">
           Recréez-les pour appliquer les réglages actuels ; leur dossier de travail est gardé.
@@ -641,10 +644,10 @@ const adm = domaineAdmin();
               Profils réseau
               <span class="font-normal text-slate-500">· {{ adm.execConfig.network_profiles.length }}</span>
             </h3>
-            <span class="sr-only"
-              >Chaque utilisateur choisit son profil — sauf si vous lui en imposez un depuis Utilisateurs. Le
-              profil isolé ne peut pas être supprimé.</span
-            >
+            <p class="adm-card__hint">
+              Chaque utilisateur choisit son profil, sauf si vous lui en imposez un depuis Utilisateurs. Le
+              profil isolé sert de repli et ne se supprime pas.
+            </p>
           </div>
           <div class="adm-card__actions">
             <button class="adm-btn adm-btn--primary" @click="adm.addNetworkProfile">
@@ -676,6 +679,26 @@ const adm = domaineAdmin();
                 <span class="np-card__name">{{ prof.name || "Sans nom" }}</span>
                 <span class="np-card__id">{{ prof.id }}</span>
                 <span class="np-card__sum ml-auto pl-3">{{ adm.netProfileSummary(prof) }}</span>
+                <span
+                  v-if="adm.sansSudo(prof)"
+                  class="np-pastille np-pastille--durci"
+                  title="Sandboxes sans sudo, système en lecture seule"
+                  ><i class="ph ph-lock-simple" aria-hidden="true"></i>sans sudo</span
+                >
+                <span v-if="adm.domainesNonResolus(prof).length" class="np-pastille np-pastille--warn"
+                  ><i class="ph ph-warning" aria-hidden="true"></i
+                  >{{ pluriel(adm.domainesNonResolus(prof).length, "domaine") }} sans adresse</span
+                >
+                <span
+                  v-if="adm.comptesReseau"
+                  class="np-pastille"
+                  :title="'Comptes sur ce profil : ' + adm.comptesDuProfil(prof).length"
+                  ><i class="ph ph-users" aria-hidden="true"></i
+                  ><span aria-hidden="true">{{ adm.comptesDuProfil(prof).length }}</span
+                  ><span class="sr-only">{{
+                    pluriel(adm.comptesDuProfil(prof).length, "compte")
+                  }}</span></span
+                >
                 <i
                   v-if="adm.netProfileIssue(prof)"
                   class="ph ph-warning-circle text-red-600 shrink-0"
@@ -693,181 +716,262 @@ const adm = domaineAdmin();
               </button>
             </div>
 
-            <div v-show="prof._open" :id="'np-body-' + idx" class="np-card__body">
-              <div class="flex items-center gap-2 flex-wrap mt-2.5">
-                <input
-                  v-model="prof.name"
-                  placeholder="Nom affiché"
-                  aria-label="Nom du profil"
-                  class="set-input set-control--sm w-48"
-                />
-                <input
-                  v-model="prof.id"
-                  :disabled="prof.id === 'isolated'"
-                  aria-label="Identifiant technique"
-                  title="Identifiant technique (minuscules, chiffres, _ ou -)"
-                  class="set-input set-control--sm font-mono w-32 disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-                <input
-                  v-model="prof.description"
-                  placeholder="Description vue par l'utilisateur"
-                  aria-label="Description du profil"
-                  class="set-input set-control--sm flex-1 min-w-40"
-                />
-              </div>
+            <div class="np-depli">
+              <div class="np-depli__in">
+                <div :id="'np-body-' + idx" class="np-card__body">
+                  <div class="np-grille">
+                    <div class="min-w-0">
+                      <div class="np-sec">
+                        <p class="np-sec__t">
+                          <i class="ph ph-identification-card" aria-hidden="true"></i>Profil
+                        </p>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <input
+                            v-model="prof.name"
+                            placeholder="Nom affiché"
+                            aria-label="Nom du profil"
+                            class="set-input set-control--sm w-48"
+                          />
+                          <input
+                            v-model="prof.id"
+                            :disabled="prof.id === 'isolated'"
+                            aria-label="Identifiant technique"
+                            title="Identifiant technique (minuscules, chiffres, _ ou -)"
+                            class="set-input set-control--sm font-mono w-32 disabled:opacity-60 disabled:cursor-not-allowed"
+                          />
+                          <input
+                            v-model="prof.description"
+                            placeholder="Description vue par l'utilisateur"
+                            aria-label="Description du profil"
+                            class="set-input set-control--sm flex-1 min-w-40"
+                          />
+                        </div>
+                        <p class="np-aide">Identifiant technique : minuscules, chiffres, _ ou -.</p>
+                        <p v-if="adm.avertissementIdentifiant(prof)" class="np-aide np-aide--warn">
+                          <i class="ph ph-warning shrink-0" aria-hidden="true"></i
+                          >{{ adm.avertissementIdentifiant(prof) }}
+                        </p>
+                      </div>
 
-              <div
-                class="np-seg mt-2.5"
-                role="group"
-                :aria-label="'Mode réseau de ' + (prof.name || prof.id)"
-              >
-                <button
-                  type="button"
-                  :disabled="prof.id === 'isolated'"
-                  :class="['np-seg__btn', prof.mode === 'none' ? 'is-on np-seg__btn--block' : '']"
-                  :aria-pressed="prof.mode === 'none' ? 'true' : 'false'"
-                  :title="
-                    prof.id === 'isolated'
-                      ? 'Profil de repli : toujours sans réseau'
-                      : 'Aucun réseau du tout : le conteneur démarre sans interface (--network=none)'
-                  "
-                  @click="adm.setProfileMode(prof, 'none')"
-                >
-                  <i class="ph ph-prohibit" aria-hidden="true"></i> Tout bloquer
-                </button>
-                <button
-                  type="button"
-                  :disabled="prof.id === 'isolated'"
-                  :class="['np-seg__btn', prof.mode === 'allowlist_ip' ? 'is-on np-seg__btn--filter' : '']"
-                  :aria-pressed="prof.mode === 'allowlist_ip' ? 'true' : 'false'"
-                  title="Seules les destinations listées ci-dessous sortent"
-                  @click="adm.setProfileMode(prof, 'allowlist_ip')"
-                >
-                  <i class="ph ph-funnel" aria-hidden="true"></i> Liste autorisée
-                </button>
-                <button
-                  type="button"
-                  :disabled="prof.id === 'isolated'"
-                  :class="['np-seg__btn', prof.mode === 'bridge' ? 'is-on np-seg__btn--open' : '']"
-                  :aria-pressed="prof.mode === 'bridge' ? 'true' : 'false'"
-                  title="Aucun filtrage : internet, LAN et métadonnées cloud"
-                  @click="adm.setProfileMode(prof, 'bridge')"
-                >
-                  <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i> Tout autoriser
-                </button>
-              </div>
-
-              <p
-                v-if="prof.mode === 'bridge'"
-                class="mt-2 text-[11px] text-amber-700 flex items-center gap-1.5"
-              >
-                <i class="ph ph-warning shrink-0" aria-hidden="true"></i>
-                Accès total : internet, LAN et métadonnées cloud.
-              </p>
-              <p v-else-if="prof.mode === 'none'" class="mt-2 text-[11px] text-slate-500">
-                Aucune sortie réseau.
-              </p>
-
-              <div v-if="prof.mode === 'allowlist_ip'" class="mt-3 grid gap-x-5 gap-y-3 xl:grid-cols-2">
-                <div v-for="f in adm.netFields" :key="f.key">
-                  <div class="flex items-center gap-2 mb-1">
-                    <label
-                      :for="'np-' + f.key + '-' + idx"
-                      class="text-[11px] font-semibold text-slate-500"
-                      >{{ f.label }}</label
-                    >
-                    <div
-                      v-if="f.key === 'ports'"
-                      class="np-seg np-seg--xs"
-                      role="group"
-                      aria-label="Politique de ports"
-                    >
-                      <button
-                        type="button"
-                        :class="['np-seg__btn', adm.netPortsMode(prof) === 'all' ? 'is-on' : '']"
-                        :aria-pressed="adm.netPortsMode(prof) === 'all' ? 'true' : 'false'"
-                        title="Aucun filtrage par port"
-                        @click="adm.setPortsMode(prof, 'all')"
-                      >
-                        Tous
-                      </button>
-                      <button
-                        type="button"
-                        :class="['np-seg__btn', adm.netPortsMode(prof) === 'list' ? 'is-on' : '']"
-                        :aria-pressed="adm.netPortsMode(prof) === 'list' ? 'true' : 'false'"
-                        title="Seuls les ports TCP listés passent"
-                        @click="adm.setPortsMode(prof, 'list')"
-                      >
-                        Liste
-                      </button>
-                    </div>
-                    <span class="text-[11px] text-slate-400 ml-auto" :title="f.title">{{ f.hint }}</span>
-                  </div>
-
-                  <div v-if="f.key !== 'ports' || adm.netPortsMode(prof) === 'list'">
-                    <div class="np-chips">
-                      <span v-for="(val, vi) in prof[f.key] || []" :key="f.key + ':' + val" class="np-chip">
-                        <span class="np-chip__txt">{{ val }}</span>
-                        <button
-                          type="button"
-                          class="np-chip__x"
-                          :aria-label="'Retirer ' + val"
-                          @click="adm.removeNetValue(prof, f.key, vi)"
+                      <div class="np-sec">
+                        <p class="np-sec__t"><i class="ph ph-plugs" aria-hidden="true"></i>Sortie réseau</p>
+                        <div
+                          class="np-seg"
+                          role="group"
+                          :aria-label="'Mode réseau de ' + (prof.name || prof.id)"
                         >
-                          <i class="ph ph-x" aria-hidden="true"></i>
-                        </button>
-                      </span>
-                      <span v-if="!(prof[f.key] || []).length" class="np-chips__empty">Aucune entrée</span>
+                          <button
+                            type="button"
+                            :disabled="prof.id === 'isolated'"
+                            :class="['np-seg__btn', prof.mode === 'none' ? 'is-on np-seg__btn--block' : '']"
+                            :aria-pressed="prof.mode === 'none' ? 'true' : 'false'"
+                            :title="
+                              prof.id === 'isolated'
+                                ? 'Profil de repli : toujours sans réseau'
+                                : 'Aucun réseau du tout : le conteneur démarre sans interface (--network=none)'
+                            "
+                            @click="adm.setProfileMode(prof, 'none')"
+                          >
+                            <i class="ph ph-prohibit" aria-hidden="true"></i> Tout bloquer
+                          </button>
+                          <button
+                            type="button"
+                            :disabled="prof.id === 'isolated'"
+                            :class="[
+                              'np-seg__btn',
+                              prof.mode === 'allowlist_ip' ? 'is-on np-seg__btn--filter' : '',
+                            ]"
+                            :aria-pressed="prof.mode === 'allowlist_ip' ? 'true' : 'false'"
+                            title="Seules les destinations listées ci-dessous sortent"
+                            @click="adm.setProfileMode(prof, 'allowlist_ip')"
+                          >
+                            <i class="ph ph-funnel" aria-hidden="true"></i> Liste autorisée
+                          </button>
+                          <button
+                            type="button"
+                            :disabled="prof.id === 'isolated'"
+                            :class="['np-seg__btn', prof.mode === 'bridge' ? 'is-on np-seg__btn--open' : '']"
+                            :aria-pressed="prof.mode === 'bridge' ? 'true' : 'false'"
+                            title="Internet ouvert ; réseau local, hôte et métadonnées du cloud selon les cases cochées"
+                            @click="adm.setProfileMode(prof, 'bridge')"
+                          >
+                            <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i> Tout autoriser
+                          </button>
+                        </div>
+                        <p class="np-aide">{{ adm.aideMode(prof) }}</p>
+                      </div>
+
+                      <div v-if="prof.mode === 'allowlist_ip'" class="np-sec">
+                        <p class="np-sec__t">
+                          <i class="ph ph-list-checks" aria-hidden="true"></i>Destinations autorisées
+                        </p>
+                        <div v-for="f in adm.netFields" :key="f.key" class="np-champ">
+                          <div class="np-champ__l">
+                            <label :for="'np-' + f.key + '-' + idx">{{ f.label }}</label>
+                            <div
+                              v-if="f.key === 'ports'"
+                              class="np-seg np-seg--xs"
+                              role="group"
+                              aria-label="Politique de ports"
+                            >
+                              <button
+                                type="button"
+                                :class="['np-seg__btn', adm.netPortsMode(prof) === 'all' ? 'is-on' : '']"
+                                :aria-pressed="adm.netPortsMode(prof) === 'all' ? 'true' : 'false'"
+                                title="Aucun filtrage par port"
+                                @click="adm.setPortsMode(prof, 'all')"
+                              >
+                                Tous
+                              </button>
+                              <button
+                                type="button"
+                                :class="['np-seg__btn', adm.netPortsMode(prof) === 'list' ? 'is-on' : '']"
+                                :aria-pressed="adm.netPortsMode(prof) === 'list' ? 'true' : 'false'"
+                                title="Seuls les ports TCP listés passent"
+                                @click="adm.setPortsMode(prof, 'list')"
+                              >
+                                Liste
+                              </button>
+                            </div>
+                          </div>
+
+                          <div v-if="f.key !== 'ports' || adm.netPortsMode(prof) === 'list'">
+                            <div class="np-chips">
+                              <span
+                                v-for="(val, vi) in prof[f.key] || []"
+                                :key="f.key + ':' + val"
+                                class="np-chip"
+                              >
+                                <span class="np-chip__txt">{{ val }}</span>
+                                <button
+                                  type="button"
+                                  class="np-chip__x"
+                                  :aria-label="'Retirer ' + val"
+                                  @click="adm.removeNetValue(prof, f.key, vi)"
+                                >
+                                  <i class="ph ph-x" aria-hidden="true"></i>
+                                </button>
+                              </span>
+                              <span v-if="!(prof[f.key] || []).length" class="np-chips__empty"
+                                >Aucune entrée</span
+                              >
+                            </div>
+                            <div class="flex items-center gap-1.5 mt-1.5">
+                              <input
+                                :id="'np-' + f.key + '-' + idx"
+                                v-model="prof._draft[f.key]"
+                                :placeholder="f.ph"
+                                :aria-label="'Ajouter — ' + f.label"
+                                :title="f.title"
+                                class="set-input set-control--sm font-mono flex-1 min-w-0"
+                                @keydown.enter.prevent="adm.commitNetValue(prof, f.key)"
+                                @blur="adm.commitNetValue(prof, f.key)"
+                              />
+                              <button
+                                type="button"
+                                :aria-label="'Ajouter à ' + f.label"
+                                class="adm-btn adm-btn--icon adm-tool"
+                                @click="adm.commitNetValue(prof, f.key)"
+                              >
+                                <i class="ph ph-plus" aria-hidden="true"></i>
+                              </button>
+                              <button
+                                v-for="q in f.quick || []"
+                                :key="q.label"
+                                type="button"
+                                :title="'Ajouter ' + q.values.join(', ')"
+                                class="adm-btn adm-tool adm-btn--sm"
+                                @click="adm.addNetPreset(prof, f.key, q.values)"
+                              >
+                                {{ q.label }}
+                              </button>
+                            </div>
+                            <p v-if="prof._err[f.key]" role="alert" class="np-aide np-aide--erreur">
+                              <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i
+                              >{{ prof._err[f.key] }}
+                            </p>
+                          </div>
+                          <p class="np-aide">{{ f.aide }}</p>
+                        </div>
+                      </div>
+
+                      <div v-if="prof.mode === 'bridge'" class="np-sec">
+                        <p class="np-sec__t">
+                          <i class="ph ph-shield-check" aria-hidden="true"></i>Refuser aussi
+                        </p>
+                        <div class="np-cases">
+                          <label v-for="pr in adm.netProtections" :key="pr.key" class="np-case">
+                            <input v-model="prof[pr.key]" type="checkbox" />
+                            <span class="min-w-0">
+                              <span class="np-case__t">{{ pr.label }}</span>
+                              <span class="np-case__d">{{ pr.title }}</span>
+                            </span>
+                          </label>
+                        </div>
+                        <p v-if="adm.netProtections.some((pr) => prof[pr.key] === true)" class="np-aide">
+                          Une protection cochée : les sandboxes de ce profil tournent sans sudo, système en
+                          lecture seule. Le relais du navigateur applique les mêmes refus.
+                        </p>
+                        <p v-else class="np-aide np-aide--warn">
+                          <i class="ph ph-warning shrink-0" aria-hidden="true"></i>
+                          Accès total : internet, réseau local, machine hôte et métadonnées du cloud.
+                        </p>
+                      </div>
+
+                      <div class="np-sec">
+                        <p class="np-sec__t"><i class="ph ph-git-branch" aria-hidden="true"></i>Relais Git</p>
+                        <div class="np-seg np-seg--xs" role="group" aria-label="Dépôts Git joignables">
+                          <button
+                            v-for="g in adm.accesGit"
+                            :key="g.key"
+                            type="button"
+                            :class="['np-seg__btn', (prof.git_access || 'all') === g.key ? 'is-on' : '']"
+                            :aria-pressed="(prof.git_access || 'all') === g.key ? 'true' : 'false'"
+                            :title="g.title"
+                            @click="prof.git_access = g.key"
+                          >
+                            {{ g.label }}
+                          </button>
+                        </div>
+                        <p class="np-aide">
+                          {{ adm.aideAccesGit(prof) }} La règle borne le relais Git et les PR qu'Elpis ouvre,
+                          pas le réseau du profil.
+                        </p>
+                        <template v-if="prof.git_access === 'servers'">
+                          <textarea
+                            v-model="prof._draft.git_servers"
+                            rows="3"
+                            placeholder="git.exemple.lan&#10;github.com/acme"
+                            aria-label="Serveurs Git autorisés, un par ligne"
+                            title="Un serveur entier (git.exemple.lan, git.exemple.lan:3000) ou un serveur et une organisation (github.com/acme), un par ligne."
+                            class="set-input set-control--sm font-mono w-full mt-1.5"
+                            @blur="adm.commitGitServers(prof)"
+                          ></textarea>
+                          <p v-if="prof._err.git_servers" role="alert" class="np-aide np-aide--erreur">
+                            <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i
+                            >{{ prof._err.git_servers }}
+                          </p>
+                          <p v-else-if="!(prof.git_servers || []).length" class="np-aide np-aide--warn">
+                            <i class="ph ph-warning shrink-0" aria-hidden="true"></i>Aucun serveur : Git
+                            refusé pour ce profil.
+                          </p>
+                          <p class="np-aide">
+                            Un par ligne : hôte[:port], ou hôte/organisation. Un compte Git sur un autre
+                            serveur est refusé.
+                          </p>
+                        </template>
+                      </div>
+
+                      <p v-if="adm.netProfileIssue(prof)" role="alert" class="np-aide np-aide--erreur">
+                        <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
+                        {{ adm.netProfileIssue(prof) }}
+                      </p>
                     </div>
-                    <div class="flex items-center gap-1.5 mt-1.5">
-                      <input
-                        :id="'np-' + f.key + '-' + idx"
-                        v-model="prof._draft[f.key]"
-                        :placeholder="f.ph"
-                        :aria-label="'Ajouter — ' + f.label"
-                        :title="f.title"
-                        class="set-input set-control--sm font-mono flex-1 min-w-0"
-                        @keydown.enter.prevent="adm.commitNetValue(prof, f.key)"
-                        @blur="adm.commitNetValue(prof, f.key)"
-                      />
-                      <button
-                        type="button"
-                        :aria-label="'Ajouter à ' + f.label"
-                        class="adm-btn adm-btn--icon adm-tool"
-                        @click="adm.commitNetValue(prof, f.key)"
-                      >
-                        <i class="ph ph-plus" aria-hidden="true"></i>
-                      </button>
-                      <button
-                        v-for="q in f.quick || []"
-                        :key="q.label"
-                        type="button"
-                        :title="'Ajouter ' + q.values.join(', ')"
-                        class="adm-btn adm-tool adm-btn--sm"
-                        @click="adm.addNetPreset(prof, f.key, q.values)"
-                      >
-                        {{ q.label }}
-                      </button>
-                    </div>
-                    <p
-                      v-if="prof._err[f.key]"
-                      role="alert"
-                      class="mt-1 text-[11px] text-red-600 flex items-center gap-1"
-                    >
-                      <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>{{ prof._err[f.key] }}
-                    </p>
+
+                    <PanneauReseauProfil :profil="prof" />
                   </div>
                 </div>
               </div>
-
-              <p
-                v-if="adm.netProfileIssue(prof)"
-                role="alert"
-                class="mt-2 text-[11px] text-red-600 flex items-center gap-1.5"
-              >
-                <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
-                {{ adm.netProfileIssue(prof) }}
-              </p>
             </div>
           </div>
         </div>

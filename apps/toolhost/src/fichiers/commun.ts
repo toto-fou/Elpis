@@ -57,6 +57,7 @@ export const RAPPEL_ABSENT: RappelFichiers = {
   importAncien: () => Promise.resolve(-1),
   gitCredential: () => Promise.resolve(null),
   connectorHosts: () => Promise.resolve([]),
+  connectorScopes: () => Promise.resolve([]),
 };
 
 export interface ContexteFichiers {

@@ -2481,7 +2481,7 @@ Console routes: see [Administration](#administration-api).
 | `POST /api/admin/restart` · `/cache/invalidate` | Restart, caches |
 | `GET /api/admin/backup?scope=` · `POST /api/admin/restore` | Backup / restore |
 | `GET/POST /api/admin/backup/remote[/key\|/password\|/send\|/test]` | Remote backup (SFTP by key, rsync by password, mounted folder) + "every N hours/days" scheduling (`apps/core/src/ops/sauvegarde-distante.ts`, in main) |
-| `GET/POST /api/admin/executors` · `GET /healthcheck` | Sandbox config |
+| `GET/POST /api/admin/executors` · `GET /healthcheck` · `GET /status` | Sandbox config; `/status`: domains resolved now, containers to recreate, accounts with their sandbox's profile, machine addresses refused by the host protection, tool hosts declared on other machines (`remote_toolhosts`) |
 | `GET /api/admin/sandbox/containers` · `POST /{id}/stop` · `DELETE /{id}` · `POST /api/admin/sandbox/gc` | Containers |
 | `GET /api/admin/llm-capabilities` · `POST /probe` · `POST /api/admin/llm-scheduling-mode` | Capabilities and scheduling |
 | `GET/POST/PUT/DELETE /api/admin/llm/connectors[/{id}]` · `POST /{id}/test` | Shared connectors |
@@ -3139,6 +3139,15 @@ Defined by the admin in `executors.network_profiles`:
 - Filtering by **ports** is done by the startup script of the installation, whatever the image.
 - `elpis.netcfg` serves as a drift marker: if the profile config changes, the
   container is reconfigured.
+- The console (Sandbox › Network) shows, for the profile being edited, the iptables
+  rules a sandbox created now would receive and what its sandboxes reach (graph and
+  table), computed in the browser by `frontend/src/features/admin/reseau-vue.ts`:
+  a mirror of `plagesRefusees` and of `sandbox-agent/demarrage.sh`, which
+  `packages/bac/test/reseau-vue.test.ts` compares with the real script (rules, `--dns`,
+  `--add-host`), so a change to either goes with the mirror. Each verdict is read from
+  those rules (first matching rule of the OUTPUT chain, then the policy) for
+  representative addresses: the machine's, one per local range, the three metadata
+  addresses, the whole internet; traffic between sandboxes stays cut by the bridge.
 
 ### `/work` permissions
 

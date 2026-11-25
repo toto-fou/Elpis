@@ -167,7 +167,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | @fastify/send | 4.2.0 | MIT |
 | @fastify/websocket | 11.3.7 | MIT |
 | @lukeed/ms | 2.0.2 | MIT |
-| @modelcontextprotocol/sdk | 1.32.1 | MIT |
+| @modelcontextprotocol/sdk | 1.32.2 | MIT |
 | @pinojs/redact | 0.4.0 | MIT |
 | abstract-logging | 2.0.1 | MIT |
 | ajv | 8.20.0 | MIT |
@@ -283,7 +283,7 @@ the core bundle.
 | @fastify/multipart | 10.1.8 | MIT |
 | @fastify/proxy-addr | 5.1.1 | MIT |
 | @fastify/websocket | 11.3.7 | MIT |
-| @modelcontextprotocol/sdk | 1.32.1 | MIT |
+| @modelcontextprotocol/sdk | 1.32.2 | MIT |
 | @pinojs/redact | 0.4.0 | MIT |
 | abstract-logging | 2.0.1 | MIT |
 | ajv | 8.20.0 | MIT |

@@ -821,6 +821,9 @@ def cmd_export_sh(path: Path) -> int:
     data = load(path)
     for k, v in data["install"].items():
         print(f"{k}={shlex.quote(str(v))}")
+    # Mot de passe administrateur connu d'avance (saisi, ou généré et montré à la fin) ; sinon configure peut en créer un.
+    connu = (data.get("answers") or {}).get("admin_password") or data.get("admin_generated")
+    print(f"ADMIN_MDP_CONNU={1 if connu else 0}")
     return 0
 
 

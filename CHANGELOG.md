@@ -8,6 +8,37 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **`./elpis doctor`: sandbox isolation.** It now reports the startup script, the sandbox network
+  (exactly as Elpis creates it) and bridged-traffic filtering, Docker older than 26 (counted:
+  traffic between sandboxes is not fully cut there), a kernel without container swap limits, a
+  reinforced isolation (userns-remap, rootless, gVisor) and whether `sudo` is allowed, or that the
+  setting could not be read. `SECURITY.md` describes the sandbox containers and their known
+  limits.
+- **Sandbox: extra `docker run` options limited to an allowed list.** `executors.extra_run_args`
+  now takes only options that neither undo the isolation nor override what Elpis sets: shared
+  memory, ulimits (open files, stack, locked memory), extra hosts, DNS, GPU, CPU set and shares,
+  hostname, storage size, variables (not those the sandbox sets or that its root steps read:
+  `PATH`, `HOME`, `LD_*`, `ELPIS_*`, iptables and glibc variables), labels outside `elpis.*`, and
+  read-only bind mounts of an existing host folder onto `/mnt/<name>`, outside system folders,
+  `/home`, `/var`, `/opt`, `/tmp`, the container daemon and Elpis's own data, whose path holds
+  safe characters only and whose parent folders belong to root; the folder is checked on disk,
+  with a time limit, when the console saves and each time a sandbox is created, and a mount that
+  fails is left out with a warning in the server journal; Docker receives the checked form.
+  Anything else is refused by the console and ignored, with a warning, when read from
+  `config.json`; a refused argument is named without its value. The startup script's root step
+  runs with a clean environment. `elpis.spec` 12.
+- **Sandbox: `sudo` can be turned off for the whole instance.** New setting `executors.allow_sudo`
+  (Admin console › Sandbox › Limits › Advanced › *Sudo*, allowed by default). Turned off, every
+  sandbox runs hardened: no root in the container, read-only system folders, `/tmp` in memory;
+  `pip install` and `npm install -g` keep working (they install under `/work`), and the assistant
+  is told that it has no root. `exec_user` can be root only while `sudo` is allowed, and must be a
+  numeric `uid:gid`. After a change, the console lists the containers to recreate.
+- **Sandbox: an allowlist profile runs in a hardened container.** Read-only root filesystem,
+  seven capabilities instead of ten (`FSETID`, `AUDIT_WRITE` and `NET_BIND_SERVICE` dropped),
+  `/tmp` (executable, half of the sandbox memory), `/var/tmp` and the image's home folder in
+  memory: a full `/tmp` answers "no space left" instead of filling the host's disk. The account
+  never enters such a container as root. The browser service keeps its temporary files under
+  `/work/.elpis-browser/tmp`, emptied at each start. `elpis.spec` 11.
 - **Accounts: reserved names refused.** An account can no longer be created as `_snapshots`,
   `guest` or `user_<n>`: these names met an internal folder of the sandboxes or a fallback name.
   An existing account named `_snapshots` gets its own sandbox folder, `_snapshots.compte`.

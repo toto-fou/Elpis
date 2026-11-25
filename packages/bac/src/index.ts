@@ -84,8 +84,9 @@ export {
   SCRIPT_NAVIGATEUR,
   sourcesNavigateur,
 } from "./navigateur";
-export { entreePermise, FORMAT_ENTREE, PATH_COMPTE } from "./durcissement";
+export { entreePermise, FORMAT_ENTREE, PATH_COMPTE, PREFIXE_NPM, profilFiltre } from "./durcissement";
 export { FORMAT_RESEAU, PONT_BACS, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
+export { argsRunPermis, reglagesSources, verifierMontages } from "./options-run";
 export {
   messageSuppression,
   mettreBacDeCote,

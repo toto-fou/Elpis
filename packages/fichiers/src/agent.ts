@@ -1214,6 +1214,13 @@ export class AgentClient implements AgentBac {
   private async ouvrir(methode: string, route: string, o: OptionsFlux): Promise<FluxOuvert> {
     const passif = o.passif ?? false;
     const delai = o.delaiS || reglagesAgent.delaiTotalS;
+    // Requête active : conteneur remis à jour des réglages d'abord (recréé s'ils ont changé ; rapide sinon).
+    if (!passif)
+      try {
+        await this.bac.ensureRunning();
+      } catch (e) {
+        throw new AgentError("container_down", tronquerPy(message(e), 300));
+      }
     if (!this.versionOk && route !== "/v1/hello") await this.verifierVersion(passif);
     const entetes: Record<string, string> = { ...EN_TETES };
     if (passif || o.sansActivite) Object.assign(entetes, PASSIF);

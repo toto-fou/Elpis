@@ -73,6 +73,8 @@ export interface OptionsComposition {
   readonly base?: Base;
   readonly lanceurPty?: LanceurPty;
   readonly maxPtyParCompte?: number;
+  /** Remise à jour du conteneur avant d'ouvrir un terminal, qui rend le durcissement attendu (tests) ; défaut : celle du bac du compte. */
+  readonly reconcilierPty?: (uid: number, username: string) => Promise<boolean>;
   /** Familles natives connues ; défaut : celles portées en TS (registre). */
   readonly natives?: Readonly<Record<string, FabriqueNative>>;
   /** Bac et agent du compte des routes de fichiers ; défaut : registre de @elpis/bac (tests : bac sans conteneur). */
@@ -141,6 +143,7 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
     journal: o.journal,
     ...(o.lanceurPty ? { lanceur: o.lanceurPty } : {}),
     ...(o.maxPtyParCompte !== undefined ? { maxParCompte: o.maxPtyParCompte } : {}),
+    ...(o.reconcilierPty ? { reconcilier: o.reconcilierPty } : {}),
   });
   const sessions = new SessionsTerminal(base);
   const nettoyerTerminaux = async (): Promise<void> => {

@@ -43,6 +43,8 @@ export const schemaConfigExecuteurs = z.object({
   exec_user: z.string(),
   runtime: z.string(),
   extra_run_args: z.array(z.string()),
+  /** `sudo` permis dans les bacs au réseau non filtré ; absent : oui. */
+  allow_sudo: z.boolean().optional(),
   jobs: schemaReglagesJobs.optional(),
   disk: schemaSeuilsDisque.optional(),
 });

@@ -33,6 +33,11 @@ export async function bacDuCompteOutil(username: string): Promise<UserSandbox> {
   return bacDeLOutil(await userIdFor(username), username, rappelProfil);
 }
 
+/** Bac d'un compte dont l'id est connu (terminal) : même profil effectif que pour un outil. */
+export async function bacDuCompteConnu(uid: number, username: string): Promise<UserSandbox> {
+  return bacDeLOutil(uid, username, rappelProfil);
+}
+
 async function espaceDuBac(username: string): Promise<Espace> {
   const bac = await bacDuCompteOutil(username);
   return new Espace(bac.sandboxPath, bac.userId, bac.agent as AgentClient);

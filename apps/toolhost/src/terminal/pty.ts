@@ -8,6 +8,7 @@ import {
   entreePermise,
   FORMAT_ENTREE,
   PATH_COMPTE,
+  PREFIXE_NPM,
   racineTravail,
 } from "@elpis/bac";
 import { HttpError, intPy, stripPy } from "@elpis/commun";
@@ -20,6 +21,7 @@ import type * as NodePtyModule from "node-pty";
 import type { IPty } from "node-pty";
 
 import type { Journal } from "../journal";
+import { bacDuCompteConnu } from "../mcp/espace";
 
 export const DEFAULT_SID = "default";
 export const MAX_SESSIONS_PER_USER = 4;
@@ -91,6 +93,8 @@ export function construireCommandePty(conteneur: string): string[] {
     "LC_ALL=C.UTF-8",
     "-e",
     `PATH=${PATH_COMPTE}`,
+    "-e",
+    `NPM_CONFIG_PREFIX=${PREFIXE_NPM}`,
     "-e",
     "GIT_CONFIG_COUNT=1",
     "-e",
@@ -316,11 +320,18 @@ export class Terminaux {
   private readonly journal: Journal;
   private readonly lanceur: LanceurPty;
   private readonly maxParCompte: number;
+  private readonly reconcilier: (uid: number, username: string) => Promise<boolean>;
 
-  constructor(o: { journal: Journal; lanceur?: LanceurPty; maxParCompte?: number }) {
+  constructor(o: {
+    journal: Journal;
+    lanceur?: LanceurPty;
+    maxParCompte?: number;
+    reconcilier?: (uid: number, username: string) => Promise<boolean>;
+  }) {
     this.journal = o.journal;
     this.lanceur = o.lanceur ?? lanceurNodePty;
     this.maxParCompte = o.maxParCompte ?? ptyMaxParCompte();
+    this.reconcilier = o.reconcilier ?? reconcilierBac;
   }
 
   private static cle(uid: number, sid: string): string {
@@ -362,7 +373,16 @@ export class Terminaux {
     const racine = await racineTravail(nom);
     const conteneur = containerName(safeSandboxName(nom));
     if (!(await enMarche(conteneur))) throw new HttpError(503, { ...CONTAINER_NOT_READY });
-    const sure = await entreeSure(conteneur);
+    let durci: boolean;
+    try {
+      durci = await this.reconcilier(uid, nom);
+    } catch (e) {
+      this.journal.warn(
+        `[pty] terminal refusé dans ${conteneur} : conteneur non remis à jour (${e instanceof Error ? e.message : String(e)})`,
+      );
+      throw new HttpError(503, { ...CONTAINER_NOT_READY });
+    }
+    const sure = await entreeSure(conteneur, durci);
     if (sure !== true) {
       this.journal.warn(
         `[pty] terminal refusé dans ${conteneur} : ${sure === null ? "inspection impossible" : "conteneur à relancer (options d'avant la mise à jour ou surchargées)"}`,
@@ -445,11 +465,18 @@ async function enMarche(conteneur: string): Promise<boolean> {
   }
 }
 
-/** Entrée directe permise dans ce conteneur (`entreePermise` de @elpis/bac) ; `null` : inspection impossible. */
-async function entreeSure(conteneur: string): Promise<boolean | null> {
+/** Conteneur du compte remis à jour des réglages (sudo, profil, protections) avant d'y entrer ; rend le durcissement attendu. */
+async function reconcilierBac(uid: number, username: string): Promise<boolean> {
+  const bac = await bacDuCompteConnu(uid, username);
+  await bac.ensureRunning();
+  return bac.durci(bac.networkProfile);
+}
+
+/** Entrée directe permise dans ce conteneur (`entreePermise` de @elpis/bac ; `durci` : no-new-privileges exigé) ; `null` : inspection impossible. */
+async function entreeSure(conteneur: string, durci: boolean): Promise<boolean | null> {
   try {
     const r = await appelDocker(["inspect", "--format", FORMAT_ENTREE, conteneur], 5_000);
-    return r.code === 0 ? entreePermise(decoderRemplace(r.sortie), PTY_EXEC_USER) : null;
+    return r.code === 0 ? entreePermise(decoderRemplace(r.sortie), PTY_EXEC_USER, durci) : null;
   } catch {
     return null;
   }

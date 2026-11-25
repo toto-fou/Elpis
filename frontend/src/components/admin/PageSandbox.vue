@@ -84,6 +84,39 @@ const adm = domaineAdmin();
         </div>
       </div>
 
+      <div
+        v-if="['sandbox-limits', 'sandbox-network'].includes(adm.adminTab) && adm.staleNetContainers.length"
+        class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5"
+      >
+        <p class="text-xs text-amber-800 font-medium flex items-center gap-1.5">
+          <i class="ph ph-warning" aria-hidden="true"></i>
+          {{ adm.staleNetContainers.length }} conteneur(s) en marche utilisent encore d'anciens réglages.
+        </p>
+        <p class="text-[11px] text-amber-700 mt-0.5">
+          Recréez-les pour appliquer les réglages actuels ; leur dossier de travail est gardé.
+        </p>
+        <div class="mt-1.5 flex items-center gap-2 flex-wrap">
+          <span
+            v-for="c in adm.staleNetContainers"
+            :key="c.container"
+            class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-white border border-amber-200 text-amber-800"
+            >{{ c.username || c.user_id }}</span
+          >
+          <button
+            :disabled="adm.staleNetBusy"
+            class="adm-btn adm-btn--warn adm-btn--sm"
+            @click="adm.recreateStaleNetContainers"
+          >
+            <i
+              class="ph"
+              :class="adm.staleNetBusy ? 'ph-spinner animate-spin' : 'ph-arrows-clockwise'"
+              aria-hidden="true"
+            ></i>
+            Recréer maintenant
+          </button>
+        </div>
+      </div>
+
       <section
         v-if="adm.adminTab === 'sandbox-limits' && adm.execCharge"
         id="sandbox-limits"
@@ -301,12 +334,35 @@ const adm = domaineAdmin();
               <div>
                 <label
                   class="adm-row__label"
-                  title="UID:GID des exécutions. 0:0 = root dans le container. Effet immédiat."
+                  title="Root dans la sandbox par sudo (apt, paquets système). Refusé : sandbox durcie, sans root, système en lecture seule. Toujours refusé sur un profil réseau filtré. Les conteneurs en marche sont à recréer après un changement."
+                  for="sb-allow-sudo"
+                  >Sudo</label
+                >
+                <span class="sr-only"
+                  >Root dans la sandbox par sudo (apt, paquets système). Refusé : sandbox durcie, sans root,
+                  système en lecture seule. Toujours refusé sur un profil réseau filtré. Les conteneurs en
+                  marche sont à recréer après un changement.</span
+                >
+              </div>
+              <InterrupteurConsole
+                id="sb-allow-sudo"
+                v-model="adm.execConfig.allow_sudo"
+                data-field="exec:allow_sudo"
+                oui="Permis"
+                non="Refusé"
+              />
+            </div>
+            <div class="adm-row">
+              <div>
+                <label
+                  class="adm-row__label"
+                  title="UID:GID des exécutions. Root (0:0) seulement si sudo est permis, jamais dans une sandbox durcie (l'utilisateur de l'image y sert). Effet immédiat."
                   for="sb-exec-user"
                   >Identité</label
                 >
                 <span class="sr-only"
-                  >UID:GID des exécutions. 0:0 = root dans le container. Effet immédiat.</span
+                  >UID:GID des exécutions. Root (0:0) seulement si sudo est permis, jamais dans une sandbox
+                  durcie (l'utilisateur de l'image y sert). Effet immédiat.</span
                 >
               </div>
               <input
@@ -339,17 +395,20 @@ const adm = domaineAdmin();
               <div>
                 <label
                   class="adm-row__label"
-                  title="Un par ligne, passés tels quels. Au redémarrage."
+                  title="Un par ligne, parmi les options permises (mémoire partagée, limites, hôtes, GPU, variables, montages en lecture seule sur /mnt/nom). Au redémarrage."
                   for="sb-extra-args"
                   >Flags <code class="font-mono">docker run</code></label
                 >
-                <span class="sr-only">Un par ligne, passés tels quels. Au redémarrage.</span>
+                <span class="sr-only"
+                  >Un par ligne, parmi les options permises (mémoire partagée, limites, hôtes, GPU, variables,
+                  montages en lecture seule sur /mnt/nom). Au redémarrage.</span
+                >
               </div>
               <textarea
                 id="sb-extra-args"
                 v-model="adm.execExtraArgsText"
                 rows="3"
-                placeholder="--cap-add=NET_ADMIN&#10;--shm-size=2g"
+                placeholder="--shm-size=2g&#10;--ulimit=nofile=4096:8192"
                 class="set-textarea font-mono text-xs"
               ></textarea>
             </div>
@@ -810,40 +869,6 @@ const adm = domaineAdmin();
                 {{ adm.netProfileIssue(prof) }}
               </p>
             </div>
-          </div>
-        </div>
-
-        <div
-          v-if="adm.staleNetContainers.length"
-          class="mx-5 mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5"
-        >
-          <p class="text-xs text-amber-800 font-medium flex items-center gap-1.5">
-            <i class="ph ph-warning" aria-hidden="true"></i>
-            {{ adm.staleNetContainers.length }} conteneur(s) en marche utilisent encore les anciennes règles
-            réseau.
-          </p>
-          <p class="text-[11px] text-amber-700 mt-0.5">
-            Recréation automatique au prochain accès de leur utilisateur — ou tout de suite :
-          </p>
-          <div class="mt-1.5 flex items-center gap-2 flex-wrap">
-            <span
-              v-for="c in adm.staleNetContainers"
-              :key="c.container"
-              class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-white border border-amber-200 text-amber-800"
-              >{{ c.username || c.user_id }}</span
-            >
-            <button
-              :disabled="adm.staleNetBusy"
-              class="adm-btn adm-btn--warn adm-btn--sm"
-              @click="adm.recreateStaleNetContainers"
-            >
-              <i
-                class="ph"
-                :class="adm.staleNetBusy ? 'ph-spinner animate-spin' : 'ph-arrows-clockwise'"
-                aria-hidden="true"
-              ></i>
-              Recréer maintenant
-            </button>
           </div>
         </div>
 

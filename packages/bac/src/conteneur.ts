@@ -43,13 +43,19 @@ import { sousVerrouDeCycle } from "./cycle";
 import { getReadinessCache } from "./disponibilite";
 import { containerName, decoderRemplace, label, labelTpl } from "./docker";
 import {
+  CAPABILITIES_DURCIES,
+  CAPABILITIES_SUDO,
   ENTREE_ROOT,
   entreePermise,
   FORMAT_ENTREE,
+  optionsRacineDurcie,
   PATH_COMPTE,
+  PREFIXE_NPM,
   PATH_SYSTEME,
   profilFiltre,
   RUN_SPEC,
+  utilisateurDurci,
+  UTILISATEUR_IMAGE,
 } from "./durcissement";
 import { configuredImage } from "./image";
 import {
@@ -69,24 +75,14 @@ import {
   MONTAGES_NAVIGATEUR,
   SCRIPT_NAVIGATEUR,
 } from "./navigateur";
+import { verifierMontages } from "./options-run";
 import { configBacDepuis, netcfgHash, profilParId } from "./profils";
 import { argvCreationReseau, DNS_DE_GARDE, FORMAT_RESEAU, RESEAU_BACS, RESEAU_CONFORME } from "./reseau";
 import type { Avertir, ConfigBac, ProfilReseau } from "./profils";
 import { MODES_MARKER, PERMS_MARKER_LEGACY } from "./travail";
 
-/** Seules capacités du conteneur (`--cap-drop ALL` puis celles-ci), mesurées sur l'image. */
-export const CAPABILITIES: readonly string[] = [
-  "CHOWN",
-  "DAC_OVERRIDE",
-  "FOWNER",
-  "FSETID",
-  "SETUID",
-  "SETGID",
-  "SETPCAP",
-  "KILL",
-  "AUDIT_WRITE",
-  "NET_BIND_SERVICE",
-];
+/** Capacités du conteneur quand le compte peut y devenir root ; `CAPABILITIES_DURCIES` sinon. */
+export const CAPABILITIES: readonly string[] = CAPABILITIES_SUDO;
 export { RUN_SPEC };
 /** Refus d'entrer dans un conteneur qui garderait la main sur son filtre réseau ; le détail va au journal. */
 const BAC_A_RELANCER =
@@ -259,6 +255,10 @@ export class UserSandbox implements BacPourAgent {
   configVerified = false;
   configRetryAt = 0;
   recreationReportee = "";
+  /** Dernière lecture des options du conteneur impossible : ni recréé ni tenu pour vérifié (relu plus tard). */
+  private inspectionDouteuse = false;
+  /** Réglages pour lesquels le conteneur a été vérifié (`attente`) : changés, il est revérifié. */
+  private verifiePour = "";
   private agentClient: AgentBac | null = null;
   private readonly entreesVerifiees = new Set<string>();
   readonly cli: CliDocker;
@@ -381,9 +381,10 @@ export class UserSandbox implements BacPourAgent {
     );
   }
 
-  /** `_config_matches` : options de lancement, image, agent et config réseau du conteneur à jour ; sur incertitude, vrai sauf pour un profil filtré. */
+  /** `_config_matches` : options de lancement, image, agent et config réseau du conteneur à jour ; sur incertitude, vrai sauf pour un conteneur durci (relu plus tard). */
   async configMatches(signal?: AbortSignal): Promise<boolean> {
     const profil = this.networkProfile;
+    this.inspectionDouteuse = false;
     // Navigateur installé : son étiquette doit suivre les montages (sinon, rien à comparer).
     const navigateur = empreinteNavigateur();
     const champs = [
@@ -392,6 +393,7 @@ export class UserSandbox implements BacPourAgent {
       "{{.Config.Image}}",
       labelTpl("agent"),
       labelTpl("entry"),
+      labelTpl("durci"),
     ];
     if (navigateur) champs.push(labelTpl("browser"));
     const [rc, out] = await this.appel(
@@ -399,9 +401,13 @@ export class UserSandbox implements BacPourAgent {
       5,
       signal,
     );
-    if (rc !== 0) return !profilFiltre(profil);
-    const [cur = "", spec = "", image = "", agent = "", entree = "", nav = ""] = [
+    if (rc !== 0) {
+      this.inspectionDouteuse = true;
+      return !this.durci(profil);
+    }
+    const [cur = "", spec = "", image = "", agent = "", entree = "", durci = "", nav = ""] = [
       ...stripPy(decoderRemplace(out)).split("|"),
+      "",
       "",
       "",
       "",
@@ -410,9 +416,9 @@ export class UserSandbox implements BacPourAgent {
     ];
     if (spec !== RUN_SPEC || (image && image !== this.cfg.image) || !["", agentEmpreinte()].includes(agent))
       return false;
-    if (entree !== this.empreinteEntree()) return false;
+    if (entree !== this.empreinteEntree() || durci !== (this.durci(profil) ? "1" : "0")) return false;
     if (navigateur && nav !== navigateur) return false;
-    if (!cur || cur === "<no value>") return !profilFiltre(profil);
+    if (!cur || cur === "<no value>") return !this.durci(profil);
     return cur === netcfgHash(profil);
   }
 
@@ -454,8 +460,15 @@ export class UserSandbox implements BacPourAgent {
 
   private async reconcileConfig(st: EtatBac, signal?: AbortSignal): Promise<EtatBac> {
     this.configVerified = true;
+    this.verifiePour = this.attente();
     try {
-      if (!(await this.stale(signal))) return st;
+      if (!(await this.stale(signal))) {
+        if (this.inspectionDouteuse) {
+          this.configVerified = false;
+          this.configRetryAt = performance.now() / 1000 + reglagesBac.configRetryS;
+        }
+        return st;
+      }
     } catch (e) {
       this.configVerified = false;
       throw e;
@@ -482,7 +495,7 @@ export class UserSandbox implements BacPourAgent {
     if (this.modesVerified) return;
     this.modesVerified = true;
     const marqueur = pyJoin(pyParent(this.sandboxPath), MODES_MARKER);
-    const proprietaire = this.cfg.exec_user || "10001:10001";
+    const proprietaire = this.utilisateurExec();
     let faitPour = "";
     try {
       faitPour = stripPy(decoderUtf8(readFileSync(marqueur)));
@@ -545,6 +558,7 @@ export class UserSandbox implements BacPourAgent {
 
   /** `ensure_running` : en marche, créé ou redémarré ; création sérialisée par compte (verrou de cycle de vie). */
   async ensureRunning(signal?: AbortSignal): Promise<EtatBac> {
+    if (this.configVerified && this.verifiePour !== this.attente()) this.oublierVerifications();
     const cache = getReadinessCache();
     if (this.mountVerified && this.configVerified && cache.confirmedRunning(this.containerName))
       return etat({ exists: true, running: true, container_name: this.containerName });
@@ -626,11 +640,39 @@ export class UserSandbox implements BacPourAgent {
     return this.status(signal);
   }
 
+  /** Conteneur durci (ni sudo ni racine modifiable) : quand sudo est refusé, et toujours pour un profil filtré. */
+  durci(profil: ProfilReseau): boolean {
+    return !this.cfg.allow_sudo || profilFiltre(profil);
+  }
+
+  /** Utilisateur des entrées du compte : `exec_user`, jamais root dans un conteneur durci. */
+  utilisateurExec(): string {
+    const u = this.cfg.exec_user || UTILISATEUR_IMAGE;
+    return this.durci(this.networkProfile) ? utilisateurDurci(u) : u;
+  }
+
+  /** Vérifications du conteneur oubliées (profil ou réglages changés) : options relues, droits de /work et entrées revérifiés au prochain usage. */
+  oublierVerifications(): void {
+    this.configVerified = false;
+    this.configRetryAt = 0;
+    this.modesVerified = false;
+    this.entreesVerifiees.clear();
+  }
+
+  /** Ce qui décide des options et des entrées du conteneur : durcissement, réseau, image, utilisateur. */
+  private attente(): string {
+    const profil = this.networkProfile;
+    return [this.durci(profil) ? "1" : "0", netcfgHash(profil), this.cfg.image, this.utilisateurExec()].join(
+      "|",
+    );
+  }
+
   /** `_build_run_args` : argv de `docker run`, pur (les domaines sont résolus par l'appelant). */
   buildRunArgs(
     profil: ProfilReseau,
     resolus: Readonly<Record<string, readonly string[]>> | null = null,
   ): string[] {
+    const durci = this.durci(profil);
     const args = [
       "run",
       "-d",
@@ -645,10 +687,11 @@ export class UserSandbox implements BacPourAgent {
       "--label",
       label("username", this.username),
       "--security-opt",
-      `no-new-privileges:${profilFiltre(profil) ? "true" : "false"}`,
+      `no-new-privileges:${durci ? "true" : "false"}`,
       "--cap-drop",
       "ALL",
-      ...CAPABILITIES.flatMap((cap) => ["--cap-add", cap]),
+      ...(durci ? CAPABILITIES_DURCIES : CAPABILITIES_SUDO).flatMap((cap) => ["--cap-add", cap]),
+      ...(durci ? optionsRacineDurcie(this.cfg.memory_mb) : []),
       "--tmpfs",
       "/run:rw,size=10m,mode=755",
       "--shm-size",
@@ -702,6 +745,8 @@ export class UserSandbox implements BacPourAgent {
       label("agent", agentEmpreinte()),
       "--label",
       label("entry", this.empreinteEntree()),
+      "--label",
+      label("durci", durci ? "1" : "0"),
     );
     if (profil.mode === "none") args.push("--network", "none");
     else args.push("--network", RESEAU_BACS);
@@ -804,7 +849,12 @@ export class UserSandbox implements BacPourAgent {
       }
     }
     if (profil.mode !== "none") await this.ensureReseau(signal);
-    const [rc, , err] = await this.appel(this.buildRunArgs(profil, resolus), 60, signal);
+    const lancement = await verifierMontages(this.buildRunArgs(profil, resolus));
+    for (const r of lancement.refus)
+      journalDe("sandbox").warn(
+        `[sandbox] ${this.containerName} : montage d'executors.extra_run_args écarté : ${r}`,
+      );
+    const [rc, , err] = await this.appel(lancement.args, 60, signal);
     if (rc !== 0) {
       const texte = stripPy(decoderRemplace(err));
       if (lowerPy(texte).includes("already in use")) {
@@ -864,7 +914,7 @@ export class UserSandbox implements BacPourAgent {
     const st = await this.ensureRunning();
     if (!st.running) throw new ExecError(`${this.containerName} : conteneur arrêté, /work non vidé`);
     await this.exigerEntree(null);
-    const uidExec = (this.cfg.exec_user || "10001:10001").split(":", 1)[0] ?? "";
+    const uidExec = this.utilisateurExec().split(":", 1)[0] ?? "";
     if (estChiffresPy(uidExec) && uidExec !== "0")
       await this.appel(["exec", ...ENTREE_ROOT, this.containerName, "pkill", "-KILL", "-U", uidExec], 15);
     const vider = (): Promise<ReponseDocker> =>
@@ -888,9 +938,9 @@ export class UserSandbox implements BacPourAgent {
     return this.ensureRunning();
   }
 
-  /** Profil filtré : jamais d'usage ni de redémarrage d'un conteneur dont la recréation est reportée. */
+  /** Conteneur durci : jamais d'usage ni de redémarrage d'un conteneur dont la recréation est reportée. */
   private refuserPerime(): void {
-    if (this.recreationReportee && profilFiltre(this.networkProfile))
+    if (this.recreationReportee && this.durci(this.networkProfile))
       throw new ExecError(this.recreationReportee);
   }
 
@@ -899,9 +949,9 @@ export class UserSandbox implements BacPourAgent {
     const cle = execUser ?? "";
     if (this.entreesVerifiees.has(cle)) return;
     const [rc, out] = await this.appel(["inspect", "--format", FORMAT_ENTREE, this.containerName], 5, signal);
-    if (rc !== 0 || !entreePermise(decoderRemplace(out), execUser)) {
+    if (rc !== 0 || !entreePermise(decoderRemplace(out), execUser, this.durci(this.networkProfile))) {
       journalDe("sandbox").warn(
-        `[sandbox] ${this.containerName} : entrée refusée (${rc !== 0 ? "inspection impossible" : "conteneur d'avant la mise à jour, options de sécurité surchargées, ou exec_user root sur un profil filtré"})`,
+        `[sandbox] ${this.containerName} : entrée refusée (${rc !== 0 ? "inspection impossible" : "conteneur d'avant la mise à jour, options de sécurité surchargées, ou utilisateur root ou non numérique dans un conteneur durci"})`,
       );
       throw new ExecError(BAC_A_RELANCER);
     }
@@ -921,7 +971,7 @@ export class UserSandbox implements BacPourAgent {
   /** `start_agent` : agent lancé détaché sous `exec_user`, entré directement ; `replace` : agent figé tué d'abord. */
   async startAgent(replace = false): Promise<void> {
     if (this.recreationReportee) throw new ExecError(this.recreationReportee);
-    const execUser = this.cfg.exec_user || "10001:10001";
+    const execUser = this.utilisateurExec();
     await this.exigerEntree(execUser);
     if (replace)
       await this.appel(
@@ -936,6 +986,8 @@ export class UserSandbox implements BacPourAgent {
         execUser,
         "-e",
         `PATH=${PATH_COMPTE}`,
+        "-e",
+        `NPM_CONFIG_PREFIX=${PREFIXE_NPM}`,
         this.containerName,
         "python3",
         "-I",
@@ -957,7 +1009,7 @@ export class UserSandbox implements BacPourAgent {
   /** Service navigateur du bac lancé détaché sous `exec_user` (script `SCRIPT_NAVIGATEUR`) ; `env` passé par un fichier 0600 de l'hôte, jamais en argument. */
   async startNavigateur(env: Readonly<Record<string, string>>): Promise<void> {
     if (this.recreationReportee) throw new ExecError(this.recreationReportee);
-    const execUser = this.cfg.exec_user || "10001:10001";
+    const execUser = this.utilisateurExec();
     await this.exigerEntree(execUser);
     const fichier = pyJoin(pyParent(this.sandboxPath), `.browser-env-${randomUUID()}`);
     const lignes = Object.entries(env).map(([k, v]) => `${k}=${v.replace(/[\r\n]/gu, "")}`);
@@ -1021,11 +1073,11 @@ export class UserSandbox implements BacPourAgent {
     const signal = options.signal;
     const st = await this.ensureRunning(signal);
     if (!st.running) throw new ExecError(`Container ${this.containerName} n'a pas pu démarrer`);
-    if (this.recreationReportee && profilFiltre(this.networkProfile))
+    if (this.recreationReportee && this.durci(this.networkProfile))
       throw new ExecError(this.recreationReportee);
     const delai = options.timeoutS || this.cfg.timeout_s;
     this.activite();
-    const execUser = this.cfg.exec_user || "10001:10001";
+    const execUser = this.utilisateurExec();
     await this.exigerEntree(execUser, signal);
     const args = ["exec", "--user", execUser, "--workdir", options.workdirInContainer ?? "/work"];
     if (options.stdin !== undefined) args.push("-i");

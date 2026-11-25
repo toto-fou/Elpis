@@ -135,6 +135,40 @@ is reserved to it (0700): a container's root can place setuid files there;
 a dedicated `nosuid,nodev` mount point neutralizes them for
 the service account too.
 
+**Sandbox containers** (`packages/bac/src/conteneur.ts`, `durcissement.ts`,
+`sandbox-agent/demarrage.sh`): commands, the agent, the browser service and the
+terminal enter directly under the account's user (`executors.exec_user`, 10001 by
+default), never through a root step, and the container's own `PATH` holds system
+folders only. By default the account can become root in its own container with `sudo`
+(`executors.allow_sudo`); a kernel flaw is then all that separates that root from the
+host. With `sudo` turned off, and always on a network profile that filters
+(allowlist), the container is hardened: `no-new-privileges`, seven capabilities (plus
+`NET_ADMIN` for the startup script of an allowlist profile, dropped before the
+account's command), read-only root filesystem, `/tmp` in memory, and the account never
+runs as root there. Only the startup script, with a clean environment, and a few host
+steps (ownership of `/work`, process cleanup, the sweep of stale uploads, account
+purge) run as root, with system programs. Open and allowlist sandboxes are on the
+`elpis-sandbox` network (bridge `br-elpis-sb`), with traffic between containers
+disabled (Docker 26 or later; `./elpis doctor` warns otherwise); the host still reaches
+a sandbox (server preview). An allowlist profile refuses everything, then opens its
+IPv4 destinations and its resolvers on port 53; with no destination left, nothing else
+is reachable. An open sandbox still reaches the LAN, the host's ports bound to all
+interfaces and a cloud metadata address; filter them on the host if needed, for
+example:
+
+```bash
+iptables -I DOCKER-USER -i br-elpis-sb -d 169.254.169.254 -j DROP
+iptables -I DOCKER-USER -i br-elpis-sb -d 10.0.0.0/8 -j DROP   # LAN, adapt
+iptables -I INPUT -i br-elpis-sb -m conntrack --ctstate NEW -j DROP   # the host's own ports
+```
+
+Known limits of the sandbox: the `/work` quota is enforced by the application, not by
+the kernel, so put `user_sandboxes/` on its own filesystem if a full disk must not
+reach the host; while `sudo` is allowed, the container layer is writable without a
+quota (a dedicated Docker data root bounds it; `--storage-opt size=` in
+`executors.extra_run_args` works only with overlay2 on xfs mounted with project quotas,
+and elsewhere no sandbox starts). `./elpis doctor` reports the state of this isolation.
+
 **Hardened isolation**, not covered by our tests:
 
 - an application-kernel runtime, gVisor (`executors.runtime = "runsc"`):

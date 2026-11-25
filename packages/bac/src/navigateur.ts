@@ -116,10 +116,12 @@ export function empreinteNavigateur(): string {
     .slice(0, 12);
 }
 
-/** Script de démarrage (sh) : dossiers de données, base NSS du profil avec le certificat du relais, journal borné, puis le service. */
+/** Script de démarrage (sh) : dossiers de données, fichiers temporaires dans /work (un dossier par service, ceux des services disparus retirés), base NSS du profil avec le certificat du relais, journal borné, puis le service. */
 export const SCRIPT_NAVIGATEUR = [
   `D=${BROWSER_DATA}; mkdir -p "$D/home" ${BROWSER_DOWNLOADS} || exit 1`,
   'export HOME="$D/home"; N="$HOME/.pki/nssdb"; mkdir -p "$N" || exit 1',
+  'for t in "$D"/tmp/*; do [ -d "$t" ] && [ ! -d "/proc/${t##*/}" ] && rm -rf "$t"; done',
+  'export TMPDIR="$D/tmp/$$"; mkdir -p "$TMPDIR" || exit 1',
   '[ -f "$N/cert9.db" ] || certutil -N -d "sql:$N" --empty-password || exit 1',
   'certutil -D -d "sql:$N" -n elpis-relay-ca >/dev/null 2>&1',
   `certutil -A -d "sql:$N" -n elpis-relay-ca -t C,, -i ${BROWSER_CA_CERT} || exit 1`,

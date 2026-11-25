@@ -3,7 +3,7 @@
 # Versions figées : celles de l'environnement validé par la suite de tests.
 
 # ---- Service HTTP de l'extracteur du RAG ----
-fastapi==0.163.0
+fastapi==0.165.0
 starlette==1.10.0
 pydantic==2.14.3
 uvicorn[standard]==0.54.0

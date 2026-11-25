@@ -25,7 +25,7 @@ except ImportError:
     from rag_app.extracteur.erreurs import ErreurExtracteur
     from rag_app.extracteur.modeles import ExtraireIn, LocaliserIn, RendreIn
 
-VERSION = "0.1.5"
+VERSION = "0.2.0"
 BASE_DIR = Path(__file__).resolve().parent
 _TOKEN_FILE = BASE_DIR.parent / "user_db" / ".rag_service_token"
 _LOOPBACK = ("127.0.0.1", "::1", "localhost")

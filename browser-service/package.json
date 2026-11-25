@@ -1,6 +1,6 @@
 {
   "name": "mcp-browser-service",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "description": "Autonomous Playwright Server V12",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "express": "^5.3.0",
-    "express-rate-limit": "^8.7.4",
+    "express-rate-limit": "^8.7.5",
     "playwright": "^1.65.1",
     "uuid": "^14.0.3"
   },

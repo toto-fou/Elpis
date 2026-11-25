@@ -3,9 +3,9 @@
 # Versions figées : celles de l'environnement validé par la suite de tests.
 
 # ---- Service HTTP de l'extracteur du RAG ----
-fastapi==0.163.0
+fastapi==0.165.0
 starlette==1.10.0
-pydantic==2.14.3
+pydantic==2.14.4
 uvicorn[standard]==0.54.0
 websockets==17.4              # installés par uvicorn[standard] : versions figées
 PyYAML==6.0.3
@@ -15,4 +15,4 @@ httpx==0.28.1
 -r office/requirements.txt
 
 # ---- Outils appelés en sous-processus ----
-ruff==0.17.5                 # lint de l'éditeur (/api/sandbox/lint)
+ruff==0.17.6                 # lint de l'éditeur (/api/sandbox/lint)

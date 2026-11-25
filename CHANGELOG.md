@@ -283,6 +283,12 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Installing on a machine with 2 GB of memory: the interface build fits.** The build compressed
+  all its files at once and ran out of memory on a small machine with a desktop session; it now
+  compresses two at a time, which brings its peak from about 2.3 GB to 1.4 GB for the same files.
+  When the system kills the build outright (most often for lack of memory), `install.sh` and
+  `./elpis upgrade` say it probably ran out of memory and what to do (close applications or add
+  swap) instead of a bare npm error.
 - **`./elpis doctor` with one account per service: no false alarms.** Under `sudo`, settings
   such as `executors.allow_sudo` are read again, and the sandbox browsers are looked up where the
   tool host reads them, not in root's cache. Run by the operator, who has no Docker access in this

@@ -329,22 +329,29 @@ read; with one account per service, only `service install` moves it.
 The service accounts read the code: every folder from `/` down to the installation must let
 other accounts through (`o+x`), and the code must be readable by them (Playwright browsers out
 of their reach are copied, above). A clone in a home folder is not (`/home/<name>`
-is 0700 on Debian, 0750 on Ubuntu): on a first installation, `./install.sh` says so before
-installing anything and prints the command that moves the clone (`sudo mv … /opt/elpis`); it
-stops with `--service` and asks when the startup is not chosen yet (`ELPIS_COMPTE_UNIQUE=1`: one
-account, no question). Run by hand, `service install` keeps one account for every service, as
+is 0700 on Debian, 0750 on Ubuntu). On a first installation, `./install.sh` asks for the mode
+before installing anything: in a standard installation (or with `--standard`), it moves such a
+clone to `/opt/elpis`. `ELPIS_DOSSIER_INSTALL` names another folder: an absolute path outside
+the clone, which must not exist or be an empty folder, below folders (links followed) the
+service accounts can pass through and not every account can write to (unless sticky, like
+`/tmp`); otherwise it stops before moving anything. It then removes the `venv/` left by an
+interrupted run and goes on from the new place with the same options (relative paths given to
+`--offline`, `--caddy-cert` and `--caddy-key` still point to the same files) and the same log.
+`--service` never moves the clone: it stops with the reason; code the service accounts cannot
+read stops both, with the `chmod` that opens it (`ELPIS_COMPTE_UNIQUE=1`: one account, no
+stop). Run by hand, `service install` keeps one account for every service, as
 before (fallback mode, `ELPIS_COMPTES=repli`), says why, and `./elpis doctor` warns at every
 run; `./install.sh` then ends with a warning. This fallback only happens on a first installation:
 once units with one account per service are installed, or the `elpis-main` account exists, a
 closed folder or a failed probe
 stops `service install` with the reason and leaves the units as they were (a service must not
 be able to force the fallback); one account is then chosen only explicitly
-(`sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`). For a server, install in `/opt/elpis`:
+(`sudo ELPIS_COMPTE_UNIQUE=1 ./elpis service install`). Without questions, wherever the clone is:
 
 ```bash
-sudo install -d -o "$USER" /opt/elpis
-git clone https://github.com/toto-fou/Elpis.git /opt/elpis && cd /opt/elpis
-./install.sh --service
+git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis
+./install.sh --standard      # or ./install.sh, then « Standard installation »; the clone ends in /opt/elpis
+cd /opt/elpis
 ```
 
 For an existing installation, either let other accounts through its parent folders
@@ -619,7 +626,7 @@ the services):
 ```bash
 mkdir elpis && tar -xzf elpis-<version>.tar.gz -C elpis && cd elpis
 tar -xf ../elpis-offline-<version>-<arch>.tar -C ..
-./install.sh --offline ../elpis-offline-<version>-<arch> --service
+./install.sh --offline ../elpis-offline-<version>-<arch> --standard
 ./elpis doctor
 ```
 

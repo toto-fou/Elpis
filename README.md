@@ -117,16 +117,25 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 ./install.sh                                   # 2
 ```
 
-For a server run as systemd services (`./install.sh --service`), clone into
-`/opt/elpis` instead (`sudo install -d -o "$USER" /opt/elpis` first): each service then runs
-under its own system account, which a clone in a home folder does not allow
-([docs/operations.md](docs/operations.md#service-accounts)). From a home folder, `./install.sh`
-says so before installing anything and prints the command that moves the clone there.
+On a first installation, `./install.sh` first asks for the mode, wherever the clone is:
+**Standard installation** (recommended): Elpis starts with the machine, as systemd services
+each under its own system account ([docs/operations.md](docs/operations.md#service-accounts));
+a clone those accounts cannot reach, such as one in a home folder, is moved to `/opt/elpis`
+first, and the installation goes on from there. **Trial in this folder**: `./elpis start` when
+you want it, under your account, no automatic start. Without questions, `--standard` does the
+same as the first choice.
 
 `install.sh` asks for sudo right away (once, kept alive during the
 installation), installs the system base if it is missing, then opens a
 **paged wizard** in the terminal: all the questions first, a summary, then
-the installation runs with no further questions.
+the installation runs with no further questions. The wizard's screen stays
+until the end and follows the installation: its steps, a progress bar, the
+time spent and the last lines of the current step. When it ends, the steps
+and the summary stay in the terminal; on a failure, the failed step, its last
+lines and the path of the installation log. The full output goes to that log
+(`/var/log/elpis-install.log` under root, otherwise `logs/install.log`, or `.install.log`
+with one account per service). With
+`--plain`, `--yes` or no terminal, the output scrolls as plain text instead.
 
 On the system side, it installs with `apt-get` (no questions, `apt-get update`
 first) the packages from [deploy/prerequis-apt.txt](deploy/prerequis-apt.txt)
@@ -216,7 +225,7 @@ sudo ./elpis service install   # systemd services
 **Without questions** (automation, CI): every question has its option.
 
 ```bash
-./install.sh --yes --with-office --service -- \
+./install.sh --yes --with-office --standard -- \
     --llm-url http://gpu.example.lan:8080 --admin-user admin --embed-url http://gpu.example.lan:8081
 # admin password: ELPIS_CFG_ADMIN_PASSWORD=… (otherwise generated and shown once)
 ```
@@ -235,7 +244,8 @@ sudo ./elpis service install   # systemd services
 | `--offline <dir>` | no network, from a package built by `make_release.sh` (apt: LAN mirror or OS media) |
 | `--no-apt` | apt packages checked, never installed: if any is missing, the apt command to run, then stop |
 | `--skip-system` | apt packages neither checked nor installed (other systems) |
-| `--service` / `--start` / `--no-start` | startup after installation |
+| `--standard` | standard installation: systemd services, one account per service, clone moved to `/opt/elpis` if those accounts cannot reach it |
+| `--service` / `--start` / `--no-start` | startup after installation (`--service` never moves the clone: it stops if the service accounts cannot reach it) |
 | `-- <options>` | passed to `./elpis configure` (`./elpis configure --help`) |
 
 ## Documentation

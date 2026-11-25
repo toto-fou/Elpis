@@ -119,6 +119,10 @@ run Elpis on a dedicated machine or VM. Details below.
   never the metadata one. Under a profile without network, this relay is the sandbox's
   only way out (the browser relay refuses everything there): with chosen servers and
   none listed, nothing leaves over the network.
+- At every turn, the assistant's context lists the allowed domains and ports of its
+  sandbox's network profile and the Git servers chosen for its relay; an external model
+  provider receives them with the conversation. The profile's address ranges and DNS
+  resolvers are only counted there, never listed.
 - Remote MCP server: its address is checked when it is registered, not
   at every DNS resolution. The server runs no command taken from its
   configuration: a third-party MCP server is reached over HTTP. An entry

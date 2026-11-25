@@ -1063,9 +1063,9 @@ The editor takes the style of the skin, or keeps the classic editor: the choice 
 
 Each account has an isolated, persistent sandbox. Your working folder there is `/work`: the editor, the terminal and the assistant's tools all work in that same folder.
 
-- **In your sandbox, you and the assistant have full rights**: `sudo` without a password, package installation, compilation. This is intended: this sandbox belongs to you alone. `sudo` is refused on a network profile limited to a list of addresses, or when your administrator has turned it off: `pip install` and `npm install -g` still work (they install under `/work`); ask your administrator for the system packages you need.
+- **In your sandbox, you and the assistant have full rights**: `sudo` without a password, package installation, compilation. This is intended: this sandbox belongs to you alone. `sudo` is refused on a network profile limited to a list of addresses or with full access and a protection ticked, or when your administrator has turned it off: `pip install` and `npm install -g` still work (they install under `/work`); ask your administrator for the system packages you need.
 - **The server and the other users are protected**: the sandbox is partitioned, with limits on memory, processor and processes.
-- **The network is off by default.** The administrator defines network profiles (isolated, full access, list of allowed addresses) and you choose one, unless they impose one. A `pip install` or a `git clone` that fails with connection refused probably comes from that, not from an outage; the assistant knows the state of the network.
+- **The network is off by default.** The administrator defines network profiles (isolated, full access, list of allowed addresses) and you choose one, unless they impose one. A `pip install` or a `git clone` that fails with connection refused probably comes from that, not from an outage. The assistant knows what your sandbox really reaches: no network, only the allowed domains and ports (address ranges and DNS resolvers are only counted), or full access except what the profile refuses (cloud metadata, local network, host machine). It also knows which repositories its Git tools may reach through the Git relay, and when it has no `sudo`.
 - **A disk quota applies**; the editor's gauge shows it.
 - **An inactive sandbox is stopped automatically** and restarts on your next action. Your files do not move.
 
@@ -1105,7 +1105,7 @@ If your sandbox was stopped, a startup message appears the first time you open i
 - Drag the top edge of the panel to enlarge it. Its height is remembered.
 - After a command, the explorer, the open tabs and the Git view update by themselves.
 - One terminal per task: a development server in one, the tests in another, each renamed. The preview in **Serveur** (Server) mode then shows the running application: see [The sandbox and the code editor](#the-sandbox-and-the-code-editor).
-- You have full rights in your sandbox: `sudo apt install …` or `pip install …` work, if the network profile allows it (`sudo` is refused on a profile limited to a list of addresses, or when the administrator has turned it off).
+- You have full rights in your sandbox: `sudo apt install …` or `pip install …` work, if the network profile allows it (`sudo` is refused on a profile limited to a list of addresses or with full access and a protection ticked, or when the administrator has turned it off).
 
 ### How it works
 
@@ -2483,6 +2483,7 @@ The **Vue d'ensemble** flags what a new installation is missing. In order:
 - **Security log** (**Supervision**, page **Journaux**, **Sécurité** tab): logins, accounts, rights, settings, backups, exports. Filter by period, category, account or result; **Plus ancien** (Older) goes back in time. **Exporter** (Export) produces a CSV or JSONL file, 366 days at most; each export is itself logged. **Vérifier l'intégrité** (Verify integrity) checks signatures and continuity over the period.
 - **Journalisation** (**Système**): retention period of the security log (365 days by default), state of the centralization to the host's syslog, **Écrire un événement de test** (Write a test event). **Geler la purge** (Freeze the purge) keeps all the files during an investigation: a reason is required, confirm by typing `GELER`, lift by typing `LEVER`. Server-side setup is done with `sudo ./elpis audit setup`.
 - **A sandbox with no way out** (**Sandbox**, page **Réseau**): **Tout bloquer** (Block everything) cuts the sandbox's network, and the driven browser follows it. The assistant's Git tools still go through the host's Git relay, which follows the profile's **Relais Git** (Git relay) rule, **Tous** (All) by default. For nothing to leave over the network, choose **Serveurs choisis** (Chosen servers) and list none: the profile's card then shows **Dépôts Git** (Git repositories) refused. With **Sudo** allowed (**Limites & politique**), root in such a sandbox still has no network. The network changes when the sandbox is next used, since it is then recreated; the Git rule applies at once. Remote MCP servers and the Studio's machines are driven by the application, outside the sandbox, and follow their own settings.
+- **What the assistant is told** (**Sandbox**, page **Réseau**): at every turn, its context gives the network level of the account's profile with its allowed domains and ports, and the Git servers chosen for the relay; the address ranges and DNS resolvers of a list are only counted. With an external model provider, this text leaves with the conversation.
 
 ### Getting the most out of it
 

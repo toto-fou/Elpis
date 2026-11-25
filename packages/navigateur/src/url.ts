@@ -148,8 +148,14 @@ function hoteRecent(): Promise<HoteNavigateur> {
   return hoteEnCache.v;
 }
 
-/** Verdict du juge d'un bac (adresses jugées, la première d'abord, ou motif). */
-type VerdictBac = { ok: true; adresse: string; adresses: string[] } | { ok: false; motif: string };
+/** Verdict du juge d'un bac : adresses jugées, la première d'abord, ou motif vu par le modèle et, pour une règle du profil, le texte du journal de l'hôte (qui nomme le profil). */
+type VerdictBac =
+  { ok: true; adresse: string; adresses: string[] } | { ok: false; motif: string; journal?: string };
+
+/** Refus d'une règle du profil : motif dans les mots de la ligne réseau du modèle, sans le profil ; le journal garde le texte qui le nomme. */
+function refusDuProfil(motif: string, journal: string): VerdictBac {
+  return { ok: false, motif, journal };
+}
 
 /** Cache des verdicts du juge d'un bac ; réglable par les tests. */
 export const reglagesJugeBac = {
@@ -189,10 +195,10 @@ export function jugeRelaisBac(
     if (!prot.aucune) {
       adresses = adresses.filter((a) => ipNav(a)?.version !== 6);
       if (adresses.length === 0)
-        return {
-          ok: false,
-          motif: `${nom} has IPv6 addresses only, refused by the sandbox network profile '${p.id}'`,
-        };
+        return refusDuProfil(
+          `${nom} has IPv6 addresses only, refused by the sandbox network`,
+          `${nom} has IPv6 addresses only, refused by the sandbox network profile '${p.id}'`,
+        );
     }
     let allowlist = options.allowlist;
     if (allowlist === undefined || allowlist === null) {
@@ -212,21 +218,24 @@ export function jugeRelaisBac(
       if (m) return { ok: false, motif: m };
       const dans = (r: Reseau): boolean => r.version === ip.version && dansReseau(ip, r);
       if (prot.metadonnees && METADONNEES_PROFIL.some(dans))
-        return {
-          ok: false,
-          motif: `${nom} is a cloud metadata address, refused by the sandbox network profile '${p.id}'`,
-        };
+        return refusDuProfil(
+          `${nom} is a cloud metadata address, refused by the sandbox network`,
+          `${nom} is a cloud metadata address, refused by the sandbox network profile '${p.id}'`,
+        );
       if (prot.local && LOCAUX_PROFIL.some(dans))
-        return {
-          ok: false,
-          motif: `${nom} is on the local network, refused by the sandbox network profile '${p.id}'`,
-        };
+        return refusDuProfil(
+          `${nom} is on the local network, refused by the sandbox network`,
+          `${nom} is on the local network, refused by the sandbox network profile '${p.id}'`,
+        );
       if (
         p.mode === "allowlist_ip" &&
         !p.domains.includes(nom) &&
         !reseauxProfil.some((r) => r.version === ip.version && dansReseau(ip, r))
       )
-        return { ok: false, motif: `${nom} is not allowed by the sandbox network profile '${p.id}'` };
+        return refusDuProfil(
+          `${nom} is not in the sandbox's allowed destinations`,
+          `${nom} is not allowed by the sandbox network profile '${p.id}'`,
+        );
     }
     const jugees = adresses.map((a) => texteIp(ipNav(a) as AdresseIp));
     return { ok: true, adresse: jugees[0] ?? "", adresses: jugees };
@@ -234,15 +243,15 @@ export function jugeRelaisBac(
   return async (hote, portVoulu) => {
     const p = profil();
     if (p.mode === "none")
-      return {
-        ok: false,
-        motif: `the sandbox network profile '${p.id}' has no network access: only sites served inside the sandbox (localhost) are reachable`,
-      };
+      return refusDuProfil(
+        "the sandbox network is none: only sites served inside the sandbox (localhost) are reachable",
+        `the sandbox network profile '${p.id}' has no network access: only sites served inside the sandbox (localhost) are reachable`,
+      );
     if (p.mode === "allowlist_ip" && p.ports.length > 0 && !p.ports.includes(portVoulu))
-      return {
-        ok: false,
-        motif: `port ${portVoulu} is not allowed by the sandbox network profile '${p.id}'`,
-      };
+      return refusDuProfil(
+        `port ${portVoulu} is not one of the sandbox's allowed ports`,
+        `port ${portVoulu} is not allowed by the sandbox network profile '${p.id}'`,
+      );
     const nom = lowerPy(hote);
     const marques = [p.block_metadata, p.block_lan, p.block_host].map((b) => (b === true ? 1 : 0)).join("");
     const cle = `${strPy(p.id)}\u0000${strPy(p.mode)}\u0000${marques}\u0000${nom}`;

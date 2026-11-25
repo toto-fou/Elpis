@@ -822,7 +822,8 @@ def step_access(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], env: Di
         host = p.ask("Nom d'hôte ou IP pour accéder à Elpis (vide = automatique)", host or "")
 
     enabled = mode != "off"
-    https.update({"enabled": enabled, "main_port": 443, "admin_port": 8443, "rag_port": 8444})
+    https.update({"enabled": enabled, "main_port": 443, "admin_port": 8443})
+    https.pop("rag_port", None)
     section(sec, "session")["https_only"] = enabled
     env_updates: Dict[str, Optional[str]] = {
         "ELPIS_HTTPS_MODE": mode, "ELPIS_PUBLIC_HOST": host or None,

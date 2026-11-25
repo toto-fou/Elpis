@@ -36,8 +36,7 @@
     "https": {
       "enabled": false,
       "main_port": 443,
-      "admin_port": 8443,
-      "rag_port": 8444
+      "admin_port": 8443
     },
     "listen": "local"
   },

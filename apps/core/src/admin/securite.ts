@@ -50,10 +50,9 @@ export function portsHttps(cfg: Dict): Dict {
     return {
       main: intPy(getPy(https, "main_port", 443)),
       admin: intPy(getPy(https, "admin_port", 8443)),
-      rag: intPy(getPy(https, "rag_port", 8444)),
     };
   } catch {
-    return { main: 443, admin: 8443, rag: 8444 };
+    return { main: 443, admin: 8443 };
   }
 }
 

@@ -63,7 +63,6 @@ export interface AttributsCookie {
 export interface PortsHttps {
   main: number;
   admin: number;
-  rag: number;
 }
 
 const PEREMPTION_MS = 1000;
@@ -183,7 +182,7 @@ export function httpsEnabled(): boolean {
   }
 }
 
-/** Ports du frontal Caddy ; une seule valeur illisible ramène les trois défauts. */
+/** Ports du frontal Caddy ; une seule valeur illisible ramène les deux défauts. */
 export function httpsPorts(): PortsHttps {
   try {
     const securite = ouPy(getPy(configView(), "security"), {});
@@ -191,10 +190,9 @@ export function httpsPorts(): PortsHttps {
     return {
       main: intPy(getPy(https, "main_port", 443)),
       admin: intPy(getPy(https, "admin_port", 8443)),
-      rag: intPy(getPy(https, "rag_port", 8444)),
     };
   } catch {
-    return { main: 443, admin: 8443, rag: 8444 };
+    return { main: 443, admin: 8443 };
   }
 }
 

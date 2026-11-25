@@ -543,9 +543,18 @@ def sur(args: list[str]) -> bool:
         os.close(dfd)
 
 
-SUR = re.compile(rb"(?:[\t\n\r\x20-\x7e]|\xc2[\xa0-\xbf]|[\xc3-\xdf][\x80-\xbf]|\xe0[\xa0-\xbf][\x80-\xbf]"
-                 rb"|[\xe1-\xec\xee\xef][\x80-\xbf]{2}|\xed[\x80-\x9f][\x80-\xbf]|\xf0[\x90-\xbf][\x80-\xbf]{2}"
-                 rb"|[\xf1-\xf3][\x80-\xbf]{3}|\xf4[\x80-\x8f][\x80-\xbf]{2})+")
+# Texte sûr : ASCII imprimable (tabulation et sauts de ligne compris), puis un caractère UTF-8 hors C1 à la fois (aucune alternative répétée).
+ASCII_SUR = re.compile(rb"[\t\n\r\x20-\x7e]+")
+UTF8_SUR = re.compile(rb"\xc2[\xa0-\xbf]|[\xc3-\xdf][\x80-\xbf]|\xe0[\xa0-\xbf][\x80-\xbf]|[\xe1-\xec\xee\xef][\x80-\xbf]{2}"
+                      rb"|\xed[\x80-\x9f][\x80-\xbf]|\xf0[\x90-\xbf][\x80-\xbf]{2}|[\xf1-\xf3][\x80-\xbf]{3}|\xf4[\x80-\x8f][\x80-\xbf]{2}")
+
+
+def fin_sure(d: bytes, i: int) -> int:
+    """Fin de la suite de texte sûr qui commence en I (I s'il n'y en a pas)."""
+    while m := ASCII_SUR.match(d, i) or UTF8_SUR.match(d, i):
+        i = m.end()
+    return i
+
 DEBUT_UTF8 = re.compile(rb"[\xc2-\xdf]|[\xe0-\xef][\x80-\xbf]?|[\xf0-\xf4][\x80-\xbf]{0,2}")
 SGR = re.compile(rb"\x1b\[[0-9;]*m")
 
@@ -562,10 +571,10 @@ class Filtre:
         while i < n:
             c = d[i]
             if self.etat == "texte":
-                m = SUR.match(d, i)
-                if m:
-                    sortie += m.group()
-                    i = m.end()
+                j = fin_sure(d, i)
+                if j > i:
+                    sortie += d[i:j]
+                    i = j
                 elif not fin and n - i < 4 and DEBUT_UTF8.fullmatch(d, i):
                     self.reste = d[i:]
                     break

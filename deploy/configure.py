@@ -1563,13 +1563,14 @@ def apply_https(https: Dict[str, Any]) -> None:
     (ok if rc == 0 else warn)(f"Caddy : https://{https['domain']}/" if rc == 0 else "Configuration de Caddy échouée.")
 
 
-SECRETS_DE_PLATEFORME = (("app", "session_secret"), ("app", "encryption_key"), ("rag", "service_token"))
+# Champs de config.json rangés à part, (section, nom) : des noms, jamais leurs valeurs.
+CHAMPS_RANGES = (("app", "session_secret"), ("app", "encryption_key"), ("rag", "service_token"))
 
 
 def retirer_secrets(cfg: Dict[str, Any], valeurs: Dict[str, str]) -> bool:
     """Secrets de plateforme retirés de ``cfg``, valeurs que le core retiendrait dans ``valeurs`` ; un non-texte ou un secret de session de moins de 40 caractères reste ; vrai si ``cfg`` a changé."""
     change = False
-    for sec, cle in SECRETS_DE_PLATEFORME:
+    for sec, cle in CHAMPS_RANGES:
         bloc = cfg.get(sec)
         if not isinstance(bloc, dict) or cle not in bloc:
             continue
@@ -1602,7 +1603,7 @@ def copie_sans_secrets(reel: Path) -> None:
         warn(f"{bak.name} est illisible : laissé tel quel (à retirer s'il porte des secrets).")
         return
     change = False
-    for sec, cle in SECRETS_DE_PLATEFORME:
+    for sec, cle in CHAMPS_RANGES:
         if isinstance(copie.get(sec), dict) and cle in copie[sec]:
             del copie[sec][cle]
             change = True
